@@ -595,6 +595,7 @@ flags). Migrations V040–V042. Every route needs a signed-in, compliant account
 | `GET` / `POST /api/v1/admin/community/channels`, `PATCH /api/v1/admin/community/channels/{id}`, `POST /api/v1/admin/community/posts/{id}/remove {reason}`, `POST /api/v1/admin/community/replies/{id}/remove {reason}` | MODERATOR+ (`SecurityConfig.MODERATOR_PATTERNS`), audited (`community.channel.create` / `update`, `community.post.remove`, `community.reply.remove`); removals resolve the content's open flags |
 | `GET /api/v1/admin/moderation/flags?state=OPEN|RESOLVED|ALL&subjectType=&page=&size=`, `POST /api/v1/admin/moderation/flags/{id}/resolve {note?}` | MODERATOR+; flags reference content by id only (no message text); resolutions audited (`moderation.flag.resolve`) |
 | `POST /internal/jobs/upload-cleanup` | service auth; deletes uploads not attached within 1 h with their objects; `job_run`; every 15 minutes under `local` |
+| `POST /internal/jobs/inventory-import-purge` | service auth; deletes expired inventory import previews and results (stage S5); `job_run`; no schedule of its own: it runs after every hourly `freshness` job |
 
 Community member routes are gated by the `publicChat` feature flag (404 `FEATURE_DISABLED`,
 extension `feature`). Posts and replies of collectors blocked in either direction, of suspended,

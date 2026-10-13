@@ -44,6 +44,7 @@ update it in the same change.
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
+| `inventory_import`, `inventory_import_row` | The preview of a file a collector uploaded (YDK deck file, Collectr CSV export) | Owner only: every other caller gets 404 (`/inventory/imports/**`), no admin view. A row keeps of the file only a passcode, or the card name, set, number and rarity as written, and the copies: **never the file, its name, a price, a note or a date of the export**. Nothing a file holds is logged at any level (ids and counts only; `InventoryImportIT.nothingOfAFileIsEverLogged`). Purged after `expires_at` (job `inventory-import-purge`, with the hourly `freshness` job) and with the account |
 | `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" in stage S3). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
 | `wishlist_item` (rows) | What a collector is looking for | The owner always; others see the card, which copy (printing, or any printing with its optional rarity), the public note, "Near Mint only" and the price term through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block. Wishlist alerts work for hidden wishlists and tell the wisher only |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
@@ -171,6 +172,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V110 | `V110__platform_region_channels.sql` | ADR 0017: the city REGION channels are archived; one REGION channel per platform region (`americas-north`, `americas-south`, `europe`) |
 | V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
 | V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; paused wishes deleted; the selection normalised and same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`; `ck_wishlist_item_target` dropped); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (off for a collector whose `WISHLIST_MATCH` category had in-app and push off; the category key removed from `categories`); incomplete `event_publication` rows of `WishlistMatched` / `WishlistItemCreated` completed; `analytics_daily_count` rows of `wishlist_matched` deleted |
+| V113 | `V113__inventory_import.sql` | Stage S5 (owner change of 2026-10-08, section 6): `inventory_import` and `inventory_import_row` (the stored preview of a YDK deck file or a Collectr CSV export, between the upload and the commit); `platform_settings` `inventory.import.*` (file limits and the time a preview is kept); `usage_limit` `inventory.items.max` for every plan, without a number (no plan limited the inventory before; the row gives `POST /inventory/items` and the import a limit to respect) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -568,7 +570,11 @@ Seeded: FREE `filters.advanced=false`, `ads.enabled=true`; PREMIUM `filters.adva
 Index: `ix_usage_limit_key`. Seeded limits (FREE / PREMIUM): `binder.views.per_day` 30 / unlimited,
 `wishlist.alerts.per_day` 5 / unlimited, `wishlist.items.max` 20 / 500 (TOTAL),
 `binders.max` 5 / 50 (TOTAL), `saved_searches.max` 0 / 50 (TOTAL), `offers.per_day` 20 / 100
-(`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017).
+(`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017). V113 adds
+`inventory.items.max` (TOTAL: the collector's non-deleted inventory items) for every plan with
+`max_value` `NULL`: nothing limited the inventory before, and nothing does until an admin gives a
+plan a number through `/admin/usage-limits`. `POST /inventory/items` and the commit of an import
+check it (the import for all the items it would add, before the first one).
 
 #### `usage_counter`
 
@@ -584,8 +590,9 @@ PK `(user_id, limit_key, window_start)`; index `ix_usage_counter_window_start` (
 `Limits.consume` increments with one atomic `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < max
 RETURNING count`, so concurrent requests can never pass the limit; the value is mirrored in Redis
 (`orenji:usage:<user>:<key>:<window epoch>`, TTL ≤ 10 min, written after commit) for the `check` fast
-path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders) are read through
-a `LimitUsageSource` bean instead.
+path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders,
+`inventory.items.max` = number of non-deleted items) are read through a `LimitUsageSource` bean
+instead.
 
 #### `entitlement`
 
@@ -848,7 +855,8 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 - **Owner lock** (`BinderRepository.lockOwners`: `pg_advisory_xact_lock` on
   `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
   first step of every write to a collector's binders or inventory items, before any row is locked:
-  item create, update, move, delete, confirm, bulk actions, admin restore, admin hide, trade
+  item create, update, move, delete, confirm, bulk actions, every chunk of an import commit
+  (`InventoryService.importLines`, V113), admin restore, admin hide, trade
   transfer (the locks of both collectors, in ascending key order), every `BinderService` write
   (create, update, publish, unpublish, admin unpublish, confirm, delete, reorder), the listing
   reconciliation of an owner (`ListingReconciler.owner`: privacy, suspension, listing pause,
@@ -930,6 +938,10 @@ collector) follows every part of the above. The rule of the final review (2026-1
 
 The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`.
 
+The first write built on this rule is the commit of an inventory import (V113, stage S5), described
+under "V113" below: its case is `IMPORT_COMMIT`, and `anImportCommitNextToTheOtherWritesNeverDeadlocks`
+runs commits next to item writes, moves, privacy changes and two job workers.
+
 What the locks cost: a collector's own simultaneous writes wait for each other. A write waits for
 the freshness job only at a row the job has written in the run in progress, until that run
 commits. Public reads take no lock.
@@ -992,6 +1004,92 @@ Append-only trail of freshness transitions (audit + notification de-duplication,
 
 Indexes: `ix_inventory_freshness_event_item`, `ix_inventory_freshness_event_binder` (partial),
 `ix_inventory_freshness_event_owner`.
+
+### V113 — inventory import previews (stage S5)
+
+A collector uploads a YDK deck file or a CSV exported from Collectr (`POST /inventory/imports`);
+the file is parsed and matched to the catalog, and what the collector then sees, edits and commits
+is stored here. The file itself is never stored, and neither is its name.
+
+#### `inventory_import`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `owner_id` | `uuid` | FK → `user_account.id` (cascade); the only account that can read, edit or commit the import (404 for everyone else) |
+| `source` | `text` | `YDK`, `COLLECTR_CSV` |
+| `status` | `text` | `PENDING` (a preview: editable, committable, discardable), `COMMITTING` (the commit wrote at least one chunk; the rows are frozen; a repeated commit continues), `COMMITTED` |
+| `include_main`, `include_extra`, `include_side` | `boolean` | YDK: which sections of the deck count (default all) |
+| `ignored_lines` | `integer` | lines of the file that were no card (YDK: no passcode; CSV: rows without a card name) |
+| `revision` | `bigint` | raised by every edit; a commit that planned from an older revision plans again |
+| `total_chunks` | `integer` | chunks of at most 500 items the commit writes; `NULL` exactly while `PENDING` (`ck_inventory_import_started`) |
+| `chunks_done` | `integer` | chunks written; `≤ total_chunks` |
+| `result` | `jsonb` | counts of the commit so far: `itemsCreated`, `itemsMerged`, `copiesAdded`, `rowsImported` |
+| `created_at`, `updated_at` | `timestamptz` | |
+| `expires_at` | `timestamptz` | a `PENDING` preview is refused after it (410 `IMPORT_EXPIRED`); each chunk of a commit moves it to now + `inventory.import.preview_ttl_minutes`, so the result of a finished import stays readable that long for a repeated commit |
+| `committed_at` | `timestamptz` | set exactly when `COMMITTED` (`ck_inventory_import_committed`) |
+
+Indexes: `ix_inventory_import_owner (owner_id, created_at DESC)`, `ix_inventory_import_expires
+(expires_at)`.
+
+A new upload deletes the collector's other `PENDING` previews: a collector has at most one open
+preview, however many files they try. The job `inventory-import-purge` deletes `PENDING` and
+`COMMITTED` imports past `expires_at`, and `COMMITTING` ones 7 days past it (a commit nobody
+finished); it runs after every hourly `freshness` job (an expired preview is refused when it is
+read, so the hour is soon enough and no Cloud Scheduler job is added, ADR 0016) and on request
+(`POST /internal/jobs/inventory-import-purge`). The account purge deletes all of a collector's.
+
+#### `inventory_import_row`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `import_id` | `uuid` | FK → `inventory_import.id` (cascade) |
+| `position` | `integer` | order in the file, from 0; `UNIQUE (import_id, position)` |
+| `passcode` | `text` | YDK: the card passcode without leading zeros (1–10 digits) |
+| `source_name`, `source_set`, `source_number`, `source_rarity` | `text` | CSV: the card name (≤ 150), set (≤ 120), number (≤ 40) and rarity (≤ 60) as the file wrote them, so a row that fits nothing can be shown. **No other value of the file is kept: no price, note, date or portfolio name** |
+| `qty_main`, `qty_extra`, `qty_side` | `integer` | YDK: copies per section; `NULL` for CSV rows |
+| `file_quantity` | `integer` | copies the file says (YDK: every section together), 0–9 999 (0: the file wrote no number of copies) |
+| `quantity` | `integer` | the copies the collector typed for the row (1–9 999); `NULL` = the copies of the file (YDK: of the sections that count) |
+| `card_id` | `uuid` | FK → `card.id` (`ON DELETE SET NULL`); `NULL` = the row fits nothing |
+| `unmatched_reason` | `text` | `UNKNOWN_PASSCODE`, `UNKNOWN_CARD`, `AMBIGUOUS_CARD`, `UNKNOWN_GAME`, `NO_PRINTING`, `INVALID_QUANTITY`; a row whose card left the catalog later reads `CARD_REMOVED` (not stored) |
+| `printing_count` | `integer` | printings of the card when the preview was made |
+| `suggested_printing_ids` | `uuid[]` | CSV: the printings that fit what the row says, when that is fewer than every printing of the card (≤ 50) |
+| `printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); `NULL` = to choose |
+| `printing_choice` | `text` | `AUTO` (the row fits exactly one printing), `MANUAL` (the collector), `MOST_RECENT` (the bulk action: latest `card_set.release_date`, unknown dates last) |
+| `condition` | `text` | condition code of the card's game; `NULL` for a row that fits nothing |
+| `condition_source` | `text` | `DEFAULT` (the file names none: the last, lowest condition of the game, the one that claims least about the card), `FILE`, `EDITED` |
+| `language`, `edition` | `text` | CSV: what the file says about the copy; `NULL` = the printing's |
+| `included` | `boolean` | `false` = the collector left the row out |
+| `commit_chunk` | `integer` | the chunk that writes the row, set when the commit starts; `NULL` = not imported |
+
+Indexes: `ix_inventory_import_row_card`, `ix_inventory_import_row_printing` (partial, for the
+`ON DELETE SET NULL` of the catalog), `ix_inventory_import_row_chunk (import_id, commit_chunk)`.
+
+**The commit and the locks.** A commit follows the rule of "A new bulk write" above. Before any
+transaction it reads the rows and makes its plan: the rows that go in (a card, a printing still in
+the catalog, not left out, at least one copy), merged into lines by printing + condition + edition
++ language (copies added, at most 9 999), 500 lines per chunk in file order. Then one transaction
+per chunk, one after the other:
+
+1. `BinderService.lockOwners` (the owner lock), before anything else;
+2. the import row `FOR UPDATE`. This is the lock an edit of the preview takes too (an edit takes no
+   other lock), so an edit and a commit never work on the same preview at once; a commit that finds
+   another status or another `revision` than it planned from reads the import again;
+3. first chunk only: the limit `inventory.items.max` for the whole import (the lines without an
+   equal item are the items it would add; beyond the limit: 429 `LIMIT_REACHED`, nothing written),
+   then `commit_chunk` on every row that goes in and the status `COMMITTING`;
+4. `InventoryService.importLines`: the owner's equal items are read under the owner lock (a
+   private item before a public one, then the oldest), `lockForWrite` takes their binders and then
+   those items in ascending `id`, each line is one single-row statement (an `UPDATE` of the item it
+   raises, or an `INSERT` of a `PRIVATE` unfiled item), then `ListingReconciler.items`;
+5. `chunks_done` (and, for the last chunk, `COMMITTED`) in that same transaction.
+
+A chunk is therefore written and recorded together or not at all. A commit that dies between two
+chunks leaves the import `COMMITTING` with the chunks it finished; the next commit starts at
+`chunks_done + 1`. Two commits at once: the second waits for the owner lock, then finds the chunk
+recorded and skips it. Nothing reads the catalog, parses or validates while the owner lock is held;
+the limit check reads the plan (cached) and counts the owner's items.
 
 ### Phase 4 — map discovery and search reads (V030; region-scoped since ADR 0017)
 
@@ -1658,6 +1756,14 @@ Row of V112 (`WishlistSettings`, cached in Redis `wishlist-settings:v1` for ≤ 
 `PUT /admin/wishlist/settings`, ADMIN, audited `wishlist.settings.update`):
 `wishlist.price_terms` `"80% TCG,85% TCG,90% TCG,100% TCG,100% TCG+"` (1–10 comma-separated terms
 `"<percent>% TCG"` with an optional `+`, percent 1–200).
+
+Rows of V113 (`InventoryImportSettings`, cached in Redis `inventory-import-settings:v1` for ≤ 60 s,
+evicted after `PUT /admin/inventory/import-settings`, ADMIN, audited
+`inventory.import.settings.update`): `inventory.import.ydk_max_kb` 100 (1–1024),
+`inventory.import.ydk_max_lines` 500 (10–5000), `inventory.import.csv_max_kb` 2048 (16–8192),
+`inventory.import.csv_max_rows` 5000 (10–20000), `inventory.import.preview_ttl_minutes` 60
+(5–1440). A kB is 1 024 bytes. The server applies them to every upload; a stored value outside its
+bounds falls back to the default.
 
 #### `seller_account`
 

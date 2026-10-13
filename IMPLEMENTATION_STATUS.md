@@ -3620,6 +3620,159 @@ deleting a card right after changing a privacy setting.
 
 ---
 
+## Inventory import: YDK and Collectr CSV (stage S5, 2026-10-13)
+
+Owner spec of 2026-10-08, section 6, with the tests of section 9 that concern it. Branch
+`feature/s5-inventory-import`. **The API is done; the phone screens are next** (owner order of
+2026-10-12: mobile only; the web import screen is a recorded follow-up). Contract for the phone:
+`docs/api/contracts/s5-inventory-import.md` (every endpoint, field, error code and limit, a worked
+example per source). Tables and locks: `docs/database/schema.md`, "V113".
+
+### What the API does
+
+- **One preview-then-commit flow for both sources** (`/api/v1/inventory/imports`, tag
+  `inventory-import`): `POST` (multipart `file`, query `source` = `YDK` | `COLLECTR_CSV`, optional
+  `game`) parses and matches the file and stores a **preview** (V113 `inventory_import`,
+  `inventory_import_row`); `GET /`, `GET /{id}`, `GET /{id}/rows` (pages, `status` filter);
+  `PATCH /{id}` (which sections of a deck count); `PATCH /{id}/rows/{rowId}` (printing, condition,
+  copies, in or out); `POST /{id}/bulk` (`USE_MOST_RECENT_PRINTING`, `SET_CONDITION`);
+  `POST /{id}/commit`; `DELETE /{id}`; `GET /limits`. Admin: `GET` / `PUT
+  /api/v1/admin/inventory/import-settings`. Job: `inventory-import-purge`.
+- **YDK** (`YdkParser`, pure): `#main`, `#extra`, `!side`, one passcode per line, `#` comments,
+  blank lines, CRLF, a byte-order mark, leading zeros; a passcode repeated is as many copies, per
+  section and in total; a line that is none of that is counted and never stops the rest. A
+  passcode is matched through `card.external_ref` (provider `ygoprodeck`), then through the
+  provider's artwork ids (`card_image.provider_image_id`: an alternate artwork is the card of that
+  artwork). A row is preselected only when its card has exactly one printing.
+- **Collectr CSV** (`CsvReader`, `CollectrCsvParser`, `CollectrCsvFormat`, pure): comma, semicolon
+  or tab; quoted fields with commas, line breaks and doubled quotes; a byte-order mark. The columns
+  are found through **one table of aliases** (`CollectrCsvFormat`), because Collectr's real header
+  is not confirmed; a file without a card name column is refused with a message that names it.
+  **A price column is never read** (it matches no alias and the parser only reads the columns it
+  found), so no Collectr price can reach the preview, the database or a log. OrenjiTrade never
+  calls Collectr.
+- **Matching without a query per row** (`ImportMatcher`, pure; `CatalogService` grouped lookups in
+  batches of 1 000): a row that fits exactly one printing is preselected, one card and several
+  printings is "choose a printing" (with the printings that fit what the row says as suggestions),
+  nothing is reported with a reason and never blocks the rest.
+- **Commit** (`InventoryImportService`, `InventoryService.importLines`): idempotent, also under
+  concurrent commits; rows that are equal (printing, condition, edition, language) are one item; an
+  equal item the collector already has takes the copies (a private one before a public one, then
+  the oldest); new items are PRIVATE and unfiled. Up to 500 items one transaction; above that
+  chunks of 500 in file order, each its own transaction, and a repeated commit continues after the
+  last chunk recorded. It follows the rule "A new bulk write" (owner lock first, the binders and
+  the existing items in ascending id through `lockForWrite`, single-row statements, reconciliation
+  in the transaction, the plan computed before it).
+- **Guards**: the preview belongs to its collector (404 for everyone else), expires
+  (`preview_ttl_minutes`, 410 `IMPORT_EXPIRED`) and is purged; the file limits are admin settings
+  read at every upload; a file that is not UTF-8 text is refused (415); the Redis rate limiter has
+  a policy for uploads and one for commits (30 an hour each per collector); the freemium limit
+  `inventory.items.max` is checked for the whole import before the first item (429
+  `LIMIT_REACHED`, nothing written).
+
+### Decisions, and why
+
+1. **No freemium inventory limit existed.** The spec and the stage brief ask the import to respect
+   "the freemium inventory limit"; `usage_limit` had none (binders, wishlist items, binder views,
+   offers, saved searches only) and `POST /inventory/items` checked nothing. V113 adds
+   `inventory.items.max` (TOTAL: the collector's non-deleted items) for every plan **without a
+   number**: nothing changes for a collector until an admin sets one in `/admin/usage-limits`.
+   `POST /inventory/items` and the import both respect it, so a number set later means the same
+   thing on every path. **Owner: decide whether FREE gets a number.**
+2. **The default condition is the lowest of the game** (`DAMAGED` for the four games), not the
+   item form's `NEAR_MINT`. A deck file says nothing about the state of a card, and a CSV row may
+   not either: the "safest" default is the one that claims least, so a collector who later
+   publishes an imported item never promised more than the card is (a "Near Mint only" wish is
+   never alerted for a card nobody graded). The row says where its condition comes from
+   (`conditionSource` `DEFAULT` | `FILE` | `EDITED`) and `SET_CONDITION` gives every `DEFAULT` row
+   another condition in one call. **Owner: confirm, or say `NEAR_MINT`** (one line:
+   `ImportMatcher.defaultCondition`).
+3. **Limits** (admin settings `inventory.import.*`): YDK 100 kB and 500 lines (the spec); CSV
+   **2 MB and 5 000 rows**: a row of an export is about 200 bytes, so 5 000 rows is about 1 MB and
+   the rest is room for long names and notes; 5 000 rows is ten chunks of 500 at the commit, which
+   one request finishes in seconds. An admin can raise it to 20 000 rows and 8 MB (the server
+   accepts 10 MB for any upload). Preview kept 60 minutes.
+4. **A new upload replaces the collector's open preview**: at most one `PENDING` preview each, so
+   the table is bounded by the number of collectors, whatever a script uploads.
+5. **Of a file, a row keeps a passcode, or the name, set, number and rarity as written, and the
+   copies. Nothing else**: not the file, not its name, no price, note, date or portfolio.
+6. **The purge runs with the hourly `freshness` job** (`FreshnessJob`), not as a tenth Cloud
+   Scheduler job: an expired preview is refused when it is read, so the purge is housekeeping, and
+   ADR 0016's nine jobs and their cost stay as they are. `POST
+   /internal/jobs/inventory-import-purge` runs it on request. **Owner: say so if a job of its own
+   is preferred** (one entry in `modules/scheduler/variables.tf`).
+7. **Rows that fit nothing are reported, not edited** (409 on a change): the collector adds those
+   cards by hand. A commit with rows still to choose is refused (409 `IMPORT_ROWS_UNRESOLVED`)
+   unless `skipUnresolved` leaves them out: nothing is left out silently.
+8. **Fictional `ygoprodeck` cards never enter the shared seed.** A YDK passcode is matched through
+   the provider `ygoprodeck`, and a developer's database can import the real catalog, where an
+   invented passcode could meet a real card. The API's tests create their own cards
+   (`ImportTestSupport`, random nine-digit passcodes, in the throwaway test database). For the
+   end-to-end suites, `SEED_IMPORT_FIXTURES=true` adds three fictional fixtures
+   (`ImportFixtureSeedContributor`: 910000001 one printing, 910000002 two printings, 910000003 an
+   alternate artwork); it is off by default and refuses to run while `YGOPRODECK_ENABLED` is true.
+9. **`source` and `game` travel in the query string** in the generated clients (springdoc renders
+   request parameters so); the server reads them as form fields of the multipart body too.
+10. Previews are not part of the data export: they live an hour, and what they become is the
+    inventory, which is exported. They are deleted with the account.
+
+### Tests
+
+- Unit (pure, 37): `YdkParserTest` 11 (sections, repeated passcodes, comments, CRLF, a byte-order
+  mark, leading zeros, lines that are no passcode, not text, too large, too many lines, no card, a
+  refusal never repeats the file), `CollectrCsvParserTest` 12 (the alias table, quoted fields with
+  commas and line breaks, a byte-order mark, semicolon and tab, a missing needed column, extra
+  columns, a price column that is dropped, row limit, malformed quoting, the value tables),
+  `ImportMatcherTest` 14 (one printing, several, contradiction, number formats, language / edition
+  / finish, games, ambiguity, reasons, quantity, default condition, most recent printing).
+- Integration: `InventoryImportIT` 17 (preview of each source: matched, to choose, unmatched; the
+  edits; both bulk actions; the commit: PRIVATE items, quantities, the merge with existing items
+  and inside the import; the same commit twice and four commits at once; rows to choose; a card
+  that left the catalog; ownership: another collector reads, edits or commits, 404; expiry and the
+  purge, also through the freshness trigger; the freemium limit: the answer and nothing written,
+  and the form's `POST /inventory/items` at the limit; every file limit and the admin settings read
+  at run time; 520 items in two chunks with a failure in the second and a repeat that continues;
+  nothing of a file in the log, captured with our loggers at TRACE; no Collectr price anywhere in
+  the database), `InventoryImportRateLimitIT` 1 (uploads and commits, per collector),
+  `ImportFixtureSeedIT` 2 (the fixtures and the contract's worked example), `InventoryLockOrderIT`
+  +2 = 81 (`everyWriteStartsWithTheOwnerLock` case `IMPORT_COMMIT`;
+  `anImportCommitNextToTheOtherWritesNeverDeadlocks`: commits next to item creations, edits,
+  deletes, moves, privacy reconciliations and two freshness job workers), `OpenApiExportTest` (the
+  S5 paths, schemas, problem extensions and error codes), `LimitsIT` (seven limits per plan).
+
+### Checks (2026-10-13, Mac mini, JDK 21, OrbStack; all on the final tree of the API work)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck)` | green |
+| `npm run test:api`, twice in a row | green both times: **955 tests** in 169 classes, 0 failures, 0 skipped (3 min 3 s each). The first full run of the stage had one failure, `LimitsIT` counting six limits per plan where V113 makes seven: the assertion was updated |
+| `InventoryLockOrderIT`, three times in a row (`./gradlew test --rerun --tests ...`) | green three times: **81 tests** (79 before this stage), about 19 s each |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | committed; a second run changes nothing (`git status` clean). The document only gained 9 paths (13 operations), 19 schemas, 4 error codes and 4 `ProblemDetail` extensions; two existing operations changed their description (`POST /inventory/items`: the 429 of the new limit; `POST /internal/jobs/freshness`: the purge it now runs) |
+| `npm run build -w apps/web-angular` | compiles; initial total **899.93 kB** (warning at 900 kB). The figure is the same with the generated client of before this stage: nothing of the import is in the web bundle, and the 0.07 kB of margin was there before |
+| `npm run typecheck -w apps/mobile` | green |
+
+Not run, by the stage's order (the phone builder and the reviewers run them): the web E2E, the
+mobile E2E and the native suite. Not verifiable here: an Android run (no Android SDK on this Mac);
+Collectr's real CSV header (never fetched; the alias table covers the header it is believed to
+have and the usual variants).
+
+### Left for the phone builder
+
+- The screens: the "Import" entry on the Inventory tab, the file picker (a `.ydk` or a `.csv`;
+  `src/api/localFilePart.ts` for the multipart part on iOS), the preview (sections of a deck, rows
+  with their status, the "which copy" chooser fed by `GET /cards/{id}/printings` with
+  `suggestedPrintingIds` first, condition, copies, in or out, the two bulk actions), the commit and
+  its result, the refusals (the table of the contract; `LimitReachedNotice` for `LIMIT_REACHED`
+  with the label of `inventory.items.max` in `src/lib/limits.ts`).
+- The end-to-end runs: `SEED_IMPORT_FIXTURES: 'true'` in the harness environment
+  (`scripts/lib/mobile-e2e-guard.mjs`, next to `YGOPRODECK_ENABLED: 'false'`) for a deck file that
+  matches; a fictional `.ydk` and a fictional Collectr `.csv` (the worked examples of the contract
+  are written for the fixtures and the sample catalog). Not run by the API builder: the web E2E,
+  the mobile E2E and the native suite.
+- Not built, recorded: the web import screen (web paused); a label for the job
+  `inventory-import-purge` on the web admin health page (it shows under its name); a data export
+  section for import previews (decision 10).
+
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
@@ -3650,7 +3803,13 @@ deleting a card right after changing a privacy setting.
 > **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
 > skipped until the owner asks for them.**
 >
-> **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
+> **Stage S5, API: done on 2026-10-13** (branch `feature/s5-inventory-import`; section "Inventory
+> import: YDK and Collectr CSV (stage S5, 2026-10-13)" above; contract
+> `docs/api/contracts/s5-inventory-import.md`). **Exact next task: the phone screens of S5** (the
+> "Import" entry on the Inventory tab, the preview and its edits, the commit), built from that
+> contract, then its end-to-end runs. What the stage was asked to be, for reference:
+>
+> **Stage S5 for the phone, inventory import from a YDK file and from a Collectr
 > CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
 > preview-then-commit flow for both sources: the preview is kept server-side for a short time and
 > belongs to its collector, the commit is idempotent and merges duplicates (same printing,

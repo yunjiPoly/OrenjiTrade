@@ -59,7 +59,7 @@ conflict). It is delivered in six stages, one PR each, in order:
 | S2 simplified wishlist | 4 | merged (#60) |
 | S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | **skipped** by the owner (2026-10-13) until asked for |
 | S4 community photos (no videos), region channels already done in S1 | 5 | **skipped** by the owner (2026-10-13) until asked for |
-| S5 inventory import: YDK + Collectr CSV | 6 | next: its API and its mobile screens (web import screen paused) |
+| S5 inventory import: YDK + Collectr CSV | 6 | API done on `feature/s5-inventory-import` (2026-10-13; contract `docs/api/contracts/s5-inventory-import.md`); next: its mobile screens (web import screen paused) |
 | S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | after S5; it lists what S3 and S4 would have delivered as not built |
 
 Facts the spec gets wrong (already handled, keep handling): section 7 says the mobile app "calls
