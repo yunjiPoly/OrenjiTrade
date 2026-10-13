@@ -61,8 +61,10 @@ describe('(tabs) layout', () => {
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
-    // The Map tab: a placeholder until the region map reaches the app (ADR 0017).
-    expect(await screen.findByTestId('map-placeholder')).toBeOnTheScreen();
+    // The Map tab: the region map with its switcher (ADR 0017).
+    expect(await screen.findByTestId('map-title')).toHaveTextContent('Binders in Americas (North)');
+    expect(screen.getByTestId('map-region')).toBeOnTheScreen();
+    expect(screen.getByTestId('region-map')).toBeOnTheScreen();
   });
 
   it('shows the notification bell and the unread messages on the Messages tab', async () => {

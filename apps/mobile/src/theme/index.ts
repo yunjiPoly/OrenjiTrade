@@ -1,6 +1,7 @@
 export { tokens, type Tokens } from './tokens';
 export { darkPalette, lightPalette, paletteFor, type ColorScheme, type Palette } from './palette';
 export {
+  TITLE_MAX_FONT_SCALE,
   elevation,
   fontFamily,
   fontSize,

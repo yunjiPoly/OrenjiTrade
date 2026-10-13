@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { useAccount } from '@/src/account/AccountProvider';
-import { DEFAULT_REGION, PLATFORM_REGION_NAMES } from '@/src/lib/place';
+import { PLATFORM_REGION_NAMES } from '@/src/lib/place';
 
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
@@ -37,12 +36,4 @@ export function useRegionOptions(): RegionOption[] {
     return loaded.map((region) => ({ code: region.code, name: region.name }));
   }
   return Object.entries(PLATFORM_REGION_NAMES).map(([code, name]) => ({ code, name }));
-}
-
-/**
- * The collector's home region (`homeRegion` of `GET /me`), else `americas-north`: what the Map
- * tab's placeholder still names. It leaves with the placeholder.
- */
-export function useHomeRegion(): string {
-  return useAccount().me?.homeRegion ?? DEFAULT_REGION;
 }

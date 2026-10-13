@@ -55,6 +55,13 @@ export const motion = {
   slow: 320,
 } as const;
 
+/**
+ * How far the large title of a screen follows the system text size: up to twice its size, which
+ * is still larger than body text at the largest accessibility size. Beyond that a single word of
+ * a title ("Americas") no longer fits the width of a phone and is cut in two.
+ */
+export const TITLE_MAX_FONT_SCALE = 2;
+
 export function textStyle(
   size: keyof typeof fontSize,
   variant: 'body' | 'heading' = 'body'
