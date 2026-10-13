@@ -774,6 +774,14 @@ public class InventoryItemRepository {
      * Expired temporary publications become PRIVATE; returns the number of items changed. Like
      * every statement of the job, it skips the items another transaction holds ({@code SKIP
      * LOCKED}): the job never waits for a row, and its next run handles them.
+     *
+     * <p>Deleted items are left as they are (nothing reads the visibility of a deleted item). The
+     * job may still have to clear a listed flag on a deleted item ({@link #reconcile}); written
+     * here as well, that row would be written twice in one run, and the second update re-runs the
+     * foreign key check of {@code binder_id}: a key-share lock on the binder. A deleted item keeps
+     * its binder, and a binder deleted together with its items reaches it only through its {@code
+     * DELETE} ({@code ON DELETE SET NULL}), with the full row lock of the binder in hand: the
+     * delete would wait for the job at the item and the job for the delete at the binder.
      */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
@@ -781,6 +789,7 @@ public class InventoryItemRepository {
                         WITH expired AS MATERIALIZED (
                             SELECT id FROM inventory_item
                              WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                               AND deleted_at IS NULL
                              ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
                         UPDATE inventory_item i SET visibility = 'PRIVATE', public_until = NULL
                           FROM expired e
