@@ -27,11 +27,14 @@ const NOT_RESUMED = new Set([
   '_sitemap',
 ]);
 
+/** The Map tab's link parameters (`/?region=&subdivision=`): the only reason to reopen `/`. */
+const MAP_LINK_PARAMS = ['region', 'subdivision'] as const;
+
 /**
  * The href to reopen after sign-in for the route the visitor is on (`pathname` from
  * `usePathname()`, `params` from `useGlobalSearchParams()`), or null when there is nothing worth
- * reopening (the tabs' home, auth and account screens). Dynamic segments already in the path are
- * not repeated as query parameters.
+ * reopening (the tabs' home without a map link, auth and account screens). Dynamic segments
+ * already in the path are not repeated as query parameters.
  */
 export function resumableHref(
   segments: readonly string[],
@@ -39,7 +42,10 @@ export function resumableHref(
   params: Readonly<Record<string, string | string[] | undefined>>
 ): string | null {
   const root = segments[0] ?? '(tabs)';
-  if (NOT_RESUMED.has(root) || !pathname.startsWith('/') || pathname === '/') {
+  if (NOT_RESUMED.has(root) || !pathname.startsWith('/')) {
+    return null;
+  }
+  if (pathname === '/' && !MAP_LINK_PARAMS.some((key) => params[key])) {
     return null;
   }
   const pathParts = new Set(pathname.split('/').filter(Boolean).map(decodeURIComponent));

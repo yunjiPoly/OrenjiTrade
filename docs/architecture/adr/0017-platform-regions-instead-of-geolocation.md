@@ -80,7 +80,9 @@ location). `GET/PUT/DELETE /api/v1/me/location`:
 
 - Search, card holders, binder search, suggestions, the wishlist alerts, ads and the map are
   scoped to **one platform region**: the request's `region` parameter, else the signed-in
-  collector's home region, else the default (`americas-north`). Clients always send it.
+  collector's home region, else the default (`americas-north`). Clients always send it: the
+  region their region switcher shows (web since S1, mobile since stage M9 of 2026-10-12), which
+  starts on the collector's home region.
 - Results rank by freshness, then rating, then handle (no distance sort; the holders sort is
   `FRESHNESS` or `PRICE`).
 - The wishlist matcher matches a new public listing with wishes of collectors **in the same
@@ -106,9 +108,14 @@ files, `apps/web-angular/public/boundaries/<region>.json`, fetched lazily for th
 states shaded by binder count, with an accessible list of every state beside it (keyboard and
 screen-reader alternative to the map). Google Maps, its key, Map ID and adapter, the OpenStreetMap
 tiles and the `MapAdapter` abstraction are removed; the CSP no longer allows any map or tile host.
-The mobile Map tab shows a placeholder until it gets the same map (follow-up; `react-native-maps`
-stays installed so the native build does not change). The mobile location step and settings use
-pickers fed by `GET /regions`; `expo-location` and its permission strings are removed.
+The mobile Map tab draws the same map since stage M9 (2026-10-12): the same boundaries, projected
+at build time into drawing units (`apps/mobile/assets/boundaries/<region>.json`, made from the web
+files by `npm run sync:boundaries`, so the app holds no degrees) and drawn on the device with
+`react-native-svg`, with the same shading, the same accessible list of every state and the same
+two endpoints; no tile, no map provider, no request for geography, no device location.
+`react-native-maps`, `react-native-webview` and the app's `leaflet` dependency are removed. The
+mobile location step and settings use pickers fed by `GET /regions`; `expo-location` and its
+permission strings are removed.
 
 ### Boundary data
 

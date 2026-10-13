@@ -6,10 +6,11 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 
+import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
+
 import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys, publicKeys } from '../queryKeys';
-import { useHomeRegion } from './regions';
 import type {
   Ad,
   AdPlacement,
@@ -251,7 +252,7 @@ export async function confirmFakeDonationCheckout(
 
 /**
  * `GET /api/v1/ads?placement=&game=&region=`: the sponsored placements served to this viewer in
- * the home region (`[]` for Premium members and `ads.enabled` entitlements; every ad is labelled
+ * the browsed region (`[]` for Premium members and `ads.enabled` entitlements; every ad is labelled
  * "Sponsored"). The answer is never cached by the API (`no-store`); it is read once per
  * placement, game, plan and region.
  */
@@ -262,7 +263,7 @@ export function useAds(
   enabled: boolean
 ) {
   const uid = useUid();
-  const region = useHomeRegion();
+  const { region, ready } = useBrowsingRegion();
   return useQuery<Ad[], ApiError>({
     queryKey: meKeys.adSlot(uid, placement, game ?? null, plan ?? null, region),
     queryFn: async () => {
@@ -275,7 +276,7 @@ export function useAds(
       );
       return Array.isArray(ads) ? ads : [];
     },
-    enabled: useIsAuthenticated() && enabled,
+    enabled: useIsAuthenticated() && enabled && ready,
     staleTime: 10 * 60_000,
     retry: false,
   });

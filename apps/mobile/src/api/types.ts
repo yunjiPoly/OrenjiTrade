@@ -98,6 +98,9 @@ export type UnifiedSearchResponse = Schemas['UnifiedSearchResponse'];
 export type CardHolderResult = Schemas['CardHolderResult'];
 export type CardHoldersPage = Schemas['PageResponseCardHolderResult'];
 export type PublicBinderOwner = Schemas['PublicBinderOwner'];
+export type RegionBinderCounts = Schemas['RegionBinderCounts'];
+export type SubdivisionBinderCount = Schemas['SubdivisionBinderCount'];
+export type PublicBinderCursorPage = Schemas['CursorPagePublicBinderSummary'];
 export type SetDetail = Schemas['SetDetail'];
 export type PrintingPage = Schemas['PageResponsePrintingSummary'];
 

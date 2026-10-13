@@ -58,11 +58,22 @@ export const meKeys = {
   blocks: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'blocks'] as const,
   /**
    * Unified search and card holders as this viewer sees them (`GET /search`,
-   * `GET /search/card-holders`: the platform region and blocks depend on who asks).
+   * `GET /search/card-holders`: the platform region and blocks depend on who asks): every read
+   * (prefix), the results of one search, the holders of one card or printing.
    */
+  searches: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'search'] as const,
   search: (uid: Uid, params: object) => [...ME_ROOT, uidKey(uid), 'search', params] as const,
   cardHolders: (uid: Uid, params: object) =>
     [...ME_ROOT, uidKey(uid), 'search', 'holders', params] as const,
+  /**
+   * The region map as this viewer sees it (blocked collectors are never counted or listed):
+   * every read (prefix), the binder counts of a region, the binders of one state or province.
+   */
+  regionMap: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'region-map'] as const,
+  regionBinderCounts: (uid: Uid, region: string) =>
+    [...ME_ROOT, uidKey(uid), 'region-map', region, 'counts'] as const,
+  subdivisionBinders: (uid: Uid, region: string, code: string) =>
+    [...ME_ROOT, uidKey(uid), 'region-map', region, 'binders', code] as const,
   /** A collector's public wishlist (`GET /collectors/{handle}/wishlist`; 404 when hidden). */
   collectorWishlist: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), 'wishlist'] as const,
@@ -151,6 +162,8 @@ export const publicKeys = {
   supporters: ['public', 'donations', 'supporters'] as const,
   /** Platform regions, countries and subdivisions (`GET /regions`, ADR 0017). */
   regions: ['public', 'regions'] as const,
+  /** The bundled drawing of a region's borders (no request: a file of the app, ADR 0017). */
+  regionOutline: (region: string) => ['bundled', 'region-outline', region] as const,
   /** The reasons of the "Report collector" dialog (`GET /public/report-reasons`). */
   reportReasons: ['public', 'report-reasons'] as const,
   /** A public binder as one viewer sees it (blocks and the view limit depend on them). */

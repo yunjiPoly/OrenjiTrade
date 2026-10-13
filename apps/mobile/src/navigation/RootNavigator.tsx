@@ -77,6 +77,9 @@ export function RootNavigator() {
         {/* "Who has this in my region" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
         <Stack.Screen name="holders" options={{ title: 'Card holders' }} />
         <Stack.Screen name="sets/[id]" options={{ title: 'Set' }} />
+        {/* The public binders of a state or province, opened from the Map tab (web: the state
+            panel of /map?region=&subdivision=). The screen sets its own title: the place. */}
+        <Stack.Screen name="regions/[region]/[code]" options={{ title: 'Binders' }} />
         <Stack.Screen name="binders/[id]" options={{ title: 'Binder' }} />
         <Stack.Screen name="binders/new" options={{ title: 'New binder' }} />
         <Stack.Screen name="binders/edit" options={{ title: 'Edit binder' }} />

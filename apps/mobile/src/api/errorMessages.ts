@@ -15,6 +15,13 @@ export interface FriendlyError {
 export function friendlyError(error: ApiError): FriendlyError {
   switch (error.errorCode) {
     case NETWORK_ERROR_CODE:
+      if (error.isTimeout) {
+        // The device may well be online: the request left and no answer came back in time.
+        return {
+          title: 'No answer from OrenjiTrade',
+          message: 'This is taking too long. Check your connection and try again.',
+        };
+      }
       return {
         title: 'You seem to be offline',
         message: 'We could not reach OrenjiTrade. Check your connection and try again.',

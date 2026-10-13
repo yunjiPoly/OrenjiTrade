@@ -31,6 +31,9 @@ export default function TabLayout() {
         headerTintColor: palette.ink,
         headerShadowVisible: false,
         headerTitleAlign: 'center',
+        // The bar keeps its height at every text size, like the stack headers iOS draws itself
+        // and the tab bar: a title that followed the largest sizes was cut in half by the bar.
+        headerTitleAllowFontScaling: false,
       }}
     >
       {TABS.map((tab) => {

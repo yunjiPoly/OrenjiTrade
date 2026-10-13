@@ -8,7 +8,11 @@ import {
   priceFieldError,
   priceRangeError,
 } from '@/src/features/holders/holderFilters';
-import { isSearchSegment, searchTypesFor } from '@/src/features/search/searchSegments';
+import {
+  isSearchSegment,
+  searchTypesFor,
+  segmentInvite,
+} from '@/src/features/search/searchSegments';
 import {
   BULK_DELETE_MESSAGE,
   bulkDeleteTitle,
@@ -22,6 +26,8 @@ import {
 } from '@/src/features/inventory/itemPhotoRules';
 import { moved } from '@/src/features/binders/ReorderBindersSheet';
 import { ApiError } from '@/src/api/ApiError';
+import { previousOfSameRegion } from '@/src/api/hooks/search';
+import { meKeys } from '@/src/api/queryKeys';
 
 import { CARD_ID, PRINTING_A } from '../support/fixtures';
 
@@ -51,6 +57,33 @@ describe('search segments', () => {
       useRecentSearchesStore.getState().byUser[recentScopeKey('u1', 'collectors')]
     ).toBeUndefined();
     expect(useRecentSearchesStore.getState().byUser.u1).toEqual(['fox']);
+  });
+});
+
+describe('what a list keeps on screen while its next answer loads', () => {
+  it('keeps the previous results within one region, and nothing across a change of region', () => {
+    const previous = { collectors: ['one'] };
+    const key = (region: string, q: string) => ({
+      queryKey: meKeys.search('uid-1', { q, region, types: ['collectors'], limit: 20 }),
+    });
+    // Another text in the same region: the rows stay until the new ones arrive.
+    expect(previousOfSameRegion('europe')(previous, key('europe', 'noé'))).toBe(previous);
+    // Another region: nothing of the region before may stand under the new region's name.
+    expect(previousOfSameRegion('americas-north')(previous, key('europe', 'noé'))).toBeUndefined();
+    // The card holders name their region in the same place.
+    const holders = {
+      queryKey: meKeys.cardHolders(
+        'uid-1',
+        cardHoldersQuery({ kind: 'card', id: CARD_ID }, DEFAULT_HOLDER_FILTERS, 'europe')
+      ),
+    };
+    expect(previousOfSameRegion('europe')(previous, holders)).toBe(previous);
+    expect(previousOfSameRegion('americas-south')(previous, holders)).toBeUndefined();
+    // Nothing before, or a key that names no region: nothing is kept.
+    expect(previousOfSameRegion('europe')(undefined, undefined)).toBeUndefined();
+    expect(
+      previousOfSameRegion('europe')(previous, { queryKey: meKeys.cardHolders('uid-1', {}) })
+    ).toBeUndefined();
   });
 });
 
@@ -122,6 +155,17 @@ describe('card holder filters (the web search-params rules)', () => {
     expect(holdersCountLabel(null)).toBe('Looking for holders…');
     expect(holdersCountLabel(1)).toBe('1 listing in your region');
     expect(holdersCountLabel(3)).toBe('3 listings in your region');
+    // In another region than one's own, the region is named.
+    expect(holdersCountLabel(3, 'Europe')).toBe('3 listings in Europe');
+    expect(holdersCountLabel(1, 'Americas (South)')).toBe('1 listing in Americas (South)');
+    expect(segmentInvite('collectors')).toEqual({
+      title: 'Who trades in your region?',
+      description: 'Search a collector of your region by name or handle.',
+    });
+    expect(segmentInvite('collectors', 'Europe').title).toBe('Who trades in Europe?');
+    expect(segmentInvite('binders', 'Europe').description).toBe(
+      'Search public binders by name to see what collectors of Europe trade.'
+    );
   });
 });
 

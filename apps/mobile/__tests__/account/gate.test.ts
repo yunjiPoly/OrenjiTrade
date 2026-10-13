@@ -54,6 +54,9 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['items', '[id]'])).toBeNull();
     expect(redirectFor('app', ['binders', 'edit'])).toBeNull();
     expect(redirectFor('app', ['messages', '[id]'])).toBeNull();
+    // Stage M9: the binders of a state or province, behind sign-in like the Map tab.
+    expect(redirectFor('app', ['regions', '[region]', '[code]'])).toBeNull();
+    expect(redirectFor('guest', ['regions', '[region]', '[code]'])).toBe('/sign-in');
     expect(redirectFor('app', ['onboarding'])).toBeNull();
     // Phases 7 and 8: reports, ratings, offers and trades.
     expect(redirectFor('app', ['report'])).toBeNull();

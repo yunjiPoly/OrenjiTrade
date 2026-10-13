@@ -1,12 +1,14 @@
-import { screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import MapScreen from '@/app/(tabs)/index';
 import CollectorScreen from '@/app/collectors/[id]';
 import HoldersScreen from '@/app/holders';
+import PlaceBindersScreen from '@/app/regions/[region]/[code]';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
+  binderCountsFixture,
   cardDetailFixture,
   cardHolderFixture,
   cardHoldersPage,
@@ -18,6 +20,7 @@ import {
   meFixture,
   messagePage,
   offerPartyFixture,
+  placeBindersPage,
   publicBinderSummaryFixture,
   publicItemFixture,
   publicItemsPage,
@@ -89,6 +92,8 @@ const FIXTURES: Record<string, unknown> = {
   wish: wishFixture(),
   party: offerPartyFixture(),
   binders: [publicBinderSummaryFixture()],
+  binderCounts: binderCountsFixture(),
+  placeBinders: placeBindersPage([searchBinderFixture()]),
   publicItems: publicItemsPage([publicItemFixture()]),
   ratings: ratingsPageFixture(),
   references: referencesPageFixture(),
@@ -119,14 +124,51 @@ describe('place privacy contract (ADR 0017)', () => {
     expect(findings(fixture)).toEqual([]);
   });
 
-  it('the Map tab draws no map and asks for no collector position', async () => {
-    const api = mockApi(signedInRoutes());
+  it('the Map tab asks for binder counts by region, draws borders it ships, and never a position', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(FIXTURES.binderCounts),
+      })
+    );
     renderWithProviders(<MapScreen />, { port: new FakeAuthPort(testUser()) });
-    expect(await screen.findByTestId('map-placeholder')).toBeOnTheScreen();
+    expect(await screen.findByText('3 public binders in Americas (North)')).toBeOnTheScreen();
+    fireEvent(screen.getByTestId('map-scroll'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 392, height: 669 } },
+    });
+    fireEvent(screen.getByTestId('map-chrome'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 221 } },
+    });
+    fireEvent(screen.getByTestId('region-map-frame'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 388 } },
+    });
+    // The map is a drawing of states and provinces: no collector, no marker, no pin on it.
+    expect(await screen.findByTestId('map-shape-CA-QC')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-map-view')).toBeNull();
-    expect(api.calls.filter((call) => /nearby|preview/.test(call.path))).toEqual([]);
+    expect(screen.queryByTestId(/marker|pin|collector-/)).toBeNull();
+    // What it asked the API: the account, the regions and the counts of one region, by code.
+    expect(api.calls.filter((call) => /nearby|preview|geocod|tile/.test(call.path))).toEqual([]);
     expect(api.calls.flatMap(requestFindings)).toEqual([]);
+    expect(
+      api.calls.filter((call) => call.path.startsWith('/api/v1/regions')).map((call) => call.path)
+    ).toEqual(expect.arrayContaining(['/api/v1/regions/americas-north/binder-counts']));
     expect(screen.getByTestId('map-privacy-note')).toHaveTextContent(/never uses your GPS/);
+    expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
+  });
+
+  it("the binders of a state name the owner's state or province and country, never a city or a distance", async () => {
+    mockParams.current = { region: 'americas-north', code: 'CA-ON' };
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(FIXTURES.binderCounts),
+        'GET /api/v1/regions/{region}/subdivisions/{code}/binders': ok(FIXTURES.placeBinders),
+      })
+    );
+    renderWithProviders(<PlaceBindersScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText(/Noé Verdun/)).toBeOnTheScreen();
+    expect(screen.getAllByText('Ontario, Canada').length).toBeGreaterThan(0);
+    expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
+    expect(screen.queryByText(/Toronto|Montréal/)).toBeNull();
+    expect(api.calls.flatMap(requestFindings)).toEqual([]);
   });
 
   it('card holders ask by region and show states, never a distance', async () => {

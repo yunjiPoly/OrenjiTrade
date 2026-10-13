@@ -16,7 +16,7 @@ import {
   meFixture,
   publicItemFixture,
 } from '../support/fixtures';
-import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -245,6 +245,73 @@ describe('Card holders ("who has this in my region" as a list)', () => {
       expect(call.query.has('lng')).toBe(false);
       expect(call.query.get('region')).toBe('europe');
     }
+  });
+
+  it('lists the holders of the region the switcher shows, and names that region', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/search/card-holders': (request) =>
+          ok(
+            cardHoldersPage(request.query.get('region') === 'europe' ? [] : [cardHolderFixture()])
+          ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeOnTheScreen();
+    expect(screen.getByTestId('holders-title')).toHaveTextContent(
+      'Who has Emberfang Fox VMAX in your region'
+    );
+    expect(screen.getByTestId('holders-count')).toHaveTextContent('1 listing in your region');
+
+    fireEvent.press(screen.getByRole('button', { name: 'Region: Americas (North)' }));
+    fireEvent.press(screen.getByTestId('holders-region-option-europe'));
+    expect(
+      await screen.findByText('Nobody in Europe lists this card with these filters')
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('holders-title')).toHaveTextContent(
+      'Who has Emberfang Fox VMAX in Europe'
+    );
+    expect(screen.getByTestId('holders-subtitle')).toHaveTextContent(/Collectors of Europe\./);
+    expect(screen.getByTestId('holders-count')).toHaveTextContent('0 listings in Europe');
+    // The switcher of the navigation header (a round button) names the region for a screen reader.
+    expect(screen.getByRole('button', { name: 'Region: Europe' })).toBeOnTheScreen();
+    const query = api.callsTo('GET /api/v1/search/card-holders').at(-1)?.query;
+    expect(query?.get('region')).toBe('europe');
+    expect(query?.get('cardId')).toBe(CARD_ID);
+  });
+
+  it('never leaves the listings of the region before under the name of the new one', async () => {
+    let answerEurope: (answer: MockAnswer) => void = () => undefined;
+    const europe = new Promise<MockAnswer>((resolve) => {
+      answerEurope = resolve;
+    });
+    mockApi(
+      routes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/search/card-holders': (request) =>
+          request.query.get('region') === 'europe'
+            ? europe
+            : ok(cardHoldersPage([cardHolderFixture()])),
+      })
+    );
+    render();
+    expect(await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Region: Americas (North)' }));
+    fireEvent.press(screen.getByTestId('holders-region-option-europe'));
+    // Europe has not answered: the title names it, and the list shows its skeleton, not the
+    // listing of a collector of Americas (North).
+    expect(await screen.findByTestId('holders-loading')).toBeOnTheScreen();
+    expect(screen.getByTestId('holders-title')).toHaveTextContent(
+      'Who has Emberfang Fox VMAX in Europe'
+    );
+    expect(screen.queryByTestId(`holder-${HOLDER_ITEM_ID}`)).toBeNull();
+
+    answerEurope(ok(cardHoldersPage([])));
+    expect(
+      await screen.findByText('Nobody in Europe lists this card with these filters')
+    ).toBeOnTheScreen();
   });
 
   it('shows an error with retry, and the plan limit', async () => {

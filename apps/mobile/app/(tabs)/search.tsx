@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter, useScrollToTop } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { EMPTY_CARD_SEARCH, useCardSearch, type CardSearchQuery } from '@/src/api/hooks/catalog';
@@ -34,6 +34,7 @@ import {
   isSearchSegment,
   type SearchSegment,
 } from '@/src/features/search/searchSegments';
+import { RegionBar } from '@/src/features/regions/RegionBar';
 import { UnifiedResults } from '@/src/features/search/UnifiedResults';
 import {
   boundedQuery,
@@ -49,7 +50,17 @@ const ALL_GAMES = '__all__';
 type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
 
 /**
- * Search tab (the web's `/search` tabs): Cards | Collectors | Binders. Cards: the card catalog
+ * Search tab (the web's `/search` tabs): Cards | Collectors | Binders, under the region switcher
+ * (collectors, binders and a card's holders are those of the browsed region).
+ *
+ * Only the region switcher and the segments stay on screen, and they follow the system text size
+ * a little (`PINNED_MAX_FONT_SCALE`): the field, the game pills, the filters and the results are
+ * one list that scrolls under them, so the field and every result can be reached at any text
+ * size (pinned, they took the whole screen at the accessibility sizes). Deep in the results,
+ * pressing the Search tab again brings the list back to its top, where the field is
+ * (`useScrollToTop` in each segment's list).
+ *
+ * Cards: the card catalog
  * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
  * with game pills and set / rarity / language / edition filters, an infinite list of results with
  * API pictures. Collectors (by name or handle, with their state or province) and public binders
@@ -71,6 +82,7 @@ export default function SearchScreen() {
   }
   return (
     <Screen testID="screen-search" style={styles.screen}>
+      <RegionBar pinned testID="search-region" style={styles.region} />
       <Segmented<SearchSegment>
         label="Search"
         options={SEARCH_SEGMENTS}
@@ -109,27 +121,24 @@ function OtherSegment({ segment }: { segment: Exclude<SearchSegment, 'cards'> })
     }
   };
 
-  return (
-    <>
-      <View style={styles.controls}>
-        <TextField
-          label={SEGMENT_FIELDS[segment].label}
-          placeholder={SEGMENT_FIELDS[segment].placeholder}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={() => search(text)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          maxLength={QUERY_MAX_LENGTH}
-          testID={`search-${segment}-input`}
-        />
-      </View>
-      <View style={styles.fill}>
-        <UnifiedResults segment={segment} query={query} onSearch={search} />
-      </View>
-    </>
+  // The field is the head of the list of results: it scrolls away with them.
+  const field = (
+    <View style={styles.controls}>
+      <TextField
+        label={SEGMENT_FIELDS[segment].label}
+        placeholder={SEGMENT_FIELDS[segment].placeholder}
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={() => search(text)}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        maxLength={QUERY_MAX_LENGTH}
+        testID={`search-${segment}-input`}
+      />
+    </View>
   );
+  return <UnifiedResults segment={segment} query={query} onSearch={search} controls={field} />;
 }
 
 function CardsSegment({ params }: { params: SearchParams }) {
@@ -143,6 +152,10 @@ function CardsSegment({ params }: { params: SearchParams }) {
   const [text, setText] = useState(params.q ?? '');
   const [query, setQuery] = useState<CardSearchQuery>(() => fromParams(params));
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The field, the game pills and the filters scroll away with the cards: pressing the Search
+  // tab again brings the list back to its top, where they are.
+  const list = useRef<FlatList<CardSummary>>(null);
+  useScrollToTop(list);
 
   // Links into the tab (a set on the card detail) replace the search, once per new link.
   const linkKey = `${params.q ?? ''}|${params.game ?? ''}|${params.set ?? ''}`;
@@ -202,6 +215,56 @@ function CardsSegment({ params }: { params: SearchParams }) {
   const extra = extraFilterCount(query);
   const showRecent = text.trim().length === 0;
 
+  // The field, the game pills and the filters are the head of the list of results: they scroll
+  // away with it (and stay mounted whatever the list shows, so the field keeps its focus).
+  const controls = (
+    <View style={styles.controls} testID="search-controls">
+      <TextField
+        label={SEGMENT_FIELDS.cards.label}
+        placeholder={SEGMENT_FIELDS.cards.placeholder}
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={() => search(text)}
+        autoCapitalize="none"
+        autoCorrect={false}
+        returnKeyType="search"
+        maxLength={QUERY_MAX_LENGTH}
+        testID="search-input"
+      />
+      <ChoiceChips
+        label="Game"
+        hideLabel
+        scroll
+        options={[
+          { value: ALL_GAMES, label: 'All games' },
+          ...gamesFrom(gamesQuery.data).map((game) => ({ value: game.slug, label: game.label })),
+        ]}
+        value={query.game ?? ALL_GAMES}
+        onChange={(value) => onFilter('game', value === ALL_GAMES ? null : value)}
+        testID="search-game"
+      />
+      <View style={styles.filterRow}>
+        <Button
+          label={extra > 0 ? `Filters (${extra})` : 'Filters'}
+          icon="filter-variant"
+          variant="secondary"
+          onPress={() => setFiltersOpen(true)}
+          style={styles.filterButton}
+          testID="search-filters"
+        />
+        {hasCriteria(query) ? (
+          <Button
+            label="Clear"
+            variant="ghost"
+            onPress={clearAll}
+            style={styles.filterButton}
+            testID="search-clear"
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+
   const header = (
     <View style={styles.header}>
       {showRecent ? <RecentSearches uid={uid} onPick={search} /> : null}
@@ -234,9 +297,11 @@ function CardsSegment({ params }: { params: SearchParams }) {
     </View>
   );
 
-  let body;
+  // One list, whatever it shows: the skeleton, an error and "no card" are what it holds when it
+  // has no row, under the same head.
+  let empty;
   if (!results.data && results.error) {
-    body = (
+    empty = (
       <ErrorState
         testID="search-error"
         error={results.error}
@@ -245,36 +310,49 @@ function CardsSegment({ params }: { params: SearchParams }) {
       />
     );
   } else if (!results.data) {
-    body = <SearchSkeleton />;
+    empty = <SearchSkeleton />;
   } else {
-    body = (
+    empty = (
+      <EmptyState
+        testID="search-empty"
+        icon="magnify-close"
+        title="No cards match"
+        description={
+          query.q
+            ? `Nothing matches “${query.q}”. Check the spelling, try fewer words or a printing code like AZR-EN001.`
+            : 'No card matches these filters. Try another set or rarity.'
+        }
+        actionLabel={hasCriteria(query) ? 'Clear search and filters' : undefined}
+        onAction={hasCriteria(query) ? clearAll : undefined}
+      />
+    );
+  }
+
+  return (
+    <>
       <FlatList
+        ref={list}
         testID="search-results"
-        data={cards}
+        style={styles.fill}
+        data={results.data ? cards : []}
         keyExtractor={(card, index) => card.id ?? String(index)}
         renderItem={({ item }) => <CardRow card={item} onPress={openCard} />}
         ItemSeparatorComponent={Separator}
-        ListHeaderComponent={header}
-        ListEmptyComponent={
-          <EmptyState
-            testID="search-empty"
-            icon="magnify-close"
-            title="No cards match"
-            description={
-              query.q
-                ? `Nothing matches “${query.q}”. Check the spelling, try fewer words or a printing code like AZR-EN001.`
-                : 'No card matches these filters. Try another set or rarity.'
-            }
-            actionLabel={hasCriteria(query) ? 'Clear search and filters' : undefined}
-            onAction={hasCriteria(query) ? clearAll : undefined}
-          />
+        ListHeaderComponent={
+          <>
+            {controls}
+            {results.data ? header : null}
+          </>
         }
+        ListEmptyComponent={empty}
         ListFooterComponent={
-          <ListFooter
-            loading={results.isFetchingNextPage}
-            failed={!!results.error && results.hasNextPage}
-            onRetry={() => void results.fetchNextPage()}
-          />
+          results.data ? (
+            <ListFooter
+              loading={results.isFetchingNextPage}
+              failed={!!results.error && results.hasNextPage}
+              onRetry={() => void results.fetchNextPage()}
+            />
+          ) : null
         }
         onEndReached={() => {
           if (results.hasNextPage && !results.isFetchingNextPage && !results.error) {
@@ -284,65 +362,17 @@ function CardsSegment({ params }: { params: SearchParams }) {
         onEndReachedThreshold={0.5}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        // Always there, also before the first answer (see `UnifiedResults`): a refresh control
+        // that came with the first cards would rebuild the head of the list, and the field in
+        // it would lose the keyboard.
         refreshControl={
           <RefreshControl
-            refreshing={results.isRefetching && !results.isFetchingNextPage}
+            refreshing={!!results.data && results.isRefetching && !results.isFetchingNextPage}
             onRefresh={() => void results.refetch()}
           />
         }
         contentContainerStyle={styles.listContent}
       />
-    );
-  }
-
-  return (
-    <>
-      <View style={styles.controls}>
-        <TextField
-          label={SEGMENT_FIELDS.cards.label}
-          placeholder={SEGMENT_FIELDS.cards.placeholder}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={() => search(text)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          maxLength={QUERY_MAX_LENGTH}
-          testID="search-input"
-        />
-        <ChoiceChips
-          label="Game"
-          hideLabel
-          scroll
-          options={[
-            { value: ALL_GAMES, label: 'All games' },
-            ...gamesFrom(gamesQuery.data).map((game) => ({ value: game.slug, label: game.label })),
-          ]}
-          value={query.game ?? ALL_GAMES}
-          onChange={(value) => onFilter('game', value === ALL_GAMES ? null : value)}
-          testID="search-game"
-        />
-        <View style={styles.filterRow}>
-          <Button
-            label={extra > 0 ? `Filters (${extra})` : 'Filters'}
-            icon="filter-variant"
-            variant="secondary"
-            onPress={() => setFiltersOpen(true)}
-            style={styles.filterButton}
-            testID="search-filters"
-          />
-          {hasCriteria(query) ? (
-            <Button
-              label="Clear"
-              variant="ghost"
-              onPress={clearAll}
-              style={styles.filterButton}
-              testID="search-clear"
-            />
-          ) : null}
-        </View>
-      </View>
-      <View style={styles.fill}>{body}</View>
       <CardFiltersSheet
         visible={filtersOpen}
         onClose={() => setFiltersOpen(false)}
@@ -391,6 +421,7 @@ function SearchSkeleton() {
 
 const styles = StyleSheet.create({
   screen: { paddingBottom: 0 },
+  region: { marginBottom: spacing[3] },
   segments: { marginBottom: spacing[3] },
   controls: { gap: spacing[3], marginBottom: spacing[2] },
   filterRow: { flexDirection: 'row', gap: spacing[2] },
@@ -407,7 +438,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   badgeText: { fontWeight: fontWeight.semibold },
-  listContent: { paddingBottom: spacing[6] },
+  // At least as tall as the tab: an empty or failed list centres what it says in the room left
+  // under the field.
+  listContent: { flexGrow: 1, paddingBottom: spacing[6] },
   separator: { height: spacing[2] },
   skeleton: { gap: spacing[3], paddingTop: spacing[2] },
   skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

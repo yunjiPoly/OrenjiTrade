@@ -87,6 +87,8 @@ _Backend complete (workflow `web-mvp-local` stage 3, independently re-verified: 
 
 > **Reworked by stage S1 (ADR 0017, 2026-10-08):** no positions or distances any more; the items
 > below describe the original Phase 4. See "Platform regions and the self-declared location (stage S1)".
+> The mobile Map tab draws the region map since mobile stage M9 (2026-10-12): see "Mobile app:
+> regions and the region map".
 
 _Backend complete (workflow `web-mvp-local` stage 4, independently re-verified: 463 API tests / 77 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (86 paths, previously 81; every contract route present; no path or schema lost, only `PublicBinderSummary` gains an optional `owner`); clients regenerated; live check on `.local-dev/api-snapshots/api-phase4.jar` with an emulator token). Migration V030 only (range V030–V039). Web `/map` and `/search` complete (workflow `web-mvp-local` stage 5, independently re-verified: 247 web unit tests / 51 files, lint + format clean, production build 841.71 kB initial with no warnings, 32/32 Playwright specs against `.local-dev/api-snapshots/api-phase5.jar`, 0 skipped); mobile: stage M3 (2026-10-05, see "Mobile app (stage M3)"). Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 4 contract"; the contract document itself is not edited): the caller's own marker stays in `nearby`; collectors without public listings appear (`binderFreshness: null`, ranked after AGING), all-STALE collectors never do; ranking freshness → distance bucket → rating → distance; `center` snapped to 2 decimals; additive `MatchingItem`/`suggest` fields; `card-holders` needs a centre (400 for signed-out callers without `lat`/`lng`); the plan cap key is `map.radius.max_km` (V011) where the contract says `map.radius.max`; `nearby` is a reserved handle. Since Phase 5 blocks are real (`BlockRelationProvider.blockedAmong`, one lookup per page) but still applied after the cached page is read, so `total` may count blocked collectors beyond the limit (debt: join blocks into the discovery SQL)._
 
@@ -2110,24 +2112,27 @@ the Premium "wider map radius" copy; `LOCATION_JITTER_SECRET`, `GOOGLE_MAPS_API_
 channels (archived).
 
 **Mobile follow-ups (not in S1, owner spec section 7; record of what the app still lacks):**
-1. A region switcher on mobile (today the app browses the collector's home region, else
-   `americas-north`).
-2. The state/province binder list (the web's `/map` panel: `GET /regions/{region}/binder-counts`
-   and `GET /regions/{region}/subdivisions/{code}/binders`) and the boundary map in the Map tab
-   (the same bundled GeoJSON; `react-native-maps` polygons or a WebView); the tab shows placeholder
-   copy until then.
+1. **Done in mobile stage M9 (2026-10-12).** A region switcher on mobile (the app browsed the
+   collector's home region, else `americas-north`).
+2. **Done in mobile stage M9 (2026-10-12).** The state/province binder list (the web's `/map`
+   panel: `GET /regions/{region}/binder-counts` and
+   `GET /regions/{region}/subdivisions/{code}/binders`) and the boundary map in the Map tab (the
+   same boundaries, drawn with `react-native-svg` from a projected copy of the bundled GeoJSON,
+   not with `react-native-maps` polygons or a WebView).
 3. The printing picker of the card page (S3: "Any printing", per-printing rows with rarity and
    holder counts, rarity/set/edition/language filters).
 4. The have/want lists of the card page ("Who has it" / "Who wants it", S3 section 2b) and
    "Wanted by N" on inventory items.
-5. Remove `react-native-maps` once the Map tab no longer needs it (kept installed in S1 by the
-   owner's instruction), and `react-native-webview` if nothing else needs it (the Leaflet page was
-   its only user).
+5. **Done in mobile stage M9 (2026-10-12).** Remove `react-native-maps` once the Map tab no
+   longer needs it (kept installed in S1 by the owner's instruction), and `react-native-webview`
+   if nothing else needs it (the Leaflet page was its only user); the app's `leaflet` dependency
+   went with them.
 6. The wishlist matches screens are interim until S2 removes matches.
 
 **Known gaps:**
-- Mobile: the Map tab does not draw the boundary map yet and there is no region switcher (the
-  home region is browsed); see the follow-ups above.
+- Mobile: the Map tab did not draw the boundary map and there was no region switcher (the home
+  region was browsed). Closed by mobile stage M9 (2026-10-12), see "Mobile app: regions and the
+  region map".
 - The web initial bundle is 0.04 kB under its 900 kB warning budget (899.96 kB; the legal texts
   are part of the initial bundle): the next feature on the initial path needs a deferral (for
   example lazy legal texts) or a budget decision.
@@ -2398,7 +2403,8 @@ completed, more normalisation, the test widened to 10 cases): see "Review fix 3"
 - `wishlist_alert_sent` rows are kept until the account or the item goes (no time-based purge;
   the table is small: one row per collector and listing alerted).
 - Mobile follow-ups: the full printing picker on the card screen with holder counts (S3), "Who
-  wants it" and "Wanted by N" (S3); the S1 follow-ups (map, region switcher) remain.
+  wants it" and "Wanted by N" (S3); the S1 follow-ups (map, region switcher) remained until
+  mobile stage M9 (2026-10-12).
 
 **Native check (Android emulator; the adb walk found one label bug):** while
 walking the changed screens, the mobile "Which copy" chooser showed Emberfang Fox's two PFT-002
@@ -2956,38 +2962,557 @@ native build, no Maestro Cloud).
   - Installing the Android SDK on the Mac stays optional; until then nothing there proves the
     Android half of a mobile change (`docs/development/claude-handoff.md`).
 
+## Mobile app: regions and the region map (stage M9, 2026-10-12)
+
+Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Branch
+`feature/mobile-regions-map`, on top of `main` at `00714a9`. This stage closes the S1 "Mobile
+follow-ups" 1, 2 and 5: the phone gets the region switcher, the region map with the binders of a
+state or province, and loses its map libraries. Nothing changed in `apps/api`, in
+`apps/web-angular` or in the seeds: every endpoint the phone needs existed (`GET /regions`,
+`GET /regions/{region}/binder-counts`, `GET /regions/{region}/subdivisions/{code}/binders`).
+
+**What a collector can now do on the phone**
+- **Choose the region to browse.** "Region: Americas (North)" sits on top of the Map and Search
+  tabs and, as a round button, in the header of the card holders. It opens a sheet with the three
+  regions, the collector's own marked "Your region". Search (collectors and binders), the card
+  holders, sponsored placements, the map and its binder lists follow at once, and every one of
+  those calls names the region. In another region than their own the switcher takes the accent
+  colour, a line says "Not your region." and "Back to Americas (North)" goes home in one press;
+  titles and empty states name the region instead of "your region" ("Who has Cinderpeak Dragon in
+  Europe", "Who trades in Europe?"). A new visit starts in the collector's own region.
+- **See the region as a map.** The Map tab draws the countries of the region with their states
+  and provinces, shaded by their number of public binders in the web's five steps (none, 1, 2 to
+  4, 5 to 9, 10 and more), with the count of the region above it. A tap on a state or province
+  opens its public binders; holding it names it first (its name, its number of public binders,
+  "Open"). A pinch or the + and − buttons zoom (up to 16 times); once zoomed in a drag moves the
+  map, and "Show the whole region" comes back. While the whole region is on screen a finger
+  dragged over the map scrolls the page. The state opened last is outlined; a place with binders
+  is outlined in a strong colour, and one too small to be seen gets a dot (review fix 1).
+- **Or as a list.** "Map | List" shows the same region as a list of its states and provinces by
+  country, each with its count ("Quebec, 2 public binders"), with a filter field (accents and case
+  ignored, a country name keeps its places) and "Only places with binders". The list is a way in
+  of its own, not a fallback: the tab opens on it while VoiceOver or TalkBack is on, and remembers
+  the view chosen.
+- **Open the binders of a state or province**: each binder with its name, kind, number of cards
+  and games, its owner by name and handle, the owner's state or province and country (never a
+  city), when it was last updated, and a link to the public binder. The list is read page after
+  page by cursor (20 at a time), with a skeleton, "No public binders here yet", and an error with
+  "Try again".
+- **Follow a link**: `/?region=europe&subdivision=FR-IDF` opens the tab on a region and one of its
+  states (the web's `/map?region=&subdivision=`), also after signing in, and every time it is
+  opened; a link to a region that does not exist changes nothing (review fix 1).
+- A collector without a location still gets "Where are you?" on the tab.
+
+**Decisions and why**
+- **How the map is drawn: `react-native-svg` on the device** (15.15.4, part of Expo Go 57, pinned;
+  `src/features/map/RegionMap.tsx`). No tile, no map provider, no WebView, no request for
+  geography, no device location. A region is two SVG paths (every state and province as one,
+  every country border as another), one more per state that has binders and one for the state
+  opened last: 4 to about 10 elements with today's data instead of 243 to 653. During a drag or a
+  pinch nothing is drawn again: the drawn picture is slid and scaled with a transform, and the
+  vectors are drawn once more when the fingers lift (line widths stay in screen points at every
+  zoom). A tap is resolved in JavaScript on the drawing (bounding boxes, then an even-odd test on
+  the rings, then the closest border within ten points for small states), so one responder view
+  takes every gesture and VoiceOver sees the map as one image that points to the list. Pure
+  arithmetic in `mapWindow.ts`, `regionOutline.ts`, `shading.ts` and `places.ts`, tested without
+  a renderer.
+- **How the boundaries reach the app: a generated copy, checked by a test**
+  (`npm run sync:boundaries -w apps/mobile`, like `sync:tokens` and `sync:legal`). The web's
+  files (`apps/web-angular/public/boundaries`, Natural Earth 5.1.1, public domain) are neither
+  moved nor edited. `scripts/lib/boundaryOutlines.js` projects them once (Web Mercator, the
+  projection of the web's Leaflet map; one unit is 0.01° of longitude, the precision of the
+  source) and writes `assets/boundaries/<region>.json` as SVG path data with relative steps. The
+  app therefore holds **no degrees at all** (ADR 0017; `coordinateLiterals.test.ts` still scans
+  `src/` and `app/`), does no projection at run time, and the files are 104 / 62 / 139 kB instead
+  of 241 / 145 / 316 kB. `--check` and `regionOutlines.test.ts` fail when a copy drifts from its
+  web file, when a state the web draws is missing, or when the first view differs from the web's
+  `REGION_VIEW`. Native bundles carry the three files and build a region's drawing the first time
+  that region is shown (`outlineFiles.ts`: a `require` inside a function); the web export puts
+  each in its own chunk, downloaded from the app's origin when that region is shown
+  (`outlineFiles.web.ts`; an E2E spec checks that only the region on screen was downloaded).
+  Shipping them as downloadable assets instead was not chosen: it would add a request and a
+  loading state for 305 kB.
+- **Where the switcher lives**: where the phone browses by region and nowhere else. A pill on top
+  of the Map and Search tabs (it names the region, so nobody has to open it to know); a round
+  button in the navigation header of the card holders, whose title, subtitle and count already
+  name the region and whose list needs the room. One component, `RegionBar`, on the existing
+  `SelectSheet` bottom sheet (modals keep taking turns on iOS).
+- **Which region**: the pick of this session, else the collector's home region (`GET /me`), else
+  the last region picked on this device, else Americas (North)
+  (`src/features/regions/browsingRegion.ts`). A signed-in collector with a location therefore
+  always starts at home, as on the web; the device memory serves a collector who has not said
+  where they are. Only a region code is kept on the device (AsyncStorage, in try / catch), never
+  a place. A pick belongs to the account and home region it was made under: another account on
+  the same phone, or a location saved in another region, starts from its own region. Wishlist
+  alerts stay tied to the home region (server side), which the empty state of the card holders
+  says ("we'll tell you when a collector of your region lists it").
+- **A finger on the map scrolls the page until the map is zoomed in** (changed by review fix 1;
+  the first version kept every touch for the map, and a map that filled the screen left its own
+  buttons and legend out of reach). While the whole region is on screen the map has next to
+  nothing to move, so a drag belongs to the page; zoomed in, or with two fingers, the gesture is
+  the map's and the page stands still. The parts of the region the first view leaves out (the
+  far north of Canada) are reached by zooming in and dragging.
+- **`react-native-maps`, `react-native-webview`, `leaflet` and `@types/leaflet` are gone** from
+  `apps/mobile` (nothing else used them: checked by search), with their jest mocks, the config
+  plugin entry and the jest transform entry. The lockfile follows (`npm install` at the root;
+  `npm ci` is what CI runs). The web keeps its own `leaflet`.
+- **Wording follows the web**: "Binders in <region>", "<n> public binders in <region>", "States
+  and provinces", "Only places with binders", "No public binders here yet", the same map name for
+  screen readers, "Made with Natural Earth". `regionWording.test.ts` keeps "near", "nearby",
+  "close to you", "around you" and "km away" out of `src/` and `app/` ("Near Mint" is a card
+  condition and stays).
+
+**Measurements**
+- Drawings: Americas (North) 348 states and provinces, 599 rings, 12,056 points; Americas (South)
+  243 / 293 / 7,070; Europe 653 / 862 / 15,414. On screen: 2 paths plus one per shaded state.
+- Bundles (`npx expo export`, Expo SDK 57; "before" is `00714a9` exported the same way):
+
+  | | Before | After |
+  | --- | --- | --- |
+  | iOS (Hermes) | 4,874,359 B, 1,641 modules | 5,425,787 B, 1,771 modules |
+  | Android (Hermes) | 5,167,699 B, 1,765 modules | 5,723,727 B, 1,895 modules |
+  | Web entry | 2,753,111 B, 73 static routes | 2,837,262 B, 74 static routes |
+  | Web, per region | none | 132,238 B (Europe), 99,913 B (Americas (North)), 59,297 B (Americas (South)), each loaded when shown |
+
+  The native bundles grow by about 0.55 MB: `react-native-svg`'s JavaScript (about 130 modules),
+  the three drawings (305 kB of source) and the new screens. The removed map libraries were not
+  in the JavaScript bundle any more (nothing imported them since S1); they leave the native
+  dependencies and the install.
+- Time, on the iOS 27 simulator of the Mac mini, in Expo Go with Metro's development bundle
+  (temporary logs, removed): reading a region's file 4 to 8 ms (47 ms for the first one, right
+  after the app starts); building the one path of all states under 0.5 ms; **first drawing
+  committed 132 ms after the tab asked for it on a cold start and on screen two frames later, at
+  218 ms**; switching to Europe, the heaviest region: drawn 11 to 13 ms after the pick, on screen
+  within 37 ms, and once more when its counts arrive. A drag of 1.1 s: 65 touch moves, 66 React
+  commits of 0.75 to 0.97 ms on average (2.6 ms at most) and no path drawn; the redraw after the
+  fingers lift, or after a zoom button, is on screen 15 to 35 ms later.
+
+**Tests**
+- jest (84 suites / 757 tests; 79 / 677 before): `browsingRegion.test.tsx`
+  (the order of the choice, the home region, the device memory, another account, a storage that
+  cannot be read or written, a pick made while the device is read, the switcher and its sheet),
+  `regionOutlines.test.ts` (the projection, the path format, every copy against its web file,
+  every state the web draws, hit testing with islands and holes, the shading steps against the
+  web table, the window arithmetic of panning and zooming), `places.test.ts` (the list: grouping,
+  filter, whole-country entries, link codes), `map.test.tsx` (the tab: counts, drawing, tap,
+  zoom with buttons and two fingers, the page standing still, the switcher, errors and retries,
+  the link, the list with its names, the view remembered, a screen reader), `place.test.tsx` (the
+  binders: skeleton, rows and their one name, never a city even if an answer carried one, cursor
+  pages and a failed page, empty, error and retry, a malformed link), `regionWording.test.ts`,
+  and additions to `placePrivacy`, `holders`, `card-detail`, `search-segments`, `choice`,
+  `tabs-layout`, `auth-gate`, `gate` and `useAppStore`.
+- Mobile web E2E (`apps/mobile/e2e`, 55 specs, 52 before): `regions.spec.ts` (a state from the
+  map and from the list, its binders with the owner and the state and never the owner's city, a
+  binder opened, a state without a binder, only the drawing of the region on screen downloaded;
+  the switcher re-scopes search, with the region in the request, and the map; a link) and
+  `map.spec.ts` reworked (every request of the tab goes to the app's origin or the isolated API).
+- Native flows (`apps/mobile/.maestro`, 25 flows, 24 before): `map-region-binders.yaml` replaces
+  `map-placeholder-profile.yaml` (the map and its name, the zoom buttons, the list, a state
+  without a binder, Quebec and its binders, a binder opened, then a profile with its state and
+  shown city); `region-switch.yaml` is new (the sheet, Europe on the map, in its list and in
+  Search, "Not your region", the way home, a link). `scripts/region-map.js` reads on the host
+  what a state holds through the two public endpoints. The seeds were enough: Americas (North) 4
+  public binders (Quebec 2, Ontario 1, California 1), Europe 2 (Île-de-France, Community of
+  Madrid), Americas (South) 2. They are too thin to show the two darkest shades (5 to 9, 10 and
+  more) and a second page of binders on a device: both are covered by jest.
+
+**Found on the simulator and fixed** (each with a jest test; for 2 and 3 the test can only pin
+the style, the fault is one of layout that a device shows)
+1. A sheet's region name ended in "…" at large text sizes: the switcher shows its whole name and
+   wraps (`SelectSheet` `wrap`), with corners that stay a pill on one line and become a rounded
+   box on several (three lines of large text made an oval).
+2. A country header stuck to the top of the list let the rows show through above it (dark mode):
+   its space is padding, not margin.
+3. "Who trades in Europe?" showed only its icon over the field on iOS: the invitation of an empty
+   Search segment had no height of its own.
+4. **The title of every tab header was cut in half at the largest text sizes** (not new: the six
+   tabs since M1). The bar keeps its height, so its title no longer follows the text size, like
+   the stack headers iOS draws and the tab bar (`headerTitleAllowFontScaling`).
+5. At the largest size "Binders in Americas (North)" cut "Americas" in two: the large title of
+   the Map tab and of a place follows the text size up to twice its size
+   (`TITLE_MAX_FONT_SCALE`), still larger than body text at that size.
+6. At the largest size the name, region and count of a place kept half of the screen and left the
+   binders a strip: they are the head of the list and scroll away with it.
+7. The map was drawn twice when the tab first showed (once for the provisional height of the
+   frame, then for the real one): `RegionMap` waits for the height the screen gives it.
+
+**The keyboard subflow of the native suite (not caused by this stage)**
+After a restart of the Mac the simulator, booted without a window, puts the keyboard away while
+Maestro types and brings it back at the next touch, the field still focused. A list only lets go
+of a keyboard that is on screen, so `subflows/hide-keyboard.yaml` (a drag, then a tap beside the
+form) no longer hid it on list screens: `collector-search-looking-for.yaml` and
+`search-card-detail.yaml` failed there too, also with the Search tab as it is on `main`, while
+the form flows passed. Before the restart the same flows passed (the keyboard stayed up while
+Maestro typed). The iOS block now drags once more when the keyboard is still on screen after the
+tap; the Android block is untouched. Both behaviours are handled. The app is not involved: with
+the keyboard on screen a drag of the list hides it, on a list of one row as well.
+
+**Checks on the final code** (2026-10-12, the owner's Mac mini, retries off)
+- `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: clean.
+- `npm run test:mobile`: typecheck, lint, jest 84 suites / 757 tests (79 / 677 before), 28
+  harness guard tests.
+- `npx expo export --platform ios`, `--platform android` and `--platform web` into throw-away
+  directories: the three succeed (sizes above; 74 static routes, 73 before).
+- `npm run test:mobile:e2e -- --retries=0`: 55 passed on the first attempt (49.7 s; 1 min 12 s
+  in all).
+- `npm run test:mobile:maestro -- --platform ios` with no API and no Metro running:
+  **25/25 flows passed in one run** (38 min 1 s of flows, 38 min 27 s in all; 24/24 in 32 min
+  before: one flow more, and the keyboard subflow waits longer where the keyboard came back).
+  Afterwards ports 8082 and 8090 were free and the run's 29 emulator accounts were deleted. The
+  simulator, shut down four minutes earlier by `-- --stop`, was found booted when the run began
+  (what booted it was not found), so the run left it booted: it was shut down by hand.
+- `npm run test:scripts`: 133 tests. `npm run audit:gate`: OK (the 2 allowlisted advisories,
+  `braces` and `node-forge`, until 2026-11-30).
+- Because the lockfile changed, once: `npm run build -w apps/web-angular` (initial total
+  899.93 kB, 214.55 kB transfer, under the 900 kB warning budget, no warning) and
+  `npm run test:web` (lint clean, 142 files / 678 tests). The web was not changed.
+- `npm run sync:boundaries -w apps/mobile -- --check`: the three copies are up to date.
+- The branch is nine commits; each of the six that change the app or its unit tests was
+  type-checked, linted, format-checked and unit-tested on its own before the next one was made.
+- Walked on the simulator (iPhone 17, iOS 27.0, Expo Go 57): the three regions on the map, the
+  region sheet, a state with binders (Quebec, Île-de-France) and one without (Northwest
+  Territories), Search, a card and its holders in another region and back, in light and in dark, then the Map tab, the sheet, the list, a place and Search at the largest
+  accessibility text size; the names VoiceOver reads were read from the accessibility tree
+  (the region button, the title and count, "Map or list", the map as one image named "Map of
+  Americas (North): states and provinces shaded by their number of public binders", "Zoom in" /
+  "Zoom out", the radio buttons of the sheet, "Not your region." and "Back to Americas (North)",
+  "France, 1 public binder", "Île-de-France, 1 public binder", the back button "Map", one link
+  per binder with its whole name).
+- Git status clean; no API, Metro or simulator left running; the simulator is back to light
+  mode and the default text size, and shut down.
+
+**Not verified**
+- **Android**: no Android SDK on this Mac. The Android run of the flows could not be verified,
+  nor the app on an Android device. By reading: the map uses no iOS-only API
+  (`react-native-svg`, the responder system, `transform`; `onStartShouldSetResponder` returns
+  true so the page behind does not take the gesture over); the new flows keep platform
+  differences in the shared subflows; `npx expo export --platform android` succeeds.
+- A physical phone: the timings above are a simulator on an Apple M6 with a development bundle.
+  A mid-range phone is several times slower; the design keeps the work during a gesture to a
+  transform for that reason, but nothing here measures it.
+- A pinch on a device or simulator (Maestro has one finger): covered by jest only (two touches on
+  the responder, the zoom about the fingers).
+- VoiceOver itself was not switched on: the names were read from the accessibility tree
+  (`maestro hierarchy`), which is what VoiceOver reads; TalkBack not at all (Android).
+- The two darkest shades and a second page of binders on a device (seed data too thin, see
+  Tests).
+
+**Open (owner)**
+- Done in the ship step (2026-10-13, by the lead): the two sentences of `CLAUDE.md` that this
+  stage made stale now say that the mobile Map tab draws the same boundaries with
+  `react-native-svg` from `apps/mobile/assets/boundaries` (`npm run sync:boundaries`) and that
+  region-scoped calls send the browsed region (the region switcher; the home region by default).
+- OrbStack does not start at login: after the restart of the Mac on 2026-10-12 every test stack
+  stopped with "Docker is not running" until `orbctl start` (the three shared containers then
+  came back by themselves, and the Auth emulator had lost its accounts with the restart).
+- Seen, not changed (older than this stage, every screen): changing the text size while the app
+  is open leaves the screen on display laid out for the old size until it is drawn again (React
+  Native's new architecture). (The Cards | Collectors | Binders control of Search, which broke
+  its words at the largest text size, is fixed by review fix 1.)
+- The web's map page shows a sponsored placement (`MAP_PANEL`); the phone's Map tab and the
+  binders of a place show none (review finding U9). Whether the phone gets one, and where (under
+  the list, on the place screen), is a placement decision for the owner; the README no longer
+  claims it.
+- A pass of every screen at the largest text sizes was never done before this stage; only the
+  screens of this stage were walked.
+- Left for the next stage (S3, needs API work): the printing picker with holder counts, "Who has
+  it" / "Who wants it", "Wanted by N" (S1 follow-ups 3 and 4).
+
+**Review fix 1 (2026-10-13)**
+
+Two independent reviews of the branch (a walk on the simulator, and a functional review with 64
+mutants) found 17 problems, none of them a blocker: five majors and twelve minors. Each is fixed
+at its cause with a test that would have caught it, or answered below. The native checks of this
+round ran on an iPhone 18 Pro simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID`),
+another model than the stage was built on.
+
+- **U1, Search at large text (major).** The region switcher, the segments, the field, the game
+  pills and the filters were all pinned above the list: at the largest text size nothing was left
+  for the results, and in another region not even the field. Search is now one list per segment:
+  only the switcher (with its "Not your region" line) and the segments stay on screen, and they
+  follow the system text size only a little (`PINNED_MAX_FONT_SCALE` 1.35; 1.2 for three
+  segments), like the tab bar and the navigation header; a long press shows them enlarged on
+  iOS. The field, the pills, the filters, the skeleton, the empty and error states and the
+  results scroll under them. A segment label is one line and never breaks in a word.
+  Tests: jest (`search-segments`, `search`, `choice`), the new native flow `large-text.yaml`.
+- **U2, the map swallowed every drag (major).** While the whole region is on screen a finger on
+  the map now scrolls the page (the map has next to nothing to move then); the map keeps a
+  gesture only once it is zoomed in, or for two fingers. The map takes the height the page has
+  left under the switcher, the title and the Map | List switch (240 to 520 points) instead of
+  58 % of the page, so its buttons are on screen without scrolling, and the "Where are you?"
+  prompt is compact and can be put away for the visit. Tests: jest (`map`), the new native flow
+  `map-gestures-links.yaml` (a collector without a location, a drag from the middle of the map,
+  then a zoomed-in map that keeps the drag) and `large-text.yaml`.
+- **F1 and U7, a region that does not exist (major).** A well-formed code was enough to be
+  browsed and kept on the device. Now only a region that exists is: the three the app ships until
+  `GET /regions` was read, then what that list holds (`useKnownRegions`). A link to another code
+  changes nothing; a code an older install kept is forgotten, on the device too, once the
+  server's list says so; the list of places says that the region has no place instead of loading
+  for ever when the server lists none. Tests: jest (`browsingRegion`, `map`), E2E
+  (`regions.spec.ts`: `?region=asia` inside the app and as a page load, "oceania" left on the
+  device), native flow.
+- **U3 and F2, the region of the sponsored placements (major, a missing test).** The code was
+  right. jest now asserts `region` on `GET /ads` at home, after a switch, back home, and for a
+  collector whose region comes from the device (nothing is asked before it is settled); the E2E
+  asserts it on the real request, at home and in Europe.
+- **U4 and F3, results of the region before.** Search and the card holders keep the previous
+  results only within one region (`previousOfSameRegion`); a change of region shows the skeleton.
+- **U5, the list kept its place.** Another region starts at the top of its list, and pressing
+  the Map tab again scrolls the list (or the map page) back up.
+- **U6 and F4, the same link twice.** A link is used up once followed (its parameters are
+  cleared), so the same link opens its place every time.
+- **U8, a map that named nothing.** Holding a place names it (its name, its number of public
+  binders, "Open") without opening it; a place with binders is outlined in a strong colour; one
+  too small to be seen at the current zoom gets a dot that can be tapped (Île-de-France and
+  Madrid at the first view of Europe). The shades themselves stay the web's.
+- **U9, no sponsored placement on the Map tab.** The README claimed one; it is corrected. Whether
+  the phone gets the web's `MAP_PANEL` slot is left to the owner ("Open (owner)").
+- **U10, a request that hangs.** A read (`GET`, `HEAD`) is given up after 20 seconds
+  (`withReadTimeout`) and is not tried again by itself: the screen shows "No answer from
+  OrenjiTrade" with "Try again" instead of a skeleton for minutes. Writes are left alone. Seen on
+  the simulator with the isolated API paused: the error after 27 seconds, the binders after
+  "Try again" once the API ran again.
+- **F5 and F6, the tests the mutants asked for.** jest now sees the region of a place opened in
+  another region (a tap, a list row, the requests of the place screen) and the "region settled
+  first" gate of search, of the counts, of the placements and of the device read; a native flow
+  taps the map itself and holds a place.
+- **F7, blocking.** Blocking or unblocking a collector refreshes the map's counts and binder
+  lists (`meKeys.regionMap`).
+- Also covered now, from the mutants that survived without a finding of their own: the accent
+  colour of the switcher away from home, a tap beside a place too small to hit, a failed page
+  that reaching the end of the list does not ask again, and the web build never assuming a
+  screen reader. "The outline of the place opened last, whatever the region" stays untested: a
+  code belongs to one region, so the mutant changes nothing a collector could see.
+
+**Found while fixing** (each with its test)
+1. The first version of the segment labels shrank to fit (`adjustsFontSizeToFit`): on iOS that
+   drew every label four points high at the default text size, in every segmented control of the
+   app. Labels are one line with a capped size instead (seen on the simulator at the default and
+   at the largest size).
+2. With the field in the head of the list, the Collectors and Binders fields lost the keyboard
+   after the first letter: the list got its pull-to-refresh control with its first results, and
+   React Native builds a list's content again when that control is added (it changes place among
+   the scroll view's children on iOS and wraps the scroll view on Android). The control is now
+   always there. `collector-search-looking-for.yaml` types in two steps and checks that the
+   field holds the whole name (it failed on the code before this fix); jest pins the control.
+3. On the web export, "back" from a place opened by a link came back to the link, which opened
+   the place again: the place could not be left. Clearing the link and opening the place in the
+   same turn left the link in the history entry of the tab. The place now opens one turn after
+   the link has left the tab's address. Caught by the existing E2E link spec.
+4. The mobile E2E suite shared the anonymous request budget of one visitor (60 a minute per
+   address; the app reads `/api/v1/public/*` without a token): with one more spec the report
+   dialog got a 429 for its reasons. The isolated test API now has the setting the web suite
+   already had (`RATE_LIMIT_ANONYMOUS_PER_MINUTE=600`, `scripts/lib/mobile-e2e-guard.mjs`).
+5. The largest text size can be asked for by a flow: `subflows/relaunch-large-text.yaml` starts
+   Expo Go with the launch argument `UIPreferredContentSizeCategoryName`, for that launch only
+   (no setting of the simulator changes), and the flow checks that the text really is that
+   large. Android has no such argument; the flow walks the same paths at the device's size there.
+
+**Checks after the fixes** (2026-10-13, the owner's Mac mini, retries off)
+- `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: clean.
+- `npm run test:mobile`: typecheck, lint, jest 84 suites / 796 tests (757 before the review),
+  28 harness guard tests.
+- `npx expo export` into throw-away directories: iOS 5,441,193 B (1,771 modules; 5,425,787 B
+  before the review), Android 5,738,933 B (1,895 modules; 5,723,727 B), web entry 2,846,757 B
+  (74 static routes; 2,837,262 B), the three region chunks unchanged.
+- `npm run test:mobile:e2e -- --retries=0`: 56 passed on the first attempt (50.2 s; 1 min 12 s in
+  all). Without `--retries=0` the harness retries twice.
+- `npm run test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro simulator
+  (iOS 27.0, Expo Go 57.0.9): **27/27 flows
+  passed in one run** (41 min 32 s of flows, 41 min 55 s in all; 25 flows before the review, 27
+  with `map-gestures-links.yaml` and `large-text.yaml`). Afterwards ports 8082 and 8090 were
+  free and the run's 30 emulator accounts were deleted.
+- `npm run test:scripts`: 133 tests. `npm run audit:gate`: OK (the 2 allowlisted advisories).
+- Once, as a regression check of the lockfile: `npm run build -w apps/web-angular` (initial total
+  899.93 kB, as before) and `npm run test:web` (lint clean, 142 files / 678 tests). The web was
+  not changed; neither was the API.
+- `npm run sync:boundaries -w apps/mobile -- --check`: the three copies are up to date.
+- The fixes are nine commits on top of the nine of the stage; each of the seven that change the
+  app or its unit tests was type-checked, linted, format-checked and unit-tested on its own
+  (764, 766, 771, 772, 788, 794 and 796 tests).
+- Git status clean; no API or Metro left running. The owner's simulator was found booted and is
+  left booted, in light mode and at its default text size (no simulator was booted, shut down,
+  created or erased in this round).
+
+**Not verified in this round**
+- **Android**: no Android SDK on this Mac; the Android run of the flows could not be verified.
+  By reading: the map still uses the responder system only; the refresh control fix matters there
+  too (the scroll view is wrapped on Android); `relaunch-large-text.yaml` reopens the app at the
+  device's own size on Android; `npx expo export --platform android` succeeds.
+- A pinch on a device (Maestro has one finger): jest only, as before.
+- The read timeout on a real network that stalls: jest, and one walk with the test API paused.
+
+**Review fix 2 (2026-10-13)**
+
+The second review (an independent verification of fix 1: the whole check list, 44 mutants and a
+walk on the simulator) approved the branch with no blocker and no major, and left three minors.
+Each is fixed at its cause with a test that fails without the fix. The native checks ran on the
+same iPhone 18 Pro simulator the owner keeps booted.
+
+- **R1-1, the "region settled first" gate of the sponsored placements (a test that did not
+  test).** The code was right, but the case added in fix 1 could not see the gate: a slot only
+  asks once the account is ready and the flags are read, and by then the storage of a test has
+  answered, so the one request was in the right region with or without the gate. The case now
+  holds the device's answer until the account and the flags are there: nothing is asked
+  meanwhile, then one request in the region the device kept. Checked against the reviewer's
+  mutant (the gate taken out of `useAds`): one request in Americas (North), and the case fails.
+  The sentence of fix 1 about this gate ("... of the placements ...") is true now.
+- **R1-2, the search field out of reach down a list.** Since fix 1 the field, the game pills
+  and the filters scroll away with the results (so that they can be reached at the largest text
+  sizes), and only scrolling all the way back up brought them back. Each list of the Search tab
+  (Cards, Collectors, Binders) is now given to the tab (`useScrollToTop`): pressing Search again
+  scrolls it to its top, as the Map tab does. The other way the review named (the field pinned at
+  ordinary text sizes, scrolling at the accessibility sizes) was not taken: two layouts of one
+  screen, switched by a setting of the device, for what the platform's own gesture does. Tests:
+  jest (`search-segments`: in each segment the list on screen is the one the tab was given), the
+  E2E `catalog.spec.ts` and the native flow `search-card-detail.yaml` (down the catalog the field
+  is gone, the tab is pressed again, the field is back). The E2E spec and the flow were each run
+  once on the code before the fix: both fail at "the field is back".
+- **R1-7, a collector just blocked still found by search (older than this stage).** Blocking and
+  unblocking now also read every search of the viewer again, the unified results and the card
+  holders alike (`meKeys.searches`), in whatever region they were read. jest: the same kind of
+  assertion as for the region map; it fails without the line.
+
+**Found while fixing**
+1. The first version of the E2E step scrolled 600 points deep with the wheel in a poll, passed
+   alone and failed in the full run. On the web export a list draws its first ten rows, then the
+   others in an idle moment; a jump of the wheel made before that moment lands at the end of
+   the ten rows, and a wheel that keeps turning holds the idle moment back (a probe saw ten rows
+   through three seconds of wheel events and 24 rows two seconds after the last one; with steps
+   of 120 points, or after a pause of a second and a half, the rows come as the list scrolls). A
+   hand is not affected: a wheel turned by hand moves in small steps, and the native lists are
+   not built this way. The step now only needs the field to be above the screen, which the first
+   rows are enough for: 10 of 10 with `--repeat-each=10`, and still a failure on the code before
+   the fix.
+
+**Left as they are** (the four nits of the second review, not part of this round)
+- R1-3: jest does not see a link to an unknown region that also names a state (the router mock
+  never clears the parameters), nor the wait for `GET /regions` for a region the app does not
+  ship; on the device both behave (walked by the reviewer).
+- R1-4: the dot of a place too small to be seen is the solid tint, which is also the legend's
+  colour for "10+", whatever the place's count.
+- R1-5: at the largest text size the name card of a held place covers the top third of the
+  240-point map, sometimes the place it names.
+- R1-6: jest prints "A worker process has failed to exit gracefully" once per run since the read
+  timeout of fix 1 (no open handle is reported when the suite runs in one process).
+
+**Checks after the fixes** (2026-10-13, the owner's Mac mini, retries off)
+- `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: clean.
+- `npm run test:mobile`: typecheck, lint, jest 84 suites / 798 tests (796 after fix 1), 28
+  harness guard tests.
+- `npx expo export` into throw-away directories: iOS 5,441,366 B (1,771 modules), Android
+  5,739,309 B (1,895 modules), web entry 2,846,226 B (74 static routes), the three region chunks
+  unchanged (132,238 / 99,913 / 59,297 B).
+- `npm run test:mobile:e2e -- --retries=0`: 56 passed on the first attempt (51.4 s; 1 min 14 s in
+  all).
+- `npm run test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro simulator
+  (iOS 27.0, Expo Go 57.0.9): **27/27 flows passed in one run** (42 min 5 s of flows, 42 min 29 s
+  in all), `search-card-detail.yaml` with its new steps among them. Afterwards ports 8082 and
+  8090 were free and the run's 30 emulator accounts were deleted.
+- `npm run test:scripts`: 133 tests. `npm run audit:gate`: OK (the 2 allowlisted advisories).
+- Once more, as a regression check (the lockfile did not change in this round):
+  `npm run build -w apps/web-angular` (initial total 899.93 kB, as before) and `npm run test:web`
+  (lint clean, 142 files / 678 tests). The web was not changed; neither was the API.
+- The fixes are three commits (one per finding); git status clean; no API or Metro left running.
+  The owner's simulator was found booted and is left booted, in light mode and at its default
+  text size (no simulator was booted, shut down, created or erased in this round).
+
+**Not verified in this round**
+- **Android**: no Android SDK on this Mac; the Android run of the flows could not be verified.
+  By reading: `useScrollToTop` is React Navigation's own hook and calls the list's
+  `scrollToOffset` on both platforms; the new steps of `search-card-detail.yaml` use nothing of
+  one platform; `npx expo export --platform android` succeeds.
+- **The status-bar tap of iOS** (the system gesture that scrolls the list on screen to its top):
+  a synthetic tap on the status bar does nothing on this simulator, on the Search tab and on
+  the Map tab's list alike, so it proves nothing either way. With a finger it may do nothing in
+  Search > Cards, where a second scroll view is on screen (the row of game pills): iOS ignores
+  the gesture when more than one scroll view could answer it. For the owner to try on a phone;
+  if it matters, that row can opt out of the gesture (`scrollsToTop={false}`).
+
+**Independent verification of review fix 2 (2026-10-13, head `03cd64f`): approved, no blocker and
+no major finding.** The verifier ran the whole check list itself, retries off: typecheck, lint,
+format check; jest 84 suites / 798 tests (11 of 12 runs green; one run lost a worker to a Node
+garbage-collector segfault and passed when repeated); the three exports; the mobile web E2E 56
+passed on the first attempt; the native suite 27/27 on the owner's iPhone 18 Pro simulator (41 min
+59 s); script tests 133; the audit gate; the web build (initial total 899.93 kB, unchanged) and
+web tests as a regression check. R1-1, R1-2 and R1-7 are fixed (14 mutants around the three fixes,
+14 killed). Left open, none introduced by this branch:
+- **The card holders count includes collectors in a block relation with the viewer (API, both
+  clients).** After a block the row leaves the list but "1 listing in your region" stays:
+  `SearchService.cardHolders` drops blocked owners after `CardHolderRepository.page` has counted
+  them, so `totalItems` is too high and a page can come back short. To fix in the API (both
+  directions of a block in the SQL of the page and of the count, with an integration test).
+- **At the largest text size every line of a collector row in Search is cut with "…"** (the state
+  or province is not visible; VoiceOver reads the whole row). `CollectorResultRow`, not touched by
+  this stage; check `BinderResultRow` the same way.
+- Small: the status-bar tap of iOS probably does nothing in Search > Cards (a second scroll view
+  is on screen; not provable on a simulator); the dot of a place too small to see has the solid
+  colour the legend uses for "10+"; at the largest text size the name card of a held place covers
+  the top third of the map; jest does not see a link to an unknown region that also names a
+  state; jest prints "A worker process has failed to exit gracefully" once per run.
+From this stage on the native suite runs on the simulator the owner keeps booted (owner order of
+2026-10-12: `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` on every run; nothing boots or shuts down a
+simulator, because each boot makes the desktop app ask the owner for permission).
+
 ---
 
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
 > wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
-> Apple Silicon (#59, 2026-10-10). The owner's local database migrates on the next `npm run dev`
-> and loses its trading areas by design (S1).
+> Apple Silicon (#59, 2026-10-10); the iOS path of the native Maestro harness and the iOS defects
+> it found (#61, 2026-10-12). The owner's local database migrates on the next `npm run dev` and
+> loses its trading areas by design (S1).
 >
-> **The iOS path of the native Maestro harness (branch `feature/ios-maestro-harness`, `main`
-> merged in):** builder done and independently verified on 2026-10-12 (see "Mobile app on the iOS
-> simulator"): `npm run test:mobile:maestro -- --platform ios` runs the 24 flows in Expo Go on a
-> simulator the harness creates and boots itself; the flows are one set for both platforms and
-> the iOS defects they found are fixed. Next for this branch: the pull request, merged when CI is
-> green. The Android steps were not executed (no Android SDK on the Mac).
+> **Owner order of 2026-10-12: mobile only. The web app is paused until a new order** (do not
+> change `apps/web-angular`; it stays the reference for what the phone should offer).
+>
+> **Mobile stage M9, regions on the phone (branch `feature/mobile-regions-map`, on `main` at
+> `00714a9`, not pushed):** built and checked on 2026-10-12 (see "Mobile app: regions and the
+> region map"): the region switcher, the region map in the Map tab, the binders of a state or
+> province, the map libraries removed. Reviewed on 2026-10-12 (17 findings, no blocker) and fixed
+> on 2026-10-13 ("Review fix 1" in that section). The second review approved the branch the same
+> day and left three minors, fixed at once ("Review fix 2"). Next for this branch: the pull
+> request, merged when CI is green. The Android steps were not executed (no Android SDK on the
+> Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
+> may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
 >
 > **In review, not on `main`:** the binder / inventory deadlock fix (branch
 > `fix/binder-count-deadlock`); it merges only with an approving final review.
 >
-> **Exact next task after this branch: stage S3 — search, the card page, have/want and search
-> history (spec sections 2 and 2b of the 2026-10-08 product change), on a new branch from
-> `main`.** Reuse `shared/catalog/printing-picker` on the card page
-> (feed its `holderCounts` input from a new grouped per-printing holder count, read `?printing=` /
-> `?rarity=` into it, replace "Selected printing" and "Who has this near me" with "Find this
-> card"), extend `/search/card-holders` (rarity, country/subdivision filters, per-printing counts,
-> sorts), add "Who wants it" (visible wishlists, the S2 public note and NM / % TCG chips;
-> `CollectorDiscoveryService.markersFor` gives the rows' collectors) and "Wanted by N" on inventory
-> items (one grouped query, the same fit rules as `WishlistAlertRules`), search result have/want
-> counts, the rarity query parsing, and the server-side search history (`/me/search-history`,
-> privacy switch, export, deletion). The remaining stages: S4 community photos (section 5), S5 YDK
-> + Collectr import (section 6), S6 final docs and the definition-of-done walkthrough (sections
-> 8–9). Mobile follow-ups of S1 and S2 are listed in their sections.
+> **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
+> skipped until the owner asks for them.**
+>
+> **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
+> CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
+> preview-then-commit flow for both sources: the preview is kept server-side for a short time and
+> belongs to its collector, the commit is one idempotent transaction that merges duplicates (same
+> printing, condition, edition and language), items are Private by default, the freemium inventory
+> limit and the rate limiter apply, file contents are never logged, Collectr is never called and
+> its prices are never stored (the header is detected through aliases: the real one is
+> unconfirmed; the `/mnt/project-files/...` prompt the spec names does not exist). A row without a
+> printing is chosen on the phone with the existing "which copy" chooser of the wish form (the
+> shared picker of the card page belongs to the skipped S3), plus "Use the most recent printing for
+> all unchosen rows". The import is a new bulk write of inventory items: the parked deadlock fix
+> (`fix/binder-count-deadlock`) changes exactly that code, so its final review comes first. The web
+> import screen waits for the owner's order. **Then stage S6**: the final documents and the
+> definition-of-done walkthrough (sections 8 and 9), which must list what S3 and S4 would have
+> delivered as not built (the printing picker with holder counts, "Who has it" / "Who wants it",
+> "Wanted by N", the search history; community photos), not as done.
+>
+> **Skipped (S3, spec sections 2 and 2b), kept here for the day it is asked for.** API: a grouped
+> per-printing holder count, `/search/card-holders` extended (rarity, country / subdivision
+> filters, per-printing counts, sorts), "Who wants it" (visible wishlists, the S2 public note and
+> NM / % TCG chips; `CollectorDiscoveryService.markersFor` gives the rows' collectors), "Wanted by
+> N" on inventory items (one grouped query, the same fit rules as `WishlistAlertRules`), search
+> result have/want counts, the rarity query parsing, and the server-side search history
+> (`/me/search-history`, privacy switch, export, deletion). Mobile: the printing picker of the
+> card screen, "Who has it" / "Who wants it", "Wanted by N" (S1 follow-ups 3 and 4). Web: reuse
+> `shared/catalog/printing-picker` on the card page, "Find this card". S2's "Known gaps" that S3
+> was to close stay open. **Skipped (S4, section 5):** photos in community posts.
 
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`
