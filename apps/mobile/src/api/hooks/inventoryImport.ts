@@ -1,5 +1,6 @@
 import {
   useInfiniteQuery,
+  useIsMutating,
   useMutation,
   useQuery,
   useQueryClient,
@@ -206,11 +207,26 @@ export function useUploadImport() {
 }
 
 /**
- * Edits of one preview run one after the other (`scope`): each answers with the counts after it,
- * and the last answer to arrive must be the last edit.
+ * Everything that changes one preview runs one after the other (`scope`): each edit answers with
+ * the counts after it, and the last answer to arrive must be the last edit. The commit is in the
+ * same queue, so it is only sent once every edit made before it has been saved: a card the
+ * collector has just left out is never imported because the commit overtook that edit.
  */
 function editScope(importId: string) {
   return { id: `inventory-import-${importId}` };
+}
+
+/** Marks the edits of one preview (sections, rows, bulk actions), so they can be counted. */
+function editKey(importId: string) {
+  return ['inventory-import-edit', importId] as const;
+}
+
+/**
+ * How many edits of a preview are still being saved or wait their turn. While it is not zero the
+ * counts on screen are not the API's yet, and the commit waits.
+ */
+export function useImportEditsPending(importId: string): number {
+  return useIsMutating({ mutationKey: editKey(importId) });
 }
 
 /** `PATCH /inventory/imports/{id}`: which sections of a deck count. */
@@ -218,6 +234,7 @@ export function useUpdateImportSections(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<InventoryImport, ApiError, UpdateImportRequest>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async (body) =>
       required(
@@ -248,6 +265,7 @@ export function useUpdateImportRow(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<ImportRowChange, ApiError, UpdateImportRowInput, { previous: ImportRow }>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async ({ row, patch }) =>
       required(
@@ -291,6 +309,7 @@ export function useBulkImport(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<ImportBulkResponse, ApiError, BulkImportRequest>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async (body) =>
       required(
@@ -312,11 +331,15 @@ export function useBulkImport(importId: string) {
  * `POST /inventory/imports/{id}/commit`: the ready rows become inventory items. The API makes it
  * safe to send again: a second commit, or one repeated after a lost answer, adds nothing twice and
  * answers the same result; a commit that was cut continues where it stopped.
+ *
+ * It waits its turn behind the edits of the preview (`scope`): pressed while an edit is still on
+ * its way, it is sent after that edit was answered, never before.
  */
 export function useCommitImport(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<InventoryImport, ApiError, { skipUnresolved: boolean }>({
+    scope: editScope(importId),
     mutationFn: async ({ skipUnresolved }) =>
       required(
         (

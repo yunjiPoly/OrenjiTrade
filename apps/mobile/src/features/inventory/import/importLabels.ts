@@ -42,7 +42,7 @@ export const IMPORT_SOURCES: Record<ImportSource, ImportSourceInfo> = {
   YDK: {
     title: 'Yu-Gi-Oh! deck file (.ydk)',
     description:
-      'The list of a deck as deck builders save it: in your deck builder, open the deck and choose “Export” or “Download YDK”.',
+      'The list of a deck as deck builders save it: in your deck builder, open the deck and choose “Export” or “Download YDK”. Each line of the file is the passcode of a card: the number printed in the lower left corner of the card.',
     icon: 'cards-playing-outline',
     noun: 'a deck file',
     pasteLabel: 'Text of the deck file',
@@ -71,6 +71,28 @@ export function formatCount(value: number): string {
 /** "1 card" / "3 cards". */
 export function plural(count: number, one: string, many: string = `${one}s`): string {
   return `${formatCount(count)} ${count === 1 ? one : many}`;
+}
+
+/**
+ * What one line of a preview is called. A deck file names each card once per copy, and its lines
+ * become one line per different card; a CSV export is shown line by line. "Card" alone always
+ * means an inventory card (what the import adds), "copy" a copy of it.
+ */
+export function lineNoun(source: ImportSource): { one: string; many: string } {
+  return source === 'YDK'
+    ? { one: 'different card', many: 'different cards' }
+    : { one: 'line', many: 'lines' };
+}
+
+/** "3 different cards" / "1 line". */
+export function pluralLines(count: number, source: ImportSource): string {
+  const noun = lineNoun(source);
+  return plural(count, noun.one, noun.many);
+}
+
+/** The short word for the lines that need something: "card(s)" of a deck, "line(s)" of a CSV. */
+function shortLines(count: number, source: ImportSource): string {
+  return source === 'YDK' ? plural(count, 'card') : plural(count, 'line');
 }
 
 /** "100 kB", "2 MB" (a kB is 1,024 bytes, as the admin settings count it). */
@@ -192,11 +214,11 @@ export function importRefusal(error: ApiError, source: ImportSource): FriendlyEr
   }
   if (reason === 'NOT_TEXT' || error.errorCode === 'UNSUPPORTED_MEDIA_TYPE') {
     return {
-      title: 'This is not a text file',
+      title: 'This file could not be read as text',
       message:
         source === 'YDK'
           ? 'A deck file is plain text: choose the .ydk file itself, not a picture or a compressed folder.'
-          : 'A CSV export is plain text: choose the .csv file itself, not a spreadsheet saved as .xlsx or .numbers.',
+          : 'A CSV export is plain text in UTF-8. Choose the .csv file itself, not a spreadsheet saved as .xlsx or .numbers. If it is a .csv that another app saved again, export it from Collectr once more, or save it as “CSV UTF-8”.',
     };
   }
   switch (reason) {
@@ -243,7 +265,7 @@ export function importRefusal(error: ApiError, source: ImportSource): FriendlyEr
         title: 'No card in this file',
         message:
           source === 'YDK'
-            ? 'A deck file lists one card passcode per line under “#main”, “#extra” and “!side”. This file has none.'
+            ? 'A deck file lists one passcode per line (the number printed in the lower left corner of a card) under “#main”, “#extra” and “!side”. This file has none.'
             : 'This export has column titles but no row with a card name.',
       };
     default:
@@ -313,15 +335,20 @@ export function summaryStats(summary: ImportSummary): SummaryStat[] {
 }
 
 /**
- * The sentence under the counts: "5 copies from 3 of the 4 lines of your file. 1 left out.
- * 2 lines of the file were not cards and were skipped."
+ * The sentence under the counts, one word per thing: "Your file lists 4 different cards. 3 are
+ * ready to add: 5 copies. 1 left out. 2 lines of the file were not cards and were skipped."
  */
 export function summarySentence(
-  preview: Pick<InventoryImport, 'summary' | 'ignoredLines'>
+  preview: Pick<InventoryImport, 'summary' | 'ignoredLines' | 'source'>
 ): string {
-  const { summary, ignoredLines } = preview;
+  const { summary, ignoredLines, source } = preview;
   const parts = [
-    `${plural(summary.copies, 'copy', 'copies')} from ${formatCount(summary.ready)} of the ${plural(summary.rows, 'line')} of your file.`,
+    source === 'YDK'
+      ? `Your file lists ${pluralLines(summary.rows, source)}.`
+      : `Your file has ${pluralLines(summary.rows, source)}.`,
+    summary.ready === 0
+      ? 'None is ready to add yet.'
+      : `${formatCount(summary.ready)} ${summary.ready === 1 ? 'is' : 'are'} ready to add: ${plural(summary.copies, 'copy', 'copies')}.`,
   ];
   if (summary.leftOut > 0) {
     parts.push(`${formatCount(summary.leftOut)} left out.`);
@@ -339,7 +366,7 @@ export function summarySentence(
 export interface SectionSwitch {
   key: 'includeMain' | 'includeExtra' | 'includeSide';
   label: string;
-  /** "40 cards in your file". */
+  /** "40 copies in your file". */
   help: string;
   value: boolean;
 }
@@ -347,7 +374,7 @@ export interface SectionSwitch {
 /** The three sections of a deck as switches, each with the copies the file holds in it. */
 export function sectionSwitches(sections: ImportSections): SectionSwitch[] {
   const help = (copies: number) =>
-    copies === 0 ? 'None in your file' : `${plural(copies, 'card')} in your file`;
+    copies === 0 ? 'None in your file' : `${plural(copies, 'copy', 'copies')} in your file`;
   return [
     {
       key: 'includeMain',
@@ -384,17 +411,22 @@ export function emptyFilterText(filter: ImportRowFilter): { title: string; descr
   switch (filter) {
     case 'CHOOSE_PRINTING':
       return {
-        title: 'No card needs a printing',
-        description: 'Every card of your file that was recognised has its printing.',
+        title: 'Nothing needs a printing',
+        description: 'Everything in your file that was recognised has its printing.',
       };
     case 'UNMATCHED':
       return {
-        title: 'Every line was recognised',
-        description: 'Each line of your file is a card of the catalog.',
+        title: 'Everything was recognised',
+        description: 'Each card your file names is a card of the catalog.',
       };
     default:
-      return { title: 'No lines', description: 'This import has no line to show.' };
+      return { title: 'Nothing to show', description: 'This import has nothing to show.' };
   }
+}
+
+/** The title of the card over the bulk action: "2 cards need a printing" / "115 lines need …". */
+export function needPrintingTitle(toChoose: number, source: ImportSource): string {
+  return `${shortLines(toChoose, source)} ${toChoose === 1 ? 'needs' : 'need'} a printing`;
 }
 
 // --- One row -----------------------------------------------------------------------------------
@@ -421,21 +453,70 @@ export function rowSourceText(row: ImportRow): string {
   return parts.join(' · ');
 }
 
-const UNMATCHED_REASONS: Record<ImportUnmatchedReason, string> = {
-  UNKNOWN_PASSCODE: 'No card of the catalog has this passcode.',
-  UNKNOWN_CARD: 'No card of the catalog has this name.',
-  AMBIGUOUS_CARD: 'Several cards have this name and the file does not say which one.',
-  UNKNOWN_GAME: 'OrenjiTrade does not have this game.',
-  NO_PRINTING: 'The catalog has this card but no printing of it yet.',
-  INVALID_QUANTITY: 'The number of copies in the file could not be read.',
-  CARD_REMOVED: 'This card left the catalog after the file was read.',
+/** Where a card is added one at a time: the button of the Inventory tab. */
+const BY_HAND = 'find the card by its name with “Add card” in your inventory';
+
+const UNMATCHED_REASONS: Record<ImportUnmatchedReason, { why: string; next: string }> = {
+  UNKNOWN_PASSCODE: {
+    why: 'No card of the catalog has this passcode (the number printed in the lower left corner of a card).',
+    next: `If you know which card it is, ${BY_HAND}.`,
+  },
+  UNKNOWN_CARD: {
+    why: 'No card of the catalog has this name.',
+    next: `Check its spelling in your file, or ${BY_HAND}.`,
+  },
+  AMBIGUOUS_CARD: {
+    why: 'Several cards have this name and the file does not say which one.',
+    next: `Add the set or the card number to this line of your file, or ${BY_HAND}.`,
+  },
+  UNKNOWN_GAME: {
+    why: 'OrenjiTrade does not have this game.',
+    next: 'Cards of this game cannot be added yet.',
+  },
+  NO_PRINTING: {
+    why: 'The catalog has this card but no printing of it yet.',
+    next: 'It cannot be added until the catalog has one.',
+  },
+  INVALID_QUANTITY: {
+    why: 'The number of copies in the file is not a whole number from 1 to 9,999.',
+    next: `Correct it in your file, or ${BY_HAND}.`,
+  },
+  CARD_REMOVED: {
+    why: 'This card left the catalog after the file was read.',
+    next: 'It can no longer be added.',
+  },
 };
+
+const NOTHING_FITS = { why: 'Nothing in the catalog fits.', next: `You can ${BY_HAND}.` };
 
 /** Why a row was not recognised. */
 export function unmatchedReasonText(reason: ImportRow['unmatchedReason']): string {
-  return reason
-    ? (UNMATCHED_REASONS[reason] ?? 'Nothing in the catalog fits.')
-    : 'Nothing in the catalog fits.';
+  return ((reason && UNMATCHED_REASONS[reason]) || NOTHING_FITS).why;
+}
+
+/** What the collector can do about a row that was not recognised. */
+export function unmatchedNextStep(reason: ImportRow['unmatchedReason']): string {
+  return ((reason && UNMATCHED_REASONS[reason]) || NOTHING_FITS).next;
+}
+
+/**
+ * What the file said about a recognised row, so the match can be checked against the file: the
+ * passcode of a deck line (two lines of one card are the card and its alternate artwork), or
+ * the set, number and rarity of a CSV line as written (and its name when it is spelled otherwise).
+ * `null` when the file said nothing more than the card shown.
+ */
+export function matchedSourceText(row: Pick<ImportRow, 'source' | 'card'>): string | null {
+  if (row.source.passcode) {
+    return `Passcode ${row.source.passcode}`;
+  }
+  const name =
+    row.source.name && row.source.name.trim().toLowerCase() !== row.card?.name?.toLowerCase()
+      ? row.source.name
+      : null;
+  const parts = [name, row.source.set, row.source.number, row.source.rarity].filter(
+    (part): part is string => !!part
+  );
+  return parts.length ? `In your file: ${parts.join(' · ')}` : null;
 }
 
 /** The copy chosen ("AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition") or "Choose printing". */
@@ -464,11 +545,27 @@ export function deckText(deck: ImportRow['deck']): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** "You have 2: this adds 3." when the row goes into a card already owned. */
-export function ownedText(row: Pick<ImportRow, 'ownedQuantity' | 'quantity'>): string | null {
-  return row.ownedQuantity > 0
-    ? `You have ${formatCount(row.ownedQuantity)}: this adds ${formatCount(row.quantity)}.`
-    : null;
+/**
+ * What a row does to a card already owned. "You have 2: this adds 3." when it goes into a card
+ * the collector keeps private. An import never changes a card the collector shows: "You show 1
+ * publicly: that card stays as it is, and these 2 copies are added as a private card."
+ */
+export function ownedText(
+  row: Pick<ImportRow, 'ownedQuantity' | 'shownQuantity' | 'quantity'>
+): string | null {
+  const shown = row.shownQuantity ?? 0;
+  if (row.ownedQuantity > 0) {
+    const adds = `You have ${formatCount(row.ownedQuantity)}: this adds ${formatCount(row.quantity)}.`;
+    return shown > 0
+      ? `${adds} The ${formatCount(shown)} you show publicly ${shown === 1 ? 'stays' : 'stay'} as ${shown === 1 ? 'it is' : 'they are'}.`
+      : adds;
+  }
+  if (shown > 0) {
+    return `You show ${formatCount(shown)} publicly: that card stays as it is, and ${
+      row.quantity === 1 ? 'this copy is' : `these ${formatCount(row.quantity)} copies are`
+    } added as a private card.`;
+  }
+  return null;
 }
 
 /** Why a matched row does not go in, when it does not: left out, or its deck sections are off. */
@@ -493,7 +590,9 @@ export function rowSummary(row: ImportRow): string {
     return [
       `Not recognised: ${rowTitle(row)}`,
       rowSourceText(row),
+      deckText(row.deck),
       unmatchedReasonText(row.unmatchedReason),
+      unmatchedNextStep(row.unmatchedReason),
     ]
       .filter(Boolean)
       .join(', ');
@@ -536,19 +635,35 @@ export interface CommitState {
 }
 
 /**
+ * "2 cards" and, when the copies are another number, "2 cards (5 copies)": a deck of 40 cards
+ * that adds 12 different cards says so, instead of reading as 28 cards dropped.
+ */
+export function cardsAndCopies(summary: Pick<ImportSummary, 'items' | 'copies'>): string {
+  const cards = plural(summary.items, 'card');
+  return summary.copies === summary.items
+    ? cards
+    : `${cards} (${plural(summary.copies, 'copy', 'copies')})`;
+}
+
+/**
  * The commit button. While lines still need a printing it is disabled and says so, unless the
  * collector asked to leave those lines out: nothing is ever left out without having been said.
  */
-export function commitState(summary: ImportSummary, leaveOutUnchosen: boolean): CommitState {
-  const cards = plural(summary.items, 'card');
+export function commitState(
+  summary: ImportSummary,
+  leaveOutUnchosen: boolean,
+  source: ImportSource = 'YDK'
+): CommitState {
+  const cards = cardsAndCopies(summary);
   if (summary.toChoose > 0 && !leaveOutUnchosen) {
+    const waiting = shortLines(summary.toChoose, source);
     return {
       label: summary.items > 0 ? `Add ${cards} to my inventory` : 'Add to my inventory',
       disabled: true,
       reason:
         summary.toChoose === 1
-          ? '1 card still needs a printing. Choose it, or leave that card out.'
-          : `${formatCount(summary.toChoose)} cards still need a printing. Choose them, or leave those cards out.`,
+          ? `${waiting} still needs a printing. Choose it, or leave it out.`
+          : `${waiting} still need a printing. Choose them, or leave them out.`,
     };
   }
   if (summary.items === 0) {
@@ -557,7 +672,7 @@ export function commitState(summary: ImportSummary, leaveOutUnchosen: boolean): 
       disabled: true,
       reason:
         summary.toChoose > 0
-          ? 'No card is ready: every card that was recognised still needs a printing.'
+          ? 'No card is ready: everything that was recognised still needs a printing.'
           : 'No card of this file is ready to be added.',
     };
   }
@@ -571,6 +686,9 @@ export function commitState(summary: ImportSummary, leaveOutUnchosen: boolean): 
   }
   return { label: `Add ${cards} to my inventory`, disabled: false, reason };
 }
+
+/** What the button says while edits of the preview are still on their way to the API. */
+export const SAVING_CHANGES = 'Saving your changes…';
 
 /** What happens to the cards of a commit: new ones start private, the others go into owned cards. */
 function privacySentence(summary: Pick<ImportSummary, 'items' | 'mergedItems'>): string {
@@ -593,23 +711,140 @@ function privacySentence(summary: Pick<ImportSummary, 'items' | 'mergedItems'>):
 }
 
 /** The label of the "leave them out" choice shown while lines need a printing. */
-export function leaveOutLabel(toChoose: number): string {
+export function leaveOutLabel(toChoose: number, source: ImportSource = 'YDK'): string {
+  const waiting = shortLines(toChoose, source);
   return toChoose === 1
-    ? 'Leave out the 1 card that still needs a printing'
-    : `Leave out the ${formatCount(toChoose)} cards that still need a printing`;
+    ? `Leave out the ${waiting} that still needs a printing`
+    : `Leave out the ${waiting} that still need a printing`;
 }
 
-/** What a bulk action did, for the snackbar. */
-export function mostRecentMessage(updated: number): string {
-  return updated === 0
-    ? 'No card was waiting for a printing.'
-    : `${plural(updated, 'card')} got ${updated === 1 ? 'its' : 'their'} most recent printing.`;
+/**
+ * What "use the most recent printing" did, for the snackbar. Where the most recent set holds a
+ * card in several editions or finishes (a 1st Edition and an Unlimited copy), the release date
+ * decides nothing between them: the plain copy was taken, and that is said, so the collector
+ * checks those lines. Where even that does not decide (two rarities, two languages), the lines
+ * are left to choose, and that is said too.
+ */
+export function mostRecentMessage(
+  updated: number,
+  assumed: number = 0,
+  undecided: number = 0,
+  source: ImportSource = 'YDK'
+): string {
+  const parts: string[] = [];
+  if (updated > 0) {
+    parts.push(
+      `${shortLines(updated, source)} got ${updated === 1 ? 'its' : 'their'} most recent printing.`
+    );
+  }
+  if (assumed > 0) {
+    parts.push(
+      assumed === updated
+        ? `${assumed === 1 ? 'Its' : 'Their'} most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check ${assumed === 1 ? 'it' : 'them'}.`
+        : `For ${formatCount(assumed)} of them that set has several versions: the plain copy (Unlimited, no foil) was taken. Check ${assumed === 1 ? 'it' : 'them'}.`
+    );
+  }
+  if (undecided > 0) {
+    parts.push(
+      `${shortLines(undecided, source)} ${undecided === 1 ? 'has' : 'have'} several printings in ${
+        undecided === 1 ? 'its' : 'their'
+      } most recent set: choose ${undecided === 1 ? 'it' : 'them'}.`
+    );
+  }
+  return parts.length ? parts.join(' ') : 'Nothing was waiting for a printing.';
+}
+
+/**
+ * What stands under the copy of a line the bulk action decided by taking the plain copy: the
+ * collector is told the copy was assumed, as "(not in your file)" says it of a condition.
+ */
+export function assumedCopyText(row: Pick<ImportRow, 'printingChoice'>): string | null {
+  return row.printingChoice === 'MOST_RECENT_ASSUMED'
+    ? 'Taken as the plain copy (Unlimited, no foil): its most recent set has other versions. Change it if yours is another.'
+    : null;
 }
 
 export function conditionSetMessage(updated: number, condition: string): string {
   return updated === 0
     ? `Those cards are already ${conditionLabel(condition)}.`
     : `${plural(updated, 'card')} set to ${conditionLabel(condition)}.`;
+}
+
+/**
+ * The card "Check the conditions": what the lines whose file names no condition are set to. They
+ * start at the lowest grade of the game; once the collector set another for all of them, the card
+ * says that one instead of repeating where they started.
+ */
+export function defaultConditionsText(
+  summary: Pick<ImportSummary, 'defaultConditions' | 'defaultCondition'>,
+  lowestGrades: readonly string[]
+): { description: string; action: string } {
+  const count = summary.defaultConditions;
+  const cards = plural(count, 'card');
+  const shared = summary.defaultCondition ?? null;
+  const says = `Your file does not say the condition of ${cards}.`;
+  if (shared && !lowestGrades.includes(shared)) {
+    return {
+      description: `${says} You set ${count === 1 ? 'it' : 'them'} to ${conditionLabel(shared)}. Check the condition on each line, or change it for all of them.`,
+      action:
+        count === 1
+          ? 'Change the condition of this card'
+          : `Change the condition of these ${cards}`,
+    };
+  }
+  return {
+    description: `${says} A card without one starts at the lowest grade${
+      shared ? ` (${conditionLabel(shared)})` : ''
+    }, so nothing promises more than the card is. Check the condition on each line, or set one for all of them.`,
+    action:
+      count === 1
+        ? 'Set the condition of this card'
+        : `Set one condition for these ${formatCount(count)} cards`,
+  };
+}
+
+/**
+ * What the plan still has room for, said before the commit: `null` while the import fits (or the
+ * plan has no limit). "Your plan has room for 1 more card and this import adds 2 new cards: leave
+ * 1 out." Lines that still need a printing may become new cards too, so they count as "up to":
+ * the collector learns it before choosing printings for a long file, not at the commit.
+ */
+export function planRoomText(
+  summary: Pick<ImportSummary, 'items' | 'mergedItems' | 'toChoose'>,
+  remaining: number | null | undefined
+): string | null {
+  const adding = newItems(summary);
+  const atMost = adding + summary.toChoose;
+  if (remaining === null || remaining === undefined || atMost <= remaining) {
+    return null;
+  }
+  const room =
+    remaining === 0
+      ? 'Your plan has no room for a new card'
+      : `Your plan has room for ${plural(remaining, 'more card')}`;
+  const fits = 'Copies added to cards you already have always fit.';
+  if (summary.toChoose > 0) {
+    return `${room} and this import can add up to ${plural(atMost, 'new card')}: leave out what does not fit before you add it. ${fits}`;
+  }
+  return `${room} and this import adds ${plural(adding, 'new card')}: leave ${formatCount(adding - remaining)} out. ${fits}`;
+}
+
+/**
+ * What a refused commit says about the plan limit, with the numbers to act on: how many new cards
+ * the import adds (`requested`), how many still fit, how many to leave out.
+ */
+export function limitRefusalText(problem: {
+  limit: number | null;
+  used: number | null;
+  requested: number | null;
+}): string | null {
+  const { limit, used, requested } = problem;
+  if (limit === null || used === null || requested === null) {
+    return null;
+  }
+  const room = Math.max(0, limit - used);
+  const over = Math.max(1, requested - room);
+  return `This import adds ${plural(requested, 'new card')} and your plan has room for ${formatCount(room)} (${formatCount(used)} of ${formatCount(limit)} used). Leave ${formatCount(over)} out and try again.`;
 }
 
 // --- The result --------------------------------------------------------------------------------
@@ -630,17 +865,21 @@ export function linesLeftOut(preview: Pick<InventoryImport, 'summary' | 'result'
  * The result of a commit: cards added, cards already owned that got copies, lines left out (and
  * why: not recognised, without a printing, left out by the collector or by a deck section).
  */
-export function resultLines(preview: Pick<InventoryImport, 'summary' | 'result'>): ResultLine[] {
+export function resultLines(
+  preview: Pick<InventoryImport, 'summary' | 'result' | 'source'>
+): ResultLine[] {
   const result: ImportResult = preview.result ?? {
     itemsCreated: 0,
     itemsMerged: 0,
     copiesAdded: 0,
     rowsImported: 0,
+    copiesNotAdded: 0,
     chunksDone: 0,
     totalChunks: 0,
   };
   const { summary } = preview;
   const out = linesLeftOut(preview);
+  const noun = lineNoun(preview.source);
   const why = [
     summary.unmatched > 0 ? `${formatCount(summary.unmatched)} not recognised` : null,
     summary.toChoose > 0 ? `${formatCount(summary.toChoose)} without a printing` : null,
@@ -663,16 +902,37 @@ export function resultLines(preview: Pick<InventoryImport, 'summary' | 'result'>
     {
       key: 'leftOut',
       value: out,
-      label: out === 1 ? 'line of your file left out' : 'lines of your file left out',
+      label: `${out === 1 ? noun.one : noun.many} of your file left out`,
       detail: why.length ? why.join(', ') : undefined,
     },
   ];
 }
 
-/** "12 copies in all. New cards are private: publish them from your inventory when you are ready." */
+/**
+ * "12 copies in all. Everything this import added is private: publish it from your inventory when
+ * you are ready." Copies above what one card holds are said, never dropped silently.
+ */
 export function resultSentence(result: ImportResult | null | undefined): string {
   const copies = plural(result?.copiesAdded ?? 0, 'copy', 'copies');
-  return `${copies} in all. New cards are private: publish them from your inventory when you are ready.`;
+  const dropped = result?.copiesNotAdded ?? 0;
+  const cap =
+    dropped > 0
+      ? ` ${plural(dropped, 'copy', 'copies')} ${dropped === 1 ? 'was' : 'were'} not added: a card holds at most 9,999 copies.`
+      : '';
+  return `${copies} in all.${cap} Everything this import added is private: publish it from your inventory when you are ready.`;
+}
+
+/** A change that reached the API after the import was already added: what to tell the collector. */
+export function lateEditText(cards: readonly string[]): string {
+  const names = Array.from(new Set(cards));
+  if (names.length === 0) {
+    return 'This import was already added before your last change was saved: that change is not in it. Check your inventory.';
+  }
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `This import was already added before your last change to ${list} was saved: that change is not in it. Check ${names.length === 1 ? 'that card' : 'those cards'} in your inventory.`;
 }
 
 /** A commit that was cut between two parts: what is in, and that it can be finished. */
@@ -684,10 +944,10 @@ export function interruptedText(result: ImportResult | null | undefined): string
     : 'Part of this import is in your inventory. Finish it to add the rest: nothing is added twice.';
 }
 
-/** What the open import of the start screen says: "Deck file · 4 lines · kept until 3:45 PM". */
+/** What the open import of the start screen says: "Deck file · 4 different cards · kept until 3:45 PM". */
 export function openImportText(preview: InventoryImport): string {
   const what = preview.source === 'YDK' ? 'Deck file' : 'CSV export';
-  const lines = plural(preview.summary.rows, 'line');
+  const lines = pluralLines(preview.summary.rows, preview.source);
   return preview.status === 'COMMITTING'
     ? `${what} · ${lines}`
     : `${what} · ${lines} · kept until ${clockTime(preview.expiresAt)}`;

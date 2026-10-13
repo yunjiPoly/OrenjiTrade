@@ -8,7 +8,9 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {
   CHOOSE_PRINTING,
+  assumedCopyText,
   deckText,
+  matchedSourceText,
   ownedText,
   plural,
   rowConditionText,
@@ -17,6 +19,7 @@ import {
   rowStateText,
   rowSummary,
   rowTitle,
+  unmatchedNextStep,
   unmatchedReasonText,
 } from './importLabels';
 
@@ -44,10 +47,12 @@ export interface ImportRowCardProps {
  *
  * A recognised line: the card with its picture (the API's own picture), the copy chosen or
  * "Choose printing", its condition, its copies, and whether it goes in. Three controls, each named
- * with the card for a screen reader: in or out, which copy, condition and copies.
+ * with the card for a screen reader: in or out, which copy, condition and copies. Under them, in
+ * small print, what the file said (a passcode, or the set, number and rarity as written), so the
+ * match can be checked and two lines of one card can be told apart.
  *
- * A line nothing fits: what the file said, as written, and why it was not recognised. It is never
- * imported and has no control.
+ * A line nothing fits: what the file said, as written (for a deck, with its sections), why it was
+ * not recognised and what the collector can do about it. It is never imported and has no control.
  */
 export const ImportRowCard = memo(function ImportRowCard({
   row,
@@ -63,6 +68,7 @@ export const ImportRowCard = memo(function ImportRowCard({
 
   if (row.status === 'UNMATCHED') {
     const said = rowSourceText(row);
+    const sections = deckText(row.deck);
     return (
       <View
         accessible
@@ -82,8 +88,17 @@ export const ImportRowCard = memo(function ImportRowCard({
             {said ? (
               <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{said}</Text>
             ) : null}
+            {sections ? (
+              <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{sections}</Text>
+            ) : null}
             <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
               {unmatchedReasonText(row.unmatchedReason)}
+            </Text>
+            <Text
+              style={[textStyle('xs'), { color: palette.ink }]}
+              testID={`import-row-${row.position}-next`}
+            >
+              {unmatchedNextStep(row.unmatchedReason)}
             </Text>
           </View>
         </View>
@@ -97,6 +112,8 @@ export const ImportRowCard = memo(function ImportRowCard({
   const owned = ownedText(row);
   const copy = rowCopyLabel(row);
   const condition = rowConditionText(row);
+  const fromFile = matchedSourceText(row);
+  const assumed = assumedCopyText(row);
   const dimmed = !row.included || !row.inScope;
 
   const heading = (
@@ -122,7 +139,7 @@ export const ImportRowCard = memo(function ImportRowCard({
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Which copy of ${title}: ${copy}`}
+        accessibilityLabel={`Which copy of ${title}: ${copy}${assumed ? ' (taken as the plain copy: check it)' : ''}`}
         accessibilityHint="Opens the printings of this card"
         aria-disabled={disabled}
         disabled={disabled}
@@ -149,6 +166,14 @@ export const ImportRowCard = memo(function ImportRowCard({
         </Text>
         <MaterialCommunityIcons name="chevron-down" size={18} color={palette.textMuted} />
       </Pressable>
+      {assumed ? (
+        <Text
+          style={[textStyle('xs'), { color: palette.ink }]}
+          testID={`import-row-${row.position}-assumed`}
+        >
+          {assumed}
+        </Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Condition and copies of ${title}: ${condition}, ${plural(row.quantity, 'copy', 'copies')}`}
@@ -177,6 +202,14 @@ export const ImportRowCard = memo(function ImportRowCard({
         </Text>
       ) : null}
       {deck ? <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{deck}</Text> : null}
+      {fromFile ? (
+        <Text
+          style={[textStyle('xs'), { color: palette.textMuted }]}
+          testID={`import-row-${row.position}-source`}
+        >
+          {fromFile}
+        </Text>
+      ) : null}
     </>
   );
 

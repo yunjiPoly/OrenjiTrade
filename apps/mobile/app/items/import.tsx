@@ -27,6 +27,8 @@ import { ImportPreview, isImportGone } from '@/src/features/inventory/import/Imp
 import { ImportResult } from '@/src/features/inventory/import/ImportResult';
 import { ImportStart } from '@/src/features/inventory/import/ImportStart';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
+import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
+import { isLimitReached } from '@/src/lib/limits';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
 type Step =
@@ -48,12 +50,25 @@ export default function ImportScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>({ name: 'start' });
   const [draft, setDraft] = useState(false);
+  // Cards whose last change reached the API after the import had been added (see ImportPreview).
+  const [late, setLate] = useState<string[] | null>(null);
   const importId = step.name === 'import' ? step.id : null;
   const current = useInventoryImport(importId);
   const preview = importId ? (current.data ?? null) : null;
 
   const expire = useCallback(() => setStep({ name: 'expired' }), []);
-  const restart = useCallback(() => setStep({ name: 'start' }), []);
+  const restart = useCallback(() => {
+    setLate(null);
+    setStep({ name: 'start' });
+  }, []);
+  const open = useCallback((id: string) => {
+    setLate(null);
+    setStep({ name: 'import', id });
+  }, []);
+  const lateEdit = useCallback(
+    (card: string | null) => setLate((names) => [...(names ?? []), ...(card ? [card] : [])]),
+    []
+  );
 
   // A preview is used until `expiresAt`: past it, the flow says so without waiting for a refusal.
   const expiresAt = preview?.status === 'PENDING' ? preview.expiresAt : null;
@@ -94,26 +109,30 @@ export default function ImportScreen() {
     body = (
       <Screen scroll safeBottom testID="screen-import">
         <ImportStart
-          onSource={(source, open) => setStep({ name: 'file', source, replaces: open })}
-          onContinue={(open) => setStep({ name: 'import', id: open.id })}
+          onSource={(source, left) => setStep({ name: 'file', source, replaces: left })}
+          onContinue={(left) => open(left.id)}
         />
       </Screen>
     );
   } else if (step.name === 'file') {
+    // The paste field is several lines high and has no key that puts the keyboard away: a drag
+    // of the page does, so "Use this text" under it can be reached.
     body = (
-      <Screen scroll safeBottom testID="screen-import">
+      <Screen scroll safeBottom keyboardDismissMode="on-drag" testID="screen-import">
         <ImportFileStep
           source={step.source}
           replaces={step.replaces}
-          onUploaded={(uploaded) => setStep({ name: 'import', id: uploaded.id })}
+          onUploaded={(uploaded) => open(uploaded.id)}
           onBack={restart}
           onDraft={setDraft}
         />
       </Screen>
     );
   } else if (expired) {
+    // These three scroll like every other step: at the largest text sizes a title and its
+    // sentence are taller than the screen, and the button under them must stay in reach.
     body = (
-      <Screen safeBottom testID="screen-import">
+      <Screen scroll safeBottom contentContainerStyle={styles.centred} testID="screen-import">
         <EmptyState
           testID="import-expired"
           icon="timer-off-outline"
@@ -126,7 +145,7 @@ export default function ImportScreen() {
     );
   } else if (!preview && current.error) {
     body = (
-      <Screen safeBottom testID="screen-import">
+      <Screen scroll safeBottom contentContainerStyle={styles.centred} testID="screen-import">
         <ErrorState
           testID="import-error"
           error={current.error}
@@ -137,14 +156,19 @@ export default function ImportScreen() {
     );
   } else if (!preview) {
     body = (
-      <Screen safeBottom testID="screen-import">
+      <Screen scroll safeBottom testID="screen-import">
         <SkeletonList rows={4} rowHeight={120} testID="import-loading" />
       </Screen>
     );
   } else if (preview.status === 'COMMITTED') {
     body = (
       <Screen scroll safeBottom testID="screen-import">
-        <ImportResult preview={preview} onInventory={toInventory} onAnother={restart} />
+        <ImportResult
+          preview={preview}
+          lateEdits={late}
+          onInventory={toInventory}
+          onAnother={restart}
+        />
       </Screen>
     );
   } else if (preview.status === 'COMMITTING') {
@@ -156,7 +180,12 @@ export default function ImportScreen() {
   } else {
     body = (
       <Screen edgeToEdge testID="screen-import">
-        <ImportPreview preview={preview} onGone={expire} onDiscarded={restart} />
+        <ImportPreview
+          preview={preview}
+          onGone={expire}
+          onDiscarded={restart}
+          onLateEdit={lateEdit}
+        />
       </Screen>
     );
   }
@@ -211,7 +240,15 @@ function ImportInterrupted({ preview }: { preview: InventoryImport }) {
           {interruptedText(preview.result)}
         </Text>
       </SectionCard>
-      {failure ? (
+      {failure && isLimitReached(failure) ? (
+        // A card this import was going to add copies to was deleted and its room given away:
+        // the rest waits until the plan has room again.
+        <LimitReachedNotice
+          error={failure}
+          title="The rest of this import does not fit your plan"
+          testID="import-finish-limit"
+        />
+      ) : failure ? (
         <FormMessage testID="import-finish-error">{friendlyMessage(failure)}</FormMessage>
       ) : null}
       <Button
@@ -228,4 +265,5 @@ function ImportInterrupted({ preview }: { preview: InventoryImport }) {
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
+  centred: { flexGrow: 1 },
 });

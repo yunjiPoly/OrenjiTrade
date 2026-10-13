@@ -128,9 +128,12 @@ test.describe('mobile inventory import', () => {
     await (
       await wrong
     ).setFiles({ name: 'deck.ydk', mimeType: 'application/octet-stream', buffer: PHOTO_PNG });
-    await expect(flow.getByTestId('import-refusal')).toContainText('This is not a text file', {
-      timeout: 30_000,
-    });
+    await expect(flow.getByTestId('import-refusal')).toContainText(
+      'This file could not be read as text',
+      {
+        timeout: 30_000,
+      }
+    );
     await expect(flow.getByTestId('import-refusal')).toContainText('choose the .ydk file itself');
 
     // The deck file, through the system file picker.
@@ -155,17 +158,17 @@ test.describe('mobile inventory import', () => {
     await expect(stat(flow, 'choose')).toHaveText('2need a printing');
     await expect(stat(flow, 'unmatched')).toHaveText('1not recognised');
     await expect(flow.getByTestId('import-summary-sentence')).toHaveText(
-      '2 copies from 1 of the 4 lines of your file.'
+      'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
     );
     await expect(flow.getByRole('switch', { name: 'Main deck' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
     await expect(flow.getByTestId('import-section-includeMain')).toContainText(
-      '3 cards in your file'
+      '3 copies in your file'
     );
     await expect(flow.getByTestId('import-section-includeSide')).toContainText(
-      '2 cards in your file'
+      '2 copies in your file'
     );
     // Nothing is in the inventory yet.
     expect(await items(request, collector.idToken)).toHaveLength(0);
@@ -174,7 +177,7 @@ test.describe('mobile inventory import', () => {
     const commit = flow.getByTestId('import-commit');
     await expect(commit).toHaveAttribute('aria-disabled', 'true');
     await expect(flow.getByTestId('import-commit-reason')).toHaveText(
-      '2 cards still need a printing. Choose them, or leave those cards out.'
+      '2 cards still need a printing. Choose them, or leave them out.'
     );
 
     // The card that fits one printing is preselected; the default condition is shown.
@@ -183,6 +186,18 @@ test.describe('mobile inventory import', () => {
     await expect(wisp).toContainText('YDKF-EN001');
     await expect(wisp).toContainText('Damaged (not in your file) · ×2');
     await expect(wisp).toContainText('Main 2');
+    // What the file said stands under the line: the match can be checked against the file.
+    await expect(flow.getByTestId('import-row-0-source')).toHaveText('Passcode 910000001');
+
+    // The filter stays on screen above the list; the count that asks something is a button too.
+    await flow.getByRole('button', { name: '1 not recognised' }).click();
+    await expect(flow.getByRole('radio', { name: 'Not recognised (1)' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await expect(flow.getByTestId('import-row-3')).toBeVisible({ timeout: 30_000 });
+    await flow.getByRole('radio', { name: 'All (4)' }).click();
+    await expect(flow.getByTestId('import-row-0')).toBeVisible({ timeout: 30_000 });
 
     // "Needs a printing": the Heron and its alternate artwork.
     await flow.getByRole('radio', { name: 'Needs a printing (2)' }).click();
@@ -210,8 +225,8 @@ test.describe('mobile inventory import', () => {
     await expect(snackbar(page)).toHaveText('1 card got its most recent printing.', {
       timeout: 30_000,
     });
-    await expect(flow.getByText('No card needs a printing')).toBeVisible({ timeout: 30_000 });
-    await flow.getByRole('button', { name: 'Show all lines' }).click();
+    await expect(flow.getByText('Nothing needs a printing')).toBeVisible({ timeout: 30_000 });
+    await flow.getByRole('button', { name: 'Show all different cards' }).click();
     await expect(flow.getByTestId('import-row-2')).toContainText('YDKR-EN002');
     await expect(flow.getByTestId('import-row-1')).toContainText('YDKF-EN002');
 
@@ -219,14 +234,32 @@ test.describe('mobile inventory import', () => {
     await flow.getByRole('radio', { name: 'Not recognised (1)' }).click();
     const unknown = flow.getByTestId('import-row-3');
     await expect(unknown).toContainText('Passcode 919999999', { timeout: 30_000 });
-    await expect(unknown).toContainText('No card of the catalog has this passcode.');
+    // The passcode is said for what it is, with the deck section and what can be done next.
+    await expect(unknown).toContainText(
+      'No card of the catalog has this passcode (the number printed in the lower left corner of a card).'
+    );
+    await expect(unknown).toContainText('Side 1');
+    await expect(flow.getByTestId('import-row-3-next')).toHaveText(
+      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+    );
     await expect(unknown.getByRole('button')).toHaveCount(0);
     await flow.getByRole('radio', { name: 'All (4)' }).click();
 
     // One condition for the cards whose file names none (a deck file names none).
     await flow.getByRole('button', { name: 'Set one condition for these 3 cards' }).click();
+    await expect(flow.getByTestId('import-default-conditions')).toContainText(
+      'starts at the lowest grade (Damaged)'
+    );
     await page.getByTestId('import-condition-NEAR_MINT').click();
     await expect(snackbar(page)).toHaveText('3 cards set to Near Mint.', { timeout: 30_000 });
+    // The card says what they are set to now, not where they started.
+    await expect(flow.getByTestId('import-default-conditions')).toContainText(
+      'You set them to Near Mint.'
+    );
+    await expect(flow.getByTestId('import-default-conditions')).not.toContainText('lowest grade');
+    await expect(
+      flow.getByRole('button', { name: 'Change the condition of these 3 cards' })
+    ).toBeVisible();
     await expect(flow.getByTestId('import-row-0')).toContainText(
       'Near Mint (not in your file) · ×2'
     );
@@ -234,7 +267,7 @@ test.describe('mobile inventory import', () => {
     // The side deck no longer counts: the Heron keeps its main copy only.
     await flow.getByRole('switch', { name: 'Side deck' }).click();
     await expect(flow.getByTestId('import-summary-sentence')).toHaveText(
-      '4 copies from 3 of the 4 lines of your file.',
+      'Your file lists 4 different cards. 3 are ready to add: 4 copies.',
       { timeout: 30_000 }
     );
     await expect(flow.getByTestId('import-row-1')).toContainText('×1');
@@ -259,7 +292,10 @@ test.describe('mobile inventory import', () => {
     await expect(flow.getByTestId('import-row-0-state')).toHaveText('Left out');
     await expect(commit).toHaveAccessibleName('Add 2 cards to my inventory', { timeout: 30_000 });
     await flow.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' }).click();
-    await expect(commit).toHaveAccessibleName('Add 3 cards to my inventory', { timeout: 30_000 });
+    // Three cards, five copies: the copies stand next to the cards.
+    await expect(commit).toHaveAccessibleName('Add 3 cards (5 copies) to my inventory', {
+      timeout: 30_000,
+    });
     await expect(flow.getByTestId('import-commit-reason')).toHaveText(
       'They start private: nobody sees them until you publish them.'
     );
@@ -272,10 +308,21 @@ test.describe('mobile inventory import', () => {
     await expect(result.getByTestId('import-result-added')).toContainText('3new cards added');
     await expect(result.getByTestId('import-result-merged')).toContainText('0');
     await expect(result.getByTestId('import-result-leftOut')).toContainText(
-      '1line of your file left out'
+      '1different card of your file left out'
     );
     await expect(result.getByTestId('import-result-leftOut')).toContainText('1 not recognised');
     await expect(result.getByTestId('import-result-note')).toContainText('5 copies in all.');
+    await expect(result.getByTestId('import-result-note')).toContainText(
+      'Everything this import added is private'
+    );
+    // The line that was not added stays readable on the result, with what can be done about it.
+    const lost = result.getByTestId('import-result-unmatched');
+    await expect(lost).toContainText('Not recognised (1)');
+    await lost.getByRole('button', { name: 'Show these different cards' }).click();
+    await expect(lost.getByTestId('import-row-3')).toContainText('Passcode 919999999', {
+      timeout: 30_000,
+    });
+    await expect(lost.getByTestId('import-row-3')).toContainText('“Add card” in your inventory');
 
     // What the API holds: three private, unfiled cards.
     const held = await items(request, collector.idToken);
@@ -371,6 +418,10 @@ test.describe('mobile inventory import', () => {
     await expect(dragon).toContainText('1st Edition');
     await expect(dragon).toContainText('Near Mint · ×2');
     await expect(flow.getByTestId('import-row-0-owned')).toHaveText('You have 2: this adds 2.');
+    // The file's own words under the line it became.
+    await expect(flow.getByTestId('import-row-0-source')).toHaveText(
+      'In your file: Azure Dawn · AZR-EN001 · Ultra Rare'
+    );
     // The row nothing fits, with what the file said. Never a price.
     const nobody = flow.getByTestId('import-row-2');
     await expect(nobody).toContainText('Not recognised');
@@ -380,9 +431,11 @@ test.describe('mobile inventory import', () => {
     await expect(flow).not.toContainText('31.41');
 
     // Leaving the knight out is a choice the collector makes; here it gets a printing instead.
-    await flow.getByRole('checkbox', { name: /^Leave out the 1 card/ }).click();
-    await expect(flow.getByTestId('import-commit')).toHaveAccessibleName('Add 1 card, leave 1 out');
-    await flow.getByRole('checkbox', { name: /^Leave out the 1 card/ }).click();
+    await flow.getByRole('checkbox', { name: /^Leave out the 1 line/ }).click();
+    await expect(flow.getByTestId('import-commit')).toHaveAccessibleName(
+      'Add 1 card (2 copies), leave 1 out'
+    );
+    await flow.getByRole('checkbox', { name: /^Leave out the 1 line/ }).click();
     await flow
       .getByRole('button', { name: 'Which copy of Mirrorblade Knight: Choose printing' })
       .click();
@@ -437,7 +490,7 @@ test.describe('mobile inventory import', () => {
     // A choice made in the preview: the extra deck (the alternate artwork) does not count.
     await flow.getByRole('switch', { name: 'Extra deck' }).click();
     await expect(flow.getByTestId('import-summary-sentence')).toHaveText(
-      '2 copies from 1 of the 4 lines of your file. 1 left out.',
+      'Your file lists 4 different cards. 1 is ready to add: 2 copies. 1 left out.',
       { timeout: 30_000 }
     );
     await expect(stat(flow, 'choose')).toHaveText('1needs a printing');
@@ -460,7 +513,7 @@ test.describe('mobile inventory import', () => {
     const again = screen(page, 'import');
     const open = again.getByTestId('import-open');
     await expect(open).toContainText('Continue your import', { timeout: 30_000 });
-    await expect(open).toContainText('Deck file · 4 lines · kept until');
+    await expect(open).toContainText('Deck file · 4 different cards · kept until');
     await open.getByRole('button', { name: 'Continue' }).click();
     await expect(again.getByRole('switch', { name: 'Extra deck' })).toHaveAttribute(
       'aria-checked',

@@ -26,6 +26,11 @@ export interface ChoiceChipsProps<T extends string> {
   onChange: (value: T) => void;
   /** One scrolling row instead of wrapping lines (game pills). */
   scroll?: boolean;
+  /**
+   * How far the chips follow the system text size: for chips that stay on screen over a scrolling
+   * list (`PINNED_MAX_FONT_SCALE`), where they must not take the list's room.
+   */
+  maxFontSizeMultiplier?: number;
   disabled?: boolean;
   error?: string | null;
   hint?: string;
@@ -45,6 +50,7 @@ export function ChoiceChips<T extends string>({
   value,
   onChange,
   scroll = false,
+  maxFontSizeMultiplier,
   disabled = false,
   error,
   hint,
@@ -78,6 +84,7 @@ export function ChoiceChips<T extends string>({
           <MaterialCommunityIcons name="check" size={14} color={palette.background} />
         ) : null}
         <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
           style={[styles.chipLabel, { color: selected ? palette.background : palette.ink }]}
           numberOfLines={1}
         >
