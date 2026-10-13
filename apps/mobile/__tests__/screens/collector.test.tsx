@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
+import { meKeys } from '@/src/api/queryKeys';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
@@ -400,6 +401,38 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
     await waitFor(() => expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1));
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+  });
+
+  it('reads the region map again after a block and after an unblock', async () => {
+    // A blocked collector's binder is neither counted on the map nor listed under its state:
+    // what the map already read (kept for a minute otherwise) is out of date at once.
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
+        'POST /api/v1/users/{id}/block': { status: 204 },
+        'DELETE /api/v1/users/{id}/block': { status: 204 },
+      })
+    );
+    const { queryClient } = render();
+    const counts = meKeys.regionBinderCounts('uid-maika', 'americas-north');
+    const binders = meKeys.subdivisionBinders('uid-maika', 'americas-north', 'CA-ON');
+    queryClient.setQueryData(counts, { region: 'americas-north', total: 1, subdivisions: [] });
+    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
+    const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;
+    expect([stale(counts), stale(binders)]).toEqual([false, false]);
+
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    fireEvent.press(
+      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
+    );
+    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
+
+    queryClient.setQueryData(counts, { region: 'americas-north', total: 0, subdivisions: [] });
+    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
+    expect([stale(counts), stale(binders)]).toEqual([false, false]);
+    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
+    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
   });
 
   it("never offers Block on the collector's own profile", async () => {

@@ -19,7 +19,9 @@ export function useMyBlocks() {
 /**
  * Block / unblock a collector (`POST` / `DELETE /api/v1/users/{id}/block`, idempotent on the
  * server; web: `BlockActionsService`). A block hides both collectors from each other on the map,
- * in search, in the community and in messages, so every viewer-dependent cache is refreshed.
+ * in search, in the community and in messages, so every viewer-dependent cache is refreshed: the
+ * region map's counts and the binders of its states and provinces among them (a blocked
+ * collector's binder is neither counted nor listed).
  */
 function useBlockMutation(kind: 'block' | 'unblock') {
   const uid = useUid();
@@ -35,6 +37,7 @@ function useBlockMutation(kind: 'block' | 'unblock') {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: meKeys.blocks(uid) });
       void queryClient.invalidateQueries({ queryKey: meKeys.community(uid) });
+      void queryClient.invalidateQueries({ queryKey: meKeys.regionMap(uid) });
       void queryClient.invalidateQueries({
         queryKey: [...meKeys.user(uid), 'collectors'],
       });
