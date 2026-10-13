@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 
@@ -9,12 +10,16 @@ import CreditsScreen from '@/app/credits';
 import PremiumScreen from '@/app/premium';
 import SupportScreen from '@/app/support';
 import { resetRecordedImpressions } from '@/src/api/hooks/billing';
+import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
+import { BROWSING_REGION_STORAGE_KEY } from '@/src/features/regions/browsingRegion';
+import { RegionBar } from '@/src/features/regions/RegionBar';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { ApiError } from '@/src/api/ApiError';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   collectorFixture,
+  meFixture,
   publicBinderSummaryFixture,
   publicItemFixture,
   publicItemsPage,
@@ -59,9 +64,10 @@ function routes(extra: MockRoutes = {}): MockRoutes {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   resetRouterMock();
   resetAppState();
+  await AsyncStorage.clear();
   resetRecordedImpressions();
 });
 
@@ -517,6 +523,65 @@ describe('Sponsored placements', () => {
     fireEvent.press(within(ad).getByTestId('sponsored-remove-ads'));
     expect(mockRouter.push).toHaveBeenCalledWith('/premium');
     open.mockRestore();
+  });
+
+  it('asks for the placements of the region being browsed, and again when the region changes', async () => {
+    // Sponsored placements match the platform region (ADR 0017): a collector of Americas
+    // (North) who browses Europe is served the placements of Europe, and their own again once
+    // they are back.
+    const api = mockApi(
+      routes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/ads': (request) =>
+          ok([adFixture({ headline: `Sleeves for ${request.query.get('region')}` })]),
+      })
+    );
+    renderWithProviders(
+      <>
+        <RegionBar testID="switcher" />
+        <SponsoredSlot placement="SEARCH_SPONSORED" game="pokemon" variant="compact" />
+      </>,
+      { port: port() }
+    );
+    expect(await screen.findByText('Sleeves for americas-north')).toBeOnTheScreen();
+    const asked = () =>
+      api.callsTo('GET /api/v1/ads').map((call) => Object.fromEntries(call.query.entries()));
+    expect(asked()).toEqual([
+      { placement: 'SEARCH_SPONSORED', region: 'americas-north', game: 'pokemon' },
+    ]);
+
+    fireEvent.press(screen.getByTestId('switcher'));
+    fireEvent.press(screen.getByTestId('switcher-option-europe'));
+    expect(await screen.findByText('Sleeves for europe')).toBeOnTheScreen();
+    expect(asked().at(-1)).toEqual({
+      placement: 'SEARCH_SPONSORED',
+      region: 'europe',
+      game: 'pokemon',
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Back to Americas (North)' }));
+    expect(await screen.findByText('Sleeves for americas-north')).toBeOnTheScreen();
+    // Two requests in all: the placements of the home region were kept.
+    expect(asked().map((query) => query.region)).toEqual(['americas-north', 'europe']);
+    // Never a position.
+    for (const call of api.callsTo('GET /api/v1/ads')) {
+      expect(call.query.has('lat')).toBe(false);
+      expect(call.query.has('lng')).toBe(false);
+    }
+  });
+
+  it('waits for the region of a collector without a location before it asks for a placement', async () => {
+    await AsyncStorage.setItem(BROWSING_REGION_STORAGE_KEY, 'americas-south');
+    const api = mockApi(routes({ 'GET /api/v1/ads': ok([adFixture()]) }));
+    renderWithProviders(
+      <SponsoredSlot placement="SEARCH_SPONSORED" game={null} variant="compact" />,
+      { port: port() }
+    );
+    expect(await screen.findByTestId('sponsored-ad')).toBeOnTheScreen();
+    // One request, in the region the device kept: none in Americas (North) first.
+    expect(api.callsTo('GET /api/v1/ads').map((call) => call.query.get('region'))).toEqual([
+      'americas-south',
+    ]);
   });
 
   it('shows nothing while advertising is off, for Premium ([]), on the own profile or unsafe links', async () => {
