@@ -744,6 +744,10 @@ relaunch, then sign-out), `search-card-detail.yaml` (down the catalog the field 
 away and the Search tab pressed again brings it back; search, a schema language filter, card
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
+`dialog-after-sheet.yaml` (the only flow in the app's Dark theme, chosen in Settings > Appearance
+with the device left as it is: in the card editor the binder sheet, then "Delete card" with its
+title and both buttons found by id, the sheet again, the dialog again, and the card gone on the
+API; it holds the scrim that iOS must not take for a modal, see `src/theme/scrim.ts`),
 `inventory-import-deck.yaml` (stage S5: the text of a fictional deck file pasted, the preview
 with its counts and the commit that says why it cannot be pressed, a printing chosen in "Which
 copy", "Use the most recent printing for all unchosen rows", one condition for the cards of the

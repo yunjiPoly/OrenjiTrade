@@ -221,15 +221,14 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
   built (web paused). (5) The upload of a file from the Android app is expected to work like the
   photo upload does not: it uses the same file part (`localFilePart.ts`) and was only proven on
   iOS.
-- A second dialog of another kind on a stack screen is invisible to the accessibility snapshot
-  of iOS in Expo Go (found during stage S5 on a screen from before it: in the card editor, open
-  the binder sheet, close it, press "Delete card": the confirmation is on screen and works by
-  touch, but `maestro hierarchy` lists none of its buttons). On the Inventory tab the same order
-  works. Not caused by `aria-modal`. Unknown whether a release build and VoiceOver on a device
-  are affected: nobody could check here (no native build, and a production bundle in Expo Go
-  refuses the emulator sign-in). Worth one session with VoiceOver on a real iPhone; native flows
-  must not assert a dialog that follows a sheet (or a sheet's dialog) on a stack screen until
-  then.
+- A dialog on screen with an empty accessibility tree (found during stage S5): **cause found and
+  fixed on 2026-10-13**, branch `fix/ios-second-modal-accessibility`, which ships after S5
+  (IMPLEMENTATION_STATUS.md, "A scrim iOS takes for a modal"). iOS takes a window-sized view with
+  a translucent pure black background for the dimming view of a modal, the native view keeps
+  that mark, and React Native reuses it: the dark theme's scrim was such a black. A view that
+  covers the window takes `palette.scrim`, never a pure black. Left for the owner, optional: hear
+  a sheet then a dialog with VoiceOver on a real iPhone in the dark theme (the verdict rests on
+  UIKit's own traversal on the simulator).
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests).
 - The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were
