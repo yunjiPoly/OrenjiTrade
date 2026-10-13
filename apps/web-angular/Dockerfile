@@ -43,7 +43,7 @@ RUN npm run build:tokens \
 # -------------------------------------------------------------- runtime stage
 # nginx-unprivileged runs as the unprivileged `nginx` user (UID 101): pid file in /tmp,
 # cache/log directories writable, no root at runtime (CIS / Trivy DS-0002).
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 
 # Cloud Run injects PORT; default to 8080 for local runs. All other runtime variables
 # (API_BASE_URL, WS_BASE_URL, FIREBASE_*, GOOGLE_MAPS_*, ENVIRONMENT) are optional and get
