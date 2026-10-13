@@ -18,6 +18,7 @@ import com.orenjitrade.api.inventory.domain.InventoryChanges.NewItem;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.InventoryService.TransferLine;
 import com.orenjitrade.api.inventory.domain.ListingReconciler;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -43,8 +44,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpMethod;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The locks of inventory and binder writes. Every item write ends in a binder row ({@code
@@ -75,6 +78,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
     @Autowired private PlatformTransactionManager transactionManager;
 
     private UUID printingId;
+
+    /** The name of the card of {@link #printingId}: an import finds the card by it. */
+    private String cardName;
+
     private TransactionTemplate transaction;
 
     /** The collectors of the current test. */
@@ -85,7 +92,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         InventoryTestSupport.ensureCatalog(importService);
         // A card of this test only: the suite shares the catalog and the regions, and some of
         // these collectors list dozens of copies.
-        printingId = InventoryTestSupport.isolatedCard(testUsers, "ygo-p001a").printingId();
+        InventoryTestSupport.IsolatedCard card =
+                InventoryTestSupport.isolatedCard(testUsers, "ygo-p001a");
+        printingId = card.printingId();
+        cardName = card.name();
         transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -683,6 +693,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         ITEM_DELETE,
         ITEM_CONFIRM,
         ITEM_BULK,
+        IMPORT_COMMIT,
         ITEM_ADMIN_RESTORE,
         ITEM_ADMIN_HIDE,
         TRADE_TRANSFER,
@@ -788,6 +799,13 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             "SET_AVAILABILITY",
                             List.of(filed, unfiled),
                             Map.of("availability", "TRADE"));
+            case IMPORT_COMMIT -> {
+                // One row is added to the filed item (its binder and the item are locked), the
+                // others become new items. The upload itself writes no binder and no item.
+                JsonNode result = commitImport(uid, importOf(2, 1));
+                assertThat(result.path("itemsMerged").asInt()).isEqualTo(1);
+                assertThat(result.path("itemsCreated").asInt()).isEqualTo(2);
+            }
             case ITEM_ADMIN_RESTORE ->
                     assertThat(inventoryService.restoreListing(uuid(filed))).isPresent();
             case ITEM_ADMIN_HIDE ->
@@ -1354,6 +1372,153 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 ownerId))
                 .as("filed items listed differently from their binder")
                 .isZero();
+    }
+
+    /**
+     * Bounded stress for the import (stage S5): commits of imports of one collector, each of them
+     * raising items filed in a binder and an unfiled one, next to that collector's item writes
+     * (creations, edits, deletes, moves between the two binders), privacy reconciliations and two
+     * workers that run the freshness job. None may fail, in particular not with a deadlock; the
+     * binder counts stay right and every copy of every import is in the inventory exactly once.
+     */
+    @Test
+    void anImportCommitNextToTheOtherWritesNeverDeadlocks() throws Exception {
+        int rounds = 12;
+        String uid = uniqueUid("lock-import");
+        UUID ownerId = collector(uid);
+        setDiscoverable(ownerId, true);
+        String first = createBinder(uid, "First", "PUBLIC");
+        String second = createBinder(uid, "Second", "PUBLIC");
+        // The items the imports add copies to; another worker moves both between the binders.
+        String nearMint = createItem(uid, first, Map.of());
+        String mint = createItem(uid, first, Map.of("condition", "MINT"));
+        List<String> movers = List.of(nearMint, mint);
+        List<String> doomed = new ArrayList<>();
+        for (int index = 0; index < rounds; index++) {
+            doomed.add(createItem(uid, index % 2 == 0 ? first : second, Map.of()));
+        }
+        // Deleting a doomed near mint item must never take the copies an import adds: the import
+        // adds them to the oldest equal item, which is the first one created above.
+        List<IntConsumer> writers =
+                List.of(
+                        round -> {
+                            JsonNode result = commitImport(uid, importOf(1, 2));
+                            assertThat(result.path("copiesAdded").asInt()).isEqualTo(6);
+                        },
+                        round -> {
+                            String created = createItem(uid, first, Map.of("condition", "DAMAGED"));
+                            callJson(
+                                    HttpMethod.PATCH,
+                                    ITEMS + "/" + created,
+                                    uid,
+                                    Map.of("quantity", round + 2),
+                                    200);
+                            callJson(HttpMethod.DELETE, ITEMS + "/" + created, uid, null, 204);
+                        },
+                        round -> {
+                            callJson(
+                                    HttpMethod.DELETE,
+                                    ITEMS + "/" + doomed.get(round),
+                                    uid,
+                                    null,
+                                    204);
+                            bulk(
+                                    uid,
+                                    "MOVE_TO_BINDER",
+                                    movers,
+                                    Map.of("binderId", round % 2 == 0 ? second : first));
+                        },
+                        round -> {
+                            setDiscoverable(ownerId, round % 2 == 1);
+                            reconciler.owner(ownerId);
+                        },
+                        round -> freshnessService.run(),
+                        round -> freshnessService.run());
+
+        ExecutorService pool = Executors.newFixedThreadPool(writers.size());
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<?>> running = new ArrayList<>();
+            for (IntConsumer writer : writers) {
+                running.add(
+                        pool.submit(
+                                () -> {
+                                    awaitQuietly(start);
+                                    for (int round = 0; round < rounds; round++) {
+                                        writer.accept(round);
+                                    }
+                                }));
+            }
+            start.countDown();
+            for (Future<?> writer : running) {
+                writer.get(4 * STEP.toSeconds(), TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertItemCountsMatch(ownerId);
+        assertThat(doomed).noneMatch(this::isLive);
+        assertThat(column("inventory_item", "quantity", nearMint))
+                .as("one copy per import, added to the same item every time")
+                .isEqualTo(1 + rounds);
+        assertThat(column("inventory_item", "quantity", mint)).isEqualTo(1 + 2 * rounds);
+        assertThat(
+                        testUsers.query(
+                                "SELECT quantity, visibility, binder_id FROM inventory_item WHERE"
+                                        + " owner_id = ? AND deleted_at IS NULL AND condition ="
+                                        + " 'LIGHTLY_PLAYED'",
+                                ownerId))
+                .as("the new item of the first import, raised by every later one")
+                .singleElement()
+                .satisfies(
+                        row -> {
+                            assertThat(row.get("quantity")).isEqualTo(3 * rounds);
+                            assertThat(row.get("visibility")).isEqualTo("PRIVATE");
+                            assertThat(row.get("binder_id")).isNull();
+                        });
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE owner_id = ? AND"
+                                        + " deleted_at IS NULL",
+                                ownerId))
+                .isEqualTo(3);
+    }
+
+    /**
+     * A Collectr CSV of the card of this test: {@code nearMint} near mint copies, {@code mint} mint
+     * copies and three lightly played ones. The card has one printing, so every row is ready.
+     */
+    private String importOf(int nearMint, int mint) {
+        return "Product Name,Card Condition,Quantity\n"
+                + cardName
+                + ",Near Mint,"
+                + nearMint
+                + "\n"
+                + cardName
+                + ",Mint,"
+                + mint
+                + "\n"
+                + cardName
+                + ",Lightly Played,3\n";
+    }
+
+    /** Uploads a CSV import and commits it; returns the result of the commit. */
+    private JsonNode commitImport(String uid, String csv) {
+        EntityExchangeResult<byte[]> uploaded =
+                ImportTestSupport.upload(
+                        http, bearer(uid), "COLLECTR_CSV", csv.getBytes(StandardCharsets.UTF_8));
+        assertThat(uploaded.getStatus().value()).isEqualTo(201);
+        String id = json(uploaded).path("id").asString();
+        JsonNode committed =
+                callJson(
+                        HttpMethod.POST,
+                        ImportTestSupport.IMPORTS + "/" + id + "/commit",
+                        uid,
+                        null,
+                        200);
+        assertThat(committed.path("status").asString()).isEqualTo("COMMITTED");
+        return committed.path("result");
     }
 
     // ---------------------------------------------------------------------------------------
