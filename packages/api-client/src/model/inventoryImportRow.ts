@@ -44,7 +44,7 @@ export interface InventoryImportRow {
      */
     printing?: PrintingSummary;
     /**
-     * AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action
+     * AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action. MOST_RECENT_ASSUMED: by the bulk action, for a card its most recent set holds in several editions or finishes: the plain copy (Unlimited, normal finish) was taken, to be checked by the collector
      */
     printingChoice?: InventoryImportRowPrintingChoiceEnum | null;
     /**
@@ -96,9 +96,13 @@ export interface InventoryImportRow {
      */
     willImport: boolean;
     /**
-     * Copies the caller already holds in an equal item (same printing, condition, edition and language): the commit raises that item instead of adding one
+     * Copies the caller already holds in an equal private item (same printing, condition, edition and language): the commit raises that item instead of adding one
      */
     ownedQuantity: number;
+    /**
+     * Copies the caller holds in equal items they show (visibility other than PRIVATE). An import never raises such an item: the copies of this row become, or join, a private item, so nothing an import adds is public
+     */
+    shownQuantity: number;
 }
 export enum InventoryImportRowStatusEnum {
     Ready = 'READY',
@@ -117,7 +121,8 @@ export enum InventoryImportRowUnmatchedReasonEnum {
 export enum InventoryImportRowPrintingChoiceEnum {
     Auto = 'AUTO',
     Manual = 'MANUAL',
-    MostRecent = 'MOST_RECENT'
+    MostRecent = 'MOST_RECENT',
+    MostRecentAssumed = 'MOST_RECENT_ASSUMED'
 };
 export enum InventoryImportRowConditionSourceEnum {
     Default = 'DEFAULT',

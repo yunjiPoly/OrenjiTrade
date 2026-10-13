@@ -15,6 +15,14 @@ import { InventoryImportResponse } from './inventoryImportResponse';
  */
 export interface InventoryImportBulkResponse { 
     updated: number;
+    /**
+     * USE_MOST_RECENT_PRINTING: of `updated`, the rows whose card its most recent set holds in several editions or finishes: they got the plain copy (Unlimited, normal finish; `printingChoice` MOST_RECENT_ASSUMED); 0 for SET_CONDITION
+     */
+    assumed: number;
+    /**
+     * USE_MOST_RECENT_PRINTING: rows left to choose because several printings of their card share the most recent release date and are not one printing in several editions or finishes (two rarities, two languages, no date): nothing is guessed; 0 for SET_CONDITION
+     */
+    undecided: number;
     preview: InventoryImportResponse;
 }
 

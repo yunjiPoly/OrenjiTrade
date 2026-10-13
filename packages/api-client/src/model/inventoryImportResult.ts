@@ -20,6 +20,10 @@ export interface InventoryImportResult {
     itemsMerged: number;
     copiesAdded: number;
     rowsImported: number;
+    /**
+     * Copies of the imported rows that were not added: one item holds at most 9 999 copies
+     */
+    copiesNotAdded: number;
     chunksDone: number;
     /**
      * Chunks of at most 500 items; done when chunksDone equals it
