@@ -4,16 +4,19 @@ import { Text } from 'react-native';
 
 import { meKeys } from '@/src/api/queryKeys';
 import { RegionBar } from '@/src/features/regions/RegionBar';
+import { useAccount } from '@/src/account/AccountProvider';
 import {
   BROWSING_REGION_STORAGE_KEY,
   browsingScope,
+  forgetUnknownRegions,
   hydrateBrowsingRegion,
   pickBrowsingRegion,
   resolveBrowsingRegion,
   useBrowsingRegion,
   useBrowsingRegionStore,
 } from '@/src/features/regions/browsingRegion';
-import { isRegionCode, regionPhrase } from '@/src/lib/place';
+import { BUILT_IN_REGIONS, isRegionCode, regionPhrase } from '@/src/lib/place';
+import { lightPalette } from '@/src/theme/palette';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { meFixture, regionsFixture } from '../support/fixtures';
@@ -28,13 +31,19 @@ beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
+/** The `select` of the last render of the probe (what a link calls). */
+const selected: { current: (region: string) => void } = { current: () => undefined };
+
 /** What a screen reads from the browsed region, as text. */
 function Probe() {
-  const { region, home, away, ready } = useBrowsingRegion();
+  const { region, home, away, ready, select } = useBrowsingRegion();
+  const account = useAccount();
+  selected.current = select;
   return (
     <>
       <RegionBar testID="switcher" />
       <Text testID="probe">{`${region}|${home ?? 'none'}|${away ? 'away' : 'home'}|${ready ? 'ready' : 'waiting'}`}</Text>
+      <Text testID="probe-account">{account.me ? 'account known' : 'account unknown'}</Text>
     </>
   );
 }
@@ -79,8 +88,44 @@ describe('which region the app browses (pure)', () => {
     expect(browsingScope(null, null)).toBe('|');
   });
 
-  it('accepts well-formed region codes only', () => {
+  it('follows a pick or a stored code only when the region exists', () => {
+    // Until the server's list is read, the three regions the app ships are the ones that exist.
+    expect([...BUILT_IN_REGIONS]).toEqual(['americas-north', 'americas-south', 'europe']);
+    expect(resolveBrowsingRegion({ picked: null, scope, home: null, stored: 'asia' })).toBe(
+      'americas-north'
+    );
+    const picked = { region: 'asia', scope };
+    expect(resolveBrowsingRegion({ picked, scope, home: 'europe', stored: 'asia' })).toBe('europe');
+    expect(resolveBrowsingRegion({ picked, scope, home: null, stored: null })).toBe(
+      'americas-north'
+    );
+    // The server's list is the judge once it is known: a region it added is followed ...
+    const listed = new Set(['americas-north', 'europe', 'asia']);
+    expect(
+      resolveBrowsingRegion({ picked, scope, home: 'europe', stored: null, known: listed })
+    ).toBe('asia');
+    expect(
+      resolveBrowsingRegion({ picked: null, scope, home: null, stored: 'asia', known: listed })
+    ).toBe('asia');
+    // ... and one it took down is not, even though the app ships its name.
+    expect(
+      resolveBrowsingRegion({
+        picked: { region: 'americas-south', scope },
+        scope,
+        home: null,
+        stored: 'americas-south',
+        known: listed,
+      })
+    ).toBe('americas-north');
+    // The home region comes from the server itself: it is always followed.
+    expect(
+      resolveBrowsingRegion({ picked: null, scope, home: 'oceania', stored: null, known: listed })
+    ).toBe('oceania');
+  });
+
+  it('accepts well-formed region codes only (a well-formed code is not yet a region)', () => {
     expect(['americas-north', 'americas-south', 'europe', 'asia'].every(isRegionCode)).toBe(true);
+    expect(BUILT_IN_REGIONS.has('asia')).toBe(false);
     for (const value of [
       null,
       undefined,
@@ -136,6 +181,10 @@ describe('the browsed region and its switcher', () => {
       expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready')
     );
 
+    // At home the switcher is a plain pill.
+    expect(screen.getByTestId('switcher')).toHaveStyle({
+      backgroundColor: lightPalette.surfaceVariant,
+    });
     fireEvent.press(screen.getByRole('button', { name: 'Region: Americas (North)' }));
     const options = screen.getAllByRole('radio');
     expect(options.map((option) => option.props.accessibilityLabel)).toEqual([
@@ -158,8 +207,13 @@ describe('the browsed region and its switcher', () => {
       expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('europe')
     );
 
-    // Away from home: the switcher says so at a glance and one press goes back.
+    // Away from home: the switcher says so at a glance (it takes the accent colour, and a line
+    // says it in words) and one press goes back.
     expect(screen.getByRole('button', { name: 'Region: Europe' })).toBeOnTheScreen();
+    expect(screen.getByTestId('switcher')).toHaveStyle({
+      backgroundColor: lightPalette.accentContainer,
+      borderColor: lightPalette.accent,
+    });
     expect(screen.getByTestId('switcher-away')).toHaveTextContent(
       'Not your region.Back to Americas (North)'
     );
@@ -168,6 +222,9 @@ describe('the browsed region and its switcher', () => {
       expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready')
     );
     expect(screen.queryByTestId('switcher-away')).toBeNull();
+    expect(screen.getByTestId('switcher')).toHaveStyle({
+      backgroundColor: lightPalette.surfaceVariant,
+    });
   });
 
   it('uses the names of GET /regions once they were read, without asking for them itself', async () => {
@@ -205,6 +262,97 @@ describe('the browsed region and its switcher', () => {
       queryClient.setQueryData(meKeys.account('uid-maika'), meFixture({ homeRegion: 'europe' }));
     });
     await waitFor(() => expect(probe()).toHaveTextContent('europe|europe|home|ready'));
+  });
+
+  it('waits for the device before it settles the region of a collector without a location', async () => {
+    // `/me` answered (no home region) and the device has not: nothing may be asked yet, or it
+    // would be asked in Americas (North) first and again in the region the device kept.
+    let answer: (value: string | null) => void = () => undefined;
+    storage.getItem.mockImplementationOnce(
+      () =>
+        new Promise<string | null>((resolve) => {
+          answer = resolve;
+        })
+    );
+    mockApi(signedInRoutes());
+    renderWithProviders(<Probe />, { port: signedIn() });
+    await waitFor(() =>
+      expect(screen.getByTestId('probe-account')).toHaveTextContent('account known')
+    );
+    expect(probe()).toHaveTextContent('americas-north|none|home|waiting');
+
+    await act(async () => {
+      answer('americas-south');
+      await hydrateBrowsingRegion();
+    });
+    expect(probe()).toHaveTextContent('americas-south|none|home|ready');
+  });
+
+  it('does not wait for the device when the collector has a home region', async () => {
+    storage.getItem.mockImplementationOnce(() => new Promise<string | null>(() => undefined));
+    mockApi(signedInRoutes({ 'GET /api/v1/me': ok(meFixture({ homeRegion: 'europe' })) }));
+    renderWithProviders(<Probe />, { port: signedIn() });
+    await waitFor(() => expect(probe()).toHaveTextContent('europe|europe|home|ready'));
+  });
+
+  it('never browses or keeps a region that does not exist', async () => {
+    // A well-formed code the server does not list, as a link or an old install could bring.
+    mockApi(signedInRoutes({ 'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })) }));
+    renderWithProviders(<Probe />, { port: signedIn() });
+    await waitFor(() =>
+      expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready')
+    );
+    storage.setItem.mockClear();
+    act(() => selected.current('asia'));
+    act(() => selected.current('Somewhere 45.5'));
+    expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready');
+    expect(useBrowsingRegionStore.getState()).toMatchObject({ picked: null, stored: null });
+    expect(storage.setItem).not.toHaveBeenCalled();
+    // A region that exists is followed, and the home region always is.
+    act(() => selected.current('europe'));
+    await waitFor(() => expect(probe()).toHaveTextContent('europe|americas-north|away|ready'));
+    act(() => selected.current('americas-north'));
+    await waitFor(() =>
+      expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready')
+    );
+  });
+
+  it('forgets a region the device kept once the server does not list it', async () => {
+    await AsyncStorage.setItem(BROWSING_REGION_STORAGE_KEY, 'oceania');
+    mockApi(signedInRoutes());
+    const queryClient = createTestQueryClient();
+    renderWithProviders(<Probe />, { port: signedIn(), queryClient });
+    // Not one of the regions the app ships: not browsed, and the switcher names a real region.
+    await waitFor(() => expect(probe()).toHaveTextContent('americas-north|none|home|ready'));
+    expect(screen.getByRole('button', { name: 'Region: Americas (North)' })).toBeOnTheScreen();
+    // The server has not spoken yet: the code is still on the device.
+    expect(useBrowsingRegionStore.getState().stored).toBe('oceania');
+    expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('oceania');
+
+    act(() => {
+      queryClient.setQueryData(['public', 'regions'], regionsFixture());
+    });
+    await waitFor(() => expect(useBrowsingRegionStore.getState().stored).toBeNull());
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBeNull()
+    );
+    expect(probe()).toHaveTextContent('americas-north|none|home|ready');
+  });
+
+  it('follows a kept region the app does not ship once the server lists it', async () => {
+    await AsyncStorage.setItem(BROWSING_REGION_STORAGE_KEY, 'oceania');
+    mockApi(signedInRoutes());
+    const queryClient = createTestQueryClient();
+    renderWithProviders(<Probe />, { port: signedIn(), queryClient });
+    await waitFor(() => expect(probe()).toHaveTextContent('americas-north|none|home|ready'));
+    const regions = regionsFixture();
+    regions.regions.push({ code: 'oceania', name: 'Oceania', isDefault: false, countries: [] });
+    act(() => {
+      queryClient.setQueryData(['public', 'regions'], regions);
+    });
+    await waitFor(() => expect(probe()).toHaveTextContent('oceania|none|home|ready'));
+    expect(screen.getByRole('button', { name: 'Region: Oceania' })).toBeOnTheScreen();
+    expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('oceania');
   });
 
   it('does not carry a pick over to another account on the same device', async () => {
@@ -266,6 +414,22 @@ describe('a device storage that fails', () => {
       BROWSING_REGION_STORAGE_KEY,
       expect.anything()
     );
+  });
+
+  it('forgets an unknown region for the session even when it cannot be removed from the device', async () => {
+    await pickBrowsingRegion('asia', '|');
+    storage.removeItem.mockRejectedValueOnce(new Error('storage is unavailable'));
+    await expect(
+      forgetUnknownRegions(new Set(['americas-north', 'europe']))
+    ).resolves.toBeUndefined();
+    expect(useBrowsingRegionStore.getState()).toMatchObject({ picked: null, stored: null });
+    // A region the list holds is left alone.
+    await pickBrowsingRegion('europe', '|');
+    await forgetUnknownRegions(new Set(['americas-north', 'europe']));
+    expect(useBrowsingRegionStore.getState()).toMatchObject({
+      picked: { region: 'europe', scope: '|' },
+      stored: 'europe',
+    });
   });
 
   it('a pick made while the device is being read is not overwritten by what it held', async () => {

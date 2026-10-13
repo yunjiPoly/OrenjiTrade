@@ -1,5 +1,6 @@
 export { assertNever } from './assertNever';
 export {
+  BUILT_IN_REGIONS,
   CITY_MAX_LENGTH,
   DEFAULT_REGION,
   GENERIC_PLACE_LABEL,
