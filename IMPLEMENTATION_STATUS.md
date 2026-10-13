@@ -3543,6 +3543,13 @@ deleting a card right after changing a privacy setting.
     both delete modes; with its items it failed with that deadlock before the fix. The class has
     79 tests now. `BinderRepository.delete`, `FreshnessService` and schema.md said more than was
     true about this path and are corrected.
+  - **Checked (2026-10-13):** the new case alone, before the fix 1 of 2 failed (with its items:
+    500, "deadlock detected ... UPDATE ONLY inventory_item SET binder_id = NULL"), after it 2 of
+    2 pass; `InventoryLockOrderIT` five times in a row, 79 of 79 each (19 to 20 s); the
+    inventory, binders and delisting tests, 143 in 16 classes; `npm run test:api` twice in a row,
+    895 + 12 tests and no failure each time (167 s each); `spotlessCheck --rerun-tasks`;
+    `exportOpenApi` without a diff. The review's stress probe on a scratch copy of the fixed
+    head, two runs of 150 rounds: no deadlock, no failure.
   - **Follow-ups the review left, none of them introduced by this branch:**
     1. The stored `publicly_listed` flag can be one job run behind on an item deleted while the
        job runs (the first point of "Still open"; the review reproduced it through the real code,
