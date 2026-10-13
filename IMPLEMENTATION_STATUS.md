@@ -3346,6 +3346,94 @@ another model than the stage was built on.
 - A pinch on a device (Maestro has one finger): jest only, as before.
 - The read timeout on a real network that stalls: jest, and one walk with the test API paused.
 
+**Review fix 2 (2026-10-13)**
+
+The second review (an independent verification of fix 1: the whole check list, 44 mutants and a
+walk on the simulator) approved the branch with no blocker and no major, and left three minors.
+Each is fixed at its cause with a test that fails without the fix. The native checks ran on the
+same iPhone 18 Pro simulator the owner keeps booted.
+
+- **R1-1, the "region settled first" gate of the sponsored placements (a test that did not
+  test).** The code was right, but the case added in fix 1 could not see the gate: a slot only
+  asks once the account is ready and the flags are read, and by then the storage of a test has
+  answered, so the one request was in the right region with or without the gate. The case now
+  holds the device's answer until the account and the flags are there: nothing is asked
+  meanwhile, then one request in the region the device kept. Checked against the reviewer's
+  mutant (the gate taken out of `useAds`): one request in Americas (North), and the case fails.
+  The sentence of fix 1 about this gate ("... of the placements ...") is true now.
+- **R1-2, the search field out of reach down a list.** Since fix 1 the field, the game pills
+  and the filters scroll away with the results (so that they can be reached at the largest text
+  sizes), and only scrolling all the way back up brought them back. Each list of the Search tab
+  (Cards, Collectors, Binders) is now given to the tab (`useScrollToTop`): pressing Search again
+  scrolls it to its top, as the Map tab does. The other way the review named (the field pinned at
+  ordinary text sizes, scrolling at the accessibility sizes) was not taken: two layouts of one
+  screen, switched by a setting of the device, for what the platform's own gesture does. Tests:
+  jest (`search-segments`: in each segment the list on screen is the one the tab was given), the
+  E2E `catalog.spec.ts` and the native flow `search-card-detail.yaml` (down the catalog the field
+  is gone, the tab is pressed again, the field is back). The E2E spec and the flow were each run
+  once on the code before the fix: both fail at "the field is back".
+- **R1-7, a collector just blocked still found by search (older than this stage).** Blocking and
+  unblocking now also read every search of the viewer again, the unified results and the card
+  holders alike (`meKeys.searches`), in whatever region they were read. jest: the same kind of
+  assertion as for the region map; it fails without the line.
+
+**Found while fixing**
+1. The first version of the E2E step scrolled 600 points deep with the wheel in a poll, passed
+   alone and failed in the full run. On the web export a list draws its first ten rows, then the
+   others in an idle moment; a jump of the wheel made before that moment lands at the end of
+   the ten rows, and a wheel that keeps turning holds the idle moment back (a probe saw ten rows
+   through three seconds of wheel events and 24 rows two seconds after the last one; with steps
+   of 120 points, or after a pause of a second and a half, the rows come as the list scrolls). A
+   hand is not affected: a wheel turned by hand moves in small steps, and the native lists are
+   not built this way. The step now only needs the field to be above the screen, which the first
+   rows are enough for: 10 of 10 with `--repeat-each=10`, and still a failure on the code before
+   the fix.
+
+**Left as they are** (the four nits of the second review, not part of this round)
+- R1-3: jest does not see a link to an unknown region that also names a state (the router mock
+  never clears the parameters), nor the wait for `GET /regions` for a region the app does not
+  ship; on the device both behave (walked by the reviewer).
+- R1-4: the dot of a place too small to be seen is the solid tint, which is also the legend's
+  colour for "10+", whatever the place's count.
+- R1-5: at the largest text size the name card of a held place covers the top third of the
+  240-point map, sometimes the place it names.
+- R1-6: jest prints "A worker process has failed to exit gracefully" once per run since the read
+  timeout of fix 1 (no open handle is reported when the suite runs in one process).
+
+**Checks after the fixes** (2026-10-13, the owner's Mac mini, retries off)
+- `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
+  `npm run format:check -w apps/mobile`: clean.
+- `npm run test:mobile`: typecheck, lint, jest 84 suites / 798 tests (796 after fix 1), 28
+  harness guard tests.
+- `npx expo export` into throw-away directories: iOS 5,441,366 B (1,771 modules), Android
+  5,739,309 B (1,895 modules), web entry 2,846,226 B (74 static routes), the three region chunks
+  unchanged (132,238 / 99,913 / 59,297 B).
+- `npm run test:mobile:e2e -- --retries=0`: 56 passed on the first attempt (51.4 s; 1 min 14 s in
+  all).
+- `npm run test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro simulator
+  (iOS 27.0, Expo Go 57.0.9): **27/27 flows passed in one run** (42 min 5 s of flows, 42 min 29 s
+  in all), `search-card-detail.yaml` with its new steps among them. Afterwards ports 8082 and
+  8090 were free and the run's 30 emulator accounts were deleted.
+- `npm run test:scripts`: 133 tests. `npm run audit:gate`: OK (the 2 allowlisted advisories).
+- Once more, as a regression check (the lockfile did not change in this round):
+  `npm run build -w apps/web-angular` (initial total 899.93 kB, as before) and `npm run test:web`
+  (lint clean, 142 files / 678 tests). The web was not changed; neither was the API.
+- The fixes are three commits (one per finding); git status clean; no API or Metro left running.
+  The owner's simulator was found booted and is left booted, in light mode and at its default
+  text size (no simulator was booted, shut down, created or erased in this round).
+
+**Not verified in this round**
+- **Android**: no Android SDK on this Mac; the Android run of the flows could not be verified.
+  By reading: `useScrollToTop` is React Navigation's own hook and calls the list's
+  `scrollToOffset` on both platforms; the new steps of `search-card-detail.yaml` use nothing of
+  one platform; `npx expo export --platform android` succeeds.
+- **The status-bar tap of iOS** (the system gesture that scrolls the list on screen to its top):
+  a synthetic tap on the status bar does nothing on this simulator, on the Search tab and on
+  the Map tab's list alike, so it proves nothing either way. With a finger it may do nothing in
+  Search > Cards, where a second scroll view is on screen (the row of game pills): iOS ignores
+  the gesture when more than one scroll view could answer it. For the owner to try on a phone;
+  if it matters, that row can opt out of the gesture (`scrollsToTop={false}`).
+
 ---
 
 ## NEXT TASK
@@ -3363,9 +3451,11 @@ another model than the stage was built on.
 > `00714a9`, not pushed):** built and checked on 2026-10-12 (see "Mobile app: regions and the
 > region map"): the region switcher, the region map in the Map tab, the binders of a state or
 > province, the map libraries removed. Reviewed on 2026-10-12 (17 findings, no blocker) and fixed
-> on 2026-10-13 ("Review fix 1" in that section). Next for this branch: the second review, then
-> the pull request, merged when CI is green. The Android steps were not executed (no Android SDK on the
-> Mac). The owner updates two sentences of `CLAUDE.md` (same section, "Open (owner)").
+> on 2026-10-13 ("Review fix 1" in that section). The second review approved the branch the same
+> day and left three minors, fixed at once ("Review fix 2"). Next for this branch: the pull
+> request, merged when CI is green. The Android steps were not executed (no Android SDK on the
+> Mac). The owner updates two sentences of `CLAUDE.md` (same section, "Open (owner)") and may try
+> the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
 >
 > **In review, not on `main`:** the binder / inventory deadlock fix (branch
 > `fix/binder-count-deadlock`); it merges only with an approving final review.

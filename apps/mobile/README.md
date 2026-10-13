@@ -337,7 +337,8 @@ Conventions later stages reuse:
   the list (`pinned`): they follow the system text size only a little (`PINNED_MAX_FONT_SCALE`,
   like the tab bar; a long press shows them enlarged on iOS), and the field, the game pills, the
   filters and every state of the results are one list that scrolls under them, so the field and
-  the results stay within reach at the largest text sizes. In another region than one's own the switcher takes the accent colour, a line
+  the results stay within reach at the largest text sizes; pressing the Search tab again brings
+  the list back to its top, where the field is (`useScrollToTop` in each segment's list). In another region than one's own the switcher takes the accent colour, a line
   says "Not your region." and "Back to <region>" goes home in one press; copy names the region
   instead of "your region" (`regionPhrase`).
 - **Map tab (stage M9)**: `app/(tabs)/index.tsx` shows the browsed region as **Map | List**
@@ -502,7 +503,8 @@ session restore, friendly errors, consent screen, password reset), `profile.spec
 validation, tags, public preview), `location.spec.ts` (the pickers: region, country, state,
 city; what is missing; the `PUT /me/location` body; map opt-in; the city on the profile only;
 removal), `account.spec.ts` (export, deletion request and cancel, privacy and notification
-settings), `catalog.spec.ts` (search -> game and language filters -> card detail -> printings, every
+settings), `catalog.spec.ts` (the field back on screen when the Search tab is pressed again down
+the list; search -> game and language filters -> card detail -> printings, every
 picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (add a card through
 search -> printing -> details, edit it (only the changed fields are sent), delete it with a
 confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
@@ -663,7 +665,8 @@ Flows: `sign-in.yaml`,
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a
-relaunch, then sign-out), `search-card-detail.yaml` (search, a schema language filter, card
+relaunch, then sign-out), `search-card-detail.yaml` (down the catalog the field has scrolled
+away and the Search tab pressed again brings it back; search, a schema language filter, card
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
 `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
