@@ -39,7 +39,7 @@ since 2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #59 #60 #6
 | What | Where | State |
 | --- | --- | --- |
 | Mobile stage M9 — regions on the phone (2026-10-12): the region switcher, the region map in the Map tab, the binders of a state or province, `react-native-maps` / `react-native-webview` / `leaflet` removed from the app | branch `feature/mobile-regions-map` (worktree `OrenjiTrade-s2-ux`), on top of `main` at `00714a9`, not pushed | Built and checked on the iOS simulator and the web export (IMPLEMENTATION_STATUS.md, "Mobile app: regions and the region map"). Reviewed on 2026-10-12 (17 findings, no blocker); fixed on 2026-10-13 ("Review fix 1" in that section). The second review approved it the same day with three minors, fixed at once ("Review fix 2"). Waits for the pull request. Android could not be verified on this Mac. |
-| The binder / inventory deadlock fix | branch `fix/binder-count-deadlock` | In review; merges only with an approving final review. |
+| The binder / inventory lock fix | branch `fix/inventory-lock-order` (the former `fix/binder-count-deadlock` merged with `main`) | Final independent review done on 2026-10-13: no regression of the branch, one older corner closed by a one-line fix that a second verifier approved. Waits for the pull request. |
 | Stages S3–S6 | — | Not started. **Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Owner decision of 2026-10-13: after the map, only S5 and S6; S3 and S4 are skipped until the owner asks for them.** Next: S5 for the phone (its API and its mobile screens), then S6. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
@@ -82,8 +82,8 @@ never store Collectr prices).
    the same way (section 4 below), each its own PR. Since the owner's order of 2026-10-12 (mobile
    only, web paused) a stage is built as its API and its mobile screens; the web screens of that
    stage wait for a new order and are recorded as a follow-up. S5's import is a bulk write of
-   inventory items: the final review of the parked deadlock fix (`fix/binder-count-deadlock`)
-   comes first.
+   inventory items: it follows the rule "A new bulk write" of `docs/database/schema.md` (the
+   inventory lock fix, reviewed and fixed on 2026-10-13).
 5. The mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md`: the region switcher, the state
    binder list, the region map and the `react-native-maps` removal are done (stage M9,
    2026-10-12); the printing picker with holder counts, have/want ("Who has it" / "Who wants it",

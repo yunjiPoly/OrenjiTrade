@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -49,6 +50,15 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Every transition of the effective public visibility of a binder emits {@link BinderPublished}
  * or {@link BinderUnpublished} exactly once: the last computed value is materialised in {@code
  * binder.publicly_listed} and events are emitted when it flips ({@link #reconcileListing}).
+ *
+ * <p>Locks: every write to a collector's binders or inventory items starts with that collector's
+ * owner lock ({@link #lockOwners}), so the writes of one collector run one after the other. Below
+ * it, a transaction locks the binder rows first, in ascending id ({@link #lockInOrder}, {@link
+ * #lockAllInOrder}; every write here starts with the binder it changes), and only then the item
+ * rows: the item count trigger and the listing reconciliation both end in binder rows. The
+ * freshness job ({@link #runFreshness}, {@link #reconcileListing} of {@link ListingScope.All},
+ * {@link #warn}) writes every collector's binders without an owner lock: it skips the binders
+ * another transaction holds instead of waiting for them, and handles them at its next run.
  */
 @Service
 public class BinderService {
@@ -123,7 +133,8 @@ public class BinderService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
-        repository.lockOwnerForCreation(ownerId);
+        // The owner lock also keeps two creations apart (limit check + insert).
+        repository.lockOwners(List.of(ownerId));
         limits.consume(ownerId, BINDERS_MAX);
         UUID id = UUID.randomUUID();
         repository.insert(
@@ -313,6 +324,10 @@ public class BinderService {
                     "Validation failed",
                     List.of(new ProblemFieldError("binderIds", "must not contain duplicates")));
         }
+        // Every binder of the owner is rewritten below in the requested order: take them in the
+        // lock order first.
+        repository.lockOwners(List.of(ownerId));
+        repository.lockAllOf(ownerId);
         if (!repository.notOwned(ownerId, distinct).isEmpty()) {
             throw ApiException.notFound(NOT_FOUND);
         }
@@ -365,8 +380,46 @@ public class BinderService {
     }
 
     /**
+     * The first step of every write to these collectors' binders or inventory items: takes their
+     * owner locks until the transaction ends, before any binder or item row is locked. The writes
+     * of one collector then run one after the other: none of them reads the binder of an item while
+     * another one moves it, and none waits for a row in the middle of its work that another write
+     * of the same collector holds.
+     *
+     * @param ownerIds the collectors whose rows the transaction writes (two for a trade transfer)
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void lockOwners(Collection<UUID> ownerIds) {
+        repository.lockOwners(ownerIds);
+    }
+
+    /**
+     * Locks binders before their items are written, in ascending id order (the lock order of every
+     * inventory and binder write). Call it before the first item row is locked, with every binder
+     * the transaction is going to reach: the binders the items are filed in (the item count trigger
+     * and {@link #recordItemActivity} write them) and the binder they move to.
+     *
+     * @param ownerId only this owner's binders when given (ids taken from a request)
+     * @return the binders locked; unknown ones and other owners' binders are absent
+     */
+    @Transactional
+    public Set<UUID> lockInOrder(@Nullable UUID ownerId, Collection<UUID> binderIds) {
+        return new HashSet<>(repository.lockAll(ownerId, new HashSet<>(binderIds)));
+    }
+
+    /**
+     * Locks every binder of an owner in ascending id order: for writes that reach all of the
+     * owner's binders and items (listing reconciliation, account purge).
+     */
+    @Transactional
+    public Set<UUID> lockAllInOrder(UUID ownerId) {
+        return new HashSet<>(repository.lockAllOf(ownerId));
+    }
+
+    /**
      * Items were created, confirmed or moved into these binders: that confirms the binders (hidden
-     * ones come back). Does not touch the items.
+     * ones come back). Does not touch the items. The caller holds the binders ({@link
+     * #lockInOrder}).
      */
     @Transactional
     public void recordItemActivity(UUID ownerId, Collection<UUID> binderIds, Instant now) {
@@ -379,7 +432,9 @@ public class BinderService {
 
     /**
      * Stores the effective public visibility of the binders in {@code scope} and emits {@link
-     * BinderPublished} / {@link BinderUnpublished} for each flip.
+     * BinderPublished} / {@link BinderUnpublished} for each flip. {@link ListingScope.All} (the
+     * freshness job) leaves the binders another transaction holds to the next run; the other scopes
+     * wait for them.
      *
      * @return the flips
      */
@@ -398,6 +453,7 @@ public class BinderService {
                             repository.reconcile(
                                     "b.owner_id = :ownerId",
                                     Map.of("ownerId", owner.ownerId()),
+                                    false,
                                     now);
                     case ListingScope.Binders binders ->
                             binders.binderIds().isEmpty()
@@ -405,8 +461,9 @@ public class BinderService {
                                     : repository.reconcile(
                                             "b.id IN (:ids)",
                                             Map.of("ids", binders.binderIds()),
+                                            false,
                                             now);
-                    case ListingScope.All all -> repository.reconcile("TRUE", Map.of(), now);
+                    case ListingScope.All all -> repository.reconcile("TRUE", Map.of(), true, now);
                 };
         List<ListingFlip> flips = new ArrayList<>();
         for (ListingChange change : changes) {
@@ -428,7 +485,8 @@ public class BinderService {
      * Freshness job, binder part: expired temporary publications become PRIVATE and freshness
      * states are re-derived from the policy (AGED / STALED / HIDDEN / RESTORED events, {@link
      * BinderFreshnessChanged}). The caller reconciles the effective visibility afterwards, then
-     * calls {@link #warn}.
+     * calls {@link #warn}. Binders another transaction holds are skipped, here and in {@link
+     * #warn}: the next run handles them.
      */
     @Transactional
     public FreshnessRun runFreshness(FreshnessPolicy policy, Instant now) {
@@ -463,6 +521,8 @@ public class BinderService {
     /** Deletes every binder of the owner (account purge); items are purged by their module. */
     @Transactional
     public int purge(UUID ownerId) {
+        repository.lockOwners(List.of(ownerId));
+        repository.lockAllOf(ownerId);
         return repository.deleteAllOf(ownerId).size();
     }
 
@@ -471,6 +531,7 @@ public class BinderService {
     // ---------------------------------------------------------------------------------------
 
     private BinderView lockOwned(UUID ownerId, UUID binderId) {
+        repository.lockOwners(List.of(ownerId));
         if (!repository.lockOwned(ownerId, binderId)) {
             throw ApiException.notFound(NOT_FOUND);
         }

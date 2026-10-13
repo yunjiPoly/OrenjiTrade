@@ -3457,6 +3457,167 @@ From this stage on the native suite runs on the simulator the owner keeps booted
 2026-10-12: `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` on every run; nothing boots or shuts down a
 simulator, because each boot makes the desktop app ask the owner for permission).
 
+## Binder count deadlock: owner lock, one row order, a freshness job that skips locked rows (2026-10-10)
+
+Branch `fix/binder-count-deadlock`, shipped as `fix/inventory-lock-order` (the same commits merged
+with `main` on 2026-10-13), no migration, no API change.
+`DELETE /api/v1/inventory/items/{id}` answered 500 ("deadlock detected" in
+`inventory_item_binder_count()`) when it met the listing reconciliation of a privacy change: the
+delete held the item and waited for its binder (the item count trigger), the reconciler held the
+binder and waited for the item. Seen once in `BinderIT` on 2026-10-10; in production a collector
+deleting a card right after changing a privacy setting.
+
+- **Rule** (docs/database/schema.md, "Locks of binders and inventory items"), four parts:
+  1. **Owner lock.** Every write to a collector's binders or inventory items first takes a
+     transaction-scoped advisory lock of that collector (`BinderService.lockOwners`), before any
+     row: item create, update, move, delete, confirm, bulk, admin restore, admin hide, trade
+     transfer (both collectors, in one order), every binder write, `ListingReconciler.owner`, the
+     account purge, the seeds. The writes of one collector run one after the other. **A new write
+     path starts with this call.**
+  2. **Row order** below it: binder rows before item rows, each in ascending id
+     (`InventoryService.lockForWrite`, ordered locking clauses in every multi-row statement). It is
+     the second line behind the owner lock.
+  3. **Row lock mode `FOR NO KEY UPDATE`**, for binders and items. `FOR UPDATE` conflicts with the
+     key-share lock of a foreign key check, and such checks reach these rows from outside the owner
+     lock in two ways: another module inserts a row that references an item (offer, trade line,
+     trade, wishlist match), and PostgreSQL checks the foreign keys of a row again when a
+     transaction updates it a second time (a second update of an item takes a key-share lock on its
+     binder). Only a binder delete and the account purge end with the full row lock.
+  4. **The freshness job takes no lock in front of the writes and never waits for a row.** Each of
+     its eight statements takes its rows `FOR NO KEY UPDATE SKIP LOCKED`; a binder or item that
+     another transaction holds at that moment is aged, warned, hidden or unlisted by the next hourly
+     run. The statements of the collectors' writes do not skip.
+- **Also fixed on the way:** requests adding cards to the same binder at the same moment could
+  deadlock with each other (each held the foreign key's key-share lock on the binder and then asked
+  for the full row lock; seen with four parallel requests); the bulk endpoint read its items before
+  it locked them; the freshness job wrote the state it had computed before waiting for a row, so a
+  confirmation committed during the wait was overwritten until the next run; an item or binder
+  created while the listing reconciliation of a privacy change ran could keep a stale listed flag
+  until the next job run; a card an admin hid while a privacy change of its owner was being
+  reconciled was flagged as listed (and announced as published) until the next job run.
+- **Review round 1 (same day):** the first version had the row order only. The reviewer showed that
+  a bulk write (or a trade transfer of several cards) could still deadlock with two other requests
+  of the same collector, because it read the binders of its items before another request filed
+  them; the freshness job could still deadlock with a write that takes several binders; and item
+  writes could answer a 409 that the OpenAPI did not declare. The owner lock closes the first and
+  the 409 is gone (no API change: nothing can move an item between the read and the locks any
+  more). For the job, that round added a second advisory lock under which the job ran alone.
+- **Review round 2 (same day):** the second reviewer measured what that job lock cost and
+  recommended to replace it by `SKIP LOCKED` in the job's statements. Reproduced on the branch
+  before the change: a `PATCH` of a collector the job does not touch waited for the whole job
+  transaction; with one write in flight the job waited its 10 seconds and failed, eight queued
+  writes held the rest of the pool of 10 connections, and `GET /inventory/items` and `GET /me`
+  answered after 8.5 s. The job lock is gone (part 4 above). Proving the replacement turned up
+  three more lock cycles, all reproduced and fixed with a test each:
+  - **`SKIP LOCKED` alone was not enough.** The job hides an item and then unlists it; the second
+    update re-runs the foreign key check on the item's binder, which waited for a write holding
+    that binder `FOR UPDATE`, which waited for the item (`POST /inventory/items/{id}/confirm`
+    answered 500). Hence part 3 for binder rows.
+  - **Trade transfer against a new offer** (the reviewer's finding; a regression of round 1): the
+    transfer takes its items in ascending id, a new offer references the seller's card and then
+    the buyer's trade card. "deadlock detected" on the branch, fine on `main`. Hence part 3 for
+    item rows.
+  - **Admin hide against the reconciliation of a privacy change** (a regression of round 1, found
+    by a mutation run): the hide updated its item twice without the owner lock and so asked for a
+    key-share lock on a binder the reconciliation held. "deadlock detected" on the branch, fine on
+    `main`. The admin hide now takes the owner lock and the binder like every item write.
+  The redundant `binder-create` advisory lock is removed (the owner lock covers it).
+- **Final review (2026-10-13) and its one fix** (branch `fix/inventory-lock-order`: this branch
+  merged with `main` of 2026-10-13). The third, independent review found no regression introduced
+  by the branch: in its stress, twelve kinds of write side by side, eleven runs of the branch
+  ended without a deadlock, where `main` ended its two runs with 77 and 72. It found one corner
+  still open, older than the branch and narrower on it than on `main`:
+  `DELETE /api/v1/binders/{id}?deleteItems=true` could answer 500 ("deadlock detected") next to
+  the job when the binder held an item deleted earlier. Such an item keeps its `binder_id`, the
+  delete locks only the live items, and its `DELETE` reaches the deleted one through
+  `ON DELETE SET NULL` with the full row lock of the binder in hand; a job that had written that
+  row twice in its run (its expired temporary publication, then a listed flag left on it) asked
+  for a key-share lock on the binder at the second write.
+  - **Fix, one line:** the locking query of `InventoryItemRepository.normaliseExpired` takes live
+    items only (`AND deleted_at IS NULL`). The job then writes a deleted item at most once per run
+    and never re-checks that row's foreign keys. Nothing reads the visibility or `public_until` of
+    a deleted item (public reads, counts, admin lists, the export, the wishlist alert rules, the
+    purge and the seed were checked); such a row now keeps its expired `TEMPORARILY_PUBLIC` until
+    its binder is deleted without its items or the account is purged.
+  - **Test:**
+    `InventoryLockOrderIT.aBinderDeleteNeverDeadlocksWithTheFreshnessJobOverAnItemDeletedEarlier`,
+    both delete modes; with its items it failed with that deadlock before the fix. The class has
+    79 tests now. `BinderRepository.delete`, `FreshnessService` and schema.md said more than was
+    true about this path and are corrected.
+  - **Checked (2026-10-13):** the new case alone, before the fix 1 of 2 failed (with its items:
+    500, "deadlock detected ... UPDATE ONLY inventory_item SET binder_id = NULL"), after it 2 of
+    2 pass; `InventoryLockOrderIT` five times in a row, 79 of 79 each (19 to 20 s); the
+    inventory, binders and delisting tests, 143 in 16 classes; `npm run test:api` twice in a row,
+    895 + 12 tests and no failure each time (167 s each); `spotlessCheck --rerun-tasks`;
+    `exportOpenApi` without a diff. The review's stress probe on a scratch copy of the fixed
+    head, two runs of 150 rounds: no deadlock, no failure.
+  - **Follow-ups the review left, none of them introduced by this branch:**
+    1. The stored `publicly_listed` flag can be one job run behind on an item deleted while the
+       job runs (the first point of "Still open"; the review reproduced it through the real code,
+       on the branch and on `main`). The next run clears it; public reads never use the flag.
+    2. The synchronous after-commit analytics listeners need a second pooled connection (the
+       event registry marks the publication completed in a transaction of its own while the
+       committing thread still holds its connection). Ten at once stall requests for the 10 s
+       connection timeout. Seen with the test listeners only.
+    3. No lock timeout on inventory writes: a "busy, retry" answer after a few seconds would
+       bound a queue behind the owner lock.
+    4. The rule a new bulk write must follow (the import of stage S5 is the first), now in
+       docs/database/schema.md, "Locks of binders and inventory items": one transaction per
+       bounded chunk of at most 500 items; `BinderService.lockOwners` first; then the binders,
+       every target included, and the existing items in ascending id through
+       `InventoryService.lockForWrite`; never a plain multi-row `UPDATE` or `DELETE` on these two
+       tables, never `FOR UPDATE`; reconcile in the same transaction; nothing slow and no second
+       connection while the lock is held; one collector's chunks one after the other, never in
+       parallel.
+- **Tests:** `InventoryLockOrderIT` (79 since the final review: a binder deleted with and without
+  its items next to the job, over an item deleted earlier (2); 77 before): each item write against the reconciliation of a privacy
+  change stopped at one of its items (10 cases, real entry points) and against a transaction that
+  takes no owner lock (10 cases, the row order alone); a bulk write and a trade transfer of items
+  filed meanwhile; a card and a binder created during a privacy change; an item hidden by an admin
+  during a privacy change; a write waiting for a move of its item; a binder write waiting for an
+  item a photo upload holds; the owner locks of two collectors in one order; the owner lock as the
+  first lock of every write, with no row in hand (20 entry points); each item write and a photo
+  upload next to an uncommitted reference to their item (11) and the trade transfer against
+  references inserted in offer order; an item delete waiting for the job; the job between two
+  statements while a reorder holds the binder it wants next (the cycle of round 1); the job
+  between its two updates of an item while an item confirmation, a binder confirmation, a binder
+  delete or a privacy reconciliation holds the item's binder (4); each of the job's eight
+  statements with a row it has to write held elsewhere (the run ends meanwhile, the next run
+  writes the row); the job next to an uncommitted confirmation and photo upload; and a bounded run
+  of seven writers of one collector next to two job workers. Mutation runs (scratch copy, one
+  piece of the design removed each time): `SKIP LOCKED` out of each job statement and the item
+  freshness statement of `main` (9), `SKIP LOCKED` in a write's reconciliation (2), the owner lock
+  out of each kind of write, the key order, the transfer's up-front locks and the admin hide (10),
+  `FOR UPDATE` back in each item lock (4) and each binder lock (4), items locked before their
+  binders (1): all 30 fail at least one case. Three parts of the row order fail none while the
+  owner lock is in front of them (the owner reconciliation locking every binder first, the id
+  order of the item locks, the binder lock of a create before its insert): they are the second
+  line only. A scratch stress run in which the job keeps hiding and unlisting cards of a collector
+  whose writes run next to it (270 calls a run) ended with "deadlock detected" in 3 of 3 runs
+  with `SKIP LOCKED` alone and with no failure in 3 of 3 runs on the branch.
+- **Owner decision to confirm:** the job no longer waits for anybody, so a binder or item that is
+  being written at the moment the hourly job passes (or whose owner's privacy change is being
+  reconciled) is aged, warned, hidden or unlisted one hour later. An expired temporary publication
+  is private for readers all the same; a card due to be hidden as stale stays public for that
+  hour. The alternative (the job waits) is what deadlocked or stalled every write.
+- **Still open:**
+  - The stored `publicly_listed` flag can be one decision behind when a job run overlaps a write of
+    the same collector (the job decides from the snapshot of its statement). One publication event
+    can be wrong until the next run stores the right value; public reads apply the live rules,
+    never the flag. Same on `main`; reproduced by the final review (follow-up 1 above).
+  - The account purge takes the full lock of the collector's items; a transaction inserting
+    references to two of them in another order could still close a cycle with it. The account is
+    pending deletion and unlisted by then. Not tested.
+  - Not this branch (second reviewer, same on `main`): a job run that hides the listings of about
+    1,000 owners keeps the after-commit listeners busy for 90 to 120 s, during which other requests
+    can run out of pool connections (500 after 10 s). Separate task: cap the listener concurrency
+    below the pool size or batch the hidden-listing notifications per run.
+  - `CLAUDE.md` does not mention the rule. Proposed line for "Backend conventions" (the owner adds
+    it): "Every write to `binder` or `inventory_item` starts with `BinderService.lockOwners`, then
+    locks binder rows before item rows, each in ascending id and `FOR NO KEY UPDATE`; only the
+    freshness job skips locked rows. See docs/database/schema.md, 'Locks of binders and inventory
+    items'."
+
 ---
 
 ## NEXT TASK
@@ -3480,8 +3641,11 @@ simulator, because each boot makes the desktop app ask the owner for permission)
 > Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
 > may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
 >
-> **In review, not on `main`:** the binder / inventory deadlock fix (branch
-> `fix/binder-count-deadlock`); it merges only with an approving final review.
+> **The binder / inventory lock fix (branch `fix/inventory-lock-order`, the former
+> `fix/binder-count-deadlock` merged with `main`):** its third and final independent review ended
+> on 2026-10-13 without a regression of the branch and with one older corner, closed the same day
+> by a one-line fix that a second verifier approved (see "Binder count deadlock ...", "Final review
+> (2026-10-13) and its one fix"). Next for this branch: the pull request, merged when CI is green.
 >
 > **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
 > skipped until the owner asks for them.**
@@ -3489,16 +3653,19 @@ simulator, because each boot makes the desktop app ask the owner for permission)
 > **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
 > CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
 > preview-then-commit flow for both sources: the preview is kept server-side for a short time and
-> belongs to its collector, the commit is one idempotent transaction that merges duplicates (same
-> printing, condition, edition and language), items are Private by default, the freemium inventory
+> belongs to its collector, the commit is idempotent and merges duplicates (same printing,
+> condition, edition and language): one transaction for an import of at most 500 rows, and above
+> that chunks of 500 in order, each its own transaction, where a repeated commit continues after
+> the last chunk that was written (the rule "A new bulk write" of `docs/database/schema.md`: the
+> owner lock first, never one transaction for an unbounded write, one collector's chunks never in
+> parallel), items are Private by default, the freemium inventory
 > limit and the rate limiter apply, file contents are never logged, Collectr is never called and
 > its prices are never stored (the header is detected through aliases: the real one is
 > unconfirmed; the `/mnt/project-files/...` prompt the spec names does not exist). A row without a
 > printing is chosen on the phone with the existing "which copy" chooser of the wish form (the
 > shared picker of the card page belongs to the skipped S3), plus "Use the most recent printing for
-> all unchosen rows". The import is a new bulk write of inventory items: the parked deadlock fix
-> (`fix/binder-count-deadlock`) changes exactly that code, so its final review comes first. The web
-> import screen waits for the owner's order. **Then stage S6**: the final documents and the
+> all unchosen rows". The import is a new bulk write of inventory items and starts from a `main`
+> that holds the lock fix above. The web import screen waits for the owner's order. **Then stage S6**: the final documents and the
 > definition-of-done walkthrough (sections 8 and 9), which must list what S3 and S4 would have
 > delivered as not built (the printing picker with holder counts, "Who has it" / "Who wants it",
 > "Wanted by N", the search history; community photos), not as done.

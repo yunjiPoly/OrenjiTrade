@@ -428,7 +428,10 @@ public read evaluates them live (expiries apply at once).
   (HIDDEN → `InventoryItemUnpublished`); publicly listed items and binders in the warning window
   (`warn_before_hidden_days`) get one WARNED row per confirmation cycle and one
   `BinderFreshnessWarning {ownerId, binderId|null, itemCount, hidesAt}` per binder (null = unfiled
-  items) and run. Nothing is ever deleted.
+  items) and run. Nothing is ever deleted. The job takes no lock in front of the collectors' writes:
+  each of its statements skips the binders and items another transaction holds (`SKIP LOCKED`), so
+  it never waits for a row, and its next run handles what it skipped
+  ([schema.md](../../docs/database/schema.md), "Locks of binders and inventory items").
 - Account deletion: the inventory participant unpublishes everything at the request (the owner is no
   longer listed), republishes on cancellation and purges items, photos (after commit) and, through the
   binders participant, binders. Export sections `inventory` (with private notes: the owner's own data)

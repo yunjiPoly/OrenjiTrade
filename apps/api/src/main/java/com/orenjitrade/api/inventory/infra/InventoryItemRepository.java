@@ -33,6 +33,19 @@ import org.springframework.stereotype.Repository;
  * {@code inventory_item} access (explicit SQL). Every read carries the live effective public
  * visibility ({@link #LISTED}); public lists filter on it and never on the materialised flag. Reads
  * join the catalog tables (card, game) and the owner's account and privacy rows read-only.
+ *
+ * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): the callers of the
+ * writes here hold the owner lock of the collector, then binder rows are locked before item rows,
+ * and item rows in ascending {@code id}. The trigger {@code trg_inventory_item_binder_count}
+ * updates the binder of an item whose {@code binder_id} or {@code deleted_at} changes, so callers
+ * of those writes hold the binder first ({@code InventoryService.lockForWrite}); every statement
+ * here that locks several items takes them through an {@code ORDER BY id} locking clause.
+ *
+ * <p>Item rows are locked {@code FOR NO KEY UPDATE}, the lock an {@code UPDATE} of these columns
+ * takes anyway: offers, trade lines, trades and wishlist matches reference items, and the key-share
+ * lock of their foreign key checks conflicts with {@code FOR UPDATE} only. A write here and a
+ * transaction that inserts such references therefore never wait for each other. The account purge
+ * is the one write that deletes item rows and takes them {@code FOR UPDATE} ({@link #lockAllOf}).
  */
 @Repository
 public class InventoryItemRepository {
@@ -114,11 +127,80 @@ public class InventoryItemRepository {
                 .list();
     }
 
-    /** Locks the owner's non-deleted item row. */
+    /**
+     * The owners of the items among {@code ids}, deleted ones included (an owner never changes).
+     */
+    public List<UUID> ownersOf(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("SELECT DISTINCT owner_id FROM inventory_item WHERE id IN (:ids)")
+                .param("ids", ids)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Binders the live items among {@code ids} are filed in, read without a row lock: the binders
+     * an item write locks before it locks the items. The caller holds the owner lock, so no other
+     * write moves these items meanwhile.
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<UUID> binderIdsOf(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT DISTINCT binder_id FROM inventory_item WHERE id IN (:ids)"
+                                        + " AND binder_id IS NOT NULL AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId"))
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement.query(UUID.class).list();
+    }
+
+    /**
+     * Locks the live items among {@code ids} in ascending id order and returns them with the binder
+     * they are filed in now (it cannot change while the lock is held). The id order is the second
+     * line behind the owner lock, which already keeps the collector's other writes off these rows.
+     * {@code FOR NO KEY UPDATE}: no item write changes the key or deletes the row, so it does not
+     * conflict with the foreign key checks of rows that reference the items.
+     *
+     * @param ownerId only this owner's items when given
+     */
+    public List<LockedItem> lockAll(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT id, owner_id, binder_id FROM inventory_item"
+                                        + " WHERE id IN (:ids) AND deleted_at IS NULL"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId")
+                                        + " ORDER BY id FOR NO KEY UPDATE")
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement
+                .query(
+                        (rs, rowNum) ->
+                                new LockedItem(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getObject("owner_id", UUID.class),
+                                        rs.getObject("binder_id", UUID.class)))
+                .list();
+    }
+
+    /** Locks the owner's non-deleted item row (writes that never reach a binder: photos). */
     public boolean lockOwned(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT id FROM inventory_item WHERE id = :id AND owner_id = :ownerId"
-                                + " AND deleted_at IS NULL FOR UPDATE")
+                                + " AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(UUID.class)
@@ -282,16 +364,6 @@ public class InventoryItemRepository {
                 .param("id", id)
                 .param("now", Timestamp.from(now))
                 .query(InventoryItemRepository::adminRow)
-                .optional();
-    }
-
-    /** The owner of a live item, locking it; empty for unknown or deleted items. */
-    public Optional<UUID> lockOwnerOf(UUID id) {
-        return jdbc.sql(
-                        "SELECT owner_id FROM inventory_item WHERE id = :id AND deleted_at IS NULL"
-                                + " FOR UPDATE")
-                .param("id", id)
-                .query(UUID.class)
                 .optional();
     }
 
@@ -577,10 +649,16 @@ public class InventoryItemRepository {
     public List<UUID> softDeleteInBinder(UUID ownerId, UUID binderId, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET deleted_at = :now, updated_at = :now,
+                        WITH doomed AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = :now, updated_at = :now,
                                last_owner_activity_at = :now
-                         WHERE owner_id = :ownerId AND binder_id = :binderId AND deleted_at IS NULL
-                        RETURNING id
+                          FROM doomed d
+                         WHERE i.id = d.id
+                        RETURNING i.id
                         """)
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
@@ -597,10 +675,13 @@ public class InventoryItemRepository {
             UUID ownerId, UUID binderId, boolean keepVisibility, Instant now) {
         String visibility = keepVisibility ? "" : ", visibility = 'PRIVATE', public_until = NULL";
         return jdbc.sql(
-                        "UPDATE inventory_item SET binder_id = NULL, updated_at = :now"
-                                + visibility
+                        "WITH unfiled AS MATERIALIZED (SELECT id FROM inventory_item"
                                 + " WHERE owner_id = :ownerId AND binder_id = :binderId"
-                                + " RETURNING id")
+                                + " ORDER BY id FOR NO KEY UPDATE)"
+                                + " UPDATE inventory_item i SET binder_id = NULL, updated_at = :now"
+                                + visibility
+                                + " FROM unfiled u WHERE i.id = u.id"
+                                + " RETURNING i.id")
                 .param("ownerId", ownerId)
                 .param("binderId", binderId)
                 .param("now", Timestamp.from(now))
@@ -620,7 +701,7 @@ public class InventoryItemRepository {
                                 "WITH previous AS (SELECT id, freshness_state FROM inventory_item"
                                         + " WHERE owner_id = :ownerId AND deleted_at IS NULL AND "
                                         + scope
-                                        + " FOR UPDATE)"
+                                        + " ORDER BY id FOR NO KEY UPDATE)"
                                         + " UPDATE inventory_item i SET confirmed_at = :now,"
                                         + " last_owner_activity_at = :now, warned_at = NULL,"
                                         + " freshness_state = 'ACTIVE', hidden_reason = NULL"
@@ -655,7 +736,7 @@ public class InventoryItemRepository {
     public Optional<Integer> lockQuantity(UUID ownerId, UUID id) {
         return jdbc.sql(
                         "SELECT quantity FROM inventory_item WHERE id = :id AND owner_id ="
-                                + " :ownerId AND deleted_at IS NULL FOR UPDATE")
+                                + " :ownerId AND deleted_at IS NULL FOR NO KEY UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(Integer.class)
@@ -689,28 +770,52 @@ public class InventoryItemRepository {
     // Freshness job
     // ---------------------------------------------------------------------------------------
 
-    /** Expired temporary publications become PRIVATE; returns the number of items changed. */
+    /**
+     * Expired temporary publications become PRIVATE; returns the number of items changed. Like
+     * every statement of the job, it skips the items another transaction holds ({@code SKIP
+     * LOCKED}): the job never waits for a row, and its next run handles them.
+     *
+     * <p>Deleted items are left as they are (nothing reads the visibility of a deleted item). The
+     * job may still have to clear a listed flag on a deleted item ({@link #reconcile}); written
+     * here as well, that row would be written twice in one run, and the second update re-runs the
+     * foreign key check of {@code binder_id}: a key-share lock on the binder. A deleted item keeps
+     * its binder, and a binder deleted together with its items reaches it only through its {@code
+     * DELETE} ({@code ON DELETE SET NULL}), with the full row lock of the binder in hand: the
+     * delete would wait for the job at the item and the job for the delete at the binder.
+     */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET visibility = 'PRIVATE', public_until = NULL
-                         WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                        WITH expired AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET visibility = 'PRIVATE', public_until = NULL
+                          FROM expired e
+                         WHERE i.id = e.id
                         """)
                 .param("now", Timestamp.from(now))
                 .update();
     }
 
-    /** Re-derives the freshness of every non-deleted item; returns the changes. */
+    /**
+     * Re-derives the freshness of every non-deleted item; returns the changes. The state is
+     * computed in the locking clause, so it is the state of the row as locked.
+     */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
-                        "WITH computed AS (SELECT id, freshness_state AS old_state, "
+                        "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
-                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL)"
+                                + " AS new_state FROM inventory_item WHERE deleted_at IS NULL"
+                                + " AND freshness_state <> "
+                                + FRESHNESS_CASE
+                                + " ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)"
                                 + " UPDATE inventory_item i SET freshness_state = c.new_state,"
                                 + " hidden_reason = CASE WHEN c.new_state = 'HIDDEN'"
                                 + " THEN 'STALE_UNCONFIRMED' ELSE NULL END"
                                 + " FROM computed c"
-                                + " WHERE i.id = c.id AND c.old_state <> c.new_state"
+                                + " WHERE i.id = c.id"
                                 + " RETURNING i.id, i.owner_id, i.binder_id, i.publicly_listed,"
                                 + " c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
@@ -732,11 +837,16 @@ public class InventoryItemRepository {
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE inventory_item SET warned_at = :now
-                         WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
-                           AND freshness_state <> 'HIDDEN'
-                           AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                        RETURNING id, owner_id, binder_id, confirmed_at
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE deleted_at IS NULL AND warned_at IS NULL AND publicly_listed
+                               AND freshness_state <> 'HIDDEN'
+                               AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET warned_at = :now
+                          FROM due d
+                         WHERE i.id = d.id
+                        RETURNING i.id, i.owner_id, i.binder_id, i.confirmed_at
                         """)
                 .param("now", Timestamp.from(now))
                 .param("warnCutoff", Timestamp.from(policy.warnCutoff(now)))
@@ -753,9 +863,14 @@ public class InventoryItemRepository {
 
     /**
      * Stores the effective public visibility of the items matching {@code scopeSql} (a condition on
-     * alias {@code i}) and returns those whose value flipped.
+     * alias {@code i}) and returns those whose value flipped. The flipped rows are locked in
+     * ascending id order before they are written.
+     *
+     * @param skipLocked leave the items another transaction holds to a later call instead of
+     *     waiting for them (the freshness job, which reconciles every item)
      */
-    public List<ListingChange> reconcile(String scopeSql, Map<String, ?> params, Instant now) {
+    public List<ListingChange> reconcile(
+            String scopeSql, Map<String, ?> params, boolean skipLocked, Instant now) {
         JdbcClient.StatementSpec statement =
                 jdbc.sql(
                                 "WITH computed AS (SELECT i.id, "
@@ -764,13 +879,19 @@ public class InventoryItemRepository {
                                         + FROM
                                         + " WHERE "
                                         + scopeSql
+                                        + "), flipped AS MATERIALIZED (SELECT t.id, c.listed,"
+                                        + " c.card_id, c.game"
+                                        + " FROM inventory_item t JOIN computed c ON c.id = t.id"
+                                        + " WHERE t.publicly_listed <> c.listed"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t"
+                                        + (skipLocked ? " SKIP LOCKED" : "")
                                         + ")"
                                         + " UPDATE inventory_item t SET publicly_listed ="
-                                        + " c.listed, listing_changed_at = :now"
-                                        + " FROM computed c"
-                                        + " WHERE t.id = c.id AND t.publicly_listed <> c.listed"
-                                        + " RETURNING t.id, t.owner_id, t.printing_id, c.card_id,"
-                                        + " c.game, c.listed, t.availability, t.asking_price,"
+                                        + " f.listed, listing_changed_at = :now"
+                                        + " FROM flipped f"
+                                        + " WHERE t.id = f.id"
+                                        + " RETURNING t.id, t.owner_id, t.printing_id, f.card_id,"
+                                        + " f.game, f.listed, t.availability, t.asking_price,"
                                         + " t.currency")
                         .param("now", Timestamp.from(now));
         for (Map.Entry<String, ?> param : params.entrySet()) {
@@ -796,9 +917,15 @@ public class InventoryItemRepository {
     // Account deletion
     // ---------------------------------------------------------------------------------------
 
-    /** Every item of an owner, deleted or not (purge). */
-    public List<UUID> idsOf(UUID ownerId) {
-        return jdbc.sql("SELECT id FROM inventory_item WHERE owner_id = :ownerId")
+    /**
+     * Every item of an owner, deleted or not, locked in ascending id order (purge: the delete that
+     * follows takes the rows in no particular order). {@code FOR UPDATE}, the lock of the delete,
+     * so the delete never has to strengthen a lock it holds.
+     */
+    public List<UUID> lockAllOf(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT id FROM inventory_item WHERE owner_id = :ownerId ORDER BY id FOR"
+                                + " UPDATE")
                 .param("ownerId", ownerId)
                 .query(UUID.class)
                 .list();
@@ -921,6 +1048,15 @@ public class InventoryItemRepository {
             return params;
         }
     }
+
+    /**
+     * An item whose row the transaction holds.
+     *
+     * @param id item
+     * @param ownerId owner
+     * @param binderId binder, {@code null} when unfiled
+     */
+    public record LockedItem(UUID id, UUID ownerId, @Nullable UUID binderId) {}
 
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}
