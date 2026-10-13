@@ -48,6 +48,7 @@ const LIMIT_NAMES: Record<string, string> = {
   'wishlist.items.max': 'wishlist items',
   'offers.per_day': 'offers today',
   'saved_searches.max': 'saved searches',
+  'inventory.items.max': 'inventory cards',
 };
 
 const PLAN_NAMES: Record<string, string> = { FREE: 'Free', PREMIUM: 'Premium' };

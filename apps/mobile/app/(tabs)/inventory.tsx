@@ -45,7 +45,7 @@ import {
   UNFILED,
   type InventoryFilters,
 } from '@/src/lib/inventoryFilters';
-import { spacing } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing } from '@/src/theme';
 
 type View_ = 'cards' | 'binders';
 
@@ -54,7 +54,8 @@ type View_ = 'cards' | 'binders';
  * with search, game / intent / visibility / binder filters and sorting, the totals and the cards
  * needing a confirmation, paused listings with "Resume", multi-select bulk actions (visibility,
  * move to a binder, availability, confirm, delete) and their binders (with reordering). Cards
- * open the editor; "Add card" starts the catalog search → printing → details flow.
+ * open the editor; "Add card" starts the catalog search → printing → details flow; "Import"
+ * brings cards from a deck file or a CSV export (stage S5, `app/items/import.tsx`).
  */
 export default function InventoryScreen() {
   const router = useRouter();
@@ -310,16 +311,29 @@ function CardsView() {
           testID="inventory-open-binder"
         />
       ) : null}
-      {items.data && list.length > 0 ? (
+      <View style={styles.tools}>
         <Button
-          label={selecting ? 'Done selecting' : 'Select'}
-          icon={selecting ? 'check' : 'checkbox-multiple-marked-outline'}
+          label="Import"
+          icon="tray-arrow-down"
           variant="ghost"
-          onPress={selecting ? stopSelecting : () => setSelecting(true)}
-          style={styles.binderLink}
-          testID="inventory-select"
+          onPress={() => router.push('/items/import')}
+          accessibilityLabel="Import cards from a file"
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={styles.tool}
+          testID="inventory-import"
         />
-      ) : null}
+        {items.data && list.length > 0 ? (
+          <Button
+            label={selecting ? 'Done selecting' : 'Select'}
+            icon={selecting ? 'check' : 'checkbox-multiple-marked-outline'}
+            variant="ghost"
+            onPress={selecting ? stopSelecting : () => setSelecting(true)}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={styles.tool}
+            testID="inventory-select"
+          />
+        ) : null}
+      </View>
       <View style={[styles.grow, styles.listTop]}>{body}</View>
       {selecting && selected.size > 0 ? (
         <View style={styles.bulk}>
@@ -432,6 +446,11 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   add: { minHeight: 44, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
   binderLink: { alignSelf: 'flex-start', minHeight: 36, paddingVertical: spacing[1] },
+  // "Import" and "Select" side by side. They stay on screen above the list, so their text follows
+  // the system size only a little (PINNED_MAX_FONT_SCALE): at the largest sizes two full-size
+  // buttons took what was left of the screen and the cards under them were out of reach.
+  tools: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing[2] },
+  tool: { minHeight: 36, paddingVertical: spacing[1], paddingHorizontal: spacing[3] },
   listTop: { marginTop: spacing[2] },
   bulk: { paddingBottom: spacing[2] },
   header: { gap: spacing[3], marginBottom: spacing[3] },

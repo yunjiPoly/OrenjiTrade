@@ -29,6 +29,11 @@ export interface ButtonProps {
   accessibilityHint?: string;
   /** Read instead of the visible label (e.g. "Make an offer on Lantern Fox"). */
   accessibilityLabel?: string;
+  /**
+   * How far the label follows the system text size: for a button that stays on screen under a
+   * scrolling list (`PINNED_MAX_FONT_SCALE`). On iOS a long press shows it enlarged.
+   */
+  maxFontSizeMultiplier?: number;
 }
 
 export function Button({
@@ -43,6 +48,7 @@ export function Button({
   testID,
   accessibilityHint,
   accessibilityLabel,
+  maxFontSizeMultiplier,
 }: ButtonProps) {
   const { palette } = useTheme();
   const inactive = disabled || loading;
@@ -71,6 +77,8 @@ export function Button({
       accessibilityRole="button"
       accessibilityLabel={loading && loadingLabel ? text : (accessibilityLabel ?? text)}
       accessibilityHint={accessibilityHint}
+      accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
+      accessibilityLargeContentTitle={maxFontSizeMultiplier !== undefined ? text : undefined}
       aria-disabled={inactive}
       aria-busy={loading}
       disabled={inactive}
@@ -95,7 +103,12 @@ export function Button({
         ) : icon ? (
           <MaterialCommunityIcons name={icon} size={18} color={color} />
         ) : null}
-        <Text style={[textStyle('md'), styles.label, { color }]}>{text}</Text>
+        <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
+          style={[textStyle('md'), styles.label, { color }]}
+        >
+          {text}
+        </Text>
       </View>
     </Pressable>
   );
