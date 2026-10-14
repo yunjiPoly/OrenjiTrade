@@ -10,8 +10,9 @@ import {
   notificationTarget,
   safeAppPath,
 } from '@/src/features/notifications/notificationKinds';
+import { categoriesOf } from '@/src/features/settings/notificationOptions';
 
-import { CARD_ID, notificationFixture } from '../support/fixtures';
+import { CARD_ID, notificationFixture, notificationsFixture } from '../support/fixtures';
 
 describe('notification kinds', () => {
   it('gives every type an icon, tone and label (and SYSTEM notices their own)', () => {
@@ -219,5 +220,27 @@ describe('notification kinds', () => {
         ['Older', ['old', 'unknown']],
       ]
     );
+  });
+});
+
+describe('notification categories', () => {
+  it('lists the known categories in order, unknown ones last, never offers or trades (ADR 0018)', () => {
+    const on = { inApp: true, push: true, email: true };
+    const rows = categoriesOf(
+      notificationsFixture({
+        categories: {
+          SOMETHING_NEW: on,
+          OFFER: on,
+          RATING: on,
+          TRADE: on,
+          MESSAGE: on,
+        },
+      })
+    );
+    expect(rows.map((row) => [row.key, row.label])).toEqual([
+      ['MESSAGE', 'Messages'],
+      ['RATING', 'Ratings'],
+      ['SOMETHING_NEW', 'something new'],
+    ]);
   });
 });

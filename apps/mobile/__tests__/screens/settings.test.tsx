@@ -277,6 +277,17 @@ describe('Settings → Notifications', () => {
   it('saves channel and topic preferences', async () => {
     const api = mockApi(
       signedInRoutes({
+        // The API still lists the offer and trade categories (kept for the paused web).
+        'GET /api/v1/me/settings/notifications': ok(
+          notificationsFixture({
+            categories: {
+              MESSAGE: { inApp: true, push: true, email: false },
+              OFFER: { inApp: true, push: false, email: true },
+              TRADE: { inApp: false, push: true, email: false },
+              RATING: { inApp: true, push: true, email: true },
+            },
+          })
+        ),
         'PUT /api/v1/me/settings/notifications': ({ body }: MockRequest) => ok(body),
       })
     );
@@ -294,9 +305,13 @@ describe('Settings → Notifications', () => {
     >;
     expect(body.emailEnabled).toBe(false);
     expect(body.categories.MESSAGE).toEqual({ inApp: true, push: true, email: true });
-    // Offers left the phone (ADR 0018): no row, and the stored value goes back unchanged.
-    expect(screen.queryByRole('checkbox', { name: /^Offers by / })).toBeNull();
+    // Offers and trades left the phone (ADR 0018): no row under any label, and the stored
+    // values go back unchanged.
+    expect(screen.getByRole('checkbox', { name: 'Ratings by Push' })).toBeOnTheScreen();
+    expect(screen.queryAllByRole('checkbox', { name: /offer|trade/i })).toHaveLength(0);
+    expect(screen.queryByText(/offer|trade/i)).toBeNull();
     expect(body.categories.OFFER).toEqual({ inApp: true, push: false, email: true });
+    expect(body.categories.TRADE).toEqual({ inApp: false, push: true, email: false });
   });
 
   it('validates quiet hours', async () => {
