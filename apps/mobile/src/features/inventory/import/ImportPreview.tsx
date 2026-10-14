@@ -405,7 +405,8 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           </Text>
         ) : null}
         <Button
-          label={state.label}
+          label={state.shortLabel}
+          accessibilityLabel={state.label}
           loadingLabel="Adding to your inventory…"
           icon="tray-arrow-down"
           disabled={state.disabled || wholeBusy || saving}

@@ -355,11 +355,16 @@ Conventions later stages reuse:
     printing" says once, in a snackbar, how many lines got the plain copy. While
     `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
     assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
-    the chip "Plain copy assumed (115)" (the filter `MOST_RECENT_ASSUMED`, sent as
-    `printingChoice`). The chips stand in the order of what they ask (All, Needs a printing, Plain
-    copy assumed, Not recognised), and the row brings the chosen chip whole on screen when
+    the chip "115 assumed" (the filter `MOST_RECENT_ASSUMED`, sent as `printingChoice`; a screen
+    reader hears "Plain copy assumed (115)", `ChoiceOption.accessibilityLabel`). It is the third
+    chip of the row and is cut at the screen's edge: its count leads so that the count is the part
+    in view. The chips stand in the order of what they ask (All, Needs a printing, the assumed
+    copies, Not recognised), and the row brings the chosen chip whole on screen when
     something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
     copy again in "Which copy" confirms it: the line leaves that list and the count.
+    **The commit button shows a label that fits one line** (`commitState().shortLabel`: "Add 434
+    cards (1,266 copies)", "Add 434 cards, leave 12 out"); the whole sentence ("… to my
+    inventory") is its accessible name, which the tests and the flows read.
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
     status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
     that got its printing leaves "needs a printing", and the next page would otherwise skip a

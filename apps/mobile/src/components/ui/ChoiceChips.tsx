@@ -15,6 +15,11 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 export interface ChoiceOption<T extends string> {
   value: T;
   label: string;
+  /**
+   * Read by a screen reader instead of `label`, for a chip whose visible label is shortened to
+   * stay in view in a pinned row ("356 assumed" for "Plain copy assumed (356)").
+   */
+  accessibilityLabel?: string;
 }
 
 export interface ChoiceChipsProps<T extends string> {
@@ -98,7 +103,7 @@ export function ChoiceChips<T extends string>({
       <Pressable
         key={option.value}
         accessibilityRole="radio"
-        accessibilityLabel={option.label}
+        accessibilityLabel={option.accessibilityLabel ?? option.label}
         aria-checked={selected}
         aria-disabled={disabled}
         disabled={disabled}

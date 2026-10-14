@@ -604,10 +604,12 @@ describe('Import cards: the preview', () => {
     expect(commit.props.accessibilityHint).toBe(
       '2 cards still need a printing. Choose them, or leave them out.'
     );
-    // It stays on screen under the list: its text follows the system size only a little.
-    expect(
-      within(commit).getByText('Add 1 card (2 copies) to my inventory').props.maxFontSizeMultiplier
-    ).toBe(PINNED_MAX_FONT_SCALE);
+    // It stays on screen under the list: its text follows the system size only a little, and
+    // what it shows is the label that fits one line (the whole sentence is its name, above).
+    expect(within(commit).getByText('Add 1 card (2 copies)').props.maxFontSizeMultiplier).toBe(
+      PINNED_MAX_FONT_SCALE
+    );
+    expect(within(commit).queryByText('Add 1 card (2 copies) to my inventory')).toBeNull();
     // So does the filter, which stays on screen above the list (not at the end of a long top).
     const bar = screen.getByTestId('import-filter-bar');
     expect(within(bar).getByRole('radio', { name: 'All (4)' })).toBeChecked();
@@ -912,9 +914,11 @@ describe('Import cards: the preview', () => {
     ).toBeOnTheScreen();
     const bar = screen.getByTestId('import-filter-bar');
     expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).not.toBeChecked();
-    expect(within(bar).getByText('Plain copy assumed (2)').props.maxFontSizeMultiplier).toBe(
+    // What the chip shows leads with its count (the part in view of a chip cut at the edge).
+    expect(within(bar).getByText('2 assumed').props.maxFontSizeMultiplier).toBe(
       PINNED_MAX_FONT_SCALE
     );
+    expect(within(bar).queryByText('Plain copy assumed (2)')).toBeNull();
     // On a phone the row of chips is wider than the screen: this chip is cut at the edge.
     const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     fireEvent(within(bar).getByTestId('import-filter-row'), 'layout', {
@@ -1098,6 +1102,7 @@ describe('Import cards: the commit', () => {
       })
     );
     expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies), leave 2 out');
+    expect(within(commit).getByText('Add 1 card, leave 2 out')).toBeOnTheScreen();
     expect(commit).not.toBeDisabled();
     fireEvent.press(commit);
 
