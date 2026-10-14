@@ -17,8 +17,6 @@ profile `@Scheduled` cadences):
 | `offers-expire` | `5 * * * *` | `POST /internal/jobs/offers-expire` | hourly (phase8-offers-trades, `OfferExpiryScheduler` PT1H) |
 | `account-deletion` | `20 * * * *` | `POST /internal/jobs/account-deletion` | hourly (`AccountDeletionScheduler` PT1H, 7-day grace) |
 | `payments-auto-release` | `25 * * * *` | `POST /internal/jobs/payments-auto-release` | hourly (phase9-payments, `AutoReleaseScheduler` PT1H) |
-| `credits-reconcile` | `35 * * * *` | `POST /internal/jobs/credits-reconcile` | hourly (`CreditReconcileScheduler` PT1H) |
-| `subscriptions-period` | `40 * * * *` | `POST /internal/jobs/subscriptions-period` | hourly (`SubscriptionPeriodScheduler` PT1H) |
 | `upload-cleanup` | `2/15 * * * *` | `POST /internal/jobs/upload-cleanup` | every 15 min (`UploadCleanupScheduler` PT15M) |
 | `delist` | `30 5 * * *` | `POST /internal/jobs/delist` | daily (phase3-inventory, `DelistScheduler` P1D) |
 | `card-images-reconcile` | `45 4 * * *` | `POST /internal/jobs/card-images/reconcile` | no documented cadence; daily chosen (idempotent, also runs at start-up) |
