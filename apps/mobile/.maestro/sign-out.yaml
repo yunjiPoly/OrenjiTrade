@@ -27,11 +27,13 @@ tags:
     id: 'profile-name'
     text: 'Maestro Leaver'
 
-# Sign out.
-- scrollUntilVisible:
-    element:
-      id: 'profile-sign-out'
-    direction: DOWN
+# Sign out. (The scroll subflow brings the row clear of the tab bar: a plain scrollUntilVisible
+# stopped with it under the bar once the Profile tab lost its Offers and Trades rows, stage R1,
+# and the tap opened the Messages tab instead.)
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-sign-out'
 - tapOn:
     id: 'profile-sign-out'
 - extendedWaitUntil:
