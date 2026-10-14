@@ -189,7 +189,7 @@ export function InboxView() {
           testID="inbox-empty"
           icon="forum-outline"
           title="No conversations yet"
-          description="Find a card or a binder in search, open the collector's profile and press Message to start trading. Meetup details always stay private between the two of you."
+          description="Find a card or a binder in search, open the collector's profile and press Message to start trading."
           actionLabel="Open search"
           onAction={() => router.navigate('/search')}
         />
