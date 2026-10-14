@@ -1,5 +1,15 @@
 # Phase 10 contract — plans, entitlements, usage limits, credits, ads, donations, billing abstraction
 
+> **Stage F1, "free for all" (2026-10-14, [ADR 0019](../../architecture/adr/0019-free-for-all-no-paid-features.md)):**
+> everything in this contract is **removed** except the usage limits: no plans, entitlements,
+> subscriptions, billing provider, credits, referrals, ads or donations, and none of their
+> endpoints (they answer 404). The usage limits are the same for every collector: `usage_limit`
+> has one row per key (no `plan_id`), `GET /api/v1/me/limits` → `{ limits: [LimitStatus] }`
+> replaces `GET /me/plan`, `GET`/`PUT /api/v1/admin/usage-limits` edit them (SUPER_ADMIN for
+> writes, audited), and `429 LIMIT_REACHED` carries `limitKey`, `limit`, `used`, `resetsAt` (and
+> `requested` when adding inventory items), never `planCode` or `upgradeUrl`. The code is kept on the branch
+> `archive/paid-features`. The rest of this page is the Phase 10 history.
+
 > **ADR 0017 (2026-10-08):** the `map.radius.max_km` limit and the `map_radius_day` credit
 > product are removed; ad targeting kinds are `GAME`, `REGION`, `COUNTRY`, `SUBDIVISION`, `TAG`,
 > `PLAN` (no `REGION_LABEL` / `GEO_CELL`), and impressions record region and subdivision codes.
