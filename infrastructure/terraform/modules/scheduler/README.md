@@ -33,7 +33,7 @@ previews, stage S5). The API runs that job after every `freshness` job, so the h
 entry above covers it and the module still has 9 jobs; the route exists for a run on request.
 
 Cloud Scheduler pricing: 3 jobs free per billing account, then US$0.10 per job per month
-(10 jobs here, about US$0.70/month).
+(9 jobs here, about US$0.60/month).
 
 | Input | Default | Notes |
 | --- | --- | --- |
