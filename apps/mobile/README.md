@@ -36,8 +36,8 @@ totals, stale or hidden cards with "Confirm all", paused listings with "Resume";
 card (`items/new`: catalog search → printing → details), editing and deleting one (`items/[id]`),
 and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
 24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
-anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
-they happen.
+anyone's public binder). Usage limits (`binders.max`, binder views per day; the same for every
+collector since stage F1) are explained where they happen.
 
 Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08 and by stage M9 on 2026-10-12):
 there are no positions or distances any more. The app browses one **platform region**, chosen with
@@ -87,19 +87,11 @@ which releases the payout, Open a dispute within the window; the payment, shipme
 cards; a seller's reminder to set up payouts), **disputes** (`disputes/[id]`: the decision or the
 hold, evidence (statements and photos from the library; photos are fetched with the ID token),
 the thread with the other collector and OrenjiTrade, the timeline), **Settings → Payouts**
-(`settings/payouts`), **Premium** (`premium`: plans, the live subscription, subscribe / continue /
-close / cancel through `checkout/fake-billing/[ref]`, usage and boosts; every reached plan limit
-offers "See Premium"), **Credits** (`credits`: balance, unlocks for a day with one idempotency key
-per dialog, referral code with "Share" and redemption, the append-only ledger), **Support
-OrenjiTrade** (`support`: voluntary donations through `checkout/fake-donation/[ref]`, supporters,
-own donations) and **"Sponsored" placements** (search results, the inventory and other collectors'
-profiles: the impression recorded once, a tap opens the API's click route in the browser; the Map
-tab and the binders of a place show none, unlike the web's map page and its `MAP_PANEL` slot: an
-open owner question since stage M9). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
-`donations`, `advertising`), evaluated for the signed-in collector, like the web. The wording is
-"payment protection", never "escrow". Selling Premium or donations in a store build raises the
-app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
-provider are added).
+(`settings/payouts`). Protected payments follow the `protectedPayments` flag, evaluated for the
+signed-in collector, like the web. The wording is "payment protection", never "escrow". (Stage M6
+also brought Premium, credits, "Support OrenjiTrade" donations and "Sponsored" placements; stage
+F1 removed them on 2026-10-14, ADR 0019: the app is free for all, and the code is kept on the
+branch `archive/paid-features`.)
 
 Stage M7 closes the gaps a comparison with the web app found, each on the web's endpoints:
 **Google sign-in and sign-up** ("Continue with Google" / "Sign up with Google": Firebase's pop-up
@@ -140,9 +132,9 @@ language; the UI around the texts stays English), the dismissible **"Trade safel
 (link to the guide, Report, Block, Dismiss; under the conversation header and at the top of the
 offer and trade screens; dismissal kept on the device per collector and per context, as the web
 keeps it in local storage: there is no server-side preferences mechanism), **Block / Unblock on
-the collector profile** next to Report, and the **money-off follow-ups** (neutral plan-limit
-wording and no "See Premium" unless `premiumPlans` is on; the plan-limit notification opens
-Premium only when the API's payload carries `upgradeUrl`). Nothing here claims legal compliance:
+the collector profile** next to Report, and the **money-off follow-ups** (neutral limit
+wording; since stage F1 no limit message offers anything to buy and the limit notification never
+opens a removed screen). Nothing here claims legal compliance:
 the legal texts stay drafts (banner kept).
 
 Stage S5 (2026-10-13) adds the **inventory import** (`items/import`, "Import" on the Inventory
@@ -259,11 +251,8 @@ app/                       expo-router routes
                            (`?item=`, the card handed over by "Make an offer"), counter (`?id=`)
   trades/                  index (`?status=`), [id] (one trade: next move, steps, timeline)
   settings/reports.tsx     My reports; settings/offers.tsx: mixed offers; settings/payouts.tsx
-  checkout/                fake/[ref] (protected payment), fake-billing/[ref] (Premium),
-                           fake-donation/[ref] (donation): the local fake provider checkouts
+  checkout/                fake/[ref]: the local fake provider checkout of a protected payment
   disputes/[id].tsx        a dispute (`?opened=1` after opening it from the trade)
-  premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
-                           (`?donation=thanks`)
   cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
                            it, `?printing=any` any printing: neither picks one)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
@@ -294,8 +283,7 @@ src/
                            protectedForms, checkoutTargets), the explainer; features/disputes/:
                            overview, evidence list and composer, thread, timeline;
                            features/checkout/: useProviderCheckout + the fake checkout card;
-                           features/billing/: plans, subscription, usage, credits, donations;
-                           features/ads/: SponsoredSlot (label, impression, click route)
+                           features/limits/: LimitReachedNotice
   realtime/                STOMP 1.2 codec + connection, RealtimeClient, RealtimeProvider
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
@@ -327,7 +315,8 @@ Conventions later stages reuse:
   `ChoiceChips` (a few values as radio chips) and `SelectSheet` (a field opening a bottom sheet of
   options) with inline errors and accessibility state; server field errors map through
   `src/api/errorMessages.ts`; `429 LIMIT_REACHED` is explained in place (`LimitReachedNotice`,
-  `src/lib/limits.ts`: what is counted, used / allowed on the plan, when it resets).
+  `src/lib/limits.ts`: what is counted, used / allowed, when it resets; the same limits for
+  everyone, nothing to buy).
 - **Inventory vocabulary** (`src/lib/inventory.ts`, the web's `inventory-labels`): the trade / sell
   intents are the API's `availability` (trade or sale, trade, sale, collection only, not available)
   plus the separate "accepts offers" flag; wanting a card is a wishlist entry. Visibility is
@@ -359,8 +348,8 @@ Conventions later stages reuse:
     pressed right after unticking a card would otherwise reach the API first, and the card shown
     as left out would be imported. The filter is pinned above the list (its text size capped like
     the commit bar) and brings the first line of its list up; the counts "need a printing" and
-    "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
-    on top before any commit (`planRoomText`).
+    "not recognised" are buttons that set it. The limit is read from `GET /me/limits` and said
+    on top before any commit (`limitRoomText`).
     **The lines whose copy was assumed stay in reach** (review fix 2): "Use the most recent
     printing" says once, in a snackbar, how many lines got the plain copy. While
     `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
@@ -391,8 +380,8 @@ Conventions later stages reuse:
     "Leave out the N cards that still need a printing". When the answer is lost the import is read
     again: a commit that went through shows its result, one that did not can be pressed again, and
     the API adds nothing twice. A commit that was cut between two parts (`COMMITTING`) shows
-    "Finish the import". `LIMIT_REACHED` (`inventory.items.max`) shows the app's limit notice, with
-    "See Premium" only while premium plans are sold.
+    "Finish the import". `LIMIT_REACHED` (`inventory.items.max`) shows the app's limit notice (nothing
+    to buy).
   - **Leaving**: an open preview or a pasted text holds the screen (`useLeaveGuard`, React
     Navigation's `usePreventRemove`): the back button, the back gesture and Android's back key ask
     "Leave this import?" first. Leaving loses nothing of a preview: the start screen offers it
@@ -420,7 +409,7 @@ Conventions later stages reuse:
   the app (`__tests__/privacy/regionWording.test.ts`).
 - **The browsed region (stage M9)**: `src/features/regions/browsingRegion.ts` (`useBrowsingRegion`)
   is the one place that says which platform region the app browses, and every region-scoped call
-  sends it explicitly (`/search`, `/search/card-holders`, `/ads`, the two region-map endpoints);
+  sends it explicitly (`/search`, `/search/card-holders`, the two region-map endpoints);
   the server stays the judge of what a region holds. In this order: the region picked with the
   switcher or opened by a link in this session; the collector's home region (`homeRegion` of
   `GET /me`); the last region picked on this device (AsyncStorage key
@@ -518,15 +507,12 @@ Conventions later stages reuse:
   `?payment=secured|failed` (`router.dismissTo`). Evidence photos are checked (JPEG / PNG / WebP,
   8 MB) before the multipart upload and shown from the authenticated file route as `data:` URIs
   (never a public URL, never a disk cache). DISPUTE_UPDATE notifications refresh the dispute.
-- **Premium, credits, donations and ads** (`src/features/billing/`, `src/features/ads/`,
-  `src/api/hooks/billing.ts`, the web's `features/{premium,credits,support,checkout}` and
-  `shared/{billing,ads}`): a plan change (checkout, cancel) re-reads `/me`, the plan, the ads and
-  discovery; a credit spend keeps one idempotency key per dialog; donations validate the amount
-  (two decimals) and show the API's range on the field; a sponsored slot serves nothing while
-  `advertising` is off or for Premium (`[]`), always says "Sponsored", records one impression per
-  serve token once laid out and only opens the API's click route or an https page.
-  `LimitReachedNotice` and the other limit messages offer "See Premium" while premium plans are
-  sold.
+- **Usage limits** (`src/api/hooks/limits.ts` with `GET /me/limits`, `src/lib/limits.ts`,
+  `src/features/limits/LimitReachedNotice.tsx`): the same limits for every collector (stage F1,
+  ADR 0019); a reached limit says which one, how much is used and when it resets, never offers a
+  plan. Premium, credits, donations and sponsored placements are gone; an old link or
+  notification to `/premium`, `/credits` or `/support` shows "OrenjiTrade is free for every
+  collector now" instead of a screen.
 - **Ratings and reports** (`src/features/collectors/ratingLabels.ts`, `src/features/ratings/`,
   `src/features/reports/`): the rate, reference and report screens take the collector (and the
   report's context or the rating to edit) in their route params (`ratingParams`,
@@ -536,8 +522,9 @@ Conventions later stages reuse:
 - **Notifications** (`src/features/notifications/notificationKinds.ts`, the web's
   `notification-kinds.ts`): an icon / tone / label per type, and the web path of a notification
   (`data.deepLink` when it is a safe same-app path, else rebuilt from its ids) mapped to an app
-  screen (`mobileTarget`: offers, trades, disputes, Premium, credits, support, My reports, payouts
-  and `?tab=ratings` included), or a note for the settings that stay on the web (blocked users).
+  screen (`mobileTarget`: offers, trades, disputes, My reports, payouts and `?tab=ratings`
+  included; the removed Premium, credits and support pages answer with the free-for-all note),
+  or a note for the settings that stay on the web (blocked users).
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
@@ -628,9 +615,9 @@ invitation for a collector without a location, a profile with the state and the 
 map and from the list, its binders with the owner and the state and never the owner's city, a
 binder opened, a state without a binder, only the drawing of the region on screen downloaded; the
 region switcher re-scopes search (the request names the region) and the map, says "Not your
-region" and goes home in one press, and the sponsored placement of the results is asked for the
-region on screen; a link opens the tab on a region and a state, and a new visit starts in the
-home region; the same link opened twice, a link to a region that does not exist and a code an
+region" and goes home in one press, and no sponsored placement is asked for any more (stage
+F1); a link opens the tab on a region and a state, and a new visit starts in the home region; the
+same link opened twice, a link to a region that does not exist and a code an
 older install kept on the device, which is neither browsed nor kept; the list back at its top
 when the Map tab is pressed again and when the region changes), `messages.spec.ts` (a second
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
@@ -652,12 +639,8 @@ accepts (API) -> Pay on the app's fake checkout -> shipped (API, followed live) 
 -> the payout released; a seller sets up payouts, accepts a protected offer, sees the payment
 arrive live, marks the card as shipped with tracking and sees the payout; a dispute opened from
 the trade with a reason, a statement, a photo from the library (shown through the authenticated
-route) and messages both ways, a stranger gets 404), `billing.spec.ts` (`binders.max` -> "See
-Premium" -> the fake billing checkout declines then succeeds -> the sixth binder, no ads ->
-"Cancel now"; a referral code redeemed, unlimited binder views unlocked for a day with credits, both in the
-ledger; a voluntary donation through the fake donation checkout and the supporters; a FREE
-collector's "Sponsored" search result: one impression (204), the click route's 302 to the landing
-page), `google.spec.ts` (a Google sign-up through the emulator's simulated account: the fake OAuth
+route) and messages both ways, a stranger gets 404), `google.spec.ts` (a Google sign-up through the
+emulator's simulated account: the fake OAuth
 credential checked, consent -> onboarding -> tabs, Google as the only sign-in method; the chooser
 dismissed; Google with the e-mail of a verified password account signs in to it and links Google,
 the password still works; an unverified one is taken over, Firebase's rule), `search-segments.spec.ts`
@@ -844,9 +827,10 @@ accept, the trade, both confirmations and the live completion, a rating checked 
 checked on the API), `payment-protection.yaml` (a cash offer with "Use payment protection" on a
 public card opened by deep link, the seller (payouts set up, `scripts/payments.js`) accepts from
 the host, Pay on the app's fake checkout, the shipment from the host followed live, Confirm
-receipt, the payout checked on the API), `premium.yaml` (the binder limit -> "See Premium" ->
-"Upgrade to Premium" -> the fake billing checkout declines, then succeeds -> the welcome and the
-plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `google-sign-in.yaml`
+receipt, the payout checked on the API), `limit-reached.yaml` (stage F1: a collector with the
+five binders everyone may have (`scripts/limits.js`) gets "You have used 5 of 5 binders" with
+nothing to buy, the Profile tab has no Premium, credits or support row, an old link to the
+Premium screen finds no page), `google-sign-in.yaml`
 (a fresh password collector continues with Google under the same e-mail through the emulator's
 simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
 Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
@@ -921,8 +905,7 @@ Writing a flow that passes on both:
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
   `orenjitrade://wishlist`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
   `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`,
-  `orenjitrade://disputes/<id>`, `orenjitrade://premium`, `orenjitrade://credits`,
-  `orenjitrade://support`, `orenjitrade://settings/payouts`, `orenjitrade://holders?card=<id>`
+  `orenjitrade://disputes/<id>`, `orenjitrade://settings/payouts`, `orenjitrade://holders?card=<id>`
   (or `?printing=<id>`), `orenjitrade://sets/<id>`, `orenjitrade://settings/blocked`).
   Signed out, a link leads to sign-in and opens after signing in.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
@@ -930,10 +913,10 @@ Writing a flow that passes on both:
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The admin / moderator consoles (web only, including dispute resolution, refunds, plans,
-  campaigns and donation refunds). PDF evidence of a dispute is listed by name and size and opened
-  on the website (the app adds statements and photos). Store builds: real payment providers and
-  in-app purchase are not wired (open owner question, ADR 0011); the fake providers are local
+- The admin / moderator consoles (web only, including dispute resolution, refunds and usage
+  limits). PDF evidence of a dispute is listed by name and size and opened
+  on the website (the app adds statements and photos). Store builds: real payment providers are not
+  wired (nothing is sold in the app since stage F1, so no in-app purchase is needed); the fake providers are local
   only. "Make an offer" is on public cards of binders, profiles and the holders list (the Map tab
   lists places and binders, not cards). Moderators remove community posts on the web only; photos
   come from the library (no camera).

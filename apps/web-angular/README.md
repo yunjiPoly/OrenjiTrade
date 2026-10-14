@@ -92,8 +92,8 @@ the map draws bundled boundary files (see Maps below, ADR 0017).
    from any call to `SessionService`, which routes to `/auth/consent` or `/auth/suspended`
    (opt out with `SKIP_SESSION_REDIRECT`).
 5. `limitReachedInterceptor` — any 429 `LIMIT_REACHED` opens the limit-reached dialog
-   (`core/limits`, lazy chunk: limit key and label, used/limit, reset time, the premium benefit
-   and a "See Premium" link to `/premium` while the `premiumPlans` flag is on). The error still
+   (`core/limits`, lazy chunk: the limit's label, used/limit, reset time and "Every collector
+   has the same limits."; no plan, no link, nothing to buy since stage F1). The error still
    reaches the caller; opt out with `SKIP_LIMIT_DIALOG`.
 6. `authInterceptor` — `Authorization: Bearer <Firebase ID token>` on every API route except
    `/api/v1/public/**` and `/api/v1/meta` (unless the request sets `ATTACH_ID_TOKEN`, used by
@@ -135,7 +135,7 @@ Routes: `/auth/sign-in`, `/auth/sign-up` (required legal documents from
 cancel + export), `/onboarding` (profile, interests, "Where are you?"), `/settings/{profile,
 privacy, notifications, location, account, appearance}` (`/settings/trading-area` redirects), `/collectors/:handle`,
 `/admin` (dashboard), `/admin/users`, `/admin/users/:id`, `/admin/audit-logs`; Phase 2 adds
-`/cards`, `/cards/:id`, `/sets/:id`, `/premium`, `/admin/games`, `/admin/cards[/:id]`,
+`/cards`, `/cards/:id`, `/sets/:id`, `/admin/games`, `/admin/cards[/:id]`,
 `/admin/feature-flags`, `/admin/usage-limits`.
 
 Local accounts: `docs/development/test-accounts.md` (password `LocalDev!2026`, emulator only).
@@ -148,12 +148,12 @@ the Emulator UI (http://localhost:4000/auth).
   `GET /public/feature-flags` (with the ID token when signed in, so partial rollouts are
   evaluated per account) on the first navigation outside `/auth/**`, and again after a sign-in
   or sign-out. `isEnabled()` / `enabled()` are `false` until known, so switched-off features
-  never flash. Used by the top bar (Community needs `publicChat`), the account menu and the
-  limit dialog (`premiumPlans`); `featureGuard(key, label)` protects flag-gated routes
+  never flash. Used by the top bar (Community needs `publicChat`) and the protected payment
+  entry points (`protectedPayments`); `featureGuard(key, label)` protects flag-gated routes
   (`/community`).
-- **Limits**: `LimitReachedService` + interceptor (see HTTP layer); `PlansStore`
-  (`GET /plans`, shared by `/premium` and the dialog); `/premium` lists the plans and, signed
-  in, the collector's usage (`GET /me/plan`). Checkout arrives with billing (Phase 10).
+- **Limits**: `LimitReachedService` + interceptor (see HTTP layer); limit wording in
+  `shared/limits/limit-labels.ts`; the collector's usage comes from `GET /me/limits`
+  (`LimitsService`). The same limits apply to every collector (stage F1, ADR 0019).
 - **Catalog** (`features/catalog`, `shared/catalog`): top-bar `CardSearchBoxComponent`
   (`GET /cards/suggest`, 250 ms debounce, 2+ characters, arrow keys + Enter, printing
   suggestions open the card with that printing selected, Enter without a highlighted
@@ -171,7 +171,8 @@ the Emulator UI (http://localhost:4000/auth).
   live validation and a preview), `/admin/cards` (find cards, catalog sync with polling and the
   latest runs), `/admin/cards/:id` (card fields, schema-driven attributes, printings dialog),
   `/admin/feature-flags` (switch with confirmation; SUPER_ADMIN, read-only for ADMIN),
-  `/admin/usage-limits` (plans x limits, inline edit with validation; SUPER_ADMIN).
+  `/admin/usage-limits` (one row per limit, the same for everyone; inline edit with validation;
+  SUPER_ADMIN).
 - Not in the generated client, so not in the UI yet: `metadata.<key>` catalog filters (the
   generator did not emit the dynamic query parameters).
 
@@ -229,7 +230,7 @@ Contracts: `docs/api/contracts/phase4-map-search.md` and `docs/api/contracts/s1-
 Generated client only (`RegionsService`, `SearchService`, `PublicBindersService`, `CatalogService`).
 
 - **Region switcher** (top left, `core/region/region-context.service.ts`): every region-scoped call
-  (search, suggestions, card holders, ads, the map) sends `region`. Signed in: the home region of
+  (search, suggestions, card holders, the map) sends `region`. Signed in: the home region of
   `GET /me` (`homeRegion`); signed out: the last choice kept in `localStorage`, else
   `americas-north`. Changing it updates `?region=` on `/map`.
 - **`/map`** (`features/map`): one Leaflet vector map (`boundary-map`, Leaflet 1.9.4 lazy-loaded,
@@ -323,7 +324,7 @@ document; their shapes live in `core/realtime/realtime-events.ts` with runtime g
 ## Wishlist, matching and notifications (Phase 6)
 
 Contract: `docs/api/contracts/phase6-wishlist-notifications.md` ("Web / mobile"). Generated client
-only (`WishlistService`, `NotificationsService`; plan cap from `PlansService.getMyPlan`, location
+only (`WishlistService`, `NotificationsService`; the cap from `LimitsService.getMyLimits`, location
 state from `LocationService.getMyLocation`). No web push registration (no FCM locally).
 
 - **Notification centre** (`core/notifications`): `NotificationCenter` (started by
@@ -336,7 +337,9 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   after each reconnection and after the caller's own read receipts (reading a conversation marks
   its MESSAGE notifications read server side). `notification-kinds.ts`: icon / tone / label per
   type and the page a notification opens (`data.deepLink` when it is a safe in-app path, else a
-  path rebuilt from its ids; the SYSTEM limit notice opens `/premium`).
+  path rebuilt from its ids; the SYSTEM limit notice opens `/wishlist` for wishlist alerts, else
+  `/notifications`; an old link to `/premium`, `/credits`, `/support` or their checkouts is never
+  followed).
 - **Top-bar bell** (`core/layout/notification-bell`): unread badge (bumps on arrival, "99+"),
   `aria-label` "Notifications, N unread", `data-realtime` = connection state; menu with the latest
   notifications (tinted icon per type, unread dot, relative time), opening one marks it read and
@@ -348,12 +351,13 @@ state from `LocationService.getMyLocation`). No web push registration (no FCM lo
   Yesterday, Earlier this week, Older), per-row "Mark as read", "Mark all as read", link to
   Settings → Notifications.
 - **`/wishlist`** (`features/wishlist`, stage S2; old `/wishlist/<id>` links redirect to it):
-  `WishlistStore` (`GET /wishlist`, `DELETE` with confirmation, plan usage of
-  `wishlist.items.max`, the location and privacy settings through `MyLocationStore`, quiet re-read
+  `WishlistStore` (`GET /wishlist`, `DELETE` with confirmation, the usage of
+  `wishlist.items.max` from `GET /me/limits`, the location and privacy settings through
+  `MyLocationStore`, quiet re-read
   on reconnection) → a prompt to set country and state when no location is set (alerts come from
   collectors of the region), "Let others see what you want" (the `wishlistVisible` privacy
-  setting, explained), the summary (wishes and usage meter with a Premium link from 80 % while
-  `premiumPlans` is on) and `WishCardComponent` (picture, which copy, public note, "Near Mint
+  setting, explained), the summary (wishes and usage meter, nothing to buy) and `WishCardComponent`
+  (picture, which copy, public note, "Near Mint
   only" and price term chips with the approximate amount for one printing, Edit, Remove). No
   matches, filters or per-wish alert switch any more.
 - **Add/edit dialog** (`shared/wishlist`, a lazy chunk opened by `WishlistActions` from the
@@ -426,9 +430,10 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
   notices LISTINGS_PAUSED (→ `/inventory`) and MODERATION_WARNING (→ Community Guidelines) get
   their icons and links.
 - **Admin console** (`features/admin`; moderators see Dashboard, Community, Reports,
-  Moderation and Ratings; transactions, disputes, payments, ads, subscriptions and credits
-  arrived with Phases 9 and 10): Dashboard (`GET /admin/dashboard` tiles with links for admins; open /
-  under-review reports and open flags for moderators; quick links), **Reports** (`/admin/reports`
+  Moderation and Ratings; transactions, disputes and payments arrived with Phase 9; the Phase 10
+  ads, subscriptions and credits left with stage F1): Dashboard (`GET /admin/dashboard` tiles
+  with links for admins; open / under-review reports and open flags for moderators; quick
+  links), **Reports** (`/admin/reports`
   filters status, reason, "assigned to me", one collector in the URL; `/admin/reports/:id` with
   the report, the reported conversation when there is one, reporter and reported collector
   cards, the moderation history, moderator notes, Assign to me, Resolve dialog: take action
@@ -583,72 +588,22 @@ sections stay available. Locally the API runs the fake provider: no card, no mon
   shows existing TEXT / TRACKING evidence, and written statements go to the thread; the TEXT /
   TRACKING forms need a distinct operationId in the API and a client regeneration.
 
-## Premium, credits, ads and donations (Phase 10)
+## Premium, credits, ads and donations: removed (stage F1, 2026-10-14)
 
-Contract: `docs/api/contracts/phase10-freemium-credits-ads-donations.md` (backend notes and
-deviations in `apps/api/README.md`, "Subscriptions, credits, ads, donations (Phase 10)").
-Generated client only (`PlansService`, `SubscriptionsService`, `CreditsService`, `AdsService`,
-`DonationsService`, `AdminBillingService`, `AdminPlansService`). Every provider is a local fake:
-no card, no money. Member screens follow their flags (`premiumPlans`, `credits`, `advertising`,
-`donations`; hidden or guarded while off, 404 `FEATURE_DISABLED` explained); admin sections stay
-available. Wording and refusals live in `shared/billing/billing-labels.ts`.
+Phase 10 built Premium (`/premium`, the fake billing checkout), credits (`/credits`, referrals),
+sponsored placements (`shared/ads`, the SEARCH_SPONSORED, MAP_PANEL, INVENTORY_SIDEBAR and
+COLLECTOR_PROFILE slots), voluntary donations (`/support`, the fake donation checkout, the
+supporters wall) and their admin pages (`/admin/plans`, `/admin/subscriptions`, `/admin/credits`,
+`/admin/ads`, `/admin/donations`, the user's Entitlements panel). The owner made the app free for
+all on 2026-10-14 ([ADR 0019](../../docs/architecture/adr/0019-free-for-all-no-paid-features.md)):
+all of it is removed, the routes answer "Page not found", the account menu and the footer have
+no Premium, Credits or "Support OrenjiTrade" entry, and no page shows a "Sponsored" row. The
+code is kept on the branch `archive/paid-features`.
 
-- **Premium** `/premium` (`features/premium`, `PremiumStore`): plan comparison from `GET /plans`
-  (`PlanCardComponent`: create an account, "Sign in to upgrade", "Upgrade to Premium",
-  "Continue to checkout" for an open checkout, "Current plan"), the live subscription
-  (`SubscriptionCardComponent`: status, price, member since, renews / ends on, PAST_DUE note,
-  "Cancel at period end" / "Cancel now" / "Close the checkout", each confirmed), usage meters
-  from `GET /me/plan` (`UsageMetersComponent`: counters with bars, caps as values, unlimited,
-  "Boosted" overrides), active boosts and a credits teaser. Upgrade ->
-  `POST /me/subscription/checkout` (409 `ALREADY_SUBSCRIBED` explained; only local fake checkout paths
-  or https provider pages are followed) -> `/checkout/fake-billing/:ref`. The limit-reached
-  dialog's "See Premium" lands here and closes every open dialog on the way.
-- **Fake billing checkout** `/checkout/fake-billing/:ref` and **fake donation checkout**
-  `/checkout/fake-donation/:ref` (`features/checkout`, `ProviderCheckoutStore` with
-  `FakeBillingCheckoutStore` / `FakeDonationCheckoutStore`, presentational
-  `FakeProviderCheckoutComponent`): "Local test payment" banner, Pay / "Simulate a failed
-  payment", polling until the synthetic webhook changed the checkout (a declined subscription
-  attempt stays open: "Try again"), then `/premium?checkout=success` (session reloaded: plan and
-  PREMIUM_USER role) or `/support?donation=thanks`.
-- **Credits** `/credits` (`features/credits`, `CreditsStore`; account menu "Credits"): balance
-  with the "never withdrawable or transferable" wording, products to unlock for a day
-  (`CreditProductsComponent`, disabled with "You need N more"), `SpendCreditsDialogComponent`
-  (cost, balance after, duration; one idempotency key per dialog so a retry never spends twice;
-  409 `INSUFFICIENT_CREDITS` with balance and cost), active boosts, referral card (own code with
-  copy / share, rewards, redeem form with 404 and 409 `REFERRAL_NOT_ALLOWED` reasons on the
-  field) and the cursor-paged ledger ("Load more").
-- **Sponsored placements** (`shared/ads`): `SponsoredSlotComponent`
-  (`GET /ads?placement=&game=`) renders nothing while `advertising` is off, for `[]` (Premium,
-  entitlements) or on errors, waits for the session and reloads when the member or plan
-  changes. `SponsoredAdComponent` always shows the literal "Sponsored" label (with why, and
-  "Remove ads" while Premium is sold) and links through the API's click route only
-  (`adClickHref`: `/api/v1/ads/{id}/click?token=` or https; new tab, `rel="sponsored"`);
-  `AdImpressionDirective` + `AdTrackingService` record one impression per serve token once half
-  of the ad is visible. Slots: SEARCH_SPONSORED (`/search` results and card holders),
-  MAP_PANEL (top of the map list panel), INVENTORY_SIDEBAR (`/inventory`), COLLECTOR_PROFILE
-  (other collectors' profiles).
-- **Support** `/support` (`features/support`, `SupportStore`; footer "Support OrenjiTrade",
-  account menu): clearly labelled "Voluntary support" that never changes ratings, ranking or
-  trust; `DonationFormComponent` (preset or custom amount, currency, private message up to 280
-  characters, public-thanks opt-in; the API's accepted range and currencies are shown on the
-  fields when it refuses), the public supporters wall (display names and month only) and the
-  member's own donations. There is no member route for the accepted amounts: presets are
-  suggestions and the API's 400 field errors carry the range.
-- **Admin** (ADMIN area; every write confirmed and "in the audit log"): **Plans** `/admin/plans`
-  (features and limits; SUPER_ADMIN edits name, description, price, currency, availability,
-  order and feature switches), **Subscriptions** `/admin/subscriptions?status=&plan=&userId=` and
-  `/admin/subscriptions/:id` (history, webhooks with payload on demand, cancel at the period end
-  or now with a reason), **Credits** `/admin/credits?userId=` (ledger of all or one account with
-  its balance, "Grant credits" dialog for grants and corrections, credit products and referral
-  rules edited by SUPER_ADMIN), **Ads** `/admin/ads?tab=campaigns|advertisers|placements` and
-  `/admin/ads/campaigns/:id` (campaign dialog with schedule, budgets, pricing and bid, priority
-  and frequency cap; activate / pause / end; `TargetingEditorComponent` with kinds AND / values OR
-  and coordinates refused; creatives dialog with https-or-site-path URLs; delivery tiles and daily
-  statistics), **Donations** `/admin/donations?status=` and `/admin/donations/:id` (totals per
-  currency, webhooks, full refund and accepted amounts for SUPER_ADMIN). The user page gains
-  Subscriptions / Credits links and an **Entitlements** panel (grant a limit or feature override
-  with an optional end and a note, revoke). Audit labels cover `subscription.cancel`,
-  `credits.*`, `ads.*`, `donation.refund`, `donations.settings.update`.
+What stays: the usage limits, the same for every collector. A 429 `LIMIT_REACHED` opens the
+plain limit dialog (`core/limits`); the wishlist summary shows `wishlist.items.max` from
+`GET /me/limits`; a SUPER_ADMIN edits the limits in `/admin/usage-limits`
+(`AdminUsageLimitsService`, one row per key). Protected payments (Phase 9) are unchanged.
 
 ## Maps
 
@@ -704,12 +659,7 @@ src/app/
     trades/     /trades list and /trades/:id (next-action banner, steps, timeline, payment,
                 shipment and dispute cards, payout reminder); data/ (TradesListStore,
                 TradeDetailStore, TradeProtectionActions); dialogs/ (ship, open dispute)
-    checkout/   /checkout/fake/:ref (payments), /checkout/fake-billing/:ref and
-                /checkout/fake-donation/:ref (local fake providers); data/ (FakeCheckoutStore,
-                ProviderCheckoutStore + billing / donation stores)
-    credits/    /credits: data/ (CreditsStore), balance, products, spend dialog, referral card,
-                ledger
-    support/    /support: data/ (SupportStore), donation form, supporters wall, my donations
+    checkout/   /checkout/fake/:ref (payments, local fake provider); data/ (FakeCheckoutStore)
     disputes/   /disputes/:id (overview, evidence with uploads, thread, timeline); data/
                 (DisputeStore)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
@@ -720,16 +670,13 @@ src/app/
                 flags), reports (list, detail, resolve dialog, history, notes), moderation
                 (rules, flags), listings, binders, ratings, notifications, analytics, delist
                 (auto-delist editor), health, payments (transactions, payments, payment detail
-                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog),
-                billing (plans, subscriptions, credits, ads with campaign detail and targeting,
-                donations, user entitlements)
+                with refund, webhooks, payment rules), disputes (queue, detail, resolve dialog)
     catalog/    card search (filters, URL params), card detail (metadata, printings), set page
     inventory/  /inventory: data/ (params, store, item form, bulk actions, visibility status),
                 binder list, toolbar, summary, items (grid card, table), bulk bar,
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
     binders/    /binders/:id public binder (container + header)
-    premium/    /premium: data/ (PremiumStore), plan card, subscription card, usage meters
     map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
                 preview card, discovery panel + collector list, filters bar, legend, area
                 prompt, messages panel (the messenger)
@@ -748,9 +695,7 @@ src/app/
                 (CardPictures: card + printing pictures for id-only listings), card data
                 attribution (provider credits per game, footer and card/set pages)
     inventory/  inventory labels, item chips, public item card, public binder card
-    plans/      PlansStore, plan and limit wording
-    billing/    subscription / credit / donation wording and refusals, active boosts
-    ads/        SponsoredSlot, sponsored ad card, impression directive and tracking, safe links
+    limits/     limit wording (labels, windows, values)
     discovery/  discovery labels (filters, ratings, listings), DiscoveryCentreService
     search/     UnifiedSearchBox (GET /search/suggest), suggestion grouping and routing
     domain/     games, place / last-active labels
@@ -813,8 +758,8 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   form rules, avatar validation, admin helpers, sign-in page, `relativeTime`, freshness,
   `AppConfigService`, legal pages; Phase 2: feature flags (deferral on account pages, reload on
   sign-in, guard), limit-reached parsing/interceptor/dialog, card search box, catalog labels,
-  card search params, card metadata, game schema validation, usage-limit matrix and cell
-  editor, admin metadata form, plan labels; Phase 3: inventory params, item form (defaults,
+  card search params, card metadata, game schema validation, usage-limit rows and cell
+  editor, admin metadata form, limit labels; Phase 3: inventory params, item form (defaults,
   create request, changed-fields PATCH, validation), bulk actions and outcome wording,
   visibility explanations, inventory store (context, selection, quantity, confirm all, reorder
   rollback), quantity stepper, inventory labels, compact freshness badge; Phase 4: map params,
@@ -856,14 +801,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   option (flag on / off), payment card and protected steps, `FakeCheckoutStore` (polling,
   failure, 409, give-up), `DisputeStore` (uploads, limit and hold refusals, messages, live
   re-reads), evidence uploader, Settings → Payouts, admin money and resolve forms, transaction
-  rows and webhook payloads, dashboard links, notification links; Phase 10: billing labels
-  and refusals (checkout, spend, referral, donation fields, safe checkout targets, idempotency
-  keys), `PremiumStore` and usage rows, fake billing / donation checkout stores (outcomes, retry
-  after a decline, give-up), `CreditsStore` (paging, spend, insufficient balance, redeem),
-  `SponsoredSlotComponent` (label, click route, one impression, `[]`, flag off, waits for the
-  session, reload on upgrade), donation form (presets, custom amount, API range), admin campaign
-  form, targeting (no coordinates), creative URLs and entitlement values, the limit dialog
-  closing every dialog.
+  rows and webhook payloads, dashboard links, notification links (old links to the removed
+  pages are not followed); stage F1: the plain limit dialog (no plan, no link) and the usage
+  limits page (one row per key).
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
   - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
@@ -875,8 +815,9 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     cancel, admin suspend/unsuspend and the audit log, moderator/collector restrictions.
   - `e2e/catalog.spec.ts` (autocomplete to card detail with keyboard, printings and set page,
     filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
-    admin switches a flag with confirmation and edits a usage limit inline, both persist after a
-    reload and are restored afterwards; admins read-only; game schema validation; mock catalog
+    admin edits a usage limit inline (`saved_searches.max`, one row for everyone), it persists
+    after a reload and `GET /me/limits` follows, then it is restored; admins read-only; game schema
+    validation; mock catalog
     sync).
   - `e2e/inventory.spec.ts`: open the inventory from the navigation, add a card (autocomplete →
     printing → details, private), quantity stepper, create a binder, move the card into it, make
@@ -966,21 +907,13 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
     the buyer sees the decision, the refund and the cancelled trade. No JSON response carries a
     coordinate.
-  - `e2e/freemium.spec.ts` (fake billing provider): a fresh FREE collector (discoverable in
-    Quebec) sees the inventory's "Sponsored" placement, fills `binders.max`, gets the
-    limit-reached dialog and follows "See Premium"; "Upgrade to Premium" opens the local fake
-    billing checkout, a simulated decline keeps it open, "Pay" lands on
-    `/premium?checkout=success` with binders 5 / 50; the sixth binder is created and no ad is
-    left; "Cancel now" returns the collector to FREE (6 / 5).
-  - `e2e/credits-ads.spec.ts`: a fresh collector redeems another one's referral code (an unknown
-    code explained first) and spends the credits on a 24 h unlock (balance, ledger, boosts; the
-    referrer earned 100); a signed-out visitor sees the map panel's "Sponsored" house ad
-    (impression 204) whose click lands on `/premium`, a FREE collector sees a sponsored search
-    result that disappears once Premium; a donation through the footer's "Support OrenjiTrade"
-    shows the API's range on the field, passes the fake donation checkout and puts the opted-in
-    name on the supporters wall (never the amount or message); an admin grants credits, creates,
-    edits, targets (coordinates refused) and ends a campaign, grants and revokes an entitlement,
-    and finds the audit entries.
+  - `e2e/usage-limits.spec.ts` (stage F1): a fresh collector (discoverable in Quebec) fills
+    `binders.max` (5, the same for everyone); the sixth binder gets the plain limit dialog ("you
+    used 5 of 5", "Does not reset on its own", "Every collector has the same limits.", no link,
+    no plan); `GET /me/limits` answers 5 / 5 without `planCode` or `upgradeUrl`; the account menu
+    has no Premium, Credits or Support entry; `/premium`, `/credits` and `/support` are "Page not
+    found"; no request goes to `/ads`, `/plans` or `/me/plan`; no JSON answer carries a
+    coordinate.
   - `e2e/admin-moderation.spec.ts`: an administrator's dashboard counts, the listing review
     queue, hiding a collector's listing with a required reason from their listings, pausing and
     resuming the collector's listings (the collector sees the "under review" banner on
@@ -1006,9 +939,11 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   `npm run test:e2e -- --reuse-running e2e/map.spec.ts` or `npm run e2e` here. The global setup
   refuses any API without the E2E identity block (`e2e/support/isolation.ts`), so the developer
   API on :8080 is never used. Two Playwright projects: `chromium` (every spec, fully parallel)
-  and `launch-config` (`e2e/launch-config.spec.ts` alone, after `chromium`, because it switches
-  the stack's real feature flags off through the admin API and restores them); run the latter by
-  itself with `npm run test:e2e -- e2e/launch-config.spec.ts --no-deps`.
+  and `launch-config` (`e2e/launch-config.spec.ts` and `e2e/admin-flags.spec.ts`, after
+  `chromium`, serially, because they switch the stack's real feature flags through the admin API
+  and restore them: `protectedPayments` off for the launch configuration, `publicChat` off and on
+  for the flag page); run the latter by itself with
+  `npm run test:e2e -- e2e/launch-config.spec.ts e2e/admin-flags.spec.ts --no-deps`.
 
 ## Docker (Cloud Run)
 

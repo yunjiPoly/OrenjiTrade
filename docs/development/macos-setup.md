@@ -594,7 +594,7 @@ Key local values:
 - `REDIS_URL=redis://localhost:6379`
 - `FIREBASE_AUTH_EMULATOR_HOST=localhost:9099`, `FIREBASE_PROJECT_ID=orenjitrade-local`
 - `STORAGE_PROVIDER=local`, `CARD_IMAGE_LOCAL_CACHE_MAX_MB=5120`
-- Payments, billing and donations use `fake`.
+- Payments use `fake` (billing and donations left with stage F1).
 - `ORENJI_JAVA_HOME` (optional): the JDK for the E2E jar, normally a JDK 21. It wins over `JAVA_HOME` and the automatic choice (5). It works from `.env` or exported in the shell; the exported value wins.
 - **Regions branch:** `GOOGLE_MAPS_API_KEY`, `GOOGLE_MAPS_MAP_ID`, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` and `LOCATION_JITTER_SECRET` are removed.
 

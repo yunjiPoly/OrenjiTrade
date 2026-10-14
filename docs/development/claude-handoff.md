@@ -29,15 +29,18 @@ of 2026-10-08 as far as it was built: **stage S1** (platform regions replace geo
 #57), **stage S2** (the simplified wishlist and wishlist alerts, #60), **mobile stage M9** (the
 region switcher and the region map on the phone, #67), **the inventory lock fix** (writes to one
 collector's binders and cards take turns, #68), **stage S5** (the inventory import from a .ydk deck
-file or a Collectr CSV, API and phone, #69) and the scrim fix (a dark backdrop iOS took for a
-modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51
-#52 #53 #57 #58 #59 #60 #61 #67 #68 #69 #70.
+file or a Collectr CSV, API and phone, #69), the scrim fix (a dark backdrop iOS took for a
+modal, #70, 2026-10-14) and **stage S6** (the final documents of the 2026-10-08 change, the
+delivery report `docs/product/2026-10-08-change-delivery-report.md`, #71, 2026-10-14). Merged PRs
+from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67 #68
+#69 #70 #71.
 
 **Not on `main`:**
 
 | What | Where | State |
 | --- | --- | --- |
-| Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (rounds 1 and 2). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
+| Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`) | Built and under review on 2026-10-14 (its own section of IMPLEMENTATION_STATUS.md on that branch); migrations V115–V119 are its range. |
+| Stage F1, "free for all" (owner, 2026-10-14; ADR 0019): Premium, ads, credits and donations removed from the API, the phone and the paused web app; the usage limits the same for everyone; protected payments kept | branch `feature/f1-free-for-all` (worktree `OrenjiTrade-s2-ux`), cut from `main` at `bf1135a` | Built on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Free for all"): migrations V120–V123, ADR 0019, the legal drafts, the docs; the check list in that section. Waits for review and its ship step, **after R1** (merge notes in that section). The removed code is kept on the pushed branch `archive/paid-features` (`main` at `bf87f0b`). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -53,9 +56,15 @@ card scanning), the full French UI translation and every cloud deployment stay o
 verbatim). Nothing of it is built. Until a stage lands, every document describes the phone as it
 is today (six tabs, offers on the phone).
 
+**Free for all (owner, 2026-10-14, after the redesign spec):** *"can you remove the implementation
+of premium subscription and ads? Just save pay service feature in a new branch for later. I am
+trying to make this app free for all first."* Stage F1 does it (ADR 0019). Where the redesign spec
+says Premium, credits, donations or ads "keep their flags" or "move into Settings", this later
+decision wins: they are gone, and R2 to R8 build no screen for them.
+
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
-migrates to the newest level (V114) at the first `npm run dev`, and loses its trading areas by
-design (S1).
+migrates to the newest level (V114 on `main`, V123 with stage F1) at the first `npm run dev`, and
+loses its trading areas by design (S1).
 
 ## 2. The 2026-10-08 change: how it ended
 
@@ -84,20 +93,22 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-1. **Ship S6** (the lead): merge `main` (it holds #70, which this branch lacks; conflicts are
-   expected in `IMPLEMENTATION_STATUS.md` "NEXT TASK" and in section 6 of this file: keep this
-   branch's text, which already counts #70 as merged), run the check list below, open the pull
-   request, merge on green CI.
-2. **Then the phone redesign, stage R1** ("Offers out, shipping wording, look"), from a new `main`,
-   as its spec says in section 0 (what to read and inspect first) and section 15 (the stages and
-   how each is reviewed). R1 to R8 follow in order, one branch and one PR each.
-3. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
+1. **Stage R1 of the phone redesign** ("Offers out, shipping wording, look"): built on
+   `feature/r1-offers-out-shipping-look`; its review, then its ship step (merge `main`, the check
+   list below, the pull request, merge on green CI), as the spec's section 15 says.
+2. S6 is on `main` (#71); nothing left of the 2026-10-08 change except what the owner skipped.
+3. **Stage F1, free for all**, after R1: review, then its ship step (merge `main` with R1: the
+   merge notes in IMPLEMENTATION_STATUS.md, "Free for all", say how the conflicts resolve), the
+   check list below, the pull request, merge on green CI.
+4. **Then stage R2** of the phone redesign, from the new `main`; R3 to R8 follow in order, one
+   branch and one PR each. None of them brings back a paid feature (ADR 0019).
+5. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
 `npm run build -w apps/web-angular` (initial bundle under the 900 kB warning budget: 899.93 kB
-today, 0.07 kB of room); `npm run test:e2e -- --retries=0` (every spec green on the first
+on `main`, 896.72 kB with stage F1); `npm run test:e2e -- --retries=0` (every spec green on the first
 attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform android` and
 `--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
 `npm run test:scripts`; exactly what GitHub CI runs: `npm run lint -w apps/web-angular`,
@@ -204,7 +215,7 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
 - **On hold:** Phase 11 ML card recognition (keep `mlScanning` off, no camera scanning); the Expo SDK
   58 upgrade until it is stable; the full French UI translation (the owner said "hold, don't start"
   on 2026-10-07 — the plan stays in IMPLEMENTATION_STATUS.md).
-- **Launch decisions (2026-10-05):** discovery + messaging only (money feature flags off at launch),
+- **Launch decisions (2026-10-05):** discovery + messaging only (protected payments off at launch),
   18+ self-declaration, legal texts in English and French that stay marked as drafts (never remove
   the draft banner or a `[to confirm]` placeholder, never claim legal compliance), Law 25 operating
   docs in `docs/security/`.
@@ -220,6 +231,10 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   the owner asks, and never describe them as done.
 - **The phone redesign (2026-10-14):** approved as final (mockup v32); built in stages R1 to R8 from
   its spec. Until a stage lands, documents describe the phone as it is.
+- **Free for all (2026-10-14):** no Premium, credits, donations or ads anywhere (ADR 0019); the
+  usage limits stay, the same for every collector, and a reached limit never offers anything to
+  buy. Protected payments, offers, trades and disputes stay on the server. The paid code is on
+  `archive/paid-features`; bringing a feature back is an owner decision and a new migration.
 - **CLAUDE.md is the owner's:** agents propose exact sentences in their reports (the open proposals
   are listed at the end of the delivery report) instead of editing it.
 - **Pausing:** when the owner says pause, stop every workflow and process at once and report exactly
@@ -232,8 +247,9 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
 
 ## 6. Open owner decisions
 
-- In-app purchases for Premium/credits in store builds (IAP, link-out to the web, or web-only) — ADR
-  0011 open question; nothing is sold at launch.
+- In-app purchases in store builds: no longer open for Premium, credits or donations (removed by
+  stage F1, ADR 0019); protected payments are physical goods between people, outside in-app
+  purchase rules (ADR 0011).
 - An arm64 PostGIS image: `postgis/postgis:17-3.5` is amd64-only and runs under Rosetta on Apple
   Silicon; decide before macOS 28 (Rosetta's end).
 - `security/npm-audit-allowlist.json`: the node-forge and braces entries expire on 2026-11-30;
@@ -256,9 +272,9 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   when it re-encodes the upload (same section). A backend fix, not started.
 - The inventory import (stage S5; the delivery report, section (f), lists each with the one place to
   change it): (1) a card whose file names no condition starts at the lowest grade of its game
-  (`DAMAGED`); confirm, or say `NEAR_MINT` (`ImportMatcher.defaultCondition`). (2) No plan limits
-  the size of an inventory: V113 adds `inventory.items.max` without a number; give FREE one in
-  `/admin/usage-limits` or leave it open. (3) Collectr's real CSV header was never seen; try a real
+  (`DAMAGED`); confirm, or say `NEAR_MINT` (`ImportMatcher.defaultCondition`). (2) No limit caps
+  the size of an inventory: V113 adds `inventory.items.max` without a number; give it one (for
+  everyone) in `/admin/usage-limits` or leave it open. (3) Collectr's real CSV header was never seen; try a real
   export once. (4) An import never raises a card the collector shows (its copies become a private
   card). (5) "Use the most recent printing" takes the plain copy where a set holds several versions
   and marks the line; there is no "confirm all" for those lines. (6) Whether a preview line should
@@ -279,8 +295,6 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   covers the window takes `palette.scrim`, never a pure black. Left for the owner, optional: hear a
   sheet then a dialog with VoiceOver on a real iPhone in the dark theme (the verdict rests on
   UIKit's own traversal on the simulator).
-- The phone's Map tab shows no sponsored placement (the web's map page has `MAP_PANEL`): whether
-  the phone gets one, and where, is a placement decision (stage M9).
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests), with the follow-ups of the lock fix (a lock timeout
   on inventory writes, the after-commit analytics listeners that can exhaust the connection pool).

@@ -20,7 +20,7 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 | 06 | collector6 | Ethan Walsh | CL / CL-RM, city Santiago | americas-south | Trader, High-End | Magic, Yu-Gi-Oh! | public binder 50 days old (HIDDEN until confirmed) |
 | 07 | collector7 | Amara Diallo | US / US-NY, city Brooklyn | americas-north | Player, Competitive, Local Meetups | Pokémon | private only (not discoverable) |
 | 08 | collector8 | Noah Kim | FR / FR-IDF, city Paris | europe | Collector, Casual | Riftbound, Pokémon | public binder, low quantity items |
-| 09 | premium_user | Camille Roy | BR / BR-SP, city São Paulo | americas-south | Collector, Trader | all four | premium plan, saved searches |
+| 09 | premium_user | Camille Roy | BR / BR-SP, city São Paulo | americas-south | Collector, Trader | all four | an ordinary collector since stage F1 (the former Premium account) |
 | 10 | moderator | Jordan Lavoie | DE / DE-BE, city Berlin | europe | — | — | MODERATOR |
 | 11 | admin | Alex Morin | GB / GB-ENG, no city | europe | — | — | ADMIN |
 | 12 | superadmin | Sam Gagnon | CA / CA-QC, city Québec | americas-north | — | — | SUPER_ADMIN |
@@ -81,15 +81,17 @@ entries. Nothing happens while the real catalog is absent.
   never edited), and sends the sample alert once. A seed wish edited locally is never changed; a
   seed wish that was paused before S2 was deleted by V112 and is simply seeded again.
 - Notifications: a few read/unread for collector1.
-- Plans: FREE and PREMIUM with limits (binder views/day 30 vs unlimited, wishlist alerts 5 vs
-  unlimited, advanced filters off/on); premium-user subscribed.
+- Usage limits (migrations, not the seed): the same for every collector since stage F1 (ADR
+  0019): 5 binders, 30 public binder views a day, 20 wishes, 5 wishlist alerts a day, 20 offers a
+  day, `saved_searches.max` 0 (no feature uses it), an unlimited inventory. No plans, subscriptions,
+  credits, campaigns or donations are seeded any more (stage F1 removed them).
 - Delist policy: ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days.
-- Feature flags (migration state, V010 + V105 launch configuration): `mlScanning=false`,
-  `protectedPayments=false`, `publicChat=true`, `premiumPlans=false`, `advertising=false`,
-  `credits=false`, `donations=false` — every money feature off. The `local`/`dev` seed
-  (`FeatureFlagSeedContributor`) then switches on `protectedPayments`, `premiumPlans`, `credits`,
-  `advertising` and `donations` so those flows run with the fake providers; `mlScanning` stays off
-  (Phase 11 on hold). Flags an admin already edited are kept. Staging/prod never run the seed and
+- Feature flags (migration state, V010 + V105 launch configuration; the `premiumPlans`,
+  `advertising`, `credits` and `donations` flags left with their features, V120 to V123):
+  `mlScanning=false`, `protectedPayments=false`, `publicChat=true` — the money feature off. The
+  `local`/`dev` seed (`FeatureFlagSeedContributor`) then switches on `protectedPayments` so its
+  flows run with the fake provider; `mlScanning` stays off (Phase 11 on hold). Flags an admin
+  already edited are kept. Staging/prod never run the seed and
   start with the migration state (see `docs/deployment/runbooks.md`, "Launch configuration").
 - Community channels: one per platform region (Americas (North), Americas (South), Europe, V110),
   Looking For, New Listings, Trades, General; the former Montréal city channels are archived
