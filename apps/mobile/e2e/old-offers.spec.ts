@@ -30,8 +30,9 @@ function suffix(): string {
  * the paused web, so a conversation and the notification centre can still hold old ones. Ben
  * (driven through the API) makes an offer on Ada's public card and Ada declines it through the
  * API: the pair conversation gets the API's offer lines and Ada an OFFER_RECEIVED notification.
- * On the phone the offer lines read "Offer (no longer available)", the notification opens nothing
- * and says why, an old offer link lands on Messages, and the app never calls the offer routes.
+ * On the phone the offer lines and the inbox line read "Offer (no longer available)", the
+ * notification opens nothing and says why, an old offer link lands on Messages, and the app never
+ * calls the offer routes.
  */
 test.describe('mobile: old offers after offers left the phone', () => {
   requireStack();
@@ -71,6 +72,12 @@ test.describe('mobile: old offers after offers left the phone', () => {
     const messages = screen(page, 'messages');
     const row = messages.getByTestId(`conversation-row-${ben.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
+    // The inbox line of the decline (the API's sentence) reads as an old offer too.
+    await expect(messages.getByTestId(`conversation-preview-${ben.handle}`)).toHaveText(
+      'Offer (no longer available)',
+      { timeout: 30_000 }
+    );
+    await expect(row.getByText(/declined the offer/)).toHaveCount(0);
     await row.click();
     const thread = screen(page, 'conversation');
     // The offer and its decline: two grey lines, no offer card, no link to an offer screen.
