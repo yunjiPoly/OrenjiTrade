@@ -4198,32 +4198,45 @@ recorded here. The dialog that was once seen with an empty accessibility tree (U
 `fix/ios-second-modal-accessibility`, which ships after this one (not verified here). The owner
 decisions of review fix 1 (U2, U3) stand as they were.
 
+**Checks of review fix 2 and its independent verification (2026-10-13, head `3fbcaa1`): approved,
+only small points left.** The fixer was stopped by the owner's pause before its native run ended;
+the verifier ran the whole list itself, retries off: `spotlessCheck --rerun-tasks`; `npm run
+test:api` twice (984 tests each, 194 s and 228 s); `InventoryLockOrderIT` three times (83 tests);
+`exportOpenApi` + `npm run generate:api` with git clean; the web build (initial total 899.93 kB),
+`npm run test:web` (678) and the web lint as a regression check; `npm run test:e2e -- --retries=0`
+(74 passed); mobile typecheck, lint, format check; `npm run test:mobile` (jest 89 suites / 916
+tests, 28 guard tests); the three exports; `npm run test:mobile:e2e -- --retries=0` (60 passed);
+**the native suite, 30 of 30 flows in 47 min 54 s on the owner's iPhone 18 Pro simulator**;
+`npm run test:scripts` (133); the audit gate. R1-1 was reproduced through the real API and on the
+phone with a file of 435 lines (356 assumed: the card, the chip, the count going down with each
+confirmation). Around it: eight commits at once gave one result, for one chunk (171 items) and
+for two (800 items); a repeated commit added nothing; the same file again merged (0 created, 800
+merged); everything imported was Private; nothing of the file in the log or the tables. Twelve
+mutants around the fix were all caught. Left open, small:
+- the chip "Plain copy assumed (N)" is cut at the edge of its pinned row until it is dragged or
+  chosen (the card above the lines carries the count; a shorter label would keep it in view);
+- the commit label wraps onto two lines after the reason above it changed; on a line that is left
+  out the note "Taken as the plain copy…" is cut at the card's edge;
+- a line of a game OrenjiTrade does not have with an unreadable quantity shows no copies; when the
+  file names a finish no printing has, the line never shows the file's variant;
+- in a file that names cards without a set, most lines are assumed (356 of 435 in the test file)
+  and each is confirmed one at a time: there is no "confirm all" (an owner question under U3).
+Not verified: the Android run (no Android SDK on this Mac; the Android export builds) and
+VoiceOver speech itself (the accessibility tree was read).
+
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
 > wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
 > Apple Silicon (#59, 2026-10-10); the iOS path of the native Maestro harness and the iOS defects
-> it found (#61, 2026-10-12). The owner's local database migrates on the next `npm run dev` and
-> loses its trading areas by design (S1).
+> it found (#61, 2026-10-12); mobile stage M9, regions on the phone (#67, 2026-10-13); the binder /
+> inventory lock fix (#68, 2026-10-13). The owner's local database migrates on the next
+> `npm run dev` and loses its trading areas by design (S1).
 >
 > **Owner order of 2026-10-12: mobile only. The web app is paused until a new order** (do not
-> change `apps/web-angular`; it stays the reference for what the phone should offer).
->
-> **Mobile stage M9, regions on the phone (branch `feature/mobile-regions-map`, on `main` at
-> `00714a9`, not pushed):** built and checked on 2026-10-12 (see "Mobile app: regions and the
-> region map"): the region switcher, the region map in the Map tab, the binders of a state or
-> province, the map libraries removed. Reviewed on 2026-10-12 (17 findings, no blocker) and fixed
-> on 2026-10-13 ("Review fix 1" in that section). The second review approved the branch the same
-> day and left three minors, fixed at once ("Review fix 2"). Next for this branch: the pull
-> request, merged when CI is green. The Android steps were not executed (no Android SDK on the
-> Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
-> may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
->
-> **The binder / inventory lock fix (branch `fix/inventory-lock-order`, the former
-> `fix/binder-count-deadlock` merged with `main`):** its third and final independent review ended
-> on 2026-10-13 without a regression of the branch and with one older corner, closed the same day
-> by a one-line fix that a second verifier approved (see "Binder count deadlock ...", "Final review
-> (2026-10-13) and its one fix"). Next for this branch: the pull request, merged when CI is green.
+> change `apps/web-angular`; it stays the reference for what the phone should offer). The native
+> suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its UDID>`;
+> nothing boots or shuts down a simulator).
 >
 > **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
 > skipped until the owner asks for them.**
@@ -4236,8 +4249,10 @@ decisions of review fix 1 (U2, U3) stand as they were.
 > run could not be verified on this Mac. Reviewed independently the same day; **review fix 1**
 > ("Review fix 1 (2026-10-13)" in that section, migration V114) answers every finding, and the
 > second look approved the branch with one minor finding, answered by **review fix 2** ("Review
-> fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed). **Next
-> for this branch: the pull request, merged when CI is green.**
+> fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed), which an
+> independent verifier approved the same evening (30 of 30 native flows). **Next for this branch:
+> the pull request, merged when CI is green.** Right after it ships the small branch
+> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal).
 > Owner questions it leaves open: the default condition of a card whose file names none
 > (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
 > collector shows (today it never does: the copies become a private card), whether "use the most
