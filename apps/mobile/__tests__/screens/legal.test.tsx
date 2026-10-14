@@ -141,6 +141,15 @@ describe('Legal pages', () => {
     }
     expect(screen.getAllByText(/virement Interac/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/Avant la rencontre|lieu public|zones d’échange/)).toBeNull();
+    // As a Quebec reader writes it (review of R1): no calque of "stays as a record", no
+    // "publication publique".
+    expect(screen.getByText(/La conversation en garde une trace\./)).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        /Ne communiquez votre adresse que dans la conversation privée avec l’autre collectionneur, jamais dans une publication, un cartable ou votre profil\./
+      )
+    ).toBeOnTheScreen();
+    expect(screen.queryByText(/reste comme trace|publication publique/)).toBeNull();
   });
 
   it('ships exactly the texts of the web app in both languages (npm run sync:legal)', () => {

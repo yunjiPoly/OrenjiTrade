@@ -613,7 +613,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Avant de payer',
         clauses: [
           'Consultez les évaluations et les références du collectionneur, et demandez des photos de la vraie carte, recto et verso.',
-          'Convenez dans la conversation de la carte, de son état, du prix, de l’expédition et du mode de paiement. La conversation reste comme trace.',
+          'Convenez dans la conversation de la carte, de son état, du prix, de l’expédition et du mode de paiement. La conversation en garde une trace.',
         ],
       },
       {
@@ -621,7 +621,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Expédition',
         clauses: [
           'Le vendeur expédie la carte une fois le paiement reçu, avec un numéro de suivi, et ajoute ce numéro lorsqu’il marque la carte comme vendue.',
-          'Ne communiquez votre adresse que dans la conversation avec le collectionneur avec qui vous faites affaire, jamais dans une publication publique, un cartable ou votre profil.',
+          'Ne communiquez votre adresse que dans la conversation privée avec l’autre collectionneur, jamais dans une publication, un cartable ou votre profil.',
         ],
       },
       {
