@@ -17,43 +17,44 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
-import { MyPlan } from '../model/myPlan';
-// @ts-ignore
-import { Plan } from '../model/plan';
+import { AdminUsageLimit } from '../model/adminUsageLimit';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { UpdateUsageLimitRequest } from '../model/updateUsageLimitRequest';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
 import { Configuration }                                     from '../configuration';
 import { BaseService } from '../api.base.service';
 import {
-    PlansServiceInterface
-} from './plans.serviceInterface';
+    AdminUsageLimitsServiceInterface,
+    UpdateUsageLimitRequestParams
+} from './adminUsageLimits.serviceInterface';
 
 
 
 @Injectable({
   providedIn: 'root'
 })
-export class PlansService extends BaseService implements PlansServiceInterface {
+export class AdminUsageLimitsService extends BaseService implements AdminUsageLimitsServiceInterface {
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
     }
 
     /**
-     * The caller\&#39;s plan, limits with usage, features and entitlements
-     * Limits carry the effective value (entitlements override the plan), the usage of the current window and when it resets (UTC day or month; null for totals and caps). subscription is the live subscription (PENDING checkout, TRIAL, ACTIVE or PAST_DUE), absent otherwise.
-     * @endpoint get /api/v1/me/plan
+     * List usage limits (ADMIN, SUPER_ADMIN)
+     * Every usage limit, by key. Each applies to every collector alike.
+     * @endpoint get /api/v1/admin/usage-limits
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getMyPlan(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<MyPlan>;
-    public getMyPlan(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<MyPlan>>;
-    public getMyPlan(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<MyPlan>>;
-    public getMyPlan(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public listUsageLimits(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<AdminUsageLimit>>;
+    public listUsageLimits(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<AdminUsageLimit>>>;
+    public listUsageLimits(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<AdminUsageLimit>>>;
+    public listUsageLimits(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -84,9 +85,9 @@ export class PlansService extends BaseService implements PlansServiceInterface {
             }
         }
 
-        let localVarPath = `/api/v1/me/plan`;
+        let localVarPath = `/api/v1/admin/usage-limits`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<MyPlan>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<Array<AdminUsageLimit>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 responseType: <any>responseType_,
@@ -100,19 +101,31 @@ export class PlansService extends BaseService implements PlansServiceInterface {
     }
 
     /**
-     * Active plans with features and limits (public)
-     * Ordered for display (FREE first). &#x60;limit&#x60; null means unlimited.
-     * @endpoint get /api/v1/plans
+     * Change a usage limit (SUPER_ADMIN)
+     * Live edit for every collector: every instance applies the new value at once (cache evicted); counters keep their usage. Audited (&#x60;usage_limit.update&#x60;).
+     * @endpoint put /api/v1/admin/usage-limits/{id}
+     * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public listPlans(observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<Plan>>;
-    public listPlans(observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<Plan>>>;
-    public listPlans(observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<Plan>>>;
-    public listPlans(observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+    public updateUsageLimit(requestParameters: UpdateUsageLimitRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AdminUsageLimit>;
+    public updateUsageLimit(requestParameters: UpdateUsageLimitRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AdminUsageLimit>>;
+    public updateUsageLimit(requestParameters: UpdateUsageLimitRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AdminUsageLimit>>;
+    public updateUsageLimit(requestParameters: UpdateUsageLimitRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling updateUsageLimit.');
+        }
+        const updateUsageLimitRequest = requestParameters?.updateUsageLimitRequest;
+        if (updateUsageLimitRequest === null || updateUsageLimitRequest === undefined) {
+            throw new Error('Required parameter updateUsageLimitRequest was null or undefined when calling updateUsageLimit.');
+        }
 
         let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
             'application/json',
@@ -127,6 +140,15 @@ export class PlansService extends BaseService implements PlansServiceInterface {
         const localVarTransferCache: boolean = options?.transferCache ?? true;
 
 
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
         let responseType_: 'text' | 'json' | 'blob' = 'json';
         if (localVarHttpHeaderAcceptSelected) {
             if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
@@ -138,11 +160,12 @@ export class PlansService extends BaseService implements PlansServiceInterface {
             }
         }
 
-        let localVarPath = `/api/v1/plans`;
+        let localVarPath = `/api/v1/admin/usage-limits/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<Array<Plan>>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<AdminUsageLimit>('put', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                body: updateUsageLimitRequest,
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,

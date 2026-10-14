@@ -135,8 +135,6 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/admin/feature-flags/{key}",
                         "/api/v1/admin/usage-limits",
                         "/api/v1/admin/usage-limits/{id}",
-                        "/api/v1/admin/users/{id}/entitlements",
-                        "/api/v1/admin/users/{id}/entitlements/{entitlementId}",
                         "/api/v1/admin/games",
                         "/api/v1/admin/games/{slug}",
                         "/api/v1/admin/sets",
@@ -464,7 +462,8 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         path -> {
                             if (path.matches(
                                     ".*/(plans?|subscriptions?|billing|credits|referrals|donations"
-                                            + "|ads|subscriptions-period|credits-reconcile)"
+                                            + "|ads|entitlements|subscriptions-period"
+                                            + "|credits-reconcile)"
                                             + "(/.*)?$")) {
                                 paid.add(path);
                             }
@@ -573,9 +572,9 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardSuggestion",
                         "GameResponse",
                         "GameSchema",
-                        "Plan",
-                        "MyPlan",
+                        "MyLimits",
                         "LimitStatus",
+                        "AdminUsageLimit",
                         "FeatureFlag",
                         "CatalogSyncRun",
                         "InventoryItemResponse",

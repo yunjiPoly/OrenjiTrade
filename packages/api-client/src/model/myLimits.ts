@@ -7,14 +7,13 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-import { Donation } from './donation';
+import { LimitStatus } from './limitStatus';
 
 
 /**
- * Where the donor pays
+ * The usage limits with the caller\'s usage
  */
-export interface DonationCheckout { 
-    donation?: Donation;
-    url?: string;
+export interface MyLimits { 
+    limits?: Array<LimitStatus>;
 }
 

@@ -87,7 +87,7 @@ export interface BindersServiceInterface {
 
     /**
      * Create a binder
-     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the plan\&#39;s binder limit.
+     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector.
      * @endpoint post /api/v1/binders
 * @param requestParameters
      */

@@ -61,35 +61,15 @@ export interface ProblemDetail {
      */
     resetsAt?: string;
     /**
-     * The caller\'s plan (LIMIT_REACHED), e.g. FREE
-     */
-    planCode?: string;
-    /**
-     * Where to send the user to upgrade (LIMIT_REACHED): /premium
-     */
-    upgradeUrl?: string;
-    /**
      * Feature flag that is off for the caller (FEATURE_DISABLED)
      */
     feature?: string;
     /**
-     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED, IMPORT_ALREADY_COMMITTED)
+     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, IMPORT_ALREADY_COMMITTED)
      */
     currentStatus?: string;
     /**
-     * The caller\'s live subscription (ALREADY_SUBSCRIBED)
-     */
-    subscriptionId?: string;
-    /**
-     * The caller\'s credit balance (INSUFFICIENT_CREDITS)
-     */
-    balance?: number;
-    /**
-     * Credits the action needs (INSUFFICIENT_CREDITS)
-     */
-    cost?: number;
-    /**
-     * Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT. Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS
+     * Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS
      */
     reason?: string;
     /**
@@ -137,9 +117,6 @@ export enum ProblemDetailErrorCodeEnum {
     DisputeWindowClosed = 'DISPUTE_WINDOW_CLOSED',
     EvidenceLimitReached = 'EVIDENCE_LIMIT_REACHED',
     WebhookSignatureInvalid = 'WEBHOOK_SIGNATURE_INVALID',
-    AlreadySubscribed = 'ALREADY_SUBSCRIBED',
-    InsufficientCredits = 'INSUFFICIENT_CREDITS',
-    ReferralNotAllowed = 'REFERRAL_NOT_ALLOWED',
     ImportExpired = 'IMPORT_EXPIRED',
     ImportAlreadyCommitted = 'IMPORT_ALREADY_COMMITTED',
     ImportRowsUnresolved = 'IMPORT_ROWS_UNRESOLVED',
