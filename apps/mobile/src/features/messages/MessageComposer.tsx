@@ -11,7 +11,7 @@ import { afterModals } from '@/src/components/ui/modalTurns';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { BinderLinkPicker, CardLinkPicker, OfferLinkPicker } from './LinkPickers';
+import { BinderLinkPicker, CardLinkPicker } from './LinkPickers';
 import {
   fileSizeLabel,
   imageProblem,
@@ -22,7 +22,7 @@ import {
 } from './messageDraft';
 import { MESSAGE_MAX_LENGTH } from './messageText';
 
-type Picker = 'card' | 'binder' | 'offer' | null;
+type Picker = 'card' | 'binder' | null;
 
 export interface MessageComposerProps {
   /** Sending in progress. */
@@ -37,16 +37,13 @@ export interface MessageComposerProps {
   /** The caller typed (throttled by the thread before it reaches the server). */
   onTyping: () => void;
   onDismissError: () => void;
-  /** The other participant ("Share an offer" lists the negotiations with them). */
-  otherId?: string | null;
-  otherName?: string;
 }
 
 /**
  * Message composer (the web's `app-message-composer`): multi-line text, an attachment menu
- * (share a card, one of the caller's public binders or a negotiation with the other collector
- * through an inline picker, or attach a photo from the library with a preview and type / size
- * checks) and the send button. It only hands drafts to the thread, which decides whether the send
+ * (share a card or one of the caller's public binders through an inline picker, or attach a photo
+ * from the library with a preview and type / size checks) and the send button. Offers are not
+ * shared from the phone (ADR 0018: deals happen in the chat). It only hands drafts to the thread, which decides whether the send
  * worked.
  */
 export function MessageComposer({
@@ -57,8 +54,6 @@ export function MessageComposer({
   onSend,
   onTyping,
   onDismissError,
-  otherId = null,
-  otherName = 'this collector',
 }: MessageComposerProps) {
   const { palette } = useTheme();
   const [text, setText] = useState('');
@@ -132,17 +127,6 @@ export function MessageComposer({
           onCancel={() => setPicker(null)}
         />
       ) : null}
-      {picker === 'offer' && otherId ? (
-        <OfferLinkPicker
-          otherId={otherId}
-          otherName={otherName}
-          onPicked={(offer) => {
-            setAttachment({ kind: 'offer', offer });
-            setPicker(null);
-          }}
-          onCancel={() => setPicker(null)}
-        />
-      ) : null}
       {picker === 'binder' ? (
         <BinderLinkPicker
           onPicked={(binder) => {
@@ -193,7 +177,7 @@ export function MessageComposer({
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Attach a card, binder, offer or photo"
+          accessibilityLabel="Attach a card, binder or photo"
           aria-disabled={disabled}
           disabled={disabled}
           onPress={() => setMenuOpen(true)}
@@ -290,20 +274,6 @@ export function MessageComposer({
           }}
           testID="composer-share-binder"
         />
-        {otherId ? (
-          <ListRow
-            icon="tag-outline"
-            label="Share an offer"
-            detail={`A negotiation with ${otherName}`}
-            kind="button"
-            onPress={() => {
-              setMenuOpen(false);
-              setFileError(null);
-              setPicker('offer');
-            }}
-            testID="composer-share-offer"
-          />
-        ) : null}
         <ListRow
           icon="image-plus"
           label="Attach a photo"
@@ -336,14 +306,6 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
       thumb = <MaterialCommunityIcons name="book-open-variant" size={28} color={palette.primary} />;
       eyebrow = 'Public binder';
       name = attachment.binder.name;
-      break;
-    case 'offer':
-      thumb = (
-        <CardImage src={attachment.offer.imageUrl} alt="" game={attachment.offer.game} size="xs" />
-      );
-      eyebrow = 'Offer';
-      name = attachment.offer.cardName;
-      meta = attachment.offer.terms;
       break;
     case 'image':
       thumb = (

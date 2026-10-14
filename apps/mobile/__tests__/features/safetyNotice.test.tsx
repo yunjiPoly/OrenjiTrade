@@ -2,8 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
-import OfferScreen from '@/app/offers/[id]';
-import TradeScreen from '@/app/trades/[id]';
 import {
   SAFETY_NOTICE_STORAGE_KEY,
   isSafetyNoticeDismissed,
@@ -14,15 +12,11 @@ import {
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CONVERSATION_ID,
-  OFFER_ID,
   SELF_ID,
-  TRADE_ID,
   conversationPage,
   eligibilityFixture,
   meFixture,
   messagePage,
-  offerFixture,
-  tradeFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -39,8 +33,6 @@ function routes(extra: MockRoutes = {}): MockRoutes {
     'GET /api/v1/conversations/{id}/messages': ok(messagePage()),
     'POST /api/v1/conversations/{id}/read': noContent,
     'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
-    'GET /api/v1/offers/{id}': ok(offerFixture()),
-    'GET /api/v1/trades/{id}': ok(tradeFixture()),
     'GET /api/v1/ratings/eligibility': ok(eligibilityFixture()),
     'POST /api/v1/users/{id}/block': noContent,
     ...extra,
@@ -170,46 +162,5 @@ describe('Trading safety notice', () => {
       port: new FakeAuthPort(testUser({ uid: 'uid-other', email: 'other@example.test' })),
     });
     expect(await screen.findByTestId('safety-notice')).toBeOnTheScreen();
-  });
-
-  it('shows on the offer screen (trade context) with Report and Block of the other collector', async () => {
-    mockParams.current = { id: OFFER_ID };
-    const api = mockApi(routes());
-    renderWithProviders(<OfferScreen />, { port: port() });
-    const notice = await screen.findByTestId('safety-notice');
-    expect(within(notice).getByText(/Be wary of pressure/)).toBeOnTheScreen();
-    fireEvent.press(within(notice).getByRole('button', { name: /^Report / }));
-    expect(mockRouter.push).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        pathname: '/report',
-        params: expect.objectContaining({ source: 'PROFILE' }),
-      })
-    );
-    fireEvent.press(within(notice).getByRole('button', { name: /^Block / }));
-    const dialog = screen.getByTestId('block-dialog');
-    fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
-    await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
-    expect(screen.getByTestId('snackbar')).toHaveTextContent(/is blocked\./);
-    // Dismissed in the trade context: the conversation context is untouched.
-    fireEvent.press(
-      within(screen.getByTestId('safety-notice')).getByRole('button', {
-        name: 'Dismiss the safety notice',
-      })
-    );
-    expect(screen.queryByTestId('safety-notice')).toBeNull();
-    const state = useSafetyNoticeStore.getState();
-    expect(isSafetyNoticeDismissed(state.dismissals, SELF_ID, 'trade')).toBe(true);
-    expect(isSafetyNoticeDismissed(state.dismissals, SELF_ID, 'conversation')).toBe(false);
-  });
-
-  it('shows on the trade screen until dismissed there', async () => {
-    mockParams.current = { id: TRADE_ID };
-    mockApi(routes());
-    renderWithProviders(<TradeScreen />, { port: port() });
-    const notice = await screen.findByTestId('safety-notice');
-    expect(within(notice).getByText('Trade safely')).toBeOnTheScreen();
-    expect(within(notice).getByRole('button', { name: /^Block / })).toBeOnTheScreen();
-    fireEvent.press(within(notice).getByRole('button', { name: 'Dismiss the safety notice' }));
-    expect(screen.queryByTestId('safety-notice')).toBeNull();
   });
 });

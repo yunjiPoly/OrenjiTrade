@@ -120,30 +120,8 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
   /** The caller's collector reports (`GET /me/reports`). */
   reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
-  /** Offers (Phase 8): every read (prefix), an inbox page set per query, one proposal. */
-  offers: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offers'] as const,
-  offerList: (uid: Uid, query: object) =>
-    [...ME_ROOT, uidKey(uid), 'offers', 'list', query] as const,
-  offer: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'offers', 'one', id] as const,
-  offerSettings: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'offer-settings'] as const,
-  /** Trades (Phase 8): every read (prefix), a list per filter, one trade. */
-  trades: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'trades'] as const,
-  tradeList: (uid: Uid, filter: string) =>
-    [...ME_ROOT, uidKey(uid), 'trades', 'list', filter] as const,
-  trade: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'trades', 'one', id] as const,
-  /** Payment protection (Phase 9): the caller's payout account (`GET /me/seller-account`). */
-  sellerAccount: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'seller-account'] as const,
-  /** Disputes of the caller's protected trades: every read (prefix), one dispute. */
-  disputes: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'disputes'] as const,
-  dispute: (uid: Uid, id: string) => [...ME_ROOT, uidKey(uid), 'disputes', 'one', id] as const,
-  /** An evidence file of a dispute (fetched with the ID token, shown from memory). */
-  evidenceFile: (uid: Uid, disputeId: string, evidenceId: string) =>
-    [...ME_ROOT, uidKey(uid), 'disputes', 'file', disputeId, evidenceId] as const,
-  /**
-   * A local fake provider checkout (`payment`: a protected trade, `billing`: a subscription,
-   * `donation`: a donation), the caller's own only.
-   */
-  checkout: (uid: Uid, kind: 'payment' | 'billing' | 'donation', ref: string) =>
+  /** A local fake provider checkout (a subscription or a donation), the caller's own only. */
+  checkout: (uid: Uid, kind: 'billing' | 'donation', ref: string) =>
     [...ME_ROOT, uidKey(uid), 'checkout', kind, ref] as const,
   /** Credits (Phase 10): every read (prefix), the ledger pages, the referral code. */
   credits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits'] as const,

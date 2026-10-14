@@ -82,7 +82,7 @@ export function NotificationEntry({ notification }: { notification: Notification
 
 /**
  * Opening a notification: it is marked read, then its screen opens (the deep link mapped to the
- * app), or a snackbar explains where to follow it when that screen arrives in a later stage.
+ * app), or a snackbar says why it opens nothing (a website-only setting, an old offer or trade).
  */
 export function useOpenNotification() {
   const router = useRouter();

@@ -8,7 +8,7 @@ import type { MessageImage, MessageResponse } from '@/src/api/types';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { fontWeight, radius, scrimColor, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { OfferLinkCard, SharedLinkCard } from './LinkCards';
+import { OfferUnavailableLine, SharedLinkCard } from './LinkCards';
 
 /** Largest photo side in a bubble (dp). */
 const PHOTO_MAX = 240;
@@ -24,9 +24,18 @@ function timeLabel(iso: string): string {
 }
 
 /**
+ * True for a message about an offer or a trade: an OFFER_LINK, or a SYSTEM message carrying the
+ * offer (the API posts one on every offer and trade update). Offers left the phone (ADR 0018).
+ */
+export function isOfferMessage(message: Pick<MessageResponse, 'kind' | 'payload'>): boolean {
+  return message.kind === 'OFFER_LINK' || (message.kind === 'SYSTEM' && !!message.payload?.offer);
+}
+
+/**
  * One message (the web's `app-message-bubble`): text, a shared card or binder (with an optional
- * caption), a photo (tap to view it full screen), an offer card, or a system line (offer and
- * trade updates carry the offer card too). Removed messages keep their place with a neutral note.
+ * caption), a photo (tap to view it full screen) or a system line. An old offer or trade message
+ * reads as the grey line "Offer (no longer available)" (a text sent with an offer link stays, in
+ * its bubble). Removed messages keep their place with a neutral note.
  */
 export function MessageBubble({
   message,
@@ -38,13 +47,38 @@ export function MessageBubble({
   showTime: boolean;
 }) {
   const { palette } = useTheme();
+  if (isOfferMessage(message)) {
+    const caption =
+      message.kind === 'OFFER_LINK' && message.moderationState !== 'REMOVED' && message.body;
+    return (
+      <View style={styles.offer} testID={`message-${message.id}`}>
+        <OfferUnavailableLine testID={`message-${message.id}-offer`} />
+        {caption ? (
+          <View
+            style={[
+              styles.bubble,
+              own
+                ? [styles.own, { backgroundColor: palette.primary }]
+                : [styles.other, { backgroundColor: palette.surfaceVariant }],
+            ]}
+          >
+            <Text
+              selectable
+              style={[textStyle('md'), { color: own ? palette.onPrimary : palette.ink }]}
+            >
+              {caption}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
   if (message.kind === 'SYSTEM') {
     return (
       <View style={styles.system} testID={`message-${message.id}`}>
         <Text style={[textStyle('sm'), styles.systemText, { color: palette.textMuted }]}>
           {message.body}
         </Text>
-        {message.payload?.offer ? <OfferLinkCard offer={message.payload.offer} /> : null}
       </View>
     );
   }
@@ -63,11 +97,6 @@ export function MessageBubble({
         break;
       case 'IMAGE':
         attachment = message.payload?.image ? <Photo image={message.payload.image} /> : null;
-        break;
-      case 'OFFER_LINK':
-        attachment = message.payload?.offer ? (
-          <OfferLinkCard offer={message.payload.offer} />
-        ) : null;
         break;
       default:
         break;
@@ -187,6 +216,7 @@ const styles = StyleSheet.create({
   removed: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   italic: { fontStyle: 'italic' },
   system: { alignSelf: 'center', alignItems: 'stretch', gap: spacing[2], maxWidth: '95%' },
+  offer: { alignSelf: 'stretch', gap: spacing[1] },
   systemText: { textAlign: 'center' },
   photo: { borderRadius: radius.md },
   photoMissing: {

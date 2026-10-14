@@ -699,7 +699,8 @@ describe('Entry points', () => {
       })
     );
     renderWithProviders(<ProfileScreen />, { port: port() });
-    expect(await screen.findByTestId('profile-trades')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-settings')).toBeOnTheScreen();
+    expect(screen.queryByTestId('profile-money')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('profile-premium')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('profile-credits')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('profile-support')).not.toBeOnTheScreen();

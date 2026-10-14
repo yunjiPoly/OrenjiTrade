@@ -27,9 +27,6 @@ export interface ItemRowProps {
   onPress?: (item: Item) => void;
   /** A trailing action (e.g. "Remove from binder"). */
   action?: ReactNode;
-  /** A full-width action under the card (e.g. "Make an offer" on public cards; it sets its own
-   * margins, so a footer that renders nothing leaves no gap). */
-  footer?: ReactNode;
   /** Selection mode (bulk actions): a checkbox, and the row toggles it instead of opening. */
   selectable?: boolean;
   selected?: boolean;
@@ -46,7 +43,6 @@ export const ItemRow = memo(function ItemRow({
   item,
   onPress,
   action,
-  footer,
   selectable = false,
   selected = false,
   onToggle,
@@ -173,7 +169,6 @@ export const ItemRow = memo(function ItemRow({
         )}
         {action}
       </View>
-      {footer}
     </View>
   );
 });

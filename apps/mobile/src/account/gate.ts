@@ -56,14 +56,11 @@ const APP_ROOTS = new Set([
   'community',
   'wishlist',
   'notifications',
-  // Phases 7 and 8: collector reports, ratings and references, offers and trades.
+  // Phase 7: collector reports, ratings and references (offers and trades left the phone, ADR 0018).
   'report',
   'ratings',
-  'offers',
-  'trades',
-  // Phases 9 and 10: the local fake checkouts, disputes, Premium, credits and donations.
+  // Phase 10: the local fake checkouts of Premium and donations, Premium, credits and donations.
   'checkout',
-  'disputes',
   'premium',
   'credits',
   'support',

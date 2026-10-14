@@ -1,5 +1,6 @@
 import { bellLabel } from '@/src/features/notifications/NotificationBell';
 import {
+  DEALS_IN_CHAT_NOTE,
   groupByDay,
   isUnread,
   mobileTarget,
@@ -124,18 +125,23 @@ describe('notification kinds', () => {
       href: '/legal/community-guidelines',
     });
     expect(mobileTarget('/map')).toEqual({ kind: 'route', href: '/' });
-    // Phase 7 and 8 screens (mobile stage M5).
+    // Phase 7 screens (mobile stage M5).
     expect(mobileTarget('/settings/reports')).toEqual({ kind: 'route', href: '/settings/reports' });
-    expect(mobileTarget('/settings/offers')).toEqual({ kind: 'route', href: '/settings/offers' });
-    expect(mobileTarget('/offers/o1')).toEqual({ kind: 'route', href: '/offers/o1' });
-    expect(mobileTarget('/offers')).toEqual({ kind: 'route', href: '/offers' });
-    expect(mobileTarget('/trades/t1')).toEqual({ kind: 'route', href: '/trades/t1' });
-    expect(mobileTarget('/trades')).toEqual({ kind: 'route', href: '/trades' });
-    expect(mobileTarget('/trades/bad id!')).toEqual({ kind: 'route', href: '/trades' });
-    // Phase 9 and 10 screens (mobile stage M6).
-    expect(mobileTarget('/settings/payouts')).toEqual({ kind: 'route', href: '/settings/payouts' });
-    expect(mobileTarget('/disputes/d1')).toEqual({ kind: 'route', href: '/disputes/d1' });
-    expect(mobileTarget('/disputes/bad id!')).toEqual({ kind: 'route', href: '/trades' });
+    // Offers, trades, disputes, offer settings and payouts left the phone (ADR 0018): no screen
+    // opens, a note says that deals happen in the chat.
+    for (const gone of [
+      '/offers/o1',
+      '/offers',
+      '/trades/t1',
+      '/trades',
+      '/trades/bad id!',
+      '/disputes/d1',
+      '/settings/offers',
+      '/settings/payouts',
+    ]) {
+      expect(mobileTarget(gone)).toEqual({ kind: 'note', note: DEALS_IN_CHAT_NOTE });
+    }
+    // Phase 10 screens (mobile stage M6).
     expect(mobileTarget('/premium')).toEqual({ kind: 'route', href: '/premium' });
     expect(mobileTarget('/premium?checkout=success')).toEqual({
       kind: 'route',
@@ -149,7 +155,7 @@ describe('notification kinds', () => {
     });
     // A settings page the app does not have stays a website note.
     const unknown = mobileTarget('/settings/something-new');
-    expect(unknown.kind === 'later' && unknown.note).toMatch(/orenjitrade\.com/);
+    expect(unknown.kind === 'note' && unknown.note).toMatch(/orenjitrade\.com/);
     // The web's holders view and the search tabs map to the app's screens.
     expect(mobileTarget('/search?card=00000000-0000-4000-8a00-000000000001')).toEqual({
       kind: 'route',

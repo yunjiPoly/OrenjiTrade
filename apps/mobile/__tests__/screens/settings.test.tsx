@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('Settings home', () => {
-  it('lists the sections (Phase 1, offers, my reports) and signs out', async () => {
+  it('lists the sections (Phase 1, blocked users, my reports) and signs out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi(signedInRoutes());
     renderWithProviders(<SettingsScreen />, { port });
@@ -52,7 +52,7 @@ describe('Settings home', () => {
       'Location and discoverability',
       'Privacy',
       'Notifications',
-      'Offers',
+      'Blocked users',
       'My reports',
       'Account',
       'Appearance',
@@ -60,6 +60,9 @@ describe('Settings home', () => {
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeOnTheScreen();
     }
+    // Offer settings and payouts left the phone with offers and trades (ADR 0018).
+    expect(screen.queryByRole('link', { name: 'Offers' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Payouts' })).toBeNull();
     fireEvent.press(screen.getByRole('link', { name: 'Notifications' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
     fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
@@ -291,6 +294,9 @@ describe('Settings → Notifications', () => {
     >;
     expect(body.emailEnabled).toBe(false);
     expect(body.categories.MESSAGE).toEqual({ inApp: true, push: true, email: true });
+    // Offers left the phone (ADR 0018): no row, and the stored value goes back unchanged.
+    expect(screen.queryByRole('checkbox', { name: /^Offers by / })).toBeNull();
+    expect(body.categories.OFFER).toEqual({ inApp: true, push: false, email: true });
   });
 
   it('validates quiet hours', async () => {

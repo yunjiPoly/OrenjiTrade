@@ -63,10 +63,10 @@ const UNKNOWN_PARTICIPANT: ConversationParticipant = {
 /**
  * One conversation (the web's `/messages/:id` thread view): the header with the conversation
  * options (mute, archive, rate the collector when an interaction can still be rated, block /
- * unblock with confirmation, report the collector), the history (day separators, links to cards,
- * binders and offers, photos, "Sent" / "Seen", "… is typing", older pages on scroll) and the
- * composer (text, card, binder or offer link, photo). Live over realtime; the newest message is
- * marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
+ * unblock with confirmation, report the collector), the history (day separators, links to cards
+ * and binders, photos, old offers as a grey line, "Sent" / "Seen", "… is typing", older pages on
+ * scroll) and the composer (text, card or binder link, photo). Live over realtime; the newest
+ * message is marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
  * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer. The dismissible trading safety
  * notice sits under the header until dismissed (never over the composer; hidden once the thread
  * is blocked).
@@ -396,8 +396,6 @@ export default function ConversationScreen() {
           onSend={onSend}
           onTyping={sendTyping}
           onDismissError={() => setSendError(null)}
-          otherId={other?.id ?? null}
-          otherName={name}
         />
       </View>
       <ConfirmDialog

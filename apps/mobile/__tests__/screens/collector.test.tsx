@@ -3,7 +3,6 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react-nativ
 import CollectorScreen from '@/app/collectors/[id]';
 import { meKeys } from '@/src/api/queryKeys';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
-import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -128,28 +127,19 @@ describe('Collector profile', () => {
         source: 'PROFILE',
       },
     });
-    const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: item.id },
-    });
-    expect(offerTargetFor(item.id)).toMatchObject({
-      cardName: 'Azure-Eyes Sky Dragon',
-      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Ontario, Canada' },
-    });
   });
 
-  it('offers no offer on cards that refuse them', async () => {
-    const item = publicItemFixture({ acceptsOffers: false });
+  it('lists the public cards without "Make an offer" (offers left the phone, ADR 0018)', async () => {
+    const item = publicItemFixture();
     mockApi(
       routes({
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
       })
     );
     render();
-    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
+    expect(await screen.findByTestId(`collector-card-${item.id}`)).toBeOnTheScreen();
     expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
+    expect(screen.queryByText('Make an offer')).not.toBeOnTheScreen();
   });
 
   it('shows empty binders, and a retry when they fail', async () => {

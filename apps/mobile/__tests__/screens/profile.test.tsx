@@ -96,10 +96,10 @@ describe('Profile tab', () => {
     });
     fireEvent.press(screen.getByRole('link', { name: 'Settings' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings');
-    fireEvent.press(screen.getByTestId('profile-offers'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/offers');
-    fireEvent.press(screen.getByTestId('profile-trades'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/trades');
+    // Offers and trades left the phone (ADR 0018: deals happen in the chat).
+    expect(screen.queryByTestId('profile-offers')).toBeNull();
+    expect(screen.queryByTestId('profile-trades')).toBeNull();
+    expect(screen.queryByText(/^(Offers|Trades)$/)).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });

@@ -47,8 +47,8 @@ export function profilePlaceLabel(
  * ratings section): header with the place (state or province, and the city when its owner shows
  * it), member since and last activity; actions (own profile: edit and privacy; others: the first
  * public binder, Message when allowed, Report and Block / Unblock); about, games and tags; the
- * location card; ratings and references (rate, write a reference); public binders and cards
- * ("Make an offer"); the public wishlist ("Looking for") when the collector shows it.
+ * location card; ratings and references (rate, write a reference); public binders and cards; the
+ * public wishlist ("Looking for") when the collector shows it.
  */
 export function CollectorProfileView({
   profile,

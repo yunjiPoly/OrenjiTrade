@@ -5,7 +5,7 @@ import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useIsAuthenticated, useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
 
-export type CheckoutKind = 'payment' | 'billing' | 'donation';
+export type CheckoutKind = 'billing' | 'donation';
 export type CheckoutStatus = 'loading' | 'ready' | 'processing' | 'done' | 'not-found' | 'error';
 /** How a checkout ended: paid, declined (may be retried), cancelled, or no answer yet. */
 export type CheckoutOutcome = 'succeeded' | 'failed' | 'cancelled' | 'pending';
@@ -52,8 +52,7 @@ function isNotFound(error: ApiError): boolean {
 }
 
 /**
- * The state machine of the local fake provider checkouts (protected payments, subscriptions and
- * donations; mirror of the web's `ProviderCheckoutStore` / `FakeCheckoutStore`): read the
+ * The state machine of the local fake provider checkouts (subscriptions and donations; mirror of the web's `ProviderCheckoutStore` / `FakeCheckoutStore`): read the
  * checkout, "Pay" or "Simulate a failed payment" through the confirm route (the API emits a
  * signed synthetic webhook through its regular pipeline), then read the checkout again until the
  * webhook changed it. A 409 on confirm means it no longer waits: how it ended is read instead.
@@ -161,21 +160,6 @@ export function useProviderCheckout<T>(
     tryAgain,
     confirm,
   };
-}
-
-/** How a protected payment's checkout ended (`null` while it waits to be paid). */
-export function paymentOutcome(checkout: { status: string }): CheckoutOutcome | null {
-  switch (checkout.status) {
-    case 'REQUIRES_ACTION':
-      return null;
-    case 'FAILED':
-      return 'failed';
-    case 'CANCELLED':
-    case 'REFUNDED':
-      return 'cancelled';
-    default:
-      return 'succeeded';
-  }
 }
 
 /** A subscription that gives its plan right now (TRIAL, ACTIVE, PAST_DUE). */
