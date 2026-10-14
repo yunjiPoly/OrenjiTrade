@@ -167,8 +167,10 @@ function CardEditor({
 
   const home = isRegionCode(me?.homeRegion) ? regionName(me.homeRegion) : null;
   const savedPhotos = item.images.filter((image) => !removed.includes(image.id));
+  // A photo taken away and already deleted on the server no longer counts as a change.
+  const toRemove = removed.filter((id) => item.images.some((image) => image.id === id));
   const pending = picked.filter((tile) => tile.state !== 'failed');
-  const dirty = formChanged(form, item) || pending.length > 0 || removed.length > 0;
+  const dirty = formChanged(form, item) || pending.length > 0 || toRemove.length > 0;
   const busy = saving || remove.isPending || confirm.isPending;
 
   const tiles: PhotoTile[] = [
@@ -194,13 +196,16 @@ function CardEditor({
       )
     );
     let failedKeys: string[] = keys;
+    let kept: readonly string[] = drop;
     try {
       const result = await applyPhotos.mutateAsync({ id: item.id, add: photos, remove: drop });
       failedKeys = result.failed;
+      kept = result.notRemoved;
     } catch {
       // Every one of them is kept for "Try again".
     }
-    setRemoved([]);
+    // A photo that could not be deleted shows again (the deleted ones leave with the refetch).
+    setRemoved((current) => current.filter((id) => !kept.includes(id)));
     setPicked((current) =>
       current
         .filter((tile) => !keys.includes(tile.photo.key) || failedKeys.includes(tile.photo.key))
@@ -233,10 +238,10 @@ function CardEditor({
       return;
     }
     const failed =
-      pending.length > 0 || removed.length > 0
+      pending.length > 0 || toRemove.length > 0
         ? await upload(
             pending.map((tile) => tile.photo),
-            removed
+            toRemove
           )
         : 0;
     setSaving(false);
