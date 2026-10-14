@@ -228,8 +228,8 @@ public class OfferSeedContributor implements SeedContributor {
                         "CAD",
                         "OPEN",
                         "SELLER",
-                        "Would you take 40 for the Azure-Eyes? I can meet at Berri-UQAM after"
-                                + " work.",
+                        "Would you take 40 for the Azure-Eyes? I can pay by e-Transfer, shipped"
+                                + " with tracking.",
                         created3,
                         created3,
                         null,
