@@ -176,6 +176,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V114 | `V114__inventory_import_review_fixes.sql` | Stage S5, review fix 1: `inventory_import.chunk_new_items` (the new items each chunk of a commit will create: the room the commit reserves under `inventory.items.max` until the chunk is written) with `ix_inventory_import_committing`; `inventory_import_row.printing_choice` also takes `MOST_RECENT_ASSUMED` |
 | V115 | `V115__hide_local_meetups_tag.sql` | Stage R1 of the phone redesign (ADR 0018: deals happen in the chat, cards ship by mail): the curated `local-meetups` tag becomes `HIDDEN` (no longer offered, searched or shown; profiles keep the link until their owner next saves their tags; a tag an admin already hid or banned is left alone) |
 | V116 | `V116__region_channels_ship_by_mail.sql` | Stage R1: the descriptions of the REGION channels of V041 and V110 lose "trades, meetups, locals" for "trades and sales by mail", only where they still hold the migration's text (an admin's edit is kept) |
+| V117 | `V117__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -817,9 +818,10 @@ with `?deleteItems=true`.
 | `binder_id` | `uuid` | FK → `binder.id` (`ON DELETE SET NULL`); `NULL` = unfiled |
 | `printing_id` | `uuid` | FK → `card_printing.id` (`RESTRICT`) |
 | `quantity` | `integer` | 1-9 999 |
-| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`) |
+| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`); nullable since V117: `NULL` = not stated (cards added on the phone; responses send `""` and `conditionStated: false`; a Near Mint only wish treats it as a possible match) |
 | `language`, `edition`, `finish` | `text` | default to the printing's values; ISO 639-1 / upper-case codes |
-| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price |
+| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price (or a text price that is not a plain amount) |
+| `asking_price_text` | `varchar(40)` | V117: the asking price as the owner typed it ("85% TCG", "$12.50"), trimmed, one line; a plain amount also fills `asking_price`; a web edit of `asking_price` clears it |
 | `currency` | `char(3)` | ISO 4217, default `CAD` |
 | `availability` | `text` | `COLLECTION_ONLY` (default), `TRADE`, `SALE`, `TRADE_OR_SALE`, `NOT_AVAILABLE` |
 | `accepts_offers` | `boolean` | |
@@ -836,6 +838,7 @@ with `?deleteItems=true`.
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
 | `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id` (until that binder is deleted), `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
+| `restorable_until` | `timestamptz` | V117: set by an owner's own delete (one card or a bulk delete) to `deleted_at` + 10 minutes; until then `POST /inventory/items/{id}/restore` brings the row back and its photos are kept. The job `inventory-photo-purge` (after each hourly `freshness` run) deletes the photos of the rows whose time has passed and sets it back to `NULL`; deleting the binder of such a row does the same at once. `NULL` for live rows and every other delete (a trade, a binder deleted with its cards), whose photos are deleted at once |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS

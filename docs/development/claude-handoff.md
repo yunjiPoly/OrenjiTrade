@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14 after stage R1): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14 after stage R2): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -39,6 +39,7 @@ modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 
 | --- | --- | --- |
 | Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (rounds 1 and 2). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
 | Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`), cut from the head of S6 | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): offers, trades, protected payments and disputes off the phone, the chat safety tip, ratings without meetups, V115 and V116, the seeds, "Trading safely" in English and French, ADR 0018, the deckCore tokens, the three typefaces, the dark default; every suite of the check list green (numbers in that section). Its two independent reviewers ran; review fixes 1 and 2 are done (that section, "Review fix 1" and "Review fix 2"; two fix rounds is the most allowed). Next: its ship step (after S6 is on `main`). |
+| Phone redesign, stage R2 ("Inventory and adding cards", mockup screens 1 to 9) | branch `feature/r2-inventory-adding-cards` (worktree `OrenjiTrade-r2`), cut from the head of R1 (#72) | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R2"): V117 (the asking price as typed, a condition not stated, the undo of a delete), `POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job, `PATCH … confirm`, `sort=created`; the Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory, Edit card, the toasts with "View" and "Undo". Next: its two independent reviewers (a functional verifier and a product / UX lens as a collector), at most two fix rounds, then its ship step after R1 is on `main`. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -51,9 +52,11 @@ card scanning), the full French UI translation and every cloud deployment stay o
 
 **Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
-verbatim). **R1 is built** on its branch and waits for review (table above); R2 to R8 are not
-built. The documents describe the phone as R1 leaves it: six tabs until R5, no offers, trades,
-protected payments or disputes on the phone (ADR 0018), deals in the chat by mail.
+verbatim). **R1 is built** on its branch and waits for its ship step; **R2 is built** on its own
+branch (cut from R1) and waits for its reviewers (table above); R3 to R8 are not built. The
+documents describe the phone as R2 leaves it: six tabs until R5, no offers, trades, protected
+payments or disputes on the phone (ADR 0018), deals in the chat by mail, the Inventory and the
+adding of cards of the redesign.
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
 migrates to the newest level (V114) at the first `npm run dev`, and loses its trading areas by
@@ -97,14 +100,19 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    request, merge on green CI. Its report lists the decisions for the owner (IMPLEMENTATION_STATUS.md,
    "Phone redesign R1"), among them the two web spec files the legal exception reached, the
    lawyer's list of meetup, offer and protection wording, and the phone's legal index.
-3. **Then stage R2** (inventory and adding cards, mockup screens 1 to 9) from the new `main`, as
-   the spec's sections 6, 12 and 15 say; R3 to R8 follow in order, one branch and one PR each.
+3. **Stage R2** (inventory and adding cards, mockup screens 1 to 9): built on
+   `feature/r2-inventory-adding-cards` (cut from R1, so it ships after R1: merge `main` once it
+   holds R1); next its two reviewers (a functional verifier, and a product / UX lens as a
+   collector), at most two fix rounds, the check list below, the pull request. Then **R3**
+   (binders and deck cores, screens 16 to 18) from the `main` that holds R2; R4 to R8 follow in
+   order, one branch and one PR each. Migrations: V117 is R2's; stage F1 (free for all, another
+   worktree) uses V120 and up, so R3 starts at V118 unless F1 lands first.
 4. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
-apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1, 0.69 kB
+apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1 and after stage R2, 0.69 kB
 of room: the English legal texts sit in the main bundle, and the deckCore tokens are kept out of
 `tokens.css`); `npm run test:e2e -- --retries=0` (every spec green on the first attempt); `npm run
 test:mobile`; `npx expo export --platform ios`, `--platform android` and `--platform web`; `npm run
@@ -112,7 +120,7 @@ test:mobile:e2e -- --retries=0`; `npm run audit:gate`; `npm run test:scripts`; e
 CI runs: `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`, `npm run
 typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`;
 and, when `apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform
-ios`, 30 flows since stage R1, about 50 minutes) on the owner's simulator (section 4). While the web
+ios`, 30 flows since stage R1 (R2 renamed `inventory-add-edit-delete.yaml` to `inventory-add-edit-undo.yaml`, native flow 1 of the redesign), about 50 minutes) on the owner's simulator (section 4). While the web
 is paused its checks are regression checks: a web failure is recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
