@@ -69,6 +69,17 @@ export function MessageBubble({
             >
               {caption}
             </Text>
+            {showTime ? (
+              <Text
+                style={[
+                  textStyle('xs'),
+                  styles.time,
+                  { color: own ? palette.onPrimary : palette.ink },
+                ]}
+              >
+                {timeLabel(message.createdAt)}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </View>
