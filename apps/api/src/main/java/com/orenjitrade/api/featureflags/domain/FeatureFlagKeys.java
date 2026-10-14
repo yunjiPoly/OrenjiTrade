@@ -15,8 +15,5 @@ public final class FeatureFlagKeys {
     /** Public community channels (Phase 5). */
     public static final String PUBLIC_CHAT = "publicChat";
 
-    /** Premium plans marketing and checkout (Phase 10). */
-    public static final String PREMIUM_PLANS = "premiumPlans";
-
     private FeatureFlagKeys() {}
 }

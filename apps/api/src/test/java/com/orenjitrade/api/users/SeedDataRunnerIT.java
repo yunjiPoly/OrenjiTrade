@@ -450,24 +450,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionIdempotently() {
-        UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM subscription WHERE id ="
-                                        + " '00000000-0000-4000-a000-000000000001' AND user_id = ?"
-                                        + " AND status = 'ACTIVE' AND provider = 'fake'",
-                                premiumId))
-                .isEqualTo(1);
-        seedDataRunner.seedAll();
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM subscription WHERE user_id = ?", premiumId))
-                .as("idempotent")
-                .isEqualTo(1);
-    }
-
-    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -493,8 +475,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "reports",
                         "offers",
                         "trades",
-                        "payments",
-                        "subscriptions");
+                        "payments");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(
@@ -511,11 +492,12 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(testUsers.rolesOf(adminId)).containsExactly("ADMIN", "USER");
         assertThat(testUsers.consentsOf(adminId)).hasSize(4);
 
+        // premium_user keeps its handle and sign-in; since stage F1 it is an ordinary collector.
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
         Map<String, Object> premium = testUsers.row(premiumId);
-        assertThat(premium.get("plan_code")).isEqualTo("PREMIUM");
+        assertThat(premium).doesNotContainKey("plan_code");
         assertThat(premium.get("provider_uid")).isEqualTo("seed-premium-user");
-        assertThat(testUsers.rolesOf(premiumId)).containsExactly("PREMIUM_USER", "USER");
+        assertThat(testUsers.rolesOf(premiumId)).containsExactly("USER");
 
         UUID superAdminId = UUID.fromString("00000000-0000-4000-8000-000000000012");
         assertThat(testUsers.rolesOf(superAdminId)).containsExactly("SUPER_ADMIN", "USER");
@@ -533,6 +515,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .expectStatus()
                 .isOk();
         assertThat(me("seed-collector1").path("handle").asString()).isEqualTo("collector1");
-        assertThat(me("seed-collector1").path("plan").asString()).isEqualTo("FREE");
+        assertThat(me("seed-collector1").has("plan")).isFalse();
     }
 }

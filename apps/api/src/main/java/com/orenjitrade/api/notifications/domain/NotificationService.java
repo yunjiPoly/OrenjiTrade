@@ -4,8 +4,6 @@ import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
-import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
-import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.limits.domain.LimitDecision;
 import com.orenjitrade.api.limits.domain.LimitReachedException;
 import com.orenjitrade.api.limits.domain.Limits;
@@ -41,10 +39,10 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>{@link #notify} is the single entry point of other modules: it is idempotent per dedup key,
  * applies the recipient's preferences (master and category switches, quiet hours for push), the
- * per-type daily limit of the recipient's plan ({@link NotificationType#dailyLimitKey()}, e.g.
- * {@code wishlist.alerts.per_day}; beyond it a single "upgrade" notice per day and type), stores
- * the row and publishes {@link NotificationCreated}, which the dispatcher fans out after commit
- * (in-app realtime queue, push, email). It joins the caller's transaction.
+ * per-type daily usage limit ({@link NotificationType#dailyLimitKey()}, e.g. {@code
+ * wishlist.alerts.per_day}, the same for every collector; beyond it a single "limit reached" notice
+ * per day and type), stores the row and publishes {@link NotificationCreated}, which the dispatcher
+ * fans out after commit (in-app realtime queue, push, email). It joins the caller's transaction.
  */
 @Service
 public class NotificationService {
@@ -63,7 +61,6 @@ public class NotificationService {
     private final NotificationPreferencesService preferences;
     private final Limits limits;
     private final UserAccountService accounts;
-    private final FeatureFlags featureFlags;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
@@ -73,7 +70,6 @@ public class NotificationService {
             NotificationPreferencesService preferences,
             Limits limits,
             UserAccountService accounts,
-            FeatureFlags featureFlags,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
             JsonMapper jsonMapper) {
@@ -81,7 +77,6 @@ public class NotificationService {
         this.preferences = preferences;
         this.limits = limits;
         this.accounts = accounts;
-        this.featureFlags = featureFlags;
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
@@ -139,10 +134,9 @@ public class NotificationService {
 
     /**
      * The single notice of the day telling the collector that more notifications of {@code type}
-     * were held back by their plan (dedup key {@code limit:<user>:<type>:<UTC day>}). The
-     * invitation to upgrade (sentence, {@code upgradeUrl}, {@code deepLink}) is only part of it
-     * while the {@code premiumPlans} flag is on for the collector: with the flag off nothing in the
-     * product offers a subscription (launch configuration).
+     * were held back by the daily limit (dedup key {@code limit:<user>:<type>:<UTC day>}). The
+     * limit is the same for every collector and nothing is sold to lift it (ADR 0019): the notice
+     * says when it resets and links to nothing else.
      */
     private void limitNotice(
             NotificationRequest request,
@@ -163,18 +157,11 @@ public class NotificationService {
         if (!plan.wanted()) {
             return;
         }
-        boolean premiumOffered =
-                featureFlags.isEnabled(FeatureFlagKeys.PREMIUM_PLANS, request.userId());
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("kind", "LIMIT_REACHED");
         data.put("notificationType", request.type().name());
         data.put("limitKey", decision.key());
         data.put("limit", decision.limit());
-        data.put("planCode", decision.planCode());
-        if (premiumOffered) {
-            data.put("upgradeUrl", decision.upgradeUrl());
-            data.put("deepLink", decision.upgradeUrl());
-        }
         String title;
         String body;
         if (request.type() == NotificationType.WISHLIST_ALERT) {
@@ -182,20 +169,14 @@ public class NotificationService {
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " wishlist alerts on your plan. New listings still show on the card"
-                            + " pages"
-                            + (premiumOffered
-                                    ? "; upgrade to Premium for unlimited alerts."
-                                    : ". The limit resets tomorrow.");
+                            + " wishlist alerts. New listings still show on the card pages. The"
+                            + " limit resets tomorrow.";
         } else {
             title = "More notifications are waiting";
             body =
                     "You reached today's limit of "
                             + decision.limit()
-                            + " notifications of this kind on your plan."
-                            + (premiumOffered
-                                    ? " Upgrade to Premium for unlimited alerts."
-                                    : " The limit resets tomorrow.");
+                            + " notifications of this kind. The limit resets tomorrow.";
         }
         store(request.userId(), NotificationType.SYSTEM, title, body, data, key, plan, now);
     }

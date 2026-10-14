@@ -32,8 +32,7 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
             Map.of(
                     "mlScanning", false,
                     "protectedPayments", false,
-                    "publicChat", true,
-                    "premiumPlans", false);
+                    "publicChat", true);
 
     @Autowired private FeatureFlags featureFlags;
     @Autowired private FeatureFlagRepository repository;
@@ -212,19 +211,23 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
     void localSeedEnablesTheFakeProviderFlagsButNotMlScanningAndKeepsAdminEdits() {
         String superAdmin = uniqueUid("ff-seed-super");
         provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
-        // An admin explicitly turned premiumPlans off: the seed must leave it alone.
+        FeatureFlagSeedContributor seed =
+                new FeatureFlagSeedContributor(repository, featureFlags, timeProvider);
+
+        seed.seed();
+        assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
+        assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
+        assertThat(featureFlags.isEnabled("publicChat")).isTrue();
+
+        // An admin explicitly turns protectedPayments off: the seed must leave it alone.
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/premiumPlans",
+                "/api/v1/admin/feature-flags/protectedPayments",
                 superAdmin,
                 Map.of("enabled", false),
                 200);
-
-        new FeatureFlagSeedContributor(repository, featureFlags, timeProvider).seed();
-
-        assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
-        assertThat(featureFlags.isEnabled("premiumPlans")).isFalse();
-        assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
-        assertThat(featureFlags.isEnabled("publicChat")).isTrue();
+        seed.seed();
+        assertThat(featureFlags.isEnabled("protectedPayments")).isFalse();
+        assertThat(FeatureFlagSeedContributor.LOCAL_ENABLED).containsExactly("protectedPayments");
     }
 }

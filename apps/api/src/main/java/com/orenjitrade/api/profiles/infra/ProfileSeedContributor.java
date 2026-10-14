@@ -18,9 +18,9 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Seeds the profiles, tags and privacy settings of the 12 fictional accounts ({@code
  * db/seed/profiles.json}, see {@code docs/development/seed-data.md}). Discoverable: collectors 1-6,
- * 8 and premium_user; not discoverable: collector7 and the staff accounts. Idempotent and
- * respectful of local edits: rows that already exist are left untouched; tag usage counts are
- * recomputed at the end. Deleted accounts are skipped.
+ * 8 and premium_user (an ordinary collector since stage F1); not discoverable: collector7 and the
+ * staff accounts. Idempotent and respectful of local edits: rows that already exist are left
+ * untouched; tag usage counts are recomputed at the end. Deleted accounts are skipped.
  */
 @Component
 public class ProfileSeedContributor implements SeedContributor {

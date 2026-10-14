@@ -175,13 +175,13 @@ public class InventoryController {
             operationId = "createInventoryItem",
             summary = "Add an item",
             description =
-                    "Language, edition and finish default to the printing's; condition to"
-                            + " NEAR_MINT (must be one of the game's conditions); currency to CAD."
-                            + " Visibility defaults to PUBLIC inside a binder (the binder decides"
-                            + " whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs"
-                            + " `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey"
-                            + " `inventory.items.max`) beyond the plan's inventory size; no plan"
-                            + " has a number for it today.")
+                    "Language, edition and finish default to the printing's; condition to NEAR_MINT"
+                        + " (must be one of the game's conditions); currency to CAD. Visibility"
+                        + " defaults to PUBLIC inside a binder (the binder decides whether it"
+                        + " shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at"
+                        + " most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`)"
+                        + " beyond the inventory size limit, the same for every collector;"
+                        + " unlimited until an admin gives it a number.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "429",

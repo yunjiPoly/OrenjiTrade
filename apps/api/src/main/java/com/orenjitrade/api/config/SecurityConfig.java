@@ -51,9 +51,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *       X-Request-Id} and the rate-limit headers are exposed to browsers.
  *   <li>Public: health probes, info, OpenAPI/Swagger (when enabled), {@code /api/v1/meta}, {@code
  *       /api/v1/public/**}, {@code /error}, the payment provider webhooks {@code
- *       /api/v1/webhooks/payments/*} and {@code /webhooks/billing/*} (authenticated by their
- *       signature in the owning module) and the read-only catalog and plan routes ({@link
- *       #PUBLIC_GET_PATTERNS}, GET only).
+ *       /api/v1/webhooks/payments/*} (authenticated by their signature in the owning module) and
+ *       the read-only catalog routes ({@link #PUBLIC_GET_PATTERNS}, GET only).
  *   <li>Filter order inside the chain: {@link BearerTokenAuthenticationFilter} and {@link
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
@@ -94,17 +93,14 @@ public class SecurityConfig {
                     "/api/v1/public/**",
                     // Payment provider webhooks (Phase 9): authenticated by their signature.
                     "/api/v1/webhooks/payments/*",
-                    // Billing provider webhooks (Phase 10): signature verified.
-                    "/api/v1/webhooks/billing/*",
                     "/error");
 
     /**
-     * Read-only catalog and plan routes (Phase 2 contract: "catalog reads are public"), the public
-     * listings of a collector (Phase 3 contract "Public views", privacy enforced by the service)
-     * and region search and the map (Phase 4 contract: "discovery reads work for anonymous users
-     * with reduced detail"; ADR 0017) that never require authentication. GET only; the same paths
-     * stay protected for other methods. A bearer token is still honoured when present
-     * (viewer-specific details).
+     * Read-only catalog routes (Phase 2 contract: "catalog reads are public"), the public listings
+     * of a collector (Phase 3 contract "Public views", privacy enforced by the service) and region
+     * search and the map (Phase 4 contract: "discovery reads work for anonymous users with reduced
+     * detail"; ADR 0017) that never require authentication. GET only; the same paths stay protected
+     * for other methods. A bearer token is still honoured when present (viewer-specific details).
      */
     public static final List<String> PUBLIC_GET_PATTERNS =
             List.of(
@@ -115,7 +111,6 @@ public class SecurityConfig {
                     "/api/v1/cards",
                     "/api/v1/cards/**",
                     "/api/v1/printings/*",
-                    "/api/v1/plans",
                     "/api/v1/collectors/*/binders",
                     "/api/v1/collectors/*/inventory",
                     "/api/v1/regions",

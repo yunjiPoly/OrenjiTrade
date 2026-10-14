@@ -18,18 +18,21 @@ import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * The launch configuration (2026-10-05, "discovery + messaging only"): with {@code
- * protectedPayments}, {@code premiumPlans} and {@code mlScanning} all off — the migration state
- * since V105 — every money route refuses with the existing {@code 404 FEATURE_DISABLED} Problem
- * Details (extension {@code feature}), and everything else keeps working end to end: region
- * discovery, a public listing and a binder, the wishlist, messaging, an offer as a plain proposal,
- * the trade agreed and completed in person, a rating and a report. The plan endpoints stay
- * readable.
+ * The launch configuration (2026-10-05, "discovery + messaging only"; Premium, credits, donations
+ * and ads removed by stage F1 on 2026-10-14): with {@code protectedPayments} and {@code mlScanning}
+ * off — the migration state since V105 — the protected-payment routes refuse with the existing
+ * {@code 404 FEATURE_DISABLED} Problem Details (extension {@code feature}), the removed paid
+ * features have no flag any more, and everything else keeps working end to end: region discovery, a
+ * public listing and a binder, the wishlist, messaging, an offer as a plain proposal, the trade
+ * agreed and completed in person, a rating and a report. The usage limits stay readable.
  */
 class LaunchConfigurationIT extends AbstractOffersIT {
 
-    static final List<String> MONEY_FLAGS =
-            List.of("protectedPayments", "premiumPlans", "mlScanning");
+    static final List<String> MONEY_FLAGS = List.of("protectedPayments", "mlScanning");
+
+    /** The flags of the paid features removed by stage F1 (V120 to V123). */
+    static final List<String> REMOVED_FLAGS =
+            List.of("premiumPlans", "credits", "donations", "advertising");
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
@@ -50,6 +53,9 @@ class LaunchConfigurationIT extends AbstractOffersIT {
             assertThat(flags.path(key).asBoolean()).as(key).isFalse();
         }
         assertThat(flags.path("publicChat").asBoolean()).isTrue();
+        for (String key : REMOVED_FLAGS) {
+            assertThat(flags.has(key)).as("%s left with its feature", key).isFalse();
+        }
     }
 
     @Test
@@ -135,10 +141,8 @@ class LaunchConfigurationIT extends AbstractOffersIT {
         callJson(HttpMethod.POST, "/api/v1/ratings", buyer.uid(), rating, 201);
         report(buyer, seller, "SPAM", null, 201);
 
-        // Plans stay readable; the plan answer still names the upgrade page as data, clients hide
-        // it while the flag is off.
-        callJson(HttpMethod.GET, "/api/v1/plans", null, null, 200);
-        callJson(HttpMethod.GET, "/api/v1/me/plan", buyer.uid(), null, 200);
+        // The usage limits stay readable, the same for everyone.
+        callJson(HttpMethod.GET, "/api/v1/me/limits", buyer.uid(), null, 200);
     }
 
     @Test
@@ -146,14 +150,6 @@ class LaunchConfigurationIT extends AbstractOffersIT {
         Collector member = member("launch-money");
         List<String> failures = new ArrayList<>();
         Map<String, List<Route>> byFlag = new LinkedHashMap<>();
-        byFlag.put(
-                "premiumPlans",
-                List.of(
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/me/subscription/checkout",
-                                member.uid(),
-                                Map.of("planCode", "PREMIUM"))));
         byFlag.put(
                 "protectedPayments",
                 List.of(

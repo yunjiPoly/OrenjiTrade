@@ -5,7 +5,6 @@ import java.util.Set;
 /** RBAC roles stored in {@code user_role}. Every account always keeps {@link #USER}. */
 public enum Role {
     USER,
-    PREMIUM_USER,
     MODERATOR,
     ADMIN,
     SUPER_ADMIN;

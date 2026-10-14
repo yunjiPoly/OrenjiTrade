@@ -566,42 +566,25 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * The usage limits (stage F1: the same caps for everyone, no plans) never carry a place, a plan
+     * or a provider reference, for a member nor in the admin list.
+     */
     @Test
-    void subscriptionsNeverCarryGeography(CapturedOutput output) {
-        String premium = "seed-premium-user:premium@orenjitrade.test";
-        String subscription = "00000000-0000-4000-a000-000000000001";
-
-        JsonNode plan;
-        // Every money flag is off by the migrations (V105 launch configuration): switch on the
-        // one this test reads through, and put it back afterwards.
-        testUsers.update(
-                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key ="
-                        + " 'premiumPlans'");
-        featureFlags.invalidate();
-        try {
-            plan = fetch("/api/v1/me/plan", premium);
-        } finally {
-            testUsers.update("UPDATE feature_flag SET enabled = false WHERE key = 'premiumPlans'");
-            featureFlags.invalidate();
-        }
-        for (String path :
-                List.of(
-                        "/api/v1/admin/subscriptions?size=100",
-                        "/api/v1/admin/subscriptions/" + subscription,
-                        "/api/v1/plans")) {
-            fetch(path, SEED_ADMIN);
-        }
-        assertThat(plan.path("subscription").path("status").asString()).isEqualTo("ACTIVE");
+    void usageLimitsNeverCarryGeography(CapturedOutput output) {
+        String formerPremium = "seed-premium-user:premium@orenjitrade.test";
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        JsonNode mine = fetch("/api/v1/me/limits", formerPremium);
+        JsonNode theirs = fetch("/api/v1/me/limits", collector1);
+        fetch("/api/v1/admin/usage-limits", SEED_ADMIN);
+        assertThat(mine.path("limits").size()).isEqualTo(theirs.path("limits").size()).isPositive();
         for (Fetched document : fetched) {
-            String text = document.body().toString();
-            assertThat(text)
-                    .as("provider references never reach members or admin lists")
+            assertThat(document.body().toString())
+                    .as("no plan, perk or provider reference")
+                    .doesNotContain("planCode")
+                    .doesNotContain("upgradeUrl")
                     .doesNotContain("fake_sub_")
-                    .doesNotContain("fake_acct_")
-                    .doesNotContain("user_hash")
-                    .doesNotContain("userHash")
-                    .doesNotContain("map.radius")
-                    .doesNotContain("map_radius_day");
+                    .doesNotContain("map.radius");
         }
         assertContract(output);
     }

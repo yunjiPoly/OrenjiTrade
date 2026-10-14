@@ -5,9 +5,9 @@ import com.orenjitrade.api.common.ErrorCode;
 import org.springframework.http.HttpStatus;
 
 /**
- * {@code 429 LIMIT_REACHED} with the extensions {@code limitKey}, {@code limit}, {@code used},
- * {@code resetsAt} (absent for TOTAL windows and caps), {@code planCode} and {@code upgradeUrl}.
- * Clients show a dialog explaining the limit and the premium benefit, never a silent failure.
+ * {@code 429 LIMIT_REACHED} with the extensions {@code limitKey}, {@code limit}, {@code used} and
+ * {@code resetsAt} (absent for TOTAL windows and caps). Clients say plainly which limit was reached
+ * and, for daily or monthly limits, when it resets; nothing is sold to lift it (ADR 0019).
  */
 public class LimitReachedException extends ApiException {
 
@@ -17,7 +17,7 @@ public class LimitReachedException extends ApiException {
         super(
                 ErrorCode.LIMIT_REACHED,
                 HttpStatus.TOO_MANY_REQUESTS,
-                "You have reached the limit of your plan for this action");
+                "You have reached the limit for this action");
         this.decision = decision;
         withProperty("limitKey", decision.key());
         if (decision.limit() != null) {
@@ -29,8 +29,6 @@ public class LimitReachedException extends ApiException {
         if (decision.resetsAt() != null) {
             withProperty("resetsAt", decision.resetsAt().toString());
         }
-        withProperty("planCode", decision.planCode());
-        withProperty("upgradeUrl", decision.upgradeUrl());
     }
 
     public LimitDecision decision() {

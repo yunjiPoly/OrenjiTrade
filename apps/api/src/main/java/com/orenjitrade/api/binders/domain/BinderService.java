@@ -116,8 +116,8 @@ public class BinderService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Creates a binder at the end of the owner's list. {@code 429 LIMIT_REACHED} beyond the plan's
-     * {@code binders.max}; {@code 400} for invalid input.
+     * Creates a binder at the end of the owner's list. {@code 429 LIMIT_REACHED} beyond the usage
+     * limit {@code binders.max}; {@code 400} for invalid input.
      */
     @Transactional
     public BinderDetails create(UUID ownerId, NewBinder input) {

@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A usage limit of a plan ({@code usage_limit}).
+ * A usage limit ({@code usage_limit}): the same for every collector (ADR 0019).
  *
  * @param id row id (admin edits)
  * @param key limit key, e.g. {@code binder.views.per_day}
@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param updatedBy last admin editor
  * @param updatedAt last change
  */
-@Schema(name = "UsageLimit", description = "Usage limit of a plan")
+@Schema(name = "UsageLimit", description = "Usage limit (the same for every collector)")
 public record UsageLimitRule(
         UUID id,
         @Schema(example = "binder.views.per_day") String key,

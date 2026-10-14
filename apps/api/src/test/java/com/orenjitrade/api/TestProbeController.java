@@ -46,7 +46,7 @@ public class TestProbeController {
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable String key,
             @RequestParam long requested) {
-        LimitDecision decision = limits.checkValue(user.userId(), key, requested);
+        LimitDecision decision = limits.checkValue(key, requested);
         if (!decision.allowed()) {
             throw new LimitReachedException(decision);
         }

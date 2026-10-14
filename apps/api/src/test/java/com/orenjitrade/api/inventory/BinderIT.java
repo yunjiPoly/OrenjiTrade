@@ -373,12 +373,12 @@ class BinderIT extends AbstractIntegrationTest {
         assertThat(problem.path("limitKey").asString()).isEqualTo("binders.max");
         assertThat(problem.path("limit").asInt()).isEqualTo(5);
         assertThat(problem.path("used").asInt()).isEqualTo(5);
-        assertThat(problem.path("upgradeUrl").asString()).isEqualTo("/premium");
+        assertThat(problem.has("upgradeUrl")).isFalse();
         assertThat(ids(callJson(HttpMethod.GET, "/api/v1/binders", uid, null, 200))).hasSize(5);
 
-        JsonNode plan = callJson(HttpMethod.GET, "/api/v1/me/plan", uid, null, 200);
+        JsonNode limits = callJson(HttpMethod.GET, "/api/v1/me/limits", uid, null, 200);
         JsonNode bindersMax = null;
-        for (JsonNode limit : plan.path("limits")) {
+        for (JsonNode limit : limits.path("limits")) {
             if (limit.path("key").asString().equals("binders.max")) {
                 bindersMax = limit;
             }

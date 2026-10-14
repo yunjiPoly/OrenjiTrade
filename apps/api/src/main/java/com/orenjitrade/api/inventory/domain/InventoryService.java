@@ -245,8 +245,8 @@ public class InventoryService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * {@code POST /inventory/items}. {@code 429 LIMIT_REACHED} beyond the plan's {@code
-     * inventory.items.max} (no plan has a number today).
+     * {@code POST /inventory/items}. {@code 429 LIMIT_REACHED} beyond the usage limit {@code
+     * inventory.items.max} (unlimited until an admin gives it a number).
      */
     @Transactional
     public InventoryItemView create(UUID ownerId, NewItem input) {

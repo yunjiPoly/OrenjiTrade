@@ -116,7 +116,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                 .doesNotContain("radiusKm")
                 .doesNotContain("distanceBucket")
                 .doesNotContain("showDistance");
-        // Phase 2 (catalog, feature flags, plans and limits).
+        // Phase 2 (catalog, feature flags and usage limits).
         for (String path :
                 java.util.List.of(
                         "/api/v1/games",
@@ -130,12 +130,9 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/printings/{id}",
                         "/api/v1/public/placeholder-images/{game}/{file}",
                         "/api/v1/public/feature-flags",
-                        "/api/v1/plans",
-                        "/api/v1/me/plan",
+                        "/api/v1/me/limits",
                         "/api/v1/admin/feature-flags",
                         "/api/v1/admin/feature-flags/{key}",
-                        "/api/v1/admin/plans",
-                        "/api/v1/admin/plans/{code}",
                         "/api/v1/admin/usage-limits",
                         "/api/v1/admin/usage-limits/{id}",
                         "/api/v1/admin/users/{id}/entitlements",
@@ -460,39 +457,27 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardImageCacheStatus", "CatalogImportReport", "CatalogSyncRun")) {
             assertThat(document.path("components").path("schemas").has(schema)).as(schema).isTrue();
         }
-        // Phase 10 (subscriptions, admin).
-        for (String path :
-                java.util.List.of(
-                        "/api/v1/me/plan",
-                        "/api/v1/me/subscription/checkout",
-                        "/api/v1/me/subscription/cancel",
-                        "/api/v1/me/subscription/mobile-receipt",
-                        "/api/v1/billing/fake/{ref}",
-                        "/api/v1/billing/fake/{ref}/confirm",
-                        "/api/v1/webhooks/billing/{provider}",
-                        "/api/v1/admin/subscriptions",
-                        "/api/v1/admin/subscriptions/{id}",
-                        "/api/v1/admin/subscriptions/{id}/cancel",
-                        "/internal/jobs/subscriptions-period")) {
-            assertThat(paths.has(path)).as(path).isTrue();
-            paths.path(path)
-                    .properties()
-                    .forEach(
-                            operation -> {
-                                assertThat(operation.getValue().path("summary").asString())
-                                        .as("summary of %s %s", operation.getKey(), path)
-                                        .isNotEmpty();
-                                assertThat(operation.getValue().path("tags"))
-                                        .as("tags of %s %s", operation.getKey(), path)
-                                        .isNotEmpty();
-                            });
-        }
-        assertThat(
-                        paths.path("/api/v1/me/subscription/mobile-receipt")
-                                .path("post")
-                                .path("responses")
-                                .has("501"))
-                .isTrue();
+        // Stage F1 ("free for all"): no route of Premium, credits, donations or ads is left.
+        java.util.List<String> paid = new java.util.ArrayList<>();
+        paths.propertyNames()
+                .forEach(
+                        path -> {
+                            if (path.matches(
+                                    ".*/(plans?|subscriptions?|billing|credits|referrals|donations"
+                                            + "|ads|subscriptions-period|credits-reconcile)"
+                                            + "(/.*)?$")) {
+                                paid.add(path);
+                            }
+                        });
+        assertThat(paid).as("routes of the removed paid features").isEmpty();
+        assertThat(paths.path("/api/v1/me/limits").path("get").path("tags").get(0).asString())
+                .isEqualTo("limits");
+        assertThat(document.path("components").path("schemas").has("MyPlan")).isFalse();
+        JsonNode limitStatus =
+                document.path("components").path("schemas").path("LimitStatus").path("properties");
+        assertThat(limitStatus.has("limit")).isTrue();
+        assertThat(limitStatus.has("planCode")).isFalse();
+        assertThat(limitStatus.has("upgradeUrl")).isFalse();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("422")).isTrue();
         assertThat(paths.path("/api/v1/offers").path("post").path("responses").has("429")).isTrue();
         assertThat(paths.path("/api/v1/public/report-reasons").path("get").path("security"))
@@ -575,7 +560,8 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("OFFER_ALREADY_OPEN"))
                 .anySatisfy(code -> assertThat(code.asString()).isEqualTo("STALE_OFFER"));
         assertThat(schemas.path("ProblemDetail").path("properties").has("limitKey")).isTrue();
-        assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isTrue();
+        assertThat(schemas.path("ProblemDetail").path("properties").has("upgradeUrl")).isFalse();
+        assertThat(schemas.path("ProblemDetail").path("properties").has("planCode")).isFalse();
         for (String schema :
                 java.util.List.of(
                         "CardSummary",

@@ -18,9 +18,9 @@ import org.springframework.test.web.servlet.client.EntityExchangeResult;
 /**
  * The admin console RBAC matrix (Phase 7 contract "Admin console"): MODERATOR reaches Reports,
  * Moderation, Community and Ratings; ADMIN everything but the SUPER_ADMIN writes (feature flags,
- * plans, usage limits, broadcasts); SUPER_ADMIN everything. Anonymous callers get 401, plain
- * collectors 403. Every route is called with a harmless request (unknown ids, invalid values) so a
- * permitted caller gets anything but 401/403 without changing data.
+ * usage limits, broadcasts); SUPER_ADMIN everything. Anonymous callers get 401, plain collectors
+ * 403. Every route is called with a harmless request (unknown ids, invalid values) so a permitted
+ * caller gets anything but 401/403 without changing data.
  */
 class AdminAuthorizationIT extends AbstractIntegrationTest {
 
@@ -156,7 +156,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/notifications/stats", Level.ADMIN));
         routes.add(get("/api/v1/admin/analytics/summary", Level.ADMIN));
         routes.add(get("/api/v1/admin/feature-flags", Level.ADMIN));
-        routes.add(get("/api/v1/admin/plans", Level.ADMIN));
         routes.add(get("/api/v1/admin/usage-limits", Level.ADMIN));
         routes.add(get("/api/v1/admin/games", Level.ADMIN));
         routes.add(get("/api/v1/admin/catalog/providers", Level.ADMIN));
@@ -185,14 +184,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
-        // Phase 10: subscriptions (reads and harmless writes).
-        routes.add(get("/api/v1/admin/subscriptions", Level.ADMIN));
-        routes.add(get("/api/v1/admin/subscriptions/" + id, Level.ADMIN));
-        routes.add(
-                post(
-                        "/api/v1/admin/subscriptions/" + id + "/cancel",
-                        Map.of("immediately", false),
-                        Level.ADMIN));
         routes.add(get("/api/v1/admin/wishlist/settings", Level.ADMIN));
         routes.add(
                 new Route(
@@ -219,13 +210,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                         "/api/v1/admin/feature-flags/noSuchFlag",
                         Map.of("enabled", true),
                         Level.SUPER_ADMIN));
-        Map<String, Object> plan = new LinkedHashMap<>();
-        plan.put("name", "Nope");
-        plan.put("monthlyPrice", 1);
-        plan.put("currency", "CAD");
-        plan.put("active", true);
-        plan.put("sortOrder", 1);
-        routes.add(new Route(HttpMethod.PUT, "/api/v1/admin/plans/NOPE", plan, Level.SUPER_ADMIN));
         routes.add(
                 new Route(
                         HttpMethod.PUT,

@@ -94,11 +94,6 @@ public enum ErrorCode {
     /** A payment provider webhook failed signature verification (Phase 9; stored as IGNORED). */
     WEBHOOK_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, "Invalid webhook signature"),
     /**
-     * The caller already holds a live subscription (Phase 10; extensions {@code subscriptionId},
-     * {@code currentStatus}); cancel it or wait for the end of its period first.
-     */
-    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "Already subscribed"),
-    /**
      * An inventory import preview is older than its time to live (stage S5): upload the file again.
      * Once the purge job removed it, the same request answers {@link #NOT_FOUND}.
      */
@@ -136,17 +131,14 @@ public enum ErrorCode {
     LOCATION_REQUIRED(HttpStatus.CONFLICT, "Location required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
     /**
-     * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},
-     * {@code resetsAt}, {@code upgradeUrl}).
+     * A usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used}, {@code
+     * resetsAt}); the limits are the same for every collector (ADR 0019).
      */
     LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS, "Limit reached"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error"),
-    /**
-     * The route is reserved for a capability that does not exist yet (Phase 10: App Store / Google
-     * Play receipt validation).
-     */
+    /** The route is reserved for a capability that does not exist yet. */
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable");
 

@@ -270,7 +270,6 @@ class CatalogSearchIT extends AbstractIntegrationTest {
         provision(uid);
         callJson(HttpMethod.GET, "/api/v1/cards?query=azure", uid, null, 200);
         callJson(HttpMethod.GET, "/api/v1/games", uid, null, 200);
-        callJson(HttpMethod.GET, "/api/v1/plans", uid, null, 200);
         // Writes on the same paths stay protected.
         callJson(HttpMethod.POST, "/api/v1/cards", null, java.util.Map.of("name", "x"), 401);
     }

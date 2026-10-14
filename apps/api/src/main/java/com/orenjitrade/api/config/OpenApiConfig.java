@@ -248,14 +248,6 @@ public class OpenApiConfig {
                                 "When the window resets (LIMIT_REACHED; absent for totals and"
                                         + " caps)"));
         schema.addProperty(
-                "planCode",
-                new StringSchema().description("The caller's plan (LIMIT_REACHED), e.g. FREE"));
-        schema.addProperty(
-                "upgradeUrl",
-                new StringSchema()
-                        .description(
-                                "Where to send the user to upgrade (LIMIT_REACHED): /premium"));
-        schema.addProperty(
                 "feature",
                 new StringSchema()
                         .description("Feature flag that is off for the caller (FEATURE_DISABLED)"));
@@ -265,12 +257,7 @@ public class OpenApiConfig {
                         .description(
                                 "Current status of the resource when a state conflicts"
                                         + " (INVALID_STATE_TRANSITION, CONFLICT,"
-                                        + " ALREADY_SUBSCRIBED, IMPORT_ALREADY_COMMITTED)"));
-        schema.addProperty(
-                "subscriptionId",
-                new StringSchema()
-                        .format("uuid")
-                        .description("The caller's live subscription (ALREADY_SUBSCRIBED)"));
+                                        + " IMPORT_ALREADY_COMMITTED)"));
         schema.addProperty(
                 "reason",
                 new StringSchema()

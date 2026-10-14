@@ -8,11 +8,12 @@ import java.time.Instant;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** Admin view of a usage limit with its plan. */
-@Schema(name = "AdminUsageLimit", description = "Usage limit of a plan (admin view)")
+/** Admin view of a usage limit (the same for every collector). */
+@Schema(
+        name = "AdminUsageLimit",
+        description = "Usage limit, the same for every collector (admin view)")
 public record AdminUsageLimit(
         UUID id,
-        @Schema(example = "FREE") String planCode,
         @Schema(example = "binder.views.per_day") String key,
         LimitKind kind,
         LimitWindow window,
@@ -22,10 +23,9 @@ public record AdminUsageLimit(
         @Nullable UUID updatedBy,
         Instant updatedAt) {
 
-    public static AdminUsageLimit from(String planCode, UsageLimitRule rule) {
+    public static AdminUsageLimit from(UsageLimitRule rule) {
         return new AdminUsageLimit(
                 rule.id(),
-                planCode,
                 rule.key(),
                 rule.kind(),
                 rule.window(),
