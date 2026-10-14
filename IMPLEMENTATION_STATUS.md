@@ -4390,9 +4390,9 @@ recent searches on the phone's device only; C19 the S3 and S4 tests do not exist
 of the paused web README and two database comments of V112 stay stale, see "Fact check, round 1"
 below), **5 not built** (C3, C6, C7, C9: S3; C16: S4). Of the 34 tests of section 9: 21 exist, 3
 partly (the wishlist region rule has an integration test, `WishlistAlertsIT`, and no unit test),
-8 missing (all S3), 2 not applicable (S4). Two clauses are done on one client only: the imports (phone and API,
-no web screen). The table of each clause with its evidence is in the delivery report, sections
-(b) and (i).
+8 missing (all S3), 2 not applicable (S4). Two clauses are done on one client only: the imports
+(phone and API, no web screen). The table of each clause with its evidence is in the delivery
+report, sections (b) and (i).
 
 **Its findings, and what was done**
 
@@ -4426,9 +4426,10 @@ no web screen). The table of each clause with its evidence is in the delivery re
 - Checked and left as they are: the ADR index and ADRs 0004 (marked superseded, points to 0017),
   0010 (amended, its last section says M9 draws the map), 0015; every phase contract that ADR 0017
   or S2 replaced carries a banner that says so and points to the replacement, and none describes a
-  removed endpoint as live; `schema.md` lists V106 to V114; `docs/deployment` (no map key; one
-  paragraph still said ten scheduler jobs, and the S2 contract still described S3: both corrected
-  by the fact check, round 1, below); test accounts and the boundaries provenance; the three `.env.example` files (no
+  removed endpoint as live (the S2 contract, which this audit did not read, still described S3:
+  corrected by the fact check, round 1, below); `schema.md` lists V106 to V114; `docs/deployment`
+  (no map key; one paragraph still said ten scheduler jobs, corrected by the same fact check);
+  test accounts and the boundaries provenance; the three `.env.example` files (no
   map key, no distance or radius setting); the legal drafts in English and French (the web files
   and the phone's synced copy, `npm run sync:legal -- --check` up to date): what they say about
   location already matches ADR 0017 (a declared country, state or province and optional city; no
@@ -4487,6 +4488,34 @@ unless said)
   byte for byte the owner's file (`cmp`, SHA-256 `35d5009f…`).
 - Not verified: the Android run (no Android SDK on this Mac; the Android export builds); VoiceOver
   and Voice Control themselves (W5 is proven by the accessibility names, not by speech).
+
+**Fact check, round 1** (2026-10-14). An independent fact checker read this stage's documents
+against the code, the database and the suites on head `dd6761b` and found nine points, D1 to D9
+(two major). Each was corrected where it was said, by changing the sentence, never by building what
+it claimed:
+
+| Finding | Done |
+| --- | --- |
+| D1 (major) `docs/api/contracts/s2-wishlist.md` still described "Who wants it", "Wanted by N" and the card page's printing picker of S3 as what wishes drive and what comes next (the audit above had checked only the phase contracts) | each line says what is true: today a wish drives only a wishlist alert; S3 was skipped by the owner on 2026-10-13 and is not built; the redesign drops both lists and the phone's "Selected printing" block; the market price's source label is on the selected printing only. Two code comments of the same kind as well: the phone's card screen (`app/cards/[id].tsx`, "stage S3 brings the printing picker") and `CollectorDiscoveryService.markersFor`, which named S3's "Who wants it" as its caller (it has no caller today) |
+| D2 (major) C21 was marked done while documents were still stale; its row counted "three more" CLAUDE.md proposals where six are listed | C21 is **partly** done: two lines of the paused web README and two database comments of V112 (D3) stay stale, recorded. 12 done, 5 partly, 5 not built in the report, the "Last updated" line, this section, NEXT TASK and the handoff; "six more" |
+| D3 (minor) the database comments of `wishlist_item.public_note` and `wishlist_item.near_mint_only` (V112, frozen) name "Who wants it" | recorded, not changed: the report's section (h) and "Open after this stage" below. No V115 here: the redesign's prompt (the owner's words, verbatim) numbers its migrations from V115, and its first migration can restate the two comments the way V111 did |
+| D4 (minor) `docs/deployment/README.md` said "the ten Cloud Scheduler jobs" | nine; the scheduler module's README said "10 jobs here, about US$0.70/month": now 9 and US$0.60, as ADR 0016 and the cost table say |
+| D5 (minor) "API unit: wishlist region matching" was marked as existing | partly: the region rule is SQL (`WishlistAlertRepository`), covered only by `WishlistAlertsIT`; the tests of section 9 are 21 exist, 3 partly, 8 missing, 2 not applicable. The row "no matches table or endpoint left" named `FlywayMigrationIT`, which holds no such check: now `SimplifiedWishlistMigrationIT` and `OpenApiExportTest` |
+| D6 (minor) known gaps of the status sections that the report dropped | in the report's (h): the search text in `search_performed` / `search_no_results` (also in the hardening lists of (j) and NEXT TASK), market prices without their source (the phone's printing list, the web's printings table), the `publicly_listed` lag, the phone web build's Back button and its "(tabs), back"; in (f): import previews are not exported |
+| D7 (minor) the small-fixes section above still quoted the import names that W5 replaced; the comment of `ChoiceOption.accessibilityLabel` and `choice.test.tsx` modelled a name that does not start with the visible label | the three places point to W5's names; the comment and the test use "115 assumed: the lines whose plain copy was assumed" |
+| D8 (minor) the report's (g) said "The Android build compiles" | "Only the Android JavaScript bundle was exported; nothing ran on Android" |
+| D9 (minor) CLAUDE.md proposal 4 stated a rule that the collectors section of `GET /search` breaks | the proposal names that one exception |
+
+Checks of the round (the owner's Mac mini, JDK 21, OrbStack; retries off): the six Markdown files
+it touched hold 26 relative links, none broken (the checker flags only the shorthand
+`npm run card-images:*`, which it cannot read, as before); no formatter covers the root Markdown documents;
+`npm run format:check -w apps/mobile` and
+`(cd apps/api && ./gradlew spotlessCheck compileJava --rerun-tasks)` clean;
+`npm run test:mobile`: typecheck, lint, jest 89 suites / 922 tests (no "worker process" warning),
+28 harness guard tests; `npm run test:api`: 974 tests in 170 classes and 12 catalog tests, no
+failure, none skipped, 3 min 9 s. Not re-run: the mobile web E2E and the native suite (the code
+changes are three comments and one jest fixture: nothing the browser or the simulator runs changed)
+and the web suites (nothing under `apps/web-angular` changed).
 
 **Open after this stage** (the delivery report, sections (f) to (j), has the whole list): the
 ship step of S6 (merge `main`, which holds #70; expect conflicts in this file, where #70's section
