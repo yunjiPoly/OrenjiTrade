@@ -28,10 +28,11 @@ Not scheduled on purpose (one-off, admin or probe endpoints; a validation refuse
 
 Not scheduled either: `POST /internal/jobs/inventory-import-purge` (expired inventory import
 previews, stage S5). The API runs that job after every `freshness` job, so the hourly `freshness`
-entry above covers it and the module still has 9 jobs; the route exists for a run on request.
+entry above covers it and the module still has 7 jobs; the route exists for a run on request.
 
 Cloud Scheduler pricing: 3 jobs free per billing account, then US$0.10 per job per month
-(9 jobs here, about US$0.60/month).
+(7 jobs here since stage F1 removed `credits-reconcile` and `subscriptions-period`, about
+US$0.40/month).
 
 | Input | Default | Notes |
 | --- | --- | --- |
