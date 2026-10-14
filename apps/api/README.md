@@ -1462,8 +1462,10 @@ with the `payments.*` rows, `seller_account`, `payment`, `payment_event`, `payme
 images (ADR 0015) add V100–V102, launch readiness V103–V105 (18+ confirmation, consent language,
 money flags off), and the owner's change of 2026-10-08 V106–V114: stage S1, platform regions and
 the self-declared location (V106–V111, ADR 0017); stage S2, the simplified wishlist (V112); stage
-S5, the inventory import (V113, V114). V001 to V114 are applied and frozen; the next migration is
-V115.
+S5, the inventory import (V113, V114). Stage R1 of the phone redesign (ADR 0018, deals happen in
+the chat) adds V115 (the curated "Local Meetups" tag hidden) and V116 (the region channel
+descriptions say "trades and sales by mail"). V001 to V114 are applied and frozen; V115 and V116
+freeze once R1 is merged; the next migration is V117.
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
