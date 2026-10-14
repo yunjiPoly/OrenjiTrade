@@ -207,8 +207,8 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
 export const TAGS: TagResponse[] = [
   {
     id: 'tag-1',
-    slug: 'local-pickup',
-    label: 'Local pickup',
+    slug: 'tracked-shipping',
+    label: 'Tracked shipping',
     category: 'LOGISTICS',
     usageCount: 12,
   },
@@ -621,7 +621,7 @@ export function markerFixture(overrides: Partial<CollectorMarker> = {}): Collect
     avatarUrl: null,
     place: ONTARIO,
     rating: { average: 4.8, count: 12 },
-    tags: ['local-pickup'],
+    tags: ['tracked-shipping'],
     games: ['mtg'],
     lastActiveBucket: 'THIS_WEEK',
     onlineStatus: 'HIDDEN',
@@ -691,7 +691,7 @@ export function ratingsPageFixture(
         rater: { handle: 'collector5', displayName: 'Léa Mile End', avatarUrl: null },
         overall: 5,
         breakdown: { communication: 5 },
-        comment: 'Smooth trade at the café.',
+        comment: 'Well packed, shipped with tracking.',
         createdAt: '2026-09-20T12:00:00Z',
         updatedAt: '2026-09-20T12:00:00Z',
         interactionKind: 'TRADE',

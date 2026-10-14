@@ -122,7 +122,7 @@ describe('Onboarding', () => {
     );
 
     fireEvent.press(await screen.findByRole('checkbox', { name: 'Pokémon' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Local pickup' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Tracked shipping' }));
     expect(screen.getByTestId('tag-count')).toHaveTextContent('1 / 12');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 

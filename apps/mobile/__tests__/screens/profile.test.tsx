@@ -28,7 +28,7 @@ describe('Profile tab', () => {
       'Binder collector in Montréal.'
     );
     expect(screen.getByText('Pokémon')).toBeOnTheScreen();
-    expect(screen.getByText('Local pickup')).toBeOnTheScreen();
+    expect(screen.getByText('Tracked shipping')).toBeOnTheScreen();
     // The owner sees their own city (shown on the profile) and the state, never a radius.
     expect(await screen.findByTestId('profile-area')).toHaveTextContent('Montréal, Quebec, Canada');
     expect(screen.getByTestId('profile-visibility')).toHaveTextContent('Hidden from the map.');

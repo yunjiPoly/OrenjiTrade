@@ -59,7 +59,7 @@ function sentMessage(overrides: Parameters<typeof messageFixture>[0] = {}) {
   return messageFixture({
     id: 'sent-1',
     senderId: SELF_ID,
-    body: 'Yes! Saturday at the café?',
+    body: 'Yes! How much with shipping?',
     createdAt: new Date().toISOString(),
     ...overrides,
   });
@@ -100,13 +100,13 @@ describe('Conversation', () => {
       /Say hello to Noé Verdun/
     );
     expect(screen.getByTestId('conversation-send')).toBeDisabled();
-    fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! Saturday at the café?  ');
+    fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! How much with shipping?  ');
     fireEvent.press(screen.getByTestId('conversation-send'));
-    expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
+    expect(await screen.findByText('Yes! How much with shipping?')).toBeOnTheScreen();
     expect(screen.getByTestId('receipt-sent')).toHaveTextContent('Sent');
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
       kind: 'TEXT',
-      body: 'Yes! Saturday at the café?',
+      body: 'Yes! How much with shipping?',
     });
     expect(screen.getByLabelText('Message').props.value).toBe('');
     // The viewer's own message is never marked read by the viewer.
@@ -487,7 +487,7 @@ describe('Conversation', () => {
         })
       );
       render(rt);
-      expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
+      expect(await screen.findByText('Yes! How much with shipping?')).toBeOnTheScreen();
       await waitFor(() => expect(rt.client.state).toBe('connected'));
       const session = rt.current();
 

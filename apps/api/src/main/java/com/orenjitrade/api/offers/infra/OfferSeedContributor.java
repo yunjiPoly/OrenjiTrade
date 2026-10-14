@@ -152,8 +152,8 @@ public class OfferSeedContributor implements SeedContributor {
                         null,
                         "ACCEPTED",
                         "SELLER",
-                        "My spare Magic rare for your Yu-Gi-Oh! single? Happy to meet at a"
-                                + " game store.",
+                        "My spare Magic rare for your Yu-Gi-Oh! single? We can both ship"
+                                + " with tracking.",
                         created1,
                         accepted1,
                         accepted1,

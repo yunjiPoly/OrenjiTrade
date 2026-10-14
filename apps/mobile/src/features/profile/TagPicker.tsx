@@ -93,7 +93,7 @@ export function TagPicker({
         label="Search tags"
         value={query}
         onChangeText={setQuery}
-        placeholder="Trader, cube drafter, local meetups…"
+        placeholder="Trader, cube drafter, shipping…"
         autoCapitalize="none"
         editable={!disabled && !full}
         hint={full ? `You reached the limit of ${MAX_PROFILE_TAGS} tags.` : undefined}

@@ -86,7 +86,13 @@ class SeedIT extends AbstractIntegrationTest {
                                         + " WHERE pt.profile_user_id = ? ORDER BY t.slug",
                                 seedId("01")))
                 .extracting(row -> row.get("slug"))
-                .containsExactly("collector", "english", "french", "local-meetups", "trader");
+                .containsExactly("collector", "english", "french", "shipping", "trader");
+        // Deals ship by mail (ADR 0018): no seed profile carries the hidden meetup tag (V115).
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM profile_tag pt JOIN tag t ON t.id ="
+                                        + " pt.tag_id WHERE t.slug = 'local-meetups'"))
+                .isZero();
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM tag t WHERE usage_count <> (SELECT count(*)"

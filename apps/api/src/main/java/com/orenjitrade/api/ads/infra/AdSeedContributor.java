@@ -142,7 +142,7 @@ public class AdSeedContributor implements SeedContributor {
                     "00000000-0000-4000-a200-000000001022",
                     DECK_BOXES,
                     PlacementKey.COLLECTOR_PROFILE,
-                    "Nine-pocket binders for trade nights",
+                    "Nine-pocket binders that ship flat",
                     "Side-loading binder pages from the fictional Maple Sleeve Co.",
                     "See binders",
                     "https://maplesleeve.example/binders",

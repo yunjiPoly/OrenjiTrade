@@ -71,7 +71,7 @@ describe('Collector profile', () => {
     expect(screen.getByTestId('collector-last-active')).toHaveTextContent('Active this week');
     expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
     expect(screen.getByText('Magic and Pokémon in Verdun.')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Local pickup');
+    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Tracked shipping');
     expect(screen.queryByTestId('public-preview-banner')).toBeNull();
 
     // The location card: the state or province only, no map, no zone, no distance (ADR 0017).
@@ -182,7 +182,7 @@ describe('Collector profile', () => {
     render();
     expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
     expect(screen.getByTestId('rating-count')).toHaveTextContent('12 ratings');
-    expect(screen.getByText('Smooth trade at the café.')).toBeOnTheScreen();
+    expect(screen.getByText('Well packed, shipped with tracking.')).toBeOnTheScreen();
     expect(screen.getByText('Communication')).toBeOnTheScreen();
     expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('ratings-more'));
