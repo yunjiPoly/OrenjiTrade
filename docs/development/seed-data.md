@@ -28,6 +28,11 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 The seed stores the declared place only (country, subdivision, city, "show my city"); the public
 place is its state or province and country. Discoverability comes from `profiles.json`.
 
+Profiles are inserted once and local edits are kept, with one exception for a database seeded
+before stage F1 and migrated since: while `premium_user`'s bio is still exactly the old seed text
+("Collector and trader across all four games. Premium member."), the next start gives it today's
+seed bio (`ProfileSeedContributor`, local/dev only). A bio written by hand is never changed.
+
 ## Catalog
 
 `MockCardProvider` supplies ~40 printings per game with invented but plausible names, set codes

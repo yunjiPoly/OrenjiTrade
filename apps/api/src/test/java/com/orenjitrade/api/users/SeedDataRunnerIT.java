@@ -259,6 +259,53 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(wishRow(magicWish)).containsEntry("price_term", "100% TCG+");
     }
 
+    /**
+     * A database seeded before stage F1 ("free for all", ADR 0019) and migrated since (the owner's
+     * own dev database): the former Premium account's bio still says "Premium member." on its
+     * public profile. One seed run gives it today's seed bio; a bio the collector wrote is left
+     * alone, even when it mentions Premium.
+     */
+    @Test
+    void anUpgradedDatabaseLosesTheOldPremiumMemberBio() {
+        UUID formerPremium = UUID.fromString("00000000-0000-4000-8000-000000000009");
+        String seedBio = "Collector and trader across all four games.";
+        assertThat(bioOf(formerPremium)).as("a fresh seed").isEqualTo(seedBio);
+        // What the seed of stage S6 and earlier wrote (db/seed/profiles.json before F1).
+        testUsers.update(
+                "UPDATE profile SET bio = ? WHERE user_id = ?",
+                "Collector and trader across all four games. Premium member.",
+                formerPremium);
+
+        seedDataRunner.seedAll();
+
+        assertThat(bioOf(formerPremium)).isEqualTo(seedBio);
+        JsonNode profile =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/premium_user",
+                        "seed-collector1:collector1@orenjitrade.test",
+                        null,
+                        200);
+        assertThat(profile.path("bio").asString()).isEqualTo(seedBio);
+        assertThat(profile.toString()).doesNotContain("Premium");
+
+        String own = "Trading binders since 2019. Premium member.";
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", own, formerPremium);
+        seedDataRunner.seedAll();
+        assertThat(bioOf(formerPremium)).as("the collector's own words").isEqualTo(own);
+
+        // Back to the seed state for the other tests of this class.
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", seedBio, formerPremium);
+    }
+
+    private String bioOf(UUID userId) {
+        return (String)
+                testUsers
+                        .query("SELECT bio FROM profile WHERE user_id = ?", userId)
+                        .get(0)
+                        .get("bio");
+    }
+
     private Map<String, Object> wishRow(String id) {
         return testUsers
                 .query(
