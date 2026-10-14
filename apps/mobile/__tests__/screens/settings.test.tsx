@@ -497,6 +497,12 @@ describe('Settings → Appearance', () => {
       })
     );
     renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    // A new install starts in dark (redesign default); System and Light stay one tap away.
+    expect(screen.getByRole('button', { name: 'Dark' })).toBeSelected();
+    fireEvent.press(screen.getByRole('button', { name: 'Light' }));
+    expect(useAppStore.getState().themeOverride).toBe('light');
+    fireEvent.press(screen.getByRole('button', { name: 'System' }));
+    expect(useAppStore.getState().themeOverride).toBe('system');
     fireEvent.press(screen.getByRole('button', { name: 'Dark' }));
     expect(useAppStore.getState().themeOverride).toBe('dark');
     expect(await screen.findByTestId('api-version')).toHaveTextContent('0.1.0');
