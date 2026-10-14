@@ -10,6 +10,7 @@ import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { fontWeight, radius, scrimColor, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { OfferUnavailableLine, SharedLinkCard } from './LinkCards';
+import { isOfferMessage } from './messageText';
 
 /** Largest photo side in a bubble (dp). */
 const PHOTO_MAX = 240;
@@ -22,14 +23,6 @@ function timeLabel(iso: string): string {
     return '';
   }
   return new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(date);
-}
-
-/**
- * True for a message about an offer or a trade: an OFFER_LINK, or a SYSTEM message carrying the
- * offer (the API posts one on every offer and trade update). Offers left the phone (ADR 0018).
- */
-export function isOfferMessage(message: Pick<MessageResponse, 'kind' | 'payload'>): boolean {
-  return message.kind === 'OFFER_LINK' || (message.kind === 'SYSTEM' && !!message.payload?.offer);
 }
 
 /**

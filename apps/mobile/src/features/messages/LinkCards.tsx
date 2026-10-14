@@ -7,6 +7,8 @@ import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
+import { OFFER_UNAVAILABLE_TEXT } from './messageText';
+
 /**
  * A card or binder shared in a message or a community post (the web's `app-shared-link-card`):
  * thumbnail, name and a link to the card page (with the shared printing selected) or the public
@@ -94,9 +96,6 @@ export function SharedLinkCard({
   }
   return null;
 }
-
-/** What an old offer reads as in a conversation (offers left the phone, ADR 0018). */
-export const OFFER_UNAVAILABLE_TEXT = 'Offer (no longer available)';
 
 /**
  * An offer that a conversation still holds (an OFFER_LINK message, or the SYSTEM message the API

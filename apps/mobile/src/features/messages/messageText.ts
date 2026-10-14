@@ -1,5 +1,26 @@
 import type { ConversationSummary, LastMessage, MessageResponse } from '@/src/api/types';
 
+/** What an old offer reads as in a conversation and in the inbox (offers left the phone, ADR 0018). */
+export const OFFER_UNAVAILABLE_TEXT = 'Offer (no longer available)';
+
+/**
+ * True for a message about an offer or a trade: an OFFER_LINK, or a SYSTEM message carrying the
+ * offer (the API posts one on every offer and trade update). Offers left the phone (ADR 0018).
+ */
+export function isOfferMessage(message: Pick<MessageResponse, 'kind' | 'payload'>): boolean {
+  return message.kind === 'OFFER_LINK' || (message.kind === 'SYSTEM' && !!message.payload?.offer);
+}
+
+/**
+ * True for a conversation's last message about an old offer or trade. The summary carries the
+ * kind and not the payload: an OFFER_LINK, or a SYSTEM message, which only the offers and trades
+ * modules post today (`ConversationService.postSystemMessage`); stage R4 narrows SYSTEM when the
+ * sale messages of Mark as sold arrive.
+ */
+function isOfferLastMessage(last: Pick<LastMessage, 'kind'>): boolean {
+  return last.kind === 'OFFER_LINK' || last.kind === 'SYSTEM';
+}
+
 /** Longest conversation preview, like the server's `MessagePreviews.MAX`. */
 export const PREVIEW_MAX = 140;
 /** Longest message text (`SendMessageRequest.body`). */
@@ -18,12 +39,17 @@ function truncate(text: string): string {
 
 /**
  * The one-line preview of a message in the inbox, worded like the server's `MessagePreviews` so
- * a realtime update reads the same as the next `GET /conversations` (web: `message-text.ts`).
+ * a realtime update reads the same as the next `GET /conversations` (web: `message-text.ts`),
+ * except an old offer or trade message, which reads "Offer (no longer available)" as
+ * `listPreview` words the server's line.
  */
 export function messagePreview(
   message: Pick<MessageResponse, 'kind' | 'body' | 'payload'>
 ): string {
   const text = (message.body ?? '').replace(/\s+/g, ' ').trim();
+  if (isOfferMessage(message)) {
+    return OFFER_UNAVAILABLE_TEXT;
+  }
   switch (message.kind) {
     case 'CARD_LINK':
       return truncate(`Card: ${message.payload?.card?.name ?? ''}`);
@@ -31,8 +57,6 @@ export function messagePreview(
       return truncate(`Binder: ${message.payload?.binder?.name ?? ''}`);
     case 'IMAGE':
       return text ? truncate(`Photo: ${text}`) : 'Photo';
-    case 'OFFER_LINK':
-      return 'Offer';
     default:
       return truncate(text);
   }
@@ -61,14 +85,18 @@ export function sortByActivity(
   return [...conversations].sort((a, b) => activityOf(b) - activityOf(a));
 }
 
-/** "You: …" for the caller's own last message. */
+/**
+ * "You: …" for the caller's own last message. An old offer or trade message reads "Offer (no
+ * longer available)" instead of the server's "Offer" or its sentence about the trade page.
+ */
 export function listPreview(conversation: ConversationSummary, selfId: string | null): string {
   const last = conversation.lastMessage;
   if (!last) {
     return 'No messages yet. Say hello!';
   }
+  const preview = isOfferLastMessage(last) ? OFFER_UNAVAILABLE_TEXT : last.preview;
   const own = !!selfId && last.senderId === selfId;
-  return own ? `You: ${last.preview}` : last.preview;
+  return own ? `You: ${preview}` : preview;
 }
 
 /** "3" / "99+" for unread badges. */
