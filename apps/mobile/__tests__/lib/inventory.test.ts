@@ -12,6 +12,7 @@ import {
 } from '@/src/lib/inventory';
 import {
   activeInventoryFilterCount,
+  clearedFilters,
   DEFAULT_INVENTORY_FILTERS,
   inventoryListQuery,
   isFiltered,
@@ -61,10 +62,10 @@ describe('inventory labels', () => {
   });
 });
 
-describe('inventory filters', () => {
-  it('builds the list query like the web (binder, unfiled, price ascending)', () => {
+describe('inventory filters (Filter and sort, stage R2)', () => {
+  it('builds the list query: Recently added by default, binder, unfiled, who can see it', () => {
     expect(inventoryListQuery(DEFAULT_INVENTORY_FILTERS, 0)).toEqual({
-      sort: 'updated',
+      sort: 'created',
       page: 0,
       size: 24,
     });
@@ -73,46 +74,55 @@ describe('inventory filters', () => {
         {
           q: '  fox ',
           game: 'pokemon',
-          availability: 'TRADE',
           binder: 'b-1',
           visibility: 'PUBLIC',
           freshness: 'STALE',
-          sort: 'price-asc',
+          sort: 'price',
         },
         2
       )
     ).toEqual({
       query: 'fox',
       game: 'pokemon',
-      availability: 'TRADE',
       visibility: 'PUBLIC',
       freshness: 'STALE',
       binderId: 'b-1',
       sort: 'price',
-      direction: 'asc',
       page: 2,
       size: 24,
     });
-    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED }, 0)).toEqual({
-      sort: 'updated',
+    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED }, 0, 1)).toEqual({
+      sort: 'created',
       unfiled: true,
       page: 0,
-      size: 24,
+      size: 1,
     });
   });
 
-  it('counts filters', () => {
+  it('counts the filters that are on (the sort is no filter) and clears them all', () => {
     expect(activeInventoryFilterCount(DEFAULT_INVENTORY_FILTERS)).toBe(0);
     expect(isFiltered(DEFAULT_INVENTORY_FILTERS)).toBe(false);
+    expect(activeInventoryFilterCount({ ...DEFAULT_INVENTORY_FILTERS, sort: 'price' })).toBe(0);
     expect(
       activeInventoryFilterCount({
         ...DEFAULT_INVENTORY_FILTERS,
         game: 'mtg',
-        availability: 'SALE',
+        binder: UNFILED,
+        visibility: 'PRIVATE',
       })
-    ).toBe(2);
+    ).toBe(3);
     expect(isFiltered({ ...DEFAULT_INVENTORY_FILTERS, q: 'x' })).toBe(true);
     expect(isFiltered({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED })).toBe(true);
+    expect(
+      clearedFilters({
+        q: 'fox',
+        game: 'mtg',
+        binder: 'b-1',
+        visibility: 'PUBLIC',
+        freshness: null,
+        sort: 'name',
+      })
+    ).toEqual({ ...DEFAULT_INVENTORY_FILTERS, q: 'fox' });
   });
 });
 

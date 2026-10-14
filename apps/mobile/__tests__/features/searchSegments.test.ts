@@ -13,12 +13,7 @@ import {
   searchTypesFor,
   segmentInvite,
 } from '@/src/features/search/searchSegments';
-import {
-  BULK_DELETE_MESSAGE,
-  bulkDeleteTitle,
-  bulkResultMessage,
-  toBulkRequest,
-} from '@/src/features/inventory/bulkActions';
+import { bulkResultMessage, toBulkRequest } from '@/src/features/inventory/bulkActions';
 import {
   itemPhotoErrorMessage,
   itemPhotoProblem,
@@ -169,7 +164,7 @@ describe('card holder filters (the web search-params rules)', () => {
   });
 });
 
-describe('inventory bulk actions (the web bulk-actions rules)', () => {
+describe('inventory bulk actions (Select mode, stage R2)', () => {
   const ids = ['a', 'b'];
 
   it('builds the bulk request of each action', () => {
@@ -178,18 +173,10 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
       action: 'SET_VISIBILITY',
       visibility: 'PUBLIC',
     });
-    const now = Date.parse('2026-10-06T12:00:00Z');
-    expect(
-      toBulkRequest(
-        { kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '1h' },
-        ids,
-        now
-      )
-    ).toEqual({
+    expect(toBulkRequest({ kind: 'visibility', visibility: 'PRIVATE' }, ids)).toEqual({
       itemIds: ids,
       action: 'SET_VISIBILITY',
-      visibility: 'TEMPORARILY_PUBLIC',
-      publicUntil: '2026-10-06T13:00:00.000Z',
+      visibility: 'PRIVATE',
     });
     expect(toBulkRequest({ kind: 'move', binderId: 'b-1', binderName: 'Trades' }, ids)).toEqual({
       itemIds: ids,
@@ -199,11 +186,6 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
     expect(toBulkRequest({ kind: 'move', binderId: null, binderName: null }, ids)).toEqual({
       itemIds: ids,
       action: 'MOVE_TO_BINDER',
-    });
-    expect(toBulkRequest({ kind: 'availability', availability: 'SALE' }, ids)).toEqual({
-      itemIds: ids,
-      action: 'SET_AVAILABILITY',
-      availability: 'SALE',
     });
     expect(toBulkRequest({ kind: 'confirm' }, ids)).toEqual({ itemIds: ids, action: 'CONFIRM' });
     expect(toBulkRequest({ kind: 'delete' }, ids)).toEqual({ itemIds: ids, action: 'DELETE' });
@@ -215,10 +197,10 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
     ).toBe('2 cards are now public.');
     expect(
       bulkResultMessage(
-        { kind: 'visibility', visibility: 'TEMPORARILY_PUBLIC', duration: '24h' },
+        { kind: 'visibility', visibility: 'PRIVATE' },
         { updated: 1, skipped: [{ itemId: 'x', reason: 'UNCHANGED' }] }
       )
-    ).toBe('1 card is now public for 24 hours. 1 card skipped: already in that state.');
+    ).toBe('1 card is now private. 1 card skipped: already in that state.');
     expect(
       bulkResultMessage(
         { kind: 'delete' },
@@ -237,12 +219,9 @@ describe('inventory bulk actions (the web bulk-actions rules)', () => {
         { updated: 3, skipped: [] }
       )
     ).toBe('3 cards moved to “Trades”.');
-    expect(
-      bulkResultMessage({ kind: 'availability', availability: 'SALE' }, { updated: 1, skipped: [] })
-    ).toBe('1 card set to sale.');
-    expect(bulkDeleteTitle(1)).toBe('Delete 1 card?');
-    expect(bulkDeleteTitle(4)).toBe('Delete 4 cards?');
-    expect(BULK_DELETE_MESSAGE).toMatch(/every listing/);
+    expect(bulkResultMessage({ kind: 'confirm' }, { updated: 1, skipped: [] })).toBe(
+      '1 card confirmed as still available.'
+    );
   });
 });
 

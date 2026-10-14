@@ -32,7 +32,7 @@ import {
   type MockRoutes,
 } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
-import { mockDispatch, mockRouter, resetRouterMock } from '../support/router';
+import { mockDispatch, mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
@@ -297,6 +297,42 @@ describe('Import cards: the source and the file', () => {
     expect(screen.queryByTestId('import-open')).toBeNull();
     // Nothing to lose yet: leaving is not held back.
     expect(mockLeave.held).toBe(false);
+  });
+
+  it('opens on the source chosen on Add cards, and goes back there (stage R2)', async () => {
+    mockParams.current = { source: 'COLLECTR_CSV' };
+    const fake = fakeImports();
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    expect(await screen.findByTestId('import-file-COLLECTR_CSV')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('import-file-back'));
+    expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  it('shows an import left open first, even when a source was chosen', async () => {
+    mockParams.current = { source: 'YDK' };
+    const fake = fakeImports({ open: importFixture() });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    expect(await screen.findByTestId('import-open')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-file-YDK')).toBeNull();
+    // Starting a new one from there still works, and back returns to that start.
+    fireEvent.press(screen.getByTestId('import-source-YDK'));
+    expect(await screen.findByTestId('import-file-YDK')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('import-file-back'));
+    expect(await screen.findByTestId('import-open')).toBeOnTheScreen();
+  });
+
+  it('shows the start after the import left open is continued and discarded', async () => {
+    mockParams.current = { source: 'YDK' };
+    const fake = fakeImports({ open: importFixture() });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    fireEvent.press(screen.getByRole('button', { name: 'Discard this import' }));
+    fireEvent.press(await screen.findByTestId('import-discard-dialog-confirm'));
+    expect(await screen.findByTestId('import-source-YDK')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-file-YDK')).toBeNull();
   });
 
   it('explains a list of imports that could not load, with a retry', async () => {
@@ -592,7 +628,7 @@ describe('Import cards: the preview', () => {
     // A line nothing fits: one sentence, no control.
     const unknown = screen.getByTestId('import-row-3');
     expect(unknown.props.accessibilityLabel).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     expect(within(unknown).queryByRole('button')).toBeNull();
     expect(within(unknown).queryByRole('checkbox')).toBeNull();
@@ -1242,7 +1278,7 @@ describe('Import cards: the commit', () => {
     const line = await within(unknown).findByTestId('import-row-3');
     expect(line).toHaveTextContent(/Passcode 919999999/);
     expect(line).toHaveTextContent(/Side 1/);
-    expect(line).toHaveTextContent(/find the card by its name with “Add card” in your inventory/);
+    expect(line).toHaveTextContent(/find the card by its name with “Add cards” in your inventory/);
     expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
 
     // Without a printing: which cards, so they can be added by hand.

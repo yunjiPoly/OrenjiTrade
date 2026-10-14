@@ -355,8 +355,59 @@ describe('Snackbar', () => {
       });
       expect(screen.queryByTestId('snackbar')).toBeNull();
       fireEvent.press(screen.getByText('show'));
-      fireEvent.press(screen.getByTestId('snackbar'));
+      fireEvent.press(screen.getByTestId('snackbar-message'));
       expect(screen.queryByTestId('snackbar')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  function ActionTrigger({ onUndo }: { onUndo: () => void }) {
+    const snackbar = useSnackbar();
+    return (
+      <Text
+        onPress={() =>
+          snackbar.show('Ash Blossom & Joyous Spring', {
+            title: 'Card deleted',
+            icon: 'deleted',
+            action: { label: 'Undo', onPress: onUndo, testID: 'snackbar-undo' },
+          })
+        }
+      >
+        delete
+      </Text>
+    );
+  }
+
+  it('stays about five seconds with a title, the card and one action (stage R2)', () => {
+    jest.useFakeTimers();
+    const onUndo = jest.fn();
+    try {
+      renderWithProviders(<ActionTrigger onUndo={onUndo} />);
+      fireEvent.press(screen.getByText('delete'));
+      expect(screen.getByTestId('snackbar')).toHaveTextContent(
+        /Card deletedAsh Blossom & Joyous SpringUndo$/
+      );
+      expect(screen.getByTestId('snackbar-message').props.accessibilityLabel).toBe(
+        'Card deleted, Ash Blossom & Joyous Spring'
+      );
+      expect(screen.getByTestId('snackbar-undo').props.accessibilityLabel).toBe(
+        'Undo, Card deleted, Ash Blossom & Joyous Spring'
+      );
+      act(() => {
+        jest.advanceTimersByTime(4900);
+      });
+      expect(screen.getByTestId('snackbar')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('snackbar-undo'));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+
+      fireEvent.press(screen.getByText('delete'));
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+      expect(onUndo).toHaveBeenCalledTimes(1);
     } finally {
       jest.useRealTimers();
     }
