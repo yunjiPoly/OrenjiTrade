@@ -41,7 +41,8 @@ tags:
       id: 'binder-limit-message'
       text: 'You have used 5 of 5 binders. Delete a binder you no longer need.'
     timeout: 60000
-- assertVisible: 'You reached the number of binders you can have'
+# The notice is one accessible element on iOS: its title is part of the element's text.
+- assertVisible: '.*You reached the number of binders you can have.*'
 - assertNotVisible:
     id: 'binder-limit-premium'
 - assertNotVisible: '.*Premium.*'
