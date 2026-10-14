@@ -3,32 +3,27 @@ package com.orenjitrade.api.billing;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.auth.domain.Role;
-import com.orenjitrade.api.donations.infra.FakeDonationProvider;
-import com.orenjitrade.api.donations.infra.FakeDonationProvider.SignedWebhook;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Phase 10 feature flags: with {@code premiumPlans}, {@code credits} or {@code donations} off,
- * their member routes (and the donation webhook and supporters list) answer 404 FEATURE_DISABLED
- * with the flag in the {@code feature} extension; admin routes stay available.
+ * Phase 10 feature flags: with {@code premiumPlans} or {@code credits} off, their member routes
+ * answer 404 FEATURE_DISABLED with the flag in the {@code feature} extension; admin routes stay
+ * available.
  */
 class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
-
-    @Autowired private FakeDonationProvider fakeDonations;
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
     @Test
-    void premiumCreditAndDonationRoutesAreFeatureDisabledWhileTheirFlagIsOff() {
+    void premiumAndCreditRoutesAreFeatureDisabledWhileTheirFlagIsOff() {
         Member member = member("flags-off");
         String checkoutRef =
                 callJson(
@@ -40,25 +35,9 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                         .path("url")
                         .asString()
                         .replace("/checkout/fake-billing/", "");
-        flag("donations", true);
-        String donationRef =
-                callJson(
-                                HttpMethod.POST,
-                                "/api/v1/donations/checkout",
-                                member.uid(),
-                                Map.of("amount", 5, "currency", "CAD"),
-                                201)
-                        .path("url")
-                        .asString()
-                        .replace(FakeDonationProvider.CHECKOUT_PATH, "");
-        SignedWebhook webhook =
-                fakeDonations.syntheticEvent(
-                        FakeDonationProvider.DONATION_SUCCEEDED,
-                        Map.of("checkoutRef", donationRef));
 
         flag("premiumPlans", false);
         flag("credits", false);
-        flag("donations", false);
 
         List<String> failures = new ArrayList<>();
         expectDisabled(
@@ -98,37 +77,6 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                                 Map.of("code", "COLLECTOR1")))) {
             expectDisabled("credits", route, failures);
         }
-        for (Route route :
-                List.of(
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/donations/checkout",
-                                member.uid(),
-                                Map.of("amount", 5, "currency", "CAD")),
-                        new Route(HttpMethod.GET, "/api/v1/me/donations", member.uid(), null),
-                        new Route(
-                                HttpMethod.GET,
-                                "/api/v1/donations/fake/" + donationRef,
-                                member.uid(),
-                                null),
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/donations/fake/" + donationRef + "/confirm",
-                                member.uid(),
-                                null),
-                        new Route(
-                                HttpMethod.GET,
-                                "/api/v1/public/donations/supporters",
-                                null,
-                                null))) {
-            expectDisabled("donations", route, failures);
-        }
-        check(
-                "donations",
-                "webhook",
-                postWebhook(
-                        "/api/v1/webhooks/donations/fake", webhook.payload(), webhook.headers()),
-                failures);
         assertThat(failures).as("routes answering something else than FEATURE_DISABLED").isEmpty();
 
         // The live subscription can still be cancelled; admins keep their consoles.
@@ -138,8 +86,7 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                 List.of(
                         "/api/v1/admin/subscriptions",
                         "/api/v1/admin/credits/ledger",
-                        "/api/v1/admin/credits/products",
-                        "/api/v1/admin/donations")) {
+                        "/api/v1/admin/credits/products")) {
             callJson(HttpMethod.GET, path, admin, null, 200);
         }
     }

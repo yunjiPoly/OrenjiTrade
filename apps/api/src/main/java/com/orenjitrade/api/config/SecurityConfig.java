@@ -51,10 +51,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
  *       X-Request-Id} and the rate-limit headers are exposed to browsers.
  *   <li>Public: health probes, info, OpenAPI/Swagger (when enabled), {@code /api/v1/meta}, {@code
  *       /api/v1/public/**}, {@code /error}, the payment provider webhooks {@code
- *       /api/v1/webhooks/payments/*}, {@code /webhooks/billing/*} and {@code /webhooks/donations/*}
- *       (authenticated by their signature in the owning module), ad impressions (signed serve
- *       token) and the read-only catalog, plan and ad routes ({@link #PUBLIC_GET_PATTERNS}, GET
- *       only).
+ *       /api/v1/webhooks/payments/*} and {@code /webhooks/billing/*} (authenticated by their
+ *       signature in the owning module) and the read-only catalog and plan routes ({@link
+ *       #PUBLIC_GET_PATTERNS}, GET only).
  *   <li>Filter order inside the chain: {@link BearerTokenAuthenticationFilter} and {@link
  *       ServiceAuthFilter} (authentication) → {@link AccountAccessFilter} (suspended / deletion
  *       pending) → {@link RateLimitFilter} → {@link AuthorizationFilter} (RBAC, admin MFA) → {@link
@@ -95,9 +94,8 @@ public class SecurityConfig {
                     "/api/v1/public/**",
                     // Payment provider webhooks (Phase 9): authenticated by their signature.
                     "/api/v1/webhooks/payments/*",
-                    // Billing and donation provider webhooks (Phase 10): signature verified.
+                    // Billing provider webhooks (Phase 10): signature verified.
                     "/api/v1/webhooks/billing/*",
-                    "/api/v1/webhooks/donations/*",
                     "/error");
 
     /**

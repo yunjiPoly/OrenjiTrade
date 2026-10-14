@@ -450,7 +450,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionCreditsAndDonationsIdempotently() {
+    void seedsASubscriptionAndCreditsIdempotently() {
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
         UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
         UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
@@ -477,11 +477,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                 "SELECT count(*) FROM referral_redemption WHERE referee_id = ?",
                                 collector8))
                 .isEqualTo(1);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM donation WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a300-%' AND status = 'SUCCEEDED'"))
-                .isEqualTo(2);
     }
 
     @Test
@@ -512,8 +507,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "trades",
                         "payments",
                         "subscriptions",
-                        "credits",
-                        "donations");
+                        "credits");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

@@ -185,7 +185,7 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
-        // Phase 10: subscriptions, credits, donations (reads and harmless writes).
+        // Phase 10: subscriptions and credits (reads and harmless writes).
         routes.add(get("/api/v1/admin/subscriptions", Level.ADMIN));
         routes.add(get("/api/v1/admin/subscriptions/" + id, Level.ADMIN));
         routes.add(
@@ -201,9 +201,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/credits/ledger", Level.ADMIN));
         routes.add(get("/api/v1/admin/credits/products", Level.ADMIN));
         routes.add(get("/api/v1/admin/credits/settings", Level.ADMIN));
-        routes.add(get("/api/v1/admin/donations", Level.ADMIN));
-        routes.add(get("/api/v1/admin/donations/" + id, Level.ADMIN));
-        routes.add(get("/api/v1/admin/donations/settings", Level.ADMIN));
         routes.add(get("/api/v1/admin/wishlist/settings", Level.ADMIN));
         routes.add(
                 new Route(
@@ -261,13 +258,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                         "/api/v1/admin/credits/settings",
                         Map.of("referrerReward", -1),
                         Level.SUPER_ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/donations/settings",
-                        Map.of("minAmount", "0.01"),
-                        Level.SUPER_ADMIN));
-        routes.add(post("/api/v1/admin/donations/" + id + "/refund", null, Level.SUPER_ADMIN));
         Map<String, Object> broadcast = new LinkedHashMap<>();
         broadcast.put("title", "Maintenance");
         broadcast.put("body", "Tonight");

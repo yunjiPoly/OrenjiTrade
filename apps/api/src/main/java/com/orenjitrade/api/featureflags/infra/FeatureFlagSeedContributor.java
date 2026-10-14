@@ -15,10 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Local/dev only: switches on the flags whose flows run entirely on fake providers locally ({@code
  * protectedPayments} with {@code FakePaymentProvider}, {@code premiumPlans} with the fake billing
- * checkout, {@code credits}, {@code donations} with the fake donation provider) so every flow is
- * testable without credentials. The migrations leave every money feature off (V010, V105: the
- * launch configuration); {@code mlScanning} stays off everywhere (owner hold on Phase 11). Flags an
- * admin already changed ({@code updated_by} set) are left alone, so local toggles survive restarts.
+ * checkout, {@code credits}) so every flow is testable without credentials. The migrations leave
+ * every money feature off (V010, V105: the launch configuration); {@code mlScanning} stays off
+ * everywhere (owner hold on Phase 11). Flags an admin already changed ({@code updated_by} set) are
+ * left alone, so local toggles survive restarts.
  */
 @Component
 @Profile({"local", "dev"})
@@ -29,8 +29,7 @@ public class FeatureFlagSeedContributor implements SeedContributor {
             List.of(
                     FeatureFlagKeys.PROTECTED_PAYMENTS,
                     FeatureFlagKeys.PREMIUM_PLANS,
-                    FeatureFlagKeys.CREDITS,
-                    FeatureFlagKeys.DONATIONS);
+                    FeatureFlagKeys.CREDITS);
 
     /** Before the accounts: flags do not depend on any other seed. */
     static final int ORDER = 50;

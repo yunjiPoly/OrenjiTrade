@@ -47,7 +47,7 @@ import tools.jackson.databind.json.JsonMapper;
 @RestController
 @RequestMapping(path = "/api/v1/admin/credits", produces = MediaType.APPLICATION_JSON_VALUE)
 @Validated
-@Tag(name = "admin-billing", description = "Admin: subscriptions, credits, ads, donations")
+@Tag(name = "admin-billing", description = "Admin: subscriptions and credits")
 public class AdminCreditsController {
 
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";

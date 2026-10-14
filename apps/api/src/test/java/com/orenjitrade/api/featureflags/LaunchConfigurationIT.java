@@ -19,17 +19,17 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The launch configuration (2026-10-05, "discovery + messaging only"): with {@code
- * protectedPayments}, {@code premiumPlans}, {@code credits}, {@code donations} and {@code
- * mlScanning} all off — the migration state since V105 — every money route refuses with the
- * existing {@code 404 FEATURE_DISABLED} Problem Details (extension {@code feature}), and everything
- * else keeps working end to end: region discovery, a public listing and a binder, the wishlist,
- * messaging, an offer as a plain proposal, the trade agreed and completed in person, a rating and a
- * report. The plan endpoints stay readable.
+ * protectedPayments}, {@code premiumPlans}, {@code credits} and {@code mlScanning} all off — the
+ * migration state since V105 — every money route refuses with the existing {@code 404
+ * FEATURE_DISABLED} Problem Details (extension {@code feature}), and everything else keeps working
+ * end to end: region discovery, a public listing and a binder, the wishlist, messaging, an offer as
+ * a plain proposal, the trade agreed and completed in person, a rating and a report. The plan
+ * endpoints stay readable.
  */
 class LaunchConfigurationIT extends AbstractOffersIT {
 
     static final List<String> MONEY_FLAGS =
-            List.of("protectedPayments", "premiumPlans", "credits", "donations", "mlScanning");
+            List.of("protectedPayments", "premiumPlans", "credits", "mlScanning");
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
@@ -169,20 +169,6 @@ class LaunchConfigurationIT extends AbstractOffersIT {
                                 "/api/v1/me/referrals/redeem",
                                 member.uid(),
                                 Map.of("code", "COLLECTOR1"))));
-        byFlag.put(
-                "donations",
-                List.of(
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/donations/checkout",
-                                member.uid(),
-                                Map.of("amount", 5, "currency", "CAD")),
-                        new Route(HttpMethod.GET, "/api/v1/me/donations", member.uid(), null),
-                        new Route(
-                                HttpMethod.GET,
-                                "/api/v1/public/donations/supporters",
-                                null,
-                                null)));
         byFlag.put(
                 "protectedPayments",
                 List.of(

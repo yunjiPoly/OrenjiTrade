@@ -21,8 +21,5 @@ public final class FeatureFlagKeys {
     /** Credits ledger (Phase 10). */
     public static final String CREDITS = "credits";
 
-    /** Voluntary donations (Phase 10). */
-    public static final String DONATIONS = "donations";
-
     private FeatureFlagKeys() {}
 }

@@ -567,31 +567,27 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void subscriptionsCreditsAndDonationsNeverCarryGeography(CapturedOutput output) {
+    void subscriptionsAndCreditsNeverCarryGeography(CapturedOutput output) {
         String premium = "seed-premium-user:premium@orenjitrade.test";
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
-        String collector2 = "seed-collector2:collector2@orenjitrade.test";
         String subscription = "00000000-0000-4000-a000-000000000001";
 
         JsonNode plan;
         JsonNode credits;
-        JsonNode supporters;
         // Every money flag is off by the migrations (V105 launch configuration): switch on the
-        // three this test reads through, and put them back afterwards.
+        // two this test reads through, and put them back afterwards.
         testUsers.update(
                 "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
-                        + " ('premiumPlans', 'credits', 'donations')");
+                        + " ('premiumPlans', 'credits')");
         featureFlags.invalidate();
         try {
             plan = fetch("/api/v1/me/plan", premium);
             credits = fetch("/api/v1/me/credits", collector1);
             fetch("/api/v1/me/referrals", collector1);
-            fetch("/api/v1/me/donations", collector2);
-            supporters = fetch("/api/v1/public/donations/supporters", null);
         } finally {
             testUsers.update(
                     "UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans',"
-                            + " 'credits', 'donations')");
+                            + " 'credits')");
             featureFlags.invalidate();
         }
         for (String path :
@@ -601,14 +597,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         "/api/v1/admin/credits/ledger?size=100",
                         "/api/v1/admin/credits/products",
                         "/api/v1/admin/credits/settings",
-                        "/api/v1/admin/donations?size=100",
-                        "/api/v1/admin/donations/settings",
                         "/api/v1/plans")) {
             fetch(path, SEED_ADMIN);
         }
         assertThat(plan.path("subscription").path("status").asString()).isEqualTo("ACTIVE");
         assertThat(credits.path("balance").asLong()).isGreaterThanOrEqualTo(300);
-        assertThat(supporters.path("supporters").size()).isPositive();
         for (Fetched document : fetched) {
             String text = document.body().toString();
             assertThat(text)
