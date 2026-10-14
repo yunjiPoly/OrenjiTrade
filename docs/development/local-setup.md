@@ -186,7 +186,11 @@ Latest (2026-10-13/14, stage S6, the same Mac mini): `test:api` 3 min 5 s to 3 m
 170 classes plus 12 catalog tests), `test:web` 142 files / 678 tests, `test:e2e` 74 specs in about
 1 min 30 s, `test:mobile` about 20 s (jest 89 suites / 922 tests + 28 guard tests),
 `test:mobile:e2e` 60 specs in about 1 min 20 s, `test:mobile:maestro -- --platform ios` 30 flows in
-about 48 min on the owner's iPhone 18 Pro simulator.
+about 48 min on the owner's iPhone 18 Pro simulator. After stage R1 of the phone redesign
+(2026-10-14): `test:api` 3 min 30 s (978 tests in 171 classes plus 12 catalog tests), `test:web` 142
+files / 681 tests, `test:e2e` 74 specs in 1 min 36 s, `test:mobile` jest 89 suites / 895 tests,
+`test:mobile:e2e` 57 specs in about 1 min 15 s, `test:mobile:maestro -- --platform ios` 30 flows
+in about 48 min.
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
