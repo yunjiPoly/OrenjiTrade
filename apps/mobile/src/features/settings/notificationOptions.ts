@@ -12,7 +12,7 @@ export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Readonly<Record<string, { label: string; help: string }>> = {
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
-  RATING: { label: 'Ratings', help: 'When someone rates a trade with you.' },
+  RATING: { label: 'Ratings', help: 'When someone rates you.' },
   BINDER_FRESHNESS: { label: 'Binder reminders', help: 'When your listings need a refresh.' },
   REPORT_DECISION: { label: 'Report decisions', help: 'Outcome of reports you filed.' },
   MARKETING: { label: 'News and tips', help: 'Occasional product news.' },

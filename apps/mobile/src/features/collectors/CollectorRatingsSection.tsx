@@ -107,8 +107,8 @@ export function CollectorRatingsSection({
           {items.length === 0 ? (
             <Text testID="ratings-empty" style={[textStyle('sm'), { color: palette.textMuted }]}>
               {isOwn
-                ? 'No ratings yet. Collectors can rate you after a completed trade, an accepted offer or a real conversation.'
-                : 'No ratings yet. Ratings appear after completed trades, accepted offers or real conversations.'}
+                ? 'No ratings yet. Collectors can rate you after a deal or a real conversation.'
+                : 'No ratings yet. Ratings appear after deals or real conversations.'}
             </Text>
           ) : (
             <View style={styles.list}>

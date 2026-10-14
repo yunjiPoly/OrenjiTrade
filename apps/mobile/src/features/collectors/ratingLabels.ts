@@ -13,9 +13,12 @@ import type { IconName } from '@/src/components/ui/EmptyState';
  * Rating vocabulary and rules (Phase 7 contract, mirror of the web's
  * `shared/ratings/rating-labels.ts`): the optional criteria of a rating, how averages and counts
  * read, which interactions can still be rated, the edit window and the refusals' wording.
+ *
+ * Collectors don't meet: deals ship by mail (ADR 0018). The phone asks Overall, Communication,
+ * Card condition and Shipping, never "Meetup reliability"; the API keeps that column (the paused
+ * web, old ratings), and an old rating's meetup score is neither shown nor lost on edit.
  */
-export type RatingCriterion =
-  'communication' | 'conditionAccuracy' | 'shipping' | 'meetupReliability';
+export type RatingCriterion = 'communication' | 'conditionAccuracy' | 'shipping';
 
 export const RATING_CRITERIA: readonly {
   key: RatingCriterion;
@@ -30,7 +33,6 @@ export const RATING_CRITERIA: readonly {
     hint: 'Cards matched the condition described',
   },
   { key: 'shipping', label: 'Shipping', hint: 'Well packed and sent on time' },
-  { key: 'meetupReliability', label: 'Meetup reliability', hint: 'On time at the agreed place' },
 ];
 
 /** Longest rating comment (contract: ≤ 600) and reference (≤ 400). */
@@ -141,8 +143,8 @@ export function ratingHint(
   }
   return eligibility.interactions.length > 0
     ? `You already rated your interactions with ${displayName}. You can edit a rating for ${RATING_EDIT_DAYS} days.`
-    : `You can rate ${displayName} after a completed trade, an accepted offer or a conversation ` +
-        'where you both sent at least 3 messages.';
+    : `You can rate ${displayName} after a deal with them or a conversation where you both sent ` +
+        'at least 3 messages.';
 }
 
 /** Inline wording of the refusals of `POST /ratings`, `PUT /ratings/{id}` and `POST /references`. */
@@ -155,8 +157,7 @@ export function ratingProblem(
     case 'RATING_NOT_ELIGIBLE':
       return (
         `You can ${subject === 'rating' ? 'rate' : 'write a reference for'} ${displayName} ` +
-        'after a completed trade, an accepted offer or a conversation where you both sent at ' +
-        'least 3 messages.'
+        'after a deal with them or a conversation where you both sent at least 3 messages.'
       );
     case 'ALREADY_RATED':
       return 'You already rated this interaction. Edit your rating from the list instead.';

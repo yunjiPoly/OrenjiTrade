@@ -530,6 +530,49 @@ export async function apiDeclineOffer(
   expect(response.status(), 'POST /offers/{id}/decline').toBe(200);
 }
 
+/** The ratings of a collector as `as` sees them. */
+export async function apiCollectorRatings(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  handle: string
+): Promise<{
+  items: {
+    rater: { handle: string };
+    overall: number;
+    comment?: string | null;
+    breakdown?: Record<string, number | null>;
+  }[];
+}> {
+  const response = await api.get(`${API_URL}/api/v1/collectors/${handle}/ratings`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /collectors/{handle}/ratings').toBeTruthy();
+  return (await response.json()) as {
+    items: {
+      rater: { handle: string };
+      overall: number;
+      comment?: string | null;
+      breakdown?: Record<string, number | null>;
+    }[];
+  };
+}
+
+/** Whether `as` may rate `userId` now (`GET /ratings/eligibility`). */
+export async function apiCanRate(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  userId: string
+): Promise<boolean> {
+  const response = await api.get(`${API_URL}/api/v1/ratings/eligibility?userId=${userId}`, {
+    headers: authHeader(as.idToken),
+  });
+  if (!response.ok()) {
+    return false;
+  }
+  const body = (await response.json()) as { interactions?: { alreadyRated: boolean }[] };
+  return (body.interactions ?? []).some((interaction) => !interaction.alreadyRated);
+}
+
 /** `as`'s own reports (`GET /me/reports`). */
 export async function apiMyReports(
   api: APIRequestContext,

@@ -39,10 +39,11 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 type Scores = Record<RatingCriterion, number | null>;
 
 /**
- * Rate a collector (the web's rate dialog): after a completed trade, an accepted offer or a
- * qualified conversation (`GET /ratings/eligibility`), the interaction to rate when there are
- * several, an overall score (required), the optional criteria the API models (communication,
- * card condition, shipping, meetup reliability) and a comment (≤ 600). `?rating=` edits the
+ * Rate a collector (the web's rate dialog): after an eligible interaction (a qualified
+ * conversation, or an old trade or accepted offer; `GET /ratings/eligibility`), the interaction to
+ * rate when there are several, an overall score (required), the optional criteria (communication,
+ * card condition, shipping; never meetup reliability: deals ship by mail, ADR 0018) and a comment
+ * (≤ 600). `?rating=` edits the
  * caller's own rating within its 14 days. Refusals (403 RATING_NOT_ELIGIBLE, 409 ALREADY_RATED /
  * RATING_EDIT_WINDOW_CLOSED, banned terms) are explained in place.
  */
@@ -179,7 +180,6 @@ function RatingForm({
     communication: rating?.breakdown.communication ?? null,
     conditionAccuracy: rating?.breakdown.conditionAccuracy ?? null,
     shipping: rating?.breakdown.shipping ?? null,
-    meetupReliability: rating?.breakdown.meetupReliability ?? null,
   });
   const [comment, setComment] = useState(rating?.comment ?? '');
   const [submitted, setSubmitted] = useState(false);
@@ -203,6 +203,12 @@ function RatingForm({
       if (score !== null) {
         body[criterion.key] = score;
       }
+    }
+    // The phone no longer asks it, but an edit keeps an old rating's meetup score (the API column
+    // stays for the paused web).
+    const meetupScore = rating?.breakdown.meetupReliability;
+    if (typeof meetupScore === 'number') {
+      body.meetupReliability = meetupScore;
     }
     const text = comment.trim();
     if (text) {
