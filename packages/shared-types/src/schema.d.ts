@@ -1678,15 +1678,35 @@ export interface paths {
         };
         /**
          * The caller's items (filters, sort, pages)
-         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), name (A-Z) or price (highest first); `direction` overrides the order.
+         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.
          */
         get: operations["listInventoryItems"];
         put?: never;
         /**
          * Add an item
-         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the plan's inventory size; no plan has a number for it today.
+         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions), or none with `conditionStated: false` (the response then has `condition` empty and `conditionStated` false); currency to CAD. `askingPriceText` keeps the price as typed and fills `askingPrice` when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit; none has a number today.
          */
         post: operations["createInventoryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo the delete of an item
+         * @description Within 10 minutes of the caller's own delete (one item or a bulk delete), brings the item back exactly as it was: copies, prices, notes, photos, binder and visibility. A live item is answered as it is (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes, or for an item that left otherwise (a trade, its binder deleted with it); 429 LIMIT_REACHED when `inventory.items.max` was reached meanwhile.
+         */
+        post: operations["restoreInventoryItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1744,7 +1764,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk operation on the caller's items
-         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
+         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
          */
         post: operations["bulkUpdateInventoryItems"];
         delete?: never;
@@ -2969,14 +2989,14 @@ export interface paths {
         post?: never;
         /**
          * Delete an item
-         * @description Soft delete: the item disappears everywhere; its photos are removed.
+         * @description Soft delete: the item disappears everywhere. For 10 minutes `POST .../restore` brings it back with its photos; the photos are deleted after that.
          */
         delete: operations["deleteInventoryItem"];
         options?: never;
         head?: never;
         /**
          * Update an item (any subset of the fields)
-         * @description Absent fields are unchanged. `askingPrice`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it.
+         * @description Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. `askingPriceText` sets the price as typed (and `askingPrice` when it is a plain amount); `askingPrice` without it clears the text. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it, and so does `confirm: true` (the phone's Edit card: a save counts as still available).
          */
         patch: operations["updateInventoryItem"];
         trace?: never;
@@ -5893,6 +5913,11 @@ export interface components {
             finish?: string;
             images?: components["schemas"]["PrintingImage"][];
             marketPrice?: components["schemas"]["MarketPrice"];
+            /**
+             * Format: date
+             * @example 2002-03-08
+             */
+            setReleaseDate?: string | null;
         };
         PlanFeatureChange: {
             key: string;
@@ -7245,8 +7270,13 @@ export interface components {
              * @example 1
              */
             quantity: number;
-            /** @example NEAR_MINT */
+            /**
+             * @description Condition code; empty when the owner stated none (conditionStated false)
+             * @example NEAR_MINT
+             */
             condition: string;
+            /** @description false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling. */
+            conditionStated?: boolean;
             /** @example en */
             language: string;
             /** @example FIRST_EDITION */
@@ -7255,6 +7285,11 @@ export interface components {
             finish: string;
             /** @example 45 */
             askingPrice?: number | null;
+            /**
+             * @description The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
             /** @example CAD */
             currency: string;
             /** @enum {string} */
@@ -7947,6 +7982,13 @@ export interface components {
             publicUntil?: string;
             /** Format: uuid */
             binderId?: string;
+            /**
+             * @description The asking price as typed (at most 40 characters once trimmed), shown exactly as typed. A plain amount (12.50, $12.50, 12,50 $) also fills askingPrice in the item's currency; other text leaves it empty. Do not send askingPrice with it.
+             * @example 85% TCG
+             */
+            askingPriceText?: string;
+            /** @description false: the card's condition is not stated (cards added on the phone; send no condition). Default true. */
+            conditionStated?: boolean;
         };
         /** @description An inventory item of the caller */
         InventoryItemResponse: {
@@ -7961,8 +8003,13 @@ export interface components {
              * @example 1
              */
             quantity: number;
-            /** @example NEAR_MINT */
+            /**
+             * @description Condition code; empty when the owner stated none (conditionStated false)
+             * @example NEAR_MINT
+             */
             condition: string;
+            /** @description false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling. */
+            conditionStated?: boolean;
             /** @example en */
             language: string;
             /** @example FIRST_EDITION */
@@ -7971,6 +8018,11 @@ export interface components {
             finish: string;
             /** @example 45 */
             askingPrice?: number | null;
+            /**
+             * @description The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
             /** @example CAD */
             currency: string;
             /** @enum {string} */
@@ -9356,7 +9408,7 @@ export interface components {
             /** @example 85% TCG */
             priceTerm?: string | null;
         };
-        /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it. */
+        /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it, and so does confirm: true. */
         UpdateInventoryItemRequest: {
             /** Format: uuid */
             printingId?: string;
@@ -9382,6 +9434,13 @@ export interface components {
             publicUntil?: string | null;
             /** Format: uuid */
             binderId?: string | null;
+            /**
+             * @description The asking price as typed (at most 40 characters); null clears the price. A plain amount also sets askingPrice; sending askingPrice without it clears the text. Not both.
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
+            /** @description true: the save also confirms the item is still available, as POST .../confirm does (the phone's Edit card). */
+            confirm?: boolean;
         };
         /** @description Which sections of a deck count; absent fields are unchanged */
         UpdateInventoryImportRequest: {
@@ -10695,6 +10754,15 @@ export interface components {
             setCode?: string;
             printingCode?: string;
             imageUrl?: string;
+            /** @example Azure Dawn */
+            setName?: string | null;
+            /** @example Ultra Rare */
+            rarity?: string | null;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            printingCount?: number | null;
         };
         /** @description A fake billing checkout (local only) */
         FakeBillingCheckout: {
@@ -11570,7 +11638,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -18808,9 +18876,9 @@ export interface operations {
                 /** @description Condition code, e.g. NEAR_MINT */
                 condition?: string;
                 freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
-                /** @description updated | name | price */
-                sort?: "updated" | "name" | "price";
-                /** @description asc | desc (default: desc for updated and price, asc for name) */
+                /** @description updated | created | name | price */
+                sort?: "updated" | "created" | "name" | "price";
+                /** @description asc | desc (default: desc for updated, created and price, asc for name) */
                 direction?: "asc" | "desc";
                 page?: number;
                 size?: number;
@@ -18954,6 +19022,91 @@ export interface operations {
                 };
             };
             /** @description LIMIT_REACHED (`inventory.items.max`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    restoreInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The restored item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or not the caller's item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description RESTORE_WINDOW_CLOSED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
             429: {
                 headers: {
                     [name: string]: unknown;

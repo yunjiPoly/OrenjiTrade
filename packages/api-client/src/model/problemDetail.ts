@@ -124,6 +124,7 @@ export enum ProblemDetailErrorCodeEnum {
     RatingNotEligible = 'RATING_NOT_ELIGIBLE',
     AlreadyRated = 'ALREADY_RATED',
     RatingEditWindowClosed = 'RATING_EDIT_WINDOW_CLOSED',
+    RestoreWindowClosed = 'RESTORE_WINDOW_CLOSED',
     ReportAlreadyOpen = 'REPORT_ALREADY_OPEN',
     CannotReportSelf = 'CANNOT_REPORT_SELF',
     OffersNotAccepted = 'OFFERS_NOT_ACCEPTED',
