@@ -23,11 +23,11 @@ describe('notification kinds', () => {
     });
   });
 
-  it('shows the plan-limit notice with the premium icon', () => {
+  it('shows the daily limit notice with the limit icon', () => {
     expect(notificationKind({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toEqual({
-      icon: 'workspace_premium',
+      icon: 'speed',
       tone: 'system',
-      label: 'Plan limit',
+      label: 'Limit reached',
     });
   });
 
@@ -82,13 +82,29 @@ describe('notification kinds', () => {
     expect(notificationLink({ type: Type.BinderStaleWarning, data: { binderId: 'b-2' } })).toBe(
       '/inventory?binder=b-2',
     );
-    // A plan-limit notice leads to Premium only when the API offered it (premiumPlans on).
+    // An old limit notice never leads to Premium (stage F1: removed); nor any old link to the
+    // removed paid pages.
     expect(
       notificationLink({
         type: Type.System,
-        data: { kind: 'LIMIT_REACHED', upgradeUrl: '/premium', deepLink: '/premium' },
+        data: {
+          kind: 'LIMIT_REACHED',
+          notificationType: 'WISHLIST_ALERT',
+          upgradeUrl: '/premium',
+          deepLink: '/premium',
+        },
       }),
-    ).toBe('/premium');
+    ).toBe('/wishlist');
+    for (const removed of [
+      '/premium?checkout=success',
+      '/credits',
+      '/support',
+      '/checkout/fake-billing/x',
+    ]) {
+      expect(notificationLink({ type: Type.System, data: { deepLink: removed } })).toBe(
+        '/notifications',
+      );
+    }
     expect(
       notificationLink({
         type: Type.System,

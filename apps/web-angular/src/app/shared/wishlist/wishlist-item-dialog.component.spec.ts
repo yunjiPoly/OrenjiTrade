@@ -212,7 +212,7 @@ describe('WishlistItemDialogComponent', () => {
 
   it('takes the focus back to the save button when a refusal left it nowhere', async () => {
     wishlist.createWishlistItem.mockReturnValue(
-      problem(429, 'LIMIT_REACHED', 'You reached a plan limit.'),
+      problem(429, 'LIMIT_REACHED', 'You have reached the limit for this action'),
     );
     await create({ mode: 'create', cardId: 'c1' });
     (document.activeElement as HTMLElement | null)?.blur();

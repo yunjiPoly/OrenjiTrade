@@ -14,7 +14,6 @@ import { ALL_ROLES, PRIVILEGED_ROLES, ROLE_LABELS, Role } from '../../../core/au
 
 const ROLE_HELP: Record<Role, string> = {
   USER: 'Every account. Always kept.',
-  PREMIUM_USER: 'Premium entitlements (manual override).',
   MODERATOR: 'Moderation areas of the admin console.',
   ADMIN: 'The whole admin console.',
   SUPER_ADMIN: 'Admin plus feature flags, plans and role grants.',

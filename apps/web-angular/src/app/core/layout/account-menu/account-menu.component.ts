@@ -9,12 +9,11 @@ import { Router, RouterLink } from '@angular/router';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService } from '../../auth/session.service';
-import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.service';
 
 /**
  * Account entry of the top bar. Signed out: sign in / create account. Signed in: avatar trigger
- * with name and handle, profile, offers, trades, settings, Premium, credits, support (each while
- * its flag is on), admin (staff only) and sign out.
+ * with name and handle, profile, offers, trades, settings, admin (staff only) and sign out.
+ * Premium, credits and "Support OrenjiTrade" left with stage F1: OrenjiTrade is free.
  */
 @Component({
   selector: 'app-account-menu',
@@ -80,24 +79,6 @@ import { FEATURE, FeatureFlagsService } from '../../feature-flags/feature-flags.
           <mat-icon>settings</mat-icon>
           <span>Settings</span>
         </a>
-        @if (premiumPlans()) {
-          <a mat-menu-item routerLink="/premium">
-            <mat-icon>workspace_premium</mat-icon>
-            <span>Premium</span>
-          </a>
-        }
-        @if (credits()) {
-          <a mat-menu-item routerLink="/credits">
-            <mat-icon>toll</mat-icon>
-            <span>Credits</span>
-          </a>
-        }
-        @if (donations()) {
-          <a mat-menu-item routerLink="/support">
-            <mat-icon>volunteer_activism</mat-icon>
-            <span>Support OrenjiTrade</span>
-          </a>
-        }
         @if (session.canAccessAdmin()) {
           <a mat-menu-item routerLink="/admin">
             <mat-icon>admin_panel_settings</mat-icon>
@@ -179,10 +160,6 @@ export class AccountMenuComponent {
   protected readonly auth = inject(AuthService);
   protected readonly session = inject(SessionService);
   protected readonly loading = computed(() => this.auth.authState() === 'loading');
-  private readonly flags = inject(FeatureFlagsService);
-  protected readonly premiumPlans = this.flags.enabled(FEATURE.premiumPlans);
-  protected readonly credits = this.flags.enabled(FEATURE.credits);
-  protected readonly donations = this.flags.enabled(FEATURE.donations);
 
   protected async signOut(): Promise<void> {
     await this.auth.signOut();

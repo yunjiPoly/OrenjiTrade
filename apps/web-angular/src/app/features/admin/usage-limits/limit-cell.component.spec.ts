@@ -4,7 +4,6 @@ import { LimitCellComponent, LimitEdit } from './limit-cell.component';
 
 const LIMIT = {
   id: 'l1',
-  planCode: 'FREE',
   key: 'binder.views.per_day',
   window: 'DAY',
   maxValue: 30,
@@ -24,7 +23,7 @@ describe('LimitCellComponent', () => {
     edits = [];
     fixture = TestBed.createComponent(LimitCellComponent);
     fixture.componentRef.setInput('limit', LIMIT);
-    fixture.componentRef.setInput('planName', 'FREE');
+    fixture.componentRef.setInput('label', 'Public binder views per day');
     fixture.componentRef.setInput('canEdit', true);
     fixture.componentInstance.edit.subscribe((edit) => edits.push(edit));
     fixture.detectChanges();
@@ -34,10 +33,11 @@ describe('LimitCellComponent', () => {
   it('shows the value with its window', () => {
     expect(element.textContent).toContain('30');
     expect(element.textContent).toContain('per day');
+    expect(element.querySelector('[data-testid="limit-binder.views.per_day"]')).not.toBeNull();
   });
 
   it('edits inline and emits a valid value', () => {
-    button('Edit FREE binder.views.per_day').click();
+    button('Edit Public binder views per day').click();
     fixture.detectChanges();
     const input = element.querySelector<HTMLInputElement>('input[type=number]')!;
     input.value = '45';
@@ -48,12 +48,12 @@ describe('LimitCellComponent', () => {
   });
 
   it('shows a validation message instead of emitting an invalid value', () => {
-    button('Edit FREE binder.views.per_day').click();
+    button('Edit Public binder views per day').click();
     fixture.detectChanges();
     const input = element.querySelector<HTMLInputElement>('input[type=number]')!;
     input.value = '-2';
     input.dispatchEvent(new Event('input'));
-    button('Save FREE binder.views.per_day').click();
+    button('Save Public binder views per day').click();
     fixture.detectChanges();
     expect(edits).toEqual([]);
     expect(element.querySelector('[role=alert]')?.textContent).toContain('Use 0 or more.');
@@ -61,7 +61,7 @@ describe('LimitCellComponent', () => {
   });
 
   it('closes when the saved limit comes back, and hides editing from read-only admins', () => {
-    button('Edit FREE binder.views.per_day').click();
+    button('Edit Public binder views per day').click();
     fixture.detectChanges();
     fixture.componentRef.setInput('limit', { ...LIMIT, maxValue: 45 });
     fixture.detectChanges();
@@ -70,6 +70,6 @@ describe('LimitCellComponent', () => {
 
     fixture.componentRef.setInput('canEdit', false);
     fixture.detectChanges();
-    expect(button('Edit FREE binder.views.per_day')).toBeNull();
+    expect(button('Edit Public binder views per day')).toBeNull();
   });
 });
