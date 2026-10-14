@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { TradeEvent, TradeResponse } from '@/src/api/types';
-import { toneColor } from '@/src/features/offers/StatusChip';
+import { toneColor } from '@/src/components/ui/StatusChip';
 import { formatDateTime } from '@/src/lib/dates';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

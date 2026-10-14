@@ -14,7 +14,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { TextField } from '@/src/components/ui/TextField';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
 import { offerStatusInfo, offerTermsText } from '@/src/features/offers/offerLabels';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import { printingImageUrl } from '@/src/lib/catalog';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

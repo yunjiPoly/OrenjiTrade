@@ -1,5 +1,5 @@
 import type { IconName } from '@/src/components/ui/EmptyState';
-import type { StatusInfo } from '@/src/features/offers/offerLabels';
+import type { StatusInfo } from '@/src/components/ui/StatusChip';
 import { formatMoney } from '@/src/lib/catalog';
 import { formatDateTime } from '@/src/lib/dates';
 

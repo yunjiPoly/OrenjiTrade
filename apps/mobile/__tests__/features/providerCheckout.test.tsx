@@ -6,7 +6,7 @@ import {
   paymentOutcome,
   useProviderCheckout,
   type ProviderCheckoutSource,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { mockApi, ok } from '../support/mockApi';

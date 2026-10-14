@@ -5,7 +5,7 @@ import type { TradeSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { offerTermsText } from '@/src/features/offers/offerLabels';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

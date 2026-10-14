@@ -1,7 +1,7 @@
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import type { IconName } from '@/src/components/ui/EmptyState';
-import type { StatusInfo } from '@/src/features/offers/offerLabels';
+import type { StatusInfo } from '@/src/components/ui/StatusChip';
 import { formatMoney } from '@/src/lib/catalog';
 
 /**

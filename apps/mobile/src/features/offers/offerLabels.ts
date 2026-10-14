@@ -1,4 +1,5 @@
 import type { IconName } from '@/src/components/ui/EmptyState';
+import type { StatusInfo } from '@/src/components/ui/StatusChip';
 import { formatMoney } from '@/src/lib/catalog';
 import { relativeTime } from '@/src/lib/relativeTime';
 
@@ -64,14 +65,7 @@ export function kindHasCards(kind: string): boolean {
   return kind === 'TRADE' || kind === 'MIXED';
 }
 
-/** Colour family of a status chip (mapped to theme colours by `StatusChip`). */
-export type StatusTone = 'live' | 'success' | 'danger' | 'muted' | 'info';
-
-export interface StatusInfo {
-  label: string;
-  icon: IconName;
-  tone: StatusTone;
-}
+export type { StatusInfo, StatusTone } from '@/src/components/ui/StatusChip';
 
 export const OFFER_STATUS_INFO: Record<OfferStatus, StatusInfo> = {
   OPEN: { label: 'Open', icon: 'timer-sand', tone: 'live' },

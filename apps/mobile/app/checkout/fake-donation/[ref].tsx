@@ -15,12 +15,12 @@ import {
   amountLabel,
   donationStatusInfo,
 } from '@/src/features/billing/billingLabels';
-import { FakeProviderCheckout } from '@/src/features/checkout/FakeProviderCheckout';
+import { FakeProviderCheckout } from '@/src/features/billing/FakeProviderCheckout';
 import {
   donationOutcome,
   useProviderCheckout,
   type CheckoutOutcome,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 import { textStyle, useTheme } from '@/src/theme';
 
 function doneText(outcome: CheckoutOutcome | null): string {

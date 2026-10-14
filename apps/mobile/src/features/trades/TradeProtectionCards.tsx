@@ -8,8 +8,8 @@ import { useSellerAccount } from '@/src/api/hooks/payments';
 import type { DisputeSummary, PaymentSummary, ShipmentSummary } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import type { IconName } from '@/src/components/ui/EmptyState';
-import type { StatusInfo } from '@/src/features/offers/offerLabels';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import type { StatusInfo } from '@/src/components/ui/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import {
   disputeReasonLabel,
   disputeStatusInfo,

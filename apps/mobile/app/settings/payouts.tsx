@@ -14,8 +14,8 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { safeAppPath } from '@/src/features/notifications/notificationKinds';
-import { StatusChip } from '@/src/features/offers/StatusChip';
-import { payoutReturnPath } from '@/src/features/payments/checkoutTargets';
+import { StatusChip } from '@/src/components/ui/StatusChip';
+import { payoutReturnPath } from '@/src/features/billing/checkoutTargets';
 import {
   providerLabel,
   sellerAccountInfo,

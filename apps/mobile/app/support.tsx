@@ -15,7 +15,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { DONATION_NOTE, donationProblem } from '@/src/features/billing/billingLabels';
 import { DonationForm, MyDonations, SupportersList } from '@/src/features/billing/DonationParts';
-import { checkoutTarget } from '@/src/features/payments/checkoutTargets';
+import { checkoutTarget } from '@/src/features/billing/checkoutTargets';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**

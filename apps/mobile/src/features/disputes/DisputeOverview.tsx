@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { Dispute } from '@/src/api/types';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import {
   disputeReasonLabel,
   disputeStatusInfo,

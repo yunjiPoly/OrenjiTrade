@@ -6,8 +6,8 @@ import { Button } from '@/src/components/ui/Button';
 import type { IconName } from '@/src/components/ui/EmptyState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Skeleton } from '@/src/components/ui/Skeleton';
-import type { StatusInfo } from '@/src/features/offers/offerLabels';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import type { StatusInfo } from '@/src/components/ui/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import type { CheckoutOutcome, CheckoutStatus } from './useProviderCheckout';

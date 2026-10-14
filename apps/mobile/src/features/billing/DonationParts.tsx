@@ -8,7 +8,7 @@ import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { Checkbox } from '@/src/components/ui/FormControls';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { TextField } from '@/src/components/ui/TextField';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import { formatLongDate } from '@/src/lib/dates';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

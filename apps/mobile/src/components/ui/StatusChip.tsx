@@ -1,10 +1,19 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import type { IconName } from '@/src/components/ui/EmptyState';
 import type { Palette } from '@/src/theme';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
-import type { StatusInfo, StatusTone } from './offerLabels';
+/** Colour family of a status chip (mapped to theme colours by `StatusChip`). */
+export type StatusTone = 'live' | 'success' | 'danger' | 'muted' | 'info';
+
+/** What a status chip shows: its label (read by screen readers), icon and tone. */
+export interface StatusInfo {
+  label: string;
+  icon: IconName;
+  tone: StatusTone;
+}
 
 /** Foreground colour of a status tone. */
 export function toneColor(tone: StatusTone, palette: Palette): string {
@@ -23,7 +32,7 @@ export function toneColor(tone: StatusTone, palette: Palette): string {
 }
 
 /**
- * A status pill of an offer, a trade or a report (web: `app-status-chip`): an icon and a label,
+ * A status pill (a subscription, a donation; web: `app-status-chip`): an icon and a label,
  * coloured by tone; the label is what screen readers announce.
  */
 export function StatusChip({ info, testID }: { info: StatusInfo; testID?: string }) {

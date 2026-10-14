@@ -30,8 +30,8 @@ import {
   SubscriptionCard,
   UsageMeters,
 } from '@/src/features/billing/PlanCards';
-import { isEntitling } from '@/src/features/checkout/useProviderCheckout';
-import { checkoutTarget } from '@/src/features/payments/checkoutTargets';
+import { isEntitling } from '@/src/features/billing/useProviderCheckout';
+import { checkoutTarget } from '@/src/features/billing/checkoutTargets';
 import { formatLongDate } from '@/src/lib/dates';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 

@@ -32,7 +32,7 @@ import {
   donationOutcome,
   isEntitling,
   paymentOutcome,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 import { disputeFacts } from '@/src/features/disputes/DisputeOverview';
 import { disputeClosedText } from '@/src/features/disputes/disputeRules';
 import { evidenceViews } from '@/src/features/disputes/EvidenceList';
@@ -41,7 +41,7 @@ import {
   checkoutTarget,
   payTarget,
   payoutReturnPath,
-} from '@/src/features/payments/checkoutTargets';
+} from '@/src/features/billing/checkoutTargets';
 import {
   disputeEventLabel,
   disputeReasonLabel,

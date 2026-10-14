@@ -16,7 +16,7 @@ import {
   offerStatusInfo,
   offerTermsText,
 } from './offerLabels';
-import { StatusChip } from './StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 
 /** "CA$40.00" / "2 cards" of a summary. */
 export function summaryTerms(offer: OfferSummary): string {

@@ -9,12 +9,12 @@ import type { FakeCheckout } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Screen } from '@/src/components/ui/Screen';
-import { FakeProviderCheckout } from '@/src/features/checkout/FakeProviderCheckout';
+import { FakeProviderCheckout } from '@/src/features/billing/FakeProviderCheckout';
 import {
   paymentOutcome,
   useProviderCheckout,
   type CheckoutOutcome,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 import { money, paymentStatusInfo } from '@/src/features/payments/paymentLabels';
 import { ProtectionExplainer } from '@/src/features/payments/ProtectionExplainer';
 
