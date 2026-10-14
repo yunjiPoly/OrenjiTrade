@@ -28,8 +28,10 @@ Words used here:
 | S3 | Printing-aware search, "Who wants it", "Wanted by N", search history (sections 2 and 2b) | — | **not built**: skipped by the owner on 2026-10-13 |
 | S4 | Photos in community posts (section 5) | — | **not built**: skipped by the owner on 2026-10-13 |
 
-Two other pieces shipped on the way: the iOS path of the phone's test suite with the iOS defects it
-found (#61, 2026-10-12), and a dark backdrop that iOS took for a dialog (#70, 2026-10-14).
+Four other pieces shipped on the way: the handoff documents for working on the Mac (#58,
+2026-10-10), the first run on Apple Silicon (#59, 2026-10-10), the iOS path of the phone's test
+suite with the iOS defects it found (#61, 2026-10-12), and a dark backdrop that iOS took for a
+dialog (#70, 2026-10-14).
 
 ## (a) What a collector can do now
 
@@ -92,7 +94,7 @@ partly done (see their rows).
 | C5 | State or province shown, no distance | done | web, phone, API | Holder rows read "Ontario, Canada"; no response carried a coordinate or distance; `GeoPrivacyContractTest` passes. |
 | C6 | Sees who wants the card | not built (S3, 2026-10-13) | — | No "Who wants it" anywhere; a collector's wishes show only on their own profile ("Looking for"), when they allow it. |
 | C7 | Clicks "Find this card" | not built (S3, 2026-10-13) | — | The button is "Who has this in my region" and opens the holders of the whole card. |
-| C8 | Sees recent searches in the search box | partly | phone only | The phone keeps the last 8 searches per account and segment on the device (since stage M2, 2026-10-05); the web has none; the server-side history of S3 is not built. |
+| C8 | Sees recent searches in the search box | partly | phone only | The phone keeps the last 8 searches per account on the device (since stage M2, 2026-10-05), per segment of the Search tab (cards, collectors, binders) since stage M7 (2026-10-06); the web has none; the server-side history of S3 is not built. |
 | C9 | Sees "Wanted by N" on their own inventory items | not built (S3, 2026-10-13) | — | No such count on either inventory. |
 | C10 | The map shows countries with clickable states that list binders | done | web, phone, API | Web: Quebec opened "2 public binders"; phone: the Map tab, the list, then Quebec with 2 binders. |
 | C11 | Onboarding and settings ask only country, state, optional city, with a hide switch | done | web, phone, API | Both ask region, country, state, optional city and "Show my city on my profile"; no map, no GPS button; a state of another country is refused. |
@@ -327,9 +329,12 @@ Larger:
 | Browser test: import a fictional .ydk and a fictional Collectr CSV | partly (phone only) | phone `inventory-import.spec.ts` and three native flows; no web test (no web screen) |
 | Run every suite | exists | all green on 2026-10-14 (below) |
 
-The last full run (2026-10-14, retries off): API 974 tests in 170 classes plus 12 catalog tests;
-web 678 unit tests and 74 browser tests; phone 922 unit tests, 60 browser tests on the phone's web
-build and 30 of 30 native flows on the owner's iPhone simulator; 133 script tests; the audit gate.
+The last full run (2026-10-14, retries off, by the verifier of the walkthrough on its head
+`734d4e6`, before this stage's documents and its label-in-name fix): API 974 tests in 170 classes
+plus 12 catalog tests; web 678 unit tests and 74 browser tests; phone 922 unit tests, 60 browser
+tests on the phone's web build and 30 of 30 native flows on the owner's iPhone simulator; 133
+script tests; the audit gate. After those changes the API and phone unit tests, the phone's
+browser tests and its three native import flows ran again, all green; nothing of the web changed.
 
 ## (j) What can come next
 

@@ -30,8 +30,8 @@ of 2026-10-08 as far as it was built: **stage S1** (platform regions replace geo
 region switcher and the region map on the phone, #67), **the inventory lock fix** (writes to one
 collector's binders and cards take turns, #68), **stage S5** (the inventory import from a .ydk deck
 file or a Collectr CSV, API and phone, #69) and the scrim fix (a dark backdrop iOS took for a
-modal, #70, 2026-10-14). Merged PRs since 2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52
-#53 #57 #59 #60 #61 #67 #68 #69 #70.
+modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51
+#52 #53 #57 #58 #59 #60 #61 #67 #68 #69 #70.
 
 **Not on `main`:**
 

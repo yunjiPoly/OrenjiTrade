@@ -50,8 +50,9 @@ section).
 **Deck cards for the inventory import (stage S5), end-to-end databases only.** A deck file names
 cards by their YGOPRODeck passcode, which the sample catalog does not carry. With
 `SEED_IMPORT_FIXTURES=true` (set by the isolated API of the mobile suites, off everywhere else, and
-refused while `YGOPRODECK_ENABLED` is true) `ImportFixtureSeedContributor` adds three fictional
-cards with passcodes 910000001 to 910000003; see [test-accounts.md](test-accounts.md).
+refused while `YGOPRODECK_ENABLED` is true) `ImportFixtureSeedContributor` adds two fictional
+cards (passcodes 910000001 and 910000002) and an alternate artwork of the second (passcode
+910000003); see [test-accounts.md](test-accounts.md).
 
 ### Real Yu-Gi-Oh! catalog demo (optional)
 

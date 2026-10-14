@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, round 1; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
+**Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, rounds 1 and 2; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: stage S2 (#60), the first run on Apple Silicon (#59), the iOS path of the native suite (#61), mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
@@ -4431,10 +4431,11 @@ report, sections (b) and (i).
   (no map key; one paragraph still said ten scheduler jobs, corrected by the same fact check);
   test accounts and the boundaries provenance; the three `.env.example` files (no
   map key, no distance or radius setting); the legal drafts in English and French (the web files
-  and the phone's synced copy, `npm run sync:legal -- --check` up to date): what they say about
-  location already matches ADR 0017 (a declared country, state or province and optional city; no
-  GPS, no device location, no IP location, no coordinates), with the draft banners and the
-  "[to confirm]" placeholders kept, so nothing was changed for the lawyer to re-read.
+  and the phone's synced copy, `npm run sync:legal -w apps/mobile -- --check` up to date): what
+  they say about location already matches ADR 0017 (a declared country, state or province and
+  optional city; no GPS, no device location, no IP location, no coordinates), with the draft
+  banners and the "[to confirm]" placeholders kept, so nothing was changed for the lawyer to
+  re-read.
 - The words a lead's search found ("near me / nearby", "km away / distance", "trading area",
   "Google Maps", "wishlist_match / matches nearby", "approximate area / location / position"),
   file by file. Changed: the comment of `InventoryItemRepository` (the sent wishlist alerts, not
@@ -4537,12 +4538,13 @@ the paused web README; the proposed CLAUDE.md sentences (the end of the delivery
 > 5 partly, 5 not built. **Not built, by the owner's decisions: stages S3 and S4 (skipped on
 > 2026-10-13) and the web import screen of S5 (the web app is paused since 2026-10-12).**
 >
-> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
-> wishlist, wishlist alerts and no matches (#60, 2026-10-10); the first run on Apple Silicon (#59,
-> 2026-10-10); the iOS path of the native Maestro harness and the iOS defects it found (#61,
-> 2026-10-12); mobile stage M9, regions on the phone (#67, 2026-10-13); the binder / inventory lock
-> fix (#68, 2026-10-13); stage S5, the inventory import on the phone and the API (#69,
-> 2026-10-13); the scrim fix, a dark backdrop iOS took for a modal (#70, 2026-10-14). Migrations
+> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); the handoff documents for
+> continuing on the Mac (#58, 2026-10-10); stage S2, the simplified wishlist, wishlist alerts and
+> no matches (#60, 2026-10-10); the first run on Apple Silicon (#59, 2026-10-10); the iOS path of
+> the native Maestro harness and the iOS defects it found (#61, 2026-10-12); mobile stage M9,
+> regions on the phone (#67, 2026-10-13); the binder / inventory lock fix (#68, 2026-10-13); stage
+> S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
+> backdrop iOS took for a modal (#70, 2026-10-14). Migrations
 > V001 to V114 are applied and frozen; the next one is V115. The owner's local database migrates
 > on the next `npm run dev` and loses its trading areas by design (S1).
 >
@@ -4586,8 +4588,11 @@ the paused web README; the proposed CLAUDE.md sentences (the end of the delivery
 > (`/me/search-history`, privacy switch, export, deletion). Mobile: the printing picker of the
 > card screen, "Who has it" / "Who wants it", "Wanted by N" (S1 follow-ups 3 and 4). Web: reuse
 > `shared/catalog/printing-picker` on the card page, "Find this card". S2's "Known gaps" that S3
-> was to close stay open. **Not built (S4, section 5; skipped on 2026-10-13):** photos in community
-> posts.
+> was to close stay open. The redesign of 2026-10-14 (its section 2) overrides part of this list
+> for the phone: "Who wants it", "Wanted by N" and the holder counts are dropped and not to be
+> built, and the search history becomes the phone's recent searches, with no server history.
+> **Not built (S4, section 5; skipped on 2026-10-13):** photos in community posts; the redesign
+> keeps S4 skipped.
 
 **Below: the earlier next-task notes, kept as history.** The pushes and merges they name are
 done; the Expo SDK 58 upgrade and the full French UI translation they plan are on hold by the
