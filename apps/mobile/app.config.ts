@@ -64,12 +64,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-web-browser',
     // Only configures the optional "share into the app" extension, which stays disabled.
     'expo-sharing',
+    // Dark on every phone: a new install opens in the dark theme (spec 2026-10-14, sections 3
+    // and 16), and the splash shows before the stored choice is read.
     [
       'expo-splash-screen',
       {
         image: './assets/images/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#FFFBF7',
+        backgroundColor: '#141210',
         dark: { backgroundColor: '#141210' },
       },
     ],

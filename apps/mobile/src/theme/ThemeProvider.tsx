@@ -4,8 +4,8 @@ import {
   ThemeProvider as NavigationThemeProvider,
 } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { createContext, useMemo, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { createContext, useEffect, useMemo, type ReactNode } from 'react';
+import { Appearance, Platform, useColorScheme } from 'react-native';
 
 import { useAppStore } from '@/src/store/useAppStore';
 
@@ -50,6 +50,20 @@ function buildNavigationTheme(palette: Palette): NavigationTheme {
 }
 
 /**
+ * On iOS, the system's own views (the keyboard, alerts, the photo and document pickers, the share
+ * sheet) follow the theme chosen in the app: a new install is dark (spec 2026-10-14, sections 3
+ * and 16) even on a phone set to light. "System" hands the choice back to the phone. Android is
+ * left to the system (its keyboard ignores the app, and switching its night mode recreates the
+ * activity), and the web has no such call.
+ */
+export function syncNativeAppearance(override: 'system' | ColorScheme): void {
+  if (Platform.OS !== 'ios' || typeof Appearance.setColorScheme !== 'function') {
+    return;
+  }
+  Appearance.setColorScheme(override === 'system' ? 'unspecified' : override);
+}
+
+/**
  * Resolves the colour scheme from the OS (`useColorScheme`) and the user's override stored in
  * zustand, then exposes the semantic palette + raw tokens through `useTheme()` and syncs
  * React Navigation's theme so headers and tab bars match.
@@ -71,6 +85,12 @@ export function ThemeProvider({ children, scheme: forcedScheme }: ThemeProviderP
   }, [forcedScheme, override, systemScheme]);
 
   const navigationTheme = useMemo(() => buildNavigationTheme(theme.palette), [theme.palette]);
+
+  useEffect(() => {
+    if (forcedScheme === undefined) {
+      syncNativeAppearance(override);
+    }
+  }, [forcedScheme, override]);
 
   return (
     <ThemeContext.Provider value={theme}>
