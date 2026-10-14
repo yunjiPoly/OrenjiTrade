@@ -12,7 +12,8 @@ export interface InventoryFormScreenProps {
   /** The bar at the bottom (the main button and its line), above the keyboard. */
   footer?: ReactNode;
   scrollRef?: Ref<ScrollView>;
-  /** The scroll view (`screen-<id>` in the specs). */
+  /** The whole screen, header and bottom bar included (`screen-<id>` in the specs); its scroll
+   * view is `<testID>-scroll`. */
   testID?: string;
 }
 
@@ -42,7 +43,10 @@ export function InventoryFormScreen({
     return snackbar.keepClear(footerHeight);
   }, [footer, footerHeight, snackbar]);
   return (
-    <View style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}>
+    <View
+      testID={testID}
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
       <View style={styles.header}>{header}</View>
       <KeyboardAvoidingView
         style={styles.fill}
@@ -50,7 +54,7 @@ export function InventoryFormScreen({
       >
         <ScrollView
           ref={scrollRef}
-          testID={testID}
+          testID={testID ? `${testID}-scroll` : undefined}
           style={styles.fill}
           contentContainerStyle={[
             styles.content,

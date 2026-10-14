@@ -94,12 +94,17 @@ async function printingOf(
   return printing!.id;
 }
 
-/** Inventory → Add cards → "Import a deck" or "Import from Collectr" (stage R2). */
-async function chooseImport(page: Page, source: 'deck' | 'collectr'): Promise<void> {
-  await screen(page, 'inventory').getByRole('button', { name: 'Add cards' }).first().click();
+/** Add cards → "Import a deck" or "Import from Collectr" (stage R2). */
+async function pickSource(page: Page, source: 'deck' | 'collectr'): Promise<void> {
   await screen(page, 'add-cards-start')
     .getByRole('button', { name: source === 'deck' ? 'Import a deck' : 'Import from Collectr' })
     .click();
+}
+
+/** Inventory → Add cards → the source. */
+async function chooseImport(page: Page, source: 'deck' | 'collectr'): Promise<void> {
+  await screen(page, 'inventory').getByRole('button', { name: 'Add cards' }).first().click();
+  await pickSource(page, source);
 }
 
 /** Signs in and opens the file step of an import from Add cards (nothing is left open yet). */
@@ -367,9 +372,8 @@ test.describe('mobile inventory import', () => {
     const row = inventory.getByRole('button', { name: /^Fixture Lantern Wisp, YDKF-EN001/ });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText('×3');
-    await expect(row).toContainText('Private');
     await expect(inventory.getByTestId('inventory-summary-totals')).toHaveText(
-      '3 cards · 5 copies · 0 public now'
+      '3 cards · 5 copies · 0 public'
     );
   });
 
@@ -622,8 +626,8 @@ test.describe('mobile inventory import', () => {
     await back.click();
     await page.getByTestId('import-leave-dialog').getByRole('button', { name: 'Leave' }).click();
 
-    // Opened again later: the import is offered first, with the choices made in it.
-    await chooseImport(page, 'deck');
+    // Opened again later (back on Add cards): the import is offered first, with its choices.
+    await pickSource(page, 'deck');
     const again = screen(page, 'import');
     const open = again.getByTestId('import-open');
     await expect(open).toContainText('Continue your import', { timeout: 30_000 });

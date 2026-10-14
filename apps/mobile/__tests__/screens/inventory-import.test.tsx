@@ -1168,7 +1168,9 @@ describe('Import cards: the commit', () => {
     expect(queryClient.getQueryState(INVENTORY_TOTALS)?.isInvalidated).toBe(true);
     expect(mockLeave.held).toBe(false);
     fireEvent.press(within(result).getByRole('button', { name: 'Go to my inventory' }));
-    expect(mockRouter.back).toHaveBeenCalled();
+    // The Inventory tab, past Add cards.
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory');
+    expect(mockRouter.back).not.toHaveBeenCalled();
   });
 
   it('waits for an edit that is still being saved: a card shown as left out is never imported', async () => {

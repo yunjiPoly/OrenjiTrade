@@ -107,13 +107,16 @@ export default function ImportScreen() {
   const editing = step.name === 'import' && !expired && preview?.status === 'PENDING';
   const guard = useLeaveGuard(editing || (step.name === 'file' && draft));
 
-  const toInventory = () => {
+  // Back from the file step of a source chosen on Add cards: to Add cards.
+  const back = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/inventory');
     }
   };
+  // "Go to my inventory": the Inventory tab, past Add cards when the import was opened from it.
+  const toInventory = () => router.dismissTo('/inventory');
 
   let body;
   if (step.name === 'start') {
@@ -140,7 +143,7 @@ export default function ImportScreen() {
           replaces={step.replaces}
           onUploaded={(uploaded) => open(uploaded.id)}
           // Opened on its source from Add cards: back goes back there.
-          onBack={named && !step.replaces ? toInventory : restart}
+          onBack={named && !step.replaces ? back : restart}
           onDraft={setDraft}
         />
       </Screen>

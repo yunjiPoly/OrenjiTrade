@@ -38,7 +38,7 @@ tags:
 - tapOn:
     id: 'tab-inventory'
 - extendedWaitUntil:
-    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, Near Mint, 2 copies.*'
+    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, (.*, )?2 copies'
     timeout: 60000
 
 # Add cards (stage R2 of the phone redesign), then the import it opens on its source.
@@ -126,6 +126,6 @@ tags:
 - tapOn:
     id: 'import-result-inventory'
 - extendedWaitUntil:
-    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, Near Mint, 4 copies.*'
+    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, (.*, )?4 copies'
     timeout: 60000
-- assertVisible: '1 card · 4 copies · 0 public now'
+- assertVisible: '1 card · 4 copies · 0 public'

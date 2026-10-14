@@ -9,6 +9,7 @@ import {
   createOnboardedCollector,
   openInApp,
   openTab,
+  PLACES,
   printingIdOf,
   requireStack,
   screen,
@@ -55,7 +56,9 @@ test.describe('mobile inventory (stage R2)', () => {
     request,
   }) => {
     test.setTimeout(240_000);
-    const collector = await createOnboardedCollector(request, 'inv', 'Mobile Inventory');
+    const collector = await createOnboardedCollector(request, 'inv', 'Mobile Inventory', {
+      location: PLACES.quebec,
+    });
     await signInThroughUi(page, collector.email, collector.password);
 
     await openTab(page, 'Inventory');
@@ -151,13 +154,17 @@ test.describe('mobile inventory (stage R2)', () => {
     const save = edit.getByTestId('edit-item-save');
     await expect(save).toHaveText('No changes yet');
     await expect(save).toHaveAttribute('aria-disabled', 'true');
-    const patch = page.waitForRequest(
-      (request) => request.method() === 'PATCH' && request.url().includes('/inventory/items/')
+    // The answer, not the toast: the "Saved" of the add may still be on screen.
+    const patch = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' && response.url().includes('/inventory/items/')
     );
     await edit.getByLabel('Asking price').fill('$12.50');
     await expect(save).toHaveText('Save changes');
     await save.click();
-    expect((await patch).postDataJSON()).toEqual({ askingPriceText: '$12.50', confirm: true });
+    const patched = await patch;
+    expect(patched.request().postDataJSON()).toEqual({ askingPriceText: '$12.50', confirm: true });
+    expect(patched.status()).toBe(200);
     await expect(snackbar(page)).toContainText('Saved', { timeout: 30_000 });
     const [edited] = await items(request, collector.idToken);
     expect(edited).toMatchObject({ askingPriceText: '$12.50', askingPrice: 12.5 });

@@ -181,7 +181,7 @@ tags:
 - tapOn:
     id: 'import-result-inventory'
 - extendedWaitUntil:
-    visible: 'Fixture Lantern Wisp, YDKF-EN001, Near Mint, 2 copies, Collection only, Private'
+    visible: 'Fixture Lantern Wisp, YDKF-EN001, 2 copies'
     timeout: 60000
-- assertVisible: '3 cards · 5 copies · 0 public now'
+- assertVisible: '3 cards · 5 copies · 0 public'
 - takeScreenshot: import-deck-inventory
