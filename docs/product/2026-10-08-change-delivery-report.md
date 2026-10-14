@@ -80,7 +80,8 @@ map's collector preview, Google Maps, the wishlist radius and the "matches" with
 
 An independent verifier walked every clause on 2026-10-14 (web on its own test stack, phone on the
 owner's iPhone simulator, the database, every test suite). The table keeps its findings. Clauses
-21 and 22 were judged before this stage's documents landed; they are done now (see their rows).
+21 and 22 were judged before this stage's documents landed: clause 22 is done now and clause 21 is
+partly done (see their rows).
 
 | # | Clause of the specification | State | Where | Evidence (one line) |
 | --- | --- | --- | --- | --- |
@@ -102,13 +103,13 @@ owner's iPhone simulator, the database, every test suite). The table keeps its f
 | C16 | Community posts take up to 4 photos of 3 MB and refuse videos | not built (S4, 2026-10-13) | — | Posts take text and a card or binder link only. |
 | C17 | A .ydk file imports into the inventory through a preview | done | phone, API (no web screen) | Deck pasted, printing chosen, condition set for all, "Import done, 2 new cards added, 4 copies, private". |
 | C18 | A Collectr CSV imports into the inventory through a preview | done | phone, API (no web screen) | CSV pasted, preview "2 new cards", added as private cards. |
-| C19 | All the tests of section 9 pass | partly | API, web, phone | Every existing suite passes with retries off; the tests of S3 and S4 do not exist because those stages were not built (table in (i)). |
+| C19 | All the tests of section 9 pass | partly | API, web, phone | Every existing suite passes with retries off; the tests of S3 and S4 do not exist because those stages were not built, and the wishlist region rule has an integration test but no unit test (table in (i)). |
 | C20 | OpenAPI and the api-client are regenerated | done | API, packages | Export and regeneration leave git clean. |
-| C21 | Docs, ADRs, CLAUDE.md and IMPLEMENTATION_STATUS.md are updated | done (this stage) | documents | ADR 0017 new, 0004 superseded, 0010 amended; this stage brought the status file, the handoff, the product overview, the READMEs and the schema notes to today. CLAUDE.md: the owner's sentences of the spec are in; three more are proposed in the last section. Not re-walked by the verifier. |
+| C21 | Docs, ADRs, CLAUDE.md and IMPLEMENTATION_STATUS.md are updated | partly | documents, database | ADR 0017 new, 0004 superseded, 0010 amended; this stage brought the status file, the handoff, the product overview, the READMEs, the S2 wishlist contract, the deployment guide and the schema notes to today. Still stale, recorded in (h): two lines of the paused web's README (the web is not changed) and two database comments of V112 that name "Who wants it" (V112 is frozen; only a new migration can restate them). CLAUDE.md: the owner's sentences of the spec are in; six more are proposed in the last section. An independent fact check of the documents (2026-10-14) found the stale lines; the rest of what it found is fixed. |
 | C22 | A final summary and the exact next task | done (this stage) | documents | This report; `IMPLEMENTATION_STATUS.md` "NEXT TASK" names the phone redesign of 2026-10-14. Not re-walked by the verifier. |
 
-In numbers: **13 done** (11 at the walk, plus C21 and C22 with this stage), **4 partly** (C2, C4,
-C8, C19) and **5 not built** (C3, C6, C7, C9, C16: all of S3 and S4). Two clauses are done on one
+In numbers: **12 done** (11 at the walk, plus C22 with this stage), **5 partly** (C2, C4, C8, C19,
+C21) and **5 not built** (C3, C6, C7, C9, C16: all of S3 and S4). Two clauses are done on one
 client only: the imports (C17, C18) exist on the phone and in the API, not on the web.
 
 ## (c) What was not built, and why
@@ -190,6 +191,7 @@ Each was taken by a stage so the work could go on. Each has one place to change 
 | The import file limits | deck 100 kB / 500 lines, CSV 2 MB / 5,000 rows, preview 60 minutes | `PUT /api/v1/admin/inventory/import-settings` (no web page yet) |
 | The purge of old previews | runs with the hourly freshness job | one entry in `infrastructure/terraform/modules/scheduler/variables.tf` for a job of its own |
 | Showing the file's variant on an import line | not stored | a migration and a contract change |
+| Import previews in the owner's data export | not exported: a preview lives an hour and what it becomes is the inventory, which is exported; previews are deleted with the account | the inventory module's `ExportContributor` (`InventoryExtensions`) |
 | What Europe holds | no Russia, Turkey, Armenia, Azerbaijan, Georgia; Greenland not in Americas (North) | `/admin/regions` (data, no code) |
 | The region chat channel texts | "trades, meetups, locals" | the admin channel editor (data) |
 | "Near Mint only" | also accepts Mint | the wishlist alert rules (`WishlistAlertRules`) |
@@ -202,9 +204,10 @@ Each was taken by a stage so the work could go on. Each has one place to change 
 
 ## (g) What could not be verified
 
-- **Android.** This Mac has no Android SDK, so the Android run could not be verified. The Android
-  build compiles (exported). Uploads from Android (photos, import files) are expected to fail the
-  way iOS uploads did before their fix; nothing here can prove it either way.
+- **Android.** This Mac has no Android SDK, so the Android run could not be verified. Only the
+  Android JavaScript bundle was exported (`npx expo export --platform android`); nothing ran on
+  Android. Uploads from Android (photos, import files) are expected to fail the way iOS uploads did
+  before their fix; nothing here can prove it either way.
 - **A real phone.** Everything ran in Expo Go on the iPhone simulator; no physical iPhone, no store
   build.
 - **VoiceOver and Voice Control.** The names they would read were read from the accessibility
@@ -238,6 +241,19 @@ Small:
   printing of a typed code.
 - On an import line left out, the note "Taken as the plain copy…" was once seen cut; it was not
   seen again in this stage.
+- The card screen's list of printings shows "Market 42.00 CAD" without the price's source (the
+  spec's section 4 asks for it; the "Selected printing" price names it). The S3 picker was to
+  replace that list; the redesign takes market prices off the phone's card page (its section 8).
+- The stored `publicly_listed` flag of a card can be one decision behind when the freshness job
+  overlaps a write of the same collector, until the next run; public reads apply the live rules,
+  never the flag (the lock fix).
+- The phone's web build (the one its browser tests drive) does not hold the browser's own Back
+  button on the import screen (the header's back button asks; the preview is kept either way), and
+  names that header button "(tabs), back".
+- Two database comments of V112 still name "Who wants it", which is not built
+  (`wishlist_item.public_note`, `wishlist_item.near_mint_only`). `docs/database/schema.md` says it
+  right; the database itself needs a new migration to restate them, as V111 did for older
+  comments. This stage adds none: the redesign's prompt numbers its migrations from V115.
 
 Larger:
 - Uploaded photos can come out rotated (the API drops the photo's orientation when it re-encodes
@@ -245,6 +261,10 @@ Larger:
 - Uploads from Android (see (g)).
 - No time limit on inventory writes that wait for each other; the after-commit analytics listeners
   can run out of database connections when a job hides many listings at once (hardening).
+- The analytics events `search_performed` and `search_no_results` carry the text a collector
+  searched for, from every client (`AnalyticsText` masks e-mail addresses, decimal numbers and
+  long runs of digits and keeps at most 64 characters). S3's history rule ("never in analytics
+  beyond counts") was to reduce it, and S3 is not built (hardening).
 - A dialog after a sheet could be invisible to VoiceOver on iOS: fixed on `main` by #70
   (2026-10-14); this branch gets it when the lead merges `main`.
 
@@ -252,7 +272,8 @@ Larger:
 
 - The main bundle is 899.93 kB, 0.07 kB under its 900 kB warning budget: any new web feature
   crosses it.
-- The card page picks the first printing by itself ("Selected printing TMP-EN014 …").
+- The card page picks the first printing by itself ("Selected printing TMP-EN014 …"), and its
+  printings table shows market prices without their source.
 - The wish dialog's hint mentions a rarity filter that is not shown when all printings share one
   rarity.
 - The header search opens a code shared by several printings on the first one; on a 375 px screen
@@ -274,7 +295,7 @@ Larger:
 | API unit: rarity query parsing | missing (S3) | — |
 | API unit: deck file parser (sections, duplicates, comments, CRLF, bad lines) | exists | `YdkParserTest` |
 | API unit: CSV mapping | exists | `CollectrCsvParserTest`, `ImportMatcherTest` |
-| API unit: wishlist region matching | exists | `WishlistRulesTest`, `WishlistAlertsIT` |
+| API unit: wishlist region matching | partly | no unit test: the region rule is SQL (`WishlistAlertRepository`), covered by the integration test `WishlistAlertsIT` (same region alerts, another region does not, both ways) |
 | API: holders by any printing, one printing, rarity only, with region and state filters | partly | `CardHoldersIT` covers card, printing, region and every existing filter; rarity and state filters are S3 |
 | API: holder counts per printing | missing (S3) | — |
 | API: binder counts and state lists leave out hidden and blocked collectors | exists | `RegionMapIT` |
@@ -287,7 +308,7 @@ Larger:
 | API: public note moderation and length | exists | `WishlistIT` |
 | API: % TCG choice checked against the admin list | exists | `WishlistIT`, `WishlistRulesTest` |
 | API: "Near Mint only" alerts, no duplicate alert | exists | `WishlistAlertsIT` |
-| API: no matches table or endpoint left | exists | `WishlistIT`, `FlywayMigrationIT` |
+| API: no matches table or endpoint left | exists | `WishlistIT`, `SimplifiedWishlistMigrationIT`, `OpenApiExportTest` |
 | API: "Who wants it" respects visibility, blocks and region | missing (S3) | — |
 | API: "Wanted by N" counts | missing (S3) | — |
 | API: search history (record, list, delete, clear, cap, privacy switch, account deletion) | missing (S3) | — |
@@ -326,9 +347,9 @@ The other tasks wait for your choice:
 3. **Install the Android SDK** on the Mac, so the Android half of every phone change can be run
    (and the Android upload fix proven).
 4. **Hardening**: a time limit on inventory writes that wait; the after-commit analytics listeners
-   (fewer at once, or batched); blocked collectors in the collectors part of search; the photo
-   orientation on upload; the Phase 13 list (accessibility pass, load test, index review, backup
-   drill).
+   (fewer at once, or batched); blocked collectors in the collectors part of search; the search
+   text in the search analytics events; the photo orientation on upload; the Phase 13 list
+   (accessibility pass, load test, index review, backup drill).
 5. **Open launch decisions** (from `docs/development/claude-handoff.md`): how a store build sells
    Premium and takes donations (ADR 0011); an arm64 PostGIS image before macOS 28; the two
    allowlisted npm advisories that expire on 2026-11-30 (`npm run audit:gate` fails after that);
@@ -352,7 +373,8 @@ CLAUDE.md is the owner's file; these are proposals.
 4. Backend conventions, add: "A discovery list that pages or counts rows (card holders, binder
    search, suggestions, binders of a state) excludes both directions of a block in its SQL
    (`DiscoverySql.notBlocked`), before the limit and in the count, never by dropping rows
-   afterwards."
+   afterwards. One exception exists today: the collectors section of `GET /search` reads a page
+   cached for every viewer and drops blocked collectors after it (a hardening follow-up)."
 5. Backend conventions, add: "Every write to `binder` or `inventory_item` starts with
    `BinderService.lockOwners`, then locks binder rows before item rows, each in ascending id and
    `FOR NO KEY UPDATE`; only the freshness job skips locked rows. See `docs/database/schema.md`,
