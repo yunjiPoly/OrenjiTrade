@@ -37,10 +37,7 @@ public class RegionBinderRepository {
                     + DiscoverySql.LISTED
                     + ")";
 
-    private static final String NOT_BLOCKED =
-            " AND NOT EXISTS (SELECT 1 FROM user_block ub WHERE (ub.blocker_id = :viewer AND"
-                    + " ub.blocked_id = bn.owner_id) OR (ub.blocker_id = bn.owner_id AND"
-                    + " ub.blocked_id = :viewer))";
+    private static final String NOT_BLOCKED = DiscoverySql.notBlocked("bn.owner_id");
 
     private final JdbcClient jdbc;
 

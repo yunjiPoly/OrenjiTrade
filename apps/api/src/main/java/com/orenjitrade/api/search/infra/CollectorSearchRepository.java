@@ -205,9 +205,11 @@ public class CollectorSearchRepository {
 
     /**
      * Discoverable collectors of {@code region} who allow name search, matching {@code query} by
-     * handle or display name (prefix first, then trigram similarity).
+     * handle or display name (prefix first, then trigram similarity); for a signed-in viewer,
+     * without the collectors blocked with them (left out before the limit).
      */
-    public List<CollectorHit> suggest(String query, String region, int limit, Instant now) {
+    public List<CollectorHit> suggest(
+            String query, String region, @Nullable UUID viewerId, int limit, Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         params.put("region", region);
@@ -217,6 +219,9 @@ public class CollectorSearchRepository {
         params.put("qContains", "%" + escaped + "%");
         params.put("qPrefix", escaped + "%");
         params.put("limit", limit);
+        if (viewerId != null) {
+            params.put("viewer", viewerId);
+        }
         String display = "lower(unaccent_immutable(COALESCE(pr.display_name, u.display_name, '')))";
         String sql =
                 "SELECT u.id, u.handle, COALESCE(pr.display_name, NULLIF(u.display_name, ''),"
@@ -235,6 +240,7 @@ public class CollectorSearchRepository {
                         + " LIKE :qContains ESCAPE '\\' OR u.handle % :qn OR "
                         + display
                         + " % :qn)"
+                        + (viewerId == null ? "" : DiscoverySql.notBlocked("u.id"))
                         + " ORDER BY CASE WHEN u.handle LIKE :qPrefix ESCAPE '\\' OR "
                         + display
                         + " LIKE :qPrefix ESCAPE '\\' THEN 0 ELSE 1 END,"

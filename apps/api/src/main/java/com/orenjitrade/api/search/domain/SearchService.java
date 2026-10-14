@@ -195,7 +195,7 @@ public class SearchService {
         if (types.contains(SearchType.BINDERS)) {
             binderHits =
                     publicBinderService.publicBinders(
-                            viewerId, binders.search(q, game, region.code(), limit, now));
+                            viewerId, binders.search(q, game, region.code(), viewerId, limit, now));
         }
         UnifiedSearch result =
                 new UnifiedSearch(
@@ -259,7 +259,9 @@ public class SearchService {
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
      * printing or card held by discoverable collectors of the region (the caller's own items
-     * excluded), with each holder's marker.
+     * excluded), with each holder's marker. Collectors in a block relation with the caller, in
+     * either direction, are left out by the repository's SQL, so {@code totalItems} counts exactly
+     * the rows the pages hold.
      */
     @Transactional(readOnly = true)
     public PageResponse<CardHolder> cardHolders(@Nullable UUID viewerId, HolderQuery query) {
@@ -334,7 +336,7 @@ public class SearchService {
             ViewerContext viewer = new ViewerContext(viewerId, false, false);
             for (InventoryItemView item : items) {
                 @Nullable MarkerRow owner = owners.get(item.row().ownerId());
-                if (owner == null || assembler.isBlocked(viewerId, owner.id())) {
+                if (owner == null) {
                     continue;
                 }
                 rows.add(new CardHolder(assembler.marker(owner, viewer, now), item));
@@ -363,7 +365,8 @@ public class SearchService {
     /**
      * {@code GET /search/suggest}: mixed autocomplete. Printing codes and cards (catalog suggest),
      * discoverable collectors of the region who allow name search, sets, public binders of the
-     * region and tags, interleaved one per kind in that order until {@code limit}.
+     * region and tags, interleaved one per kind in that order until {@code limit}. Collectors
+     * blocked with the caller, and their binders, are left out in SQL before each kind's limit.
      */
     @Transactional(readOnly = true)
     public List<Suggestion> suggest(
@@ -398,10 +401,7 @@ public class SearchService {
         }
         sources.add(catalog);
         Deque<Suggestion> people = new ArrayDeque<>();
-        for (CollectorHit hit : collectors.suggest(text, region.code(), limit, now)) {
-            if (assembler.isBlocked(viewerId, hit.id())) {
-                continue;
-            }
+        for (CollectorHit hit : collectors.suggest(text, region.code(), viewerId, limit, now)) {
             people.add(
                     new Suggestion(
                             SuggestionType.COLLECTOR,
@@ -429,10 +429,7 @@ public class SearchService {
         }
         sources.add(sets);
         Deque<Suggestion> binderEntries = new ArrayDeque<>();
-        for (BinderName binder : binders.suggest(text, region.code(), limit, now)) {
-            if (assembler.isBlocked(viewerId, binder.ownerId())) {
-                continue;
-            }
+        for (BinderName binder : binders.suggest(text, region.code(), viewerId, limit, now)) {
             binderEntries.add(
                     new Suggestion(
                             SuggestionType.BINDER,

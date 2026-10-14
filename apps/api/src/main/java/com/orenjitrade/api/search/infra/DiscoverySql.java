@@ -58,5 +58,21 @@ final class DiscoverySql {
     /** The collector's country is in the platform region {@code :region}. */
     static final String IN_REGION = "co.region_code = :region";
 
+    /**
+     * " AND no block exists, in either direction, between the viewer {@code :viewer} and the
+     * collector in {@code ownerColumn}" ({@code user_block} of the messaging module, read-only).
+     * Appended for a signed-in viewer to every query that counts or limits its rows: a collector
+     * dropped after the SQL has counted or limited them leaves a total that is too high and a page
+     * that comes back short.
+     */
+    static String notBlocked(String ownerColumn) {
+        return " AND NOT EXISTS (SELECT 1 FROM user_block ub WHERE (ub.blocker_id = :viewer AND"
+                + " ub.blocked_id = "
+                + ownerColumn
+                + ") OR (ub.blocker_id = "
+                + ownerColumn
+                + " AND ub.blocked_id = :viewer))";
+    }
+
     private DiscoverySql() {}
 }
