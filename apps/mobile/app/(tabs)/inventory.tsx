@@ -1,6 +1,9 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -12,53 +15,71 @@ import {
 } from '@/src/api/hooks/inventory';
 import { usePrivacySettings } from '@/src/api/hooks/location';
 import { useGames } from '@/src/api/hooks/profile';
-import type { BinderResponse, InventoryItemResponse, PublicInventoryItem } from '@/src/api/types';
+import { useUid } from '@/src/api/hooks/useUid';
+import type { BinderResponse, InventoryItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
-import { Screen } from '@/src/components/ui/Screen';
-import { Segmented } from '@/src/components/ui/Segmented';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
+import { Text, TextInput } from '@/src/components/ui/Text';
+import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
 import { BinderRow } from '@/src/features/binders/BinderRow';
 import { ReorderBindersSheet } from '@/src/features/binders/ReorderBindersSheet';
 import {
-  BULK_DELETE_MESSAGE,
-  bulkDeleteTitle,
   bulkResultMessage,
   toBulkRequest,
   type BulkAction,
 } from '@/src/features/inventory/bulkActions';
 import { BulkBar } from '@/src/features/inventory/BulkBar';
-import { InventoryFiltersBar } from '@/src/features/inventory/InventoryFiltersBar';
-import { InventorySummaryStrip } from '@/src/features/inventory/InventorySummaryStrip';
-import { ItemRow } from '@/src/features/inventory/ItemRow';
+import { showCardsDeleted } from '@/src/features/inventory/deleteToasts';
+import { InventoryCardRow } from '@/src/features/inventory/InventoryCardRow';
+import { BULK_COPY, INVENTORY_COPY } from '@/src/features/inventory/inventoryCopy';
+import {
+  InventoryFilterSheet,
+  ownedGameSlugs,
+} from '@/src/features/inventory/InventoryFilterSheet';
+import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { ListingsPausedBanner } from '@/src/features/inventory/ListingsPausedBanner';
+import { NeedsConfirmationNotice } from '@/src/features/inventory/NeedsConfirmationNotice';
 import { ownerIsVisible } from '@/src/features/inventory/visibilityStatus';
+import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { boundedQuery, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import {
+  activeInventoryFilterCount,
+  clearedFilters,
   DEFAULT_INVENTORY_FILTERS,
   isFiltered,
-  UNFILED,
   type InventoryFilters,
 } from '@/src/lib/inventoryFilters';
-import { PINNED_MAX_FONT_SCALE, spacing } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  textStyle,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 type View_ = 'cards' | 'binders';
 
 /**
- * Inventory tab (web: `/inventory`), built for managing cards on a phone: the collector's cards
- * with search, game / intent / visibility / binder filters and sorting, the totals and the cards
- * needing a confirmation, paused listings with "Resume", multi-select bulk actions (visibility,
- * move to a binder, availability, confirm, delete) and their binders (with reordering). Cards
- * open the editor; "Add card" starts the catalog search → printing → details flow; "Import"
- * brings cards from a deck file or a CSV export (stage S5, `app/items/import.tsx`).
+ * Inventory (owner spec 2026-10-14, section 6, mockup screen 1): the title, the bell and "Add
+ * cards"; the switch "Cards {n} | Binders {n}"; on Cards, "Search your cards" with the filter
+ * button (how many filters are on), "{n} cards · {n} copies · {n} public" with "Select", and rows
+ * of only the picture, the name, the code, the asking price as typed and the copies. A row opens
+ * Edit card. Select mode keeps Move to binder, Make public, Make private, Still available and
+ * Delete. The listings-paused banner and the freshness notice stay. The Binders side keeps today's
+ * binder list until stage R3.
  */
 export default function InventoryScreen() {
   const router = useRouter();
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<View_>(params.view === 'binders' ? 'binders' : 'cards');
   // A link into the tab (`?view=binders`) switches the view once per new parameter.
@@ -69,58 +90,73 @@ export default function InventoryScreen() {
       setView(params.view);
     }
   }
+  const summary = useInventorySummary();
+  const binders = useMyBinders();
 
   return (
-    <Screen testID="screen-inventory" style={styles.screen}>
+    <View
+      testID="screen-inventory"
+      style={[styles.screen, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
       <View style={styles.top}>
-        <Segmented
-          label="Inventory view"
-          options={[
-            { value: 'cards', label: 'Cards' },
-            { value: 'binders', label: 'Binders' },
+        <View style={styles.titleRow}>
+          <Text
+            accessibilityRole="header"
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.title, { color: palette.ink }]}
+          >
+            {INVENTORY_COPY.title}
+          </Text>
+          <View style={styles.headerActions}>
+            <NotificationBell testID="notification-bell-inventory" variant="round" />
+            <PillButton
+              label={INVENTORY_COPY.addCards}
+              icon="plus"
+              size="small"
+              onPress={() => router.push('/items/new')}
+              testID="inventory-add-card"
+            />
+          </View>
+        </View>
+        <UnderlineTabs
+          label={INVENTORY_COPY.viewLabel}
+          tabs={[
+            { value: 'cards', label: INVENTORY_COPY.cards, count: summary.data?.totalItems },
+            { value: 'binders', label: INVENTORY_COPY.binders, count: binders.data?.length },
           ]}
           value={view}
           onChange={setView}
-          style={styles.grow}
           testID="inventory-view"
         />
-        {view === 'cards' ? (
-          <Button
-            label="Add card"
-            icon="plus"
-            onPress={() => router.push('/items/new')}
-            style={styles.add}
-            testID="inventory-add-card"
-          />
-        ) : (
-          <Button
-            label="New binder"
-            icon="plus"
-            onPress={() => router.push('/binders/new')}
-            style={styles.add}
-            testID="inventory-new-binder"
-          />
-        )}
       </View>
       {view === 'cards' ? <CardsView /> : <BindersView />}
-    </Screen>
+    </View>
   );
 }
 
 function CardsView() {
   const router = useRouter();
+  const { palette } = useTheme();
   const snackbar = useSnackbar();
+  const queryClient = useQueryClient();
+  const uid = useUid();
   const [text, setText] = useState('');
   const [filters, setFilters] = useState<InventoryFilters>(DEFAULT_INVENTORY_FILTERS);
+  const [sheet, setSheet] = useState(false);
   const games = useGames();
   const binders = useMyBinders();
   const summary = useInventorySummary();
   const items = useInventoryItems(filters);
   const bulk = useBulkInventory();
-  // Selection mode (web: the checkboxes of the grid and the bulk bar).
+  const lastSavedId = useInventoryUiStore((state) => state.lastSavedId);
+  const markSaved = useInventoryUiStore((state) => state.markSaved);
+  // Selection mode (the bulk bar).
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // The orange ring of the card saved last lasts while the tab is on screen.
+  useFocusEffect(useCallback(() => () => markSaved(null), [markSaved]));
 
   useEffect(() => {
     const q = boundedQuery(text);
@@ -138,23 +174,20 @@ function CardsView() {
     () => items.data?.pages.flatMap((page) => page.items ?? []) ?? [],
     [items.data]
   );
-  const total = items.data?.pages[0]?.totalItems ?? 0;
-  const unfiledCount = useMemo(() => {
-    if (!summary.data || !binders.data) {
-      return null;
-    }
-    const filed = binders.data.reduce((sum, binder) => sum + binder.itemCount, 0);
-    return Math.max(0, summary.data.totalItems - filed);
-  }, [binders.data, summary.data]);
   const filtered = isFiltered(filters);
+  const filterCount = activeInventoryFilterCount(filters);
+  const owned = useMemo(
+    () => ownedGameSlugs(summary.data?.byGame, games.data),
+    [games.data, summary.data?.byGame]
+  );
 
   const open = useCallback(
-    (item: InventoryItemResponse | PublicInventoryItem) =>
+    (item: InventoryItemResponse) =>
       router.push({ pathname: '/items/[id]', params: { id: item.id } }),
     [router]
   );
   const toggle = useCallback(
-    (item: InventoryItemResponse | PublicInventoryItem) =>
+    (item: InventoryItemResponse) =>
       setSelected((current) => {
         const next = new Set(current);
         if (next.has(item.id)) {
@@ -186,9 +219,17 @@ function CardsView() {
     setConfirmDelete(false);
     try {
       const response = await bulk.mutateAsync(toBulkRequest(action, ids));
-      snackbar.show(bulkResultMessage(action, response));
       if (action.kind === 'delete') {
         setSelected(new Set());
+        const skipped = new Set(response.skipped.map((entry) => entry.itemId));
+        const deleted = ids.filter((id) => !skipped.has(id));
+        if (deleted.length > 0) {
+          showCardsDeleted({ snackbar, queryClient, uid, markSaved }, deleted);
+        } else {
+          snackbar.show(bulkResultMessage(action, response));
+        }
+      } else {
+        snackbar.show(bulkResultMessage(action, response));
       }
     } catch (error) {
       snackbar.show(friendlyMessage(error as ApiError), { tone: 'error' });
@@ -197,10 +238,16 @@ function CardsView() {
 
   const clear = () => {
     setText('');
-    setFilters((current) => ({ ...DEFAULT_INVENTORY_FILTERS, sort: current.sort }));
+    setFilters(clearedFilters({ ...filters, q: '' }));
   };
 
-  const binderId = filters.binder && filters.binder !== UNFILED ? filters.binder : null;
+  const totals = summary.data
+    ? INVENTORY_COPY.summary(
+        summary.data.totalItems,
+        summary.data.totalQuantity,
+        summary.data.byVisibility.PUBLIC + summary.data.byVisibility.TEMPORARILY_PUBLIC
+      )
+    : null;
 
   let body;
   if (!items.data && items.error) {
@@ -208,12 +255,12 @@ function CardsView() {
       <ErrorState
         testID="inventory-error"
         error={items.error}
-        title="Your cards could not load"
+        title={INVENTORY_COPY.loadError}
         onRetry={() => void items.refetch()}
       />
     );
   } else if (!items.data) {
-    body = <SkeletonList rows={4} rowHeight={96} testID="inventory-loading" />;
+    body = <SkeletonList rows={5} rowHeight={76} testID="inventory-loading" />;
   } else {
     body = (
       <FlatList
@@ -221,20 +268,56 @@ function CardsView() {
         data={list}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <ItemRow
+          <InventoryCardRow
             item={item}
             onPress={open}
             selectable={selecting}
             selected={selected.has(item.id)}
             onToggle={toggle}
+            highlighted={item.id === lastSavedId}
           />
         )}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <View style={styles.header}>
             <ListingsPausedBanner />
-            <InventorySummaryStrip />
-            <SponsoredSlot placement="INVENTORY_SIDEBAR" game={filters.game} variant="compact" />
+            <NeedsConfirmationNotice />
+            {list.length > 0 || totals ? (
+              <View style={styles.summaryRow}>
+                {totals ? (
+                  <Text
+                    testID="inventory-summary-totals"
+                    style={[styles.summary, { color: palette.textMuted }]}
+                  >
+                    <Text style={[styles.summaryStrong, { color: palette.ink }]}>
+                      {totals.cards}
+                    </Text>
+                    {totals.rest}
+                  </Text>
+                ) : (
+                  <View style={styles.grow} />
+                )}
+                {list.length > 0 ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      selecting ? INVENTORY_COPY.doneSelecting : INVENTORY_COPY.select
+                    }
+                    onPress={selecting ? stopSelecting : () => setSelecting(true)}
+                    hitSlop={8}
+                    testID="inventory-select"
+                    style={({ pressed }) => [styles.select, pressed && styles.pressed]}
+                  >
+                    <Text
+                      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                      style={[styles.selectLabel, { color: palette.accent }]}
+                    >
+                      {selecting ? INVENTORY_COPY.doneSelecting : INVENTORY_COPY.select}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -242,18 +325,18 @@ function CardsView() {
             <EmptyState
               testID="inventory-empty-filtered"
               icon="filter-remove-outline"
-              title="No cards match"
-              description="Try another search, game, intent or binder."
-              actionLabel="Clear filters"
+              title={INVENTORY_COPY.noMatchTitle}
+              description={INVENTORY_COPY.noMatchBody}
+              actionLabel={INVENTORY_COPY.noMatchAction}
               onAction={clear}
             />
           ) : (
             <EmptyState
               testID="inventory-empty"
               icon="cards-outline"
-              title="Your inventory is empty"
-              description="Add the cards you own, trade or sell. They start private: publish them when you are ready."
-              actionLabel="Add your first card"
+              title={INVENTORY_COPY.emptyTitle}
+              description={INVENTORY_COPY.emptyBody}
+              actionLabel={INVENTORY_COPY.emptyAction}
               onAction={() => router.push('/items/new')}
             />
           )
@@ -283,58 +366,65 @@ function CardsView() {
           />
         }
         contentContainerStyle={styles.listContent}
-        accessibilityLabel={`${total} ${total === 1 ? 'card' : 'cards'}`}
       />
     );
   }
 
   return (
     <View style={styles.grow}>
-      <InventoryFiltersBar
-        text={text}
-        onText={setText}
-        filters={filters}
-        onChange={(patch) => setFilters((current) => ({ ...current, ...patch }))}
-        onClear={clear}
-        games={games.data}
-        binders={binders.data ?? []}
-        unfiledCount={unfiledCount}
-        filtered={filtered}
-      />
-      {binderId ? (
-        <Button
-          label="Open this binder"
-          icon="book-open-page-variant-outline"
-          variant="ghost"
-          onPress={() => router.push({ pathname: '/binders/[id]', params: { id: binderId } })}
-          style={styles.binderLink}
-          testID="inventory-open-binder"
-        />
-      ) : null}
       <View style={styles.tools}>
-        <Button
-          label="Import"
-          icon="tray-arrow-down"
-          variant="ghost"
-          onPress={() => router.push('/items/import')}
-          accessibilityLabel="Import cards from a file"
-          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          style={styles.tool}
-          testID="inventory-import"
-        />
-        {items.data && list.length > 0 ? (
-          <Button
-            label={selecting ? 'Done selecting' : 'Select'}
-            icon={selecting ? 'check' : 'checkbox-multiple-marked-outline'}
-            variant="ghost"
-            onPress={selecting ? stopSelecting : () => setSelecting(true)}
+        <View
+          style={[styles.search, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        >
+          <MaterialCommunityIcons name="magnify" size={18} color={palette.textMuted} />
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={INVENTORY_COPY.searchPlaceholder}
+            placeholderTextColor={palette.textMuted}
+            accessibilityLabel={INVENTORY_COPY.searchPlaceholder}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={styles.tool}
-            testID="inventory-select"
+            testID="inventory-search"
+            style={[styles.searchInput, { color: palette.ink }]}
           />
-        ) : null}
+          {text ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear the search"
+              onPress={() => setText('')}
+              hitSlop={8}
+              testID="inventory-search-clear"
+            >
+              <MaterialCommunityIcons name="close-circle" size={18} color={palette.textMuted} />
+            </Pressable>
+          ) : null}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={INVENTORY_COPY.filters(filterCount)}
+          onPress={() => setSheet(true)}
+          testID="inventory-filters-open"
+          style={({ pressed }) => [
+            styles.filterButton,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <MaterialCommunityIcons name="tune-variant" size={20} color={palette.ink} />
+          {filterCount > 0 ? (
+            <View
+              style={[styles.badge, { backgroundColor: palette.primary }]}
+              testID="inventory-filters-count"
+            >
+              <Text style={[styles.badgeText, { color: palette.onPrimary }]}>{filterCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       </View>
-      <View style={[styles.grow, styles.listTop]}>{body}</View>
+      <View style={styles.grow}>{body}</View>
       {selecting && selected.size > 0 ? (
         <View style={styles.bulk}>
           <BulkBar
@@ -348,16 +438,28 @@ function CardsView() {
           />
         </View>
       ) : null}
-      <ConfirmDialog
+      <InventoryFilterSheet
+        visible={sheet}
+        filters={filters}
+        ownedGames={owned}
+        games={games.data}
+        binders={binders.data ?? []}
+        onApply={(next) => {
+          setSheet(false);
+          setFilters({ ...next, q: filters.q });
+        }}
+        onClose={() => setSheet(false)}
+      />
+      <ConfirmSheet
         visible={confirmDelete}
-        title={bulkDeleteTitle(selected.size)}
-        message={BULK_DELETE_MESSAGE}
-        confirmLabel="Delete"
-        tone="danger"
+        title={BULK_COPY.deleteTitle(selected.size)}
+        message={BULK_COPY.deleteBody}
+        confirmLabel={BULK_COPY.deleteConfirm}
+        cancelLabel={BULK_COPY.keep}
         busy={bulk.isPending}
         onConfirm={() => void runBulk({ kind: 'delete' })}
         onCancel={() => setConfirmDelete(false)}
-        testID="bulk-delete-dialog"
+        testID="bulk-delete-sheet"
       />
     </View>
   );
@@ -397,16 +499,26 @@ function BindersView() {
       ListHeaderComponent={
         <>
           <ListingsPausedBanner />
-          {binders.data.length > 1 ? (
+          <View style={styles.binderTools}>
             <Button
-              label="Reorder"
-              icon="swap-vertical"
-              variant="ghost"
-              onPress={() => setReordering(true)}
-              style={styles.binderLink}
-              testID="binders-reorder"
+              label="New binder"
+              icon="plus"
+              variant="secondary"
+              onPress={() => router.push('/binders/new')}
+              style={styles.binderTool}
+              testID="inventory-new-binder"
             />
-          ) : null}
+            {binders.data.length > 1 ? (
+              <Button
+                label="Reorder"
+                icon="swap-vertical"
+                variant="ghost"
+                onPress={() => setReordering(true)}
+                style={styles.binderTool}
+                testID="binders-reorder"
+              />
+            ) : null}
+          </View>
           <ReorderBindersSheet
             visible={reordering}
             binders={binders.data}
@@ -441,19 +553,76 @@ function Separator() {
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingBottom: 0, gap: spacing[3] },
-  top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  screen: { flex: 1 },
+  top: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[5],
+    paddingBottom: spacing[3],
+    gap: 14,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing[3],
+  },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.4,
+  },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   grow: { flex: 1 },
-  add: { minHeight: 44, paddingHorizontal: spacing[3], paddingVertical: spacing[2] },
-  binderLink: { alignSelf: 'flex-start', minHeight: 36, paddingVertical: spacing[1] },
-  // "Import" and "Select" side by side. They stay on screen above the list, so their text follows
-  // the system size only a little (PINNED_MAX_FONT_SCALE): at the largest sizes two full-size
-  // buttons took what was left of the screen and the cards under them were out of reach.
-  tools: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing[2] },
-  tool: { minHeight: 36, paddingVertical: spacing[1], paddingHorizontal: spacing[3] },
-  listTop: { marginTop: spacing[2] },
-  bulk: { paddingBottom: spacing[2] },
-  header: { gap: spacing[3], marginBottom: spacing[3] },
-  listContent: { paddingBottom: spacing[6] },
+  tools: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4] },
+  search: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+  },
+  searchInput: { flex: 1, minHeight: 42, fontSize: 15, paddingVertical: 0 },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { fontSize: 11, lineHeight: 14, fontWeight: fontWeight.bold },
+  header: { gap: spacing[3], marginBottom: spacing[2], marginTop: spacing[3] },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[2],
+  },
+  summary: { ...textStyle('sm'), fontSize: 13, flexShrink: 1 },
+  summaryStrong: { fontWeight: fontWeight.semibold },
+  select: { minHeight: 32, justifyContent: 'center' },
+  selectLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
+  listContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[6] },
+  bulk: { paddingHorizontal: spacing[4], paddingBottom: spacing[2] },
   separator: { height: spacing[2] },
+  binderTools: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  binderTool: { minHeight: 44, paddingVertical: spacing[2] },
+  pressed: { opacity: 0.8 },
 });

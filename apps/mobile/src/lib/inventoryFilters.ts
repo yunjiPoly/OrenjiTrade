@@ -1,30 +1,32 @@
-import type { FreshnessState, InventoryAvailability, Visibility } from '@/src/api/types';
+import type { FreshnessState } from '@/src/api/types';
 
 import { boundedQuery } from './catalog';
 
 /** `binder` filter value listing the cards that are in no binder (`?unfiled=true`). */
 export const UNFILED = 'unfiled';
 
-export type InventorySort = 'updated' | 'name' | 'price' | 'price-asc';
+/**
+ * Sorts of the Inventory's "Filter and sort" sheet (owner spec 2026-10-14, section 6, screen 2):
+ * Recently added (creation, newest first), Name (A–Z), Price (highest first; prices that are not a
+ * plain amount, like "85% TCG", come after every amount, then the cards without a price).
+ */
+export type InventorySort = 'created' | 'name' | 'price';
 
-export const INVENTORY_SORTS: readonly { value: InventorySort; label: string }[] = [
-  { value: 'updated', label: 'Recently updated' },
-  { value: 'name', label: 'Name (A–Z)' },
-  { value: 'price', label: 'Price (high to low)' },
-  { value: 'price-asc', label: 'Price (low to high)' },
-];
+export const INVENTORY_SORTS: readonly InventorySort[] = ['created', 'name', 'price'];
 
 export const INVENTORY_PAGE_SIZE = 24;
 
-/** The Inventory tab's view of `GET /inventory/items` (mirror of the web's `InventoryParams`). */
+/** "Who can see it" of the sheet: everything, the public cards or the private ones. */
+export type VisibilityFilter = 'PUBLIC' | 'PRIVATE';
+
+/** The Inventory tab's view of `GET /inventory/items`. */
 export interface InventoryFilters {
   q: string;
   game: string | null;
-  /** The intent (trade / sale / ...): the API's `availability`. */
-  availability: InventoryAvailability | null;
   /** Binder id, {@link UNFILED}, or `null` for every card. */
   binder: string | null;
-  visibility: Visibility | null;
+  visibility: VisibilityFilter | null;
+  /** Only stale or hidden cards (not in the sheet; the "needs a confirmation" notice). */
   freshness: FreshnessState | null;
   sort: InventorySort;
 }
@@ -32,11 +34,10 @@ export interface InventoryFilters {
 export const DEFAULT_INVENTORY_FILTERS: InventoryFilters = {
   q: '',
   game: null,
-  availability: null,
   binder: null,
   visibility: null,
   freshness: null,
-  sort: 'updated',
+  sort: 'created',
 };
 
 /** Query parameters of `GET /inventory/items` for a page of `filters`. */
@@ -50,18 +51,12 @@ export function inventoryListQuery(
     game?: string;
     binderId?: string;
     unfiled?: boolean;
-    visibility?: Visibility;
-    availability?: InventoryAvailability;
+    visibility?: VisibilityFilter;
     freshness?: FreshnessState;
-    sort: 'updated' | 'name' | 'price';
-    direction?: 'asc' | 'desc';
+    sort: InventorySort;
     page: number;
     size: number;
-  } = {
-    sort: filters.sort === 'price-asc' ? 'price' : filters.sort,
-    page,
-    size,
-  };
+  } = { sort: filters.sort, page, size };
   const q = boundedQuery(filters.q);
   if (q) {
     query.query = q;
@@ -69,17 +64,11 @@ export function inventoryListQuery(
   if (filters.game) {
     query.game = filters.game;
   }
-  if (filters.availability) {
-    query.availability = filters.availability;
-  }
   if (filters.visibility) {
     query.visibility = filters.visibility;
   }
   if (filters.freshness) {
     query.freshness = filters.freshness;
-  }
-  if (filters.sort === 'price-asc') {
-    query.direction = 'asc';
   }
   if (filters.binder === UNFILED) {
     query.unfiled = true;
@@ -89,13 +78,18 @@ export function inventoryListQuery(
   return query;
 }
 
-/** How many filters (not the search, binder or sort) are set. */
+/** How many filters of the sheet are on (game, binder, who can see it; the sort is no filter). */
 export function activeInventoryFilterCount(filters: InventoryFilters): number {
-  return [filters.game, filters.availability, filters.visibility, filters.freshness].filter(Boolean)
+  return [filters.game, filters.binder, filters.visibility, filters.freshness].filter(Boolean)
     .length;
 }
 
-/** True when the list is narrowed in any way (search, filters or a binder). */
+/** True when the list is narrowed in any way (search or filters). */
 export function isFiltered(filters: InventoryFilters): boolean {
-  return !!boundedQuery(filters.q) || !!filters.binder || activeInventoryFilterCount(filters) > 0;
+  return !!boundedQuery(filters.q) || activeInventoryFilterCount(filters) > 0;
+}
+
+/** The sheet's "Clear all": every filter off, the search kept, the sort back to its default. */
+export function clearedFilters(filters: InventoryFilters): InventoryFilters {
+  return { ...DEFAULT_INVENTORY_FILTERS, q: filters.q };
 }

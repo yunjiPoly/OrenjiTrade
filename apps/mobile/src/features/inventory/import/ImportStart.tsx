@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -28,6 +28,12 @@ export interface ImportStartProps {
   onSource: (source: ImportSource, open: InventoryImport | null) => void;
   /** The collector continues the import they left (a preview, or a commit that was cut). */
   onContinue: (preview: InventoryImport) => void;
+  /**
+   * The source chosen before this screen ("Import a deck" or "Import from Collectr" on Add cards,
+   * stage R2): with no import left open the file step follows at once; with one, this screen
+   * shows it first so it can be continued or replaced.
+   */
+  chosen?: ImportSource | null;
 }
 
 /** The import the collector left open: a preview still usable, or a commit to finish. */
@@ -49,12 +55,27 @@ export function openImport(
  * on the server for a while, so closing the app loses nothing), and the two sources with one
  * sentence each on what the file is and how to get it out of the other app.
  */
-export function ImportStart({ onSource, onContinue }: ImportStartProps) {
+export function ImportStart({ onSource, onContinue, chosen = null }: ImportStartProps) {
   const { palette } = useTheme();
   const snackbar = useSnackbar();
   const imports = useMyImports();
   const discard = useDiscardImport();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Decided once, on the first list: an import left open is shown first, and stays the choice
+  // after it is continued or discarded.
+  const decided = useRef(false);
+  const loaded = !!imports.data;
+  const nothingOpen = loaded && !openImport(imports.data ?? []);
+
+  useEffect(() => {
+    if (decided.current || !loaded) {
+      return;
+    }
+    decided.current = true;
+    if (chosen && nothingOpen) {
+      onSource(chosen, null);
+    }
+  }, [chosen, loaded, nothingOpen, onSource]);
 
   if (!imports.data && imports.error) {
     return (

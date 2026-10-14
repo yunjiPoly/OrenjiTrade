@@ -1,69 +1,99 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useAccount } from '@/src/account/AccountProvider';
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBinders } from '@/src/api/hooks/binders';
 import {
+  useApplyPhotoChanges,
   useConfirmInventoryItem,
   useDeleteInventoryItem,
   useInventoryItem,
   useUpdateInventoryItem,
 } from '@/src/api/hooks/inventory';
-import { usePrivacySettings } from '@/src/api/hooks/location';
-import { useGames } from '@/src/api/hooks/profile';
+import { useUid } from '@/src/api/hooks/useUid';
 import type { InventoryItemResponse } from '@/src/api/types';
-import { Badge } from '@/src/components/ui/Badge';
+import { BackBar } from '@/src/components/ui/BackBar';
 import { Button } from '@/src/components/ui/Button';
-import { CardImage } from '@/src/components/ui/CardImage';
-import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
-import { ItemDetailsFields } from '@/src/features/inventory/ItemDetailsFields';
-import { ItemPhotos } from '@/src/features/inventory/ItemPhotos';
+import { CardFormFields } from '@/src/features/inventory/CardFormFields';
+import { CardHeader } from '@/src/features/inventory/CardHeader';
+import type { PhotoTile } from '@/src/features/inventory/CardPhotos';
 import {
+  cardFormOf,
+  formChanged,
   hasErrors,
-  itemFormValue,
-  serverItemErrors,
-  toUpdateRequest,
-  validateItemForm,
-  type ItemFormErrors,
-  type ItemFormValue,
-} from '@/src/features/inventory/itemForm';
-import { itemVisibilityStatus, ownerIsVisible } from '@/src/features/inventory/visibilityStatus';
+  serverCardErrors,
+  toPatch,
+  validateCardForm,
+  type CardFormErrors,
+  type CardFormValue,
+} from '@/src/features/inventory/cardForm';
+import { showCardDeleted } from '@/src/features/inventory/deleteToasts';
+import { CARD_FORM_COPY, EDIT_CARD_COPY, TOAST_COPY } from '@/src/features/inventory/inventoryCopy';
+import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
+import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
+import { ITEM_PHOTO_MAX_COUNT } from '@/src/features/inventory/itemPhotoRules';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
-import { printingCode, printingImageUrl } from '@/src/lib/catalog';
-import { badgeFreshness, needsConfirmation } from '@/src/lib/inventory';
+import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached } from '@/src/lib/limits';
-import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { isRegionCode, regionName } from '@/src/lib/place';
+import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
- * Edit one of the collector's cards (web: the inventory edit panel): every field, sent as a
- * `PATCH` of the changed fields only; the owner's photos (add from the library, remove); "Still
- * available" restores a stale or hidden listing (`POST .../confirm`); delete asks first.
+ * Edit card (owner spec 2026-10-14, section 6, mockup screen 7): the fields of Add to inventory,
+ * filled in; "Save changes", disabled and reading "No changes yet" until something changes (a
+ * save also confirms the card is still available); the photos, saved with the button; and "Delete
+ * this card", asked in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
+ * hidden card keeps "Still available" (the freshness rules).
  */
-export default function EditItemScreen() {
+export default function EditCardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const item = useInventoryItem(id);
   const router = useRouter();
+  const leave = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/inventory');
+    }
+  };
+
+  const header = (
+    <BackBar
+      label={EDIT_CARD_COPY.title}
+      backLabel={EDIT_CARD_COPY.backLabel}
+      onBack={leave}
+      testID="edit-item-back"
+    />
+  );
 
   let content;
   if (item.data) {
-    content = <ItemEditor key={item.data.id} item={item.data} />;
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false, title: EDIT_CARD_COPY.title }} />
+        <CardEditor key={item.data.id} item={item.data} header={header} onLeave={leave} />
+      </>
+    );
   } else if (item.error?.status === 404 || item.error?.errorCode === 'VALIDATION_FAILED') {
     content = (
       <EmptyState
         testID="edit-item-not-found"
         icon="cards-outline"
-        title="This card is no longer in your inventory"
-        description="It may have been deleted on another device."
-        actionLabel="Back to the inventory"
+        title={EDIT_CARD_COPY.notFoundTitle}
+        description={EDIT_CARD_COPY.notFoundBody}
+        actionLabel={EDIT_CARD_COPY.notFoundAction}
         onAction={() => router.navigate('/inventory')}
       />
     );
@@ -72,81 +102,174 @@ export default function EditItemScreen() {
       <ErrorState
         testID="edit-item-error"
         error={item.error}
-        title="This card could not load"
+        title={EDIT_CARD_COPY.loadError}
         onRetry={() => void item.refetch()}
       />
     );
   } else {
-    content = <SkeletonList rows={4} rowHeight={72} testID="edit-item-loading" />;
+    content = <SkeletonList rows={5} rowHeight={72} testID="edit-item-loading" />;
   }
-
   return (
     <>
-      <Stack.Screen options={{ title: item.data?.card.name ?? 'Card' }} />
-      <Screen scroll safeBottom testID="screen-edit-item">
+      <Stack.Screen options={{ headerShown: false, title: EDIT_CARD_COPY.title }} />
+      <InventoryFormScreen header={header} testID="screen-edit-item">
         {content}
-      </Screen>
+      </InventoryFormScreen>
     </>
   );
 }
 
-function ItemEditor({ item }: { item: InventoryItemResponse }) {
+interface LocalTile {
+  photo: LocalPhoto;
+  state: 'waiting' | 'uploading' | 'failed';
+}
+
+function CardEditor({
+  item,
+  header,
+  onLeave,
+}: {
+  item: InventoryItemResponse;
+  header: React.ReactNode;
+  onLeave: () => void;
+}) {
   const { palette } = useTheme();
   const router = useRouter();
   const snackbar = useSnackbar();
-  const games = useGames();
+  const queryClient = useQueryClient();
+  const uid = useUid();
+  const me = useAccount().me;
   const binders = useMyBinders();
-  const privacy = usePrivacySettings();
   const update = useUpdateInventoryItem();
   const confirm = useConfirmInventoryItem();
   const remove = useDeleteInventoryItem();
-  const [form, setForm] = useState<ItemFormValue>(() => itemFormValue(item));
-  const [errors, setErrors] = useState<ItemFormErrors>({});
+  const applyPhotos = useApplyPhotoChanges();
+  const markSaved = useInventoryUiStore((state) => state.markSaved);
+  const takeFailedPhotos = useInventoryUiStore((state) => state.takeFailedPhotos);
+  const [form, setForm] = useState<CardFormValue>(() => cardFormOf(item));
+  const [errors, setErrors] = useState<CardFormErrors>({});
   const [failure, setFailure] = useState<ApiError | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Photos picked here (or not saved when the card was added), and the saved ones taken away.
+  const [picked, setPicked] = useState<LocalTile[]>(() =>
+    (useInventoryUiStore.getState().failedPhotos[item.id] ?? []).map((photo) => ({
+      photo,
+      state: 'failed' as const,
+    }))
+  );
+  // Taken over: the store forgets them once this screen holds them.
+  useEffect(() => {
+    takeFailedPhotos(item.id);
+  }, [item.id, takeFailedPhotos]);
+  const [removed, setRemoved] = useState<readonly string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [asking, setAsking] = useState(false);
 
-  const schema = games.data?.find((game) => game.slug === item.card.game)?.schema ?? null;
-  const binder = item.binder
-    ? binders.data?.find((candidate) => candidate.id === item.binder?.id)
-    : null;
-  const status = itemVisibilityStatus(item, {
-    binder,
-    ownerVisible: ownerIsVisible(privacy.data),
-  });
-  const busy = update.isPending || confirm.isPending || remove.isPending;
+  const home = isRegionCode(me?.homeRegion) ? regionName(me.homeRegion) : null;
+  const savedPhotos = item.images.filter((image) => !removed.includes(image.id));
+  const pending = picked.filter((tile) => tile.state !== 'failed');
+  const dirty = formChanged(form, item) || pending.length > 0 || removed.length > 0;
+  const busy = saving || remove.isPending || confirm.isPending;
+
+  const tiles: PhotoTile[] = [
+    ...savedPhotos.map((image): PhotoTile => ({
+      kind: 'saved',
+      key: image.id,
+      id: image.id,
+      url: image.url,
+    })),
+    ...picked.map((tile): PhotoTile => ({
+      kind: 'local',
+      key: tile.photo.key,
+      photo: tile.photo,
+      state: tile.state,
+    })),
+  ];
+
+  const upload = async (photos: readonly LocalPhoto[], drop: readonly string[]) => {
+    const keys = photos.map((photo) => photo.key);
+    setPicked((current) =>
+      current.map((tile) =>
+        keys.includes(tile.photo.key) ? { ...tile, state: 'uploading' as const } : tile
+      )
+    );
+    let failedKeys: string[] = keys;
+    try {
+      const result = await applyPhotos.mutateAsync({ id: item.id, add: photos, remove: drop });
+      failedKeys = result.failed;
+    } catch {
+      // Every one of them is kept for "Try again".
+    }
+    setRemoved([]);
+    setPicked((current) =>
+      current
+        .filter((tile) => !keys.includes(tile.photo.key) || failedKeys.includes(tile.photo.key))
+        .map((tile) =>
+          failedKeys.includes(tile.photo.key) ? { ...tile, state: 'failed' as const } : tile
+        )
+    );
+    return failedKeys.length;
+  };
 
   const save = async () => {
-    const found = validateItemForm(form);
+    const found = validateCardForm(form);
     setErrors(found);
     setFailure(null);
     if (hasErrors(found)) {
-      setMessage('Check the highlighted fields.');
-      return;
-    }
-    const patch = toUpdateRequest(form, item);
-    if (!patch) {
-      setMessage(null);
-      snackbar.show('No changes to save.');
+      setMessage(CARD_FORM_COPY.checkFields);
       return;
     }
     setMessage(null);
+    setSaving(true);
     try {
-      const saved = await update.mutateAsync({ id: item.id, patch });
-      setForm(itemFormValue(saved));
-      snackbar.show('Card saved.');
+      // A save counts as "still available", photos alone included.
+      await update.mutateAsync({ id: item.id, patch: toPatch(form, item) ?? { confirm: true } });
     } catch (error) {
       const apiError = error as ApiError;
-      setErrors(serverItemErrors(apiError));
+      setErrors(serverCardErrors(apiError));
       setFailure(apiError);
       setMessage(isLimitReached(apiError) ? null : friendlyMessage(apiError));
+      setSaving(false);
+      return;
+    }
+    const failed =
+      pending.length > 0 || removed.length > 0
+        ? await upload(
+            pending.map((tile) => tile.photo),
+            removed
+          )
+        : 0;
+    setSaving(false);
+    markSaved(item.id);
+    if (failed > 0) {
+      // The card is saved; the photos that were not stay here with "Try again".
+      return;
+    }
+    snackbar.show(item.card.name, {
+      title: TOAST_COPY.saved,
+      icon: 'success',
+      action: {
+        label: TOAST_COPY.view,
+        testID: 'snackbar-view',
+        onPress: () => router.push({ pathname: '/items/[id]', params: { id: item.id } }),
+      },
+    });
+    onLeave();
+  };
+
+  const retry = async () => {
+    const failed = picked.filter((tile) => tile.state === 'failed').map((tile) => tile.photo);
+    if (failed.length > 0) {
+      setSaving(true);
+      await upload(failed, []);
+      setSaving(false);
     }
   };
 
   const stillAvailable = async () => {
     try {
       await confirm.mutateAsync(item.id);
-      snackbar.show('Confirmed: your card is listed as available again.');
+      snackbar.show(EDIT_CARD_COPY.confirmed);
     } catch (error) {
       snackbar.show(friendlyMessage(error as ApiError), { tone: 'error' });
     }
@@ -155,76 +278,66 @@ function ItemEditor({ item }: { item: InventoryItemResponse }) {
   const destroy = async () => {
     try {
       await remove.mutateAsync(item.id);
-      setConfirmDelete(false);
-      snackbar.show(`${item.card.name} deleted from your inventory.`);
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/inventory');
-      }
     } catch (error) {
-      setConfirmDelete(false);
+      setAsking(false);
       snackbar.show(friendlyMessage(error as ApiError), { tone: 'error' });
+      return;
     }
+    setAsking(false);
+    markSaved(null);
+    showCardDeleted({ snackbar, queryClient, uid, markSaved }, item.id, item.card.name);
+    onLeave();
   };
 
-  return (
-    <View style={styles.root}>
-      <View style={styles.header}>
-        <CardImage
-          src={printingImageUrl(item.printing)}
-          alt={item.card.name}
-          game={item.card.game}
-          size="md"
-        />
-        <View style={styles.grow}>
-          <Text
-            accessibilityRole="header"
-            testID="edit-item-name"
-            style={[textStyle('xl', 'heading'), styles.name, { color: palette.ink }]}
-          >
-            {item.card.name}
-          </Text>
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            <Text style={styles.mono}>{printingCode(item.printing)}</Text>
-            {item.printing.setName ? ` · ${item.printing.setName}` : ''}
-          </Text>
-          <Text
-            testID="edit-item-visibility"
-            style={[
-              textStyle('sm'),
-              styles.status,
-              { color: status.pending ? palette.warning : palette.ink },
-            ]}
-          >
-            {status.label}
-          </Text>
-          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{status.note}</Text>
-          <View style={styles.freshness}>
-            <Badge variant="freshness" value={badgeFreshness(item.freshness.state)} />
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-              {item.freshness.label}
-            </Text>
-          </View>
-        </View>
-      </View>
+  const footer = (
+    <>
+      <PillButton
+        label={dirty ? EDIT_CARD_COPY.save : EDIT_CARD_COPY.noChanges}
+        loadingLabel={EDIT_CARD_COPY.saving}
+        disabled={!dirty}
+        loading={saving}
+        onPress={() => void save()}
+        testID="edit-item-save"
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={EDIT_CARD_COPY.delete}
+        disabled={busy}
+        onPress={() => setAsking(true)}
+        testID="edit-item-delete"
+        style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
+      >
+        <Text style={[textStyle('md'), styles.deleteLabel, { color: palette.danger }]}>
+          {EDIT_CARD_COPY.delete}
+        </Text>
+      </Pressable>
+    </>
+  );
 
+  return (
+    <InventoryFormScreen header={header} footer={footer} testID="screen-edit-item">
+      <CardHeader
+        name={item.card.name}
+        game={item.card.game}
+        printing={item.printing}
+        variant="edit"
+      />
       {needsConfirmation(item.freshness.state) ? (
         <View
           testID="edit-item-stale"
           style={[
             styles.stale,
-            { borderColor: palette.status.stale, backgroundColor: palette.surfaceVariant },
+            { borderColor: palette.status.stale, backgroundColor: palette.surface },
           ]}
         >
           <Text style={[textStyle('sm'), { color: palette.ink }]}>
             {item.freshness.state === 'HIDDEN'
-              ? 'This listing is hidden from other collectors until you confirm it is still available.'
-              : 'This listing is getting old. Confirm it is still available to keep it fresh.'}
+              ? EDIT_CARD_COPY.hiddenNotice
+              : EDIT_CARD_COPY.agingNotice}
           </Text>
           <Button
-            label="Still available"
-            loadingLabel="Confirming…"
+            label={EDIT_CARD_COPY.stillAvailable}
+            loadingLabel={EDIT_CARD_COPY.confirming}
             icon="check-circle-outline"
             variant="secondary"
             loading={confirm.isPending}
@@ -234,71 +347,64 @@ function ItemEditor({ item }: { item: InventoryItemResponse }) {
           />
         </View>
       ) : null}
-
-      <ItemDetailsFields
+      <CardFormFields
         value={form}
         onChange={(patch) => {
           setForm((current) => ({ ...current, ...patch }));
           setErrors((current) => {
             const next = { ...current };
             for (const key of Object.keys(patch)) {
-              delete next[key as keyof ItemFormErrors];
+              if (key === 'quantity' || key === 'price' || key === 'publicNote') {
+                delete next[key];
+              }
             }
             return next;
           });
         }}
         errors={errors}
-        schema={schema}
         binders={binders.data ?? []}
-        currentPublicUntil={item.visibility === 'TEMPORARILY_PUBLIC' ? item.publicUntil : null}
+        regionName={home}
         disabled={busy}
+        photos={{
+          tiles,
+          addLabel: CARD_FORM_COPY.addPhoto,
+          onAdd: (added) =>
+            setPicked((current) =>
+              [...current, ...added.map((photo) => ({ photo, state: 'waiting' as const }))].slice(
+                0,
+                ITEM_PHOTO_MAX_COUNT - savedPhotos.length
+              )
+            ),
+          onRemove: (key) => {
+            if (item.images.some((image) => image.id === key)) {
+              setRemoved((current) => [...current, key]);
+            } else {
+              setPicked((current) => current.filter((tile) => tile.photo.key !== key));
+            }
+          },
+          onRetry: () => void retry(),
+        }}
       />
-
       {failure && isLimitReached(failure) ? <LimitReachedNotice error={failure} /> : null}
       {message ? <FormMessage testID="edit-item-error">{message}</FormMessage> : null}
-
-      <ItemPhotos item={item} disabled={busy} />
-
-      <Button
-        label="Save changes"
-        loadingLabel="Saving…"
-        icon="content-save-outline"
-        loading={update.isPending}
-        disabled={busy && !update.isPending}
-        onPress={() => void save()}
-        testID="edit-item-save"
-      />
-      <Button
-        label="Delete card"
-        icon="delete-outline"
-        variant="danger"
-        disabled={busy}
-        onPress={() => setConfirmDelete(true)}
-        testID="edit-item-delete"
-      />
-
-      <ConfirmDialog
-        visible={confirmDelete}
-        title={`Delete ${item.card.name}?`}
-        message={`${item.quantity} ${item.quantity === 1 ? 'copy' : 'copies'} and ${item.images.length === 1 ? 'its photo' : 'its photos'} will be removed from your inventory${item.binder ? ` and from “${item.binder.name}”` : ''}. This cannot be undone.`}
-        confirmLabel="Delete card"
-        tone="danger"
+      <ConfirmSheet
+        visible={asking}
+        title={EDIT_CARD_COPY.deleteTitle(item.card.name)}
+        message={EDIT_CARD_COPY.deleteBody}
+        confirmLabel={EDIT_CARD_COPY.deleteConfirm}
+        cancelLabel={EDIT_CARD_COPY.keep}
         busy={remove.isPending}
         onConfirm={() => void destroy()}
-        onCancel={() => setConfirmDelete(false)}
-        testID="edit-item-delete-dialog"
+        onCancel={() => setAsking(false)}
+        testID="edit-item-delete-sheet"
       />
-    </View>
+    </InventoryFormScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  header: { flexDirection: 'row', gap: spacing[3] },
-  grow: { flex: 1, gap: spacing[1] },
-  name: { fontWeight: fontWeight.bold },
-  mono: { fontFamily: fontFamily.mono },
-  status: { fontWeight: fontWeight.semibold, marginTop: spacing[1] },
-  freshness: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[2] },
   stale: { gap: spacing[2], padding: spacing[3], borderRadius: radius.md, borderWidth: 1 },
+  delete: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  deleteLabel: { fontWeight: fontWeight.semibold },
+  pressed: { opacity: 0.7 },
 });

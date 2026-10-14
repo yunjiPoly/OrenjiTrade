@@ -68,6 +68,27 @@ export function useInventoryItems(filters: InventoryFilters, enabled = true) {
   });
 }
 
+/**
+ * How many of the caller's cards `filters` keep (`GET /inventory/items` with one card per page):
+ * "Show {n} cards" of the filter sheet, while the collector changes the filters.
+ */
+export function useInventoryCount(filters: InventoryFilters, enabled = true) {
+  const uid = useUid();
+  return useQuery<number, ApiError>({
+    queryKey: [...meKeys.inventory(uid), 'count', filters],
+    queryFn: async () =>
+      required(
+        (
+          await api.GET('/api/v1/inventory/items', {
+            params: { query: inventoryListQuery(filters, 0, 1) },
+          })
+        ).data
+      ).totalItems ?? 0,
+    placeholderData: keepPreviousData,
+    enabled: useIsAuthenticated() && enabled,
+  });
+}
+
 /** `GET /api/v1/inventory/items/{id}`: one item of the caller (404 for anyone else's). */
 export function useInventoryItem(id: string | null | undefined) {
   const uid = useUid();
@@ -177,6 +198,47 @@ export function useDeleteInventoryItem() {
   });
 }
 
+/**
+ * `POST /api/v1/inventory/items/{id}/restore` ("Undo" of a delete, stage R2): brings back a card
+ * deleted less than 10 minutes ago with everything it had (409 `RESTORE_WINDOW_CLOSED` after).
+ * A plain function: the "Undo" of a toast runs after the screen that deleted the card has gone.
+ */
+export async function restoreInventoryItem(
+  queryClient: QueryClient,
+  uid: string | null,
+  id: string
+): Promise<InventoryItemResponse> {
+  const item = required(
+    (await api.POST('/api/v1/inventory/items/{id}/restore', { params: { path: { id } } })).data
+  );
+  queryClient.setQueryData(meKeys.inventoryItem(uid, item.id), item);
+  await refreshInventory(queryClient, uid);
+  return item;
+}
+
+/** Restores several cards (the "Undo" of a bulk delete); answers how many came back. */
+export async function restoreInventoryItems(
+  queryClient: QueryClient,
+  uid: string | null,
+  ids: readonly string[]
+): Promise<number> {
+  let restored = 0;
+  let failure: unknown = null;
+  for (const id of ids) {
+    try {
+      await api.POST('/api/v1/inventory/items/{id}/restore', { params: { path: { id } } });
+      restored += 1;
+    } catch (error) {
+      failure = failure ?? error;
+    }
+  }
+  await refreshInventory(queryClient, uid);
+  if (restored === 0 && failure) {
+    throw failure;
+  }
+  return restored;
+}
+
 export interface UploadItemPhotoInput {
   id: string;
   photo: PickedImage;
@@ -208,6 +270,64 @@ export function useUploadItemPhoto() {
       queryClient.setQueryData(meKeys.inventoryItem(uid, item.id), item);
       await refreshInventory(queryClient, uid);
     },
+  });
+}
+
+export interface PhotoChangesInput {
+  id: string;
+  /** Photos to upload, in order. */
+  add: readonly (PickedImage & { key: string })[];
+  /** Photos of the card to delete. */
+  remove: readonly string[];
+}
+
+export interface PhotoChangesResult {
+  /** The keys of the photos that could not be uploaded (the card is kept: "Try again"). */
+  failed: string[];
+  /** The photos that could not be deleted. */
+  notRemoved: string[];
+}
+
+/**
+ * The photo changes of a card, made after the card itself was saved (stage R2: photos while
+ * adding, and with "Save changes"): deletes, then uploads one after the other (`POST
+ * .../images`: JPEG / PNG / WebP up to 8 MB, re-encoded without metadata). A photo that fails does
+ * not stop the others; the card stays as saved.
+ */
+export function useApplyPhotoChanges() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<PhotoChangesResult, ApiError, PhotoChangesInput>({
+    mutationFn: async ({ id, add, remove }) => {
+      const notRemoved: string[] = [];
+      for (const imageId of remove) {
+        try {
+          await api.DELETE('/api/v1/inventory/items/{id}/images/{imageId}', {
+            params: { path: { id, imageId } },
+          });
+        } catch (error) {
+          // Already gone is what was wanted.
+          if ((error as ApiError).status !== 404) {
+            notRemoved.push(imageId);
+          }
+        }
+      }
+      const failed: string[] = [];
+      for (const photo of add) {
+        try {
+          const body = await imageFormData(photo, 'card');
+          await api.POST('/api/v1/inventory/items/{id}/images', {
+            params: { path: { id } },
+            body: body as unknown as { file: string },
+            bodySerializer: () => body,
+          });
+        } catch {
+          failed.push(photo.key);
+        }
+      }
+      return { failed, notRemoved };
+    },
+    onSettled: async () => refreshInventory(queryClient, uid),
   });
 }
 

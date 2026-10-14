@@ -6,7 +6,7 @@ import type { InventoryItemResponse, PublicInventoryItem } from '@/src/api/types
 import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import { formatMoney, printingCode, printingImageUrl } from '@/src/lib/catalog';
+import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import {
   availabilityLabel,
   badgeFreshness,
@@ -15,6 +15,8 @@ import {
   VISIBILITY_INFO,
 } from '@/src/lib/inventory';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+
+import { itemPriceText, statedCondition } from './itemPrice';
 
 type Item = InventoryItemResponse | PublicInventoryItem;
 
@@ -36,9 +38,10 @@ export interface ItemRowProps {
 }
 
 /**
- * One inventory card: picture (API URL only), name, printing code and set, condition, copies,
- * asking price, the trade / sale intent and "accepts offers". The owner also sees visibility
- * and freshness (stale and hidden listings stand out); public rows show the public notes.
+ * One inventory card of a binder or a collector's page: picture (API URL only), name, printing code
+ * and set, condition (when stated), copies, the asking price as typed and the trade / sale intent.
+ * The owner also sees visibility and freshness (stale and hidden listings stand out); public rows
+ * show the public notes. (The Inventory tab has its own row since stage R2: `InventoryCardRow`.)
  */
 export const ItemRow = memo(function ItemRow({
   item,
@@ -53,17 +56,16 @@ export const ItemRow = memo(function ItemRow({
   const own = isOwnItem(item);
   const name = item.card.name;
   const code = printingCode(item.printing);
-  const price = formatMoney(item.askingPrice, item.currency);
+  const price = itemPriceText(item);
   const freshness = item.freshness?.state;
-  const condition = item.condition;
+  const condition = statedCondition(item);
   const summary = [
     name,
     code,
-    conditionLabel(condition),
+    condition ? conditionLabel(condition) : null,
     `${item.quantity} ${item.quantity === 1 ? 'copy' : 'copies'}`,
     availabilityLabel(item.availability),
     price,
-    item.acceptsOffers ? 'accepts offers' : null,
     own ? VISIBILITY_INFO[item.visibility].label : null,
     own && freshness && freshness !== 'ACTIVE' ? item.freshness.label : null,
   ]
@@ -95,7 +97,7 @@ export const ItemRow = memo(function ItemRow({
           {item.printing.setName ? ` · ${item.printing.setName}` : ''}
         </Text>
         <View style={styles.badges}>
-          {isKnownCondition(condition) ? (
+          {condition === null ? null : isKnownCondition(condition) ? (
             <Badge variant="condition" value={condition as CardCondition} />
           ) : (
             <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
@@ -111,7 +113,6 @@ export const ItemRow = memo(function ItemRow({
         </View>
         <View style={styles.badges}>
           <Tag label={availabilityLabel(item.availability)} />
-          {item.acceptsOffers ? <Tag label="Offers" tone="offers" /> : null}
           {own ? (
             <Tag
               label={VISIBILITY_INFO[item.visibility].label}
@@ -174,19 +175,11 @@ export const ItemRow = memo(function ItemRow({
   );
 });
 
-function Tag({
-  label,
-  icon,
-  tone = 'neutral',
-}: {
-  label: string;
-  icon?: 'lock-outline' | 'earth';
-  tone?: 'neutral' | 'offers';
-}) {
+function Tag({ label, icon }: { label: string; icon?: 'lock-outline' | 'earth' }) {
   const { palette } = useTheme();
-  const color = tone === 'offers' ? palette.availability.offers : palette.textMuted;
+  const color = palette.textMuted;
   return (
-    <View style={[styles.tag, { borderColor: tone === 'offers' ? color : palette.border }]}>
+    <View style={[styles.tag, { borderColor: palette.border }]}>
       {icon ? <MaterialCommunityIcons name={icon} size={12} color={color} /> : null}
       <Text style={[textStyle('xs'), { color }]}>{label}</Text>
     </View>

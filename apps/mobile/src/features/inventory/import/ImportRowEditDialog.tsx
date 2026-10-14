@@ -4,8 +4,7 @@ import type { ImportRow, UpdateImportRowRequest } from '@/src/api/types';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { FormDialog } from '@/src/components/ui/FormDialog';
 import { TextField } from '@/src/components/ui/TextField';
-import { withCurrent } from '@/src/features/inventory/itemForm';
-import { CARD_CONDITIONS, conditionLabel } from '@/src/lib/inventory';
+import { CARD_CONDITIONS, conditionLabel, withCurrent } from '@/src/lib/inventory';
 
 import { plural, rowTitle } from './importLabels';
 

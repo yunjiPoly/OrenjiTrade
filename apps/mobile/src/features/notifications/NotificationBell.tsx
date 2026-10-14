@@ -17,7 +17,14 @@ export function bellLabel(count: number): string {
  * The notification bell in the tab headers (the web's top-bar bell): a live unread badge
  * ("99+"), opening the notification centre.
  */
-export function NotificationBell({ testID = 'notification-bell' }: { testID?: string }) {
+export function NotificationBell({
+  testID = 'notification-bell',
+  variant = 'header',
+}: {
+  testID?: string;
+  /** `round`: the 44 pt round button of the screens that draw their own header (mockup v32). */
+  variant?: 'header' | 'round';
+}) {
   const { palette } = useTheme();
   const router = useRouter();
   const ready = useAccount().status === 'ready';
@@ -33,11 +40,16 @@ export function NotificationBell({ testID = 'notification-bell' }: { testID?: st
       onPress={() => router.push('/notifications')}
       hitSlop={8}
       testID={testID}
-      style={({ pressed }) => [styles.bell, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        variant === 'round'
+          ? [styles.round, { backgroundColor: palette.surface, borderColor: palette.border }]
+          : styles.bell,
+        pressed && styles.pressed,
+      ]}
     >
       <MaterialCommunityIcons
         name={count > 0 ? 'bell-badge-outline' : 'bell-outline'}
-        size={24}
+        size={variant === 'round' ? 20 : 24}
         color={palette.ink}
       />
       {count > 0 ? (
@@ -54,6 +66,14 @@ export function NotificationBell({ testID = 'notification-bell' }: { testID?: st
 
 const styles = StyleSheet.create({
   bell: { paddingHorizontal: spacing[3], paddingVertical: spacing[1] },
+  round: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   badge: {
     position: 'absolute',
     top: -2,

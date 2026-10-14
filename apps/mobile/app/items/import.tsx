@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -49,6 +49,11 @@ type Step =
  */
 export default function ImportScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ source?: string }>();
+  // "Import a deck" / "Import from Collectr" on Add cards (stage R2) name the source: its file
+  // step follows at once, unless an import is left open (then the start shows it first).
+  const named = params.source === 'YDK' || params.source === 'COLLECTR_CSV' ? params.source : null;
+  const [chosen, setChosen] = useState<ImportSource | null>(named);
   const [step, setStep] = useState<Step>({ name: 'start' });
   const [draft, setDraft] = useState(false);
   // Cards whose last change reached the API after the import had been added (see ImportPreview).
@@ -61,6 +66,11 @@ export default function ImportScreen() {
   const restart = useCallback(() => {
     setLate(null);
     setStep({ name: 'start' });
+  }, []);
+  const chooseSource = useCallback((source: ImportSource, left: InventoryImport | null) => {
+    // Chosen once: back from the file step shows the start, not the file step again.
+    setChosen(null);
+    setStep({ name: 'file', source, replaces: left });
   }, []);
   const open = useCallback((id: string) => {
     setLate(null);
@@ -110,8 +120,13 @@ export default function ImportScreen() {
     body = (
       <Screen scroll safeBottom testID="screen-import">
         <ImportStart
-          onSource={(source, left) => setStep({ name: 'file', source, replaces: left })}
-          onContinue={(left) => open(left.id)}
+          chosen={chosen}
+          onSource={chooseSource}
+          onContinue={(left) => {
+            // The import left open was chosen instead: back at the start, the start shows.
+            setChosen(null);
+            open(left.id);
+          }}
         />
       </Screen>
     );
@@ -124,7 +139,8 @@ export default function ImportScreen() {
           source={step.source}
           replaces={step.replaces}
           onUploaded={(uploaded) => open(uploaded.id)}
-          onBack={restart}
+          // Opened on its source from Add cards: back goes back there.
+          onBack={named && !step.replaces ? toInventory : restart}
           onDraft={setDraft}
         />
       </Screen>
