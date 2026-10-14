@@ -107,7 +107,11 @@ test.describe('mobile: old offers after offers left the phone', () => {
     await expect(page).toHaveURL(/\/notifications$/);
 
     // An old offer link (a bookmark, `orenjitrade://offers/…`) lands on Messages with the note.
-    await openInApp(page, `/offers/${offer.id}`);
+    // (Not `openInApp`: that helper waits for the URL it opened, and this one moves on at once.)
+    await page.evaluate((target) => {
+      window.history.pushState(null, '', target);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    }, `/offers/${offer.id}`);
     await expect(page).toHaveURL(/\/messages$/, { timeout: 30_000 });
     await expect(snackbar(page)).toHaveText(DEALS_NOTE, { timeout: 30_000 });
     await expect(page.getByText('This page does not exist')).toHaveCount(0);
