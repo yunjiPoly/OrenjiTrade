@@ -451,7 +451,7 @@ describe('marks for places too small to be seen (shading.ts)', () => {
     expect(MARK_BELOW).toBe(14);
     // Three units under a point: SMALL is 6.7 by 10 points; LONG is thin but 133 points tall
     // (it is seen); EMPTY has no binder; BIG is large.
-    expect(placeMarks(shapes, counts, 3)).toEqual([{ code: 'SMALL', x: 510, y: 515 }]);
+    expect(placeMarks(shapes, counts, 3)).toEqual([{ code: 'SMALL', x: 510, y: 515, level: 1 }]);
     // Zoomed in (one unit under a point) SMALL is 20 by 30 points: drawn large enough.
     expect(placeMarks(shapes, counts, 1)).toEqual([]);
     // Far out, everything with a binder is a dot, except what is still long enough to be seen.
@@ -461,6 +461,12 @@ describe('marks for places too small to be seen (shading.ts)', () => {
       'LONG',
     ]);
     expect(placeMarks(shapes, new Map(), 3)).toEqual([]);
+    // A mark carries the step of the legend its count belongs to (1, 2 to 4, 5 to 9, 10 or more).
+    expect(
+      [1, 2, 4, 5, 9, 10, 250].map(
+        (count) => placeMarks(shapes, new Map([['SMALL', count]]), 3)[0]?.level
+      )
+    ).toEqual([1, 2, 2, 3, 3, 4, 4]);
   });
 
   it('finds the mark under a finger: the closest one within reach', () => {

@@ -12,7 +12,7 @@ import { useAppStore } from '@/src/store/useAppStore';
 import { FakeAuthPort } from '../support/fakeAuthPort';
 import { LEGAL_DOCUMENTS, NOT_ONBOARDED, meFixture } from '../support/fixtures';
 import { mockLocales } from '../support/locales';
-import { mockApi, noContent, ok, problem } from '../support/mockApi';
+import { mockApi, noContent, ok, problem, type MockAnswer } from '../support/mockApi';
 import { mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
@@ -159,11 +159,26 @@ describe('Sign in', () => {
 });
 
 describe('Sign up', () => {
-  it('shows a skeleton while the legal documents load', () => {
-    mockApi({ 'GET /api/v1/public/legal/documents': () => new Promise(() => undefined) });
+  it('shows a skeleton while the legal documents load', async () => {
+    // The answer is held back, then given. A request that never ended kept the read timeout of
+    // the API client (20 s) armed after this file was done: its jest worker could not exit, and
+    // every run printed "A worker process has failed to exit gracefully".
+    let answer: (documents: MockAnswer) => void = () => undefined;
+    const api = mockApi({
+      'GET /api/v1/public/legal/documents': () =>
+        new Promise<MockAnswer>((resolve) => {
+          answer = resolve;
+        }),
+    });
     renderWithProviders(<SignUpScreen />, { port: new FakeAuthPort() });
     expect(screen.getByTestId('sign-up-legal-loading')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Create account' })).toBeDisabled();
+    await waitFor(() => expect(api.callsTo('GET /api/v1/public/legal/documents')).toHaveLength(1));
+    expect(screen.getByTestId('sign-up-legal-loading')).toBeOnTheScreen();
+
+    answer(ok(LEGAL_DOCUMENTS));
+    expect(await screen.findByRole('checkbox', { name: 'Accept all' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('sign-up-legal-loading')).toBeNull();
   });
 
   it('offers a retry when the legal documents cannot be loaded', async () => {

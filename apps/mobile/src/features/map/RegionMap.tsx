@@ -589,7 +589,10 @@ interface MapDrawingProps {
  * state.
  *
  * A place with binders is outlined in a strong colour (its tint alone is 1.3:1 against the land
- * for a single binder), and one too small to be seen at the current zoom gets a dot.
+ * for a single binder), and one too small to be seen at the current zoom gets a dot. The dot says
+ * what the legend says: the land's colour first, so that nothing under it shows through, then the
+ * tint of the step its count belongs to, as on the place itself (drawn in the solid tint it read
+ * as "10+" for a single binder).
  */
 const MapDrawing = memo(function MapDrawing({
   outline,
@@ -668,11 +671,22 @@ const MapDrawing = memo(function MapDrawing({
       ) : null}
       {marks.map((mark) => (
         <Circle
+          key={`${mark.code}-land`}
+          cx={mark.x}
+          cy={mark.y}
+          r={MARK_RADIUS * point}
+          fill={land}
+          testID={`map-mark-land-${mark.code}`}
+        />
+      ))}
+      {marks.map((mark) => (
+        <Circle
           key={mark.code}
           cx={mark.x}
           cy={mark.y}
           r={MARK_RADIUS * point}
           fill={tint}
+          fillOpacity={SHADE_OPACITY[mark.level]}
           stroke={strong}
           strokeWidth={1.5 * point}
           testID={`map-mark-${mark.code}`}

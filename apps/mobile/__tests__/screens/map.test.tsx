@@ -473,6 +473,15 @@ describe('Map tab: the region map (ADR 0017)', () => {
     expect(mark.props.r).toBeCloseTo(5 * unit, 3);
     expect(colourOf(mark.props.fill)).toBe(lightPalette.primary);
     expect(colourOf(mark.props.stroke)).toBe(lightPalette.onPrimaryContainer);
+    // One binder: the dot has the tint of the legend's "1", not the solid colour of "10+", over
+    // the land's own colour (nothing under the dot shows through it).
+    expect(mark.props.fillOpacity).toBe(0.28);
+    const land = screen.getByTestId('map-mark-land-FR-IDF');
+    expect(colourOf(land.props.fill)).toBe(lightPalette.surface);
+    expect(land.props.fillOpacity ?? 1).toBe(1);
+    expect(land.props.r).toBe(mark.props.r);
+    expect(land.props.cx).toBe(mark.props.cx);
+    expect(land.props.cy).toBe(mark.props.cy);
     const [left = 0, top = 0, right = 0, bottom = 0] =
       outline.shapes.find((shape) => shape.code === 'FR-IDF')?.box ?? [];
     expect((right - left) / unit).toBeLessThan(14);
@@ -491,6 +500,35 @@ describe('Map tab: the region map (ADR 0017)', () => {
     expect(screen.queryByTestId('map-mark-FR-IDF')).toBeNull();
     expect(screen.getByTestId('map-shape-FR-IDF')).toBeOnTheScreen();
   });
+
+  it.each([
+    [3, '2–4', 0.48],
+    [7, '5–9', 0.68],
+    [12, '10+', 0.88],
+  ])(
+    'tints the dot of a small place by its count: %i binders, the legend step “%s”',
+    async (binderCount, _step, opacity) => {
+      mockApi(
+        routes({
+          'GET /api/v1/me': ok(meFixture({ homeRegion: 'europe' })),
+          [COUNTS]: ok(
+            binderCountsFixture({
+              region: 'europe',
+              total: binderCount,
+              subdivisions: [{ code: 'FR-IDF', binderCount }],
+            })
+          ),
+        })
+      );
+      render();
+      await screen.findByText(`${binderCount} public binders in Europe`);
+      await layOutMap();
+      const mark = await screen.findByTestId('map-mark-FR-IDF');
+      expect(mark.props.fillOpacity).toBe(opacity);
+      // The same tint as the place itself has under the dot.
+      expect(screen.getByTestId('map-shape-FR-IDF').props.fillOpacity).toBe(opacity);
+    }
+  );
 
   it('follows the region switcher: the counts, the names and the drawing of the other region', async () => {
     const api = mockApi(

@@ -66,11 +66,15 @@ export const MARK_RADIUS = 5;
 /** A tap this close to a mark's centre (in points) opens its place. */
 export const MARK_REACH = 12;
 
-/** A place with binders too small to be seen on the map at the current zoom, and where to mark it. */
+/**
+ * A place with binders too small to be seen on the map at the current zoom, where to mark it, and
+ * the step of the legend its count belongs to: the mark is tinted like the place itself would be.
+ */
 export interface PlaceMark {
   code: string;
   x: number;
   y: number;
+  level: Exclude<ShadeLevel, 0>;
 }
 
 /**
@@ -87,12 +91,13 @@ export function placeMarks(
   const limit = MARK_BELOW * unitsPerPoint;
   const marks: PlaceMark[] = [];
   for (const shape of shapes) {
-    if (shadeLevel(counts.get(shape.code)) === 0) {
+    const level = shadeLevel(counts.get(shape.code));
+    if (level === 0) {
       continue;
     }
     const [left = 0, top = 0, right = 0, bottom = 0] = shape.box;
     if (right - left < limit && bottom - top < limit) {
-      marks.push({ code: shape.code, x: (left + right) / 2, y: (top + bottom) / 2 });
+      marks.push({ code: shape.code, x: (left + right) / 2, y: (top + bottom) / 2, level });
     }
   }
   return marks;
@@ -100,7 +105,7 @@ export function placeMarks(
 
 /** The mark under a point of the drawing (the closest within `reach` units), or null. */
 export function markAt(
-  marks: readonly PlaceMark[],
+  marks: readonly Pick<PlaceMark, 'code' | 'x' | 'y'>[],
   x: number,
   y: number,
   reach: number
