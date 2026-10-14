@@ -108,11 +108,8 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     // refuses to run while the real provider is enabled, and no developer database ever gets them.
     SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort},http://127.0.0.1:${webPort}`,
-    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     EVENTS_TRANSPORT: 'local',
     PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
     // Every worker of the suite (and the simulator of the native flows) calls from one address,
