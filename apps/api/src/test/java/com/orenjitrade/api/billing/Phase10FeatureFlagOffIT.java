@@ -6,10 +6,7 @@ import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.donations.infra.FakeDonationProvider;
 import com.orenjitrade.api.donations.infra.FakeDonationProvider.SignedWebhook;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -22,8 +19,7 @@ import tools.jackson.databind.JsonNode;
 /**
  * Phase 10 feature flags: with {@code premiumPlans}, {@code credits} or {@code donations} off,
  * their member routes (and the donation webhook and supporters list) answer 404 FEATURE_DISABLED
- * with the flag in the {@code feature} extension; with {@code advertising} off {@code GET /ads}
- * answers an empty list and impressions are not recorded; admin routes stay available.
+ * with the flag in the {@code feature} extension; admin routes stay available.
  */
 class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
 
@@ -143,81 +139,9 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                         "/api/v1/admin/subscriptions",
                         "/api/v1/admin/credits/ledger",
                         "/api/v1/admin/credits/products",
-                        "/api/v1/admin/donations",
-                        "/api/v1/admin/ads/campaigns")) {
+                        "/api/v1/admin/donations")) {
             callJson(HttpMethod.GET, path, admin, null, 200);
         }
-    }
-
-    @Test
-    void adsAnswerAnEmptyListAndRecordNothingWhileAdvertisingIsOff() {
-        flag("advertising", true);
-        String admin = staff("flags-off-ads", Role.ADMIN);
-        String advertiser =
-                callJson(
-                                HttpMethod.POST,
-                                "/api/v1/admin/ads/advertisers",
-                                admin,
-                                Map.of("name", "Fictional Flag Advertiser"),
-                                201)
-                        .path("id")
-                        .asString();
-        String game = "zz-flag-" + member("flags-game").id().toString().substring(0, 6);
-        Map<String, Object> campaign = new LinkedHashMap<>();
-        campaign.put("advertiserId", advertiser);
-        campaign.put("name", "Flag test");
-        campaign.put("status", "ACTIVE");
-        campaign.put("startAt", Instant.now().minus(1, ChronoUnit.HOURS).toString());
-        campaign.put("budgetTotal", 10);
-        campaign.put("currency", "CAD");
-        campaign.put("pricing", "FLAT");
-        campaign.put("priority", 100);
-        String campaignId =
-                callJson(HttpMethod.POST, "/api/v1/admin/ads/campaigns", admin, campaign, 201)
-                        .path("campaign")
-                        .path("id")
-                        .asString();
-        callJson(
-                HttpMethod.PUT,
-                "/api/v1/admin/ads/campaigns/" + campaignId + "/targeting",
-                admin,
-                Map.of("rules", List.of(Map.of("kind", "GAME", "value", game))),
-                200);
-        Map<String, Object> creative = new LinkedHashMap<>();
-        creative.put("placement", "MOBILE_FEED");
-        creative.put("headline", "Fictional flag test");
-        creative.put("ctaLabel", "Look");
-        creative.put("landingUrl", "https://accessories.example/flag");
-        creative.put("status", "ACTIVE");
-        String creativeId =
-                callJson(
-                                HttpMethod.POST,
-                                "/api/v1/admin/ads/campaigns/" + campaignId + "/creatives",
-                                admin,
-                                creative,
-                                201)
-                        .path("id")
-                        .asString();
-        String path = "/api/v1/ads?placement=MOBILE_FEED&game=" + game;
-        JsonNode on = callJson(HttpMethod.GET, path, null, null, 200);
-        assertThat(on.size()).isEqualTo(1);
-        String token = on.get(0).path("impressionToken").asString();
-
-        flag("advertising", false);
-        assertThat(callJson(HttpMethod.GET, path, null, null, 200).size()).isZero();
-        Member member = member("flags-ads-member");
-        assertThat(callJson(HttpMethod.GET, path, member.uid(), null, 200).size()).isZero();
-        callJson(
-                HttpMethod.POST,
-                "/api/v1/ads/" + creativeId + "/impression",
-                null,
-                Map.of("token", token),
-                204);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_impression WHERE creative_id = ?::uuid",
-                                creativeId))
-                .isZero();
     }
 
     private void expectDisabled(String feature, Route route, List<String> failures) {

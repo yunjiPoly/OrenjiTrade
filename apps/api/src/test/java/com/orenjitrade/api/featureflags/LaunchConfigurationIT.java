@@ -19,23 +19,17 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The launch configuration (2026-10-05, "discovery + messaging only"): with {@code
- * protectedPayments}, {@code premiumPlans}, {@code credits}, {@code donations}, {@code advertising}
- * and {@code mlScanning} all off — the migration state since V105 — every money route refuses with
- * the existing {@code 404 FEATURE_DISABLED} Problem Details (extension {@code feature}), ads answer
- * an empty list, and everything else keeps working end to end: region discovery, a public listing
- * and a binder, the wishlist, messaging, an offer as a plain proposal, the trade agreed and
- * completed in person, a rating and a report. The plan endpoints stay readable.
+ * protectedPayments}, {@code premiumPlans}, {@code credits}, {@code donations} and {@code
+ * mlScanning} all off — the migration state since V105 — every money route refuses with the
+ * existing {@code 404 FEATURE_DISABLED} Problem Details (extension {@code feature}), and everything
+ * else keeps working end to end: region discovery, a public listing and a binder, the wishlist,
+ * messaging, an offer as a plain proposal, the trade agreed and completed in person, a rating and a
+ * report. The plan endpoints stay readable.
  */
 class LaunchConfigurationIT extends AbstractOffersIT {
 
     static final List<String> MONEY_FLAGS =
-            List.of(
-                    "protectedPayments",
-                    "premiumPlans",
-                    "credits",
-                    "donations",
-                    "advertising",
-                    "mlScanning");
+            List.of("protectedPayments", "premiumPlans", "credits", "donations", "mlScanning");
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
@@ -148,7 +142,7 @@ class LaunchConfigurationIT extends AbstractOffersIT {
     }
 
     @Test
-    void everyMoneyRouteRefusesWithFeatureDisabledAndAdsAreEmpty() {
+    void everyMoneyRouteRefusesWithFeatureDisabled() {
         Collector member = member("launch-money");
         List<String> failures = new ArrayList<>();
         Map<String, List<Route>> byFlag = new LinkedHashMap<>();
@@ -202,21 +196,6 @@ class LaunchConfigurationIT extends AbstractOffersIT {
                 (feature, routes) ->
                         routes.forEach(route -> expectDisabled(feature, route, failures)));
         assertThat(failures).as("routes answering something else than FEATURE_DISABLED").isEmpty();
-
-        // Sponsored placements: an empty list for everybody, never an error.
-        assertThat(
-                        callJson(HttpMethod.GET, "/api/v1/ads?placement=MAP_PANEL", null, null, 200)
-                                .size())
-                .isZero();
-        assertThat(
-                        callJson(
-                                        HttpMethod.GET,
-                                        "/api/v1/ads?placement=MAP_PANEL",
-                                        member.uid(),
-                                        null,
-                                        200)
-                                .size())
-                .isZero();
     }
 
     private void flag(String key, boolean enabled) {

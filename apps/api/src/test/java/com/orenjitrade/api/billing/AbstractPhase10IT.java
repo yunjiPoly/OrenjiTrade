@@ -23,9 +23,9 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Helpers of the Phase 10 integration tests (subscriptions, credits, ads, donations): fresh members
- * and staff, feature flags ({@code premiumPlans} and {@code credits} switched on before each test,
- * as the local seed does; every money flag restored to the migration state, all off since the V105
+ * Helpers of the Phase 10 integration tests (subscriptions, credits, donations): fresh members and
+ * staff, feature flags ({@code premiumPlans} and {@code credits} switched on before each test, as
+ * the local seed does; every money flag restored to the migration state, all off since the V105
  * launch configuration, after each test), raw webhooks, internal jobs and polling of asynchronously
  * applied webhooks.
  */
@@ -49,7 +49,6 @@ public abstract class AbstractPhase10IT extends AbstractIntegrationTest {
     void restoreFlagDefaults() {
         flag("premiumPlans", false);
         flag("credits", false);
-        flag("advertising", false);
         flag("donations", false);
     }
 

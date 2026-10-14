@@ -296,13 +296,6 @@ orenji:
       webhook-secret: ${FAKE_DONATIONS_WEBHOOK_SECRET:local-fake-donations-webhook-secret}
       # Empty: checkout URLs are the web path /checkout/fake-donation/<ref>.
       checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
-  ads:
-    # HMAC key of the ad serve tokens (impressions and clicks). The development default is refused
-    # outside the local, test and dev profiles.
-    token-secret: ${ADS_TOKEN_SECRET:local-ads-token-secret}
-    token-max-age: 24h
-    # Origin of relative house-ad landing paths (e.g. /premium) on click redirects.
-    web-base-url: ${ADS_WEB_BASE_URL:http://localhost:4200}
   push:
     # log | fcm
     provider: ${PUSH_PROVIDER:log}
@@ -384,11 +377,6 @@ orenji:
       - name: billing-webhooks
         path-patterns: ["/api/v1/webhooks/billing/*", "/api/v1/webhooks/donations/*"]
         methods: [POST]
-        limit: 600
-        window-seconds: 60
-        key-by: IP
-      - name: ad-events
-        path-patterns: ["/api/v1/ads/*/impression", "/api/v1/ads/*/click"]
         limit: 600
         window-seconds: 60
         key-by: IP

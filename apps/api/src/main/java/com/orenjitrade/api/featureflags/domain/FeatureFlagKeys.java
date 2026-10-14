@@ -18,9 +18,6 @@ public final class FeatureFlagKeys {
     /** Premium plans marketing and checkout (Phase 10). */
     public static final String PREMIUM_PLANS = "premiumPlans";
 
-    /** Internal sponsored placements (Phase 10). */
-    public static final String ADVERTISING = "advertising";
-
     /** Credits ledger (Phase 10). */
     public static final String CREDITS = "credits";
 

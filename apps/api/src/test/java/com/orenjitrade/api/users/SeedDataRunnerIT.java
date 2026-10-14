@@ -450,7 +450,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionCreditsCampaignsAndDonationsIdempotently() {
+    void seedsASubscriptionCreditsAndDonationsIdempotently() {
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
         UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
         UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
@@ -479,24 +479,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .isEqualTo(1);
         assertThat(
                         testUsers.count(
-                                "SELECT count(*) FROM ad_campaign WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%'"))
-                .isEqualTo(3);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_creative WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%' AND status = 'ACTIVE'"))
-                .isEqualTo(6);
-        assertThat(
-                        testUsers.count(
                                 "SELECT count(*) FROM donation WHERE id::text LIKE"
                                         + " '00000000-0000-4000-a300-%' AND status = 'SUCCEEDED'"))
                 .isEqualTo(2);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM advertiser WHERE contact_email LIKE"
-                                        + " '%.example'"))
-                .isPositive();
     }
 
     @Test
@@ -528,7 +513,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "payments",
                         "subscriptions",
                         "credits",
-                        "ads",
                         "donations");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(

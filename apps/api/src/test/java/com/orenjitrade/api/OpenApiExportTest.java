@@ -460,7 +460,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardImageCacheStatus", "CatalogImportReport", "CatalogSyncRun")) {
             assertThat(document.path("components").path("schemas").has(schema)).as(schema).isTrue();
         }
-        // Phase 10 (subscriptions, credits, referrals, ads, donations, admin).
+        // Phase 10 (subscriptions, credits, referrals, donations, admin).
         for (String path :
                 java.util.List.of(
                         "/api/v1/me/plan",
@@ -484,20 +484,6 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/admin/credits/products/{key}",
                         "/api/v1/admin/credits/settings",
                         "/internal/jobs/credits-reconcile",
-                        "/api/v1/ads",
-                        "/api/v1/ads/{creativeId}/impression",
-                        "/api/v1/ads/{creativeId}/click",
-                        "/api/v1/admin/ads/advertisers",
-                        "/api/v1/admin/ads/advertisers/{id}",
-                        "/api/v1/admin/ads/placements",
-                        "/api/v1/admin/ads/placements/{key}",
-                        "/api/v1/admin/ads/campaigns",
-                        "/api/v1/admin/ads/campaigns/{id}",
-                        "/api/v1/admin/ads/campaigns/{id}/targeting",
-                        "/api/v1/admin/ads/campaigns/{id}/creatives",
-                        "/api/v1/admin/ads/campaigns/{id}/stats",
-                        "/api/v1/admin/ads/creatives/{id}",
-                        "/internal/ads/clicks/{clickId}/conversions",
                         "/api/v1/donations/checkout",
                         "/api/v1/me/donations",
                         "/api/v1/donations/fake/{ref}",
@@ -521,7 +507,6 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                                         .isNotEmpty();
                             });
         }
-        assertThat(paths.path("/api/v1/ads").path("get").path("security")).isEmpty();
         assertThat(
                         paths.path("/api/v1/me/subscription/mobile-receipt")
                                 .path("post")

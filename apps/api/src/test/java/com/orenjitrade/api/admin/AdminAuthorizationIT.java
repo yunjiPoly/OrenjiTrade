@@ -185,7 +185,7 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
-        // Phase 10: subscriptions, credits, ads, donations (reads and harmless writes).
+        // Phase 10: subscriptions, credits, donations (reads and harmless writes).
         routes.add(get("/api/v1/admin/subscriptions", Level.ADMIN));
         routes.add(get("/api/v1/admin/subscriptions/" + id, Level.ADMIN));
         routes.add(
@@ -201,44 +201,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/credits/ledger", Level.ADMIN));
         routes.add(get("/api/v1/admin/credits/products", Level.ADMIN));
         routes.add(get("/api/v1/admin/credits/settings", Level.ADMIN));
-        routes.add(get("/api/v1/admin/ads/advertisers", Level.ADMIN));
-        routes.add(post("/api/v1/admin/ads/advertisers", Map.of("name", ""), Level.ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/ads/advertisers/" + id,
-                        Map.of("name", "x"),
-                        Level.ADMIN));
-        routes.add(get("/api/v1/admin/ads/placements", Level.ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/ads/placements/MAP_PANEL",
-                        Map.of("name", "", "active", true, "maxAds", 1),
-                        Level.ADMIN));
-        routes.add(get("/api/v1/admin/ads/campaigns", Level.ADMIN));
-        routes.add(post("/api/v1/admin/ads/campaigns", Map.of(), Level.ADMIN));
-        routes.add(get("/api/v1/admin/ads/campaigns/" + id, Level.ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/ads/campaigns/" + id,
-                        Map.of(),
-                        Level.ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/ads/campaigns/" + id + "/targeting",
-                        Map.of("rules", List.of()),
-                        Level.ADMIN));
-        routes.add(get("/api/v1/admin/ads/campaigns/" + id + "/stats", Level.ADMIN));
-        routes.add(post("/api/v1/admin/ads/campaigns/" + id + "/creatives", Map.of(), Level.ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/ads/creatives/" + id,
-                        Map.of(),
-                        Level.ADMIN));
         routes.add(get("/api/v1/admin/donations", Level.ADMIN));
         routes.add(get("/api/v1/admin/donations/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/donations/settings", Level.ADMIN));

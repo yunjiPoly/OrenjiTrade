@@ -98,8 +98,6 @@ public class SecurityConfig {
                     // Billing and donation provider webhooks (Phase 10): signature verified.
                     "/api/v1/webhooks/billing/*",
                     "/api/v1/webhooks/donations/*",
-                    // Ad impressions (Phase 10): authenticated by the signed serve token.
-                    "/api/v1/ads/*/impression",
                     "/error");
 
     /**
@@ -125,9 +123,7 @@ public class SecurityConfig {
                     "/api/v1/regions",
                     "/api/v1/regions/**",
                     "/api/v1/search",
-                    "/api/v1/search/**",
-                    "/api/v1/ads",
-                    "/api/v1/ads/*/click");
+                    "/api/v1/search/**");
 
     /**
      * The moderation subset of the admin console (Phase 5 contract "Moderator"; Phase 7 RBAC:

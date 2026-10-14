@@ -567,22 +567,20 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void subscriptionsCreditsAdsAndDonationsNeverCarryGeography(CapturedOutput output) {
+    void subscriptionsCreditsAndDonationsNeverCarryGeography(CapturedOutput output) {
         String premium = "seed-premium-user:premium@orenjitrade.test";
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
         String collector2 = "seed-collector2:collector2@orenjitrade.test";
         String subscription = "00000000-0000-4000-a000-000000000001";
-        String sleeves = "00000000-0000-4000-a200-000000000101";
 
         JsonNode plan;
         JsonNode credits;
         JsonNode supporters;
-        List<JsonNode> ads = new ArrayList<>();
         // Every money flag is off by the migrations (V105 launch configuration): switch on the
-        // four this test reads through, and put them back afterwards.
+        // three this test reads through, and put them back afterwards.
         testUsers.update(
                 "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
-                        + " ('premiumPlans', 'credits', 'advertising', 'donations')");
+                        + " ('premiumPlans', 'credits', 'donations')");
         featureFlags.invalidate();
         try {
             plan = fetch("/api/v1/me/plan", premium);
@@ -590,29 +588,10 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             fetch("/api/v1/me/referrals", collector1);
             fetch("/api/v1/me/donations", collector2);
             supporters = fetch("/api/v1/public/donations/supporters", null);
-            for (String placement :
-                    List.of(
-                            "SEARCH_SPONSORED",
-                            "MAP_PANEL",
-                            "INVENTORY_SIDEBAR",
-                            "COLLECTOR_PROFILE",
-                            "MOBILE_FEED")) {
-                for (String viewer : Arrays.asList(null, collector1)) {
-                    ads.add(
-                            fetch(
-                                    "/api/v1/ads?placement="
-                                            + placement
-                                            + "&game=pokemon&region=americas-north",
-                                    viewer));
-                }
-            }
-            assertThat(fetch("/api/v1/ads?placement=MAP_PANEL", premium).size())
-                    .as("no ads for PREMIUM")
-                    .isZero();
         } finally {
             testUsers.update(
                     "UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans',"
-                            + " 'credits', 'advertising', 'donations')");
+                            + " 'credits', 'donations')");
             featureFlags.invalidate();
         }
         for (String path :
@@ -622,11 +601,6 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                         "/api/v1/admin/credits/ledger?size=100",
                         "/api/v1/admin/credits/products",
                         "/api/v1/admin/credits/settings",
-                        "/api/v1/admin/ads/advertisers",
-                        "/api/v1/admin/ads/placements",
-                        "/api/v1/admin/ads/campaigns?size=100",
-                        "/api/v1/admin/ads/campaigns/" + sleeves,
-                        "/api/v1/admin/ads/campaigns/" + sleeves + "/stats",
                         "/api/v1/admin/donations?size=100",
                         "/api/v1/admin/donations/settings",
                         "/api/v1/plans")) {
@@ -635,9 +609,6 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(plan.path("subscription").path("status").asString()).isEqualTo("ACTIVE");
         assertThat(credits.path("balance").asLong()).isGreaterThanOrEqualTo(300);
         assertThat(supporters.path("supporters").size()).isPositive();
-        assertThat(ads.stream().mapToInt(JsonNode::size).sum())
-                .as("seeded campaigns serve")
-                .isPositive();
         for (Fetched document : fetched) {
             String text = document.body().toString();
             assertThat(text)
@@ -648,11 +619,6 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     .doesNotContain("userHash")
                     .doesNotContain("map.radius")
                     .doesNotContain("map_radius_day");
-        }
-        for (JsonNode list : ads) {
-            for (JsonNode ad : list) {
-                assertThat(ad.path("label").asString()).isEqualTo("Sponsored");
-            }
         }
         assertContract(output);
     }
