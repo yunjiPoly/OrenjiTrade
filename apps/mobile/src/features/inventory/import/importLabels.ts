@@ -403,22 +403,47 @@ export function assumedCopies(summary: Pick<ImportSummary, 'assumedPrintings'>):
   return summary.assumedPrintings ?? 0;
 }
 
+/** A chip of the filter: what it shows, and what a screen reader says when that is shortened. */
+export interface ImportFilterOption {
+  value: ImportRowFilter;
+  label: string;
+  accessibilityLabel?: string;
+}
+
 /**
  * The filter chips with their counts: "All (4)", "Needs a printing (2)", "Not recognised (1)",
- * and "Plain copy assumed (3)" while lines hold a copy that was assumed for the collector (or
- * while those lines are what the list shows, so the chip pressed never vanishes under a finger).
+ * and the lines whose copy was assumed for the collector, while there are some (or while those
+ * lines are what the list shows, so the chip pressed never vanishes under a finger).
  * What asks something of the collector comes first: the lines nothing fits can only be read.
+ *
+ * The chip of the assumed copies is the third of a row that stays on screen, and on a phone it
+ * is cut at the screen's edge (which also says that the row scrolls). Its count therefore leads
+ * and its words are few, "356 assumed": after "All (435)" and "Needs a printing (0)" some 80
+ * points of it are in view, and a count at the end of any wording, "Assumed (356)" included,
+ * would be the part that is cut. A screen reader hears what it shows and then what it means,
+ * "356 assumed: the lines whose plain copy was assumed": the name starts with the words on
+ * screen, so a collector who says them to Voice Control reaches the chip (WCAG 2.5.3).
  */
 export function filterOptions(
   summary: ImportSummary,
-  current: ImportRowFilter = 'ALL'
-): { value: ImportRowFilter; label: string }[] {
+  current: ImportRowFilter = 'ALL',
+  source: ImportSource = 'YDK'
+): ImportFilterOption[] {
   const assumed = assumedCopies(summary);
-  const options: ({ value: ImportRowFilter; label: string } | null)[] = [
+  const shown = `${formatCount(assumed)} assumed`;
+  const noun = source === 'YDK' ? 'card' : 'line';
+  const options: (ImportFilterOption | null)[] = [
     { value: 'ALL', label: `All (${formatCount(summary.rows)})` },
     { value: 'CHOOSE_PRINTING', label: `Needs a printing (${formatCount(summary.toChoose)})` },
     assumed > 0 || current === 'MOST_RECENT_ASSUMED'
-      ? { value: 'MOST_RECENT_ASSUMED', label: `Plain copy assumed (${formatCount(assumed)})` }
+      ? {
+          value: 'MOST_RECENT_ASSUMED',
+          label: shown,
+          accessibilityLabel:
+            assumed === 1
+              ? `${shown}: the ${noun} whose plain copy was assumed`
+              : `${shown}: the ${noun}s whose plain copy was assumed`,
+        }
       : null,
     { value: 'UNMATCHED', label: `Not recognised (${formatCount(summary.unmatched)})` },
   ];
@@ -466,14 +491,27 @@ export function rowTitle(row: ImportRow): string {
   return row.source.passcode ? `Passcode ${row.source.passcode}` : 'Unknown card';
 }
 
-/** What the file said about a row, as written: "Some Set · EN404 · Common · 3 copies". */
+/** What stands for the copies of a line whose file wrote no number of copies an item can hold. */
+export const COPIES_NOT_A_NUMBER = 'copies: not a number from 1 to 9,999';
+
+/**
+ * What the file said about a row, as written: "Some Set · EN404 · Common · 3 copies".
+ *
+ * A line whose number of copies could not be read says so where its copies would stand, unless
+ * that is the very reason it was not recognised (the sentence under it says it then). A line of
+ * a game OrenjiTrade does not have is reported for its game, whatever its file wrote for the
+ * copies: it showed nothing there, as if the file had said nothing.
+ */
 export function rowSourceText(row: ImportRow): string {
-  const parts = [
-    row.source.set,
-    row.source.number,
-    row.source.rarity,
-    row.fileQuantity > 0 ? plural(row.fileQuantity, 'copy', 'copies') : null,
-  ].filter((part): part is string => !!part);
+  const copies =
+    row.fileQuantity > 0
+      ? plural(row.fileQuantity, 'copy', 'copies')
+      : row.unmatchedReason === 'INVALID_QUANTITY'
+        ? null
+        : COPIES_NOT_A_NUMBER;
+  const parts = [row.source.set, row.source.number, row.source.rarity, copies].filter(
+    (part): part is string => !!part
+  );
   return parts.join(' · ');
 }
 
@@ -651,8 +689,20 @@ export function orderedPrintings(
 // --- The commit --------------------------------------------------------------------------------
 
 export interface CommitState {
-  /** What the button says: what a press does. */
+  /**
+   * What a press does, in full: the button's name for a screen reader. It always starts with
+   * `shortLabel`, the words on screen, so a collector who says them to Voice Control reaches the
+   * button (WCAG 2.5.3, label in name).
+   */
   label: string;
+  /**
+   * What the button shows: `label` held to one line of a phone. The cards, their copies and "to
+   * my inventory" together are wider than the button ("Add 434 cards (1,266 copies) to my
+   * inventory" broke onto a second line), so where the copies are named the words the screen
+   * already says give way to the numbers, and a press that leaves lines out names the cards
+   * and how many lines stay out (its name adds the copies at the end).
+   */
+  shortLabel: string;
   disabled: boolean;
   /** Why it is disabled, or what else a press does; `null` when there is nothing to add. */
   reason: string | null;
@@ -679,10 +729,12 @@ export function commitState(
   source: ImportSource = 'YDK'
 ): CommitState {
   const cards = cardsAndCopies(summary);
+  const adding = summary.copies === summary.items ? `Add ${cards} to my inventory` : `Add ${cards}`;
   if (summary.toChoose > 0 && !leaveOutUnchosen) {
     const waiting = shortLines(summary.toChoose, source);
     return {
       label: summary.items > 0 ? `Add ${cards} to my inventory` : 'Add to my inventory',
+      shortLabel: summary.items > 0 ? adding : 'Add to my inventory',
       disabled: true,
       reason:
         summary.toChoose === 1
@@ -693,6 +745,7 @@ export function commitState(
   if (summary.items === 0) {
     return {
       label: 'Add to my inventory',
+      shortLabel: 'Add to my inventory',
       disabled: true,
       reason:
         summary.toChoose > 0
@@ -702,13 +755,18 @@ export function commitState(
   }
   const reason = privacySentence(summary);
   if (summary.toChoose > 0) {
+    const shown = `Add ${plural(summary.items, 'card')}, leave ${formatCount(summary.toChoose)} out`;
     return {
-      label: `Add ${cards}, leave ${formatCount(summary.toChoose)} out`,
+      label:
+        summary.copies === summary.items
+          ? shown
+          : `${shown} (${plural(summary.copies, 'copy', 'copies')} added)`,
+      shortLabel: shown,
       disabled: false,
       reason,
     };
   }
-  return { label: `Add ${cards} to my inventory`, disabled: false, reason };
+  return { label: `Add ${cards} to my inventory`, shortLabel: adding, disabled: false, reason };
 }
 
 /** What the button says while edits of the preview are still on their way to the API. */

@@ -12,22 +12,46 @@ state or province; OrenjiTrade never handles positions or distances.
 Games at launch: Yu-Gi-Oh!, Pokémon, Magic: The Gathering, Riftbound. The model is
 game-agnostic so more games are data, not code.
 
+**Clients today (2026-10-14).** A web app and a phone app (Expo) on the same API. Since the owner's
+order of 2026-10-12 the phone is the client of new work and the web app is paused (it keeps what it
+had and stays the reference for what the phone offers). Nothing is deployed. The owner approved a
+redesign of the phone app on 2026-10-14 (stages R1 to R8,
+[specs/2026-10-14-phone-redesign.md](specs/2026-10-14-phone-redesign.md)): five tabs (Home,
+Search, Inventory, Messages, Profile), "Make an offer" and with it trades, protected payments and
+disputes taken off the phone, deals that ship by mail with payment by e-Transfer outside the app,
+deck cores, a map-first Search and new profiles. It is not built yet: this page describes the
+product as it is today. What the owner's change of 2026-10-08 delivered and what it did not:
+[2026-10-08-change-delivery-report.md](2026-10-08-change-delivery-report.md).
+
 ## Two primary surfaces
 
 1. **Map / Discovery** (`/map`, mobile Map tab): a map of the platform region (Americas North,
    Americas South, Europe; a region switcher at the top left) with states and provinces shaded by
    their public binders; choosing a state lists its binders (owner, state, freshness, games);
    prominent search and "who has this in my region"; collapsible private messaging panel on
-   desktop. The mobile Map tab is a placeholder until it draws the same map. Collectors only — no
-   stores or events in the MVP.
+   desktop. The mobile Map tab draws the same map since stage M9 (2026-10-12), with the region
+   switcher on top, the same places as a list with their counts, and the binders of each state or
+   province. Collectors only — no stores or events in the MVP.
 2. **Inventory management** (`/inventory`, mobile Inventory tab): the collector's own cards and
    binders with private / public / temporarily-public visibility, availability (collection only,
    trade, sale, trade or sale, accepting offers, not available), condition, language, printing,
-   edition, asking price, notes, bulk actions, binder management, freshness confirmation.
+   edition, asking price, notes, bulk actions, binder management, freshness confirmation. On the
+   phone (stage S5, 2026-10-13) a collector can also fill the inventory from a Yu-Gi-Oh! deck file
+   (.ydk) or a Collectr CSV export: the file becomes a preview to check (printings, conditions,
+   copies, lines left out) and nothing is added before the collector confirms; new cards start
+   private. The web has no import screen (paused).
 
 Supporting surfaces: search, collector profile + public binder, wishlist + alerts, private chat,
-community channels, offers and trades, ratings and references, collector reporting, settings
-(privacy, notifications, account deletion), legal pages, admin console.
+community channels, offers and trades (on the phone until the redesign's stage R1), ratings and
+references, collector reporting, settings (privacy, notifications, account deletion), legal pages,
+admin console (web only).
+
+**Not built** (owner decision of 2026-10-13, stages S3 and S4 of the 2026-10-08 change): the
+printing picker with holder counts on the card page ("any printing" by default), holders by rarity,
+"Find this card", "Who wants it", "Wanted by N" on one's own inventory items, a server-side search
+history (the phone keeps recent searches on the device), and photos in community posts. The
+redesign of 2026-10-14 drops "Who wants it", "Wanted by N" and the holder counts, and keeps recent
+searches on the phone.
 
 ## Core user journeys (E2E scenarios)
 

@@ -298,7 +298,7 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
         assertThat(hidden.path("item").path("imageUrl").asString()).matches(dragonPicture);
     }
 
-    /** A discoverable collector with a profile and a trading area; returns the account id. */
+    /** A discoverable collector with a profile and a declared location; returns the account id. */
     private UUID collector(String uid) {
         UUID id = provisionCompliant(uid);
         String handle = me(uid).path("handle").asString();

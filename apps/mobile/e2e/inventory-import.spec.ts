@@ -433,7 +433,7 @@ test.describe('mobile inventory import', () => {
     // Leaving the knight out is a choice the collector makes; here it gets a printing instead.
     await flow.getByRole('checkbox', { name: /^Leave out the 1 line/ }).click();
     await expect(flow.getByTestId('import-commit')).toHaveAccessibleName(
-      'Add 1 card (2 copies), leave 1 out'
+      'Add 1 card, leave 1 out (2 copies added)'
     );
     await flow.getByRole('checkbox', { name: /^Leave out the 1 line/ }).click();
     await flow
@@ -518,7 +518,8 @@ test.describe('mobile inventory import', () => {
     // The snackbar is gone: the lines are still counted, on a card and on the pinned filter.
     const card = flow.getByTestId('import-assumed');
     await expect(card).toContainText('Plain copy assumed for 2 lines');
-    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (2)' })).toBeVisible();
+    const chip = '2 assumed: the lines whose plain copy was assumed';
+    await expect(bar.getByRole('radio', { name: chip, exact: true })).toBeVisible();
 
     // The card's button lists them, and only them: the API is asked for exactly those rows.
     const listed = page.waitForRequest((asked) => {
@@ -530,7 +531,7 @@ test.describe('mobile inventory import', () => {
     });
     await card.getByRole('button', { name: 'Show these 2 lines' }).click();
     expect(new URL((await listed).url()).searchParams.has('status')).toBe(false);
-    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (2)' })).toHaveAttribute(
+    await expect(bar.getByRole('radio', { name: chip, exact: true })).toHaveAttribute(
       'aria-checked',
       'true'
     );
@@ -547,7 +548,8 @@ test.describe('mobile inventory import', () => {
     const sheet = page.getByTestId('import-printing-sheet');
     await expect(sheet.getByTestId('import-printing-card')).toHaveText('Mirrorblade Knight');
     await sheet.getByRole('radio', { checked: true }).click();
-    await expect(bar.getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeVisible({
+    const one = '1 assumed: the line whose plain copy was assumed';
+    await expect(bar.getByRole('radio', { name: one, exact: true })).toBeVisible({
       timeout: 30_000,
     });
     await expect(flow.getByTestId('import-row-0')).toHaveCount(0);

@@ -29,9 +29,17 @@ public class BinderSearchRepository {
         this.jdbc = jdbc;
     }
 
-    /** Ids of matching binders of {@code region}, best text match first, then by name. */
+    /**
+     * Ids of matching binders of {@code region}, best text match first, then by name. A signed-in
+     * viewer's list leaves out, before the limit, the binders of collectors blocked with them.
+     */
     public List<UUID> search(
-            String query, @Nullable String game, String region, int limit, Instant now) {
+            String query,
+            @Nullable String game,
+            String region,
+            @Nullable UUID viewerId,
+            int limit,
+            Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         String normalised = CatalogText.normalise(query);
@@ -63,6 +71,10 @@ public class BinderSearchRepository {
             params.put("game", game);
         }
         sql.append(")");
+        if (viewerId != null) {
+            sql.append(DiscoverySql.notBlocked("bn.owner_id"));
+            params.put("viewer", viewerId);
+        }
         sql.append(" ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE :prefix")
                 .append(" ESCAPE '\\' THEN 0 ELSE 1 END, ts_rank_cd(bn.search_vector, ")
                 .append(TSQUERY)
@@ -76,12 +88,15 @@ public class BinderSearchRepository {
 
     /**
      * Effectively public binders (with a public item) of discoverable collectors of {@code region}
-     * whose name starts with or contains the text.
+     * whose name starts with or contains the text; for a signed-in viewer, without the binders of
+     * collectors blocked with them (left out before the limit).
      */
-    public List<BinderName> suggest(String query, String region, int limit, Instant now) {
+    public List<BinderName> suggest(
+            String query, String region, @Nullable UUID viewerId, int limit, Instant now) {
         String normalised = CatalogText.normalise(query);
         String escaped = CatalogText.escapeLike(normalised);
-        return jdbc.sql(
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
                         "SELECT bn.id, bn.name, bn.owner_id FROM binder bn"
                                 + PublicVisibilityRules.ownerJoins("bn.owner_id")
                                 + DiscoverySql.locationJoins("bn.owner_id")
@@ -96,9 +111,15 @@ public class BinderSearchRepository {
                                 + DiscoverySql.ITEM_JOINS
                                 + " WHERE i.binder_id = bn.id AND "
                                 + DiscoverySql.LISTED
-                                + ") ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE"
+                                + ")"
+                                + (viewerId == null ? "" : DiscoverySql.notBlocked("bn.owner_id"))
+                                + " ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE"
                                 + " :prefix ESCAPE '\\' THEN 0 ELSE 1 END, bn.name, bn.id"
-                                + " LIMIT :limit")
+                                + " LIMIT :limit");
+        if (viewerId != null) {
+            statement = statement.param("viewer", viewerId);
+        }
+        return statement
                 .param("now", Timestamp.from(now))
                 .param("contains", "%" + escaped + "%")
                 .param("prefix", escaped + "%")

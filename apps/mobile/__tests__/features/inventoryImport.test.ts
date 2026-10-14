@@ -329,14 +329,47 @@ describe('the counts on top of a preview', () => {
     expect(filterOptions(long)).toEqual([
       { value: 'ALL', label: 'All (435)' },
       { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
-      { value: 'MOST_RECENT_ASSUMED', label: 'Plain copy assumed (115)' },
+      // The third chip of a pinned row is cut at the screen's edge: its count leads, so the
+      // count is the part in view, and a screen reader hears the words on screen, then what
+      // they mean (a deck counts in cards).
+      {
+        value: 'MOST_RECENT_ASSUMED',
+        label: '115 assumed',
+        accessibilityLabel: '115 assumed: the cards whose plain copy was assumed',
+      },
       { value: 'UNMATCHED', label: 'Not recognised (15)' },
     ]);
+    expect(
+      filterOptions({ ...long, assumedPrintings: 1234 }).find(
+        (option) => option.value === 'MOST_RECENT_ASSUMED'
+      )?.label
+    ).toBe('1,234 assumed');
     // The last one was checked while its list is shown: the chip stays, and the list says so.
     expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED')[2]).toEqual({
       value: 'MOST_RECENT_ASSUMED',
-      label: 'Plain copy assumed (0)',
+      label: '0 assumed',
+      accessibilityLabel: '0 assumed: the cards whose plain copy was assumed',
     });
+    // A CSV counts in lines, and one is one.
+    expect(
+      filterOptions({ ...long, assumedPrintings: 1 }, 'ALL', 'COLLECTR_CSV')[2]?.accessibilityLabel
+    ).toBe('1 assumed: the line whose plain copy was assumed');
+    expect(filterOptions(long, 'ALL', 'COLLECTR_CSV')[2]?.accessibilityLabel).toBe(
+      '115 assumed: the lines whose plain copy was assumed'
+    );
+    // Label in name (WCAG 2.5.3): whatever a chip shows starts the name a screen reader and
+    // Voice Control use, so "Tap 115 assumed" reaches it.
+    for (const source of ['YDK', 'COLLECTR_CSV'] as const) {
+      for (const assumedPrintings of [0, 1, 115, 1234]) {
+        for (const option of filterOptions(
+          { ...long, assumedPrintings },
+          'MOST_RECENT_ASSUMED',
+          source
+        )) {
+          expect((option.accessibilityLabel ?? option.label).startsWith(option.label)).toBe(true);
+        }
+      }
+    }
     expect(emptyFilterText('MOST_RECENT_ASSUMED')).toEqual({
       title: 'No plain copy left to check',
       description: 'Every copy that was taken for you has been confirmed or changed.',
@@ -488,6 +521,25 @@ describe('one line of a preview', () => {
     });
     expect(rowTitle(sheet)).toBe('Nobody Knows Me');
     expect(rowSourceText(sheet)).toBe('Some Set · EN404 · Common · 3 copies');
+    // A line of a game OrenjiTrade does not have is reported for its game, whatever its file
+    // wrote for the copies: when that was no number of copies, the line says so where its copies
+    // would stand (it showed nothing there, as if the file had said nothing).
+    const otherGame = { ...sheet, unmatchedReason: 'UNKNOWN_GAME' as const, fileQuantity: 0 };
+    expect(rowSourceText(otherGame)).toBe(
+      'Some Set · EN404 · Common · copies: not a number from 1 to 9,999'
+    );
+    expect(rowSummary(otherGame)).toBe(
+      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · copies: not a number from 1 to 9,999, OrenjiTrade does not have this game., Cards of this game cannot be added yet.'
+    );
+    expect(rowSourceText({ ...otherGame, fileQuantity: 4 })).toBe(
+      'Some Set · EN404 · Common · 4 copies'
+    );
+    // Where the copies are the very reason, the sentence under the line says it, once.
+    const badCopies = { ...sheet, unmatchedReason: 'INVALID_QUANTITY' as const, fileQuantity: 0 };
+    expect(rowSourceText(badCopies)).toBe('Some Set · EN404 · Common');
+    expect(unmatchedReasonText('INVALID_QUANTITY')).toBe(
+      'The number of copies in the file is not a whole number from 1 to 9,999.'
+    );
     expect(rowSummary(sheet)).toBe(
       'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
     );
@@ -543,6 +595,7 @@ describe('the commit button says what a press does', () => {
   it('is disabled with its reason while cards still need a printing', () => {
     expect(commitState(summaryOf(), false)).toEqual({
       label: 'Add 1 card (2 copies) to my inventory',
+      shortLabel: 'Add 1 card (2 copies)',
       disabled: true,
       reason: '2 cards still need a printing. Choose them, or leave them out.',
     });
@@ -557,7 +610,8 @@ describe('the commit button says what a press does', () => {
 
   it('leaves them out only when the collector said so, and says it', () => {
     expect(commitState(summaryOf(), true)).toEqual({
-      label: 'Add 1 card (2 copies), leave 2 out',
+      label: 'Add 1 card, leave 2 out (2 copies added)',
+      shortLabel: 'Add 1 card, leave 2 out',
       disabled: false,
       reason: 'It starts private: nobody sees it until you publish it.',
     });
@@ -571,6 +625,7 @@ describe('the commit button says what a press does', () => {
   it('adds every ready card once nothing is left to choose', () => {
     expect(commitState(summaryOf({ toChoose: 0, items: 3, ready: 3, copies: 3 }), false)).toEqual({
       label: 'Add 3 cards to my inventory',
+      shortLabel: 'Add 3 cards to my inventory',
       disabled: false,
       reason: 'They start private: nobody sees them until you publish them.',
     });
@@ -588,9 +643,49 @@ describe('the commit button says what a press does', () => {
     );
   });
 
+  it('shows a label that fits one line of a phone, and keeps the whole sentence as its name', () => {
+    // The file of the review: the cards, their copies and "to my inventory" together are wider
+    // than the button, and the label broke onto a second line.
+    const csv = commitState(
+      summaryOf({ toChoose: 0, items: 434, ready: 434, copies: 1266 }),
+      false,
+      'COLLECTR_CSV'
+    );
+    expect(csv.label).toBe('Add 434 cards (1,266 copies) to my inventory');
+    expect(csv.shortLabel).toBe('Add 434 cards (1,266 copies)');
+    // A press that leaves lines out names the cards and how many lines stay out.
+    const leaving = commitState(
+      summaryOf({ toChoose: 12, items: 434, ready: 434, copies: 1266 }),
+      true,
+      'COLLECTR_CSV'
+    );
+    expect(leaving.label).toBe('Add 434 cards, leave 12 out (1,266 copies added)');
+    expect(leaving.shortLabel).toBe('Add 434 cards, leave 12 out');
+    // Where the copies are the cards, there is nothing to add to what the button shows.
+    expect(
+      commitState(summaryOf({ toChoose: 12, items: 434, ready: 434, copies: 434 }), true).label
+    ).toBe('Add 434 cards, leave 12 out');
+    // No visible label is longer than the longest one that fits ("Add 1,234 cards to my
+    // inventory", 31 characters), whatever the counts.
+    for (const summary of [
+      summaryOf({ toChoose: 0, items: 1234, ready: 1234, copies: 9999 }),
+      summaryOf({ toChoose: 0, items: 1234, ready: 1234, copies: 1234 }),
+      summaryOf({ toChoose: 115, items: 1234, ready: 1234, copies: 9999 }),
+      summaryOf({ toChoose: 0, items: 0, ready: 0 }),
+    ]) {
+      for (const leaveOut of [false, true]) {
+        const state = commitState(summary, leaveOut, 'COLLECTR_CSV');
+        expect(state.shortLabel.length).toBeLessThanOrEqual(31);
+        // Label in name (WCAG 2.5.3): the name starts with what the button shows.
+        expect(state.label.startsWith(state.shortLabel)).toBe(true);
+      }
+    }
+  });
+
   it('is disabled when nothing is ready', () => {
     expect(commitState(summaryOf({ toChoose: 0, items: 0, ready: 0 }), false)).toEqual({
       label: 'Add to my inventory',
+      shortLabel: 'Add to my inventory',
       disabled: true,
       reason: 'No card of this file is ready to be added.',
     });

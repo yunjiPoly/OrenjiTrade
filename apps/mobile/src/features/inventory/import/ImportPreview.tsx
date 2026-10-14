@@ -281,7 +281,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           scroll
           revealSelected
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          options={filterOptions(preview.summary, filter)}
+          options={filterOptions(preview.summary, filter, preview.source)}
           value={filter}
           onChange={chooseFilter}
           testID="import-filter"
@@ -405,7 +405,8 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           </Text>
         ) : null}
         <Button
-          label={state.label}
+          label={state.shortLabel}
+          accessibilityLabel={state.label}
           loadingLabel="Adding to your inventory…"
           icon="tray-arrow-down"
           disabled={state.disabled || wholeBusy || saving}

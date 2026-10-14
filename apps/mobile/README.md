@@ -1,11 +1,21 @@
 # OrenjiTrade mobile (`apps/mobile`)
 
-React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Six tabs, as
-decided in `CLAUDE.md`: **Map | Inventory | Search | Messages | Wishlist | Profile**.
+React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Six tabs today,
+as decided in `CLAUDE.md`: **Map | Inventory | Search | Messages | Wishlist | Profile**. The phone
+redesign the owner approved on 2026-10-14 (stages R1 to R8,
+`docs/product/specs/2026-10-14-phone-redesign.md`) changes them to five (Home, Search, Inventory,
+Messages, Profile) and takes offers, trades, payment protection and disputes off the phone. None of
+it is built yet: this README describes the app as it is today.
+
+Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
+paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
+the card screen, "Who wants it", "Wanted by N", a server-side search history) and S4 (photos in
+community posts) are **not built** (skipped by the owner on 2026-10-13); the recent searches of the
+Search tab are kept on the device only (stage M2).
 
 Read the root `CLAUDE.md`, `IMPLEMENTATION_STATUS.md` (mobile rows) and
-`docs/architecture/adr/0006-angular-web-react-native-mobile.md` first. Privacy (ADR 0004) and the
-card image rules (ADR 0015) apply to the app exactly as to the web.
+`docs/architecture/adr/0006-angular-web-react-native-mobile.md` first. Privacy (ADR 0017, which
+superseded ADR 0004) and the card image rules (ADR 0015) apply to the app exactly as to the web.
 
 ## Status
 
@@ -57,8 +67,8 @@ signed out reopens after signing in. Card recognition (Phase 11) is on hold: no 
 `mlScanning` flag stays off.
 
 Phases 7 and 8 (stage M5) are implemented on the same API as the web: **Report collector**
-(`report`: the API's reasons, details, a confirmation; from profiles, the map preview,
-conversations, community posts and public binders) and **My reports** (`settings/reports`, the
+(`report`: the API's reasons, details, a confirmation; from profiles, conversations, community
+posts and public binders; the map preview of stage M3 is gone since S1) and **My reports** (`settings/reports`, the
 status only); **ratings and references** (`ratings/rate`, `ratings/reference`: overall and the four
 criteria after an eligible interaction, edits for 14 days, one reference per collector, from
 profiles, conversations and completed trades); **offers** ("Make an offer" on public cards from
@@ -355,11 +365,20 @@ Conventions later stages reuse:
     printing" says once, in a snackbar, how many lines got the plain copy. While
     `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
     assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
-    the chip "Plain copy assumed (115)" (the filter `MOST_RECENT_ASSUMED`, sent as
-    `printingChoice`). The chips stand in the order of what they ask (All, Needs a printing, Plain
-    copy assumed, Not recognised), and the row brings the chosen chip whole on screen when
+    the chip "115 assumed" (the filter `MOST_RECENT_ASSUMED`, sent as `printingChoice`; a screen
+    reader hears "115 assumed: the lines whose plain copy was assumed",
+    `ChoiceOption.accessibilityLabel`, which starts with the words on screen so that Voice Control
+    reaches the chip by them; a deck says "cards"). It is the third
+    chip of the row and is cut at the screen's edge: its count leads so that the count is the part
+    in view. The chips stand in the order of what they ask (All, Needs a printing, the assumed
+    copies, Not recognised), and the row brings the chosen chip whole on screen when
     something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
     copy again in "Which copy" confirms it: the line leaves that list and the count.
+    **The commit button shows a label that fits one line** (`commitState().shortLabel`: "Add 434
+    cards (1,266 copies)", "Add 434 cards, leave 12 out"); the whole sentence is its accessible
+    name, which the tests and the flows read, and it always starts with the words on screen ("…
+    to my inventory", "Add 434 cards, leave 12 out (1,266 copies added)"; WCAG 2.5.3, label in
+    name).
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
     status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
     that got its printing leaves "needs a printing", and the next page would otherwise skip a
@@ -426,7 +445,8 @@ Conventions later stages reuse:
   (`src/features/map/`). `RegionMap` draws the region with `react-native-svg` from a file of the
   app: one path for every state and province, one for the country borders, one per state that has
   binders (five shades, the web's steps, outlined in a strong colour) and one for the state opened
-  last; a place with binders that is only a few points wide at the current zoom also gets a dot.
+  last; a place with binders that is only a few points wide at the current zoom also gets a dot,
+  tinted like the place itself (the legend's step of its count, over the land's colour).
   A tap opens a state (hit-tested in JS on the drawing, a dot first, with ten points of reach for
   small ones); holding a place names it first (its name, its number of public binders, "Open").
   While the whole region is on screen a finger dragged over the map scrolls the page; once zoomed
@@ -550,6 +570,12 @@ Conventions later stages reuse:
 | `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`; `npm run test:scripts` runs every `scripts/lib` test) |
 | `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                                                                                           |
 | `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`; a Mac without an Android device runs them on iOS)                                                                               |
+
+A Jest test file that ends with a real timer of 5 s or more still armed fails (`jest.setup.ts`),
+and is told where the timer was armed: such a timer keeps its worker alive, and Jest then prints
+"A worker process has failed to exit gracefully" without naming the file. The usual cause is a
+mocked request that never answers, behind which the read timeout of the API client (20 s) stays
+armed: hold the answer back and give it before the test ends, or use fake timers.
 
 ### Isolation of the end-to-end suites
 
@@ -679,6 +705,11 @@ Logs: `.local-dev/mobile-e2e/logs/`.
 
 Free and local: an emulator or a simulator, Expo Go and the Maestro CLI; never EAS, never Maestro
 Cloud. One set of flows runs on both platforms.
+
+On the owner's Mac (owner order of 2026-10-12) the flows run on the iPhone simulator the owner
+keeps booted: export `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` (`xcrun simctl list devices booted`)
+before every run, and never boot, create, erase or shut down a simulator (each boot makes the
+desktop app ask the owner); `docs/development/claude-handoff.md` has the rest of that agreement.
 
 ```bash
 # iOS simulator (a Mac with Xcode and an iOS runtime): nothing to start, the harness has its own simulator
@@ -903,9 +934,9 @@ Writing a flow that passes on both:
   campaigns and donation refunds). PDF evidence of a dispute is listed by name and size and opened
   on the website (the app adds statements and photos). Store builds: real payment providers and
   in-app purchase are not wired (open owner question, ADR 0011); the fake providers are local
-  only. "Make an offer" is not on the Map tab's list rows (the preview sheet and the holders list
-  have it). Moderators remove community posts on the web only; photos come from the library (no
-  camera).
+  only. "Make an offer" is on public cards of binders, profiles and the holders list (the Map tab
+  lists places and binders, not cards). Moderators remove community posts on the web only; photos
+  come from the library (no camera).
 - Google sign-in on a device needs the OAuth client ids of the real Firebase project
   (`EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`, deferred with that project: `docs/deployment/DEFERRED.md`);
   locally it is proven only against the Auth emulator's simulated account, and a device build
@@ -918,3 +949,8 @@ Writing a flow that passes on both:
   and a real FCM sender, so notifications arrive in the app and over the realtime channel only).
 - Sora / Inter fonts (system font until `expo-font` loading is added).
 - EAS: `extra.eas.projectId` stays a placeholder; no EAS build is used (local and free only).
+- Not built, by the owner's decision of 2026-10-13 (stages S3 and S4 of the 2026-10-08 change):
+  the printing picker with holder counts on the card screen (the card screen still preselects a
+  printing), "Who wants it", "Wanted by N" on inventory items, a server-side search history and
+  photos in community posts. The redesign of 2026-10-14 drops S3's "Who wants it", "Wanted by N"
+  and holder counts, and keeps recent searches on the phone (its section 2).

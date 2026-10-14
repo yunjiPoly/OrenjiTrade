@@ -111,7 +111,7 @@ describe('needsOnboarding', () => {
         })
       )
     ).toBe(true);
-    // The trading area is optional ("Skip for now").
+    // The location is optional ("Skip for now").
     expect(
       needsOnboarding(
         meFixture({

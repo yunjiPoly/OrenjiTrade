@@ -42,10 +42,10 @@ import org.springframework.stereotype.Repository;
  * here that locks several items takes them through an {@code ORDER BY id} locking clause.
  *
  * <p>Item rows are locked {@code FOR NO KEY UPDATE}, the lock an {@code UPDATE} of these columns
- * takes anyway: offers, trade lines, trades and wishlist matches reference items, and the key-share
- * lock of their foreign key checks conflicts with {@code FOR UPDATE} only. A write here and a
- * transaction that inserts such references therefore never wait for each other. The account purge
- * is the one write that deletes item rows and takes them {@code FOR UPDATE} ({@link #lockAllOf}).
+ * takes anyway: offers, trade lines, trades and sent wishlist alerts reference items, and the
+ * key-share lock of their foreign key checks conflicts with {@code FOR UPDATE} only. A write here
+ * and a transaction that inserts such references therefore never wait for each other. Only the
+ * account purge ({@link #lockAllOf}) deletes item rows, and it takes them {@code FOR UPDATE}.
  */
 @Repository
 public class InventoryItemRepository {

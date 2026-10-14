@@ -35,6 +35,43 @@ describe('choice controls', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a condition.');
   });
 
+  it('ChoiceChips names a chip by its accessibility label where the visible label is shortened', () => {
+    const onChange = jest.fn();
+    render(
+      <ThemeProvider scheme="light">
+        <ChoiceChips
+          label="Lines shown"
+          hideLabel
+          scroll
+          options={[
+            { value: 'ALL', label: 'All (435)' },
+            {
+              value: 'ASSUMED',
+              label: '115 assumed',
+              accessibilityLabel: '115 assumed: the lines whose plain copy was assumed',
+            },
+          ]}
+          value="ALL"
+          onChange={onChange}
+          testID="filter"
+        />
+      </ThemeProvider>
+    );
+    const chip = screen.getByRole('radio', {
+      name: '115 assumed: the lines whose plain copy was assumed',
+    });
+    expect(chip).toHaveTextContent('115 assumed');
+    expect(chip.props.accessibilityLabel).toBe(
+      '115 assumed: the lines whose plain copy was assumed'
+    );
+    // A chip without one is named by what it shows, as before.
+    const all = screen.getByRole('radio', { name: 'All (435)' });
+    expect(all).toBeChecked();
+    expect(all.props.accessibilityLabel).toBe('All (435)');
+    fireEvent.press(chip);
+    expect(onChange).toHaveBeenCalledWith('ASSUMED');
+  });
+
   it('ChoiceChips brings the chosen chip of a scrolling row on screen when the choice changes elsewhere', () => {
     const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
     const options = [

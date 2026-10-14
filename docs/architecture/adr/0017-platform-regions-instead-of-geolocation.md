@@ -171,7 +171,10 @@ permission strings are removed.
   after V108 (by design; collectors declare a location again). No production database exists yet.
 - The boundary assets are static files of the web build: no runtime network call to any map
   service, no key, no quota; updating them is an explicit, reviewed rebuild.
-- Mobile follow-ups (map, region switcher) are tracked in `IMPLEMENTATION_STATUS.md`.
+- The mobile follow-ups of S1 (the map, the region switcher) were closed by mobile stage M9
+  (2026-10-12). The phone redesign approved on 2026-10-14
+  (`docs/product/specs/2026-10-14-phone-redesign.md`, not built yet) keeps this decision: places
+  stay states and provinces outside the owner's own profile, with no coordinates and no geocoding.
 
 ## Alternatives considered
 

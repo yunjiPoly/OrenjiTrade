@@ -155,15 +155,6 @@ public class MarkerAssembler {
         return provider.blockedAmong(viewerId, rows.stream().map(MarkerRow::id).toList());
     }
 
-    /** Whether a block exists between viewer and target (never for oneself or signed-out). */
-    public boolean isBlocked(@Nullable UUID viewerId, UUID targetId) {
-        if (viewerId == null || viewerId.equals(targetId)) {
-            return false;
-        }
-        @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
-        return provider != null && provider.isBlocked(viewerId, targetId);
-    }
-
     static @Nullable FreshnessState freshness(@Nullable Integer rank) {
         if (rank == null) {
             return null;

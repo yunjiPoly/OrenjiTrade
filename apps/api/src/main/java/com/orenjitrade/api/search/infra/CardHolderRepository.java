@@ -16,7 +16,9 @@ import org.springframework.stereotype.Repository;
 /**
  * "Who has this card in my region" ({@code GET /search/card-holders}): effectively public,
  * discoverable (ACTIVE or AGING) items of discoverable collectors whose country is in the requested
- * platform region (ADR 0017), filtered and sorted in SQL, one page at a time. No distance exists.
+ * platform region (ADR 0017), filtered and sorted in SQL, one page at a time. No distance exists. A
+ * signed-in viewer never sees, nor counts, the items of collectors blocked with them in either
+ * direction.
  */
 @Repository
 public class CardHolderRepository {
@@ -27,12 +29,17 @@ public class CardHolderRepository {
         this.jdbc = jdbc;
     }
 
-    /** One page of matching items (ids and owners in order) and the total count. */
+    /**
+     * One page of matching items (ids and owners in order) and the total count, as {@code viewerId}
+     * sees them: without their own items and without the items of collectors in a block relation
+     * with them, in either direction. Both are left out in SQL, of the count and of the page alike,
+     * so the total is the number of rows the pages hold.
+     */
     public HolderPage page(
             ItemFilter filter,
             String region,
             HolderSort sort,
-            @Nullable UUID excludedOwnerId,
+            @Nullable UUID viewerId,
             int page,
             int size,
             Instant now) {
@@ -51,9 +58,9 @@ public class CardHolderRepository {
                         .append(DiscoverySql.DISCOVERABLE)
                         .append(" AND ")
                         .append(DiscoverySql.IN_REGION);
-        if (excludedOwnerId != null) {
-            from.append(" AND i.owner_id <> :excludedOwnerId");
-            params.put("excludedOwnerId", excludedOwnerId);
+        if (viewerId != null) {
+            from.append(" AND i.owner_id <> :viewer").append(DiscoverySql.notBlocked("i.owner_id"));
+            params.put("viewer", viewerId);
         }
         from.append(filter.sql(params));
 

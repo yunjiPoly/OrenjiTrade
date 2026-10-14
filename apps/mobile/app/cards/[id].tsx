@@ -36,8 +36,9 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
  * `?rarity=` (a wishlist alert for "any printing in a rarity") shows "Any printing in <rarity>"
  * and its printings without picking one; `?printing=any` (an alert for an "any printing" wish,
  * and such a wish's own link) shows "Any printing": no selected printing, no highlighted row, no
- * price of one printing. With no parameter the first printing is still shown (stage S3 brings the
- * printing picker). Deep-link target: https://www.orenjitrade.com/cards/<id> and
+ * price of one printing. With no parameter the first printing is still shown: the printing picker
+ * of stage S3 is not built (skipped by the owner on 2026-10-13), and stage R5 of the redesign of
+ * 2026-10-14 replaces this screen. Deep-link target: https://www.orenjitrade.com/cards/<id> and
  * orenjitrade://cards/<id>.
  */
 export default function CardScreen() {

@@ -132,7 +132,7 @@ the BigQuery dataset, Secret Manager secrets with generated versions (`db-passwo
 always-on instance running the placeholder image **plus the Valkey sidecar**, pulled through the
 Artifact Registry Docker Hub remote repository), the `web` service (scale-to-zero), the global
 HTTPS load balancer with Cloud Armor and a Certificate Manager certificate in state
-`AUTHORIZING`, the ten Cloud Scheduler jobs, uptime checks and alert policies. No ML service.
+`AUTHORIZING`, the nine Cloud Scheduler jobs, uptime checks and alert policies. No ML service.
 
 Cloud Run services start with `us-docker.pkg.dev/cloudrun/container/hello`, which answers 200
 on every path, so the placeholder revisions pass their probes and the apply completes; Terraform

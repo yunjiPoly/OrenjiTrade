@@ -15,6 +15,10 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
  * A collector in search results (the web's `app-collector-result`): avatar, name, handle, their
  * state or province (never a position or a distance, ADR 0017), rating, listings, games and tags.
  * Opens the profile.
+ *
+ * The line that carries the place is never limited to one line: it wraps, as on the web. Where a
+ * collector is, is what the search is for; held to one line behind the handle it was cut away at
+ * the large text sizes ("@collecto…"), and behind a long handle at any size.
  */
 export const CollectorResultRow = memo(function CollectorResultRow({
   collector,
@@ -45,7 +49,10 @@ export const CollectorResultRow = memo(function CollectorResultRow({
         <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]} numberOfLines={1}>
           {collector.displayName}
         </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} numberOfLines={1}>
+        <Text
+          style={[textStyle('sm'), { color: palette.textMuted }]}
+          testID={`collector-result-${collector.handle}-place`}
+        >
           @{collector.handle} · {place}
         </Text>
         <Text style={[textStyle('xs'), { color: palette.textMuted }]} numberOfLines={1}>
@@ -65,7 +72,8 @@ export const CollectorResultRow = memo(function CollectorResultRow({
 /**
  * A public binder in search results (the web's `app-public-binder-card` + owner line): name,
  * kind, cards, games, freshness, and its owner with their state or province. Opens the public
- * binder.
+ * binder. The owner's line wraps for the same reason as the collector's: the place is never cut,
+ * and a screen reader hears it with the owner.
  */
 export const BinderResultRow = memo(function BinderResultRow({
   binder,
@@ -81,7 +89,7 @@ export const BinderResultRow = memo(function BinderResultRow({
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${binder.name}, ${binderKindLabel(binder.kind)}, ${cardCount(binder.itemCount)}${owner ? `, by ${owner.displayName}` : ''}`}
+      accessibilityLabel={`${binder.name}, ${binderKindLabel(binder.kind)}, ${cardCount(binder.itemCount)}${owner ? `, by ${owner.displayName}` : ''}${owner && place ? `, ${place}` : ''}`}
       accessibilityHint="Opens the public binder"
       onPress={() => onPress(binder)}
       testID={`binder-result-${binder.id}`}
@@ -111,7 +119,7 @@ export const BinderResultRow = memo(function BinderResultRow({
             <Avatar src={owner.avatarUrl} name={owner.displayName} size={20} />
             <Text
               style={[textStyle('xs'), styles.grow, { color: palette.textMuted }]}
-              numberOfLines={1}
+              testID={`binder-result-${binder.id}-owner`}
             >
               {owner.displayName}
               {place ? ` · ${place}` : ''}

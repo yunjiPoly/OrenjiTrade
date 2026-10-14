@@ -97,6 +97,13 @@ call for geography (boundaries are bundled static assets).
   ownership checks). Never trust client-provided user ids; derive the actor from the token.
 - Pagination: offset (`page`,`size`) for admin lists, cursor (`cursor`,`limit`) for feeds,
   messages, notifications.
+- A discovery list that pages or counts rows (card holders, binder search, suggestions, binders
+  of a state) excludes both directions of a block in its SQL (`DiscoverySql.notBlocked`), before
+  the limit and in the count, never by dropping rows afterwards.
+- Every write to `binder` or `inventory_item` starts with `BinderService.lockOwners`, then locks
+  binder rows before item rows, each in ascending id and `FOR NO KEY UPDATE`; only the freshness
+  job skips locked rows. Rules, and the one for a new bulk write: `docs/database/schema.md`,
+  "Locks of binders and inventory items".
 - Configurable business rules (freemium limits, auto-delist thresholds, feature flags) live
   in DB tables edited through `/admin`, cached in Redis, never hard-coded constants.
 - Money is `NUMERIC(12,2)` + ISO currency code. Credits are an append-only ledger.
@@ -116,8 +123,11 @@ call for geography (boundaries are bundled static assets).
   interfaces for server DTOs). Design tokens come from `packages/design-tokens` as CSS custom
   properties; light/dark ready. Skeleton loaders, empty states, error states with retry, and
   keyboard navigation are required for every screen. No giant components.
-- Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile`, bottom
-  sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+- Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile` today; the
+  phone redesign approved on 2026-10-14 (stages R1 to R8,
+  `docs/product/specs/2026-10-14-phone-redesign.md`) changes them to
+  `Home | Search | Inventory | Messages | Profile` (until a stage lands, describe the phone as it
+  is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
   API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
   switcher; the collector's home region by default).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
@@ -139,6 +149,12 @@ steps and the owner's working agreements. macOS setup: `docs/development/macos-s
 7. Keep the repository buildable at the end of every session and record the exact next task
    in `IMPLEMENTATION_STATUS.md`.
 8. Prefer framework-provided solutions over new dependencies; pin versions.
+9. Owner orders in force: the web app (`apps/web-angular`) is paused since 2026-10-12 (read,
+   build, test and walk it; change nothing); stages S3 and S4 of the 2026-10-08 spec are skipped
+   since 2026-10-13 until the owner asks, and are never described as done.
+10. Native runs use the iOS simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
+    UDID>`); never boot, create, erase or shut down a simulator. This Mac has no Android SDK: say
+    "the Android run could not be verified".
 
 ## Local development quick reference
 

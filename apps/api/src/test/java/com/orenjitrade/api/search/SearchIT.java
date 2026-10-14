@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -164,6 +165,115 @@ class SearchIT extends AbstractSearchIT {
                                 .path("binders")
                                 .isEmpty())
                 .isTrue();
+    }
+
+    /**
+     * The binder section and the suggestions are limited in SQL: a collector blocked with the
+     * viewer, in either direction, is left out before the limit, so the next match takes the place
+     * (dropped afterwards, the section came back short or empty while a match existed).
+     */
+    @Test
+    void aBlockLeavesTheBinderSectionAndTheSuggestionsBeforeTheirLimit() {
+        String shelf = token();
+        String people = token();
+        Collector one = collector("srch-block-a", "CA", "CA-MB");
+        Collector two = collector("srch-block-b", "CA", "CA-MB");
+        profile(one, people + " Ashgrove", List.of("pokemon"));
+        profile(two, people + " Birchfield", List.of("pokemon"));
+        Map<String, Collector> ownerOfBinder = new LinkedHashMap<>();
+        Map<String, String> binderOfHandle = new LinkedHashMap<>();
+        for (Collector owner : List.of(one, two)) {
+            String binderId =
+                    callJson(
+                                    HttpMethod.POST,
+                                    "/api/v1/binders",
+                                    owner.uid(),
+                                    binder(shelf + " case " + owner.handle(), "PUBLIC"),
+                                    201)
+                            .path("id")
+                            .asString();
+            Map<String, Object> item = item(printing("pkm-p002a"));
+            item.put("binderId", binderId);
+            callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), item, 201);
+            ownerOfBinder.put(binderId, owner);
+            binderOfHandle.put(owner.handle(), binderId);
+        }
+        String viewer = uniqueUid("srch-block-viewer");
+        UUID viewerId = provisionCompliant(viewer);
+        String binderSearch = "/api/v1/search?q={q}&types=binders&region=americas-north&limit=1";
+        String suggest = "/api/v1/search/suggest?q={q}&region=americas-north&limit=1";
+
+        // Whoever the order puts first is the one to block; the other must take the place.
+        List<String> firstBinder = ids(get(viewer, 200, binderSearch, shelf).path("binders"));
+        assertThat(firstBinder).hasSize(1);
+        Collector first = ownerOfBinder.get(firstBinder.get(0));
+        Collector second = first == one ? two : one;
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER")).isEqualTo(firstBinder);
+        List<String> firstPerson = suggested(get(viewer, 200, suggest, people), "COLLECTOR");
+        assertThat(firstPerson).hasSize(1);
+        Collector firstNamed = firstPerson.get(0).equals(one.id().toString()) ? one : two;
+        Collector secondNamed = firstNamed == one ? two : one;
+
+        // The viewer blocks the first of each list.
+        callJson(HttpMethod.POST, "/api/v1/users/" + first.id() + "/block", viewer, null, 200);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .as("the next binder, not an empty section")
+                .containsExactly(binderOfHandle.get(second.handle()));
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER"))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        callJson(HttpMethod.DELETE, "/api/v1/users/" + first.id() + "/block", viewer, null, 204);
+        callJson(HttpMethod.POST, "/api/v1/users/" + firstNamed.id() + "/block", viewer, null, 200);
+        assertThat(suggested(get(viewer, 200, suggest, people), "COLLECTOR"))
+                .as("the next collector, not an empty list")
+                .containsExactly(secondNamed.id().toString());
+        callJson(
+                HttpMethod.DELETE,
+                "/api/v1/users/" + firstNamed.id() + "/block",
+                viewer,
+                null,
+                204);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .as("unblocked: the first binder is back")
+                .isEqualTo(firstBinder);
+
+        // The other direction: the first of each list blocks the viewer.
+        callJson(HttpMethod.POST, "/api/v1/users/" + viewerId + "/block", first.uid(), null, 200);
+        assertThat(ids(get(viewer, 200, binderSearch, shelf).path("binders")))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        assertThat(suggested(get(viewer, 200, suggest, shelf), "BINDER"))
+                .containsExactly(binderOfHandle.get(second.handle()));
+        if (firstNamed != first) {
+            callJson(
+                    HttpMethod.DELETE,
+                    "/api/v1/users/" + viewerId + "/block",
+                    first.uid(),
+                    null,
+                    204);
+            callJson(
+                    HttpMethod.POST,
+                    "/api/v1/users/" + viewerId + "/block",
+                    firstNamed.uid(),
+                    null,
+                    200);
+        }
+        assertThat(suggested(get(viewer, 200, suggest, people), "COLLECTOR"))
+                .containsExactly(secondNamed.id().toString());
+
+        // A block is between two collectors: signed out, both lists start as they did.
+        assertThat(ids(get(null, 200, binderSearch, shelf).path("binders"))).isEqualTo(firstBinder);
+        assertThat(suggested(get(null, 200, suggest, people), "COLLECTOR")).isEqualTo(firstPerson);
+    }
+
+    /** Ids of the suggestions of one kind, in order. */
+    private static List<String> suggested(JsonNode suggestions, String type) {
+        List<String> found = new ArrayList<>();
+        suggestions.forEach(
+                entry -> {
+                    if (type.equals(entry.path("type").asString())) {
+                        found.add(entry.path("id").asString());
+                    }
+                });
+        return found;
     }
 
     @Test

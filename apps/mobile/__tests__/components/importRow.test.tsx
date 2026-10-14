@@ -152,6 +152,33 @@ describe('a line of an import preview', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
+  it('a line of a game OrenjiTrade does not have says that its copies were no number', () => {
+    // The API reports such a line for its game, with the copies its file wrote: 0 when that was
+    // no number of copies. The line showed nothing where its copies stand.
+    renderRow(
+      unmatchedRow({
+        unmatchedReason: 'UNKNOWN_GAME',
+        deck: undefined,
+        source: {
+          passcode: null,
+          name: 'Star Dragoon',
+          set: 'Other Game Set',
+          number: '017',
+          rarity: null,
+        },
+        fileQuantity: 0,
+      })
+    );
+    const row = screen.getByTestId('import-row-3');
+    expect(
+      screen.getByText('Other Game Set · 017 · copies: not a number from 1 to 9,999')
+    ).toBeOnTheScreen();
+    expect(screen.getByText('OrenjiTrade does not have this game.')).toBeOnTheScreen();
+    expect(row.props.accessibilityLabel).toBe(
+      'Not recognised: Star Dragoon, Other Game Set · 017 · copies: not a number from 1 to 9,999, OrenjiTrade does not have this game., Cards of this game cannot be added yet.'
+    );
+  });
+
   it('puts its name and controls under the picture, across the width, at large text sizes', () => {
     renderRow();
     expect(screen.queryByTestId('import-row-0-below')).toBeNull();

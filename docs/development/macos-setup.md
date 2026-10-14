@@ -863,7 +863,9 @@ npm run test:mobile:maestro -- --stop                                # stop what
 - **Watching a run:** `open -a DeviceHub` (Xcode 27) shows the booted simulator. Typing on the Mac keyboard into that window or changing its settings can disturb a run.
 - `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` (for example `iPhone 17 Pro`) and `ORENJI_IOS_SIMULATOR_UDID` choose another simulator; one named by UDID receives the same settings, so name one you keep for tests. `xcrun simctl delete "OrenjiTrade Maestro"` removes the dedicated device; the next run creates it again.
 
-Verify: the harness ends with every flow passed and exit code 0 (`echo $?`), and `xcrun simctl list devices | grep Booted` prints nothing afterwards.
+- **On the owner's Mac (owner order of 2026-10-12):** the owner keeps an iPhone simulator booted for the native suite (an iPhone 18 Pro on iOS 27.0 since 2026-10-13). Every run exports `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` (`xcrun simctl list devices booted`), and nothing boots, creates, erases, shuts down or restarts a simulator, not even the dedicated one: each boot makes the desktop app ask the owner for permission. If it is not booted, wait for it instead of booting it. Sessions that share it take turns through a lock folder (`docs/development/claude-handoff.md`, section 4).
+
+Verify: the harness ends with every flow passed and exit code 0 (`echo $?`), and `xcrun simctl list devices | grep Booted` prints nothing afterwards (with the owner's simulator: it is still booted, light, at its default text size, with no file left in its Files storage).
 
 **Android** needs, on top of the common list:
 - **The Android SDK in `~/Library/Android/sdk`** (Android Studio's default), which the harness finds by itself since 2026-10-10. Set `ANDROID_HOME` only when the SDK is somewhere else; `adb` on PATH is the last resort. "No Android device is ready" says whether adb itself is missing or only the emulator. **The owner's Mac has no Android SDK (2026-10-10, skipped for now), so the Android run of the suite is not proven on a Mac.**

@@ -140,6 +140,13 @@ tags:
     file: subflows/scroll-down-to.yaml
     env:
       ID: 'collector-result-${output.binder.handle}'
+# The row at this size: the line with the handle wraps down to the state and the country (held
+# to one line it was cut after a few letters of the handle). The row is one element for a screen
+# reader, so the picture is the proof for the eye; the label is what VoiceOver says.
+- takeScreenshot: large-text-search-collector-row
+- assertVisible:
+    id: 'collector-result-${output.binder.handle}'
+    text: '.*${output.binder.place}'
 - tapOn:
     id: 'collector-result-${output.binder.handle}'
 - extendedWaitUntil:

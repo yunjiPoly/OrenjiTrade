@@ -72,7 +72,7 @@ tags:
     timeout: 60000
 - assertVisible: '1 new card'
 - assertVisible: '2 need a printing'
-- assertNotVisible: 'Plain copy assumed.*'
+- assertNotVisible: '(Plain copy assumed|[0-9]+ assumed).*'
 
 # The bulk action takes the plain copy of both, and says so once.
 - runFlow:
@@ -91,7 +91,7 @@ tags:
 
 # The snackbar is gone: the filter that stays on screen still counts the lines, and so does a
 # card above the lines, whose button lists them.
-- assertVisible: 'Plain copy assumed \(2\)'
+- assertVisible: '2 assumed: the lines whose plain copy was assumed'
 - runFlow:
     file: subflows/scroll-down-above.yaml
     env:
@@ -122,7 +122,7 @@ tags:
     timeout: 30000
 - tapOn: 'SHV-EN003, .*Unlimited.*'
 - extendedWaitUntil:
-    visible: 'Plain copy assumed \(1\)'
+    visible: '1 assumed: the line whose plain copy was assumed'
     timeout: 30000
 - assertNotVisible:
     id: 'import-row-0'
@@ -157,7 +157,7 @@ tags:
 - tapOn:
     id: 'import-rows-empty-action'
 - extendedWaitUntil:
-    notVisible: 'Plain copy assumed.*'
+    notVisible: '(Plain copy assumed|[0-9]+ assumed).*'
     timeout: 30000
 
 # The commit: the copies the collector confirmed and chose, private.
