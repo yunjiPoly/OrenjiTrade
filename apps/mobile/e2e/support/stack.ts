@@ -704,7 +704,12 @@ export async function apiInventoryItem(
   api: APIRequestContext,
   as: EmulatorUser,
   itemId: string
-): Promise<{ id: string; visibility: string; images: { id: string; url: string }[] }> {
+): Promise<{
+  id: string;
+  visibility: string;
+  condition: string;
+  images: { id: string; url: string }[];
+}> {
   const response = await api.get(`${API_URL}/api/v1/inventory/items/${itemId}`, {
     headers: authHeader(as.idToken),
   });
@@ -712,6 +717,7 @@ export async function apiInventoryItem(
   return (await response.json()) as {
     id: string;
     visibility: string;
+    condition: string;
     images: { id: string; url: string }[];
   };
 }
