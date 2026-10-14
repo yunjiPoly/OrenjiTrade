@@ -38,7 +38,7 @@ modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 
 | What | Where | State |
 | --- | --- | --- |
 | Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (rounds 1 and 2). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
-| Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`), cut from the head of S6 | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): offers, trades, protected payments and disputes off the phone, the chat safety tip, ratings without meetups, V115 and V116, the seeds, "Trading safely" in English and French, ADR 0018, the deckCore tokens, the three typefaces, the dark default; every suite of the check list green (numbers in that section). Its two independent reviewers ran; review fix 1 is done (that section, "Review fix 1"). Next: a second review round if asked (at most two fix rounds), then its ship step (after S6 is on `main`). |
+| Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`), cut from the head of S6 | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): offers, trades, protected payments and disputes off the phone, the chat safety tip, ratings without meetups, V115 and V116, the seeds, "Trading safely" in English and French, ADR 0018, the deckCore tokens, the three typefaces, the dark default; every suite of the check list green (numbers in that section). Its two independent reviewers ran; review fixes 1 and 2 are done (that section, "Review fix 1" and "Review fix 2"; two fix rounds is the most allowed). Next: its ship step (after S6 is on `main`). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -92,8 +92,8 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    request, merge on green CI.
 2. **Stage R1 of the phone redesign** ("Offers out, shipping wording, look"): built on
    `feature/r1-offers-out-shipping-look`, reviewed by a functional verifier and a second lens, and
-   review fix 1 is done; next a second review round if the lead asks (at most two fix rounds, the
-   spec's section 15), then its ship step: merge `main` (with S6), the check list below, the pull
+   review fixes 1 and 2 are done (two fix rounds, the most the spec's section 15 allows); next its
+   ship step: merge `main` (with S6), the check list below, the pull
    request, merge on green CI. Its report lists the decisions for the owner (IMPLEMENTATION_STATUS.md,
    "Phone redesign R1"), among them the two web spec files the legal exception reached, the
    lawyer's list of meetup, offer and protection wording, and the phone's legal index.
@@ -245,7 +245,8 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
 - Stage R1 of the phone redesign (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): confirm that the
   web exception for the "Trading safely" text also covered the two web spec files that pinned the
   old text (one assertion of `legal-page.component.spec.ts`, three strings of
-  `e2e/launch-safety.spec.ts`); the lawyer's list of the meetup, offer and protection wording
+  `e2e/launch-safety.spec.ts`; the guard of the new text reads the phone's copy, so the web's
+  `legal-content.spec.ts` is as S6 left it); the lawyer's list of the meetup, offer and protection wording
   left in the Terms, the Privacy Policy, the Community Guidelines, the Marketplace, Payment
   Protection, Refund and Dispute and Acceptable Use policies; whether the phone's legal index
   keeps the Payment Protection and Refund and Dispute policies (ADR 0018: no claim of protection

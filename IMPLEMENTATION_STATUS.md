@@ -4812,7 +4812,9 @@ and disputes modules are untouched.
 11. **The web's legal exception reached two more spec files.** `legal-page.component.spec.ts` (one
     assertion) and `apps/web-angular/e2e/launch-safety.spec.ts` (three `getByText` strings)
     pinned sentences of the old page; they now read sentences of the new one, so every web check
-    stays green. No web app code changed. **The owner should confirm this.**
+    stays green. No web app code changed. **The owner should confirm this.** (Since review fix 2
+    the guard of the new text lives in the phone's `__tests__/screens/legal.test.tsx`, which reads
+    the synced copy; the web's `legal-content.spec.ts` is as S6 left it.)
 12. **Sample chat lines in the phone's own tests** ("Saturday at the café") were reworded to
     shipping; the API's integration tests keep their fictional lines (not app wording).
 
@@ -4983,13 +4985,14 @@ inbox thumbnails and previews.
 > happen in the chat"; the API keeps them for the paused web), the chat safety tip, ratings without
 > meetup reliability, V115 (the meetup tag hidden) and V116 (the region channels "by mail"), the
 > seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono
-> and the dark theme of a new install. Its two independent reviewers ran and **review fix 1 is
-> done** (the R1 section, "Review fix 1"). **Next for this branch:** a second review round if the
-> lead asks for one (at most two fix rounds, the spec's section 15), then its ship step (merge
+> and the dark theme of a new install. Its two independent reviewers ran and **review fixes 1 and
+> 2 are done** (the R1 section, "Review fix 1" and "Review fix 2"; two fix rounds is the most the
+> spec's section 15 allows). **Next for this branch:** its ship step (merge
 > `main` once it holds S6; the check list of `docs/development/claude-handoff.md`; the pull
 > request; merge when CI is green). Migrations V001 to V116 exist on this branch (V115 and V116 are
 > R1's); the next one is V117. Owner points from R1: the web exception reached two web spec files
-> that pinned the old "Trading safely" text (both reviewers recommend accepting it); the lawyer's
+> that pinned the old "Trading safely" text, one assertion and three strings (both reviewers
+> recommend accepting it; nothing else of the web changed outside the exception); the lawyer's
 > list of the meetup, offer and protection wording left in the other legal texts, with the
 > question whether the phone's legal index should keep the Payment Protection and Refund and
 > Dispute policies; the owner's database keeps its earlier seed texts until a reset (all in the
