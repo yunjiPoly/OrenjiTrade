@@ -174,11 +174,11 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Privacy Policy',
     shortTitle: 'Privacy',
     summary: 'What we collect, why, how long we keep it, and the choices you have.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
     // Platform regions instead of geolocation (ADR 0017, 2026-10-08): no coordinates, no distances;
     // the public place is the state or province. Law 25 additions 2026-10-05.
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -271,7 +271,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Where your data is stored, transfers outside Quebec, and age requirement',
         clauses: [
           'Our database, uploaded images and analytics are hosted on Google Cloud in the Montréal region (northamerica-northeast1, Québec), as configured in our infrastructure [to confirm at launch].',
-          'Some service providers may store or process personal information outside Quebec: Firebase Authentication (Google; sign-in email address, password hash, phone number for staff two-factor sign-in, provider ids; data location [to confirm]); Firebase Cloud Messaging (Google; push notification tokens; data location [to confirm]); Cloudflare (network security and content delivery; IP addresses and request logs at its global edge; data location [to confirm]); and, only when payment or premium features are enabled, Stripe (payment, payout and subscription data; United States [to confirm]). Before communicating personal information outside Quebec we assess, among other things, whether it will receive adequate protection, including through contractual safeguards.',
+          'Some service providers may store or process personal information outside Quebec: Firebase Authentication (Google; sign-in email address, password hash, phone number for staff two-factor sign-in, provider ids; data location [to confirm]); Firebase Cloud Messaging (Google; push notification tokens; data location [to confirm]); Cloudflare (network security and content delivery; IP addresses and request logs at its global edge; data location [to confirm]); and, only when protected payments are enabled, Stripe (payment and payout data; United States [to confirm]). Before communicating personal information outside Quebec we assess, among other things, whether it will receive adequate protection, including through contractual safeguards.',
           'The Service is for people 18 years of age and older and is not directed at minors. We do not knowingly collect personal information from anyone under 18. We close accounts we find to belong to minors and delete their personal information, subject to the retention periods described above and to the law.',
         ],
       },
@@ -283,9 +283,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Community Guidelines',
     shortTitle: 'Community',
     summary: 'How Collectors are expected to treat each other in search, in chat and in trades.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_SUPPORT,
     sections: [
@@ -320,7 +320,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         heading: 'Community channels',
         clauses: [
           'Stay on topic: game channels are for that game, "looking for" channels for wants, "new listings" for what you just listed.',
-          'No spam, repeated cross-posting, or unsolicited advertising. Sponsored content is labelled by OrenjiTrade and is never posted by ordinary accounts.',
+          'No spam, repeated cross-posting, or unsolicited advertising.',
         ],
       },
       {
@@ -339,9 +339,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Marketplace Policy',
     shortTitle: 'Marketplace',
     summary: 'Rules for listings, offers, prices and what may be traded or sold on OrenjiTrade.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS,
       {
@@ -379,9 +379,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
       },
       {
         id: 'fees',
-        heading: 'Fees and plans',
+        heading: 'Fees',
         clauses: [
-          'Listing and browsing are free within the limits of your plan. Limits and premium entitlements are shown in Settings and may change with notice.',
+          'Listing and browsing are free. The same usage limits apply to every Collector (for example the number of Binders, or of public Binders opened per day); they are shown where they apply and may change with notice.',
           'Where protected payments are enabled, applicable fees are displayed before you confirm a payment.',
         ],
       },
@@ -562,9 +562,9 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Acceptable Use Policy',
     shortTitle: 'Acceptable use',
     summary: 'Technical and behavioural limits that protect the Service and its Collectors.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_LEGAL,
     sections: [
@@ -574,7 +574,7 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Attempting to determine another Collector’s precise location or address, including by combining their profile, listings, messages or activity across multiple queries or accounts.',
           'Scraping, crawling or bulk-exporting listings, profiles or map data, or using the Service to build a competing dataset.',
-          'Circumventing rate limits, plan limits, freshness rules, or moderation actions.',
+          'Circumventing rate limits, usage limits, freshness rules, or moderation actions.',
           'Uploading malicious code, probing or testing the security of the Service without written authorisation, or interfering with other Collectors’ use of the Service.',
         ],
       },

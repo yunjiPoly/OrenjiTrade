@@ -152,9 +152,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     shortTitle: 'Confidentialité',
     summary:
       'Ce que nous recueillons, pourquoi, combien de temps nous le conservons et les choix qui s’offrent à vous.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS_FR,
       {
@@ -247,7 +247,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Lieu de conservation, communications hors du Québec et exigence d’âge',
         clauses: [
           'Notre base de données, les images téléversées et les analyses sont hébergées sur Google Cloud dans la région de Montréal (northamerica-northeast1, Québec), telle que configurée dans notre infrastructure [à confirmer au lancement].',
-          'Certains fournisseurs de services peuvent conserver ou traiter des renseignements personnels à l’extérieur du Québec\u00a0: Firebase Authentication (Google; adresse courriel de connexion, empreinte du mot de passe, numéro de téléphone pour la double authentification du personnel, identifiants de fournisseurs; lieu de conservation [à confirmer]); Firebase Cloud Messaging (Google; jetons de notifications poussées; lieu de conservation [à confirmer]); Cloudflare (sécurité réseau et diffusion de contenu; adresses IP et journaux de requêtes à sa périphérie mondiale; lieu de conservation [à confirmer]); et, seulement lorsque les fonctions de paiement ou d’abonnement sont activées, Stripe (données de paiement, de versement et d’abonnement; États-Unis [à confirmer]). Avant de communiquer des renseignements personnels à l’extérieur du Québec, nous évaluons notamment s’ils bénéficieront d’une protection adéquate, y compris par des garanties contractuelles.',
+          'Certains fournisseurs de services peuvent conserver ou traiter des renseignements personnels à l’extérieur du Québec\u00a0: Firebase Authentication (Google; adresse courriel de connexion, empreinte du mot de passe, numéro de téléphone pour la double authentification du personnel, identifiants de fournisseurs; lieu de conservation [à confirmer]); Firebase Cloud Messaging (Google; jetons de notifications poussées; lieu de conservation [à confirmer]); Cloudflare (sécurité réseau et diffusion de contenu; adresses IP et journaux de requêtes à sa périphérie mondiale; lieu de conservation [à confirmer]); et, seulement lorsque les paiements protégés sont activés, Stripe (données de paiement et de versement; États-Unis [à confirmer]). Avant de communiquer des renseignements personnels à l’extérieur du Québec, nous évaluons notamment s’ils bénéficieront d’une protection adéquate, y compris par des garanties contractuelles.',
           'Le Service s’adresse aux personnes de 18 ans et plus et ne vise pas les mineurs. Nous ne recueillons pas sciemment de renseignements personnels auprès de personnes de moins de 18 ans. Nous fermons les comptes dont nous constatons qu’ils appartiennent à des mineurs et supprimons leurs renseignements personnels, sous réserve des périodes de conservation décrites ci-dessus et de la loi.',
         ],
       },
@@ -260,9 +260,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     shortTitle: 'Communauté',
     summary:
       'Comment les Collectionneurs doivent se traiter entre eux dans la recherche, dans le clavardage et dans les échanges.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS_FR,
     contact: CONTACT_SUPPORT_FR,
     sections: [
@@ -297,7 +297,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         heading: 'Canaux communautaires',
         clauses: [
           'Restez dans le sujet\u00a0: les canaux de jeu sont réservés à ce jeu, les canaux «\u00a0recherche\u00a0» aux cartes recherchées, «\u00a0nouvelles annonces\u00a0» à ce que vous venez de publier.',
-          'Pas de pourriel, de publications croisées répétées ni de publicité non sollicitée. Le contenu commandité est identifié par OrenjiTrade et n’est jamais publié par des comptes ordinaires.',
+          'Pas de pourriel, de publications croisées répétées ni de publicité non sollicitée.',
         ],
       },
       {
@@ -317,9 +317,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     shortTitle: 'Marché',
     summary:
       'Règles sur les annonces, les offres, les prix et ce qui peut être échangé ou vendu sur OrenjiTrade.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: [
       ...COMMON_DEFINITIONS_FR,
       {
@@ -357,9 +357,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
       },
       {
         id: 'fees',
-        heading: 'Frais et forfaits',
+        heading: 'Frais',
         clauses: [
-          'La publication et la consultation sont gratuites dans les limites de votre forfait. Les limites et les avantages premium sont affichés dans les Paramètres et peuvent changer moyennant préavis.',
+          'La publication et la consultation sont gratuites. Les mêmes limites d’utilisation s’appliquent à tous les Collectionneurs (par exemple le nombre de Cartables, ou de Cartables publics consultés par jour); elles sont indiquées là où elles s’appliquent et peuvent changer moyennant préavis.',
           'Lorsque les paiements protégés sont activés, les frais applicables sont affichés avant que vous ne confirmiez un paiement.',
         ],
       },
@@ -544,9 +544,9 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     shortTitle: 'Utilisation acceptable',
     summary:
       'Les limites techniques et comportementales qui protègent le Service et ses Collectionneurs.',
-    version: '0.1-draft',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS_FR,
     contact: CONTACT_LEGAL_FR,
     sections: [
@@ -556,7 +556,7 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
         clauses: [
           'Tenter de déterminer la localisation précise ou l’adresse d’un autre Collectionneur, notamment en combinant son profil, ses annonces, ses messages ou son activité à travers plusieurs requêtes ou plusieurs comptes.',
           'Moissonner, explorer ou exporter en masse des Annonces, des profils ou des données de la carte, ou utiliser le Service pour constituer un jeu de données concurrent.',
-          'Contourner les limites de débit, les limites de forfait, les règles de fraîcheur ou les mesures de modération.',
+          'Contourner les limites de débit, les limites d’utilisation, les règles de fraîcheur ou les mesures de modération.',
           'Téléverser du code malveillant, sonder ou tester la sécurité du Service sans autorisation écrite, ou nuire à l’utilisation du Service par d’autres Collectionneurs.',
         ],
       },
