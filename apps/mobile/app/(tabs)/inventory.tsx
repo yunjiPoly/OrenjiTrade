@@ -154,6 +154,7 @@ function CardsView() {
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pulling, setPulling] = useState(false);
 
   // The orange ring of the card saved last lasts while the tab is on screen.
   useFocusEffect(useCallback(() => () => markSaved(null), [markSaved]));
@@ -358,10 +359,13 @@ function CardsView() {
         keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
-            refreshing={items.isRefetching && !items.isFetchingNextPage}
+            // Only a pull shows the spinner: a refresh after a save happens out of sight.
+            refreshing={pulling}
             onRefresh={() => {
-              void items.refetch();
-              void summary.refetch();
+              setPulling(true);
+              void Promise.all([items.refetch(), summary.refetch()]).finally(() =>
+                setPulling(false)
+              );
             }}
           />
         }
@@ -471,6 +475,7 @@ function BindersView() {
   const privacy = usePrivacySettings();
   const ownerVisible = ownerIsVisible(privacy.data);
   const [reordering, setReordering] = useState(false);
+  const [pulling, setPulling] = useState(false);
   const open = (binder: BinderResponse) =>
     router.push({ pathname: '/binders/[id]', params: { id: binder.id } });
 
@@ -539,8 +544,11 @@ function BindersView() {
       }
       refreshControl={
         <RefreshControl
-          refreshing={binders.isRefetching}
-          onRefresh={() => void binders.refetch()}
+          refreshing={pulling}
+          onRefresh={() => {
+            setPulling(true);
+            void binders.refetch().finally(() => setPulling(false));
+          }}
         />
       }
       contentContainerStyle={styles.listContent}

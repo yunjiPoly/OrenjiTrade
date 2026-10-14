@@ -1,0 +1,31 @@
+# Picks the newest photo of the device's library in the system photo picker the app opened
+# ("Choose from your photos": several photos at once, so the picker waits for its check button).
+# The picker runs outside the app and outside its accessibility tree: it is driven by the place of
+# its parts. iOS 27 (the owner's iPhone 18 Pro simulator): the newest photo is the first tile, top
+# left; the check button sits top right. Android: the system photo picker's newest photo is also
+# the first tile and "Add" confirms; these steps were never run (no Android SDK on this Mac).
+appId: ${APP_ID}
+---
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - tapOn:
+          point: 16%, 26%
+      - waitForAnimationToEnd:
+          timeout: 3000
+      - tapOn:
+          point: 90%, 15%
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - tapOn:
+          point: 17%, 25%
+      - tapOn:
+          text: 'Add.*'
+          optional: true

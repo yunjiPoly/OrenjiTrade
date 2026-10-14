@@ -18,7 +18,9 @@ export interface InventoryFormScreenProps {
 /**
  * The layout of the screens of adding and editing a card, which draw their own header (mockup
  * v32, screens 3 to 7): the safe area at the top, the header row, the content scrolling under it,
- * and an optional bottom bar with a hairline, all above the on-screen keyboard.
+ * and an optional bottom bar with a hairline. The content scrolls above the on-screen keyboard;
+ * the bottom bar stays under it (the form keeps the room it needs while one types, as in the
+ * system's own forms), and comes back when the keyboard goes.
  */
 export function InventoryFormScreen({
   header,
@@ -31,11 +33,11 @@ export function InventoryFormScreen({
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}>
+      <View style={styles.header}>{header}</View>
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'web' ? undefined : 'padding'}
       >
-        <View style={styles.header}>{header}</View>
         <ScrollView
           ref={scrollRef}
           testID={testID}
@@ -50,21 +52,21 @@ export function InventoryFormScreen({
         >
           {children}
         </ScrollView>
-        {footer ? (
-          <View
-            style={[
-              styles.footer,
-              {
-                borderTopColor: palette.border,
-                backgroundColor: palette.background,
-                paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2],
-              },
-            ]}
-          >
-            {footer}
-          </View>
-        ) : null}
       </KeyboardAvoidingView>
+      {footer ? (
+        <View
+          style={[
+            styles.footer,
+            {
+              borderTopColor: palette.border,
+              backgroundColor: palette.background,
+              paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2],
+            },
+          ]}
+        >
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 }

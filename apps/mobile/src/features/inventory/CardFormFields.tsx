@@ -88,7 +88,8 @@ export function CardFormFields({
               editable={!disabled}
               accessibilityLabel={CARD_FORM_COPY.copies}
               testID="card-quantity"
-              style={[textStyle('md'), styles.count, { color: palette.ink }]}
+              // No line height: iOS puts the extra of a line height above a one-line field.
+              style={[styles.count, { color: palette.ink }]}
             />
             <StepButton
               icon="plus"
@@ -375,6 +376,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 40,
     textAlign: 'center',
+    fontSize: 16,
     fontWeight: fontWeight.semibold,
     paddingVertical: 0,
   },

@@ -106,7 +106,7 @@ tags:
 
 # Saved (screen 8): the toast, the row as the API holds it.
 - extendedWaitUntil:
-    visible: 'Saved'
+    visible: 'Saved, Tidal Otterling'
     timeout: 60000
 - assertVisible:
     id: 'snackbar-view'
@@ -180,7 +180,7 @@ tags:
 - tapOn:
     id: 'edit-item-delete-sheet-confirm'
 - extendedWaitUntil:
-    visible: 'Card deleted'
+    visible: 'Card deleted, Tidal Otterling'
     timeout: 60000
 - takeScreenshot: r2-inventory-deleted
 - runScript:
@@ -192,7 +192,7 @@ tags:
 - tapOn:
     id: 'snackbar-undo'
 - extendedWaitUntil:
-    visible: 'Card restored'
+    visible: 'Card restored, Tidal Otterling'
     timeout: 60000
 - extendedWaitUntil:
     visible: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
