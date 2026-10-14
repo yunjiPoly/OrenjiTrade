@@ -45,10 +45,12 @@ public final class InventoryResponses {
                                             + " (conditionStated false)")
                     String condition,
             @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
+                            requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
                                     "false for cards added on the phone, whose condition is not"
-                                            + " stated (it may be in the public note)")
+                                            + " stated (it may be in the public note). Always"
+                                            + " sent; optional in the schema so that clients"
+                                            + " built before stage R2 keep compiling.")
                     boolean conditionStated,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "en") String language,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "FIRST_EDITION") String edition,
@@ -136,10 +138,12 @@ public final class InventoryResponses {
                                             + " (conditionStated false)")
                     String condition,
             @Schema(
-                            requiredMode = RequiredMode.REQUIRED,
+                            requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
                                     "false for cards added on the phone, whose condition is not"
-                                            + " stated (it may be in the public note)")
+                                            + " stated (it may be in the public note). Always"
+                                            + " sent; optional in the schema so that clients"
+                                            + " built before stage R2 keep compiling.")
                     boolean conditionStated,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "en") String language,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "FIRST_EDITION") String edition,
