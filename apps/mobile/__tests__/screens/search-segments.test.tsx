@@ -56,6 +56,12 @@ describe('Search tab segments (the web /search tabs)', () => {
     const row = await screen.findByTestId('collector-result-collector2');
     expect(row).toHaveTextContent(/Noé Verdun/);
     expect(row).toHaveTextContent(/@collector2 · Ontario, Canada/);
+    // The line that carries the place wraps: held to one line it was cut away behind the handle
+    // at the large text sizes, and where a collector is, is what this search is for.
+    const placeLine = screen.getByTestId('collector-result-collector2-place');
+    expect(placeLine).toHaveTextContent('@collector2 · Ontario, Canada');
+    expect(placeLine.props.numberOfLines).toBeUndefined();
+    expect(row.props.accessibilityLabel).toBe('Noé Verdun, @collector2, Ontario, Canada');
     expect(row).toHaveTextContent(/4\.8 \(12 ratings\) · 1 public binder · 14 cards/);
     expect(screen.getByTestId('search-collectors-count')).toHaveTextContent(
       '1 collector for “noé”'
@@ -409,6 +415,13 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(row).toHaveTextContent(/Magic trades/);
     expect(row).toHaveTextContent(/Trade binder · 14 cards · Magic: The Gathering/);
     expect(row).toHaveTextContent(/Noé Verdun · Ontario, Canada/);
+    // The owner's line wraps too, and a screen reader hears the place with the owner.
+    const ownerLine = screen.getByTestId(`binder-result-${PUBLIC_BINDER_ID}-owner`);
+    expect(ownerLine).toHaveTextContent('Noé Verdun · Ontario, Canada');
+    expect(ownerLine.props.numberOfLines).toBeUndefined();
+    expect(row.props.accessibilityLabel).toBe(
+      'Magic trades, Trade binder, 14 cards, by Noé Verdun, Ontario, Canada'
+    );
     expect(screen.getByTestId('search-binders-count')).toHaveTextContent(
       '1 public binder for “magic”'
     );
