@@ -48,7 +48,7 @@ describe('choice controls', () => {
             {
               value: 'ASSUMED',
               label: '115 assumed',
-              accessibilityLabel: 'Plain copy assumed (115)',
+              accessibilityLabel: '115 assumed: the lines whose plain copy was assumed',
             },
           ]}
           value="ALL"
@@ -57,9 +57,13 @@ describe('choice controls', () => {
         />
       </ThemeProvider>
     );
-    const chip = screen.getByRole('radio', { name: 'Plain copy assumed (115)' });
+    const chip = screen.getByRole('radio', {
+      name: '115 assumed: the lines whose plain copy was assumed',
+    });
     expect(chip).toHaveTextContent('115 assumed');
-    expect(chip.props.accessibilityLabel).toBe('Plain copy assumed (115)');
+    expect(chip.props.accessibilityLabel).toBe(
+      '115 assumed: the lines whose plain copy was assumed'
+    );
     // A chip without one is named by what it shows, as before.
     const all = screen.getByRole('radio', { name: 'All (435)' });
     expect(all).toBeChecked();

@@ -4290,14 +4290,18 @@ binder found by search had the same limit.
   "Needs a printing (0)": a count at the end of any wording ("Assumed (2)" included) is the part
   that is cut. The chip now shows **"356 assumed"** (the count leads, so it is what is in view)
   and a screen reader hears "Plain copy assumed (356)" (`ChoiceOption.accessibilityLabel`, new and
-  optional). At the largest text size the row (held to its pinned size) shows only the first digit
-  of that chip in "All"; the card above the lines carries the whole count there, and its button
-  brings the chip whole on screen.
+  optional; W5 of the next section changed that name to "356 assumed: the lines whose plain copy
+  was assumed", "cards" for a deck file, so that it starts with the visible words). At the
+  largest text size the row (held to its pinned size) shows only the first digit of that chip in
+  "All"; the card above the lines carries the whole count there, and its button brings the chip
+  whole on screen.
 - *The commit label wrapped onto two lines.* "Add 434 cards (1,266 copies) to my inventory" is
   345 points for a 302-point button: with a real file's numbers it always wrapped. The button now
   shows a label that fits one line (`commitState().shortLabel`: "Add 434 cards (1,266 copies)",
   "Add 40 cards to my inventory", "Add 434 cards, leave 12 out"); the whole sentence stays its
-  accessible name, which the E2E specs and the native flows read.
+  accessible name, which the E2E specs and the native flows read (for the leave-out form W5, in
+  the next section, changed the name to "Add 434 cards, leave 12 out (1,266 copies added)", so it
+  starts with the visible words).
 - *A line of a game OrenjiTrade does not have, with an unreadable quantity, showed no copies.* The
   API reports that line for its game with `fileQuantity` 0. It now says "copies: not a number from
   1 to 9,999" where its copies would stand (not on a line whose reason is the quantity itself: the
@@ -4345,9 +4349,9 @@ the largest one through the launch argument; screenshots kept outside the reposi
 Collectors and Binders in Europe ("@collector8 · Île-de-France, France", "Noah Kim · Île-de-France,
 France" whole at both sizes); an import with two assumed copies, a line of an unknown game and a
 line left out, and one of 400 lines (the chip "320 assum…" with its count in view, the button on
-one line in every state, "Plain copy assumed (320)" as the chip's accessible name); the maps of
-Americas (South) and Europe with their dots. The simulator was put back to light and its default
-text size.
+one line in every state, "Plain copy assumed (320)" as the chip's accessible name, a name W5 of
+the next section changed); the maps of Americas (South) and Europe with their dots. The simulator
+was put back to light and its default text size.
 
 **Checks** (the final tree, the owner's Mac mini, JDK 21, OrbStack; retries off)
 

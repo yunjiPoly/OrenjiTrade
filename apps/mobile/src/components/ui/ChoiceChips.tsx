@@ -17,7 +17,9 @@ export interface ChoiceOption<T extends string> {
   label: string;
   /**
    * Read by a screen reader instead of `label`, for a chip whose visible label is shortened to
-   * stay in view in a pinned row ("356 assumed" for "Plain copy assumed (356)").
+   * stay in view in a pinned row. It starts with the visible label, then says what it means
+   * ("356 assumed: the lines whose plain copy was assumed" for "356 assumed"), so the words on
+   * screen also reach the chip through Voice Control (WCAG 2.5.3, label in name).
    */
   accessibilityLabel?: string;
 }
