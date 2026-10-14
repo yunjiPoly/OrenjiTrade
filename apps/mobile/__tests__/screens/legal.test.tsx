@@ -116,6 +116,33 @@ describe('Legal pages', () => {
     expect(screen.getByText('Mentions légales')).toBeOnTheScreen();
   });
 
+  it('shows the Trading safely page of deals by mail in both languages (ADR 0018)', () => {
+    mockLocales('en-CA');
+    mockParams.current = { key: 'trading-safely' };
+    mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
+    renderWithProviders(<LegalDocumentScreen />);
+    expect(screen.getByRole('header', { name: 'Trading safely' })).toBeOnTheScreen();
+    expect(screen.getByTestId('legal-draft-banner')).toBeOnTheScreen();
+    for (const heading of ['How deals work', 'Before you pay', 'Shipping', 'Warning signs']) {
+      expect(screen.getAllByText(new RegExp(heading)).length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText(/Interac e-Transfer/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Before you meet|public place|safe exchange zones/)).toBeNull();
+
+    fireEvent.press(screen.getByRole('radio', { name: 'Français' }));
+    expect(screen.getByRole('header', { name: 'Échanger en toute sécurité' })).toBeOnTheScreen();
+    expect(screen.getByTestId('legal-translation-notice')).toBeOnTheScreen();
+    for (const heading of [
+      'Comment se concluent les transactions',
+      'Avant de payer',
+      'Expédition',
+    ]) {
+      expect(screen.getAllByText(new RegExp(heading)).length).toBeGreaterThan(0);
+    }
+    expect(screen.getAllByText(/virement Interac/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Avant la rencontre|lieu public|zones d’échange/)).toBeNull();
+  });
+
   it('ships exactly the texts of the web app in both languages (npm run sync:legal)', () => {
     const root = path.resolve(__dirname, '..', '..');
     const webDir = path.join(root, '..', 'web-angular', 'src', 'app', 'features', 'legal');

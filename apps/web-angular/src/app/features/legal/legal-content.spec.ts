@@ -64,3 +64,57 @@ describe('legal drafts follow the region model (ADR 0017)', () => {
     expect('La supprimer vous retire de la carte et des recherches.').toMatch(PEOPLE_ON_THE_MAP_FR);
   });
 });
+
+/**
+ * Deals happen in the chat and cards ship by mail (ADR 0018, stage R1 of the phone redesign): the
+ * Trading safely page in both languages says how a deal works by mail, what to check before paying,
+ * the warning signs and how to report or block, without any meetup advice. It stays a draft
+ * (version, banner) and claims no legal compliance.
+ */
+describe('the Trading safely page ships by mail (ADR 0018)', () => {
+  const page = (doc: LegalDocument | undefined): string =>
+    doc
+      ? [
+          doc.summary,
+          ...doc.sections.flatMap((section) => [section.heading, ...section.clauses]),
+        ].join('\n')
+      : '';
+  const english = page(LEGAL_DOCUMENT_LIST.find((doc) => doc.key === 'trading-safely'));
+  const french = page(LEGAL_DOCUMENT_LIST_FR.find((doc) => doc.key === 'trading-safely'));
+
+  it('says how a deal works by mail, in English', () => {
+    expect(english).toContain('the cards ship by mail');
+    expect(english).toContain('OrenjiTrade never handles the money');
+    expect(english).toContain('Interac e-Transfer');
+    expect(english).toContain('ratings and references');
+    expect(english).toContain('photos of the real card');
+    expect(english).toContain('with tracking');
+    expect(english).toContain('Share your address only in the chat');
+    expect(english).toMatch(/gift cards or cryptocurrency/);
+    expect(english).toContain('Report and block');
+    expect(english).not.toMatch(/\bmeet|in person|public place|daylight|café|police station/i);
+    expect(english).not.toMatch(/complies|compliant|in compliance|escrow|guarantee/i);
+  });
+
+  it('says the same in French', () => {
+    expect(french).toContain('les cartes sont expédiées par la poste');
+    expect(french).toContain('OrenjiTrade ne gère jamais l’argent');
+    expect(french).toContain('virement Interac');
+    expect(french).toContain('évaluations et les références');
+    expect(french).toContain('photos de la vraie carte');
+    expect(french).toContain('numéro de suivi');
+    expect(french).toContain('Ne communiquez votre adresse que dans la conversation');
+    expect(french).toMatch(/cartes-cadeaux ou de cryptomonnaies/);
+    expect(french).toContain('Signaler et bloquer');
+    expect(french).not.toMatch(/rencontr|en personne|lieu public|de jour|café|poste de police/i);
+    expect(french).not.toMatch(/conforme|garanti|entiercement/i);
+  });
+
+  it('stays a draft in both languages', () => {
+    for (const list of [LEGAL_DOCUMENT_LIST, LEGAL_DOCUMENT_LIST_FR]) {
+      const doc = list.find((candidate) => candidate.key === 'trading-safely');
+      expect(doc?.version).toBe('0.2-draft');
+      expect(doc?.effectiveDate).toBeNull();
+    }
+  });
+});
