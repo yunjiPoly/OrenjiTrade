@@ -74,6 +74,12 @@ test.describe('usage limits', () => {
     await expect(limit).not.toContainText(/premium|plan/i);
     await limit.getByRole('button', { name: 'OK' }).click();
     await expect(limit).toHaveCount(0);
+    // The form stays open with the reason; the collector closes it.
+    await expect(form.getByRole('alert')).toHaveText(
+      'You reached the number of binders you can have.',
+    );
+    await form.getByRole('button', { name: 'Cancel' }).click();
+    await expect(form).toBeHidden();
 
     // The limits read back from the API: the same numbers for everyone, no plan.
     const limits = await request.get(`${API_URL}/api/v1/me/limits`, {
