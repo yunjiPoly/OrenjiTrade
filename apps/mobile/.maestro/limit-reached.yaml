@@ -48,9 +48,10 @@ tags:
 - assertNotVisible: '.*Premium.*'
 - takeScreenshot: limit-binders
 
-# The Profile tab: no Premium, credits or "Support OrenjiTrade".
-- openLink: ${APP_URL}/--/
-- runFlow: subflows/dismiss-dev-menu.yaml
+# The Profile tab: no Premium, credits or "Support OrenjiTrade". (Cancel leaves the form: a link
+# to the app's root does not close a pushed screen.)
+- tapOn:
+    id: 'binder-cancel'
 - runFlow: subflows/open-profile-tab.yaml
 - assertNotVisible:
     id: 'profile-premium'
