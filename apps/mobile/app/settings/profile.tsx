@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useMyProfile } from '@/src/api/hooks/profile';
 import type { MyProfileResponse } from '@/src/api/types';
@@ -10,6 +10,7 @@ import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { AvatarEditor } from '@/src/features/profile/AvatarEditor';
 import { GamePicker, LanguagePicker } from '@/src/features/profile/Pickers';
 import { ProfileFields } from '@/src/features/profile/ProfileFields';

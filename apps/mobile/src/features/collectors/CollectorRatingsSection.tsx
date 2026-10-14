@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorRatings, useCollectorReferences } from '@/src/api/hooks/collectors';
@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

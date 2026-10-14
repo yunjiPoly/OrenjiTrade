@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { InventoryItemResponse, PublicInventoryItem } from '@/src/api/types';
 import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { Text } from '@/src/components/ui/Text';
 import { formatMoney, printingCode, printingImageUrl } from '@/src/lib/catalog';
 import {
   availabilityLabel,

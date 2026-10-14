@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ConversationSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 export type ThreadMenuAction =

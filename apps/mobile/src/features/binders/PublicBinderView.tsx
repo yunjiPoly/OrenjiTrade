@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { usePublicBinder, usePublicBinderItems } from '@/src/api/hooks/binders';
@@ -14,6 +14,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
 import { reportParams } from '@/src/features/reports/reportLabels';

@@ -2,13 +2,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { fetchCard } from '@/src/api/hooks/catalog';
 import type { BinderResponse, CardDetail, CardSuggestion } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

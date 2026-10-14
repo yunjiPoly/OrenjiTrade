@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { assertNever } from '@/src/lib/assertNever';
 import { fontFamily, fontWeight, radius, spacing, useTheme, type Palette } from '@/src/theme';
 

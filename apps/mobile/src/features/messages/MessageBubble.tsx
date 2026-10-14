@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MessageImage, MessageResponse } from '@/src/api/types';
+import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { fontWeight, radius, scrimColor, spacing, textStyle, useTheme } from '@/src/theme';
 

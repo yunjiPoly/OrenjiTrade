@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { LocationFields } from '@/src/features/location/LocationFields';
 import type { LocationDraft } from '@/src/features/location/locationDraft';

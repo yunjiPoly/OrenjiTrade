@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useMarkNotificationRead } from '@/src/api/hooks/notificationCentre';
 import type { NotificationResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, spacing, textStyle, useTheme, type Palette } from '@/src/theme';
 

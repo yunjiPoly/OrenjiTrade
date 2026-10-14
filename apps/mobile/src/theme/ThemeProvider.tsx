@@ -9,6 +9,7 @@ import { useColorScheme } from 'react-native';
 
 import { useAppStore } from '@/src/store/useAppStore';
 
+import { navigationFonts } from './fonts';
 import { paletteFor, type ColorScheme, type Palette } from './palette';
 import { tokens } from './tokens';
 
@@ -34,6 +35,8 @@ function buildNavigationTheme(palette: Palette): NavigationTheme {
   const base = palette.scheme === 'dark' ? NavigationDarkTheme : NavigationDefaultTheme;
   return {
     ...base,
+    // Inter for back titles and tab labels, Sora for large titles (src/theme/fonts.ts).
+    fonts: navigationFonts(base.fonts),
     colors: {
       ...base.colors,
       primary: palette.primary,

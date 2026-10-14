@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useCard } from '@/src/api/hooks/catalog';
 import { useGames } from '@/src/api/hooks/profile';
@@ -11,6 +11,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { marketPriceSource } from '@/src/features/wishlist/wishlistLabels';

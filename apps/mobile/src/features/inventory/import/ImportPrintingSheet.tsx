@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useCard } from '@/src/api/hooks/catalog';
 import type { ImportRow, PrintingSummary } from '@/src/api/types';
@@ -7,6 +7,7 @@ import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 

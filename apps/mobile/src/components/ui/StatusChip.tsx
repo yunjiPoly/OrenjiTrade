@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { IconName } from '@/src/components/ui/EmptyState';
+import { Text } from '@/src/components/ui/Text';
 import type { Palette } from '@/src/theme';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

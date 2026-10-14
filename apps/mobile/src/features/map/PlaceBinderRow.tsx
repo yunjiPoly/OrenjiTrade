@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { PublicBinderSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge } from '@/src/components/ui/Badge';
+import { Text } from '@/src/components/ui/Text';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { placeLabel } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';

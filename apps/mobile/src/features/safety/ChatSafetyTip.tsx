@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { chatSafetyTip, type DealSide } from './chatSafetyTips';

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -30,6 +30,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';

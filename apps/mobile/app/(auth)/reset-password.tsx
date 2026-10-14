@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { validateEmail } from '@/src/account/registration';
 import { authErrorMessage, toAuthError } from '@/src/auth/authErrors';
@@ -8,6 +8,7 @@ import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 

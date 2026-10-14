@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { PINNED_MAX_FONT_SCALE, fontWeight, radius, spacing, useTheme } from '@/src/theme';
 
 export interface SegmentedProps<T extends string> {

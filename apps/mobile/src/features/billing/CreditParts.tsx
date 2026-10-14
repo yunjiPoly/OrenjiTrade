@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Share, StyleSheet, Text, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 
 import type { CreditEntry, CreditProduct, MyReferral } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { FormDialog } from '@/src/components/ui/FormDialog';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { formatDateTime, formatLongDate } from '@/src/lib/dates';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

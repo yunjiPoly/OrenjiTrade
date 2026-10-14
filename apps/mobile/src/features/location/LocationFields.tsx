@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useRegions } from '@/src/api/hooks/regions';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SelectSheet, type SelectOption } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { CITY_MAX_LENGTH } from '@/src/lib/place';
 import { spacing, textStyle, useTheme } from '@/src/theme';

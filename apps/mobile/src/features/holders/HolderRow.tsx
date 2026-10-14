@@ -1,13 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { CardHolderResult } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { Text } from '@/src/components/ui/Text';
 import {
   editionLabel,
   formatMoney,

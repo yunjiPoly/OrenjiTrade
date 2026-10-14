@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBlocks, useUnblockUser } from '@/src/api/hooks/blocks';
@@ -13,6 +13,7 @@ import { Divider, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 

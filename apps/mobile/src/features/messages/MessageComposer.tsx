@@ -2,11 +2,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { ListRow } from '@/src/components/ui/Layout';
+import { Text, TextInput } from '@/src/components/ui/Text';
 import { afterModals } from '@/src/components/ui/modalTurns';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

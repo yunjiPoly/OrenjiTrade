@@ -8,9 +8,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/src/components/ui/Text';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface SnackbarOptions {

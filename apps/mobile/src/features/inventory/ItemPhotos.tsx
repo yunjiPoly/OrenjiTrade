@@ -2,13 +2,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { useDeleteItemPhoto, useUploadItemPhoto } from '@/src/api/hooks/inventory';
 import type { InventoryItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { SectionCard } from '@/src/components/ui/Layout';
+import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';

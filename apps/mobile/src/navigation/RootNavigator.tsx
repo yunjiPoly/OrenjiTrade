@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFlowLock } from '@/src/account/flowLock';
 import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
+import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
 import { groupTitleOptions, type RouteGroup } from './backTitles';
@@ -49,6 +50,8 @@ export function RootNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: palette.surface },
           headerTintColor: palette.ink,
+          // Screen titles in Sora (spec 2026-10-14, section 3).
+          headerTitleStyle: headerTitleFont(),
           headerShadowVisible: false,
           headerTitleAlign: 'center',
           contentStyle: { backgroundColor: palette.background },

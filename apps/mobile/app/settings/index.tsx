@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useFeatureFlags } from '@/src/api/hooks/featureFlags';
@@ -7,6 +7,7 @@ import { useSession } from '@/src/auth/session';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Divider, ListRow, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { SETTINGS_LINKS } from '@/src/features/settings/settingsLinks';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 

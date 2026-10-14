@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useCard } from '@/src/api/hooks/catalog';
 import { useGames } from '@/src/api/hooks/profile';
@@ -14,6 +14,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import {
   DEFAULT_HOLDER_FILTERS,

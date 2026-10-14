@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
 import type { IconName } from '@/src/components/ui/EmptyState';
@@ -8,6 +8,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import type { StatusInfo } from '@/src/components/ui/StatusChip';
 import { StatusChip } from '@/src/components/ui/StatusChip';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import type { CheckoutOutcome, CheckoutStatus } from './useProviderCheckout';

@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useMyDonations, useStartDonationCheckout, useSupporters } from '@/src/api/hooks/billing';
@@ -13,6 +13,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { DONATION_NOTE, donationProblem } from '@/src/features/billing/billingLabels';
 import { DonationForm, MyDonations, SupportersList } from '@/src/features/billing/DonationParts';
 import { checkoutTarget } from '@/src/features/billing/checkoutTargets';

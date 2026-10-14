@@ -1,8 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import type { ConversationParticipant, MessageResponse } from '@/src/api/types';
 import { ListFooter } from '@/src/components/ui/ListFooter';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { MessageBubble } from './MessageBubble';

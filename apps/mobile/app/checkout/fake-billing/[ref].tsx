@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text } from 'react-native';
 
 import { friendlyMessage } from '@/src/api/errorMessages';
 import {
@@ -13,6 +12,7 @@ import type { FakeBillingCheckout } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { amountLabel, subscriptionStatusInfo } from '@/src/features/billing/billingLabels';
 import { FakeProviderCheckout } from '@/src/features/billing/FakeProviderCheckout';
 import {
