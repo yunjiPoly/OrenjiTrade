@@ -1,0 +1,170 @@
+# A dialog after a sheet on a stack screen, in the app's Dark theme: in the card editor the binder
+# sheet is opened and closed, then "Delete card" asks its question, and the buttons of the question
+# are found by id, which is what a screen reader has to find too. Then the other order (the sheet
+# after the dialog), and the deletion itself, checked on the host by scripts/check-inventory.js.
+#
+# Why Dark (chosen in Settings > Appearance, the device stays as it is): its scrim is the darkest
+# one. iOS takes a full-window view with a translucent pure black background for the dimming view
+# of a modal and hides what is behind it from accessibility; the native view keeps that mark when
+# React Native reuses it, and the dialog that followed a sheet was on screen with an empty
+# accessibility tree (src/theme/scrim.ts). A scrim that is black again fails here.
+appId: ${APP_ID}
+name: A dialog after a sheet on a stack screen
+tags:
+  - mobile-m2
+  - inventory
+  - accessibility
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: dlg
+      DISPLAY_NAME: Maestro Dialogs
+- runScript:
+    file: scripts/add-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      QUERY: 'Lantern Fox Spirit'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+
+# The Dark theme of the app (stored on the device; the next flow starts from a cleared app).
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-settings'
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-link-appearance'
+- tapOn:
+    id: 'settings-link-appearance'
+- extendedWaitUntil:
+    visible:
+      id: 'theme-dark'
+    timeout: 60000
+- tapOn:
+    id: 'theme-dark'
+- extendedWaitUntil:
+    visible:
+      id: 'theme-dark'
+      selected: true
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+
+# The card editor, a screen of the stack.
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible: 'Lantern Fox Spirit, .*'
+    timeout: 60000
+- tapOn: 'Lantern Fox Spirit, .*'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-name'
+      text: 'Lantern Fox Spirit'
+    timeout: 60000
+
+# A sheet: the binder choices, closed by the choice it already has.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'item-binder'
+- tapOn:
+    id: 'item-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'item-binder-option-__unfiled__'
+    timeout: 30000
+- tapOn:
+    id: 'item-binder-option-__unfiled__'
+- extendedWaitUntil:
+    notVisible:
+      id: 'item-binder-sheet'
+    timeout: 30000
+
+# Then a dialog: its title and both buttons are in the accessibility tree.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'edit-item-delete'
+- tapOn:
+    id: 'edit-item-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-delete-dialog-cancel'
+    timeout: 30000
+- assertVisible:
+    id: 'edit-item-delete-dialog-confirm'
+- assertVisible: 'Delete Lantern Fox Spirit\?'
+- takeScreenshot: dialog-after-sheet
+- tapOn:
+    id: 'edit-item-delete-dialog-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'edit-item-delete-dialog'
+    timeout: 30000
+
+# The other order: the sheet after the dialog.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'item-binder'
+- tapOn:
+    id: 'item-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'item-binder-option-__unfiled__'
+    timeout: 30000
+- takeScreenshot: sheet-after-dialog
+- tapOn:
+    id: 'item-binder-option-__unfiled__'
+- extendedWaitUntil:
+    notVisible:
+      id: 'item-binder-sheet'
+    timeout: 30000
+
+# And the dialog once more, answered by its button: the card is gone.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'edit-item-delete'
+- tapOn:
+    id: 'edit-item-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-delete-dialog-confirm'
+    timeout: 30000
+- tapOn:
+    id: 'edit-item-delete-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '0'

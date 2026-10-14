@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { MessageImage, MessageResponse } from '@/src/api/types';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, scrimColor, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { OfferLinkCard, SharedLinkCard } from './LinkCards';
 
 /** Largest photo side in a bubble (dp). */
 const PHOTO_MAX = 240;
+/** Behind a photo opened full screen: nearly opaque, and not a pure black (theme/scrim.ts). */
+const PHOTO_SCRIM = scrimColor('rgba(0, 0, 0, 0.92)');
 
 function timeLabel(iso: string): string {
   const date = new Date(iso);
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
     padding: spacing[3],
     borderRadius: radius.md,
   },
-  viewer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)', justifyContent: 'center' },
+  viewer: { flex: 1, backgroundColor: PHOTO_SCRIM, justifyContent: 'center' },
   viewerImage: { flex: 1 },
   viewerClose: {
     position: 'absolute',
