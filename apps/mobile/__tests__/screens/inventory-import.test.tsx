@@ -1,5 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { ScrollView } from 'react-native';
 
 import ImportScreen from '@/app/items/import';
 import { meKeys } from '@/src/api/queryKeys';
@@ -7,7 +8,7 @@ import type { ImportRow, InventoryImport } from '@/src/api/types';
 import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { cardDetailFixture, summaryFixture } from '../support/fixtures';
+import { cardDetailFixture, planFixture, summaryFixture } from '../support/fixtures';
 import {
   HERON_CARD,
   HERON_FIRST,
@@ -49,6 +50,8 @@ jest.mock('expo-router/react-navigation', () => ({
 }));
 
 const mockWritten: string[] = [];
+/** The device files the flow deleted, by uri. */
+const mockDeleted: string[] = [];
 jest.mock('expo-file-system', () => ({
   Paths: { cache: 'file:///cache/' },
   File: class MockFile {
@@ -60,7 +63,9 @@ jest.mock('expo-file-system', () => ({
     write(content: string) {
       mockWritten.push(content);
     }
-    delete() {}
+    delete() {
+      mockDeleted.push(this.uri);
+    }
   },
 }));
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
@@ -75,6 +80,7 @@ beforeEach(() => {
   resetRouterMock();
   resetAppState();
   mockWritten.length = 0;
+  mockDeleted.length = 0;
   mockLeave.held = false;
   picker.getDocumentAsync.mockReset();
 });
@@ -102,7 +108,13 @@ function summarise(rows: ImportRow[]) {
         .map((row) => `${row.printing?.id}|${row.condition}`)
     ).size,
     defaultConditions: matched.filter((row) => row.conditionSource === 'DEFAULT').length,
+    assumedPrintings: rows.filter(assumedCopy).length,
   });
+}
+
+/** A line whose copy the bulk action took as the plain one, not confirmed or changed since. */
+function assumedCopy(row: ImportRow) {
+  return !!row.printing && row.printingChoice === 'MOST_RECENT_ASSUMED';
 }
 
 /**
@@ -134,7 +146,16 @@ function fakeImports(options: { open?: InventoryImport | null; rows?: ImportRow[
     [`GET ${IMPORTS}/{id}`]: () => ok(view()),
     [`GET ${IMPORTS}/{id}/rows`]: ({ query }: MockRequest) => {
       const status = query.get('status');
-      return ok(rowPage(state.rows.filter((row) => !status || row.status === status)));
+      const choice = query.get('printingChoice');
+      return ok(
+        rowPage(
+          state.rows.filter(
+            (row) =>
+              (!status || row.status === status) &&
+              (!choice || (!!row.printing && row.printingChoice === choice))
+          )
+        )
+      );
     },
     [`PATCH ${IMPORTS}/{id}`]: ({ body }: MockRequest) => {
       const preview = state.preview as InventoryImport;
@@ -210,7 +231,7 @@ function fakeImports(options: { open?: InventoryImport | null; rows?: ImportRow[
         }
         return row;
       });
-      return ok({ updated, preview: view() });
+      return ok({ updated, assumed: 0, undecided: 0, preview: view() });
     },
     [`POST ${IMPORTS}/{id}/commit`]: () => {
       const summary = summarise(state.rows);
@@ -223,6 +244,7 @@ function fakeImports(options: { open?: InventoryImport | null; rows?: ImportRow[
           itemsMerged: summary.mergedItems,
           copiesAdded: summary.copies,
           rowsImported: summary.ready,
+          copiesNotAdded: 0,
           chunksDone: 1,
           totalChunks: 1,
         },
@@ -321,7 +343,14 @@ describe('Import cards: the source and the file', () => {
   it('uploads a file chosen with the system file picker', async () => {
     picker.getDocumentAsync.mockResolvedValue({
       canceled: false,
-      assets: [{ uri: 'file:///cache/deck.ydk', name: 'deck.ydk', size: 64, lastModified: 0 }],
+      assets: [
+        {
+          uri: 'file:///cache/DocumentPicker/3C1D.ydk',
+          name: 'deck.ydk',
+          size: 64,
+          lastModified: 0,
+        },
+      ],
     });
     const fake = fakeImports();
     const api = mockApi(signedInRoutes(fake.routes));
@@ -331,6 +360,55 @@ describe('Import cards: the source and the file', () => {
     await screen.findByTestId('import-summary');
     expect(api.callsTo(`POST ${IMPORTS}`)).toHaveLength(1);
     expect(mockWritten).toEqual([]);
+    // The copy the picker made of the file does not stay in the app's cache.
+    await waitFor(() => expect(mockDeleted).toEqual(['file:///cache/DocumentPicker/3C1D.ydk']));
+  });
+
+  it('does not keep the copy of a picked file the API refused, nor of one that replaces nothing after all', async () => {
+    picker.getDocumentAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///cache/DocumentPicker/77AA.ydk',
+          name: 'photo.ydk',
+          size: 64,
+          lastModified: 0,
+        },
+      ],
+    });
+    const fake = fakeImports({ open: importFixture() });
+    const api = mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        [`POST ${IMPORTS}`]: problem(415, 'UNSUPPORTED_MEDIA_TYPE', 'not text', {
+          reason: 'NOT_TEXT',
+        }),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId('import-source-YDK'));
+    // "Keep it": the open import stays, the new file is dropped and so is its copy.
+    fireEvent.press(screen.getByRole('button', { name: 'Choose a file' }));
+    fireEvent.press(
+      within(await screen.findByTestId('import-replace-dialog')).getByRole('button', {
+        name: 'Keep it',
+      })
+    );
+    await waitFor(() => expect(mockDeleted).toEqual(['file:///cache/DocumentPicker/77AA.ydk']));
+    expect(api.callsTo(`POST ${IMPORTS}`)).toHaveLength(0);
+
+    // "Replace it", and the API refuses the file: the copy goes all the same.
+    mockDeleted.length = 0;
+    fireEvent.press(screen.getByRole('button', { name: 'Choose a file' }));
+    fireEvent.press(
+      within(await screen.findByTestId('import-replace-dialog')).getByRole('button', {
+        name: 'Replace it',
+      })
+    );
+    expect(await screen.findByTestId('import-refusal')).toHaveTextContent(
+      /could not be read as text/
+    );
+    expect(mockDeleted).toEqual(['file:///cache/DocumentPicker/77AA.ydk']);
   });
 
   it('does nothing when the picker is closed, and refuses a file that is too large before any upload', async () => {
@@ -346,20 +424,29 @@ describe('Import cards: the source and the file', () => {
 
     picker.getDocumentAsync.mockResolvedValueOnce({
       canceled: false,
-      assets: [{ uri: 'file:///cache/big.ydk', name: 'big.ydk', size: 500_000, lastModified: 0 }],
+      assets: [
+        {
+          uri: 'file:///cache/DocumentPicker/big.ydk',
+          name: 'big.ydk',
+          size: 500_000,
+          lastModified: 0,
+        },
+      ],
     });
     fireEvent.press(screen.getByTestId('import-choose-file'));
     const refusal = await screen.findByTestId('import-refusal');
     expect(refusal).toHaveTextContent(/This file is too large/);
     expect(refusal).toHaveTextContent(/A deck file can be up to 100 kB\./);
     expect(api.callsTo(`POST ${IMPORTS}`)).toHaveLength(0);
+    // Refused on the phone: not sent, and its copy is not kept either.
+    expect(mockDeleted).toEqual(['file:///cache/DocumentPicker/big.ydk']);
   });
 
   it.each([
     [
       'not a text file',
       problem(415, 'UNSUPPORTED_MEDIA_TYPE', 'not text', { reason: 'NOT_TEXT' }),
-      /This is not a text file.*choose the \.ydk file itself/,
+      /This file could not be read as text.*choose the \.ydk file itself/,
     ],
     [
       'too many lines',
@@ -468,16 +555,16 @@ describe('Import cards: the preview', () => {
     expect(screen.getByLabelText('2 need a printing')).toBeOnTheScreen();
     expect(screen.getByLabelText('1 not recognised')).toBeOnTheScreen();
     expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(
-      '2 copies from 1 of the 4 lines of your file.'
+      'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
     );
     expect(screen.getByTestId('import-kept-until')).toHaveTextContent(
       /Nothing is added until you confirm at the bottom\. This preview is kept until/
     );
-    // The three sections of a deck, with the cards the file holds in each.
+    // The three sections of a deck, with the copies the file holds in each.
     const main = screen.getByRole('switch', { name: 'Main deck' });
-    expect(main.props.accessibilityHint).toBe('3 cards in your file');
+    expect(main.props.accessibilityHint).toBe('3 copies in your file');
     expect(screen.getByRole('switch', { name: 'Side deck' }).props.accessibilityHint).toBe(
-      '2 cards in your file'
+      '2 copies in your file'
     );
 
     // A recognised line: in or out, which copy, condition and copies.
@@ -505,7 +592,7 @@ describe('Import cards: the preview', () => {
     // A line nothing fits: one sentence, no control.
     const unknown = screen.getByTestId('import-row-3');
     expect(unknown.props.accessibilityLabel).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, No card of the catalog has this passcode.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
     );
     expect(within(unknown).queryByRole('button')).toBeNull();
     expect(within(unknown).queryByRole('checkbox')).toBeNull();
@@ -513,16 +600,23 @@ describe('Import cards: the preview', () => {
     // The commit says why it cannot be pressed.
     const commit = screen.getByTestId('import-commit');
     expect(commit).toBeDisabled();
-    expect(commit.props.accessibilityLabel).toBe('Add 1 card to my inventory');
+    expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies) to my inventory');
     expect(commit.props.accessibilityHint).toBe(
-      '2 cards still need a printing. Choose them, or leave those cards out.'
+      '2 cards still need a printing. Choose them, or leave them out.'
     );
     // It stays on screen under the list: its text follows the system size only a little.
-    expect(within(commit).getByText('Add 1 card to my inventory').props.maxFontSizeMultiplier).toBe(
+    expect(
+      within(commit).getByText('Add 1 card (2 copies) to my inventory').props.maxFontSizeMultiplier
+    ).toBe(PINNED_MAX_FONT_SCALE);
+    // So does the filter, which stays on screen above the list (not at the end of a long top).
+    const bar = screen.getByTestId('import-filter-bar');
+    expect(within(bar).getByRole('radio', { name: 'All (4)' })).toBeChecked();
+    expect(within(bar).getByText('Needs a printing (2)').props.maxFontSizeMultiplier).toBe(
       PINNED_MAX_FONT_SCALE
     );
+    expect(within(screen.getByTestId('import-preview-header')).queryByRole('radio')).toBeNull();
     expect(screen.getByTestId('import-commit-reason')).toHaveTextContent(
-      '2 cards still need a printing. Choose them, or leave those cards out.'
+      '2 cards still need a printing. Choose them, or leave them out.'
     );
     // An open preview holds the screen: leaving asks first.
     expect(mockLeave.held).toBe(true);
@@ -537,7 +631,7 @@ describe('Import cards: the preview', () => {
     fireEvent.press(screen.getByRole('switch', { name: 'Extra deck' }));
     await waitFor(() =>
       expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(
-        '2 copies from 1 of the 4 lines of your file. 1 left out.'
+        'Your file lists 4 different cards. 1 is ready to add: 2 copies. 1 left out.'
       )
     );
     expect(api.callsTo(`PATCH ${IMPORTS}/{id}`)[0]?.body).toEqual({ includeExtra: false });
@@ -634,7 +728,9 @@ describe('Import cards: the preview', () => {
         name: 'Condition and copies of Fixture Lantern Wisp: Near Mint, 3 copies',
       })
     ).toBeOnTheScreen();
-    expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(/^3 copies/);
+    expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(
+      /1 is ready to add: 3 copies\./
+    );
   });
 
   it('leaves a line out at once, and puts it back when the API refuses', async () => {
@@ -720,13 +816,236 @@ describe('Import cards: the preview', () => {
     expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
   });
 
+  it('says which cards got the plain copy and which the most recent printing could not decide', async () => {
+    const fake = fakeImports({ open: importFixture() });
+    mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        // One card has a 1st Edition and an Unlimited copy in its most recent set (the plain copy
+        // is taken); the other has two rarities there (nothing decides).
+        [`POST ${IMPORTS}/{id}/bulk`]: () => {
+          fake.state.rows = fake.state.rows.map((row) =>
+            row.id === 'row-1'
+              ? {
+                  ...row,
+                  status: 'READY',
+                  printing: HERON_PRINTINGS[1],
+                  printingChoice: 'MOST_RECENT_ASSUMED',
+                  willImport: true,
+                }
+              : row
+          );
+          return ok({
+            updated: 1,
+            assumed: 1,
+            undecided: 1,
+            preview: {
+              ...(fake.state.preview as InventoryImport),
+              summary: summarise(fake.state.rows),
+            },
+          });
+        },
+      })
+    );
+    render();
+    await continueOpen();
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Use the most recent printing for all unchosen rows',
+      })
+    );
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      '1 card got its most recent printing. Its most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check it. 1 card has several printings in its most recent set: choose it.'
+    );
+    // The line keeps saying that its copy was assumed, and stays editable.
+    expect(await screen.findByTestId('import-row-1-assumed')).toHaveTextContent(
+      /Taken as the plain copy \(Unlimited, no foil\)/
+    );
+    // So does the top of the preview, which is still there once the snackbar is gone.
+    expect(
+      within(screen.getByTestId('import-assumed')).getByRole('header', {
+        name: 'Plain copy assumed for 1 card',
+      })
+    ).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeOnTheScreen();
+    expect(screen.getByTestId('import-row-1-printing')).not.toBeDisabled();
+    // The card nothing could decide still asks: nothing was taken for the collector.
+    await waitFor(() => expect(screen.getByLabelText('1 needs a printing')).toBeOnTheScreen());
+    expect(
+      screen.getByRole('button', { name: 'Which copy of Fixture Clockwork Heron: Choose printing' })
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('import-commit')).toBeDisabled();
+  });
+
+  it('keeps the lines whose copy was assumed counted and one press away, long after the snackbar', async () => {
+    // A CSV whose bulk action ran earlier: the preview is opened again, no snackbar says anything.
+    const assumed = (id: string, position: number) =>
+      chooseRow({
+        id,
+        position,
+        deck: undefined,
+        status: 'READY',
+        printing: HERON_PRINTINGS[0],
+        printingChoice: 'MOST_RECENT_ASSUMED',
+        willImport: true,
+      });
+    const fake = fakeImports({
+      open: importFixture({ source: 'COLLECTR_CSV', sections: null as never }),
+      rows: [
+        rowFixture({ deck: undefined }),
+        assumed('row-1', 1),
+        rowFixture({ id: 'row-2', position: 2, deck: undefined, printingChoice: 'MOST_RECENT' }),
+        assumed('row-3', 3),
+        unmatchedRow({ id: 'row-4', position: 4, deck: undefined }),
+      ],
+    });
+    const api = mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    await screen.findByTestId('import-row-0');
+    expect(screen.queryByTestId('snackbar')).toBeNull();
+
+    // A card counts them for as long as there are any, and so does a chip of the pinned filter.
+    const card = screen.getByTestId('import-assumed');
+    expect(
+      within(card).getByRole('header', { name: 'Plain copy assumed for 2 lines' })
+    ).toBeOnTheScreen();
+    const bar = screen.getByTestId('import-filter-bar');
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).not.toBeChecked();
+    expect(within(bar).getByText('Plain copy assumed (2)').props.maxFontSizeMultiplier).toBe(
+      PINNED_MAX_FONT_SCALE
+    );
+    // On a phone the row of chips is wider than the screen: this chip is cut at the edge.
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    fireEvent(within(bar).getByTestId('import-filter-row'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 370, height: 40 } },
+    });
+    [
+      ['ALL', 0, 90],
+      ['CHOOSE_PRINTING', 98, 160],
+      ['MOST_RECENT_ASSUMED', 266, 200],
+      ['UNMATCHED', 474, 160],
+    ].forEach(([key, x, width]) =>
+      fireEvent(within(bar).getByTestId(`import-filter-${key}`), 'layout', {
+        nativeEvent: { layout: { x, y: 0, width, height: 36 } },
+      })
+    );
+
+    // The card's button lists them: those lines and no other. The chip that is now the chosen
+    // one comes on screen whole, so the bar says what the list shows.
+    fireEvent.press(within(card).getByRole('button', { name: 'Show these 2 lines' }));
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ x: 104, animated: true }));
+    scrollTo.mockRestore();
+    await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
+    expect(await screen.findByTestId('import-row-1')).toBeOnTheScreen();
+    expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-row-2')).toBeNull();
+    expect(screen.queryByTestId('import-row-4')).toBeNull();
+    const asked = api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query;
+    expect(asked?.get('printingChoice')).toBe('MOST_RECENT_ASSUMED');
+    expect(asked?.has('status')).toBe(false);
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).toBeChecked();
+
+    // The plain copy of the first one is right: picked again, it is the collector's choice, the
+    // line leaves the list and the count goes down.
+    fireEvent.press(screen.getByTestId('import-row-1-printing'));
+    const sheet = await screen.findByTestId('import-printing-sheet');
+    fireEvent.press(await within(sheet).findByTestId(`printing-${HERON_FIRST}`));
+    await waitFor(() => expect(screen.queryByTestId('import-row-1')).toBeNull());
+    expect(api.callsTo(`PATCH ${IMPORTS}/{id}/rows/{rowId}`)[0]?.body).toEqual({
+      printingId: HERON_FIRST,
+    });
+    expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeChecked();
+    expect(
+      within(screen.getByTestId('import-assumed')).getByRole('button', { name: 'Show this line' })
+    ).toBeOnTheScreen();
+
+    // The other one is another copy: changed, and nothing is left to check.
+    fireEvent.press(screen.getByTestId('import-row-3-printing'));
+    fireEvent.press(
+      await within(await screen.findByTestId('import-printing-sheet')).findByTestId(
+        `printing-${HERON_PRINTINGS[1]!.id}`
+      )
+    );
+    expect(await screen.findByText('No plain copy left to check')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-assumed')).toBeNull();
+    // The chip that is pressed does not vanish under the finger; it goes with the filter.
+    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (0)' })).toBeChecked();
+    fireEvent.press(screen.getByRole('button', { name: 'Show all lines' }));
+    expect(await screen.findByTestId('import-row-0')).toBeOnTheScreen();
+    expect(within(bar).queryByRole('radio', { name: /Plain copy assumed/ })).toBeNull();
+    expect(within(bar).getAllByRole('radio')).toHaveLength(3);
+  });
+
+  it('shows the lines a count stands for when the count is pressed', async () => {
+    const fake = fakeImports({ open: importFixture() });
+    const api = mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    await screen.findByTestId('import-row-0');
+    fireEvent.press(screen.getByRole('button', { name: '1 not recognised' }));
+    await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
+    expect(await screen.findByTestId('import-row-3')).toBeOnTheScreen();
+    expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
+    expect(
+      within(screen.getByTestId('import-filter-bar')).getByRole('radio', {
+        name: 'Not recognised (1)',
+      })
+    ).toBeChecked();
+  });
+
+  it('says on top, before any commit, that the plan has no room for the import', async () => {
+    const fake = fakeImports({ open: importFixture(), rows: [rowFixture(), unmatchedRow()] });
+    const plan = planFixture();
+    mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        'GET /api/v1/me/plan': ok({
+          ...plan,
+          limits: [
+            ...(plan.limits ?? []),
+            {
+              key: 'inventory.items.max',
+              allowed: false,
+              kind: 'COUNTER',
+              window: 'TOTAL',
+              limit: 500,
+              used: 500,
+              remaining: 0,
+              planCode: 'FREE',
+            },
+          ],
+        }),
+      })
+    );
+    render();
+    await continueOpen();
+    const room = await screen.findByTestId('import-plan-room');
+    expect(
+      within(room).getByText(
+        'Your plan has no room for a new card and this import adds 1 new card: leave 1 out. Copies added to cards you already have always fit.'
+      )
+    ).toBeOnTheScreen();
+  });
+
+  it('says nothing about the plan while the import fits, or the plan has no limit', async () => {
+    const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
+    mockApi(signedInRoutes({ ...fake.routes, 'GET /api/v1/me/plan': ok(planFixture()) }));
+    render();
+    await continueOpen();
+    await screen.findByTestId('import-row-0');
+    expect(screen.queryByTestId('import-plan-room')).toBeNull();
+  });
+
   it('says so when a filter has nothing to show', async () => {
     const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
     mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
     fireEvent.press(await screen.findByRole('radio', { name: 'Not recognised (0)' }));
-    expect(await screen.findByText('Every line was recognised')).toBeOnTheScreen();
+    expect(await screen.findByText('Everything was recognised')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Show all different cards' })).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('import-rows-empty-action'));
     expect(await screen.findByTestId('import-row-0')).toBeOnTheScreen();
   });
@@ -748,7 +1067,7 @@ describe('Import cards: the preview', () => {
     );
     render();
     await continueOpen();
-    expect(await screen.findByText('The lines could not load')).toBeOnTheScreen();
+    expect(await screen.findByText('The list could not load')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('import-rows-error-retry'));
     await screen.findByTestId('import-row-0');
     expect(screen.queryByTestId('import-row-50')).toBeNull();
@@ -778,7 +1097,7 @@ describe('Import cards: the commit', () => {
         name: 'Leave out the 2 cards that still need a printing',
       })
     );
-    expect(commit.props.accessibilityLabel).toBe('Add 1 card, leave 2 out');
+    expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies), leave 2 out');
     expect(commit).not.toBeDisabled();
     fireEvent.press(commit);
 
@@ -791,11 +1110,11 @@ describe('Import cards: the commit', () => {
     ).toBeOnTheScreen();
     expect(
       within(result).getByLabelText(
-        '3 lines of your file left out: 1 not recognised, 2 without a printing'
+        '3 different cards of your file left out: 1 not recognised, 2 without a printing'
       )
     ).toBeOnTheScreen();
     expect(within(result).getByTestId('import-result-note')).toHaveTextContent(
-      /^2 copies in all\. New cards are private/
+      /^2 copies in all\. Everything this import added is private/
     );
     // The inventory is to be read again (its lists are stale), and nothing holds the screen any more.
     expect(queryClient.getQueryState(INVENTORY_TOTALS)?.isInvalidated).toBe(true);
@@ -804,13 +1123,146 @@ describe('Import cards: the commit', () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
+  it('waits for an edit that is still being saved: a card shown as left out is never imported', async () => {
+    const fake = fakeImports({
+      open: importFixture(),
+      rows: [
+        rowFixture(),
+        rowFixture({ id: 'row-9', position: 9, printing: HERON_PRINTINGS[0] }),
+        unmatchedRow(),
+      ],
+    });
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const order: string[] = [];
+    const update = fake.routes[`PATCH ${IMPORTS}/{id}/rows/{rowId}`] as (
+      request: MockRequest
+    ) => never;
+    const commitRoute = fake.routes[`POST ${IMPORTS}/{id}/commit`] as (
+      request: MockRequest
+    ) => never;
+    const api = mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        // A slow connection: the edits are on their way and not answered yet.
+        [`PATCH ${IMPORTS}/{id}/rows/{rowId}`]: (async (request: MockRequest) => {
+          order.push('edit received');
+          await slow;
+          order.push('edit answered');
+          return update(request);
+        }) as never,
+        [`POST ${IMPORTS}/{id}/commit`]: ((request: MockRequest) => {
+          order.push('commit received');
+          return commitRoute(request);
+        }) as never,
+      })
+    );
+    render();
+    await continueOpen();
+    const commit = await screen.findByTestId('import-commit');
+    await waitFor(() =>
+      expect(commit.props.accessibilityLabel).toBe('Add 2 cards (4 copies) to my inventory')
+    );
+    expect(commit).not.toBeDisabled();
+
+    // Two cards are left out one after the other; both show it at once.
+    fireEvent.press(screen.getByTestId('import-row-0-include'));
+    fireEvent.press(screen.getByTestId('import-row-9-include'));
+    expect(await screen.findByTestId('import-row-0-state')).toHaveTextContent('Left out');
+    expect(screen.getByTestId('import-row-9-state')).toHaveTextContent('Left out');
+    await waitFor(() => expect(order).toEqual(['edit received']));
+
+    // The count on the button is not the API's yet: it waits, says so, and a press does nothing.
+    expect(commit).toBeDisabled();
+    expect(screen.getByTestId('import-commit-reason')).toHaveTextContent('Saving your changes…');
+    expect(commit.props.accessibilityHint).toBe('Saving your changes…');
+    fireEvent.press(commit);
+    expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)).toHaveLength(0);
+
+    // The edits are answered: nothing is left to add, and the button says that.
+    release();
+    await waitFor(() =>
+      expect(screen.getByTestId('import-commit-reason')).toHaveTextContent(
+        'No card of this file is ready to be added.'
+      )
+    );
+    expect(commit).toBeDisabled();
+    expect(order).toEqual(['edit received', 'edit answered', 'edit received', 'edit answered']);
+    expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)).toHaveLength(0);
+
+    // One card back: the commit goes out after every edit, with the count the collector saw.
+    fireEvent.press(screen.getByTestId('import-row-0-include'));
+    await waitFor(() =>
+      expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies) to my inventory')
+    );
+    await waitFor(() => expect(commit).not.toBeDisabled());
+    fireEvent.press(commit);
+    const result = await screen.findByTestId('import-result');
+    expect(order.at(-1)).toBe('commit received');
+    expect(order.filter((step) => step === 'edit received')).toHaveLength(3);
+    expect(within(result).getByLabelText('1 new card added')).toBeOnTheScreen();
+    expect(
+      within(result).getByLabelText(
+        '2 different cards of your file left out: 1 not recognised, 1 left out by you'
+      )
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps the lines that were not added readable on the result, with what to do about each', async () => {
+    const fake = fakeImports({ open: importFixture() });
+    const api = mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    fireEvent.press(
+      await screen.findByRole('checkbox', {
+        name: 'Leave out the 2 cards that still need a printing',
+      })
+    );
+    fireEvent.press(screen.getByTestId('import-commit'));
+    const result = await screen.findByTestId('import-result');
+
+    // Not recognised: the passcode, where it stood in the deck, why, and what can be done.
+    const unknown = within(result).getByTestId('import-result-unmatched');
+    expect(unknown).toHaveTextContent(/Not recognised \(1\)/);
+    fireEvent.press(within(unknown).getByRole('button', { name: 'Show these different cards' }));
+    const line = await within(unknown).findByTestId('import-row-3');
+    expect(line).toHaveTextContent(/Passcode 919999999/);
+    expect(line).toHaveTextContent(/Side 1/);
+    expect(line).toHaveTextContent(/find the card by its name with “Add card” in your inventory/);
+    expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
+
+    // Without a printing: which cards, so they can be added by hand.
+    const unchosen = within(result).getByTestId('import-result-unchosen');
+    expect(unchosen).toHaveTextContent(/Without a printing \(2\)/);
+    fireEvent.press(within(unchosen).getByRole('button', { name: 'Show these different cards' }));
+    const heron = await within(unchosen).findByTestId('import-row-1');
+    expect(heron).toHaveTextContent(/Fixture Clockwork Heron/);
+    expect(heron).toHaveTextContent(/Passcode 910000002/);
+    expect(heron).toHaveTextContent(/No printing was chosen/);
+    expect(within(unchosen).queryByRole('checkbox')).toBeNull();
+  });
+
+  it('shows no list of left-out lines when every line went in', async () => {
+    const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    fireEvent.press(await screen.findByTestId('import-commit'));
+    const result = await screen.findByTestId('import-result');
+    expect(within(result).queryByTestId('import-result-unmatched')).toBeNull();
+    expect(within(result).queryByTestId('import-result-unchosen')).toBeNull();
+    expect(within(result).queryByTestId('import-result-late')).toBeNull();
+  });
+
   it('sends skipUnresolved false when nothing is left to choose', async () => {
     const fake = fakeImports({ open: importFixture(), rows: [rowFixture(), unmatchedRow()] });
     const api = mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
     const commit = screen.getByTestId('import-commit');
-    expect(commit.props.accessibilityLabel).toBe('Add 1 card to my inventory');
+    expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies) to my inventory');
     expect(screen.getByTestId('import-commit-reason')).toHaveTextContent(
       'It starts private: nobody sees it until you publish it.'
     );
@@ -948,10 +1400,11 @@ describe('Import cards: the commit', () => {
       fireEvent.press(screen.getByTestId('import-commit'));
       const notice = await screen.findByTestId('import-limit');
       expect(notice).toHaveTextContent(/This import does not fit your plan/);
+      // The numbers to act on: what the import adds, what still fits, how many to leave out.
       expect(within(notice).getByTestId('import-limit-message')).toHaveTextContent(
         premiumPlans
-          ? 'You have used 500 of 500 inventory cards on the Free plan. Premium raises the limit.'
-          : 'You have used 500 of 500 inventory cards on the Free plan.'
+          ? 'This import adds 1 new card and your plan has room for 0 (500 of 500 used). Leave 1 out and try again. Premium raises the limit.'
+          : 'This import adds 1 new card and your plan has room for 0 (500 of 500 used). Leave 1 out and try again.'
       );
       await waitFor(() =>
         expect(screen.queryAllByTestId('import-limit-premium')).toHaveLength(premiumButtons)
@@ -1009,6 +1462,7 @@ describe('Import cards: expiry, resuming, leaving', () => {
         itemsMerged: 0,
         copiesAdded: 500,
         rowsImported: 1200,
+        copiesNotAdded: 0,
         chunksDone: 1,
         totalChunks: 3,
       },
@@ -1037,7 +1491,7 @@ describe('Import cards: expiry, resuming, leaving', () => {
     render();
     const open = await screen.findByTestId('import-open');
     expect(open).toHaveTextContent(/Continue your import/);
-    expect(open).toHaveTextContent(/Deck file · 4 lines · kept until/);
+    expect(open).toHaveTextContent(/Deck file · 4 different cards · kept until/);
     await continueOpen();
     expect(mockLeave.held).toBe(true);
 
@@ -1135,6 +1589,41 @@ describe('Import cards: expiry, resuming, leaving', () => {
     render();
     await continueOpen();
     fireEvent.press(await screen.findByTestId('import-row-0-include'));
-    expect(await screen.findByTestId('import-result')).toBeOnTheScreen();
+    const result = await screen.findByTestId('import-result');
+    // The change came too late and is not in the import: said, with the card to check.
+    expect(
+      within(within(result).getByTestId('import-result-late')).getByText(
+        'This import was already added before your last change to Fixture Lantern Wisp was saved: that change is not in it. Check that card in your inventory.'
+      )
+    ).toBeOnTheScreen();
+    // A new import starts without that notice.
+    fake.state.preview = null;
+    fireEvent.press(within(result).getByRole('button', { name: 'Import another file' }));
+    expect(await screen.findByTestId('import-source-YDK')).toBeOnTheScreen();
+  });
+
+  it('lets the pages that end the flow scroll: at the largest text sizes their button stays in reach', async () => {
+    // "This preview expired" and "The import could not load" are taller than the screen at the
+    // accessibility text sizes: like every other step they are scroll views.
+    const fake = fakeImports({ open: importFixture() });
+    const api = mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        [`GET ${IMPORTS}/{id}`]: problem(503, 'SERVICE_UNAVAILABLE', 'down'),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId('import-open-continue'));
+    expect(await screen.findByTestId('import-error')).toBeOnTheScreen();
+    const failed = screen.UNSAFE_getByType(ScrollView);
+    expect(failed.props.testID).toBe('screen-import');
+    expect(within(failed).getByTestId('import-error-retry')).toBeOnTheScreen();
+
+    api.use({ [`GET ${IMPORTS}/{id}`]: problem(410, 'IMPORT_EXPIRED', 'expired') });
+    fireEvent.press(screen.getByTestId('import-error-retry'));
+    expect(await screen.findByTestId('import-expired')).toBeOnTheScreen();
+    const expired = screen.UNSAFE_getByType(ScrollView);
+    expect(expired.props.testID).toBe('screen-import');
+    expect(within(expired).getByTestId('import-expired-action')).toBeOnTheScreen();
   });
 });

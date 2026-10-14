@@ -84,7 +84,7 @@ tags:
 - assertVisible: '0 need a printing'
 - assertVisible: '1 not recognised'
 - takeScreenshot: import-csv-preview
-- assertVisible: 'Add 1 card to my inventory'
+- assertVisible: 'Add 1 card \(2 copies\) to my inventory'
 - assertVisible: 'Its copies are added to a card you already have.'
 - runFlow:
     file: subflows/scroll-down-above.yaml
@@ -92,6 +92,8 @@ tags:
       ID: 'import-row-0-owned'
       BAR: 'import-commit-bar'
 - assertVisible: 'You have 2: this adds 2.'
+# The file's own words under the line it became.
+- assertVisible: 'In your file: Azure Dawn · AZR-EN001 · Ultra Rare'
 - assertVisible: 'Which copy of Azure-Eyes Sky Dragon: AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition'
 # The row nothing fits, with what the file said.
 - runFlow:
@@ -99,7 +101,7 @@ tags:
     env:
       ID: 'import-row-1'
       BAR: 'import-commit-bar'
-- assertVisible: 'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name.'
+- assertVisible: 'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
 - takeScreenshot: import-csv-rows
 
 # The commit: the owned card holds four copies, not a second card.

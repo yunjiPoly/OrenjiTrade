@@ -1,5 +1,7 @@
 package com.orenjitrade.api.inventory.domain;
 
+import com.orenjitrade.api.billing.domain.LimitDecision;
+import com.orenjitrade.api.billing.domain.LimitReachedException;
 import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.binders.domain.BinderService;
@@ -31,6 +33,7 @@ import com.orenjitrade.api.inventory.domain.InventoryChanges.ImportOutcome;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.ItemPatch;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.MergeKey;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.NewItem;
+import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnedCopies;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnerQuery;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.SkipReason;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.Skipped;
@@ -577,21 +580,30 @@ public class InventoryService {
 
     /**
      * Writes one chunk of an import: at most {@value #BULK_MAX} lines, each an item to create
-     * (PRIVATE, unfiled, like every imported item) or the copies to add to the owner's equal item
-     * (same printing, condition, edition and language; a private item before a public one, then the
-     * oldest). It follows the rule of a new bulk write (docs/database/schema.md, "Locks of binders
-     * and inventory items"): the owner lock first, then the binders of the items it raises and
-     * those items in ascending id ({@link #lockForWrite}), one statement per row it holds, and the
-     * reconciliation in the same transaction.
+     * (PRIVATE, unfiled, like every imported item) or the copies to add to the owner's equal
+     * private item (same printing, condition, edition and language; the oldest). An item the owner
+     * shows is never raised: an imported copy is private until its owner publishes it. It follows
+     * the rule of a new bulk write (docs/database/schema.md, "Locks of binders and inventory
+     * items"): the owner lock first, then the binders of the items it raises and those items in
+     * ascending id ({@link #lockForWrite}), one statement per row it holds, and the reconciliation
+     * in the same transaction.
      *
      * <p>The lines are validated and normalised by the caller before its transaction starts:
      * nothing here reads the catalog or does anything slow while the lock is held. The caller runs
      * one transaction per chunk and the chunks of a collector one after the other.
      *
+     * @param plannedNew the new items the commit reserved for this chunk under {@link
+     *     #INVENTORY_ITEMS_MAX} when it started ({@code null}: it reserved nothing, no limit
+     *     applied). The chunk creates exactly as many unless the owner deleted, since then, an item
+     *     a line was going to raise: that line is a new item after all, and it is only written when
+     *     the limit still has room for it
      * @throws IllegalArgumentException for more than {@value #BULK_MAX} lines
+     * @throws LimitReachedException when the chunk needs more room than the commit reserved and the
+     *     limit has none left (nothing of the chunk is written)
      */
     @Transactional
-    public ImportOutcome importLines(UUID ownerId, List<ImportLine> lines) {
+    public ImportOutcome importLines(
+            UUID ownerId, List<ImportLine> lines, @Nullable Integer plannedNew) {
         if (lines.size() > BULK_MAX) {
             throw new IllegalArgumentException("An import chunk holds at most " + BULK_MAX);
         }
@@ -605,10 +617,22 @@ public class InventoryService {
                         ownerId,
                         targets.values().stream().map(MergeCandidate::id).toList(),
                         List.of());
+        if (plannedNew != null) {
+            long creating =
+                    lines.stream()
+                            .filter(
+                                    line -> {
+                                        @Nullable MergeCandidate target = targets.get(line.key());
+                                        return target == null || !locked.containsKey(target.id());
+                                    })
+                            .count();
+            requireRoomBeyondReserved(ownerId, creating - plannedNew);
+        }
         List<UUID> written = new ArrayList<>();
         int created = 0;
         int merged = 0;
         int copies = 0;
+        int notAdded = 0;
         for (ImportLine line : lines) {
             @Nullable MergeCandidate target = targets.get(line.key());
             if (target != null && locked.containsKey(target.id())) {
@@ -618,6 +642,7 @@ public class InventoryService {
                 }
                 merged++;
                 copies += added;
+                notAdded += line.quantity() - added;
                 written.add(target.id());
             } else {
                 UUID id = UUID.randomUUID();
@@ -653,37 +678,70 @@ public class InventoryService {
                 created,
                 merged,
                 copies);
-        return new ImportOutcome(created, merged, copies);
+        return new ImportOutcome(created, merged, copies, notAdded);
     }
 
     /**
-     * How many of these lines would become a new item (no equal item to raise): what an import adds
-     * to the usage of {@link #INVENTORY_ITEMS_MAX}. The caller holds the owner lock.
+     * Refuses a chunk that creates {@code extra} items more than its commit reserved ({@code 429
+     * LIMIT_REACHED} with {@code requested}), unless {@link #INVENTORY_ITEMS_MAX} has room for
+     * them. The usage already holds the live items and what the collector's commits reserved, this
+     * chunk's part included. The caller holds the owner lock.
      */
-    @Transactional(readOnly = true)
-    public long newItemsOf(UUID ownerId, List<ImportLine> lines) {
-        Map<MergeKey, MergeCandidate> targets = mergeTargets(ownerId, lines);
-        return lines.stream().filter(line -> !targets.containsKey(line.key())).count();
-    }
-
-    /**
-     * The copies the owner already holds per {@link MergeKey} among these printings (a preview
-     * shows what a row would be added to).
-     */
-    @Transactional(readOnly = true)
-    public Map<MergeKey, Integer> ownedCopies(UUID ownerId, Collection<UUID> printingIds) {
-        Map<MergeKey, Integer> owned = new HashMap<>();
-        for (MergeCandidate item : items.mergeCandidates(ownerId, printingIds)) {
-            owned.merge(
-                    new MergeKey(
-                            item.printingId(), item.condition(), item.edition(), item.language()),
-                    item.quantity(),
-                    Integer::sum);
+    private void requireRoomBeyondReserved(UUID ownerId, long extra) {
+        if (extra <= 0) {
+            return;
         }
-        return owned;
+        LimitDecision decision = limits.check(ownerId, INVENTORY_ITEMS_MAX);
+        @Nullable Integer max = decision.limit();
+        long used = decision.used() == null ? 0 : decision.used();
+        if (max != null && used + extra > max) {
+            throw new LimitReachedException(decision).withProperty("requested", extra);
+        }
     }
 
-    /** The owner's item each line would be added to (the first equal one), by key. */
+    /**
+     * The keys of the lines that would become a new item (no equal private item to raise): what an
+     * import adds to the usage of {@link #INVENTORY_ITEMS_MAX}. The caller holds the owner lock.
+     */
+    @Transactional(readOnly = true)
+    public Set<MergeKey> newKeysOf(UUID ownerId, List<ImportLine> lines) {
+        Map<MergeKey, MergeCandidate> targets = mergeTargets(ownerId, lines);
+        Set<MergeKey> fresh = new HashSet<>();
+        for (ImportLine line : lines) {
+            if (!targets.containsKey(line.key())) {
+                fresh.add(line.key());
+            }
+        }
+        return fresh;
+    }
+
+    /**
+     * The copies the owner already holds per {@link MergeKey} among these printings, in private
+     * items (a preview shows what a row would be added to) and in items the owner shows (a preview
+     * says that the row becomes a private item next to them).
+     */
+    @Transactional(readOnly = true)
+    public OwnedCopies ownedCopies(UUID ownerId, Collection<UUID> printingIds) {
+        Map<MergeKey, Integer> privateCopies = new HashMap<>();
+        Map<MergeKey, Integer> shownCopies = new HashMap<>();
+        for (MergeCandidate item : items.mergeCandidates(ownerId, printingIds)) {
+            (item.privateItem() ? privateCopies : shownCopies)
+                    .merge(
+                            new MergeKey(
+                                    item.printingId(),
+                                    item.condition(),
+                                    item.edition(),
+                                    item.language()),
+                            item.quantity(),
+                            Integer::sum);
+        }
+        return new OwnedCopies(privateCopies, shownCopies);
+    }
+
+    /**
+     * The owner's private item each line would be added to (the oldest equal one), by key. An item
+     * the owner shows is no target: an import never raises it.
+     */
     private Map<MergeKey, MergeCandidate> mergeTargets(UUID ownerId, List<ImportLine> lines) {
         Map<MergeKey, MergeCandidate> targets = new HashMap<>();
         if (lines.isEmpty()) {
@@ -699,7 +757,7 @@ public class InventoryService {
             MergeKey key =
                     new MergeKey(
                             item.printingId(), item.condition(), item.edition(), item.language());
-            if (wanted.contains(key)) {
+            if (item.privateItem() && wanted.contains(key)) {
                 targets.putIfAbsent(key, item);
             }
         }

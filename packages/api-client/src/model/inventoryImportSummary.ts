@@ -39,12 +39,20 @@ export interface InventoryImportSummary {
      */
     items: number;
     /**
-     * Of `items`, those equal to an item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. A count of the preview: after the commit, `result` says what was written
+     * Of `items`, those equal to a private item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. An item the caller shows is never raised. A count of the preview: after the commit, `result` says what was written
      */
     mergedItems: number;
     /**
      * Matched rows whose condition nobody chose (`conditionSource` DEFAULT): the rows the bulk action SET_CONDITION changes
      */
     defaultConditions: number;
+    /**
+     * The condition those rows have when they all have the same one: the lowest grade of the game until SET_CONDITION gives them another. Null when there is no such row or they differ
+     */
+    defaultCondition?: string | null;
+    /**
+     * Rows whose printing the bulk action USE_MOST_RECENT_PRINTING took as the plain copy of several versions (`printingChoice` MOST_RECENT_ASSUMED) and the collector has not confirmed or changed since, left out or not: the rows to check. GET /inventory/imports/{id}/rows?printingChoice=MOST_RECENT_ASSUMED lists them
+     */
+    assumedPrintings: number;
 }
 

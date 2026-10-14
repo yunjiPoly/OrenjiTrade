@@ -102,6 +102,7 @@ public final class InventoryImportResponses {
                                     record.result().itemsMerged(),
                                     record.result().copiesAdded(),
                                     record.result().rowsImported(),
+                                    record.result().copiesNotAdded(),
                                     record.chunksDone(),
                                     totalChunks));
         }
@@ -172,11 +173,12 @@ public final class InventoryImportResponses {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description =
-                                    "Of `items`, those equal to an item the caller already has"
-                                            + " (same printing, condition, edition and language):"
-                                            + " the commit raises that item, and `items -"
-                                            + " mergedItems` are new. A count of the preview: after"
-                                            + " the commit, `result` says what was written",
+                                    "Of `items`, those equal to a private item the caller"
+                                            + " already has (same printing, condition, edition and"
+                                            + " language): the commit raises that item, and `items"
+                                            + " - mergedItems` are new. An item the caller shows"
+                                            + " is never raised. A count of the preview: after the"
+                                            + " commit, `result` says what was written",
                             example = "2")
                     int mergedItems,
             @Schema(
@@ -186,7 +188,29 @@ public final class InventoryImportResponses {
                                             + " DEFAULT): the rows the bulk action SET_CONDITION"
                                             + " changes",
                             example = "7")
-                    int defaultConditions) {
+                    int defaultConditions,
+            @Schema(
+                            nullable = true,
+                            description =
+                                    "The condition those rows have when they all have the same"
+                                            + " one: the lowest grade of the game until"
+                                            + " SET_CONDITION gives them another. Null when there"
+                                            + " is no such row or they differ",
+                            example = "DAMAGED")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String defaultCondition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Rows whose printing the bulk action USE_MOST_RECENT_PRINTING"
+                                            + " took as the plain copy of several versions"
+                                            + " (`printingChoice` MOST_RECENT_ASSUMED) and the"
+                                            + " collector has not confirmed or changed since, left"
+                                            + " out or not: the rows to check. GET"
+                                            + " /inventory/imports/{id}/rows"
+                                            + "?printingChoice=MOST_RECENT_ASSUMED lists them",
+                            example = "0")
+                    int assumedPrintings) {
 
         static SummaryResponse from(ImportSummary summary) {
             return new SummaryResponse(
@@ -198,7 +222,9 @@ public final class InventoryImportResponses {
                     summary.copies(),
                     summary.items(),
                     summary.mergedItems(),
-                    summary.defaultConditions());
+                    summary.defaultConditions(),
+                    summary.defaultCondition(),
+                    summary.assumedPrintings());
         }
     }
 
@@ -213,6 +239,13 @@ public final class InventoryImportResponses {
                     int itemsMerged,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "52") int copiesAdded,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "31") int rowsImported,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Copies of the imported rows that were not added: one item"
+                                            + " holds at most 9 999 copies",
+                            example = "0")
+                    int copiesNotAdded,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "1") int chunksDone,
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
@@ -255,7 +288,11 @@ public final class InventoryImportResponses {
                             nullable = true,
                             description =
                                     "AUTO: the row fits exactly one printing. MANUAL: chosen for"
-                                            + " this row. MOST_RECENT: by the bulk action")
+                                            + " this row. MOST_RECENT: by the bulk action."
+                                            + " MOST_RECENT_ASSUMED: by the bulk action, for a card"
+                                            + " its most recent set holds in several editions or"
+                                            + " finishes: the plain copy (Unlimited, normal finish)"
+                                            + " was taken, to be checked by the collector")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable PrintingChoice printingChoice,
             @Schema(
@@ -333,11 +370,20 @@ public final class InventoryImportResponses {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description =
-                                    "Copies the caller already holds in an equal item (same"
-                                            + " printing, condition, edition and language): the"
-                                            + " commit raises that item instead of adding one",
+                                    "Copies the caller already holds in an equal private item"
+                                            + " (same printing, condition, edition and language):"
+                                            + " the commit raises that item instead of adding one",
                             example = "0")
-                    int ownedQuantity) {
+                    int ownedQuantity,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "Copies the caller holds in equal items they show (visibility"
+                                            + " other than PRIVATE). An import never raises such"
+                                            + " an item: the copies of this row become, or join, a"
+                                            + " private item, so nothing an import adds is public",
+                            example = "0")
+                    int shownQuantity) {
 
         static RowResponse from(ImportRowView view) {
             ImportRow row = view.row();
@@ -379,7 +425,8 @@ public final class InventoryImportResponses {
                     row.included(),
                     row.inScope(owner),
                     row.willImport(owner),
-                    view.ownedQuantity());
+                    view.ownedQuantity(),
+                    view.shownQuantity());
         }
 
         private static int orZero(@Nullable Integer value) {
@@ -446,10 +493,34 @@ public final class InventoryImportResponses {
             description = "The rows a bulk action changed and the preview with its new counts")
     public record BulkResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "7") int updated,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "USE_MOST_RECENT_PRINTING: of `updated`, the rows whose card"
+                                            + " its most recent set holds in several editions or"
+                                            + " finishes: they got the plain copy (Unlimited,"
+                                            + " normal finish; `printingChoice`"
+                                            + " MOST_RECENT_ASSUMED); 0 for SET_CONDITION",
+                            example = "0")
+                    int assumed,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "USE_MOST_RECENT_PRINTING: rows left to choose because several"
+                                            + " printings of their card share the most recent"
+                                            + " release date and are not one printing in several"
+                                            + " editions or finishes (two rarities, two languages,"
+                                            + " no date): nothing is guessed; 0 for SET_CONDITION",
+                            example = "0")
+                    int undecided,
             @Schema(requiredMode = RequiredMode.REQUIRED) ImportResponse preview) {
 
         static BulkResponse from(BulkChange change) {
-            return new BulkResponse(change.updated(), ImportResponse.from(change.summary()));
+            return new BulkResponse(
+                    change.updated(),
+                    change.assumed(),
+                    change.undecided(),
+                    ImportResponse.from(change.summary()));
         }
     }
 

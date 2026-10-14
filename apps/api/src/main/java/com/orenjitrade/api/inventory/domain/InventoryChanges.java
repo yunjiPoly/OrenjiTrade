@@ -5,6 +5,7 @@ import com.orenjitrade.api.delisting.domain.FreshnessState;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -173,8 +174,19 @@ public final class InventoryChanges {
      * @param created new items
      * @param merged existing items whose quantity was raised
      * @param copies copies added (fewer than asked when an item reached 9 999)
+     * @param notAdded copies asked for and not added because their item reached 9 999
      */
-    public record ImportOutcome(int created, int merged, int copies) {}
+    public record ImportOutcome(int created, int merged, int copies, int notAdded) {}
+
+    /**
+     * The copies an owner holds in the items equal to some lines of an import.
+     *
+     * @param privateCopies in private items: an import adds its copies to such an item
+     * @param shownCopies in items the owner shows (visibility other than PRIVATE): an import never
+     *     raises those, its copies become a private item of their own
+     */
+    public record OwnedCopies(
+            Map<MergeKey, Integer> privateCopies, Map<MergeKey, Integer> shownCopies) {}
 
     /** Sort keys of the owner's inventory list. */
     public enum SortKey {

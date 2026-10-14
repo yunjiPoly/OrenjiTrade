@@ -23,6 +23,14 @@ export interface ImportBody {
   dispose: () => void;
 }
 
+/** A browser keeps no copy of a picked file: nothing to remove. */
+export function isPickerCopy(_uri: string): boolean {
+  return false;
+}
+
+/** A browser keeps no copy of a picked file: nothing to remove. */
+export function discardUpload(_upload: ImportUpload | null | undefined): void {}
+
 /** Name of the file a pasted text is sent as (the API ignores names: the content decides). */
 export function pastedFileName(source: ImportSource, now: number = Date.now()): string {
   return `orenjitrade-import-${now}${IMPORT_SOURCES[source].extension}`;

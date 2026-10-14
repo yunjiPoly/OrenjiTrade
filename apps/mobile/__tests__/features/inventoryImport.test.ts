@@ -3,23 +3,34 @@ import { quantityError, rowPatch } from '@/src/features/inventory/import/ImportR
 import { openImport } from '@/src/features/inventory/import/ImportStart';
 import {
   IMPORT_SOURCES,
+  assumedCopies,
+  assumedCopiesText,
+  assumedCopyText,
+  cardsAndCopies,
   commitState,
   conditionSetMessage,
   deckText,
+  defaultConditionsText,
   emptyFilterText,
   filterOptions,
   formatBytes,
   importRefusal,
   interruptedText,
   isExpired,
+  lateEditText,
   leaveOutLabel,
+  limitRefusalText,
   limitsHint,
+  lineNoun,
   linesLeftOut,
+  matchedSourceText,
   mostRecentMessage,
+  needPrintingTitle,
   newItems,
   openImportText,
   orderedPrintings,
   ownedText,
+  planRoomText,
   refusalBeforeUpload,
   resultLines,
   resultSentence,
@@ -32,6 +43,7 @@ import {
   sectionSwitches,
   summarySentence,
   summaryStats,
+  unmatchedNextStep,
   unmatchedReasonText,
   utf8Length,
 } from '@/src/features/inventory/import/importLabels';
@@ -61,6 +73,10 @@ describe('the two sources of an import', () => {
   it('say in one sentence what the file is and how to get it out of the other app', () => {
     expect(IMPORT_SOURCES.YDK.title).toBe('Yu-Gi-Oh! deck file (.ydk)');
     expect(IMPORT_SOURCES.YDK.description).toMatch(/deck builder.*“Export” or “Download YDK”/);
+    // "Passcode" is a word of the game: said once, where the deck file is chosen.
+    expect(IMPORT_SOURCES.YDK.description).toMatch(
+      /the passcode of a card: the number printed in the lower left corner of the card/
+    );
     expect(IMPORT_SOURCES.COLLECTR_CSV.title).toBe('Collectr CSV export');
     expect(IMPORT_SOURCES.COLLECTR_CSV.description).toMatch(/export your portfolio as CSV/);
     // OrenjiTrade never calls Collectr and never reads its prices: said where the file is asked for.
@@ -120,14 +136,17 @@ describe('why the API refused a file, in words a collector understands', () => {
     expect(
       importRefusal(refusal(415, 'UNSUPPORTED_MEDIA_TYPE', { reason: 'NOT_TEXT' }), 'YDK')
     ).toEqual({
-      title: 'This is not a text file',
+      title: 'This file could not be read as text',
       message:
         'A deck file is plain text: choose the .ydk file itself, not a picture or a compressed folder.',
     });
-    expect(
-      importRefusal(refusal(415, 'UNSUPPORTED_MEDIA_TYPE', { reason: 'NOT_TEXT' }), 'COLLECTR_CSV')
-        .message
-    ).toMatch(/choose the \.csv file itself, not a spreadsheet saved as \.xlsx/);
+    const sheet = importRefusal(
+      refusal(415, 'UNSUPPORTED_MEDIA_TYPE', { reason: 'NOT_TEXT' }),
+      'COLLECTR_CSV'
+    ).message;
+    expect(sheet).toMatch(/Choose the \.csv file itself, not a spreadsheet saved as \.xlsx/);
+    // A real .csv in another encoding is also refused as "not text": the sentence covers it.
+    expect(sheet).toMatch(/a \.csv that another app saved again.*save it as “CSV UTF-8”/);
   });
 
   it('too many lines or rows, with the limit', () => {
@@ -174,7 +193,9 @@ describe('why the API refused a file, in words a collector understands', () => {
     ).toEqual({ title: 'This file is empty', message: 'Choose a deck file that lists cards.' });
     expect(
       importRefusal(refusal(400, 'VALIDATION_FAILED', { reason: 'NO_CARDS' }), 'YDK').message
-    ).toMatch(/one card passcode per line under “#main”, “#extra” and “!side”/);
+    ).toBe(
+      'A deck file lists one passcode per line (the number printed in the lower left corner of a card) under “#main”, “#extra” and “!side”. This file has none.'
+    );
     expect(
       importRefusal(refusal(400, 'VALIDATION_FAILED', { reason: 'NO_CARDS' }), 'COLLECTR_CSV')
         .message
@@ -227,28 +248,49 @@ describe('the counts on top of a preview', () => {
     expect(newItems({ items: 2, mergedItems: 5 })).toBe(0);
   });
 
-  it('says the copies, the lines that go in, what was left out and what was skipped', () => {
-    expect(summarySentence(importFixture())).toBe('2 copies from 1 of the 4 lines of your file.');
+  it('says what the file holds, what is ready, what was left out and what was skipped', () => {
+    // A deck: its lines are one per different card, never "lines of the file".
+    expect(summarySentence(importFixture())).toBe(
+      'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
+    );
     expect(
       summarySentence(
         importFixture({
+          source: 'COLLECTR_CSV',
           ignoredLines: 2,
           summary: summaryOf({ rows: 1200, ready: 1100, copies: 2345, leftOut: 3 }),
         })
       )
     ).toBe(
-      '2,345 copies from 1,100 of the 1,200 lines of your file. 3 left out. 2 lines of the file were not cards and were skipped.'
+      'Your file has 1,200 lines. 1,100 are ready to add: 2,345 copies. 3 left out. 2 lines of the file were not cards and were skipped.'
     );
     expect(
       summarySentence(
         importFixture({ ignoredLines: 1, summary: summaryOf({ rows: 1, ready: 1, copies: 1 }) })
       )
     ).toBe(
-      '1 copy from 1 of the 1 line of your file. 1 line of the file was not a card and was skipped.'
+      'Your file lists 1 different card. 1 is ready to add: 1 copy. 1 line of the file was not a card and was skipped.'
+    );
+    expect(summarySentence(importFixture({ summary: summaryOf({ ready: 0, copies: 0 }) }))).toBe(
+      'Your file lists 4 different cards. None is ready to add yet.'
     );
   });
 
-  it('shows the three sections of a deck with the cards the file holds in each', () => {
+  it('has one word per thing: a card of the inventory, a copy, a line of the file', () => {
+    expect(lineNoun('YDK')).toEqual({ one: 'different card', many: 'different cards' });
+    expect(lineNoun('COLLECTR_CSV')).toEqual({ one: 'line', many: 'lines' });
+    expect(needPrintingTitle(2, 'YDK')).toBe('2 cards need a printing');
+    expect(needPrintingTitle(1, 'YDK')).toBe('1 card needs a printing');
+    // A CSV is counted line by line: 115 lines can be fewer cards once equal lines are one.
+    expect(needPrintingTitle(115, 'COLLECTR_CSV')).toBe('115 lines need a printing');
+    expect(needPrintingTitle(1, 'COLLECTR_CSV')).toBe('1 line needs a printing');
+    // The copies stand next to the cards whenever they are another number.
+    expect(cardsAndCopies({ items: 12, copies: 40 })).toBe('12 cards (40 copies)');
+    expect(cardsAndCopies({ items: 1, copies: 3 })).toBe('1 card (3 copies)');
+    expect(cardsAndCopies({ items: 3, copies: 3 })).toBe('3 cards');
+  });
+
+  it('shows the three sections of a deck with the copies the file holds in each', () => {
     expect(
       sectionSwitches({
         includeMain: true,
@@ -259,8 +301,8 @@ describe('the counts on top of a preview', () => {
         sideCopies: 0,
       })
     ).toEqual([
-      { key: 'includeMain', label: 'Main deck', help: '40 cards in your file', value: true },
-      { key: 'includeExtra', label: 'Extra deck', help: '1 card in your file', value: true },
+      { key: 'includeMain', label: 'Main deck', help: '40 copies in your file', value: true },
+      { key: 'includeExtra', label: 'Extra deck', help: '1 copy in your file', value: true },
       { key: 'includeSide', label: 'Side deck', help: 'None in your file', value: false },
     ]);
   });
@@ -271,9 +313,38 @@ describe('the counts on top of a preview', () => {
       { value: 'CHOOSE_PRINTING', label: 'Needs a printing (2)' },
       { value: 'UNMATCHED', label: 'Not recognised (1)' },
     ]);
-    expect(emptyFilterText('CHOOSE_PRINTING').title).toBe('No card needs a printing');
-    expect(emptyFilterText('UNMATCHED').title).toBe('Every line was recognised');
-    expect(emptyFilterText('ALL').title).toBe('No lines');
+    expect(emptyFilterText('CHOOSE_PRINTING').title).toBe('Nothing needs a printing');
+    expect(emptyFilterText('UNMATCHED').title).toBe('Everything was recognised');
+    expect(emptyFilterText('ALL').title).toBe('Nothing to show');
+  });
+
+  it('keeps a filter for the lines whose copy was assumed, for as long as there are any', () => {
+    // Nothing was assumed: no such chip.
+    expect(filterOptions(summaryOf()).map((option) => option.value)).not.toContain(
+      'MOST_RECENT_ASSUMED'
+    );
+    // 115 of 435 lines got the plain copy: they are counted and one press away.
+    const long = summaryOf({ rows: 435, toChoose: 0, unmatched: 15, assumedPrintings: 115 });
+    // What asks something of the collector comes before what can only be read.
+    expect(filterOptions(long)).toEqual([
+      { value: 'ALL', label: 'All (435)' },
+      { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
+      { value: 'MOST_RECENT_ASSUMED', label: 'Plain copy assumed (115)' },
+      { value: 'UNMATCHED', label: 'Not recognised (15)' },
+    ]);
+    // The last one was checked while its list is shown: the chip stays, and the list says so.
+    expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED')[2]).toEqual({
+      value: 'MOST_RECENT_ASSUMED',
+      label: 'Plain copy assumed (0)',
+    });
+    expect(emptyFilterText('MOST_RECENT_ASSUMED')).toEqual({
+      title: 'No plain copy left to check',
+      description: 'Every copy that was taken for you has been confirmed or changed.',
+    });
+    // An answer cached before the API counted them.
+    const old = { ...summaryOf(), assumedPrintings: undefined as unknown as number };
+    expect(assumedCopies(old)).toBe(0);
+    expect(filterOptions(old)).toHaveLength(3);
   });
 
   it('knows a preview that expired from one that is committed', () => {
@@ -318,8 +389,65 @@ describe('one line of a preview', () => {
   });
 
   it('a line that goes into a card already owned says how many are held and added', () => {
-    expect(ownedText({ ownedQuantity: 2, quantity: 3 })).toBe('You have 2: this adds 3.');
-    expect(ownedText({ ownedQuantity: 0, quantity: 3 })).toBeNull();
+    expect(ownedText({ ownedQuantity: 2, shownQuantity: 0, quantity: 3 })).toBe(
+      'You have 2: this adds 3.'
+    );
+    expect(ownedText({ ownedQuantity: 0, shownQuantity: 0, quantity: 3 })).toBeNull();
+  });
+
+  it('a card the collector shows is never raised by an import, and the line says so', () => {
+    expect(ownedText({ ownedQuantity: 0, shownQuantity: 1, quantity: 2 })).toBe(
+      'You show 1 publicly: that card stays as it is, and these 2 copies are added as a private card.'
+    );
+    expect(ownedText({ ownedQuantity: 0, shownQuantity: 3, quantity: 1 })).toBe(
+      'You show 3 publicly: that card stays as it is, and this copy is added as a private card.'
+    );
+    // A private card and a public one: the copies join the private one.
+    expect(ownedText({ ownedQuantity: 2, shownQuantity: 1, quantity: 3 })).toBe(
+      'You have 2: this adds 3. The 1 you show publicly stays as it is.'
+    );
+    expect(ownedText({ ownedQuantity: 2, shownQuantity: 4, quantity: 3 })).toBe(
+      'You have 2: this adds 3. The 4 you show publicly stay as they are.'
+    );
+  });
+
+  it('a recognised line shows what the file said, so the match can be checked', () => {
+    // A deck: the passcode. Two lines of one card are the card and its alternate artwork.
+    expect(matchedSourceText(rowFixture())).toBe('Passcode 910000001');
+    expect(
+      matchedSourceText(
+        chooseRow({
+          source: { passcode: '910000003', name: null, set: null, number: null, rarity: null },
+        })
+      )
+    ).toBe('Passcode 910000003');
+    // A CSV: the set, number and rarity as written; the name only when it is spelled otherwise.
+    const sheet = rowFixture({
+      deck: undefined,
+      source: {
+        passcode: null,
+        name: 'fixture lantern wisp',
+        set: 'YDK Fixtures',
+        number: 'EN001',
+        rarity: 'Rare',
+      },
+    });
+    expect(matchedSourceText(sheet)).toBe('In your file: YDK Fixtures · EN001 · Rare');
+    expect(
+      matchedSourceText({ ...sheet, source: { ...sheet.source, name: 'Lantern Wisp (Alt Art)' } })
+    ).toBe('In your file: Lantern Wisp (Alt Art) · YDK Fixtures · EN001 · Rare');
+    expect(
+      matchedSourceText({
+        ...sheet,
+        source: {
+          passcode: null,
+          name: 'Fixture Lantern Wisp',
+          set: null,
+          number: null,
+          rarity: null,
+        },
+      })
+    ).toBeNull();
   });
 
   it('a line that does not go in says why', () => {
@@ -335,8 +463,16 @@ describe('one line of a preview', () => {
     const passcode = unmatchedRow();
     expect(rowTitle(passcode)).toBe('Passcode 919999999');
     expect(rowSourceText(passcode)).toBe('1 copy');
+    // The passcode is said for what it is, and the line says what can be done about it.
     expect(unmatchedReasonText('UNKNOWN_PASSCODE')).toBe(
-      'No card of the catalog has this passcode.'
+      'No card of the catalog has this passcode (the number printed in the lower left corner of a card).'
+    );
+    expect(unmatchedNextStep('UNKNOWN_PASSCODE')).toBe(
+      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+    );
+    // A deck line says in which sections the file holds it.
+    expect(rowSummary(passcode)).toBe(
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
     );
     const sheet = unmatchedRow({
       unmatchedReason: 'UNKNOWN_CARD',
@@ -353,7 +489,7 @@ describe('one line of a preview', () => {
     expect(rowTitle(sheet)).toBe('Nobody Knows Me');
     expect(rowSourceText(sheet)).toBe('Some Set · EN404 · Common · 3 copies');
     expect(rowSummary(sheet)).toBe(
-      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name.'
+      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
     );
     for (const reason of [
       'AMBIGUOUS_CARD',
@@ -363,8 +499,15 @@ describe('one line of a preview', () => {
       'CARD_REMOVED',
     ] as const) {
       expect(unmatchedReasonText(reason)).toMatch(/\.$/);
+      // Never a dead end: every reason comes with what happens next.
+      expect(unmatchedNextStep(reason)).toMatch(/\.$/);
     }
+    expect(unmatchedNextStep('AMBIGUOUS_CARD')).toMatch(/Add the set or the card number/);
+    expect(unmatchedReasonText('INVALID_QUANTITY')).toBe(
+      'The number of copies in the file is not a whole number from 1 to 9,999.'
+    );
     expect(unmatchedReasonText(null)).toBe('Nothing in the catalog fits.');
+    expect(unmatchedNextStep(null)).toMatch(/“Add card” in your inventory/);
   });
 
   it('lists the printings that fit the file first', () => {
@@ -399,27 +542,34 @@ describe('one line of a preview', () => {
 describe('the commit button says what a press does', () => {
   it('is disabled with its reason while cards still need a printing', () => {
     expect(commitState(summaryOf(), false)).toEqual({
-      label: 'Add 1 card to my inventory',
+      label: 'Add 1 card (2 copies) to my inventory',
       disabled: true,
-      reason: '2 cards still need a printing. Choose them, or leave those cards out.',
+      reason: '2 cards still need a printing. Choose them, or leave them out.',
     });
     expect(commitState(summaryOf({ toChoose: 1 }), false).reason).toBe(
-      '1 card still needs a printing. Choose it, or leave that card out.'
+      '1 card still needs a printing. Choose it, or leave it out.'
+    );
+    // A CSV counts what still needs a printing in lines.
+    expect(commitState(summaryOf({ toChoose: 115 }), false, 'COLLECTR_CSV').reason).toBe(
+      '115 lines still need a printing. Choose them, or leave them out.'
     );
   });
 
   it('leaves them out only when the collector said so, and says it', () => {
     expect(commitState(summaryOf(), true)).toEqual({
-      label: 'Add 1 card, leave 2 out',
+      label: 'Add 1 card (2 copies), leave 2 out',
       disabled: false,
       reason: 'It starts private: nobody sees it until you publish it.',
     });
     expect(leaveOutLabel(2)).toBe('Leave out the 2 cards that still need a printing');
     expect(leaveOutLabel(1)).toBe('Leave out the 1 card that still needs a printing');
+    expect(leaveOutLabel(115, 'COLLECTR_CSV')).toBe(
+      'Leave out the 115 lines that still need a printing'
+    );
   });
 
   it('adds every ready card once nothing is left to choose', () => {
-    expect(commitState(summaryOf({ toChoose: 0, items: 3, ready: 3 }), false)).toEqual({
+    expect(commitState(summaryOf({ toChoose: 0, items: 3, ready: 3, copies: 3 }), false)).toEqual({
       label: 'Add 3 cards to my inventory',
       disabled: false,
       reason: 'They start private: nobody sees them until you publish them.',
@@ -445,16 +595,123 @@ describe('the commit button says what a press does', () => {
       reason: 'No card of this file is ready to be added.',
     });
     expect(commitState(summaryOf({ toChoose: 2, items: 0, ready: 0 }), true).reason).toBe(
-      'No card is ready: every card that was recognised still needs a printing.'
+      'No card is ready: everything that was recognised still needs a printing.'
     );
   });
 
   it('words what the bulk actions did', () => {
     expect(mostRecentMessage(2)).toBe('2 cards got their most recent printing.');
     expect(mostRecentMessage(1)).toBe('1 card got its most recent printing.');
-    expect(mostRecentMessage(0)).toBe('No card was waiting for a printing.');
+    expect(mostRecentMessage(0)).toBe('Nothing was waiting for a printing.');
     expect(conditionSetMessage(3, 'NEAR_MINT')).toBe('3 cards set to Near Mint.');
     expect(conditionSetMessage(0, 'NEAR_MINT')).toBe('Those cards are already Near Mint.');
+  });
+
+  it('says which lines got the plain copy of several versions, and which it could not decide', () => {
+    // A 1st Edition and an Unlimited copy of one set: the release date decides nothing, the
+    // plain copy is taken, and the collector is told to check.
+    expect(mostRecentMessage(114, 5, 0, 'COLLECTR_CSV')).toBe(
+      '114 lines got their most recent printing. For 5 of them that set has several versions: the plain copy (Unlimited, no foil) was taken. Check them.'
+    );
+    expect(mostRecentMessage(1, 1)).toBe(
+      '1 card got its most recent printing. Its most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check it.'
+    );
+    expect(mostRecentMessage(2, 2)).toBe(
+      '2 cards got their most recent printing. Their most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check them.'
+    );
+    // Two rarities, two languages: nothing is taken for the collector.
+    expect(mostRecentMessage(112, 0, 2, 'COLLECTR_CSV')).toBe(
+      '112 lines got their most recent printing. 2 lines have several printings in their most recent set: choose them.'
+    );
+    expect(mostRecentMessage(3, 1, 1)).toBe(
+      '3 cards got their most recent printing. For 1 of them that set has several versions: the plain copy (Unlimited, no foil) was taken. Check it. 1 card has several printings in its most recent set: choose it.'
+    );
+    expect(mostRecentMessage(0, 0, 3)).toBe(
+      '3 cards have several printings in their most recent set: choose them.'
+    );
+    // The line itself keeps saying that its copy was assumed.
+    expect(assumedCopyText({ printingChoice: 'MOST_RECENT_ASSUMED' })).toBe(
+      'Taken as the plain copy (Unlimited, no foil): its most recent set has other versions. Change it if yours is another.'
+    );
+    expect(assumedCopyText({ printingChoice: 'MOST_RECENT' })).toBeNull();
+    expect(assumedCopyText({ printingChoice: 'MANUAL' })).toBeNull();
+  });
+
+  it('counts the lines whose copy was assumed on a card that stays, and says how to check one', () => {
+    expect(assumedCopiesText(115, 'COLLECTR_CSV')).toEqual({
+      title: 'Plain copy assumed for 115 lines',
+      description:
+        'Their most recent set has the card in several versions, so the plain copy (Unlimited, no foil) was taken. Check each one: open its copy and pick yours, or pick the plain copy again to confirm it.',
+      action: 'Show these 115 lines',
+    });
+    expect(assumedCopiesText(1, 'COLLECTR_CSV')).toEqual({
+      title: 'Plain copy assumed for 1 line',
+      description:
+        'Its most recent set has the card in several versions, so the plain copy (Unlimited, no foil) was taken. Check it: open its copy and pick yours, or pick the plain copy again to confirm it.',
+      action: 'Show this line',
+    });
+    // A deck is counted in cards, as everywhere on its preview.
+    expect(assumedCopiesText(2, 'YDK').title).toBe('Plain copy assumed for 2 cards');
+    expect(assumedCopiesText(2, 'YDK').action).toBe('Show these 2 cards');
+    expect(assumedCopiesText(1, 'YDK').action).toBe('Show this card');
+  });
+
+  it('says what the cards without a condition are set to, also after a bulk action', () => {
+    const lowest = ['DAMAGED'];
+    expect(defaultConditionsText(summaryOf({ defaultConditions: 2 }), lowest)).toEqual({
+      description:
+        'Your file does not say the condition of 2 cards. A card without one starts at the lowest grade (Damaged), so nothing promises more than the card is. Check the condition on each line, or set one for all of them.',
+      action: 'Set one condition for these 2 cards',
+    });
+    // Once the collector set one for all of them, the card says that, not where they started.
+    expect(
+      defaultConditionsText(
+        summaryOf({ defaultConditions: 2, defaultCondition: 'NEAR_MINT' }),
+        lowest
+      )
+    ).toEqual({
+      description:
+        'Your file does not say the condition of 2 cards. You set them to Near Mint. Check the condition on each line, or change it for all of them.',
+      action: 'Change the condition of these 2 cards',
+    });
+    expect(
+      defaultConditionsText(summaryOf({ defaultConditions: 1, defaultCondition: 'MINT' }), lowest)
+    ).toEqual({
+      description:
+        'Your file does not say the condition of 1 card. You set it to Mint. Check the condition on each line, or change it for all of them.',
+      action: 'Change the condition of this card',
+    });
+    // Mixed (several games, or some lines changed since): nothing is claimed about a grade.
+    expect(
+      defaultConditionsText(summaryOf({ defaultConditions: 1, defaultCondition: null }), lowest)
+    ).toEqual({
+      description:
+        'Your file does not say the condition of 1 card. A card without one starts at the lowest grade, so nothing promises more than the card is. Check the condition on each line, or set one for all of them.',
+      action: 'Set the condition of this card',
+    });
+  });
+
+  it('says before the commit when the plan has no room, and what to do when it was refused', () => {
+    const adds = summaryOf({ toChoose: 0, items: 3, mergedItems: 1 });
+    expect(planRoomText(adds, null)).toBeNull();
+    expect(planRoomText(adds, 2)).toBeNull();
+    expect(planRoomText(adds, 1)).toBe(
+      'Your plan has room for 1 more card and this import adds 2 new cards: leave 1 out. Copies added to cards you already have always fit.'
+    );
+    expect(planRoomText(adds, 0)).toBe(
+      'Your plan has no room for a new card and this import adds 2 new cards: leave 2 out. Copies added to cards you already have always fit.'
+    );
+    // Lines that still need a printing may become new cards too: said as "up to".
+    expect(planRoomText(summaryOf({ toChoose: 2, items: 1, mergedItems: 0 }), 2)).toBe(
+      'Your plan has room for 2 more cards and this import can add up to 3 new cards: leave out what does not fit before you add it. Copies added to cards you already have always fit.'
+    );
+    expect(limitRefusalText({ limit: 6, used: 5, requested: 2 })).toBe(
+      'This import adds 2 new cards and your plan has room for 1 (5 of 6 used). Leave 1 out and try again.'
+    );
+    expect(limitRefusalText({ limit: 6, used: 6, requested: 1 })).toBe(
+      'This import adds 1 new card and your plan has room for 0 (6 of 6 used). Leave 1 out and try again.'
+    );
+    expect(limitRefusalText({ limit: null, used: 5, requested: 2 })).toBeNull();
   });
 });
 
@@ -467,6 +724,7 @@ describe('the result of a commit', () => {
       itemsMerged: 1,
       copiesAdded: 5,
       rowsImported: 3,
+      copiesNotAdded: 0,
       chunksDone: 1,
       totalChunks: 1,
     },
@@ -480,13 +738,35 @@ describe('the result of a commit', () => {
       {
         key: 'leftOut',
         value: 3,
-        label: 'lines of your file left out',
+        label: 'different cards of your file left out',
         detail: '1 not recognised, 1 without a printing, 1 left out by you',
       },
     ]);
-    expect(resultSentence(done.result)).toBe(
-      '5 copies in all. New cards are private: publish them from your inventory when you are ready.'
+    expect(resultLines({ ...done, source: 'COLLECTR_CSV' })[2]?.label).toBe(
+      'lines of your file left out'
     );
+    expect(resultSentence(done.result)).toBe(
+      '5 copies in all. Everything this import added is private: publish it from your inventory when you are ready.'
+    );
+  });
+
+  it('says the copies that were not added because a card holds at most 9,999', () => {
+    expect(resultSentence({ ...done.result!, copiesAdded: 9, copiesNotAdded: 10_010 })).toBe(
+      '9 copies in all. 10,010 copies were not added: a card holds at most 9,999 copies. Everything this import added is private: publish it from your inventory when you are ready.'
+    );
+    expect(resultSentence({ ...done.result!, copiesNotAdded: 1 })).toMatch(
+      /1 copy was not added: a card holds at most 9,999 copies\./
+    );
+  });
+
+  it('says when a change came after the import had been added', () => {
+    expect(lateEditText(['Fixture Lantern Wisp'])).toBe(
+      'This import was already added before your last change to Fixture Lantern Wisp was saved: that change is not in it. Check that card in your inventory.'
+    );
+    expect(lateEditText(['A', 'B', 'A'])).toBe(
+      'This import was already added before your last change to A and B was saved: that change is not in it. Check those cards in your inventory.'
+    );
+    expect(lateEditText([])).toMatch(/before your last change was saved/);
   });
 
   it('a commit that was cut says what is in and that it can be finished', () => {
@@ -496,6 +776,7 @@ describe('the result of a commit', () => {
         itemsMerged: 0,
         copiesAdded: 500,
         rowsImported: 1200,
+        copiesNotAdded: 0,
         chunksDone: 1,
         totalChunks: 3,
       })
@@ -521,7 +802,9 @@ describe('the import a collector left open', () => {
   });
 
   it('is named by its source, its lines and until when it is kept', () => {
-    expect(openImportText(importFixture())).toMatch(/^Deck file · 4 lines · kept until \S+/);
+    expect(openImportText(importFixture())).toMatch(
+      /^Deck file · 4 different cards · kept until \S+/
+    );
     expect(openImportText(importFixture({ source: 'COLLECTR_CSV', status: 'COMMITTING' }))).toBe(
       'CSV export · 4 lines'
     );

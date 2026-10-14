@@ -39,6 +39,8 @@ export function summaryOf(overrides: Partial<ImportSummary> = {}): ImportSummary
     items: 1,
     mergedItems: 0,
     defaultConditions: 3,
+    defaultCondition: 'DAMAGED',
+    assumedPrintings: 0,
     ...overrides,
   };
 }
@@ -133,6 +135,7 @@ export function rowFixture(overrides: Partial<ImportRow> = {}): ImportRow {
     inScope: true,
     willImport: true,
     ownedQuantity: 0,
+    shownQuantity: 0,
     ...overrides,
   };
 }

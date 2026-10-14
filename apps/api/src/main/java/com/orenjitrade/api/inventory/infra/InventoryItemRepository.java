@@ -550,10 +550,11 @@ public class InventoryItemRepository {
     }
 
     /**
-     * The owner's live items of the given printings, read without a row lock: the items an import
-     * can raise instead of adding an equal one. Private items first, then the oldest, so the first
-     * item of a key is the one copies are added to (a merge never makes an imported copy public
-     * when a private item can take it). A caller that writes holds the owner lock.
+     * The owner's live items of the given printings, read without a row lock. The private ones
+     * ({@link MergeCandidate#privateItem}) are the items an import can raise instead of adding an
+     * equal one, the oldest first; an item the owner shows is never raised by an import (an
+     * imported copy never becomes public by being merged) and is only listed so a preview can say
+     * that it exists. A caller that writes holds the owner lock.
      */
     public List<MergeCandidate> mergeCandidates(UUID ownerId, Collection<UUID> printingIds) {
         List<MergeCandidate> result = new ArrayList<>();
@@ -561,7 +562,8 @@ public class InventoryItemRepository {
         for (int from = 0; from < distinct.size(); from += 1000) {
             jdbc.sql(
                             """
-                            SELECT id, printing_id, condition, language, edition, quantity
+                            SELECT id, printing_id, condition, language, edition, quantity,
+                                   (visibility = 'PRIVATE') AS private_item
                               FROM inventory_item
                              WHERE owner_id = :ownerId AND deleted_at IS NULL
                                AND printing_id IN (:printingIds)
@@ -580,7 +582,8 @@ public class InventoryItemRepository {
                                                 rs.getString("condition"),
                                                 rs.getString("language"),
                                                 rs.getString("edition"),
-                                                rs.getInt("quantity")));
+                                                rs.getInt("quantity"),
+                                                rs.getBoolean("private_item")));
                             });
         }
         return result;
@@ -1120,7 +1123,7 @@ public class InventoryItemRepository {
     public record LockedItem(UUID id, UUID ownerId, @Nullable UUID binderId) {}
 
     /**
-     * A live item an import can add copies to.
+     * A live item of the owner that is equal to a line of an import.
      *
      * @param id item
      * @param printingId printing
@@ -1128,6 +1131,8 @@ public class InventoryItemRepository {
      * @param language language of the copy
      * @param edition edition of the copy
      * @param quantity copies it holds
+     * @param privateItem whether its visibility is PRIVATE: only such an item is raised by an
+     *     import
      */
     public record MergeCandidate(
             UUID id,
@@ -1135,7 +1140,8 @@ public class InventoryItemRepository {
             String condition,
             String language,
             String edition,
-            int quantity) {}
+            int quantity,
+            boolean privateItem) {}
 
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}

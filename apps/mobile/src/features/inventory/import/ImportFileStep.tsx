@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import type { FriendlyError } from '@/src/api/errorMessages';
@@ -14,7 +22,7 @@ import { TextField } from '@/src/components/ui/TextField';
 import { gamesFrom } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { importFormData, type ImportUpload } from './importFile';
+import { discardUpload, importFormData, type ImportUpload } from './importFile';
 import {
   IMPORT_SOURCES,
   importRefusal,
@@ -25,6 +33,9 @@ import {
 import { pickImportFile } from './pickImportFile';
 
 const ANY_GAME = '__file__';
+
+/** The bar iOS shows over the keyboard of the paste field. */
+const PASTE_ACCESSORY = 'import-paste-accessory';
 
 export interface ImportFileStepProps {
   source: ImportSource;
@@ -70,8 +81,20 @@ export function ImportFileStep({
   }, [hasDraft, onDraft]);
   useEffect(() => () => onDraft(false), [onDraft]);
 
+  // A file that waits for "replace your open import?" when the collector leaves the screen: the
+  // copy the picker made of it goes with the question.
+  const waitingRef = useRef<ImportUpload | null>(null);
+  const hold = (what: ImportUpload | null) => {
+    waitingRef.current = what;
+    setWaiting(what);
+  };
+  useEffect(() => {
+    const held = waitingRef;
+    return () => discardUpload(held.current);
+  }, []);
+
   const send = async (what: ImportUpload) => {
-    setWaiting(null);
+    hold(null);
     setRefusal(null);
     let dispose = () => undefined as void;
     try {
@@ -96,11 +119,13 @@ export function ImportFileStep({
     const bytes = what.kind === 'file' ? what.file.size : utf8Length(what.text);
     const early = refusalBeforeUpload(source, bytes, limits.data);
     if (early) {
+      // Refused on the phone: the file is not sent, and its copy is not kept.
+      discardUpload(what);
       setRefusal(early);
       return;
     }
     if (replaces) {
-      setWaiting(what);
+      hold(what);
       return;
     }
     void send(what);
@@ -125,6 +150,7 @@ export function ImportFileStep({
   };
 
   const usePasted = () => {
+    Keyboard.dismiss();
     if (!text.trim()) {
       setRefusal({
         title: 'Nothing to import yet',
@@ -232,8 +258,29 @@ export function ImportFileStep({
             inputStyle={styles.paste}
             scrollEnabled
             textAlignVertical="top"
+            inputAccessoryViewID={Platform.OS === 'ios' ? PASTE_ACCESSORY : undefined}
             testID="import-paste-text"
           />
+          {Platform.OS === 'ios' ? (
+            // A field of several lines has no key that puts the keyboard away, and the keyboard
+            // covers the button under the field: "Done" over the keyboard does.
+            <InputAccessoryView nativeID={PASTE_ACCESSORY}>
+              <View
+                style={[
+                  styles.accessory,
+                  { backgroundColor: palette.surfaceVariant, borderTopColor: palette.border },
+                ]}
+              >
+                <Button
+                  label="Done"
+                  variant="ghost"
+                  onPress={() => Keyboard.dismiss()}
+                  accessibilityLabel="Done: hide the keyboard"
+                  testID="import-paste-done"
+                />
+              </View>
+            </InputAccessoryView>
+          ) : null}
           <Button
             label="Use this text"
             icon="content-paste"
@@ -274,7 +321,11 @@ export function ImportFileStep({
             void send(waiting);
           }
         }}
-        onCancel={() => setWaiting(null)}
+        onCancel={() => {
+          // "Keep it": the new file is dropped, and so is the copy the picker made of it.
+          discardUpload(waiting);
+          hold(null);
+        }}
         testID="import-replace-dialog"
       />
     </View>
@@ -295,5 +346,11 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1 },
   paste: { height: 180 },
+  accessory: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing[2],
+  },
   back: { alignSelf: 'flex-start' },
 });

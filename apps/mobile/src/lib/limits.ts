@@ -15,6 +15,8 @@ export interface LimitReachedInfo {
   /** ISO instant when the window resets; `null` for totals and caps. */
   resetsAt: string | null;
   planCode: string | null;
+  /** How many the refused action asked for at once (an import: the new cards it adds). */
+  requested: number | null;
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -38,6 +40,7 @@ export function limitReachedInfo(error: ApiError): LimitReachedInfo {
     used: numberOrNull(problem.used),
     resetsAt: textOrNull(problem.resetsAt),
     planCode: textOrNull(problem.planCode),
+    requested: numberOrNull(problem.requested),
   };
 }
 

@@ -329,7 +329,10 @@ Conventions later stages reuse:
     local file it is (`localFilePart`: on iOS an `expo-file-system` `File`, what Expo's fetch
     reads). A pasted text takes the same road: it is written to a file of the cache directory,
     sent as that file and deleted once the upload answered (`importFile.ts`; the web build sends a
-    Blob, `importFile.web.ts`). The file picker is `expo-document-picker` and offers every file
+    Blob, `importFile.web.ts`). **Nothing of a file stays on the device**: the system picker
+    hands the app a copy of the chosen file in `<caches>/DocumentPicker` and never removes it, so
+    `discardUpload` deletes that copy after the upload, after a refusal before sending, on "Keep
+    it" and when the screen is left (and only ever a file of that folder). The file picker is `expo-document-picker` and offers every file
     (`*/*`): a `.ydk` has no registered type and a CSV is reported under several, so a filter
     would grey out the very file the collector looks for; the API decides from the content. A file
     larger than the admin limit (`GET /inventory/imports/limits`) is refused before any upload;
@@ -341,10 +344,26 @@ Conventions later stages reuse:
   - **The preview** (`ImportPreview.tsx`) is a `FlatList` over `useImportRows` (pages of 50, one
     list per filter). Every edit is sent as it is made and answers with the new counts; edits of
     one preview run one after the other (a mutation `scope`), so the last answer is the last edit.
+    **The commit is in that queue too** (`useCommitImport`), and the button waits while an edit is
+    on its way (`useImportEditsPending`, "Saving your changes…"): on a slow connection a commit
+    pressed right after unticking a card would otherwise reach the API first, and the card shown
+    as left out would be imported. The filter is pinned above the list (its text size capped like
+    the commit bar) and brings the first line of its list up; the counts "need a printing" and
+    "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
+    on top before any commit (`planRoomText`).
+    **The lines whose copy was assumed stay in reach** (review fix 2): "Use the most recent
+    printing" says once, in a snackbar, how many lines got the plain copy. While
+    `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
+    assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
+    the chip "Plain copy assumed (115)" (the filter `MOST_RECENT_ASSUMED`, sent as
+    `printingChoice`). The chips stand in the order of what they ask (All, Needs a printing, Plain
+    copy assumed, Not recognised), and the row brings the chosen chip whole on screen when
+    something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
+    copy again in "Which copy" confirms it: the line leaves that list and the count.
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
-    status reads the filtered lists again (a row that got its printing leaves "needs a printing",
-    and the next page would otherwise skip a row); an action on the whole preview keeps the first
-    page only and reads it again. The rows are not read again just because the app came back to
+    status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
+    that got its printing leaves "needs a printing", and the next page would otherwise skip a
+    row); an action on the whole preview keeps the first page only and reads it again. The rows are not read again just because the app came back to
     the foreground.
   - **Which copy** is the card's printings (`GET /cards/{id}`) in `PrintingList`, the list of the
     card page and of "Add a card", in a bottom sheet; a pick is saved at once. The condition and
@@ -756,7 +775,11 @@ API before and after the commit), `inventory-import-csv.yaml` (the text of a fic
 CSV pasted by a collector who already has two copies of a card, given on the host by
 `scripts/own-printing.js`: the preview says the row goes into the card already owned, the row
 nothing fits is shown with what the file said, and the commit raises the owned card to four
-copies instead of adding a second one), `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
+copies instead of adding a second one), `inventory-import-assumed.yaml` (a pasted CSV whose two
+cards get the plain copy from "Use the most recent printing": once the snackbar is gone the
+filter that stays on screen and a card above the lines still count them, the card's button lists
+them, one is confirmed by picking its copy again, one is changed, and the commit adds the copies
+the collector chose), `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
 "Add cards", publish for 24 hours, checked on the API), `map-region-binders.yaml` (stage M9: a seed
 collector's Map tab draws Americas (North) and counts its binders, the zoom buttons, the list of
 states and provinces, a state without a binder, Quebec and its public binders with the owner and

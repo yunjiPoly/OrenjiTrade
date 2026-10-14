@@ -1,5 +1,6 @@
 import {
   useInfiniteQuery,
+  useIsMutating,
   useMutation,
   useQuery,
   useQueryClient,
@@ -38,8 +39,29 @@ import { useIsAuthenticated, useUid } from './useUid';
 /** Rows asked per page (the API takes 1 to 100). */
 export const IMPORT_ROW_PAGE_SIZE = 50;
 
-/** The rows a list shows: every row, the rows that need a printing, the rows that fit nothing. */
-export type ImportRowFilter = 'ALL' | 'CHOOSE_PRINTING' | 'UNMATCHED';
+/**
+ * The rows a list shows: every row, the rows that need a printing, the rows that fit nothing, or
+ * the rows whose copy "use the most recent printing" took as the plain one of several versions
+ * and the collector has not confirmed or changed since (`summary.assumedPrintings` counts them).
+ */
+export type ImportRowFilter = 'ALL' | 'CHOOSE_PRINTING' | 'UNMATCHED' | 'MOST_RECENT_ASSUMED';
+
+/** What a filter asks of the API: a status, or the way the printing was chosen. */
+function rowsQuery(filter: ImportRowFilter) {
+  switch (filter) {
+    case 'ALL':
+      return {};
+    case 'MOST_RECENT_ASSUMED':
+      return { printingChoice: filter } as const;
+    default:
+      return { status: filter } as const;
+  }
+}
+
+/** Whether the copy of a row is one the bulk action assumed and nobody confirmed yet. */
+function copyAssumed(row: Pick<ImportRow, 'printing' | 'printingChoice'>): boolean {
+  return !!row.printing && row.printingChoice === 'MOST_RECENT_ASSUMED';
+}
 
 type RowPages = InfiniteData<ImportRowPage, unknown>;
 
@@ -101,7 +123,7 @@ export function useImportRows(id: string | null, filter: ImportRowFilter) {
             params: {
               path: { id: id ?? '' },
               query: {
-                status: filter === 'ALL' ? undefined : filter,
+                ...rowsQuery(filter),
                 page: pageParam as number,
                 size: IMPORT_ROW_PAGE_SIZE,
               },
@@ -145,8 +167,9 @@ function replaceRow(
 }
 
 /**
- * The filtered lists are read again: a row that got its printing leaves "needs a printing", and
- * the pages after it move up by one (asking only for the next page would skip a row).
+ * The filtered lists are read again: a row that got its printing leaves "needs a printing", a row
+ * whose assumed copy was confirmed or changed leaves "plain copy assumed", and the pages after it
+ * move up by one (asking only for the next page would skip a row).
  */
 async function refreshFilteredRows(queryClient: QueryClient, uid: string | null, importId: string) {
   await queryClient.invalidateQueries({
@@ -206,11 +229,26 @@ export function useUploadImport() {
 }
 
 /**
- * Edits of one preview run one after the other (`scope`): each answers with the counts after it,
- * and the last answer to arrive must be the last edit.
+ * Everything that changes one preview runs one after the other (`scope`): each edit answers with
+ * the counts after it, and the last answer to arrive must be the last edit. The commit is in the
+ * same queue, so it is only sent once every edit made before it has been saved: a card the
+ * collector has just left out is never imported because the commit overtook that edit.
  */
 function editScope(importId: string) {
   return { id: `inventory-import-${importId}` };
+}
+
+/** Marks the edits of one preview (sections, rows, bulk actions), so they can be counted. */
+function editKey(importId: string) {
+  return ['inventory-import-edit', importId] as const;
+}
+
+/**
+ * How many edits of a preview are still being saved or wait their turn. While it is not zero the
+ * counts on screen are not the API's yet, and the commit waits.
+ */
+export function useImportEditsPending(importId: string): number {
+  return useIsMutating({ mutationKey: editKey(importId) });
 }
 
 /** `PATCH /inventory/imports/{id}`: which sections of a deck count. */
@@ -218,6 +256,7 @@ export function useUpdateImportSections(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<InventoryImport, ApiError, UpdateImportRequest>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async (body) =>
       required(
@@ -248,6 +287,7 @@ export function useUpdateImportRow(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<ImportRowChange, ApiError, UpdateImportRowInput, { previous: ImportRow }>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async ({ row, patch }) =>
       required(
@@ -276,7 +316,7 @@ export function useUpdateImportRow(importId: string) {
     onSuccess: async ({ row, preview }, input) => {
       setPreview(queryClient, uid, preview);
       replaceRow(queryClient, uid, importId, row);
-      if (row.status !== input.row.status) {
+      if (row.status !== input.row.status || copyAssumed(row) !== copyAssumed(input.row)) {
         await refreshFilteredRows(queryClient, uid, importId);
       }
     },
@@ -291,6 +331,7 @@ export function useBulkImport(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<ImportBulkResponse, ApiError, BulkImportRequest>({
+    mutationKey: editKey(importId),
     scope: editScope(importId),
     mutationFn: async (body) =>
       required(
@@ -312,11 +353,15 @@ export function useBulkImport(importId: string) {
  * `POST /inventory/imports/{id}/commit`: the ready rows become inventory items. The API makes it
  * safe to send again: a second commit, or one repeated after a lost answer, adds nothing twice and
  * answers the same result; a commit that was cut continues where it stopped.
+ *
+ * It waits its turn behind the edits of the preview (`scope`): pressed while an edit is still on
+ * its way, it is sent after that edit was answered, never before.
  */
 export function useCommitImport(importId: string) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<InventoryImport, ApiError, { skipUnresolved: boolean }>({
+    scope: editScope(importId),
     mutationFn: async ({ skipUnresolved }) =>
       required(
         (

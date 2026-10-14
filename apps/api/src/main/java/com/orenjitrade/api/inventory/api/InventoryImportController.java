@@ -16,6 +16,7 @@ import com.orenjitrade.api.inventory.domain.imports.ImportSource;
 import com.orenjitrade.api.inventory.domain.imports.ImportText;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportSettings;
+import com.orenjitrade.api.inventory.domain.imports.PrintingChoice;
 import com.orenjitrade.api.inventory.domain.imports.RowStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -220,7 +221,10 @@ public class InventoryImportController {
             summary = "The rows of an import (pages)",
             description =
                     "In file order. `status` keeps the rows of one status: READY,"
-                            + " CHOOSE_PRINTING or UNMATCHED.")
+                            + " CHOOSE_PRINTING or UNMATCHED. `printingChoice` keeps the rows whose"
+                            + " printing was chosen one way: MOST_RECENT_ASSUMED lists the rows"
+                            + " `summary.assumedPrintings` counts, for the collector to check."
+                            + " Both together keep the rows that fit both.")
     @ApiResponse(responseCode = "200", description = "One page of rows")
     @ApiResponse(
             responseCode = "404",
@@ -240,10 +244,11 @@ public class InventoryImportController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @RequestParam(required = false) @Nullable RowStatus status,
+            @RequestParam(required = false) @Nullable PrintingChoice printingChoice,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
         return InventoryImportResponses.page(
-                importService.rows(principal.userId(), id, status, page, size));
+                importService.rows(principal.userId(), id, status, printingChoice, page, size));
     }
 
     @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -355,7 +360,11 @@ public class InventoryImportController {
             description =
                     "USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most"
                         + " recent printing of its card (by the release date of the set), among the"
-                        + " printings its file narrowed it to when it did. SET_CONDITION"
+                        + " printings its file narrowed it to when it did. Where that most recent"
+                        + " set holds the card in several editions or finishes, the plain copy"
+                        + " (Unlimited, normal finish) is taken and the row is marked"
+                        + " MOST_RECENT_ASSUMED (`assumed` counts them); a row whose printings of"
+                        + " that date differ otherwise stays to choose (`undecided`). SET_CONDITION"
                         + " (`condition`): every matched row whose condition nobody chose"
                         + " (`conditionSource` DEFAULT) gets that condition; rows of a game that"
                         + " does not have it are left alone.")
@@ -390,14 +399,16 @@ public class InventoryImportController {
                     "Idempotent: a second commit of the same import, also one sent while the first"
                         + " is running, adds nothing and answers with the same result. Rows that"
                         + " are equal (printing, condition, edition, language) are one item; a row"
-                        + " equal to an item the caller already has raises that item's quantity"
-                        + " instead of adding a second one; every new item is PRIVATE and unfiled."
-                        + " Up to 500 items are one transaction; above that the import is written"
-                        + " in chunks of 500, in order, and a commit that was cut answers"
-                        + " COMMITTING: commit again to finish (it continues after the last chunk"
-                        + " written). The plan's `inventory.items.max` is checked for the whole"
-                        + " import before the first item (429 LIMIT_REACHED, nothing written). Rows"
-                        + " that still need a printing refuse the commit (409"
+                        + " equal to a private item the caller already has raises that item's"
+                        + " quantity instead of adding a second one; every new item is PRIVATE and"
+                        + " unfiled, and an item the caller shows is never raised (nothing an"
+                        + " import adds is public). Up to 500 items are one transaction; above that"
+                        + " the import is written in chunks of 500, in order, and a commit that was"
+                        + " cut answers COMMITTING: commit again to finish (it continues after the"
+                        + " last chunk written). The plan's `inventory.items.max` is checked for"
+                        + " the whole import before the first item (429 LIMIT_REACHED, nothing"
+                        + " written), and the items of the chunks still to write count as used from"
+                        + " then on. Rows that still need a printing refuse the commit (409"
                         + " IMPORT_ROWS_UNRESOLVED) unless `skipUnresolved` leaves them out."
                         + " Rate-limited (30 per hour).")
     @ApiResponse(responseCode = "200", description = "The import, COMMITTED, with its result")

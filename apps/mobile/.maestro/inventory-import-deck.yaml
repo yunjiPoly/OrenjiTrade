@@ -76,13 +76,13 @@ tags:
 - assertVisible: '0 added to cards you own'
 - assertVisible: '2 need a printing'
 - assertVisible: '1 not recognised'
-- assertVisible: '2 copies from 1 of the 4 lines of your file.'
+- assertVisible: 'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
 - takeScreenshot: import-deck-preview
 # The commit cannot be pressed yet, and says why.
 - assertVisible:
     id: 'import-commit'
     enabled: false
-- assertVisible: '2 cards still need a printing. Choose them, or leave those cards out.'
+- assertVisible: '2 cards still need a printing. Choose them, or leave them out.'
 # Nothing is in the inventory before the commit.
 - runScript:
     file: scripts/check-import.js
@@ -128,8 +128,9 @@ tags:
 - extendedWaitUntil:
     visible: '1 card got its most recent printing.'
     timeout: 30000
+# The filter stays on screen above the list: its count says so wherever the list stands.
 - extendedWaitUntil:
-    visible: '0 need a printing'
+    visible: 'Needs a printing \(0\)'
     timeout: 30000
 
 # A deck file names no condition: one for all of its cards.
@@ -151,8 +152,9 @@ tags:
     timeout: 30000
 
 # The commit says what it does, and does it.
+# Three cards, five copies: the copies stand next to the cards.
 - extendedWaitUntil:
-    visible: 'Add 3 cards to my inventory'
+    visible: 'Add 3 cards \(5 copies\) to my inventory'
     timeout: 30000
 - assertVisible: 'They start private: nobody sees them until you publish them.'
 - takeScreenshot: import-deck-ready
@@ -165,7 +167,7 @@ tags:
 - assertVisible: 'Import done'
 - assertVisible: '3 new cards added'
 - assertVisible: '0 cards you already had got more copies'
-- assertVisible: '1 line of your file left out: 1 not recognised'
+- assertVisible: '1 different card of your file left out: 1 not recognised'
 - takeScreenshot: import-deck-result
 - runScript:
     file: scripts/check-import.js

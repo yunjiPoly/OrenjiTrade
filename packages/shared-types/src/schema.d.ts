@@ -1788,7 +1788,7 @@ export interface paths {
         put?: never;
         /**
          * Add the rows of a preview to the inventory
-         * @description Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to an item the caller already has raises that item's quantity instead of adding a second one; every new item is PRIVATE and unfiled. Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The plan's `inventory.items.max` is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written). Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless `skipUnresolved` leaves them out. Rate-limited (30 per hour).
+         * @description Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to a private item the caller already has raises that item's quantity instead of adding a second one; every new item is PRIVATE and unfiled, and an item the caller shows is never raised (nothing an import adds is public). Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The plan's `inventory.items.max` is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written), and the items of the chunks still to write count as used from then on. Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless `skipUnresolved` leaves them out. Rate-limited (30 per hour).
          */
         post: operations["commitInventoryImport"];
         delete?: never;
@@ -1808,7 +1808,7 @@ export interface paths {
         put?: never;
         /**
          * One action on every row of a preview it applies to
-         * @description USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. SET_CONDITION (`condition`): every matched row whose condition nobody chose (`conditionSource` DEFAULT) gets that condition; rows of a game that does not have it are left alone.
+         * @description USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. Where that most recent set holds the card in several editions or finishes, the plain copy (Unlimited, normal finish) is taken and the row is marked MOST_RECENT_ASSUMED (`assumed` counts them); a row whose printings of that date differ otherwise stays to choose (`undecided`). SET_CONDITION (`condition`): every matched row whose condition nobody chose (`conditionSource` DEFAULT) gets that condition; rows of a game that does not have it are left alone.
          */
         post: operations["bulkUpdateInventoryImport"];
         delete?: never;
@@ -3966,7 +3966,7 @@ export interface paths {
         };
         /**
          * The rows of an import (pages)
-         * @description In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.
+         * @description In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. `printingChoice` keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows `summary.assumedPrintings` counts, for the collector to check. Both together keep the rows that fit both.
          */
         get: operations["listInventoryImportRows"];
         put?: never;
@@ -8091,6 +8091,12 @@ export interface components {
             rowsImported: number;
             /**
              * Format: int32
+             * @description Copies of the imported rows that were not added: one item holds at most 9 999 copies
+             * @example 0
+             */
+            copiesNotAdded: number;
+            /**
+             * Format: int32
              * @example 1
              */
             chunksDone: number;
@@ -8170,7 +8176,7 @@ export interface components {
             items: number;
             /**
              * Format: int32
-             * @description Of `items`, those equal to an item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. A count of the preview: after the commit, `result` says what was written
+             * @description Of `items`, those equal to a private item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. An item the caller shows is never raised. A count of the preview: after the commit, `result` says what was written
              * @example 2
              */
             mergedItems: number;
@@ -8180,6 +8186,17 @@ export interface components {
              * @example 7
              */
             defaultConditions: number;
+            /**
+             * @description The condition those rows have when they all have the same one: the lowest grade of the game until SET_CONDITION gives them another. Null when there is no such row or they differ
+             * @example DAMAGED
+             */
+            defaultCondition?: string | null;
+            /**
+             * Format: int32
+             * @description Rows whose printing the bulk action USE_MOST_RECENT_PRINTING took as the plain copy of several versions (`printingChoice` MOST_RECENT_ASSUMED) and the collector has not confirmed or changed since, left out or not: the rows to check. GET /inventory/imports/{id}/rows?printingChoice=MOST_RECENT_ASSUMED lists them
+             * @example 0
+             */
+            assumedPrintings: number;
         };
         /** @description How to commit a preview */
         CommitInventoryImportRequest: {
@@ -8206,6 +8223,18 @@ export interface components {
              * @example 7
              */
             updated: number;
+            /**
+             * Format: int32
+             * @description USE_MOST_RECENT_PRINTING: of `updated`, the rows whose card its most recent set holds in several editions or finishes: they got the plain copy (Unlimited, normal finish; `printingChoice` MOST_RECENT_ASSUMED); 0 for SET_CONDITION
+             * @example 0
+             */
+            assumed: number;
+            /**
+             * Format: int32
+             * @description USE_MOST_RECENT_PRINTING: rows left to choose because several printings of their card share the most recent release date and are not one printing in several editions or finishes (two rarities, two languages, no date): nothing is guessed; 0 for SET_CONDITION
+             * @example 0
+             */
+            undecided: number;
             preview: components["schemas"]["InventoryImportResponse"];
         };
         FakeDonationConfirmRequest: {
@@ -9427,10 +9456,10 @@ export interface components {
             /** @description The printing chosen; null while to choose */
             printing?: components["schemas"]["PrintingSummary"];
             /**
-             * @description AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action
+             * @description AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action. MOST_RECENT_ASSUMED: by the bulk action, for a card its most recent set holds in several editions or finishes: the plain copy (Unlimited, normal finish) was taken, to be checked by the collector
              * @enum {string|null}
              */
-            printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | null;
+            printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | "MOST_RECENT_ASSUMED" | null;
             /**
              * Format: int32
              * @description Printings of the card in the catalog (GET /cards/{id}/printings lists them)
@@ -9481,10 +9510,16 @@ export interface components {
             willImport: boolean;
             /**
              * Format: int32
-             * @description Copies the caller already holds in an equal item (same printing, condition, edition and language): the commit raises that item instead of adding one
+             * @description Copies the caller already holds in an equal private item (same printing, condition, edition and language): the commit raises that item instead of adding one
              * @example 0
              */
             ownedQuantity: number;
+            /**
+             * Format: int32
+             * @description Copies the caller holds in equal items they show (visibility other than PRIVATE). An import never raises such an item: the copies of this row become, or join, a private item, so nothing an import adds is public
+             * @example 0
+             */
+            shownQuantity: number;
         };
         /** @description A changed row and the preview with its new counts */
         InventoryImportRowChange: {
@@ -28325,6 +28360,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "READY" | "CHOOSE_PRINTING" | "UNMATCHED";
+                printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | "MOST_RECENT_ASSUMED";
                 page?: number;
                 size?: number;
             };

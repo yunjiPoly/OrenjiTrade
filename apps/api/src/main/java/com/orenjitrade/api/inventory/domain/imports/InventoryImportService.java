@@ -20,6 +20,7 @@ import com.orenjitrade.api.games.domain.GameView;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.ImportLine;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.ImportOutcome;
 import com.orenjitrade.api.inventory.domain.InventoryChanges.MergeKey;
+import com.orenjitrade.api.inventory.domain.InventoryChanges.OwnedCopies;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.imports.ImportChanges.BulkAction;
 import com.orenjitrade.api.inventory.domain.imports.ImportChanges.BulkChange;
@@ -60,9 +61,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p><b>Commit.</b> Idempotent: a second commit of the same preview, also one that arrives while
  * the first is running, writes nothing twice and answers with the same result. Rows that are equal
  * (same printing, condition, edition and language) become one line; a line whose equal item the
- * collector already has raises that item's quantity, any other line creates a PRIVATE unfiled item.
- * The freemium limit {@code inventory.items.max} is checked for the whole import before the first
- * item is written.
+ * collector already has, and keeps private, raises that item's quantity; any other line creates a
+ * PRIVATE unfiled item (an item the collector shows is never raised: nothing an import adds is
+ * public). The freemium limit {@code inventory.items.max} is checked for the whole import before
+ * the first item is written, and the new items of the chunks still to write stay reserved under it
+ * ({@code inventory_import.chunk_new_items}) until each chunk is in: no other write of the
+ * collector takes their room meanwhile.
  *
  * <p><b>Locks</b> (docs/database/schema.md, "A new bulk write"). The plan (which rows go in, as
  * which lines, in which chunk) is computed before any transaction. Then one transaction per chunk
@@ -156,19 +160,26 @@ public class InventoryImportService {
         Instant now = timeProvider.now();
         int ignoredLines = ignored;
         List<ImportDraftRow> drafts = rows;
-        transaction.executeWithoutResult(
-                status -> {
-                    imports.deletePendingOf(ownerId);
-                    imports.insert(
-                            id,
-                            ownerId,
-                            source,
-                            ignoredLines,
-                            drafts,
-                            now,
-                            now.plus(limit.previewTtl()));
-                });
-        ImportView view = view(require(ownerId, id));
+        ImportView view =
+                Objects.requireNonNull(
+                        transaction.execute(
+                                status -> {
+                                    // One upload of a collector at a time: the second one finds,
+                                    // and replaces, the preview of the first.
+                                    imports.lockUploadsOf(ownerId);
+                                    imports.deletePendingOf(ownerId);
+                                    imports.insert(
+                                            id,
+                                            ownerId,
+                                            source,
+                                            ignoredLines,
+                                            drafts,
+                                            now,
+                                            now.plus(limit.previewTtl()));
+                                    // Read in the transaction that stored it: the next upload of
+                                    // this collector replaces it the moment this one commits.
+                                    return view(require(ownerId, id));
+                                }));
         log.info(
                 "Inventory import preview owner={} import={} source={} rows={} ready={}"
                         + " toChoose={} unmatched={}",
@@ -198,11 +209,20 @@ public class InventoryImportService {
         return view(usable(require(ownerId, importId)));
     }
 
-    /** {@code GET /inventory/imports/{id}/rows}: one page of rows in file order. */
+    /**
+     * {@code GET /inventory/imports/{id}/rows}: one page of rows in file order, all of them or
+     * those of one status and of one way their printing was chosen.
+     */
     public PageResponse<ImportRowView> rows(
-            UUID ownerId, UUID importId, @Nullable RowStatus status, int page, int size) {
+            UUID ownerId,
+            UUID importId,
+            @Nullable RowStatus status,
+            @Nullable PrintingChoice choice,
+            int page,
+            int size) {
         ImportRecord record = usable(require(ownerId, importId));
-        InventoryImportRepository.RowPage rows = imports.rowsPage(importId, status, page, size);
+        InventoryImportRepository.RowPage rows =
+                imports.rowsPage(importId, status, choice, page, size);
         return PageResponse.of(rowViews(record, rows.rows()), page, size, rows.total());
     }
 
@@ -317,24 +337,36 @@ public class InventoryImportService {
     /** {@code POST /inventory/imports/{id}/bulk}: one action on every row it applies to. */
     public BulkChange bulk(
             UUID ownerId, UUID importId, BulkAction action, @Nullable String condition) {
-        Integer updated =
+        int[] counts =
                 transaction.execute(
                         status -> {
                             editable(ownerId, importId);
-                            int changed =
+                            int[] changed =
                                     switch (action) {
                                         case USE_MOST_RECENT_PRINTING -> chooseMostRecent(importId);
-                                        case SET_CONDITION -> setCondition(importId, condition);
+                                        case SET_CONDITION ->
+                                                new int[] {setCondition(importId, condition), 0, 0};
                                     };
-                            if (changed > 0) {
+                            if (changed[0] > 0) {
                                 imports.touch(importId, timeProvider.now());
                             }
                             return changed;
                         });
-        return new BulkChange(updated == null ? 0 : updated, view(require(ownerId, importId)));
+        return new BulkChange(
+                counts == null ? 0 : counts[0],
+                counts == null ? 0 : counts[1],
+                counts == null ? 0 : counts[2],
+                view(require(ownerId, importId)));
     }
 
-    private int chooseMostRecent(UUID importId) {
+    /**
+     * Gives every row without a printing the most recent printing of its card.
+     *
+     * @return the rows changed; of those, the rows that got the plain copy of several versions of
+     *     their card in its most recent set; and the rows left as they are because nothing decides
+     *     between the printings of that most recent date
+     */
+    private int[] chooseMostRecent(UUID importId) {
         List<ImportRow> unchosen =
                 imports.rows(importId).stream()
                         .filter(row -> row.status() == RowStatus.CHOOSE_PRINTING)
@@ -342,14 +374,23 @@ public class InventoryImportService {
         Map<UUID, List<CatalogPrintingRef>> printings =
                 catalog.printingRefsOfCards(
                         unchosen.stream().map(ImportRow::cardId).filter(Objects::nonNull).toList());
-        Map<UUID, UUID> chosen = new LinkedHashMap<>();
+        Map<UUID, UUID> decided = new LinkedHashMap<>();
+        Map<UUID, UUID> assumed = new LinkedHashMap<>();
+        int undecided = 0;
         for (ImportRow row : unchosen) {
-            ImportMatcher.mostRecent(
-                            printings.getOrDefault(row.cardId(), List.of()),
-                            row.suggestedPrintingIds())
-                    .ifPresent(printingId -> chosen.put(row.id(), printingId));
+            List<CatalogPrintingRef> ofCard = printings.getOrDefault(row.cardId(), List.of());
+            ImportMatcher.MostRecent recent =
+                    ImportMatcher.mostRecent(ofCard, row.suggestedPrintingIds());
+            @Nullable UUID printingId = recent.printingId();
+            if (printingId != null) {
+                (recent.assumed() ? assumed : decided).put(row.id(), printingId);
+            } else if (!ofCard.isEmpty()) {
+                undecided++;
+            }
         }
-        return imports.choosePrintings(importId, chosen);
+        int plain = imports.choosePrintings(importId, assumed, PrintingChoice.MOST_RECENT_ASSUMED);
+        int dated = imports.choosePrintings(importId, decided, PrintingChoice.MOST_RECENT);
+        return new int[] {plain + dated, plain, undecided};
     }
 
     private int setCondition(UUID importId, @Nullable String raw) {
@@ -400,7 +441,9 @@ public class InventoryImportService {
      * @return the import, COMMITTED, with its result
      * @throws ApiException 404 for another collector's import, 410 once a preview expired, 409
      *     {@code IMPORT_ROWS_UNRESOLVED} / {@code IMPORT_EMPTY}, 429 {@code LIMIT_REACHED} beyond
-     *     {@code inventory.items.max} (nothing is written)
+     *     {@code inventory.items.max} (nothing is written; a later chunk answers it only when the
+     *     collector deleted a card the import was going to raise and gave its room away: the chunks
+     *     written stay, a repeated commit continues once there is room)
      */
     public ImportView commit(UUID ownerId, UUID importId, boolean skipUnresolved) {
         Duration ttl = settings.current().previewTtl();
@@ -434,12 +477,30 @@ public class InventoryImportService {
      * @param revision the revision of the preview the plan was made from
      * @param lines every line, in file order
      * @param chunkByRow the chunk (from 1) that writes each row that goes in
+     * @param copiesNotAdded copies of those rows no line holds (equal rows above 9 999 together)
      */
     private record Plan(
-            UUID importId, long revision, List<ImportLine> lines, Map<UUID, Integer> chunkByRow) {
+            UUID importId,
+            long revision,
+            List<ImportLine> lines,
+            Map<UUID, Integer> chunkByRow,
+            int copiesNotAdded) {
 
         int totalChunks() {
             return (lines.size() + InventoryService.BULK_MAX - 1) / InventoryService.BULK_MAX;
+        }
+
+        /** The lines of each chunk that become a new item, given the keys that have no item. */
+        List<Integer> newItemsByChunk(Set<MergeKey> newKeys) {
+            List<Integer> counts = new ArrayList<>();
+            for (int number = 1; number <= totalChunks(); number++) {
+                counts.add(
+                        (int)
+                                chunk(number).stream()
+                                        .filter(line -> newKeys.contains(line.key()))
+                                        .count());
+            }
+            return counts;
         }
 
         List<ImportLine> chunk(int number) {
@@ -478,7 +539,8 @@ public class InventoryImportService {
             rowIds.forEach(rowId -> chunkByRow.put(rowId, chunk));
             index++;
         }
-        return new Plan(record.id(), record.revision(), lines.lines(), chunkByRow);
+        return new Plan(
+                record.id(), record.revision(), lines.lines(), chunkByRow, lines.copiesNotAdded());
     }
 
     /**
@@ -488,8 +550,13 @@ public class InventoryImportService {
      * @param lines the lines, in the order of their first row
      * @param rowsByLine the rows of each line
      * @param unresolved rows without a printing the catalog still has for their card
+     * @param copiesNotAdded copies of the rows no line holds: equal rows above 9 999 together
      */
-    private record Lines(List<ImportLine> lines, List<List<UUID>> rowsByLine, int unresolved) {}
+    private record Lines(
+            List<ImportLine> lines,
+            List<List<UUID>> rowsByLine,
+            int unresolved,
+            int copiesNotAdded) {}
 
     private Lines lines(ImportRecord record, List<ImportRow> rows) {
         Map<UUID, CatalogPrintingRef> printings =
@@ -499,6 +566,7 @@ public class InventoryImportService {
         Map<MergeKey, ImportLine> lines = new LinkedHashMap<>();
         Map<MergeKey, List<UUID>> rowIds = new LinkedHashMap<>();
         int unresolved = 0;
+        long asked = 0;
         for (ImportRow row : rows) {
             @Nullable CatalogPrintingRef printing =
                     row.printingId() == null ? null : printings.get(row.printingId());
@@ -506,6 +574,7 @@ public class InventoryImportService {
                 unresolved++;
                 continue;
             }
+            asked += row.effectiveQuantity(record);
             @Nullable GameSchema schema = schemas.get(printing.game());
             List<String> conditions = schema == null ? List.of() : schema.conditions();
             String condition =
@@ -535,12 +604,18 @@ public class InventoryImportService {
                                             first.quantity() + more.quantity())));
             rowIds.computeIfAbsent(line.key(), key -> new ArrayList<>()).add(row.id());
         }
-        return new Lines(List.copyOf(lines.values()), List.copyOf(rowIds.values()), unresolved);
+        long held = lines.values().stream().mapToLong(ImportLine::quantity).sum();
+        return new Lines(
+                List.copyOf(lines.values()),
+                List.copyOf(rowIds.values()),
+                unresolved,
+                (int) Math.max(0, asked - held));
     }
 
     /**
      * The transaction that starts a commit: the limit for the whole import, the chunk of every row,
-     * and the first chunk. Nothing is written when any of it fails.
+     * the room the chunks still to write reserve, and the first chunk. Nothing is written when any
+     * of it fails.
      *
      * @return {@code false} when the preview is no longer the one that was planned (an edit or
      *     another commit came first): the caller reads it again
@@ -563,15 +638,20 @@ public class InventoryImportService {
                                 }
                                 Instant now = timeProvider.now();
                                 usable(record);
-                                requireRoom(ownerId, plan.lines());
+                                @Nullable List<Integer> reserved = requireRoom(ownerId, plan);
                                 imports.freeze(
                                         plan.importId(),
                                         plan.chunkByRow(),
                                         plan.totalChunks(),
                                         plan.chunkByRow().size(),
+                                        reserved,
+                                        plan.copiesNotAdded(),
                                         now);
                                 ImportOutcome outcome =
-                                        inventory.importLines(ownerId, plan.chunk(1));
+                                        inventory.importLines(
+                                                ownerId,
+                                                plan.chunk(1),
+                                                reserved == null ? null : reserved.get(0));
                                 imports.chunkDone(
                                         plan.importId(),
                                         1,
@@ -579,7 +659,8 @@ public class InventoryImportService {
                                                 outcome.created(),
                                                 outcome.merged(),
                                                 outcome.copies(),
-                                                plan.chunkByRow().size()),
+                                                plan.chunkByRow().size(),
+                                                plan.copiesNotAdded() + outcome.notAdded()),
                                         plan.totalChunks() == 1,
                                         now,
                                         now.plus(ttl));
@@ -622,7 +703,9 @@ public class InventoryImportService {
                                 return; // another commit wrote this chunk
                             }
                             Instant now = timeProvider.now();
-                            ImportOutcome outcome = inventory.importLines(ownerId, lines);
+                            ImportOutcome outcome =
+                                    inventory.importLines(
+                                            ownerId, lines, locked.plannedNewItems(chunk));
                             imports.chunkDone(
                                     importId,
                                     chunk,
@@ -630,7 +713,8 @@ public class InventoryImportService {
                                             .plus(
                                                     outcome.created(),
                                                     outcome.merged(),
-                                                    outcome.copies()),
+                                                    outcome.copies(),
+                                                    outcome.notAdded()),
                                     chunk == total,
                                     now,
                                     now.plus(ttl));
@@ -644,19 +728,26 @@ public class InventoryImportService {
     /**
      * Refuses an import that would take the inventory beyond {@code inventory.items.max}, as the
      * limit answers everywhere (429 {@code LIMIT_REACHED}), with the items it would add as {@code
-     * requested}. Counted for the whole import, under the owner lock, before the first item.
+     * requested}. Counted for the whole import, under the owner lock, before the first item. The
+     * usage it is compared with holds the collector's live items and the room their other commits
+     * in progress have reserved.
+     *
+     * @return the new items each chunk will create, which the commit reserves from here on; {@code
+     *     null} when no limit applies to the collector (nothing to reserve)
      */
-    private void requireRoom(UUID ownerId, List<ImportLine> lines) {
+    private @Nullable List<Integer> requireRoom(UUID ownerId, Plan plan) {
         LimitDecision decision = limits.check(ownerId, InventoryService.INVENTORY_ITEMS_MAX);
         @Nullable Integer max = decision.limit();
         if (max == null) {
-            return;
+            return null;
         }
-        long adding = inventory.newItemsOf(ownerId, lines);
+        Set<MergeKey> newKeys = inventory.newKeysOf(ownerId, plan.lines());
+        long adding = newKeys.size();
         long used = decision.used() == null ? 0 : decision.used();
         if (adding > 0 && used + adding > max) {
             throw new LimitReachedException(decision).withProperty("requested", adding);
         }
+        return plan.newItemsByChunk(newKeys);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -675,7 +766,10 @@ public class InventoryImportService {
         return removed == null ? 0 : removed;
     }
 
-    /** Deletes every import of a collector (account purge). */
+    /**
+     * Deletes every import of a collector (account purge). The caller holds the owner lock of the
+     * collector, as a commit does before it takes an import row.
+     */
     public int purge(UUID ownerId) {
         Integer removed = transaction.execute(status -> imports.deleteAllOf(ownerId));
         return removed == null ? 0 : removed;
@@ -829,7 +923,7 @@ public class InventoryImportService {
         Map<UUID, PrintingSummary> printings = new HashMap<>();
         catalog.printingsIncludingHidden(printingIds)
                 .forEach(printing -> printings.put(printing.id(), printing));
-        Map<MergeKey, Integer> owned = inventory.ownedCopies(record.ownerId(), printingIds);
+        OwnedCopies owned = inventory.ownedCopies(record.ownerId(), printingIds);
         List<ImportRowView> views = new ArrayList<>();
         for (ImportRow row : rows) {
             @Nullable PrintingSummary printing =
@@ -842,16 +936,16 @@ public class InventoryImportService {
                     row.edition() != null
                             ? row.edition()
                             : printing == null ? null : printing.edition();
-            int ownedQuantity =
+            @Nullable MergeKey key =
                     printing == null || row.condition() == null
-                            ? 0
-                            : owned.getOrDefault(
-                                    new MergeKey(
-                                            printing.id(),
-                                            row.condition(),
-                                            Objects.requireNonNull(edition),
-                                            Objects.requireNonNull(language)),
-                                    0);
+                            ? null
+                            : new MergeKey(
+                                    printing.id(),
+                                    row.condition(),
+                                    Objects.requireNonNull(edition),
+                                    Objects.requireNonNull(language));
+            int ownedQuantity = key == null ? 0 : owned.privateCopies().getOrDefault(key, 0);
+            int shownQuantity = key == null ? 0 : owned.shownCopies().getOrDefault(key, 0);
             views.add(
                     new ImportRowView(
                             row,
@@ -860,7 +954,8 @@ public class InventoryImportService {
                             printing,
                             language,
                             edition,
-                            ownedQuantity));
+                            ownedQuantity,
+                            shownQuantity));
         }
         return views;
     }

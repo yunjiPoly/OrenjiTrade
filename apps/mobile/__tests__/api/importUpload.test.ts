@@ -1,6 +1,11 @@
 import * as DocumentPicker from 'expo-document-picker';
 
-import { importFormData, pastedFileName } from '@/src/features/inventory/import/importFile';
+import {
+  discardUpload,
+  importFormData,
+  isPickerCopy,
+  pastedFileName,
+} from '@/src/features/inventory/import/importFile';
 import { IMPORT_PICKER_TYPE, pickImportFile } from '@/src/features/inventory/import/pickImportFile';
 
 const mockFiles: { uri: string; name: string; content: string | null; deleted: boolean }[] = [];
@@ -63,6 +68,48 @@ describe('the body of an import upload on a device (jest-expo runs the app as iO
     // An expo-file-system File: what Expo's fetch reads (it has the bytes of the file).
     expect((parts[0]?.[1] as { uri: string }).uri).toBe('file:///cache/DocumentPicker/deck.ydk');
     expect(typeof (parts[0]?.[1] as { bytes: unknown }).bytes).toBe('function');
+  });
+
+  it('removes the copy the picker made of a chosen file once the upload answered', async () => {
+    // expo-document-picker copies a pick into <caches>/DocumentPicker and never removes it: a
+    // Collectr export (what its owner paid for every card) would stay in the app's cache.
+    const { dispose } = await appended(() =>
+      importFormData('COLLECTR_CSV', {
+        kind: 'file',
+        file: { uri: 'file:///cache/DocumentPicker/9F2A.csv', name: 'export.csv', size: 64 },
+      })
+    );
+    const sent = mockFiles.filter((file) => file.uri === 'file:///cache/DocumentPicker/9F2A.csv');
+    expect(sent.some((file) => file.deleted)).toBe(false);
+    dispose();
+    expect(mockFiles.filter((file) => file.deleted).map((file) => file.uri)).toEqual([
+      'file:///cache/DocumentPicker/9F2A.csv',
+    ]);
+  });
+
+  it('removes a picked copy that is never sent, and only ever a copy of the picker', () => {
+    discardUpload({
+      kind: 'file',
+      file: { uri: 'file:///cache/DocumentPicker/1B7C.ydk', name: 'deck.ydk', size: 64 },
+    });
+    expect(mockFiles.filter((file) => file.deleted).map((file) => file.uri)).toEqual([
+      'file:///cache/DocumentPicker/1B7C.ydk',
+    ]);
+    mockFiles.length = 0;
+    // Any other place is the collector's own file, or not a file at all: never touched.
+    for (const uri of [
+      'file:///Users/someone/Documents/deck.ydk',
+      'file:///cache/DocumentPicker/',
+      'content://provider/DocumentPicker/deck.ydk',
+      'blob:http://localhost/1234',
+    ]) {
+      expect(isPickerCopy(uri)).toBe(false);
+      discardUpload({ kind: 'file', file: { uri, name: 'deck.ydk', size: 64 } });
+    }
+    discardUpload({ kind: 'text', text: '#main' });
+    discardUpload(null);
+    expect(mockFiles).toEqual([]);
+    expect(isPickerCopy('file:///data/user/0/app/cache/DocumentPicker/8c1e.csv')).toBe(true);
   });
 
   it('sends a pasted text as the same part: written to a cache file, removed afterwards', async () => {

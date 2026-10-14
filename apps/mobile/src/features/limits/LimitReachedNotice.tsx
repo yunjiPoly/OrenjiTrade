@@ -11,6 +11,8 @@ import { SeePremiumButton } from './SeePremiumButton';
 export interface LimitReachedNoticeProps {
   error: ApiError;
   title?: string;
+  /** Said instead of the usual sentence, when the screen knows more (what to do to fit). */
+  message?: string | null;
   testID?: string;
 }
 
@@ -22,6 +24,7 @@ export interface LimitReachedNoticeProps {
 export function LimitReachedNotice({
   error,
   title = 'You reached a plan limit',
+  message,
   testID = 'limit-reached',
 }: LimitReachedNoticeProps) {
   const { palette } = useTheme();
@@ -47,7 +50,9 @@ export function LimitReachedNotice({
         <Text style={[textStyle('md'), styles.title, { color: palette.ink }]}>{title}</Text>
       </View>
       <Text testID={`${testID}-message`} style={[textStyle('sm'), { color: palette.ink }]}>
-        {limitReachedMessage(info, undefined, { premiumOffered: premium.enabled })}
+        {message
+          ? `${message}${premium.enabled ? ' Premium raises the limit.' : ''}`
+          : limitReachedMessage(info, undefined, { premiumOffered: premium.enabled })}
       </Text>
       {percent !== null ? (
         <View style={[styles.meter, { backgroundColor: palette.border }]}>

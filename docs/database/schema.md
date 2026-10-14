@@ -173,6 +173,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V111 | `V111__region_model_comments.sql` | ADR 0017: database comments only (`rating_summary` no longer mentions the nearby ranking) |
 | V112 | `V112__simplified_wishlist.sql` | Stage S2 (owner change of 2026-10-08, section 4): `wishlist_match` dropped with the WISHLIST_MATCH notifications and their limit notices; `wishlist_item` keeps only which copy (card, printing or any, rarity of "any printing" wishes) and gains `public_note` (≤ 280), `near_mint_only`, `price_term` (condition, edition, language, max price, currency, trade preference, private notes, `active`, `last_matched_at` dropped, data not migrated; paused wishes deleted; the selection normalised and same-selection duplicates collapsed to the oldest; `uq_wishlist_item_selection`; `ck_wishlist_item_target` dropped); `wishlist_alert_sent` (sent-alert key); `platform_settings` `wishlist.price_terms`; `notification_preferences.wishlist_alerts` (off for a collector whose `WISHLIST_MATCH` category had in-app and push off; the category key removed from `categories`); incomplete `event_publication` rows of `WishlistMatched` / `WishlistItemCreated` completed; `analytics_daily_count` rows of `wishlist_matched` deleted |
 | V113 | `V113__inventory_import.sql` | Stage S5 (owner change of 2026-10-08, section 6): `inventory_import` and `inventory_import_row` (the stored preview of a YDK deck file or a Collectr CSV export, between the upload and the commit); `platform_settings` `inventory.import.*` (file limits and the time a preview is kept); `usage_limit` `inventory.items.max` for every plan, without a number (no plan limited the inventory before; the row gives `POST /inventory/items` and the import a limit to respect) |
+| V114 | `V114__inventory_import_review_fixes.sql` | Stage S5, review fix 1: `inventory_import.chunk_new_items` (the new items each chunk of a commit will create: the room the commit reserves under `inventory.items.max` until the chunk is written) with `ix_inventory_import_committing`; `inventory_import_row.printing_choice` also takes `MOST_RECENT_ASSUMED` |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -571,10 +572,11 @@ Index: `ix_usage_limit_key`. Seeded limits (FREE / PREMIUM): `binder.views.per_d
 `wishlist.alerts.per_day` 5 / unlimited, `wishlist.items.max` 20 / 500 (TOTAL),
 `binders.max` 5 / 50 (TOTAL), `saved_searches.max` 0 / 50 (TOTAL), `offers.per_day` 20 / 100
 (`map.radius.max_km` 25 / 100 (CAP) existed until V109 deleted it, ADR 0017). V113 adds
-`inventory.items.max` (TOTAL: the collector's non-deleted inventory items) for every plan with
+`inventory.items.max` (TOTAL: the collector's non-deleted inventory items, plus, since V114, the
+new items the collector's import commits in progress have still to write) for every plan with
 `max_value` `NULL`: nothing limited the inventory before, and nothing does until an admin gives a
 plan a number through `/admin/usage-limits`. `POST /inventory/items` and the commit of an import
-check it (the import for all the items it would add, before the first one).
+check it (the import for all the items it would add, every chunk, before the first one).
 
 #### `usage_counter`
 
@@ -856,11 +858,13 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
   first step of every write to a collector's binders or inventory items, before any row is locked:
   item create, update, move, delete, confirm, bulk actions, every chunk of an import commit
-  (`InventoryService.importLines`, V113), admin restore, admin hide, trade
+  (`InventoryImportService` takes it before the import row, `InventoryService.importLines` again
+  before the items, V113), admin restore, admin hide, trade
   transfer (the locks of both collectors, in ascending key order), every `BinderService` write
   (create, update, publish, unpublish, admin unpublish, confirm, delete, reorder), the listing
   reconciliation of an owner (`ListingReconciler.owner`: privacy, suspension, listing pause,
-  deletion request), the account purge and the two seed contributors of the `local`/`dev`
+  deletion request), the account purge (the items first, which take the lock, then the import
+  previews: the order of a commit) and the two seed contributors of the `local`/`dev`
   profiles. The writes of one collector therefore run one after the other: none reads the binder
   of an item while another one moves it, and none waits in the middle of its work for a row that
   another write of the same collector holds. **A new write path starts with
@@ -940,7 +944,10 @@ The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithT
 
 The first write built on this rule is the commit of an inventory import (V113, stage S5), described
 under "V113" below: its case is `IMPORT_COMMIT`, and `anImportCommitNextToTheOtherWritesNeverDeadlocks`
-runs commits next to item writes, moves, privacy changes and two job workers.
+runs commits next to item writes, moves, privacy changes and two job workers. The case also locks
+the collector's `inventory_import` rows while the commit waits for the owner lock (a commit that
+took the import row, read the limit or froze its rows first would hold it there), and
+`ACCOUNT_PURGE` does the same for the purge of the previews.
 
 What the locks cost: a collector's own simultaneous writes wait for each other. A write waits for
 the freshness job only at a row the job has written in the run in progress, until that run
@@ -1024,20 +1031,29 @@ is stored here. The file itself is never stored, and neither is its name.
 | `revision` | `bigint` | raised by every edit; a commit that planned from an older revision plans again |
 | `total_chunks` | `integer` | chunks of at most 500 items the commit writes; `NULL` exactly while `PENDING` (`ck_inventory_import_started`) |
 | `chunks_done` | `integer` | chunks written; `≤ total_chunks` |
-| `result` | `jsonb` | counts of the commit so far: `itemsCreated`, `itemsMerged`, `copiesAdded`, `rowsImported` |
+| `chunk_new_items` | `integer[]` | V114. The new items each chunk was planned to create when the commit started (element n = chunk n; `cardinality = total_chunks`). Those of the chunks after `chunks_done` are the room the commit **reserves** under `inventory.items.max` while the import is `COMMITTING`. `NULL`: no limit applied to the collector when the commit started (nothing reserved), or before the commit |
+| `result` | `jsonb` | counts of the commit so far: `itemsCreated`, `itemsMerged`, `copiesAdded`, `rowsImported`, `copiesNotAdded` (V114 code: copies beyond the 9 999 of one item; absent in a result stored before, read as 0) |
 | `created_at`, `updated_at` | `timestamptz` | |
 | `expires_at` | `timestamptz` | a `PENDING` preview is refused after it (410 `IMPORT_EXPIRED`); each chunk of a commit moves it to now + `inventory.import.preview_ttl_minutes`, so the result of a finished import stays readable that long for a repeated commit |
 | `committed_at` | `timestamptz` | set exactly when `COMMITTED` (`ck_inventory_import_committed`) |
 
 Indexes: `ix_inventory_import_owner (owner_id, created_at DESC)`, `ix_inventory_import_expires
-(expires_at)`.
+(expires_at)`, `ix_inventory_import_committing (owner_id) WHERE status = 'COMMITTING'` (V114: the
+usage of the limit, read by every item create).
 
 A new upload deletes the collector's other `PENDING` previews: a collector has at most one open
-preview, however many files they try. The job `inventory-import-purge` deletes `PENDING` and
+preview, however many files they try. The upload takes the collector's **upload lock** first
+(`pg_advisory_xact_lock` on `hashtextextended('inventory-import-upload:' || owner_id, 0)`: two
+uploads sent at the same moment run one after the other, and the second replaces the preview of
+the first) and waits for a preview another transaction holds (an edit being saved). It is not the
+owner lock of the inventory writes: an upload writes no binder and no item and makes none of those
+writes wait. The job `inventory-import-purge` deletes `PENDING` and
 `COMMITTED` imports past `expires_at`, and `COMMITTING` ones 7 days past it (a commit nobody
 finished); it runs after every hourly `freshness` job (an expired preview is refused when it is
 read, so the hour is soon enough and no Cloud Scheduler job is added, ADR 0016) and on request
-(`POST /internal/jobs/inventory-import-purge`). The account purge deletes all of a collector's.
+(`POST /internal/jobs/inventory-import-purge`). The account purge deletes all of a collector's,
+after their items: the item purge takes the owner lock, and the previews are deleted with it in
+hand (the order of a commit: owner lock, then the import row).
 
 #### `inventory_import_row`
 
@@ -1056,7 +1072,7 @@ read, so the hour is soon enough and no Cloud Scheduler job is added, ADR 0016) 
 | `printing_count` | `integer` | printings of the card when the preview was made |
 | `suggested_printing_ids` | `uuid[]` | CSV: the printings that fit what the row says, when that is fewer than every printing of the card (≤ 50) |
 | `printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); `NULL` = to choose |
-| `printing_choice` | `text` | `AUTO` (the row fits exactly one printing), `MANUAL` (the collector), `MOST_RECENT` (the bulk action: latest `card_set.release_date`, unknown dates last) |
+| `printing_choice` | `text` | `AUTO` (the row fits exactly one printing), `MANUAL` (the collector), `MOST_RECENT` (the bulk action: latest `card_set.release_date`, unknown dates last), `MOST_RECENT_ASSUMED` (V114: the bulk action, where the most recent set holds the card in several editions or finishes: the release date decides nothing between them, the plain copy, `UNLIMITED` and `NORMAL`, was taken and the row says so). A row whose printings of the most recent date differ otherwise (rarity, language, set) is left to the collector |
 | `condition` | `text` | condition code of the card's game; `NULL` for a row that fits nothing |
 | `condition_source` | `text` | `DEFAULT` (the file names none: the last, lowest condition of the game, the one that claims least about the card), `FILE`, `EDITED` |
 | `language`, `edition` | `text` | CSV: what the file says about the copy; `NULL` = the printing's |
@@ -1076,13 +1092,19 @@ per chunk, one after the other:
 2. the import row `FOR UPDATE`. This is the lock an edit of the preview takes too (an edit takes no
    other lock), so an edit and a commit never work on the same preview at once; a commit that finds
    another status or another `revision` than it planned from reads the import again;
-3. first chunk only: the limit `inventory.items.max` for the whole import (the lines without an
-   equal item are the items it would add; beyond the limit: 429 `LIMIT_REACHED`, nothing written),
-   then `commit_chunk` on every row that goes in and the status `COMMITTING`;
-4. `InventoryService.importLines`: the owner's equal items are read under the owner lock (a
-   private item before a public one, then the oldest), `lockForWrite` takes their binders and then
-   those items in ascending `id`, each line is one single-row statement (an `UPDATE` of the item it
-   raises, or an `INSERT` of a `PRIVATE` unfiled item), then `ListingReconciler.items`;
+3. first chunk only: the limit `inventory.items.max` for the whole import, every chunk of it (the
+   lines without an equal private item are the items it would add; the usage they are added to
+   holds the collector's items and what their other commits in progress reserved; beyond the
+   limit: 429 `LIMIT_REACHED`, nothing written), then `commit_chunk` on every row that goes in,
+   the status `COMMITTING` and `chunk_new_items`: the new items each chunk will create;
+4. `InventoryService.importLines`: the owner's equal **private** items are read under the owner
+   lock (the oldest first; an item the owner shows is never raised: an imported copy is private
+   until its owner publishes it), `lockForWrite` takes their binders and then those items in
+   ascending `id`, each line is one single-row statement (an `UPDATE` of the item it raises, or an
+   `INSERT` of a `PRIVATE` unfiled item), then `ListingReconciler.items`. A chunk after the first
+   creates exactly the items it reserved, unless the owner deleted since then an item a line was
+   going to raise: that line is a new item after all, and the chunk is only written when the
+   limit has room for the difference (429 otherwise, the import stays `COMMITTING`);
 5. `chunks_done` (and, for the last chunk, `COMMITTED`) in that same transaction.
 
 A chunk is therefore written and recorded together or not at all. A commit that dies between two
@@ -1090,6 +1112,19 @@ chunks leaves the import `COMMITTING` with the chunks it finished; the next comm
 `chunks_done + 1`. Two commits at once: the second waits for the owner lock, then finds the chunk
 recorded and skips it. Nothing reads the catalog, parses or validates while the owner lock is held;
 the limit check reads the plan (cached) and counts the owner's items.
+
+**The room a commit reserves (V114).** The limit was first checked once, in the first chunk, and
+the chunks still to write were counted nowhere: between two chunks the owner lock is free, a card
+added by hand or a second import found room that was already promised, and an import of 1 500
+cards at a limit of 1 500 ended at 1 514. Since V114 the usage of `inventory.items.max`
+(`InventoryExtensions.inventoryItemsMaxUsageSource`) is `count(live items) + sum(chunk_new_items
+of the chunks after chunks_done)` over the owner's `COMMITTING` imports. A chunk is written and
+recorded in one transaction, so a reader finds an item either in the inventory or in the
+reservation, never in both and never in neither; nothing has to be lowered when a chunk ends
+(`chunks_done` moves on). A commit nobody finished keeps its room until it is repeated or purged
+(7 days). `InventoryImportIT` holds the cases: the limit of an import of several chunks, a card
+added by hand and a second import between two chunks, eight writers adding cards while an import
+of three chunks is written, and the chunk whose merge target was deleted.
 
 ### Phase 4 — map discovery and search reads (V030; region-scoped since ADR 0017)
 

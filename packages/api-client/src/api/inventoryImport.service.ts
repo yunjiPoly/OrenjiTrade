@@ -66,7 +66,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
 
     /**
      * One action on every row of a preview it applies to
-     * USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. SET_CONDITION (&#x60;condition&#x60;): every matched row whose condition nobody chose (&#x60;conditionSource&#x60; DEFAULT) gets that condition; rows of a game that does not have it are left alone.
+     * USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. Where that most recent set holds the card in several editions or finishes, the plain copy (Unlimited, normal finish) is taken and the row is marked MOST_RECENT_ASSUMED (&#x60;assumed&#x60; counts them); a row whose printings of that date differ otherwise stays to choose (&#x60;undecided&#x60;). SET_CONDITION (&#x60;condition&#x60;): every matched row whose condition nobody chose (&#x60;conditionSource&#x60; DEFAULT) gets that condition; rows of a game that does not have it are left alone.
      * @endpoint post /api/v1/inventory/imports/{id}/bulk
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -142,7 +142,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
 
     /**
      * Add the rows of a preview to the inventory
-     * Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to an item the caller already has raises that item\&#39;s quantity instead of adding a second one; every new item is PRIVATE and unfiled. Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The plan\&#39;s &#x60;inventory.items.max&#x60; is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written). Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless &#x60;skipUnresolved&#x60; leaves them out. Rate-limited (30 per hour).
+     * Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to a private item the caller already has raises that item\&#39;s quantity instead of adding a second one; every new item is PRIVATE and unfiled, and an item the caller shows is never raised (nothing an import adds is public). Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The plan\&#39;s &#x60;inventory.items.max&#x60; is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written), and the items of the chunks still to write count as used from then on. Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless &#x60;skipUnresolved&#x60; leaves them out. Rate-limited (30 per hour).
      * @endpoint post /api/v1/inventory/imports/{id}/commit
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -506,7 +506,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
 
     /**
      * The rows of an import (pages)
-     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED.
+     * In file order. &#x60;status&#x60; keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. &#x60;printingChoice&#x60; keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows &#x60;summary.assumedPrintings&#x60; counts, for the collector to check. Both together keep the rows that fit both.
      * @endpoint get /api/v1/inventory/imports/{id}/rows
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -522,6 +522,7 @@ export class InventoryImportService extends BaseService implements InventoryImpo
             throw new Error('Required parameter id was null or undefined when calling listInventoryImportRows.');
         }
         const status = requestParameters?.status;
+        const printingChoice = requestParameters?.printingChoice;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
 
@@ -531,6 +532,15 @@ export class InventoryImportService extends BaseService implements InventoryImpo
             localVarQueryParameters,
             'status',
             <any>status,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'printingChoice',
+            <any>printingChoice,
             QueryParamStyle.Form,
             true,
         );
