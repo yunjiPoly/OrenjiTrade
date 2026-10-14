@@ -13,7 +13,6 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
-import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -74,8 +73,6 @@ export function WishEditor(props: WishEditorProps) {
   );
   const [errors, setErrors] = useState<WishFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
-  // A plan limit refused the save: offer Premium.
-  const [limited, setLimited] = useState(false);
   const card = useCard(cardId);
   const terms = usePriceTerms();
   const create = useCreateWish();
@@ -132,7 +129,6 @@ export function WishEditor(props: WishEditorProps) {
       return;
     }
     setMessage(null);
-    setLimited(false);
     try {
       if (editItem) {
         await update.mutateAsync({ id: editItem.id, body: toUpdateWishRequest(form) });
@@ -151,7 +147,6 @@ export function WishEditor(props: WishEditorProps) {
         const shown = wishSaveError(error as ApiError);
         setErrors(shown.fields);
         setMessage(shown.message);
-        setLimited(error.errorCode === 'LIMIT_REACHED');
       } else {
         setMessage('Something went wrong. Please try again.');
       }
@@ -237,7 +232,6 @@ export function WishEditor(props: WishEditorProps) {
       />
 
       {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
-      {limited ? <SeePremiumButton testID="wish-limit-premium" /> : null}
       <Button
         label={editing ? 'Save changes' : 'Add to wishlist'}
         icon={editing ? 'content-save-outline' : 'heart-plus-outline'}

@@ -126,13 +126,13 @@ export function offerProblem(
         'This card or offer is no longer available. It may have been sold, made private or removed.'
       );
     case 'LIMIT_REACHED': {
-      // "You have used 10 of 10 offers today on the Free plan. It resets in 5 hours."
+      // "You have used 20 of 20 offers today. It resets in 5 hours."
       const info = limitReachedInfo(error);
       return problem(
         error.errorCode,
         info.used !== null && info.limit !== null
           ? limitReachedMessage(info)
-          : 'You reached the number of offers your plan allows today. It resets soon, or Premium raises it.'
+          : 'You reached the number of offers you can make today. It resets tomorrow.'
       );
     }
     case 'RATE_LIMITED':

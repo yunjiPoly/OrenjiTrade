@@ -5,7 +5,7 @@ import { FlatList, RefreshControl, ScrollView, StyleSheet, View } from 'react-na
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyLocation, usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
-import { useMyPlan } from '@/src/api/hooks/plan';
+import { useMyLimits } from '@/src/api/hooks/limits';
 import { useDeleteWish, useWishlist } from '@/src/api/hooks/wishlist';
 import type { WishlistItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
@@ -28,8 +28,8 @@ import { spacing } from '@/src/theme';
 
 /**
  * Wishlist tab (stage S2, the web's `/wishlist`): a clean list of the collector's wishes (card
- * art, which copy, public note, "Near Mint only" and price term chips, edit, remove), the plan
- * usage, the "Let others see what you want" switch (privacy setting `wishlistVisible`) and, without
+ * art, which copy, public note, "Near Mint only" and price term chips, edit, remove), how many
+ * fit, the "Let others see what you want" switch (privacy setting `wishlistVisible`) and, without
  * a location, a prompt to set country and state so wishlist alerts can arrive. No matches: a
  * wishlist alert opens the card page.
  */
@@ -40,7 +40,7 @@ export default function WishlistScreen() {
   const location = useMyLocation();
   const privacy = usePrivacySettings();
   const savePrivacy = useSavePrivacy();
-  const plan = useMyPlan();
+  const limits = useMyLimits();
   const remove = useDeleteWish();
   const [removing, setRemoving] = useState<WishlistItemResponse | null>(null);
   const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
@@ -142,14 +142,14 @@ export default function WishlistScreen() {
               void wishlist.refetch();
               void location.refetch();
               void privacy.refetch();
-              void plan.refetch();
+              void limits.refetch();
             }}
           />
         }
         ListHeaderComponent={
           <View style={styles.header}>
             {header}
-            <WishlistSummary count={items.length} usage={wishUsage(plan.data)} />
+            <WishlistSummary count={items.length} usage={wishUsage(limits.data)} />
             <Button label="Add a card" icon="plus" onPress={add} testID="wishlist-add" />
           </View>
         }

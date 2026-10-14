@@ -1,7 +1,6 @@
-// Maestro runScript (runs on the host): the seller of the payment-protection flow and the member
-// of the Premium flow, driven through the local Firebase Auth emulator and the isolated mobile
-// E2E API (:8090, database orenjitrade_mobile_e2e) with the local fake payment and billing
-// providers (no card, no money). Only fresh, fictional `@mobile-e2e.test` accounts of this run are
+// Maestro runScript (runs on the host): the seller of the payment-protection flow, driven through
+// the local Firebase Auth emulator and the isolated mobile E2E API (:8090, database
+// orenjitrade_mobile_e2e) with the local fake payment provider (no card, no money). Only fresh, fictional `@mobile-e2e.test` accounts of this run are
 // created or used; seed accounts are never touched.
 //
 // ACTION=setup creates Pia (the seller: payouts set up with the fake provider, a public binder
@@ -13,12 +12,8 @@
 // ACTION=ship ships, as Pia, the paid trade of ITEM with a carrier and a tracking number.
 // ACTION=expect-paid-out checks, as Pia, that the trade of ITEM is COMPLETED and its payout
 //   released (PAYOUT_PENDING or PAID_OUT).
-// ACTION=premium creates Pat (FREE) with five binders, the most the free plan allows.
-//   Output: output.pat.{email, password, displayName}
-// ACTION=expect-plan checks, as Pat (EMAIL / PASSWORD), that the plan is PLAN.
 //
-// Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD, ITEM,
-// PLAN.
+// Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD, ITEM.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -310,26 +305,6 @@ if (action === 'setup') {
         ' / ' +
         (done.payment ? done.payment.status : 'no payment')
     );
-  }
-} else if (action === 'premium') {
-  var pat = createCollector('pat', 'Pat Maestro', null);
-  for (var b = 1; b <= 5; b++) {
-    check(
-      http.post(api + '/api/v1/binders', {
-        headers: jsonHeaders(pat.token),
-        body: JSON.stringify({ name: 'Maestro binder ' + b }),
-      }),
-      'POST /binders ' + b
-    );
-  }
-  output.pat = { email: pat.email, password: pat.password, displayName: pat.displayName };
-} else if (action === 'expect-plan') {
-  var plan = check(
-    http.get(api + '/api/v1/me/plan', { headers: jsonHeaders(signIn(EMAIL, PASSWORD)) }),
-    'GET /me/plan'
-  );
-  if (!plan.plan || plan.plan.code !== PLAN) {
-    throw new Error('Expected the ' + PLAN + ' plan, got ' + JSON.stringify(plan.plan));
   }
 } else {
   throw new Error('Unknown ACTION ' + action);

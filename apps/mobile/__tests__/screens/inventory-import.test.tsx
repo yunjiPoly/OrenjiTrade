@@ -8,7 +8,7 @@ import type { ImportRow, InventoryImport } from '@/src/api/types';
 import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { cardDetailFixture, planFixture, summaryFixture } from '../support/fixtures';
+import { cardDetailFixture, limitsFixture, summaryFixture } from '../support/fixtures';
 import {
   HERON_CARD,
   HERON_FIRST,
@@ -1006,16 +1006,16 @@ describe('Import cards: the preview', () => {
     ).toBeChecked();
   });
 
-  it('says on top, before any commit, that the plan has no room for the import', async () => {
+  it('says on top, before any commit, that the inventory limit has no room for the import', async () => {
     const fake = fakeImports({ open: importFixture(), rows: [rowFixture(), unmatchedRow()] });
-    const plan = planFixture();
+    const limits = limitsFixture();
     mockApi(
       signedInRoutes({
         ...fake.routes,
-        'GET /api/v1/me/plan': ok({
-          ...plan,
+        'GET /api/v1/me/limits': ok({
+          ...limits,
           limits: [
-            ...(plan.limits ?? []),
+            ...(limits.limits ?? []),
             {
               key: 'inventory.items.max',
               allowed: false,
@@ -1024,7 +1024,6 @@ describe('Import cards: the preview', () => {
               limit: 500,
               used: 500,
               remaining: 0,
-              planCode: 'FREE',
             },
           ],
         }),
@@ -1032,21 +1031,21 @@ describe('Import cards: the preview', () => {
     );
     render();
     await continueOpen();
-    const room = await screen.findByTestId('import-plan-room');
+    const room = await screen.findByTestId('import-limit-room');
     expect(
       within(room).getByText(
-        'Your plan has no room for a new card and this import adds 1 new card: leave 1 out. Copies added to cards you already have always fit.'
+        'Your inventory has no room for a new card and this import adds 1 new card: leave 1 out. Copies added to cards you already have always fit.'
       )
     ).toBeOnTheScreen();
   });
 
-  it('says nothing about the plan while the import fits, or the plan has no limit', async () => {
+  it('says nothing about the limit while the import fits, or the limit has no number', async () => {
     const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
-    mockApi(signedInRoutes({ ...fake.routes, 'GET /api/v1/me/plan': ok(planFixture()) }));
+    mockApi(signedInRoutes({ ...fake.routes, 'GET /api/v1/me/limits': ok(limitsFixture()) }));
     render();
     await continueOpen();
     await screen.findByTestId('import-row-0');
-    expect(screen.queryByTestId('import-plan-room')).toBeNull();
+    expect(screen.queryByTestId('import-limit-room')).toBeNull();
   });
 
   it('says so when a filter has nothing to show', async () => {
@@ -1386,46 +1385,34 @@ describe('Import cards: the commit', () => {
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)).toHaveLength(1);
   });
 
-  it.each([
-    [false, 0],
-    [true, 1],
-  ])(
-    'shows the plan limit as the app shows limits (premium sold: %s)',
-    async (premiumPlans, premiumButtons) => {
-      const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
-      mockApi(
-        signedInRoutes({
-          ...fake.routes,
-          'GET /api/v1/public/feature-flags': ok({ premiumPlans }),
-          [`POST ${IMPORTS}/{id}/commit`]: problem(429, 'LIMIT_REACHED', 'limit reached', {
-            limitKey: 'inventory.items.max',
-            limit: 500,
-            used: 500,
-            requested: 1,
-            planCode: 'FREE',
-            upgradeUrl: '/premium',
-          }),
-        })
-      );
-      render();
-      await continueOpen();
-      fireEvent.press(screen.getByTestId('import-commit'));
-      const notice = await screen.findByTestId('import-limit');
-      expect(notice).toHaveTextContent(/This import does not fit your plan/);
-      // The numbers to act on: what the import adds, what still fits, how many to leave out.
-      expect(within(notice).getByTestId('import-limit-message')).toHaveTextContent(
-        premiumPlans
-          ? 'This import adds 1 new card and your plan has room for 0 (500 of 500 used). Leave 1 out and try again. Premium raises the limit.'
-          : 'This import adds 1 new card and your plan has room for 0 (500 of 500 used). Leave 1 out and try again.'
-      );
-      await waitFor(() =>
-        expect(screen.queryAllByTestId('import-limit-premium')).toHaveLength(premiumButtons)
-      );
-      // Nothing was written: the preview is still there to be edited.
-      expect(screen.getByTestId('import-summary')).toBeOnTheScreen();
-      expect(screen.getByTestId('import-commit')).not.toBeDisabled();
-    }
-  );
+  it('shows the inventory limit as the app shows limits, with nothing to buy', async () => {
+    const fake = fakeImports({ open: importFixture(), rows: [rowFixture()] });
+    mockApi(
+      signedInRoutes({
+        ...fake.routes,
+        [`POST ${IMPORTS}/{id}/commit`]: problem(429, 'LIMIT_REACHED', 'limit reached', {
+          limitKey: 'inventory.items.max',
+          limit: 500,
+          used: 500,
+          requested: 1,
+        }),
+      })
+    );
+    render();
+    await continueOpen();
+    fireEvent.press(screen.getByTestId('import-commit'));
+    const notice = await screen.findByTestId('import-limit');
+    expect(notice).toHaveTextContent(/This import does not fit the inventory limit/);
+    // The numbers to act on: what the import adds, what still fits, how many to leave out.
+    expect(within(notice).getByTestId('import-limit-message')).toHaveTextContent(
+      'This import adds 1 new card and your inventory has room for 0 (500 of 500 used). Leave 1 out and try again.'
+    );
+    expect(screen.queryAllByTestId('import-limit-premium')).toHaveLength(0);
+    expect(within(notice).queryByText(/Premium|plan/)).toBeNull();
+    // Nothing was written: the preview is still there to be edited.
+    expect(screen.getByTestId('import-summary')).toBeOnTheScreen();
+    expect(screen.getByTestId('import-commit')).not.toBeDisabled();
+  });
 });
 
 describe('Import cards: expiry, resuming, leaving', () => {

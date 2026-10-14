@@ -22,7 +22,6 @@ import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { BinderRow } from '@/src/features/binders/BinderRow';
 import { ReorderBindersSheet } from '@/src/features/binders/ReorderBindersSheet';
 import {
@@ -234,7 +233,6 @@ function CardsView() {
           <View style={styles.header}>
             <ListingsPausedBanner />
             <InventorySummaryStrip />
-            <SponsoredSlot placement="INVENTORY_SIDEBAR" game={filters.game} variant="compact" />
           </View>
         }
         ListEmptyComponent={

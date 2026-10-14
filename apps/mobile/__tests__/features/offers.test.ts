@@ -304,12 +304,11 @@ describe('offer problems', () => {
           limitKey: 'offers.per_day',
           limit: 10,
           used: 10,
-          planCode: 'FREE',
         })
       ).message
-    ).toMatch(/You have used 10 of 10 offers today on the Free plan/);
-    expect(offerProblem(apiError(429, 'LIMIT_REACHED')).message).toMatch(
-      /number of offers your plan allows today/
+    ).toBe('You have used 10 of 10 offers today.');
+    expect(offerProblem(apiError(429, 'LIMIT_REACHED')).message).toBe(
+      'You reached the number of offers you can make today. It resets tomorrow.'
     );
     const fields = offerProblem(
       apiError(

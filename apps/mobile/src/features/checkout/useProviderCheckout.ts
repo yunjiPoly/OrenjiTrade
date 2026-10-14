@@ -5,7 +5,8 @@ import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useIsAuthenticated, useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
 
-export type CheckoutKind = 'payment' | 'billing' | 'donation';
+/** The only local fake checkout left: protected payments (Premium and donations left, stage F1). */
+export type CheckoutKind = 'payment';
 export type CheckoutStatus = 'loading' | 'ready' | 'processing' | 'done' | 'not-found' | 'error';
 /** How a checkout ended: paid, declined (may be retried), cancelled, or no answer yet. */
 export type CheckoutOutcome = 'succeeded' | 'failed' | 'cancelled' | 'pending';
@@ -52,8 +53,8 @@ function isNotFound(error: ApiError): boolean {
 }
 
 /**
- * The state machine of the local fake provider checkouts (protected payments, subscriptions and
- * donations; mirror of the web's `ProviderCheckoutStore` / `FakeCheckoutStore`): read the
+ * The state machine of the local fake provider checkout of protected payments (mirror of the web's
+ * `ProviderCheckoutStore` / `FakeCheckoutStore`): read the
  * checkout, "Pay" or "Simulate a failed payment" through the confirm route (the API emits a
  * signed synthetic webhook through its regular pipeline), then read the checkout again until the
  * webhook changed it. A 409 on confirm means it no longer waits: how it ended is read instead.
@@ -175,42 +176,5 @@ export function paymentOutcome(checkout: { status: string }): CheckoutOutcome | 
       return 'cancelled';
     default:
       return 'succeeded';
-  }
-}
-
-/** A subscription that gives its plan right now (TRIAL, ACTIVE, PAST_DUE). */
-export function isEntitling(status: string | null | undefined): boolean {
-  return status === 'TRIAL' || status === 'ACTIVE' || status === 'PAST_DUE';
-}
-
-/**
- * How a subscription checkout ended. A declined attempt leaves the subscription PENDING with a
- * `failureCode` (the member may try again); the webhook of a payment turns it ACTIVE; an
- * abandoned checkout is CANCELLED.
- */
-export function billingOutcome(
-  checkout: { status?: string; failureCode?: string | null },
-  requested: ConfirmOutcome | null
-): CheckoutOutcome | null {
-  if (isEntitling(checkout.status)) {
-    return 'succeeded';
-  }
-  if (checkout.status === 'CANCELLED' || checkout.status === 'EXPIRED') {
-    return 'cancelled';
-  }
-  return requested === 'FAILED' && checkout.failureCode ? 'failed' : null;
-}
-
-/** How a donation checkout ended (`null` while it still waits to be paid). */
-export function donationOutcome(checkout: { status?: string }): CheckoutOutcome | null {
-  switch (checkout.status) {
-    case 'SUCCEEDED':
-      return 'succeeded';
-    case 'FAILED':
-      return 'failed';
-    case 'REFUNDED':
-      return 'cancelled';
-    default:
-      return null;
   }
 }

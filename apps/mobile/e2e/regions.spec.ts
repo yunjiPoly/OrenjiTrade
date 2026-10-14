@@ -19,10 +19,10 @@ function word(): string {
   return `Rg${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** The region a `GET /api/v1/ads` request names; null for any other request. */
-function adsRegion(url: string): string | null {
+/** The region a `GET /api/v1/search` request names; null for any other request. */
+function searchRegion(url: string): string | null {
   const parsed = new URL(url);
-  return parsed.pathname === '/api/v1/ads' ? (parsed.searchParams.get('region') ?? '') : null;
+  return parsed.pathname === '/api/v1/search' ? (parsed.searchParams.get('region') ?? '') : null;
 }
 
 /** The region codes whose binder counts the page asked for. */
@@ -227,18 +227,24 @@ test.describe('mobile regions and the region map', () => {
     });
     await search.getByRole('tab', { name: 'Collectors' }).click();
     await expect(search.getByText('Who trades in your region?')).toBeVisible({ timeout: 30_000 });
-    // The sponsored placement of the results is asked for the region on screen, like the search.
-    const adsAtHome = page.waitForRequest((candidate) => adsRegion(candidate.url()) !== null);
+    // The search is asked for the region on screen; no sponsored placement is asked for any more
+    // (ads left with stage F1).
+    const adRequests: string[] = [];
+    page.on('request', (candidate) => {
+      if (new URL(candidate.url()).pathname.startsWith('/api/v1/ads')) {
+        adRequests.push(candidate.url());
+      }
+    });
+    const atHome = page.waitForRequest((candidate) => searchRegion(candidate.url()) !== null);
     await search.getByLabel('Find a collector').fill(token);
     await expect(search.getByTestId('search-collectors-empty')).toBeVisible({ timeout: 30_000 });
-    expect(adsRegion((await adsAtHome).url())).toBe('americas-north');
+    expect(searchRegion((await atHome).url())).toBe('americas-north');
 
     // The switcher: a sheet with the three regions, the home one marked.
     const asked = page.waitForRequest(
       (candidate) =>
         candidate.url().includes('/api/v1/search?') && candidate.url().includes('region=europe')
     );
-    const adsAway = page.waitForRequest((candidate) => adsRegion(candidate.url()) === 'europe');
     await search.getByTestId('search-region').click();
     await expect(page.getByTestId('search-region-option-americas-north')).toContainText(
       'Your region'
@@ -252,7 +258,7 @@ test.describe('mobile regions and the region map', () => {
     const url = new URL((await asked).url());
     expect(url.searchParams.get('q')).toBe(token);
     expect(url.searchParams.get('region')).toBe('europe');
-    expect(new URL((await adsAway).url()).searchParams.get('placement')).toBe('SEARCH_SPONSORED');
+    expect(adRequests).toEqual([]);
     // The same search, in Europe now: the Breton collector, with their state.
     const row = search.getByTestId(`collector-result-${abroad.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });

@@ -1,0 +1,69 @@
+# A usage limit reached (stage F1, "free for all"): Lee (fresh, fictional) already has the five
+# binders every collector may have (scripts/limits.js). "New binder" explains the limit plainly,
+# with no plan and nothing to buy; the Profile tab offers no Premium, credits or donation; an old
+# link to the Premium screen finds no such page.
+appId: ${APP_ID}
+name: Usage limit - reached, explained plainly, nothing to buy
+tags:
+  - stage-f1
+  - limits
+---
+- runScript:
+    file: scripts/limits.js
+    env:
+      ACTION: binders-full
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.lee.email}
+      PASSWORD: ${output.lee.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+
+# The sixth binder: the limit, explained, and no way to buy more.
+- openLink: ${APP_URL}/--/binders/new
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 60000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'One too many'
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'binder-save'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-limit-message'
+      text: 'You have used 5 of 5 binders. Delete a binder you no longer need.'
+    timeout: 60000
+- assertVisible: 'You reached the number of binders you can have'
+- assertNotVisible:
+    id: 'binder-limit-premium'
+- assertNotVisible: '.*Premium.*'
+- takeScreenshot: limit-binders
+
+# The Profile tab: no Premium, credits or "Support OrenjiTrade".
+- openLink: ${APP_URL}/--/
+- runFlow: subflows/dismiss-dev-menu.yaml
+- runFlow: subflows/open-profile-tab.yaml
+- assertNotVisible:
+    id: 'profile-premium'
+- assertNotVisible:
+    id: 'profile-credits'
+- assertNotVisible:
+    id: 'profile-support'
+- takeScreenshot: limit-profile
+
+# An old link to the Premium screen: there is no such page any more.
+- openLink: ${APP_URL}/--/premium
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-not-found'
+    timeout: 60000
+- takeScreenshot: limit-premium-gone

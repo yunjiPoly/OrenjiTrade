@@ -8,7 +8,6 @@ import type { CollectorMarker, PublicBinderSummary } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { RecentSearches } from '@/src/features/catalog/RecentSearches';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
@@ -135,7 +134,6 @@ export function UnifiedResults({ segment, query, onSearch, controls }: UnifiedRe
                 : 'public binders'}{' '}
             for “{query}”{results.isFetching ? ' · updating…' : ''}
           </Text>
-          <SponsoredSlot placement="SEARCH_SPONSORED" game={null} variant="compact" />
         </View>
       ) : null}
     </>

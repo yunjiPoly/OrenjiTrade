@@ -3,10 +3,10 @@ import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { relativeTime } from './relativeTime';
 
 /**
- * Freemium limits (ADR 0014): a reached limit answers `429 LIMIT_REACHED` with the extensions
- * `limitKey`, `limit`, `used`, `resetsAt`, `planCode` (mirror of the web's
- * `core/limits/limit-reached.ts`). Screens explain it where it happened instead of a generic
- * error.
+ * Usage limits (ADR 0014; the same for every collector since stage F1): a reached limit answers
+ * `429 LIMIT_REACHED` with the extensions `limitKey`, `limit`, `used`, `resetsAt` (mirror of the
+ * web's `core/limits/limit-reached.ts`). Screens explain it where it happened instead of a generic
+ * error; nothing is sold to lift a limit.
  */
 export interface LimitReachedInfo {
   limitKey: string;
@@ -14,7 +14,6 @@ export interface LimitReachedInfo {
   used: number | null;
   /** ISO instant when the window resets; `null` for totals and caps. */
   resetsAt: string | null;
-  planCode: string | null;
   /** How many the refused action asked for at once (an import: the new cards it adds). */
   requested: number | null;
 }
@@ -39,7 +38,6 @@ export function limitReachedInfo(error: ApiError): LimitReachedInfo {
     limit: numberOrNull(problem.limit),
     used: numberOrNull(problem.used),
     resetsAt: textOrNull(problem.resetsAt),
-    planCode: textOrNull(problem.planCode),
     requested: numberOrNull(problem.requested),
   };
 }
@@ -54,30 +52,21 @@ const LIMIT_NAMES: Record<string, string> = {
   'inventory.items.max': 'inventory cards',
 };
 
-const PLAN_NAMES: Record<string, string> = { FREE: 'Free', PREMIUM: 'Premium' };
-
 /**
- * One sentence for a reached limit: "You have used 5 of 5 binders on the Free plan. Delete a
- * binder you no longer need." Resets are mentioned when the window has one. Premium is named
- * only while premium plans are sold (`premiumOffered`, the `premiumPlans` flag): with every money
- * feature off (launch configuration) nothing in the app pitches an upgrade.
+ * One sentence for a reached limit: "You have used 5 of 5 binders. Delete a binder you no longer
+ * need." Resets are mentioned when the window has one. No plan and no upgrade: every collector has
+ * the same limits.
  */
-export function limitReachedMessage(
-  info: LimitReachedInfo,
-  now: number = Date.now(),
-  options: { premiumOffered?: boolean } = {}
-): string {
+export function limitReachedMessage(info: LimitReachedInfo, now: number = Date.now()): string {
   const what = LIMIT_NAMES[info.limitKey] ?? 'uses of this feature';
-  const plan = info.planCode ? (PLAN_NAMES[info.planCode] ?? info.planCode) : null;
   const usage =
     info.used !== null && info.limit !== null
-      ? `You have used ${info.used} of ${info.limit} ${what}${plan ? ` on the ${plan} plan` : ''}.`
-      : `You reached the ${what} your plan allows.`;
-  const premium = options.premiumOffered ? ' Premium raises the limit.' : '';
+      ? `You have used ${info.used} of ${info.limit} ${what}.`
+      : `You reached the limit of ${what}.`;
   const reset = info.resetsAt
     ? ` It resets ${relativeTime(info.resetsAt, now)}.`
     : info.limitKey === 'binders.max'
-      ? ` Delete a binder you no longer need${premium ? ', or Premium raises the limit' : ''}.`
-      : premium;
+      ? ' Delete a binder you no longer need.'
+      : '';
   return `${usage}${reset}`;
 }

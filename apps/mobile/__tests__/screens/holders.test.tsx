@@ -314,7 +314,7 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     ).toBeOnTheScreen();
   });
 
-  it('shows an error with retry, and the plan limit', async () => {
+  it('shows an error with retry, and the usage limit', async () => {
     const api = mockApi(
       routes({
         'GET /api/v1/search/card-holders': [

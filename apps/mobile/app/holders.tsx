@@ -14,7 +14,6 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import {
   DEFAULT_HOLDER_FILTERS,
   HOLDER_SORTS,
@@ -172,11 +171,6 @@ export default function HoldersScreen() {
         {holdersCountLabel(total, where)}
         {holders.isFetching && !holders.isFetchingNextPage && total !== null ? ' · updating…' : ''}
       </Text>
-      <SponsoredSlot
-        placement="SEARCH_SPONSORED"
-        game={card.data?.game ?? null}
-        variant="compact"
-      />
     </View>
   );
 

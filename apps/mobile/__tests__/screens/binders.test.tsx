@@ -302,7 +302,6 @@ describe('Public binder', () => {
           limit: 30,
           used: 30,
           resetsAt: '2099-01-01T00:00:00Z',
-          planCode: 'FREE',
         }),
       })
     );
@@ -354,14 +353,13 @@ describe('Binder form', () => {
     expect(await screen.findByText('Binder “Holos” created.')).toBeOnTheScreen();
   });
 
-  it('explains the binders limit of the plan', async () => {
+  it('explains the binders limit plainly', async () => {
     mockApi(
       signedInRoutes({
         'POST /api/v1/binders': problem(429, 'LIMIT_REACHED', 'Limit reached', {
           limitKey: 'binders.max',
           limit: 5,
           used: 5,
-          planCode: 'FREE',
         }),
       })
     );
@@ -369,10 +367,10 @@ describe('Binder form', () => {
     fireEvent.changeText(screen.getByTestId('binder-name'), 'Sixth');
     fireEvent.press(screen.getByTestId('binder-save'));
     expect(
-      await screen.findByText('You reached the number of binders your plan allows')
+      await screen.findByText('You reached the number of binders you can have')
     ).toBeOnTheScreen();
     expect(screen.getByTestId('binder-limit-message')).toHaveTextContent(
-      /^You have used 5 of 5 binders on the Free plan\. Delete a binder/
+      /^You have used 5 of 5 binders\. Delete a binder you no longer need\.$/
     );
     expect(mockRouter.replace).not.toHaveBeenCalled();
   });

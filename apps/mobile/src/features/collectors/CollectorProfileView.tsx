@@ -9,7 +9,6 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { ChipList, SectionCard } from '@/src/components/ui/Layout';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
 import { formatLongDate } from '@/src/lib/dates';
@@ -260,7 +259,6 @@ export function CollectorProfileView({
         displayName={profile.displayName}
         isOwn={isOwn}
       />
-      {!isOwn ? <SponsoredSlot placement="COLLECTOR_PROFILE" /> : null}
     </View>
   );
 }

@@ -61,12 +61,9 @@ const APP_ROOTS = new Set([
   'ratings',
   'offers',
   'trades',
-  // Phases 9 and 10: the local fake checkouts, disputes, Premium, credits and donations.
+  // Phase 9: the local fake payment checkout and disputes.
   'checkout',
   'disputes',
-  'premium',
-  'credits',
-  'support',
   // Stage M7: the card-holders list and set pages.
   'holders',
   'sets',

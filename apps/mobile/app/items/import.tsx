@@ -242,10 +242,10 @@ function ImportInterrupted({ preview }: { preview: InventoryImport }) {
       </SectionCard>
       {failure && isLimitReached(failure) ? (
         // A card this import was going to add copies to was deleted and its room given away:
-        // the rest waits until the plan has room again.
+        // the rest waits until the inventory limit has room again.
         <LimitReachedNotice
           error={failure}
-          title="The rest of this import does not fit your plan"
+          title="The rest of this import does not fit the inventory limit"
           testID="import-finish-limit"
         />
       ) : failure ? (

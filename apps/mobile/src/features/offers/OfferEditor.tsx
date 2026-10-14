@@ -15,7 +15,6 @@ import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { Checkbox, FormMessage } from '@/src/components/ui/FormControls';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { TextField } from '@/src/components/ui/TextField';
-import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { ProtectionExplainer } from '@/src/features/payments/ProtectionExplainer';
 import { formatMoney } from '@/src/lib/catalog';
 import { CURRENCIES, availabilityLabel, conditionLabel } from '@/src/lib/inventory';
@@ -409,9 +408,6 @@ export function OfferEditor({ target, counter = null, onSent, onStale }: OfferEd
       {problem ? (
         <View style={styles.block}>
           <FormMessage testID="offer-error">{problem.message}</FormMessage>
-          {problem.code === 'LIMIT_REACHED' ? (
-            <SeePremiumButton testID="offer-limit-premium" />
-          ) : null}
           {problem.openOfferId ? (
             <Button
               label="View your open offer"

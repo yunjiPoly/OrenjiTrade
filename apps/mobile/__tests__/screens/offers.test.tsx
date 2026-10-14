@@ -274,7 +274,6 @@ describe('Make an offer', () => {
             limitKey: 'offers.per_day',
             limit: 10,
             used: 10,
-            planCode: 'FREE',
           }),
           problem(422, 'OFFERS_NOT_ACCEPTED', 'This seller does not accept mixed offers.'),
         ],
@@ -284,7 +283,7 @@ describe('Make an offer', () => {
     fireEvent.changeText(screen.getByTestId('offer-amount'), '40');
     fireEvent.press(screen.getByTestId('offer-submit'));
     expect(await screen.findByTestId('offer-error')).toHaveTextContent(
-      /You have used 10 of 10 offers today on the Free plan/
+      /You have used 10 of 10 offers today\./
     );
     fireEvent.press(screen.getByTestId('offer-submit'));
     expect(
