@@ -2,7 +2,7 @@ package com.orenjitrade.api.billing.api;
 
 import com.orenjitrade.api.billing.domain.EntitlementSource;
 import com.orenjitrade.api.billing.domain.EntitlementView;
-import com.orenjitrade.api.billing.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitDecision;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;

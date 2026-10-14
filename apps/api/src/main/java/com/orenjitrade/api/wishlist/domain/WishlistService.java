@@ -1,6 +1,5 @@
 package com.orenjitrade.api.wishlist.domain;
 
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.cards.domain.CardSummary;
 import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
@@ -9,6 +8,7 @@ import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationVerdict;
 import com.orenjitrade.api.moderation.domain.TextModerationService;

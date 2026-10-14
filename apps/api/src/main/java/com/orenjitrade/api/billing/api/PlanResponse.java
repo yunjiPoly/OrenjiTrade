@@ -1,9 +1,9 @@
 package com.orenjitrade.api.billing.api;
 
-import com.orenjitrade.api.billing.domain.LimitKind;
-import com.orenjitrade.api.billing.domain.LimitWindow;
 import com.orenjitrade.api.billing.domain.PlanFeatureRule;
 import com.orenjitrade.api.billing.domain.PlanRules;
+import com.orenjitrade.api.limits.domain.LimitKind;
+import com.orenjitrade.api.limits.domain.LimitWindow;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.util.List;

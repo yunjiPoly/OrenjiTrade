@@ -1,6 +1,5 @@
 package com.orenjitrade.api.binders.domain;
 
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.BinderChanges.BinderPatch;
 import com.orenjitrade.api.binders.domain.BinderChanges.NewBinder;
 import com.orenjitrade.api.binders.events.BinderFreshnessChanged;
@@ -20,6 +19,7 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
+import com.orenjitrade.api.limits.domain.Limits;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;

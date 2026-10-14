@@ -1,8 +1,8 @@
-package com.orenjitrade.api.billing.api;
+package com.orenjitrade.api.limits.api;
 
-import com.orenjitrade.api.billing.domain.LimitKind;
-import com.orenjitrade.api.billing.domain.LimitWindow;
-import com.orenjitrade.api.billing.domain.UsageLimitRule;
+import com.orenjitrade.api.limits.domain.LimitKind;
+import com.orenjitrade.api.limits.domain.LimitWindow;
+import com.orenjitrade.api.limits.domain.UsageLimitRule;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;

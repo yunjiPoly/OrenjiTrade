@@ -1,4 +1,4 @@
-package com.orenjitrade.api.billing.domain;
+package com.orenjitrade.api.limits.domain;
 
 import java.util.UUID;
 

@@ -1,12 +1,12 @@
 package com.orenjitrade.api.binders.domain;
 
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.binders.infra.BinderRepository;
 import com.orenjitrade.api.binders.infra.BinderViewTracker;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;

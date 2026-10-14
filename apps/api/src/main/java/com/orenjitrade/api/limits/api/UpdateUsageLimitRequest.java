@@ -1,7 +1,7 @@
-package com.orenjitrade.api.billing.api;
+package com.orenjitrade.api.limits.api;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.orenjitrade.api.billing.domain.LimitWindow;
+import com.orenjitrade.api.limits.domain.LimitWindow;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;

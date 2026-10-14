@@ -1,14 +1,14 @@
 package com.orenjitrade.api.notifications.domain;
 
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
+import com.orenjitrade.api.limits.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.notifications.domain.ChannelPlan.DeliveryState;
 import com.orenjitrade.api.notifications.events.NotificationCreated;
 import com.orenjitrade.api.notifications.infra.NotificationRepository;

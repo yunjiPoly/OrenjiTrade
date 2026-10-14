@@ -5,6 +5,8 @@ import com.orenjitrade.api.billing.domain.PlanFeatureRule;
 import com.orenjitrade.api.billing.domain.PlanRules;
 import com.orenjitrade.api.billing.domain.PlanService;
 import com.orenjitrade.api.billing.infra.PlanRepository;
+import com.orenjitrade.api.limits.api.AdminUsageLimit;
+import com.orenjitrade.api.limits.api.UpdateUsageLimitRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

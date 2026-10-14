@@ -1,4 +1,4 @@
-package com.orenjitrade.api.billing.domain;
+package com.orenjitrade.api.limits.domain;
 
 /** How a usage limit is enforced ({@code usage_limit.kind}). */
 public enum LimitKind {

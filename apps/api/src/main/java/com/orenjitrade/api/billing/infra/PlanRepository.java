@@ -1,10 +1,10 @@
 package com.orenjitrade.api.billing.infra;
 
-import com.orenjitrade.api.billing.domain.LimitKind;
-import com.orenjitrade.api.billing.domain.LimitWindow;
 import com.orenjitrade.api.billing.domain.PlanFeatureRule;
 import com.orenjitrade.api.billing.domain.PlanRules;
-import com.orenjitrade.api.billing.domain.UsageLimitRule;
+import com.orenjitrade.api.limits.domain.LimitKind;
+import com.orenjitrade.api.limits.domain.LimitWindow;
+import com.orenjitrade.api.limits.domain.UsageLimitRule;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;

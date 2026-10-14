@@ -127,7 +127,8 @@ public class Entitlements {
         return limitOverride(active(userId), limitKey);
     }
 
-    static Optional<LimitOverride> limitOverride(List<EntitlementView> active, String limitKey) {
+    public static Optional<LimitOverride> limitOverride(
+            List<EntitlementView> active, String limitKey) {
         Optional<LimitOverride> best = Optional.empty();
         for (EntitlementView entitlement : active) {
             if (!entitlement.featureKey().equals(limitKey)) {

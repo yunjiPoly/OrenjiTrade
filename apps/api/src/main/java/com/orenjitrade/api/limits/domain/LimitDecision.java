@@ -1,4 +1,4 @@
-package com.orenjitrade.api.billing.domain;
+package com.orenjitrade.api.limits.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;

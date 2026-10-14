@@ -2,6 +2,7 @@ package com.orenjitrade.api.billing.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.limits.domain.LimitWindow;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

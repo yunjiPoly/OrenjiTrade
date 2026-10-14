@@ -1,4 +1,4 @@
-package com.orenjitrade.api.billing.domain;
+package com.orenjitrade.api.limits.domain;
 
 import java.time.Instant;
 import java.time.LocalDate;

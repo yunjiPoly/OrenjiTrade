@@ -1,4 +1,4 @@
-package com.orenjitrade.api.billing.infra;
+package com.orenjitrade.api.limits.infra;
 
 import java.sql.Timestamp;
 import java.time.Instant;

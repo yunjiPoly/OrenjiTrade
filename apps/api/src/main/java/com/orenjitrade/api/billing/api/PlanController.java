@@ -2,10 +2,10 @@ package com.orenjitrade.api.billing.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.billing.domain.Entitlements;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.billing.domain.PlanCodes;
 import com.orenjitrade.api.billing.domain.PlanService;
 import com.orenjitrade.api.billing.domain.SubscriptionService;
+import com.orenjitrade.api.limits.domain.Limits;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;

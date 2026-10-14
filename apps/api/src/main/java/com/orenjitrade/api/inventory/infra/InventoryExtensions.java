@@ -1,6 +1,5 @@
 package com.orenjitrade.api.inventory.infra;
 
-import com.orenjitrade.api.billing.domain.LimitUsageSource;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.InventoryService;
@@ -8,6 +7,7 @@ import com.orenjitrade.api.inventory.domain.ItemImage;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import com.orenjitrade.api.inventory.domain.ListingReconciler;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
+import com.orenjitrade.api.limits.domain.LimitUsageSource;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import java.time.Instant;
