@@ -82,7 +82,7 @@ export function AgeStep({
     <View style={styles.step} testID="onboarding-age">
       <StepHeading
         title="Are you 18 or older?"
-        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors, post in the community or make offers."
+        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors or post in the community."
       />
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
         We record only your confirmation and its date; no identity document is requested. Accounts
