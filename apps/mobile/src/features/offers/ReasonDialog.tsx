@@ -97,7 +97,7 @@ export function ReasonDialog({
           accessibilityRole="button"
           accessibilityLabel="Cancel"
           onPress={onCancel}
-          style={[StyleSheet.absoluteFill, { backgroundColor: palette.overlay }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: palette.scrim }]}
         />
         <View
           testID={testID}

@@ -3955,17 +3955,11 @@ its default text size. Not run: the Android half of the native suite (no Android
 
 ### Found, not fixed (not caused by this stage)
 
-- **A second dialog of another kind on a stack screen has an empty accessibility snapshot on iOS
-  in Expo Go.** Found while reading the names above, then reproduced on a screen from before this
-  stage: in the card editor, open the binder sheet, close it, press "Delete card". The
-  confirmation is on screen and works by touch, but `maestro hierarchy` lists none of its
-  elements, and a flow cannot press its buttons by id. The same order on the Inventory tab (a bulk
-  sheet, then the delete confirmation) works, and the first dialog of a launch is always complete.
-  On the import screen: a sheet then the condition dialog, or the condition dialog then "Leave
-  this import?". Removing `aria-modal` changes nothing. Whether a release build and VoiceOver on a
-  device are affected could not be checked here (no native build; a production bundle in Expo Go
-  refuses the emulator sign-in). The import flows only open bottom sheets one after the other,
-  which works. **Owner: one session with VoiceOver on a real iPhone would settle it.**
+- **A dialog that follows a sheet could be on screen with an empty accessibility tree on iOS.**
+  Found while reading the names above, on a screen from before this stage (the card editor: open
+  the binder sheet, close it, press "Delete card"). **Cause found and fixed on 2026-10-13**: it
+  needs the dark scrim, not a stack screen and not "another kind" of modal. See "A scrim iOS takes
+  for a modal" below.
 - The web build does not hold the browser's own Back button (a limit of React Navigation on the
   web); the header's back button asks. Nothing is lost either way: the preview is kept.
 - The header's back button of the web build is named "(tabs), back" (the group's name; iOS shows
@@ -4224,6 +4218,180 @@ mutants around the fix were all caught. Left open, small:
 Not verified: the Android run (no Android SDK on this Mac; the Android export builds) and
 VoiceOver speech itself (the accessibility tree was read).
 
+## A scrim iOS takes for a modal: the dialog with an empty accessibility tree (2026-10-13)
+
+> Branch `fix/ios-second-modal-accessibility`, cut from `feature/s5-inventory-import` at `05427c2`
+> and merged with `main` once stage S5 was on it (#69). Found, fixed and tested by a side session
+> on 2026-10-13; shipped the same evening by the lead, because that session ended with a restart
+> of the Mac ("Ship step" below). Mobile only; `apps/web-angular` and the design tokens are
+> not touched. It closes the finding recorded by stage S5 ("Found, not fixed").
+
+### What was recorded, and what it really is
+
+The record said: on a **stack screen**, the second modal **of another kind** is on screen with an
+empty accessibility snapshot; the Inventory tab is fine; removing `aria-modal` changes nothing.
+Three of those four points were coincidences:
+
+- **It needs the dark scrim, nothing else.** Every failing run of the builder was made during its
+  dark walk, and the one failure of the UX reviewer during its dark shots. Light: 30 nodes in
+  Maestro's snapshot; Dark, the same steps: 22 (the status bar and empty containers).
+- **Not a stack screen.** On the Inventory tab the list re-renders between the bulk sheet and the
+  confirmation and takes the recycled views first (see below); the editor and the import screen
+  change nothing between the two modals.
+- **Not "another kind".** A sheet then a dialog, a dialog then a dialog: the order of the views
+  decides, not the component.
+- **`aria-modal` does nothing on a phone.** React Native 0.86 maps `aria-label`, `aria-hidden`,
+  `aria-checked` and others to native props; `aria-modal` is in its types and in no mapping, in
+  JavaScript or in C++. On our dialogs it is an attribute of the web build only.
+
+### The cause: three facts that meet
+
+1. **iOS decides by itself that some views are modal.** `accessibilityViewIsModal` is not only
+   what an app sets: UIKit's accessibility answers YES for a view that is in a window, has
+   **exactly the size of the window** and a **black background the page shows through**. Measured
+   on the simulator (iOS 27.0), one fresh view per case:
+
+   | What varies | Modal | Not modal |
+   | --- | --- | --- |
+   | opacity of a pure black | 0.15 to 0.85 | 0.10 and under, 0.90 and over |
+   | grey level out of 255, at 0.6 | 0, 2, 4 | 6 and over |
+   | red alone out of 255, at 0.6 | 0 to 16 | 20 and over |
+   | size | the window's, wherever it is placed | 1/3 pt smaller, 1 pt larger, 95 % |
+   | our tokens | dark `overlay`, `rgba(0, 0, 0, 0.6)` | light `overlay`, `rgba(28, 25, 23, 0.48)` |
+
+   So: a white level under about 2 % (an opaque black on a view that is itself 60 % opaque
+   counts too). A modal view makes VoiceOver, and the snapshot Maestro reads, **ignore every view
+   behind it in the same parent**; what is in front stays.
+2. **The native view keeps the answer** for as long as it has the size of the window: black, then
+   no colour at all, still YES. Only a change of size asks the question again. Setting the
+   property by hand (YES or NO) wins over the guess, but React Native only does that when the
+   prop changes, and the prop never changed.
+3. **React Native reuses native views**, last recycled first. Followed by its address in one
+   launch (dark, the old scrim):
+
+   | The sheet (binder choices) | becomes, in the dialog that follows |
+   | --- | --- |
+   | its backdrop, black 0.6, **modal by iOS** | the full-window view of React Native's debugging overlay, in front of everything, **still modal** |
+   | its panel | the dialog's panel |
+   | the debugging overlay's view | the dialog's backdrop |
+
+   The dialog and its backdrop are then behind a modal view: on screen, working by touch, and
+   absent from accessibility.
+
+The debugging overlay is the dev-only part: in a development bundle React Native wraps the
+children of every `Modal` in its `AppContainer`, which adds a full-window, untouchable view in
+front of them.
+
+### A development artifact, or a defect for VoiceOver users?
+
+Both parts were measured, not guessed. A small library loaded into Expo Go on the simulator (it
+reads, it changes nothing) asked UIKit for the elements a screen reader can reach, with UIKit's own
+VoiceOver options:
+
+| State (dark, card editor) | Elements a screen reader can reach |
+| --- | --- |
+| "Delete card" as the first modal of the launch | 5: the backdrop, the title, the text, Cancel, Delete card |
+| the binder sheet as the first modal | 3: Close, the title, the choice |
+| "Delete card" after the sheet, development bundle | **0** |
+| the same, `Modal` rendered as a release build does (no `AppContainer`) | 5 |
+| the same, development bundle, with the fix | 5 |
+
+- **The symptom as it was seen needs a development bundle.** Rendered as a release build does,
+  the dialog exposed its 5 elements and no view of ours was modal: nothing stands in front of a
+  dialog at the size of the window there, and by the same order of reuse the recycled backdrop
+  is the dialog's panel, which is smaller, so iOS asks the question again and answers NO.
+- **The mark itself is not a development artifact.** Rendered as a release build does, in the
+  dark theme, the backdrop of the sheet was modal as well, and the same native view was followed
+  into the dialog, where it was the panel. The mark does harm wherever the next use of such a
+  view is window-sized with something behind it. Nothing in the app is in that place today; that
+  is luck, not a rule, and one full-window overlay in front of content would be enough. So the
+  cause is removed, not worked around.
+- Real VoiceOver on a device was not heard (see "Could not be verified").
+
+### The fix
+
+- **`src/theme/scrim.ts`** (new): `scrimColor()` keeps the opacity of a colour and never lets a
+  channel go under the darkest warm tone of the design system (`rgb(12, 10, 9)`, a white level of
+  about 4 %, twice what iOS takes for black). **`palette.scrim`** is the `overlay` token through
+  it: unchanged in light, `rgba(12, 10, 9, 0.6)` in dark. The token itself is not changed (the web
+  app reads it).
+- **`BottomSheet`, `ConfirmDialog`, `FormDialog`** and `features/offers/ReasonDialog` take
+  `palette.scrim` for their backdrop. The backdrop of the two dialogs gets an id
+  (`<testID>-backdrop`), as the sheet's had. The photo opened from a message
+  (`MessageBubble`, black at 0.92, just outside the range today) goes through the same helper.
+- Rule for later: **a view that covers the window is never a translucent pure black.** It takes
+  `palette.scrim` or `scrimColor()`.
+- Not changed: `modalTurns.tsx`, `SelectSheet`, `aria-modal` on the dialogs (harmless on a phone,
+  meaningful on the web build), the order in which React Native reuses views.
+
+### Tests
+
+- **Jest** `__tests__/components/scrim.test.tsx`, 14: the helper (opacity kept, floor per channel,
+  `#` and `rgb()` forms, a colour it cannot read is refused), both palettes (white level above
+  3.5 %, the light scrim is the token unchanged, the dark one is not the black token), and the
+  backdrop of a sheet, a confirmation and a form dialog in both themes.
+- **Native flow** `.maestro/dialog-after-sheet.yaml`: a fresh collector with one card chooses
+  **Dark in Settings > Appearance** (the device stays as it is; the next flow starts from a
+  cleared app), opens the card editor, the binder sheet, then "Delete card": title and both
+  buttons by id; then the sheet after the dialog; then the dialog again, answered: the card is
+  gone on the API. **On the old black scrim it fails** at the first button of the dialog; with the
+  fix it passes. It is the only flow in the dark theme: a scrim that turns black again, or an iOS
+  that widens what it takes for black, fails here.
+
+### Checks (2026-10-13, Mac mini, the owner's iPhone 17 simulator, iOS 27.0, Expo Go 57.0.9)
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | green |
+| `npm run test:mobile` (typecheck, lint, jest, the harness guard tests) | green: jest 89 suites, **893 tests** (879 before, 14 new); guard tests 28 |
+| `npx expo export --platform ios`, `--platform android`, `--platform web` (throw-away directories) | all three export |
+| `.maestro/dialog-after-sheet.yaml` on the old black scrim | **fails**, at "edit-item-delete-dialog-cancel is visible" (the dialog is on screen) |
+| `.maestro/dialog-after-sheet.yaml` with the fix | **passes** (1 min 54 s): sheet, dialog, sheet, dialog, the card deleted on the API |
+| `inventory-add-edit-delete.yaml`, `blocked-users.yaml`, `inventory-import-deck.yaml`, `inventory-import-csv.yaml` (the flows with the most sheets and dialogs) | pass |
+| the whole native suite, `npm run test:mobile:maestro`, and the mobile web E2E, `npm run test:mobile:e2e` | not run by the side session; **run in the ship step, both green**: see below |
+
+The five native flows above ran with Maestro called directly, against an API and a Metro of this
+branch on their own ports (8690 and 8087, database `orenjitrade_mobile_a11y`), on the iPhone 17
+the owner booted for this work: stage S5's reviewers held the iPhone 18 Pro and the harness's
+ports (8090, 8082, 19006) that day. The iPhone 17 is not prepared as the harness prepares a
+simulator (US English, a plain keyboard), which needs a restart of the simulator. **Before the
+pull request, once S5 is on `main` and merged into this branch: the whole native suite and the
+mobile web E2E with the usual commands on the prepared simulator**, with the other checks of a
+stage (docs/development/claude-handoff.md, section 3).
+
+**Ship step (2026-10-13, 21:40 to 22:35, by the lead, on this branch merged with `main` at
+`4a64244`, head `9b06581`):** `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`
+and `npm run format:check -w apps/mobile` clean; `npm run test:mobile`: jest 90 suites / 930
+tests; `npm run test:mobile:e2e -- --retries=0`: 60 passed; **the whole native suite on the
+prepared iPhone 18 Pro simulator: 31 of 31 flows in 50 min 23 s**, the new flow "A dialog after a
+sheet on a stack screen" among them (1 min 49 s, the only one in the app's Dark theme), the
+simulator light again afterwards. The two documents were the only conflicts of the merge.
+
+Left as found: git holds only the files of this change, the React Native file edited for the
+"release build" measurement is back as installed, the API and Metro of this work are stopped,
+their database dropped, their emulator accounts deleted; both simulators booted and light.
+
+### Could not be verified
+
+- **VoiceOver on a real iPhone, and a release build.** The verdict above rests on UIKit's own
+  traversal with its VoiceOver options and on a development bundle whose `Modal` was made to
+  render as a release build does. Both run the same UIKit code; neither is a person with
+  VoiceOver on a device.
+- **Other versions of iOS.** The numbers are those of the iOS 27.0 simulator. The floor is twice
+  the measured limit; the native flow is the guard if another version draws the line elsewhere.
+- **The Android run** of the new flow (no Android SDK on this Mac). Its only step no other flow
+  has is the selected state of the theme chip (`selected: true`).
+
+### Notes
+
+- Upstream: React Native's recycled views keep what UIKit's accessibility remembers about them.
+  Not reported; a minimal case would be a full-window `rgba(0,0,0,0.5)` view inside a `Modal`,
+  closed, then a second `Modal` in a development bundle.
+- The owner's iPhone 17 simulator, lent for this: "AutoFill Passwords and Passkeys" was switched
+  off in its Settings (iOS otherwise puts "Save Password?" over the app after each sign-in; the
+  harness does the same on the simulators it prepares). No other setting of it was changed; it is
+  light, at its default text size, with Maestro's driver app installed.
+
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
@@ -4251,8 +4419,9 @@ VoiceOver speech itself (the accessibility tree was read).
 > second look approved the branch with one minor finding, answered by **review fix 2** ("Review
 > fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed), which an
 > independent verifier approved the same evening (30 of 30 native flows). **Next for this branch:
-> the pull request, merged when CI is green.** Right after it ships the small branch
-> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal).
+> the pull request, merged when CI is green** (done: #69). Right after it shipped the small branch
+> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal; "A scrim iOS
+> takes for a modal" above).
 > Owner questions it leaves open: the default condition of a card whose file names none
 > (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
 > collector shows (today it never does: the copies become a private card), whether "use the most

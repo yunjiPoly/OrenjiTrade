@@ -76,7 +76,7 @@ export function BottomSheet({
           accessibilityRole="button"
           accessibilityLabel="Close"
           onPress={onClose}
-          style={[styles.backdrop, { backgroundColor: palette.overlay }]}
+          style={[styles.backdrop, { backgroundColor: palette.scrim }]}
           testID={`${testID}-backdrop`}
         />
         <Animated.View

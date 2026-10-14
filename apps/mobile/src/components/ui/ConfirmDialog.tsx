@@ -48,7 +48,8 @@ export function ConfirmDialog({
           accessibilityRole="button"
           accessibilityLabel={cancelLabel}
           onPress={onCancel}
-          style={[StyleSheet.absoluteFill, { backgroundColor: palette.overlay }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: palette.scrim }]}
+          testID={`${testID}-backdrop`}
         />
         <View
           testID={testID}
