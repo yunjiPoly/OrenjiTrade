@@ -32,6 +32,10 @@ public final class InventoryChanges {
      * @param visibility PUBLIC inside a binder (the binder decides), PRIVATE otherwise
      * @param publicUntil end of a TEMPORARILY_PUBLIC publication
      * @param binderId binder (the caller's)
+     * @param askingPriceText the asking price as typed (stage R2); a plain amount also gives {@code
+     *     askingPrice}, which must then be absent
+     * @param conditionStated {@code false}: the condition is not stated ({@code condition} must be
+     *     absent); {@code null} or {@code true}: {@code condition} or its default
      */
     public record NewItem(
             UUID printingId,
@@ -48,12 +52,53 @@ public final class InventoryChanges {
             @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID binderId) {}
+            @Nullable UUID binderId,
+            @Nullable String askingPriceText,
+            @Nullable Boolean conditionStated) {
+
+        /** A new item without the stage R2 fields (the asking price text, a stated condition). */
+        public NewItem(
+                UUID printingId,
+                @Nullable Integer quantity,
+                @Nullable String condition,
+                @Nullable String language,
+                @Nullable String edition,
+                @Nullable String finish,
+                @Nullable BigDecimal askingPrice,
+                @Nullable String currency,
+                @Nullable Availability availability,
+                @Nullable Boolean acceptsOffers,
+                @Nullable String notes,
+                @Nullable String publicNotes,
+                @Nullable ListingVisibility visibility,
+                @Nullable Instant publicUntil,
+                @Nullable UUID binderId) {
+            this(
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil,
+                    binderId,
+                    null,
+                    null);
+        }
+    }
 
     /**
      * A partial update: a field is changed only when {@link #has(String)} says it was sent;
-     * nullable fields ({@code askingPrice}, {@code publicUntil}, {@code binderId}, {@code notes},
-     * {@code publicNotes}) may then be cleared.
+     * nullable fields ({@code askingPrice}, {@code askingPriceText}, {@code publicUntil}, {@code
+     * binderId}, {@code notes}, {@code publicNotes}) may then be cleared. {@code confirm} (stage
+     * R2, "Save changes" on the phone) also confirms the item, as {@code POST .../confirm} does.
      */
     public record ItemPatch(
             java.util.Set<String> present,
@@ -71,10 +116,51 @@ public final class InventoryChanges {
             @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID binderId) {
+            @Nullable UUID binderId,
+            @Nullable String askingPriceText,
+            boolean confirm) {
 
         public ItemPatch {
             present = java.util.Set.copyOf(present);
+        }
+
+        /** A patch without the stage R2 fields. */
+        public ItemPatch(
+                java.util.Set<String> present,
+                @Nullable UUID printingId,
+                @Nullable Integer quantity,
+                @Nullable String condition,
+                @Nullable String language,
+                @Nullable String edition,
+                @Nullable String finish,
+                @Nullable BigDecimal askingPrice,
+                @Nullable String currency,
+                @Nullable Availability availability,
+                @Nullable Boolean acceptsOffers,
+                @Nullable String notes,
+                @Nullable String publicNotes,
+                @Nullable ListingVisibility visibility,
+                @Nullable Instant publicUntil,
+                @Nullable UUID binderId) {
+            this(
+                    present,
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil,
+                    binderId,
+                    null,
+                    false);
         }
 
         public boolean has(String field) {
@@ -192,7 +278,9 @@ public final class InventoryChanges {
     public enum SortKey {
         UPDATED,
         NAME,
-        PRICE
+        PRICE,
+        /** Creation, newest first by default: "Recently added" on the phone (stage R2). */
+        CREATED
     }
 
     /**

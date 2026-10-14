@@ -16,6 +16,9 @@ import org.jspecify.annotations.Nullable;
  * @param setCode set of the printing (earliest printing for CARD entries)
  * @param printingCode printing code (earliest printing for CARD entries)
  * @param imageUrl front image (placeholder when none)
+ * @param setName name of the printing's set (PRINTING entries; stage R2)
+ * @param rarity rarity of the printing (PRINTING entries; stage R2)
+ * @param printingCount printings of the card (CARD entries; stage R2)
  */
 @Schema(name = "CardSuggestion", description = "Autocomplete entry (card or printing)")
 public record CardSuggestion(
@@ -26,7 +29,10 @@ public record CardSuggestion(
         String game,
         @Nullable String setCode,
         @Nullable String printingCode,
-        @Nullable String imageUrl) {
+        @Nullable String imageUrl,
+        @Schema(example = "Azure Dawn", nullable = true) @Nullable String setName,
+        @Schema(example = "Ultra Rare", nullable = true) @Nullable String rarity,
+        @Schema(example = "3", nullable = true) @Nullable Integer printingCount) {
 
     public static final String CARD = "CARD";
     public static final String PRINTING = "PRINTING";

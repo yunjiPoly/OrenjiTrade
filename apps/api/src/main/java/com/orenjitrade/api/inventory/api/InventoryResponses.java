@@ -37,12 +37,33 @@ public final class InventoryResponses {
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable BinderRef binder,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "1") int quantity,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "NEAR_MINT") String condition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            example = "NEAR_MINT",
+                            description =
+                                    "Condition code; empty when the owner stated none"
+                                            + " (conditionStated false)")
+                    String condition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "false for cards added on the phone, whose condition is not"
+                                            + " stated (it may be in the public note)")
+                    boolean conditionStated,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "en") String language,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "FIRST_EDITION") String edition,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "NORMAL") String finish,
             @Schema(nullable = true, example = "45.00") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable BigDecimal askingPrice,
+            @Schema(
+                            nullable = true,
+                            example = "85% TCG",
+                            description =
+                                    "The asking price as the owner typed it, to show as is; null"
+                                            + " when none (then askingPrice, if any, is the"
+                                            + " price)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String askingPriceText,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "CAD") String currency,
             @Schema(requiredMode = RequiredMode.REQUIRED) Availability availability,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean acceptsOffers,
@@ -75,11 +96,13 @@ public final class InventoryResponses {
                     CardRef.of(item),
                     BinderRef.of(item),
                     item.quantity(),
-                    item.condition(),
+                    item.conditionCode(),
+                    item.conditionStated(),
                     item.language(),
                     item.edition(),
                     item.finish(),
                     item.askingPrice(),
+                    item.askingPriceText(),
                     item.currency(),
                     item.availability(),
                     item.acceptsOffers(),
@@ -105,12 +128,33 @@ public final class InventoryResponses {
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable BinderRef binder,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "1") int quantity,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "NEAR_MINT") String condition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            example = "NEAR_MINT",
+                            description =
+                                    "Condition code; empty when the owner stated none"
+                                            + " (conditionStated false)")
+                    String condition,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description =
+                                    "false for cards added on the phone, whose condition is not"
+                                            + " stated (it may be in the public note)")
+                    boolean conditionStated,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "en") String language,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "FIRST_EDITION") String edition,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "NORMAL") String finish,
             @Schema(nullable = true, example = "45.00") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable BigDecimal askingPrice,
+            @Schema(
+                            nullable = true,
+                            example = "85% TCG",
+                            description =
+                                    "The asking price as the owner typed it, to show as is; null"
+                                            + " when none (then askingPrice, if any, is the"
+                                            + " price)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String askingPriceText,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "CAD") String currency,
             @Schema(requiredMode = RequiredMode.REQUIRED) Availability availability,
             @Schema(requiredMode = RequiredMode.REQUIRED) boolean acceptsOffers,
@@ -127,11 +171,13 @@ public final class InventoryResponses {
                     CardRef.of(item),
                     BinderRef.of(item),
                     item.quantity(),
-                    item.condition(),
+                    item.conditionCode(),
+                    item.conditionStated(),
                     item.language(),
                     item.edition(),
                     item.finish(),
                     item.askingPrice(),
+                    item.askingPriceText(),
                     item.currency(),
                     item.availability(),
                     item.acceptsOffers(),

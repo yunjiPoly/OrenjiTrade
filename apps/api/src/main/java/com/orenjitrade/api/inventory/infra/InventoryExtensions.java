@@ -143,10 +143,12 @@ public class InventoryExtensions {
         row.put("game", item.game());
         row.put("quantity", item.quantity());
         row.put("condition", item.condition());
+        row.put("conditionStated", item.conditionStated());
         row.put("language", item.language());
         row.put("edition", item.edition());
         row.put("finish", item.finish());
         row.put("askingPrice", item.askingPrice());
+        row.put("askingPriceText", item.askingPriceText());
         row.put("currency", item.currency());
         row.put("availability", item.availability().name());
         row.put("acceptsOffers", item.acceptsOffers());

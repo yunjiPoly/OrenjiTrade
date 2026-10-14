@@ -13,6 +13,7 @@ import com.orenjitrade.api.cards.domain.PrintingDetail;
 import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
+import com.orenjitrade.api.common.AskingPriceText;
 import com.orenjitrade.api.common.ErrorCode;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
@@ -44,12 +45,14 @@ import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.BinderStatsRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Confirmed;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.CoverRow;
+import com.orenjitrade.api.inventory.infra.InventoryItemRepository.DeleteState;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.LockedItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.MergeCandidate;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.SummaryRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -94,6 +97,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * ascending id ({@link #lockForWrite}). The listing reconciler and the binder writes do the same.
  * Item photos write one item row, never reach a binder and decide nothing about the listing: they
  * lock only that row.
+ *
+ * <p>Undo (stage R2): an owner's own delete (one item or a bulk delete) keeps the row and its
+ * photos restorable for {@link #RESTORE_WINDOW} ({@link #restore}); the hourly housekeeping then
+ * deletes the photos ({@link #closeRestoreWindows}). The other soft deletes (a trade, a binder
+ * deleted with its cards) remove the photos at once.
  */
 @Service
 public class InventoryService {
@@ -112,6 +120,13 @@ public class InventoryService {
 
     public static final String DEFAULT_CONDITION = "NEAR_MINT";
     public static final String DEFAULT_CURRENCY = "CAD";
+
+    /**
+     * How long an owner's deleted item can be restored, with its photos (owner spec 2026-10-14,
+     * section 16, default 4: "a deleted card can be restored for 10 minutes").
+     */
+    public static final Duration RESTORE_WINDOW = Duration.ofMinutes(10);
+
     static final String NOT_FOUND = "Inventory item not found";
     static final String IMAGE_NAMESPACE = "inventory";
     static final Pattern CODE = Pattern.compile(GameSchema.CODE);
@@ -270,16 +285,29 @@ public class InventoryService {
         if (printing == null) {
             throw ApiException.validation("Validation failed", errors);
         }
+        boolean conditionStated = !Boolean.FALSE.equals(input.conditionStated());
+        if (!conditionStated && !blank(input.condition())) {
+            errors.add(
+                    new ProblemFieldError(
+                            "condition", "must be absent when conditionStated is false"));
+        }
+        if (input.askingPriceText() != null && input.askingPrice() != null) {
+            errors.add(
+                    new ProblemFieldError(
+                            "askingPriceText", "send askingPrice or askingPriceText, not both"));
+        }
         Values values =
                 values(
                         printing,
                         input.binderId(),
                         input.quantity() != null ? input.quantity() : 1,
                         input.condition(),
+                        conditionStated,
                         input.language(),
                         input.edition(),
                         input.finish(),
                         input.askingPrice(),
+                        PriceInput.of(input.askingPriceText()),
                         input.currency(),
                         input.availability() != null
                                 ? input.availability()
@@ -364,6 +392,22 @@ public class InventoryService {
             errors.addAll(PublicVisibilityRules.validatePublicUntil(visibility, publicUntil, now));
         }
 
+        // The price: a text sent sets the text and its amount; an amount sent without a text (the
+        // paused web) sets the amount and drops the text, which no longer says the same; neither
+        // keeps both as they are.
+        if (patch.has("askingPrice") && patch.has("askingPriceText")) {
+            errors.add(
+                    new ProblemFieldError(
+                            "askingPriceText", "send askingPrice or askingPriceText, not both"));
+        }
+        PriceInput priceText =
+                patch.has("askingPriceText")
+                        ? PriceInput.of(patch.askingPriceText())
+                        : patch.has("askingPrice")
+                                ? PriceInput.NONE
+                                : PriceInput.kept(current.askingPriceText());
+        // A condition sent states it; otherwise a card without a stated condition keeps none.
+        boolean conditionStated = patch.has("condition") || current.conditionStated();
         Values values =
                 values(
                         printing,
@@ -372,6 +416,7 @@ public class InventoryService {
                                 ? patch.quantity()
                                 : current.quantity(),
                         patch.has("condition") ? patch.condition() : current.condition(),
+                        conditionStated,
                         patch.has("language")
                                 ? patch.language()
                                 : printingChanged ? null : current.language(),
@@ -382,6 +427,7 @@ public class InventoryService {
                                 ? patch.finish()
                                 : printingChanged ? null : current.finish(),
                         patch.has("askingPrice") ? patch.askingPrice() : current.askingPrice(),
+                        priceText,
                         patch.has("currency") ? patch.currency() : current.currency(),
                         patch.has("availability") && patch.availability() != null
                                 ? patch.availability()
@@ -399,7 +445,9 @@ public class InventoryService {
         }
         items.update(itemId, values, now);
         Set<UUID> touchedBinders = new HashSet<>();
-        if (visibilityChanged && visibility.isPublic()) {
+        if (patch.confirm() || (visibilityChanged && visibility.isPublic())) {
+            // A save from the phone's Edit card counts as "still available" (stage R2), as making
+            // the item public always did.
             touchedBinders.addAll(confirmItems(ownerId, List.of(itemId), now));
         }
         if (moved && target != null) {
@@ -411,14 +459,75 @@ public class InventoryService {
         return get(ownerId, itemId);
     }
 
-    /** {@code DELETE /inventory/items/{id}}: soft delete (photos are removed). */
+    /**
+     * {@code DELETE /inventory/items/{id}}: soft delete. The owner can {@link #restore} the item
+     * for {@link #RESTORE_WINDOW}; its photos are deleted once that window has passed.
+     */
     @Transactional
     public void delete(UUID ownerId, UUID itemId) {
         if (!lockForWrite(ownerId, List.of(itemId), List.of()).containsKey(itemId)) {
             throw ApiException.notFound(NOT_FOUND);
         }
-        softDelete(List.of(itemId), timeProvider.now());
+        softDeleteRestorable(List.of(itemId), timeProvider.now());
         reconciler.items(List.of(itemId));
+    }
+
+    /**
+     * {@code POST /inventory/items/{id}/restore} (stage R2, "Undo"): brings back an item the owner
+     * deleted less than {@link #RESTORE_WINDOW} ago, exactly as it was: copies, prices, notes,
+     * photos, binder and visibility (its listing is reconciled again). A live item is answered as
+     * it is (a repeated undo). {@code 404} for unknown and other owners' items, {@code 409
+     * RESTORE_WINDOW_CLOSED} once the window has passed or for an item that left in another way (a
+     * trade, its binder deleted with it); {@code 429 LIMIT_REACHED} when the inventory reached
+     * {@code inventory.items.max} meanwhile.
+     */
+    @Transactional
+    public InventoryItemView restore(UUID ownerId, UUID itemId) {
+        Instant now = timeProvider.now();
+        // The lock order of every item write: the owner, the binder, then the item. Under the owner
+        // lock no other write of the collector moves the item between this read and the locks.
+        binders.lockOwners(List.of(ownerId));
+        Optional<UUID> binderId =
+                items.binderOfAnyState(ownerId, itemId)
+                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        binderId.ifPresent(id -> binders.lockInOrder(ownerId, List.of(id)));
+        DeleteState state =
+                items.lockDeleteState(ownerId, itemId)
+                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        if (state.deletedAt() == null) {
+            return get(ownerId, itemId);
+        }
+        if (state.restorableUntil() == null || !state.restorableUntil().isAfter(now)) {
+            throw new ApiException(
+                    ErrorCode.RESTORE_WINDOW_CLOSED,
+                    "This card can no longer be restored: it was deleted more than "
+                            + RESTORE_WINDOW.toMinutes()
+                            + " minutes ago");
+        }
+        limits.consume(ownerId, INVENTORY_ITEMS_MAX);
+        items.restore(itemId, now);
+        if (state.binderId() != null) {
+            reconciler.binders(List.of(state.binderId()));
+        }
+        reconciler.items(List.of(itemId));
+        log.info("Inventory item restored owner={} item={}", ownerId, itemId);
+        return get(ownerId, itemId);
+    }
+
+    /**
+     * Closes the restore windows that have passed and deletes the photos of those items (after the
+     * commit); at most {@code limit} items per call. The hourly housekeeping of the freshness job.
+     *
+     * @return the items whose window was closed
+     */
+    @Transactional
+    public int closeRestoreWindows(int limit) {
+        List<UUID> closed = items.closeRestoreWindows(timeProvider.now(), limit);
+        deleteObjectsAfterCommit(images.deleteByItems(closed));
+        if (!closed.isEmpty()) {
+            log.info("Restore windows closed items={}", closed.size());
+        }
+        return closed.size();
     }
 
     /** {@code POST /inventory/items/{id}/confirm}: refreshes the confirmation, HIDDEN → ACTIVE. */
@@ -549,7 +658,7 @@ public class InventoryService {
         Set<UUID> touchedBinders = new HashSet<>();
         switch (request.action()) {
             case CONFIRM -> touchedBinders.addAll(confirmItems(ownerId, changed, now));
-            case DELETE -> softDelete(changed, now);
+            case DELETE -> softDeleteRestorable(changed, now);
             case SET_VISIBILITY -> {
                 if (request.visibility() != null && request.visibility().isPublic()) {
                     touchedBinders.addAll(confirmItems(ownerId, changed, now));
@@ -998,6 +1107,10 @@ public class InventoryService {
     @Transactional
     public void releaseBinderItems(
             UUID ownerId, UUID binderId, boolean deleteItems, boolean keepVisibility, Instant now) {
+        // The cards deleted from this binder lately can no longer come back to it: their undo
+        // ends with the binder, and their photos go now.
+        deleteObjectsAfterCommit(
+                images.deleteByItems(items.endRestoreWindowsInBinder(ownerId, binderId)));
         List<UUID> released;
         if (deleteItems) {
             released = items.softDeleteInBinder(ownerId, binderId, now);
@@ -1120,6 +1233,14 @@ public class InventoryService {
         deleteObjectsAfterCommit(images.deleteByItems(itemIds));
     }
 
+    /** An owner's own delete: restorable, photos kept, for {@link #RESTORE_WINDOW}. */
+    private void softDeleteRestorable(List<UUID> itemIds, Instant now) {
+        Instant until = now.plus(RESTORE_WINDOW);
+        for (UUID id : itemIds) {
+            items.softDelete(id, until, now);
+        }
+    }
+
     private boolean setVisibility(ItemRow row, BulkRequest request, Instant now) {
         ListingVisibility visibility = Objects.requireNonNull(request.visibility());
         @Nullable Instant publicUntil =
@@ -1217,16 +1338,38 @@ public class InventoryService {
         }
     }
 
+    /**
+     * The asking price text of a write: {@link #NONE} (no text), a text as sent (normalised and
+     * parsed by {@link #values}), or the stored text kept as it is.
+     *
+     * @param text the text, {@code null} for none
+     * @param kept whether it is the stored text, kept unchanged (its amount is kept too)
+     */
+    record PriceInput(@Nullable String text, boolean kept) {
+
+        static final PriceInput NONE = new PriceInput(null, false);
+
+        static PriceInput of(@Nullable String sent) {
+            return new PriceInput(AskingPriceText.normalise(sent), false);
+        }
+
+        static PriceInput kept(@Nullable String stored) {
+            return new PriceInput(stored, true);
+        }
+    }
+
     /** Validates and normalises the column values of an item. */
     private Values values(
             PrintingDetail printing,
             @Nullable UUID binderId,
             int quantity,
             @Nullable String condition,
+            boolean conditionStated,
             @Nullable String language,
             @Nullable String edition,
             @Nullable String finish,
             @Nullable BigDecimal askingPrice,
+            PriceInput priceText,
             @Nullable String currency,
             Availability availability,
             boolean acceptsOffers,
@@ -1243,12 +1386,15 @@ public class InventoryService {
                         .map(GameView::schema)
                         .map(GameSchema::conditions)
                         .orElse(List.of());
-        String conditionCode =
-                blank(condition)
-                        ? defaultCondition(conditions)
-                        : condition.trim().toUpperCase(Locale.ROOT);
-        if (!CODE.matcher(conditionCode).matches()
-                || (!conditions.isEmpty() && !conditions.contains(conditionCode))) {
+        @Nullable String conditionCode =
+                !conditionStated
+                        ? null
+                        : blank(condition)
+                                ? defaultCondition(conditions)
+                                : condition.trim().toUpperCase(Locale.ROOT);
+        if (conditionCode != null
+                && (!CODE.matcher(conditionCode).matches()
+                        || (!conditions.isEmpty() && !conditions.contains(conditionCode)))) {
             errors.add(
                     new ProblemFieldError(
                             "condition",
@@ -1276,6 +1422,16 @@ public class InventoryService {
                         : finish.trim().toUpperCase(Locale.ROOT);
         if (!CODE.matcher(finishCode).matches()) {
             errors.add(new ProblemFieldError("finish", "must be a finish code"));
+        }
+        @Nullable String typedPrice = priceText.text();
+        if (typedPrice != null && !priceText.kept()) {
+            @Nullable String problem = AskingPriceText.problem(typedPrice);
+            if (problem != null) {
+                errors.add(new ProblemFieldError("askingPriceText", problem));
+            }
+            // A plain amount ("12.50", "$12.50", "12,50 $") also gives the amount; any other text
+            // has none.
+            askingPrice = AskingPriceText.amountOf(typedPrice).orElse(null);
         }
         @Nullable BigDecimal price = null;
         if (askingPrice != null) {
@@ -1312,6 +1468,7 @@ public class InventoryService {
                 editionCode,
                 finishCode,
                 price,
+                typedPrice,
                 currencyCode,
                 availability,
                 acceptsOffers,

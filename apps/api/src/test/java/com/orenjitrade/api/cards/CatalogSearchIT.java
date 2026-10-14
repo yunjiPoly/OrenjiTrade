@@ -205,6 +205,8 @@ class CatalogSearchIT extends AbstractIntegrationTest {
         JsonNode firstEdition = card.path("printings").get(0);
         assertThat(firstEdition.path("printingCode").asString()).isEqualTo("AZR-EN001");
         assertThat(firstEdition.path("setName").asString()).isEqualTo("Azure Dawn");
+        // Stage R2: "{set} · {year}" when choosing the printing.
+        assertThat(firstEdition.path("setReleaseDate").asString()).isEqualTo("2024-02-09");
         assertThat(firstEdition.path("images").get(0).path("kind").asString()).isEqualTo("FRONT");
         assertThat(firstEdition.path("images").get(0).path("url").asString())
                 .startsWith("http://localhost:");
@@ -248,6 +250,10 @@ class CatalogSearchIT extends AbstractIntegrationTest {
                     assertThat(entry.path("kind").asString()).isEqualTo("PRINTING");
                     assertThat(entry.path("printingCode").asString()).startsWith("AZR-EN0");
                     assertThat(entry.path("printingId").asString()).isNotEmpty();
+                    // Stage R2: an exact printing names its set and rarity ("Add cards").
+                    assertThat(entry.path("setName").asString()).isEqualTo("Azure Dawn");
+                    assertThat(entry.path("rarity").asString()).isNotEmpty();
+                    assertThat(entry.has("printingCount")).isFalse();
                 });
 
         JsonNode azure = get("/api/v1/cards/suggest?q=azu&game=yugioh");
@@ -256,6 +262,9 @@ class CatalogSearchIT extends AbstractIntegrationTest {
         assertThat(azure.get(0).path("setCode").asString()).isEqualTo("AZR");
         assertThat(azure.get(0).path("printingCode").asString()).startsWith("AZR-");
         assertThat(azure.get(0).path("imageUrl").asString()).endsWith(".svg");
+        // Stage R2: a card says how many printings it has ("Yu-Gi-Oh! · 2 printings").
+        assertThat(azure.get(0).path("printingCount").asInt()).isEqualTo(2);
+        assertThat(azure.get(0).has("setName")).isFalse();
 
         assertThat(names(get("/api/v1/cards/suggest?q=emberf&game=pokemon")))
                 .contains("Emberfang Fox", "Emberfang Fox VMAX");

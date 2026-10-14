@@ -39,6 +39,9 @@ public final class InventoryRequests {
      * @param visibility PUBLIC inside a binder (the binder decides), PRIVATE otherwise
      * @param publicUntil required for TEMPORARILY_PUBLIC, at most 30 days ahead
      * @param binderId one of the caller's binders
+     * @param askingPriceText the asking price as typed (at most 40 characters); a plain amount also
+     *     fills askingPrice, which must then be absent
+     * @param conditionStated false: no condition is stated (condition must be absent)
      */
     @Schema(name = "CreateInventoryItemRequest", description = "A new inventory item")
     public record CreateInventoryItemRequest(
@@ -57,7 +60,22 @@ public final class InventoryRequests {
             @Size(max = 500) @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Nullable Instant publicUntil,
-            @Nullable UUID binderId) {}
+            @Nullable UUID binderId,
+            @Size(max = 200)
+                    @Schema(
+                            example = "85% TCG",
+                            description =
+                                    "The asking price as typed (at most 40 characters once"
+                                        + " trimmed), shown exactly as typed. A plain amount"
+                                        + " (12.50, $12.50, 12,50 $) also fills askingPrice in the"
+                                        + " item's currency; other text leaves it empty. Do not"
+                                        + " send askingPrice with it.")
+                    @Nullable String askingPriceText,
+            @Schema(
+                            description =
+                                    "false: the card's condition is not stated (cards added on the"
+                                            + " phone; send no condition). Default true.")
+                    @Nullable Boolean conditionStated) {}
 
     /**
      * {@code PATCH /inventory/items/{id}}: any subset of the fields of the create request. {@code
@@ -70,7 +88,7 @@ public final class InventoryRequests {
                     "Any subset of the fields; absent fields are unchanged. binderId null unfiles"
                         + " the item (it becomes PRIVATE unless its binder was PUBLIC without an"
                         + " end date and no visibility is sent). Making the item public confirms"
-                        + " it.")
+                        + " it, and so does confirm: true.")
     public record UpdateInventoryItemRequest(
             @Nullable UUID printingId,
             @Min(1) @Max(9999) @Nullable Integer quantity,
@@ -86,7 +104,21 @@ public final class InventoryRequests {
             @Schema(nullable = true) @Size(max = 500) @Nullable String publicNotes,
             @Nullable ListingVisibility visibility,
             @Schema(nullable = true) @Nullable Instant publicUntil,
-            @Schema(nullable = true) @Nullable UUID binderId) {}
+            @Schema(nullable = true) @Nullable UUID binderId,
+            @Schema(
+                            nullable = true,
+                            example = "85% TCG",
+                            description =
+                                    "The asking price as typed (at most 40 characters); null"
+                                            + " clears the price. A plain amount also sets"
+                                            + " askingPrice; sending askingPrice without it clears"
+                                            + " the text. Not both.")
+                    @Nullable String askingPriceText,
+            @Schema(
+                            description =
+                                    "true: the save also confirms the item is still available, as"
+                                            + " POST .../confirm does (the phone's Edit card).")
+                    @Nullable Boolean confirm) {}
 
     /**
      * {@code POST /inventory/items/bulk}.
