@@ -1,6 +1,7 @@
 # ADR 0011 — Payments through a provider abstraction (Stripe Connect), feature-flagged
 
-**Status:** Accepted · **Date:** 2026-09-29
+**Status:** Accepted · **Date:** 2026-09-29 · **Amended by:** [ADR 0018](0018-deals-happen-in-the-chat.md)
+(2026-10-14: deals happen in the chat; no protected payments on the phone)
 
 ## Context
 OrenjiTrade is an intermediary. It must never hold card data or self-custody funds and must
@@ -59,3 +60,12 @@ Options for Premium (and donations):
 
 Until the owner decides, the local builds keep the fake providers (clearly labelled "Local test
 payment"), and no store build is produced (EAS stays unused).
+
+## Amendment 2026-10-14 (ADR 0018): no protected payments on the phone
+
+Deals happen in the chat and payment stays outside the app ([ADR 0018](0018-deals-happen-in-the-chat.md)).
+The phone no longer offers payment protection, its checkout or payouts (stage R1 of the phone
+redesign deleted them), and never claims protection or escrow. Everything above stays in force
+for the paused web: `PaymentProvider`, the Stripe Connect adapter, the `protectedPayments` flag
+(off at launch) and the webhooks. The app-store question above now concerns Premium and donations
+only; their fake checkouts stay on the phone behind their flags.
