@@ -68,7 +68,7 @@ tags:
       id: 'printing-count'
     timeout: 30000
 - takeScreenshot: r2-choose-printing
-- tapOn: 'SVX-025, .*Reverse Holo.*'
+- tapOn: 'SVX-025, .*Reverse holo.*'
 
 # Add to inventory (screen 6): two copies, a text price, a photo.
 - extendedWaitUntil:
