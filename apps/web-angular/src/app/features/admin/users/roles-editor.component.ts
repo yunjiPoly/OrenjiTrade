@@ -16,7 +16,7 @@ const ROLE_HELP: Record<Role, string> = {
   USER: 'Every account. Always kept.',
   MODERATOR: 'Moderation areas of the admin console.',
   ADMIN: 'The whole admin console.',
-  SUPER_ADMIN: 'Admin plus feature flags, plans and role grants.',
+  SUPER_ADMIN: 'Admin plus feature flags, usage limits and role grants.',
 };
 
 /** Why a role checkbox is locked, or null when it can be changed. */
