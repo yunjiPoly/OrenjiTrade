@@ -31,6 +31,20 @@ export const meKeys = {
   inventoryItem: (uid: Uid, id: string) =>
     [...ME_ROOT, uidKey(uid), 'inventory', 'item', id] as const,
   inventorySummary: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory', 'summary'] as const,
+  /**
+   * Inventory imports (stage S5), apart from `inventory` (an item write must not read a preview
+   * again): every read (prefix), the caller's imports, the file limits, one import, its rows.
+   */
+  imports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports'] as const,
+  importList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports', 'list'] as const,
+  importLimits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'inventory-imports', 'limits'] as const,
+  importOne: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'one', id] as const,
+  /** Every page set of an import's rows (prefix), whatever the filter. */
+  importRows: (uid: Uid, id: string) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'rows', id] as const,
+  importRowList: (uid: Uid, id: string, status: string | null) =>
+    [...ME_ROOT, uidKey(uid), 'inventory-imports', 'rows', id, status ?? 'all'] as const,
   /** Every binder read (list, one binder, its items): invalidated by binder and item writes. */
   binders: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'binders'] as const,
   binderList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'binders', 'list'] as const,

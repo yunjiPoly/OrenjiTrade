@@ -86,6 +86,9 @@ export function RootNavigator() {
         {/* Inventory items (web: the add dialog and the edit panel of /inventory). */}
         <Stack.Screen name="items/new" options={{ title: 'Add a card' }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Card' }} />
+        {/* Inventory import (stage S5): a YDK deck file or a Collectr CSV export, previewed and
+            committed. Web: a recorded follow-up. */}
+        <Stack.Screen name="items/import" options={{ title: 'Import cards' }} />
         {/* A conversation (from the inbox, a collector, a holder or a notification). */}
         <Stack.Screen name="messages/[id]" options={{ title: 'Conversation' }} />
         {/* A public community channel (web: /community/:slug; the list is in the Messages tab). */}

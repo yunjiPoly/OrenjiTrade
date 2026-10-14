@@ -388,6 +388,55 @@ public class CatalogService {
         return result;
     }
 
+    // ---------------------------------------------------------------------------------------
+    // Grouped lookups for the inventory import (one query per batch, never one per file row)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Cards of ACTIVE games by their provider id ({@code card.external_ref}: for YGOPRODeck the
+     * card's passcode), by that id; unknown ids are absent.
+     */
+    public Map<String, CatalogCardRef> cardsByExternalIds(
+            String provider, Collection<String> externalIds) {
+        return queries.cardsByExternalIds(provider, externalIds);
+    }
+
+    /**
+     * Cards of ACTIVE games that own a provider artwork (an alternate artwork has its own id at the
+     * provider), by artwork id; unknown ids are absent.
+     */
+    public Map<String, CatalogCardRef> cardsByProviderImageIds(
+            String provider, Collection<String> imageIds) {
+        return queries.cardsByProviderImageIds(provider, imageIds);
+    }
+
+    /**
+     * Cards of ACTIVE games by normalised name ({@link CatalogText#normalise}); a name can belong
+     * to several cards (the same name in two games).
+     */
+    public Map<String, List<CatalogCardRef>> cardsByNormalisedNames(Collection<String> names) {
+        List<UUID> gameIds = gameService.active().stream().map(GameView::id).toList();
+        return queries.cardsByNormalisedNames(gameIds, names);
+    }
+
+    /**
+     * Printings (ACTIVE games) of the given cards, by card, the most recent set first (release
+     * date, unknown dates last; then code and id, so the order is stable).
+     */
+    public Map<UUID, List<CatalogPrintingRef>> printingRefsOfCards(Collection<UUID> cardIds) {
+        return queries.printingRefsOfCards(cardIds);
+    }
+
+    /** Printings (ACTIVE games) by exact upper-case printing code, by code. */
+    public Map<String, List<CatalogPrintingRef>> printingRefsByCodes(Collection<String> codes) {
+        return queries.printingRefsByCodes(codes);
+    }
+
+    /** Printings (ACTIVE games) by id; unknown ids and hidden games are absent. */
+    public Map<UUID, CatalogPrintingRef> printingRefs(Collection<UUID> ids) {
+        return queries.printingRefs(ids);
+    }
+
     /** Name of a card for its placeholder image. */
     public Optional<String> cardName(String gameSlug, String cardSlug) {
         return queries.cardName(gameSlug, cardSlug);

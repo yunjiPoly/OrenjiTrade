@@ -73,7 +73,7 @@ export interface ProblemDetail {
      */
     feature?: string;
     /**
-     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED)
+     * Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED, IMPORT_ALREADY_COMMITTED)
      */
     currentStatus?: string;
     /**
@@ -89,9 +89,25 @@ export interface ProblemDetail {
      */
     cost?: number;
     /**
-     * Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT
+     * Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT. Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS
      */
     reason?: string;
+    /**
+     * The limit an inventory import file passed: bytes (reason TOO_LARGE), lines (TOO_MANY_LINES) or rows (TOO_MANY_ROWS)
+     */
+    fileLimit?: number;
+    /**
+     * The columns an inventory import file lacks (reason MISSING_COLUMNS), e.g. card name
+     */
+    missingColumns?: Array<string>;
+    /**
+     * Rows of an inventory import that still need a printing (IMPORT_ROWS_UNRESOLVED)
+     */
+    unresolved?: number;
+    /**
+     * New inventory items an import would add (LIMIT_REACHED with limitKey inventory.items.max)
+     */
+    requested?: number;
 }
 export enum ProblemDetailErrorCodeEnum {
     ValidationFailed = 'VALIDATION_FAILED',
@@ -124,6 +140,10 @@ export enum ProblemDetailErrorCodeEnum {
     AlreadySubscribed = 'ALREADY_SUBSCRIBED',
     InsufficientCredits = 'INSUFFICIENT_CREDITS',
     ReferralNotAllowed = 'REFERRAL_NOT_ALLOWED',
+    ImportExpired = 'IMPORT_EXPIRED',
+    ImportAlreadyCommitted = 'IMPORT_ALREADY_COMMITTED',
+    ImportRowsUnresolved = 'IMPORT_ROWS_UNRESOLVED',
+    ImportEmpty = 'IMPORT_EMPTY',
     Conflict = 'CONFLICT',
     HandleTaken = 'HANDLE_TAKEN',
     DeletionBlocked = 'DELETION_BLOCKED',

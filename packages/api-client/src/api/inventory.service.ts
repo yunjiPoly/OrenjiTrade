@@ -197,7 +197,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * Add an item
-     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead.
+     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the plan\&#39;s inventory size; no plan has a number for it today.
      * @endpoint post /api/v1/inventory/items
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

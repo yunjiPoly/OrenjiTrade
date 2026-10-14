@@ -317,6 +317,10 @@ orenji:
     # SeedDataRunner: fictional accounts (+ emulator users) for local/dev only.
     enabled: false
     emulator-password: ${SEED_EMULATOR_PASSWORD:LocalDev!2026}
+    # End-to-end suites only: fictional Yu-Gi-Oh! cards under the provider ygoprodeck, so a YDK
+    # deck file has something to match (ImportFixtureSeedContributor). Never in a database that
+    # imports the real catalog: the seed refuses to run while YGOPRODECK_ENABLED is true.
+    import-fixtures: ${SEED_IMPORT_FIXTURES:false}
   ratelimit:
     # Fixed windows in Redis. First matching policy wins, so specific ones come first.
     # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
@@ -332,6 +336,20 @@ orenji:
         path-patterns: ["/api/v1/inventory/items/*/images"]
         methods: [POST]
         limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-upload
+        # An upload is parsed, matched to the catalog and stored: 30 files an hour is a collector
+        # importing every deck they own, not a script.
+        path-patterns: ["/api/v1/inventory/imports"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_UPLOADS_PER_HOUR:30}
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-commit
+        path-patterns: ["/api/v1/inventory/imports/*/commit"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_COMMITS_PER_HOUR:30}
         window-seconds: 3600
         key-by: USER
       - name: image-upload

@@ -102,6 +102,11 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     YGOPRODECK_ENABLED: 'false',
     YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
     YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    // The inventory import of a deck file (stage S5) matches passcodes of the provider
+    // `ygoprodeck`, which the sample catalog does not have: the isolated database gets the three
+    // fictional ones of ImportFixtureSeedContributor (910000001 to 910000003). The contributor
+    // refuses to run while the real provider is enabled, and no developer database ever gets them.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort},http://127.0.0.1:${webPort}`,
     ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     EVENTS_TRANSPORT: 'local',

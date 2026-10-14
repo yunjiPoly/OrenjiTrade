@@ -1,0 +1,130 @@
+# Inventory import, a Collectr CSV export (stage S5): a collector who already has two copies of a
+# card pastes the text of a fictional export. The row of that card is added to the copies already
+# owned (the preview says so before anything is written), a row nothing fits is reported with
+# what the file said, and the commit raises the owned card instead of adding a second one.
+# OrenjiTrade never calls Collectr: the text is typed here. scripts/own-printing.js gives the
+# collector the copies on the host, scripts/check-import.js checks what the isolated API holds.
+appId: ${APP_ID}
+name: Import a Collectr CSV with a row that merges
+tags:
+  - mobile-s5
+  - inventory-import
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: csv
+      DISPLAY_NAME: Maestro Sheet Importer
+- runScript:
+    file: scripts/own-printing.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      CARD: 'Azure-Eyes Sky Dragon'
+      CODE: 'AZR-EN001'
+      EDITION: 'FIRST_EDITION'
+      CONDITION: 'NEAR_MINT'
+      QUANTITY: '2'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, Near Mint, 2 copies.*'
+    timeout: 60000
+
+- tapOn:
+    id: 'inventory-import'
+- extendedWaitUntil:
+    visible:
+      id: 'import-source-COLLECTR_CSV'
+    timeout: 30000
+- tapOn:
+    id: 'import-source-COLLECTR_CSV'
+- extendedWaitUntil:
+    visible:
+      id: 'import-choose-file'
+    timeout: 30000
+- assertVisible: 'Up to 2 MB and 5,000 rows.'
+
+# The text of the export, pasted: a row of the card already owned, a row nothing fits.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'import-paste'
+- tapOn:
+    id: 'import-paste'
+- tapOn:
+    id: 'import-paste-text'
+- inputText: "Product Name,Set,Card Number,Rarity,Variance,Card Condition,Quantity\nAzure-Eyes Sky Dragon,Azure Dawn,AZR-EN001,Ultra Rare,1st Edition,Near Mint,2\nNobody Knows Me,Some Set,EN404,Common,,,3\n"
+- takeScreenshot: import-csv-pasted
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'import-paste-submit'
+- tapOn:
+    id: 'import-paste-submit'
+
+# The preview: the dragon goes into the copies already owned.
+- extendedWaitUntil:
+    visible:
+      id: 'import-summary'
+    timeout: 60000
+- assertVisible: '0 new cards'
+- assertVisible: '1 added to a card you own'
+- assertVisible: '0 need a printing'
+- assertVisible: '1 not recognised'
+- takeScreenshot: import-csv-preview
+- assertVisible: 'Add 1 card \(2 copies\) to my inventory'
+- assertVisible: 'Its copies are added to a card you already have.'
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-row-0-owned'
+      BAR: 'import-commit-bar'
+- assertVisible: 'You have 2: this adds 2.'
+# The file's own words under the line it became.
+- assertVisible: 'In your file: Azure Dawn · AZR-EN001 · Ultra Rare'
+- assertVisible: 'Which copy of Azure-Eyes Sky Dragon: AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition'
+# The row nothing fits, with what the file said.
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-row-1'
+      BAR: 'import-commit-bar'
+- assertVisible: 'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
+- takeScreenshot: import-csv-rows
+
+# The commit: the owned card holds four copies, not a second card.
+- tapOn:
+    id: 'import-commit'
+- extendedWaitUntil:
+    visible:
+      id: 'import-result'
+    timeout: 60000
+- assertVisible: '0 new cards added'
+- assertVisible: '1 card you already had got more copies'
+- assertVisible: '1 line of your file left out: 1 not recognised'
+- takeScreenshot: import-csv-result
+- runScript:
+    file: scripts/check-import.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_ITEMS: 'AZR-EN001:NEAR_MINT:4:PRIVATE'
+      EXPECT_IMPORT_STATUS: 'COMMITTED'
+- tapOn:
+    id: 'import-result-inventory'
+- extendedWaitUntil:
+    visible: 'Azure-Eyes Sky Dragon, AZR-EN001, Near Mint, 4 copies.*'
+    timeout: 60000
+- assertVisible: '1 card · 4 copies · 0 public now'

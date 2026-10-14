@@ -21,6 +21,8 @@ api/adminDelisting.service.ts
 api/adminDelisting.serviceInterface.ts
 api/adminFeatureFlags.service.ts
 api/adminFeatureFlags.serviceInterface.ts
+api/adminInventoryImport.service.ts
+api/adminInventoryImport.serviceInterface.ts
 api/adminListings.service.ts
 api/adminListings.serviceInterface.ts
 api/adminModeration.service.ts
@@ -66,6 +68,8 @@ api/internal.service.ts
 api/internal.serviceInterface.ts
 api/inventory.service.ts
 api/inventory.serviceInterface.ts
+api/inventoryImport.service.ts
+api/inventoryImport.serviceInterface.ts
 api/legal.service.ts
 api/legal.serviceInterface.ts
 api/listingHealth.service.ts
@@ -185,6 +189,7 @@ model/blockUserRequest.ts
 model/blockedUser.ts
 model/broadcastRequest.ts
 model/broadcastResponse.ts
+model/bulkInventoryImportRequest.ts
 model/bulkInventoryRequest.ts
 model/bulkInventoryResponse.ts
 model/bulkSkipped.ts
@@ -210,6 +215,7 @@ model/collectorProfileResponse.ts
 model/collectorRating.ts
 model/collectorRatingsPage.ts
 model/collectorTag.ts
+model/commitInventoryImportRequest.ts
 model/communityAuthor.ts
 model/communityChannel.ts
 model/consentRequest.ts
@@ -295,6 +301,19 @@ model/imageUploadResponse.ts
 model/internalCardImageCacheStatus.ts
 model/inventoryBinderRef.ts
 model/inventoryCardRef.ts
+model/inventoryImportBulkResponse.ts
+model/inventoryImportCard.ts
+model/inventoryImportDeckCopies.ts
+model/inventoryImportLimits.ts
+model/inventoryImportPurgeJobResponse.ts
+model/inventoryImportResponse.ts
+model/inventoryImportResult.ts
+model/inventoryImportRow.ts
+model/inventoryImportRowChange.ts
+model/inventoryImportRowSource.ts
+model/inventoryImportSections.ts
+model/inventoryImportSettingsResponse.ts
+model/inventoryImportSummary.ts
 model/inventoryItemImage.ts
 model/inventoryItemResponse.ts
 model/inventorySummaryResponse.ts
@@ -359,6 +378,7 @@ model/pageResponseAuditLogEntry.ts
 model/pageResponseCardHolderResult.ts
 model/pageResponseCardSummary.ts
 model/pageResponseCatalogSyncRun.ts
+model/pageResponseInventoryImportRow.ts
 model/pageResponseInventoryItemResponse.ts
 model/pageResponseModerationFlag.ts
 model/pageResponsePaymentWebhookEvent.ts
@@ -473,6 +493,9 @@ model/updateCreditSettingsRequest.ts
 model/updateDelistPolicyRequest.ts
 model/updateDonationSettingsRequest.ts
 model/updateFeatureFlagRequest.ts
+model/updateInventoryImportRequest.ts
+model/updateInventoryImportRowRequest.ts
+model/updateInventoryImportSettingsRequest.ts
 model/updateInventoryItemRequest.ts
 model/updateLocationRequest.ts
 model/updateModerationRuleRequest.ts

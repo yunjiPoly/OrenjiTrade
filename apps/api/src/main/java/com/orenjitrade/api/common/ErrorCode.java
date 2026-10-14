@@ -108,6 +108,24 @@ public enum ErrorCode {
      * ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT).
      */
     REFERRAL_NOT_ALLOWED(HttpStatus.CONFLICT, "Referral not allowed"),
+    /**
+     * An inventory import preview is older than its time to live (stage S5): upload the file again.
+     * Once the purge job removed it, the same request answers {@link #NOT_FOUND}.
+     */
+    IMPORT_EXPIRED(HttpStatus.GONE, "Import expired"),
+    /**
+     * The commit of an inventory import has started or ended: the preview can no longer be edited
+     * or discarded (extension {@code currentStatus}).
+     */
+    IMPORT_ALREADY_COMMITTED(HttpStatus.CONFLICT, "Import already committed"),
+    /**
+     * Rows of an inventory import still need a printing (extension {@code unresolved}): choose one,
+     * use the most recent printing for all of them, leave them out, or commit with {@code
+     * skipUnresolved}.
+     */
+    IMPORT_ROWS_UNRESOLVED(HttpStatus.CONFLICT, "Import rows unresolved"),
+    /** No row of an inventory import is ready to be imported. */
+    IMPORT_EMPTY(HttpStatus.CONFLICT, "Nothing to import"),
     CONFLICT(HttpStatus.CONFLICT, "Conflict"),
     /** The requested handle is already used (case-insensitively) or reserved. */
     HANDLE_TAKEN(HttpStatus.CONFLICT, "Handle taken"),

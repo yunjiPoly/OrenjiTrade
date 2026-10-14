@@ -539,6 +539,56 @@ public class InventoryItemRepository {
         return result;
     }
 
+    /** Non-deleted items of the owner (the usage of {@code inventory.items.max}). */
+    public long countLive(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT count(*) FROM inventory_item WHERE owner_id = :ownerId AND"
+                                + " deleted_at IS NULL")
+                .param("ownerId", ownerId)
+                .query(Long.class)
+                .single();
+    }
+
+    /**
+     * The owner's live items of the given printings, read without a row lock. The private ones
+     * ({@link MergeCandidate#privateItem}) are the items an import can raise instead of adding an
+     * equal one, the oldest first; an item the owner shows is never raised by an import (an
+     * imported copy never becomes public by being merged) and is only listed so a preview can say
+     * that it exists. A caller that writes holds the owner lock.
+     */
+    public List<MergeCandidate> mergeCandidates(UUID ownerId, Collection<UUID> printingIds) {
+        List<MergeCandidate> result = new ArrayList<>();
+        List<UUID> distinct = printingIds.stream().distinct().toList();
+        for (int from = 0; from < distinct.size(); from += 1000) {
+            jdbc.sql(
+                            """
+                            SELECT id, printing_id, condition, language, edition, quantity,
+                                   (visibility = 'PRIVATE') AS private_item
+                              FROM inventory_item
+                             WHERE owner_id = :ownerId AND deleted_at IS NULL
+                               AND printing_id IN (:printingIds)
+                             ORDER BY (visibility = 'PRIVATE') DESC, created_at, id
+                            """)
+                    .param("ownerId", ownerId)
+                    .param(
+                            "printingIds",
+                            distinct.subList(from, Math.min(distinct.size(), from + 1000)))
+                    .query(
+                            rs -> {
+                                result.add(
+                                        new MergeCandidate(
+                                                rs.getObject("id", UUID.class),
+                                                rs.getObject("printing_id", UUID.class),
+                                                rs.getString("condition"),
+                                                rs.getString("language"),
+                                                rs.getString("edition"),
+                                                rs.getInt("quantity"),
+                                                rs.getBoolean("private_item")));
+                            });
+        }
+        return result;
+    }
+
     // ---------------------------------------------------------------------------------------
     // Writes
     // ---------------------------------------------------------------------------------------
@@ -750,6 +800,20 @@ public class InventoryItemRepository {
                         UPDATE inventory_item SET quantity = quantity - :by, updated_at = :now,
                                last_owner_activity_at = :now
                          WHERE id = :id AND deleted_at IS NULL AND quantity > :by
+                        """)
+                .param("id", id)
+                .param("by", by)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /** Adds {@code by} copies to an item the transaction holds (the caller keeps it ≤ 9 999). */
+    public void addQuantity(UUID id, int by, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET quantity = quantity + :by, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NULL
                         """)
                 .param("id", id)
                 .param("by", by)
@@ -1057,6 +1121,27 @@ public class InventoryItemRepository {
      * @param binderId binder, {@code null} when unfiled
      */
     public record LockedItem(UUID id, UUID ownerId, @Nullable UUID binderId) {}
+
+    /**
+     * A live item of the owner that is equal to a line of an import.
+     *
+     * @param id item
+     * @param printingId printing
+     * @param condition condition code
+     * @param language language of the copy
+     * @param edition edition of the copy
+     * @param quantity copies it holds
+     * @param privateItem whether its visibility is PRIVATE: only such an item is raised by an
+     *     import
+     */
+    public record MergeCandidate(
+            UUID id,
+            UUID printingId,
+            String condition,
+            String language,
+            String edition,
+            int quantity,
+            boolean privateItem) {}
 
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}

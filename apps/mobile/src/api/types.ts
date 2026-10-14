@@ -82,6 +82,24 @@ export type PublicInventoryItem = Schemas['PublicInventoryItem'];
 export type PublicInventoryPage = Schemas['PageResponsePublicInventoryItem'];
 export type ListingStatus = Schemas['ListingStatus'];
 
+// --- Inventory import (stage S5: a YDK deck file or a Collectr CSV export) ----------------------
+export type InventoryImport = Schemas['InventoryImportResponse'];
+export type ImportSource = InventoryImport['source'];
+export type ImportStatus = InventoryImport['status'];
+export type ImportSummary = Schemas['InventoryImportSummary'];
+export type ImportSections = Schemas['InventoryImportSections'];
+export type ImportResult = Schemas['InventoryImportResult'];
+export type ImportRow = Schemas['InventoryImportRow'];
+export type ImportRowStatus = ImportRow['status'];
+export type ImportUnmatchedReason = NonNullable<ImportRow['unmatchedReason']>;
+export type ImportRowPage = Schemas['PageResponseInventoryImportRow'];
+export type ImportRowChange = Schemas['InventoryImportRowChange'];
+export type ImportBulkResponse = Schemas['InventoryImportBulkResponse'];
+export type ImportLimits = Schemas['InventoryImportLimits'];
+export type UpdateImportRequest = Schemas['UpdateInventoryImportRequest'];
+export type UpdateImportRowRequest = Schemas['UpdateInventoryImportRowRequest'];
+export type BulkImportRequest = Schemas['BulkInventoryImportRequest'];
+
 // --- Collectors, search and holders (Phase 4; region-scoped since ADR 0017) ---------------------
 export type CollectorMarker = Schemas['CollectorMarker'];
 export type MatchingItem = Schemas['MatchingItem'];

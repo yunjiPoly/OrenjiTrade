@@ -287,6 +287,75 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "language",
                         "active",
                         "matchCount");
+        // Stage S5 (inventory import: YDK deck files and Collectr CSV exports).
+        for (String path :
+                java.util.List.of(
+                        "/api/v1/inventory/imports",
+                        "/api/v1/inventory/imports/limits",
+                        "/api/v1/inventory/imports/{id}",
+                        "/api/v1/inventory/imports/{id}/rows",
+                        "/api/v1/inventory/imports/{id}/rows/{rowId}",
+                        "/api/v1/inventory/imports/{id}/bulk",
+                        "/api/v1/inventory/imports/{id}/commit",
+                        "/api/v1/admin/inventory/import-settings",
+                        "/internal/jobs/inventory-import-purge")) {
+            assertThat(paths.has(path)).as(path).isTrue();
+            paths.path(path)
+                    .properties()
+                    .forEach(
+                            operation -> {
+                                assertThat(operation.getValue().path("summary").asString())
+                                        .as("summary of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                                assertThat(operation.getValue().path("operationId").asString())
+                                        .as("operationId of %s %s", operation.getKey(), path)
+                                        .isNotEmpty();
+                            });
+        }
+        JsonNode importSchemas = document.path("components").path("schemas");
+        assertThat(
+                        paths.path("/api/v1/inventory/imports")
+                                .path("get")
+                                .path("operationId")
+                                .asString())
+                .isEqualTo("listInventoryImports");
+        assertThat(importSchemas.path("InventoryImportRow").path("properties").propertyNames())
+                .contains(
+                        "status",
+                        "unmatchedReason",
+                        "source",
+                        "deck",
+                        "card",
+                        "printing",
+                        "suggestedPrintingIds",
+                        "condition",
+                        "conditionSource",
+                        "quantity",
+                        "included",
+                        "willImport",
+                        "ownedQuantity");
+        // What Collectr says a card is worth is never part of the contract.
+        assertThat(importSchemas.path("InventoryImportRow").toString())
+                .doesNotContainIgnoringCase("price");
+        assertThat(
+                        importSchemas
+                                .path("InventoryImportRowSource")
+                                .path("properties")
+                                .propertyNames())
+                .containsExactlyInAnyOrder("passcode", "name", "set", "number", "rarity");
+        assertThat(importSchemas.path("ProblemDetail").path("properties").propertyNames())
+                .contains("reason", "fileLimit", "missingColumns", "unresolved", "requested");
+        assertThat(
+                        importSchemas
+                                .path("ProblemDetail")
+                                .path("properties")
+                                .path("errorCode")
+                                .toString())
+                .contains(
+                        "IMPORT_EXPIRED",
+                        "IMPORT_ALREADY_COMMITTED",
+                        "IMPORT_ROWS_UNRESOLVED",
+                        "IMPORT_EMPTY");
         // Phase 7 (ratings, references, reports, moderation, delisting, admin console).
         for (String path :
                 java.util.List.of(

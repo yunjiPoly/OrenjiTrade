@@ -28,6 +28,10 @@ Not scheduled on purpose (one-off, admin or probe endpoints; a validation refuse
 (`npm run catalog:import`), `GET /internal/jobs/card-images/status`,
 `POST /internal/jobs/card-images/clear` (destructive).
 
+Not scheduled either: `POST /internal/jobs/inventory-import-purge` (expired inventory import
+previews, stage S5). The API runs that job after every `freshness` job, so the hourly `freshness`
+entry above covers it and the module still has 9 jobs; the route exists for a run on request.
+
 Cloud Scheduler pricing: 3 jobs free per billing account, then US$0.10 per job per month
 (10 jobs here, about US$0.70/month).
 

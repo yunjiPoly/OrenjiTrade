@@ -40,7 +40,8 @@ since 2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #59 #60 #6
 | --- | --- | --- |
 | Mobile stage M9 — regions on the phone (2026-10-12): the region switcher, the region map in the Map tab, the binders of a state or province, `react-native-maps` / `react-native-webview` / `leaflet` removed from the app | branch `feature/mobile-regions-map` (worktree `OrenjiTrade-s2-ux`), on top of `main` at `00714a9`, not pushed | Built and checked on the iOS simulator and the web export (IMPLEMENTATION_STATUS.md, "Mobile app: regions and the region map"). Reviewed on 2026-10-12 (17 findings, no blocker); fixed on 2026-10-13 ("Review fix 1" in that section). The second review approved it the same day with three minors, fixed at once ("Review fix 2"). Waits for the pull request. Android could not be verified on this Mac. |
 | The binder / inventory lock fix | branch `fix/inventory-lock-order` (the former `fix/binder-count-deadlock` merged with `main`) | Final independent review done on 2026-10-13: no regression of the branch, one older corner closed by a one-line fix that a second verifier approved. Waits for the pull request. |
-| Stages S3–S6 | — | Not started. **Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Owner decision of 2026-10-13: after the map, only S5 and S6; S3 and S4 are skipped until the owner asks for them.** Next: S5 for the phone (its API and its mobile screens), then S6. |
+| Stage S5 — inventory import on the phone (2026-10-13): a Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV export, previewed, edited and committed; its API and its mobile screens | branch `feature/s5-inventory-import` (worktree `OrenjiTrade-regions`), cut from the branch that holds stage M9 and the lock fix, not pushed | Built and checked on the iOS simulator and the web export (IMPLEMENTATION_STATUS.md, "Inventory import: YDK and Collectr CSV"). Reviewed independently; review fix 1 (same section, migration V114) answers the findings. The second look approved it with one minor, answered by review fix 2 the same day (the lines whose copy was assumed stay counted and can be listed). Waits for the pull request. Android could not be verified on this Mac. The web import screen is a recorded follow-up (web paused). |
+| Stages S3, S4, S6 | — | **Owner order of 2026-10-12: mobile only, the web app is paused until a new order. Owner decision of 2026-10-13: after the map, only S5 and S6; S3 and S4 are skipped until the owner asks for them.** Next: S6 (the final documents and the definition-of-done walkthrough). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
 
@@ -59,7 +60,7 @@ conflict). It is delivered in six stages, one PR each, in order:
 | S2 simplified wishlist | 4 | merged (#60) |
 | S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | **skipped** by the owner (2026-10-13) until asked for |
 | S4 community photos (no videos), region channels already done in S1 | 5 | **skipped** by the owner (2026-10-13) until asked for |
-| S5 inventory import: YDK + Collectr CSV | 6 | next: its API and its mobile screens (web import screen paused) |
+| S5 inventory import: YDK + Collectr CSV | 6 | built on `feature/s5-inventory-import` (2026-10-13): the API (contract `docs/api/contracts/s5-inventory-import.md`) and the phone screens ("Import" on the Inventory tab); reviewed, review fix 1 (V114) and review fix 2 done; waits for its pull request. Not built: the web import screen (web paused) |
 | S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | after S5; it lists what S3 and S4 would have delivered as not built |
 
 Facts the spec gets wrong (already handled, keep handling): section 7 says the mobile app "calls
@@ -81,9 +82,13 @@ never store Collectr prices).
 4. **S5, then S6** (owner decision of 2026-10-13: S3 and S4 are skipped until asked for), each
    the same way (section 4 below), each its own PR. Since the owner's order of 2026-10-12 (mobile
    only, web paused) a stage is built as its API and its mobile screens; the web screens of that
-   stage wait for a new order and are recorded as a follow-up. S5's import is a bulk write of
-   inventory items: it follows the rule "A new bulk write" of `docs/database/schema.md` (the
-   inventory lock fix, reviewed and fixed on 2026-10-13).
+   stage wait for a new order and are recorded as a follow-up. **S5 is built** (2026-10-13, branch
+   `feature/s5-inventory-import`): its import is a bulk write of inventory items and follows the
+   rule "A new bulk write" of `docs/database/schema.md`. It was reviewed independently the same
+   day and review fix 1 answers every finding (IMPLEMENTATION_STATUS.md, "Review fix 1
+   (2026-10-13)", migration V114); the second look approved it with one minor, answered by
+   "Review fix 2 (2026-10-13)". Next for S5: the pull request. **Then S6**: the final documents and the definition-of-done
+   walkthrough, which lists what S3 and S4 would have delivered as not built.
 5. The mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md`: the region switcher, the state
    binder list, the region map and the `react-native-maps` removal are done (stage M9,
    2026-10-12); the printing picker with holder counts, have/want ("Who has it" / "Who wants it",
@@ -207,6 +212,35 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
   the iOS simulator", Open).
 - Uploaded photos can come out rotated on every client: the API drops a photo's EXIF orientation
   when it re-encodes the upload (same section). A backend fix, not started.
+- The inventory import (stage S5, IMPLEMENTATION_STATUS.md, "Inventory import: YDK and Collectr
+  CSV"): (1) a card whose file names no condition starts at the lowest grade of its game
+  (`DAMAGED`), and the phone offers one condition for all such cards; confirm, or say `NEAR_MINT`
+  (one line: `ImportMatcher.defaultCondition`). (2) No plan limits the size of an inventory: V113
+  adds `inventory.items.max` without a number; give FREE one in `/admin/usage-limits` or leave it
+  open. (3) Collectr's real CSV header was never seen: the columns are found through a table of
+  aliases (`CollectrCsvFormat`); try a real export once and add a title if a column is missed.
+  (4) The web import screen and a web admin page for the `inventory.import.*` settings are not
+  built (web paused). (5) The upload of a file from the Android app is expected to work like the
+  photo upload does not: it uses the same file part (`localFilePart.ts`) and was only proven on
+  iOS. (6) Review fix 1 made two choices for the owner to confirm: an import never raises a card
+  the collector shows (its copies become a private card; the alternative is to raise the public
+  card and say so before the commit), and "use the most recent printing" takes the plain copy
+  (Unlimited, no foil) where the most recent set holds a card in several editions or finishes,
+  and says so on the line (the alternative is to leave those lines to the collector). Since
+  review fix 2 those lines stay counted on the preview and can be listed until each is checked.
+- A second dialog of another kind on a stack screen is invisible to the accessibility snapshot
+  of iOS in Expo Go (found during stage S5 on a screen from before it: in the card editor, open
+  the binder sheet, close it, press "Delete card": the confirmation is on screen and works by
+  touch, but `maestro hierarchy` lists none of its buttons). On the Inventory tab the same order
+  works. Not caused by `aria-modal`. Unknown whether a release build and VoiceOver on a device
+  are affected: nobody could check here (no native build, and a production bundle in Expo Go
+  refuses the emulator sign-in). Worth one session with VoiceOver on a real iPhone; native flows
+  must not assert a dialog that follows a sheet (or a sheet's dialog) on a stack screen until
+  then. The reviewers of S5 saw it once on the import screen and could not bring it back in
+  eleven controlled attempts. A lead: the test driver takes its snapshot honouring
+  `accessibilityViewIsModal` (our `aria-modal`), so a modal whose native view outlives its React
+  unmount for a moment would hide everything else; to try: keep a modal's turn (`modalTurns.tsx`)
+  until React Native's `onDismiss`.
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
   review, backup-restore drill, failure tests).
 - The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were

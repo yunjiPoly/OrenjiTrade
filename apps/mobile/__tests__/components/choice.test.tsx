@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { ScrollView } from 'react-native';
 
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { ListFooter } from '@/src/components/ui/ListFooter';
@@ -32,6 +33,76 @@ describe('choice controls', () => {
     fireEvent.press(screen.getByTestId('condition-LP'));
     expect(onChange).toHaveBeenCalledWith('LP');
     expect(screen.getByRole('alert')).toHaveTextContent('Choose a condition.');
+  });
+
+  it('ChoiceChips brings the chosen chip of a scrolling row on screen when the choice changes elsewhere', () => {
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(() => {});
+    const options = [
+      { value: 'ALL', label: 'All (435)' },
+      { value: 'CHOOSE', label: 'Needs a printing (0)' },
+      { value: 'ASSUMED', label: 'Plain copy assumed (115)' },
+      { value: 'UNMATCHED', label: 'Not recognised (15)' },
+    ];
+    const chips = (value: string, revealSelected = true) => (
+      <ThemeProvider scheme="light">
+        <ChoiceChips
+          label="Lines shown"
+          hideLabel
+          scroll
+          revealSelected={revealSelected}
+          options={options}
+          value={value}
+          onChange={jest.fn()}
+          testID="filter"
+        />
+      </ThemeProvider>
+    );
+    /** A phone 370 points wide: the third chip is cut at the edge, the fourth is off screen. */
+    const layOut = () => {
+      fireEvent(screen.getByTestId('filter-row'), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width: 370, height: 40 } },
+      });
+      [
+        ['ALL', 0, 90],
+        ['CHOOSE', 98, 160],
+        ['ASSUMED', 266, 200],
+        ['UNMATCHED', 474, 160],
+      ].forEach(([key, x, width]) =>
+        fireEvent(screen.getByTestId(`filter-${key}`), 'layout', {
+          nativeEvent: { layout: { x, y: 0, width, height: 36 } },
+        })
+      );
+    };
+    const view = render(chips('ALL'));
+    layOut();
+    // The chosen chip is on screen: the row stays where it is.
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    // A button elsewhere chooses the chip that is cut at the edge: the row brings it in whole.
+    view.rerender(chips('ASSUMED'));
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 266 + 200 - 370 + 8, animated: true });
+    fireEvent.scroll(screen.getByTestId('filter-row'), {
+      nativeEvent: { contentOffset: { x: 104, y: 0 } },
+    });
+
+    // Back to the first chip, now off screen on the left.
+    view.rerender(chips('ALL'));
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 0, animated: true });
+    fireEvent.scroll(screen.getByTestId('filter-row'), {
+      nativeEvent: { contentOffset: { x: 0, y: 0 } },
+    });
+
+    // A chip that is whole on screen moves nothing.
+    scrollTo.mockClear();
+    view.rerender(chips('CHOOSE'));
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    // Without the option a scrolling row never moves by itself (the game pills).
+    view.unmount();
+    const plain = render(chips('ALL', false));
+    plain.rerender(chips('UNMATCHED', false));
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
   });
 
   it('SelectSheet opens its options and reports a new choice', () => {

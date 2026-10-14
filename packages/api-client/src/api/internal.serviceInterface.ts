@@ -22,6 +22,7 @@ import { CreditsReconcileJobResult } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
 import { InternalCardImageCacheStatus } from '../model/models';
+import { InventoryImportPurgeJobResponse } from '../model/models';
 import { OfferExpiryJobResponse } from '../model/models';
 import { PaymentsAutoReleaseJobResult } from '../model/models';
 import { PingJobResponse } from '../model/models';
@@ -131,10 +132,17 @@ export interface InternalServiceInterface {
 
     /**
      * Recompute listing freshness (service auth)
-     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes a listing. Records a job run. The same trigger then runs the inventory-import-purge job (expired import previews), as a job run of its own.
      * @endpoint post /internal/jobs/freshness
 */
     runFreshnessJob(extraHttpRequestParams?: any): Observable<FreshnessJobResponse>;
+
+    /**
+     * Delete expired inventory import previews (service auth)
+     * Deletes the import previews past their time to live (inventory.import.preview_ttl_minutes), the results of finished imports past the same time, and commits nobody finished for 7 days. Never touches the inventory. Records a job run. The hourly freshness job runs it too; this route is for a run on request.
+     * @endpoint post /internal/jobs/inventory-import-purge
+*/
+    runInventoryImportPurgeJob(extraHttpRequestParams?: any): Observable<InventoryImportPurgeJobResponse>;
 
     /**
      * Expire offers past their expiry (service auth)

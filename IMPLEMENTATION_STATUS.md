@@ -3620,55 +3620,653 @@ deleting a card right after changing a privacy setting.
 
 ---
 
+## Inventory import: YDK and Collectr CSV (stage S5, 2026-10-13)
+
+Owner spec of 2026-10-08, section 6, with the tests of section 9 that concern it. Branch
+`feature/s5-inventory-import`. **The API and the phone screens are built** (owner order of
+2026-10-12: mobile only; the web import screen is a recorded follow-up). Contract:
+`docs/api/contracts/s5-inventory-import.md` (every endpoint, field, error code and limit, a worked
+example per source). Tables and locks: `docs/database/schema.md`, "V113". The phone:
+`apps/mobile/README.md`, "Inventory import".
+
+### What a collector can now do on the phone
+
+- **Start an import from the Inventory tab** ("Import", next to "Select"; also from an empty
+  inventory). Two sources, each with one sentence on what the file is and how to get it out of the
+  other app: a **Yu-Gi-Oh! deck file (.ydk)** and a **Collectr CSV export**. The CSV screen says
+  that OrenjiTrade never connects to Collectr and never reads its prices.
+- **Give the file**: "Choose a file" opens the system file picker (Files on iOS), or "Paste the
+  text of the file" (both formats are plain text, and a phone rarely has such a file at hand).
+  Either way the same upload is sent. A progress line stands while the file is read and matched.
+  A file the API refuses is explained in words: too large (with the limit), too many lines or
+  rows, not a text file, the column that could not be found (named), an empty file, too many
+  imports in a short time (with when to try again). A file that is too large is refused before
+  anything is uploaded.
+- **Check the preview before anything is added.** On top, four counts: new cards, cards that go
+  into cards already owned, lines that still need a printing, lines not recognised; under them the
+  copies, the lines that go in, and until when the preview is kept. A deck shows its **three
+  sections as switches** with the cards the file holds in each. The lines are one long list,
+  loaded page by page: the card with its picture, **the copy chosen or "Choose printing"**, the
+  condition (marked "not in your file" when the file names none), the copies, a tick box to leave
+  the line out, "You have 2: this adds 2." when it goes into a card already owned. A filter shows
+  only the lines that need a printing, or only the ones not recognised; those are listed with
+  what the file said (a passcode, or the name, set, number and rarity) and why nothing fits.
+- **Choose printings**: "Which copy" lists the printings of the card as the card page does (the
+  ones that fit a CSV row first, under "Fits your file"); a pick is saved at once. Or **"Use the
+  most recent printing for all unchosen rows"** (by set release date).
+- **Set conditions and copies**: per line in a dialog, or one condition for every card whose file
+  names none (a deck file names none, and such a card starts at the lowest grade).
+- **Commit**: the button says what it adds ("Add 3 cards to my inventory") and what happens to
+  them ("They start private: nobody sees them until you publish them", or how many go into cards
+  already owned). While lines need a printing it is disabled and says why; ticking "Leave out the
+  N cards that still need a printing" makes it "Add 1 card, leave 2 out". The result says the new
+  cards added, the cards that got more copies and the lines left out (and why), and leads to the
+  inventory, where the new cards are **Private**. A plan limit shows the app's limit notice (with
+  "See Premium" only while premium plans are sold) and nothing is written.
+- **Nothing is lost or doubled**: an import left open is offered again ("Continue your import")
+  until it expires; an expired one says so and starts over; leaving with an open preview asks
+  first; discarding it or replacing it by a new file asks first; a commit pressed twice is sent
+  once, one repeated after a lost connection adds nothing twice, and one that went through
+  although its answer was lost shows its result by itself; a commit cut between two parts shows
+  "Finish the import".
+
+### What the API does
+
+- **One preview-then-commit flow for both sources** (`/api/v1/inventory/imports`, tag
+  `inventory-import`): `POST` (multipart `file`, query `source` = `YDK` | `COLLECTR_CSV`, optional
+  `game`) parses and matches the file and stores a **preview** (V113 `inventory_import`,
+  `inventory_import_row`); `GET /`, `GET /{id}`, `GET /{id}/rows` (pages, `status` filter);
+  `PATCH /{id}` (which sections of a deck count); `PATCH /{id}/rows/{rowId}` (printing, condition,
+  copies, in or out); `POST /{id}/bulk` (`USE_MOST_RECENT_PRINTING`, `SET_CONDITION`);
+  `POST /{id}/commit`; `DELETE /{id}`; `GET /limits`. Admin: `GET` / `PUT
+  /api/v1/admin/inventory/import-settings`. Job: `inventory-import-purge`.
+- **YDK** (`YdkParser`, pure): `#main`, `#extra`, `!side`, one passcode per line, `#` comments,
+  blank lines, CRLF, a byte-order mark, leading zeros; a passcode repeated is as many copies, per
+  section and in total; a line that is none of that is counted and never stops the rest. A
+  passcode is matched through `card.external_ref` (provider `ygoprodeck`), then through the
+  provider's artwork ids (`card_image.provider_image_id`: an alternate artwork is the card of that
+  artwork). A row is preselected only when its card has exactly one printing.
+- **Collectr CSV** (`CsvReader`, `CollectrCsvParser`, `CollectrCsvFormat`, pure): comma, semicolon
+  or tab; quoted fields with commas, line breaks and doubled quotes; a byte-order mark. The columns
+  are found through **one table of aliases** (`CollectrCsvFormat`), because Collectr's real header
+  is not confirmed; a file without a card name column is refused with a message that names it.
+  **A price column is never read** (it matches no alias and the parser only reads the columns it
+  found), so no Collectr price can reach the preview, the database or a log. OrenjiTrade never
+  calls Collectr.
+- **Matching without a query per row** (`ImportMatcher`, pure; `CatalogService` grouped lookups in
+  batches of 1 000): a row that fits exactly one printing is preselected, one card and several
+  printings is "choose a printing" (with the printings that fit what the row says as suggestions),
+  nothing is reported with a reason and never blocks the rest.
+- **Commit** (`InventoryImportService`, `InventoryService.importLines`): idempotent, also under
+  concurrent commits; rows that are equal (printing, condition, edition, language) are one item; an
+  equal item the collector already has takes the copies (a private one before a public one, then
+  the oldest); new items are PRIVATE and unfiled. Up to 500 items one transaction; above that
+  chunks of 500 in file order, each its own transaction, and a repeated commit continues after the
+  last chunk recorded. It follows the rule "A new bulk write" (owner lock first, the binders and
+  the existing items in ascending id through `lockForWrite`, single-row statements, reconciliation
+  in the transaction, the plan computed before it).
+- **Counts for the phone's summary** (added with the phone screens, in the one query of the
+  summary): `summary.mergedItems` (of the items a commit writes, those equal to an item the
+  collector already has: `items - mergedItems` are new; read without a lock, the commit decides
+  under the locks), `summary.defaultConditions` (matched rows whose condition nobody chose, the
+  rows `SET_CONDITION` changes) and `sections.mainCopies` / `extraCopies` / `sideCopies` (what the
+  deck file holds in each section, recognised or not, whether the section counts or not).
+- **Guards**: the preview belongs to its collector (404 for everyone else), expires
+  (`preview_ttl_minutes`, 410 `IMPORT_EXPIRED`) and is purged; the file limits are admin settings
+  read at every upload; a file that is not UTF-8 text is refused (415); the Redis rate limiter has
+  a policy for uploads and one for commits (30 an hour each per collector); the freemium limit
+  `inventory.items.max` is checked for the whole import before the first item (429
+  `LIMIT_REACHED`, nothing written).
+
+### Decisions, and why
+
+1. **No freemium inventory limit existed.** The spec and the stage brief ask the import to respect
+   "the freemium inventory limit"; `usage_limit` had none (binders, wishlist items, binder views,
+   offers, saved searches only) and `POST /inventory/items` checked nothing. V113 adds
+   `inventory.items.max` (TOTAL: the collector's non-deleted items) for every plan **without a
+   number**: nothing changes for a collector until an admin sets one in `/admin/usage-limits`.
+   `POST /inventory/items` and the import both respect it, so a number set later means the same
+   thing on every path. **Owner: decide whether FREE gets a number.**
+2. **The default condition is the lowest of the game** (`DAMAGED` for the four games), not the
+   item form's `NEAR_MINT`. A deck file says nothing about the state of a card, and a CSV row may
+   not either: the "safest" default is the one that claims least, so a collector who later
+   publishes an imported item never promised more than the card is (a "Near Mint only" wish is
+   never alerted for a card nobody graded). The row says where its condition comes from
+   (`conditionSource` `DEFAULT` | `FILE` | `EDITED`) and `SET_CONDITION` gives every `DEFAULT` row
+   another condition in one call. **Owner: confirm, or say `NEAR_MINT`** (one line:
+   `ImportMatcher.defaultCondition`).
+3. **Limits** (admin settings `inventory.import.*`): YDK 100 kB and 500 lines (the spec); CSV
+   **2 MB and 5 000 rows**: a row of an export is about 200 bytes, so 5 000 rows is about 1 MB and
+   the rest is room for long names and notes; 5 000 rows is ten chunks of 500 at the commit, which
+   one request finishes in seconds. An admin can raise it to 20 000 rows and 8 MB (the server
+   accepts 10 MB for any upload). Preview kept 60 minutes.
+4. **A new upload replaces the collector's open preview**: at most one `PENDING` preview each, so
+   the table is bounded by the number of collectors, whatever a script uploads.
+5. **Of a file, a row keeps a passcode, or the name, set, number and rarity as written, and the
+   copies. Nothing else**: not the file, not its name, no price, note, date or portfolio.
+6. **The purge runs with the hourly `freshness` job** (`FreshnessJob`), not as a tenth Cloud
+   Scheduler job: an expired preview is refused when it is read, so the purge is housekeeping, and
+   ADR 0016's nine jobs and their cost stay as they are. `POST
+   /internal/jobs/inventory-import-purge` runs it on request. **Owner: say so if a job of its own
+   is preferred** (one entry in `modules/scheduler/variables.tf`).
+7. **Rows that fit nothing are reported, not edited** (409 on a change): the collector adds those
+   cards by hand. A commit with rows still to choose is refused (409 `IMPORT_ROWS_UNRESOLVED`)
+   unless `skipUnresolved` leaves them out: nothing is left out silently.
+8. **Fictional `ygoprodeck` cards never enter the shared seed.** A YDK passcode is matched through
+   the provider `ygoprodeck`, and a developer's database can import the real catalog, where an
+   invented passcode could meet a real card. The API's tests create their own cards
+   (`ImportTestSupport`, random nine-digit passcodes, in the throwaway test database). For the
+   end-to-end suites, `SEED_IMPORT_FIXTURES=true` adds three fictional fixtures
+   (`ImportFixtureSeedContributor`: 910000001 one printing, 910000002 two printings, 910000003 an
+   alternate artwork); it is off by default and refuses to run while `YGOPRODECK_ENABLED` is true.
+9. **`source` and `game` travel in the query string** in the generated clients (springdoc renders
+   request parameters so); the server reads them as form fields of the multipart body too.
+10. Previews are not part of the data export: they live an hour, and what they become is the
+    inventory, which is exported. They are deleted with the account.
+
+### Tests
+
+- Unit (pure, 37): `YdkParserTest` 11 (sections, repeated passcodes, comments, CRLF, a byte-order
+  mark, leading zeros, lines that are no passcode, not text, too large, too many lines, no card, a
+  refusal never repeats the file), `CollectrCsvParserTest` 12 (the alias table, quoted fields with
+  commas and line breaks, a byte-order mark, semicolon and tab, a missing needed column, extra
+  columns, a price column that is dropped, row limit, malformed quoting, the value tables),
+  `ImportMatcherTest` 14 (one printing, several, contradiction, number formats, language / edition
+  / finish, games, ambiguity, reasons, quantity, default condition, most recent printing).
+- Integration: `InventoryImportIT` 17 (preview of each source: matched, to choose, unmatched; the
+  edits; both bulk actions; the commit: PRIVATE items, quantities, the merge with existing items
+  and inside the import; the same commit twice and four commits at once; rows to choose; a card
+  that left the catalog; ownership: another collector reads, edits or commits, 404; expiry and the
+  purge, also through the freshness trigger; the freemium limit: the answer and nothing written,
+  and the form's `POST /inventory/items` at the limit; every file limit and the admin settings read
+  at run time; 520 items in two chunks with a failure in the second and a repeat that continues;
+  nothing of a file in the log, captured with our loggers at TRACE; no Collectr price anywhere in
+  the database), `InventoryImportRateLimitIT` 1 (uploads and commits, per collector),
+  `ImportFixtureSeedIT` 3 (the fixtures, and the two worked examples of the contract), `InventoryLockOrderIT`
+  +2 = 81 (`everyWriteStartsWithTheOwnerLock` case `IMPORT_COMMIT`;
+  `anImportCommitNextToTheOtherWritesNeverDeadlocks`: commits next to item creations, edits,
+  deletes, moves, privacy reconciliations and two freshness job workers), `OpenApiExportTest` (the
+  S5 paths, schemas, problem extensions and error codes), `LimitsIT` (seven limits per plan).
+
+### Checks (2026-10-13, Mac mini, JDK 21, OrbStack; all on the final tree of the API work)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck)` | green |
+| `npm run test:api`, twice in a row | green both times: **955 tests** in 169 classes, 0 failures, 0 skipped (3 min 3 s each). The first full run of the stage had one failure, `LimitsIT` counting six limits per plan where V113 makes seven: the assertion was updated |
+| `InventoryLockOrderIT`, three times in a row (`./gradlew test --rerun --tests ...`) | green three times: **81 tests** (79 before this stage), about 19 s each |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | committed; a second run changes nothing (`git status` clean). The document only gained 9 paths (13 operations), 19 schemas, 4 error codes and 4 `ProblemDetail` extensions; two existing operations changed their description (`POST /inventory/items`: the 429 of the new limit; `POST /internal/jobs/freshness`: the purge it now runs) |
+| `npm run build -w apps/web-angular` | compiles; initial total **899.93 kB** (warning at 900 kB). The figure is the same with the generated client of before this stage: nothing of the import is in the web bundle, and the 0.07 kB of margin was there before |
+| `npm run typecheck -w apps/mobile` | green |
+
+Not run, by the stage's order (the phone builder and the reviewers run them): the web E2E, the
+mobile E2E and the native suite. Not verifiable here: an Android run (no Android SDK on this Mac);
+Collectr's real CSV header (never fetched; the alias table covers the header it is believed to
+have and the usual variants).
+
+### Decisions of the phone screens, and why
+
+1. **The commit never leaves a card out silently.** While lines need a printing the button is
+   disabled and says how many; the collector either chooses, takes the most recent printing for
+   all, or ticks "Leave out the N cards that still need a printing" (the commit then sends
+   `skipUnresolved`). A deck of cards with several printings each would otherwise import three
+   cards out of forty without a word.
+2. **Leaving does not throw a preview away; it asks, and says so.** The API keeps a preview for an
+   hour, so the phone offers it again ("Continue your import") instead of deleting it on the way
+   out: an accidental back, a call or a closed app costs nothing. The question on leaving is
+   there because a collector may believe the cards were added ("Nothing has been added to your
+   inventory yet ... kept until 9:53 AM"). What does throw choices away asks first: "Discard this
+   import", and a new file that replaces the open import.
+3. **One upload for a file and for a pasted text.** A pasted text is written to a file of the
+   cache directory and sent as the part `file`, exactly like a picked file (a text part would
+   reach the API as a form field, not as a file). The native flows therefore prove the upload
+   itself, not a second path.
+4. **The file picker offers every file** (`*/*`). A `.ydk` has no registered type and a CSV is
+   reported under several: a type filter greys out the very file the collector looks for. The API
+   decides from the content and refuses what is not text.
+5. **"Which copy" is the list of the card page** (`PrintingList`, also the printing step of "Add
+   a card"), in a bottom sheet, with the picture of each printing: the collector holds the card
+   and compares. The printings that fit a CSV row come first. A pick is saved at once: choosing
+   printings is the work of this screen, two taps a line.
+6. **One condition for all the cards whose file names none.** The API's default is the lowest
+   grade (`DAMAGED`), so a deck would arrive as forty damaged cards. The preview says how many
+   cards have no condition in the file and offers one for all of them; a line whose condition the
+   collector set is left alone.
+7. **Progress is a line, not a percentage.** The typed client has no byte progress, a file is at
+   most 2 MB, and the wait is the matching on the server.
+8. **The three counts the summary needed were added to the API**, not worked out on the phone from
+   pages of rows (see "Counts for the phone's summary").
+9. **Pinned controls follow the system text size only a little** (the commit bar; "Import" and
+   "Select" on the Inventory tab), like the app's other pinned controls since stage M9: at the
+   largest size two full-size buttons took what was left of the screen. From a text scale of 1.4
+   a line puts its name and controls under the picture and the counts stand one per line.
+10. **Fictional deck cards for the end-to-end stacks only**: `SEED_IMPORT_FIXTURES=true` is set in
+    the environment of the isolated mobile API (`scripts/lib/mobile-e2e-guard.mjs`), next to the
+    disabled provider; the web E2E stack does not need it (no web import screen) and no developer
+    database ever gets it.
+
+### Tests of the phone screens
+
+- **jest** (88 suites, **879 tests**; 84 suites and 798 tests before the stage): `features/inventoryImport.test.ts` 32 (the wording: sources, limits, every
+  refusal, the counts, a line, the commit button in each state, the result, the open import),
+  `api/importUpload.test.ts` 5 (a picked file and a pasted text as the same `file` part, the cache
+  file removed, the picker's options), `screens/inventory-import.test.tsx` 35 (source and file:
+  skeleton, error with retry, paste, picker, a file too large refused before any upload, each
+  refusal in words, the missing column named, the game of a CSV, progress and no second upload;
+  the preview: the counts and every accessible name, a section, "Which copy", suggested printings
+  first, the dialog, a line left out at once and put back when refused, both bulk actions, the
+  filters, an empty filter, paging and a page that failed; the commit: left out only when said,
+  `skipUnresolved`, merged cards, pressed twice, repeated after a lost connection, a lost answer,
+  the plan limit with and without Premium; expiry by the API and by the clock, the open import, a
+  cut commit, leaving, discarding, replacing, committed elsewhere), `components/importRow.test.tsx`
+  8 (the row and the header: names, states, large text), `screens/inventory.test.tsx` +1 (the
+  "Import" entry).
+- **Mobile web E2E** (Playwright, real stack): `e2e/inventory-import.spec.ts` 3 (a deck file
+  through the file chooser after a picture that is refused, to three Private cards on the API and
+  in the Inventory tab, the same commit sent again adding nothing; a Collectr CSV pasted after one
+  whose card name column is missing, the merge with two copies already owned, a row that fits
+  nothing, no price on screen; an import left open: the question on leaving, "Continue your
+  import", the discard after a question).
+- **Native flows** (Maestro, one set for both platforms): `inventory-import-deck.yaml` (a deck
+  pasted, a printing chosen, the bulk action, one condition for all, the commit, three Private
+  cards checked on the API by `scripts/check-import.js`), `inventory-import-csv.yaml` (a CSV pasted
+  by a collector who owns two copies, given on the host by `scripts/own-printing.js`: the merge
+  said in the preview and done by the commit, four copies on the API); two subflows for a list
+  with a bar under it (`scroll-down-above.yaml`, `scroll-to-top-below.yaml`).
+
+### Measurements (2026-10-13, the owner's Mac mini, isolated stack)
+
+- On the simulator, a 640-row CSV (53 kB) chosen in the Files picker: the preview was on screen
+  when the next step looked for it (633 lines to choose, 7 not recognised); "Use the most recent
+  printing for all unchosen rows" on 633 lines, then the commit: 200 cards, 1,265 copies, no
+  visible wait.
+- The API alone, called as the phone calls it (`localhost`, one collector, fictional rows over the
+  80 cards of the sample catalog):
+
+  | Step | 640 rows (52 kB) | 5 000 rows (406 kB, the default limit) |
+  | --- | --- | --- |
+  | upload, match, store the preview | 64 ms | 319 ms |
+  | first page of 50 lines | 14 ms | 16 ms |
+  | one line left out and put back (two edits, each with the new counts) | 18 ms | 22 ms |
+  | "most recent printing" for all | 22 ms (633 lines) | 125 ms (4 948 lines) |
+  | commit | 59 ms (200 new cards, 1 265 copies) | 167 ms (200 cards raised, 9 895 copies) |
+  | the same commit again | 7 ms, same result | 54 ms, same result |
+
+  The second file went into the cards the first one had created: `summary.mergedItems` said 200
+  before the commit and the result said `itemsMerged` 200, `itemsCreated` 0.
+- The preview loads 50 lines a page; forty flings down the list kept scrolling and loading.
+- The native flows, in the full run: `inventory-import-deck.yaml` 2 min 9 s,
+  `inventory-import-csv.yaml` 1 min 36 s.
+- Web bundle: unchanged (initial total 899.93 kB, as before the stage; nothing of the import is
+  in the web app).
+
+### Checks of the phone builder (2026-10-13, Mac mini, JDK 21, OrbStack; retries off)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck)` | green |
+| `npm run test:api`, twice in a row | green both times: **955 tests** in 169 classes, 0 failures, 0 skipped (3 min 1 s and 3 min 4 s). The count is the API builder's: the three new counts are asserted inside existing tests of `InventoryImportIT` and `ImportFixtureSeedIT` |
+| `InventoryLockOrderIT`, three times in a row (`./gradlew test --rerun --tests ...`) | green three times: **81 tests**, 19.6 s, 19.4 s and 19.7 s |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | committed with the three counts (`InventoryImportSummary`, `InventoryImportSections`); a second run changes no generated file |
+| `npm run build -w apps/web-angular` | compiles; initial total **899.93 kB** (warning at 900 kB), the figure of before the stage: the web app is not changed |
+| `npm run test:web` | green: 142 files, **678 tests** |
+| `npm run lint -w apps/web-angular` | all files pass |
+| `npm run test:e2e -- --retries=0` (the web suite, as a regression check of the API) | **74 passed** on the first attempt (1.3 min of specs, 1 min 26 s with the stack) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | green |
+| `npm run test:mobile` (typecheck, lint, jest, the harness guard tests) | green: jest 88 suites, **879 tests**; guard tests 28 |
+| `npx expo export --platform ios`, `--platform android`, `--platform web` (throw-away directories) | all three export: 5.5 MB (ios, Hermes bytecode), 5.8 MB (android), 2.9 MB entry (web) |
+| `npm run test:mobile:e2e -- --retries=0` | **59 passed** on the first attempt (53.6 s of specs; 56 specs before the stage) |
+| `npm run test:mobile:maestro -- --platform ios` on the owner's simulator | **29/29 flows passed** in 45 min 50 s (46 min 12 s with the stack): the 27 flows of before the stage and the two import flows (`inventory-import-deck.yaml` 2 min 9 s, `inventory-import-csv.yaml` 1 min 36 s) |
+| `npm run test:scripts` | green: **133 tests** in 25 suites (the guard test knows `SEED_IMPORT_FIXTURES`) |
+| `npm run audit:gate` | OK, no unreviewed high or critical advisory (the two allow-listed ones expire on 2026-11-30) |
+
+Before the full run the import flows were run on their own while they were written: the deck flow
+three times (the first run failed where `scrollUntilVisible` took a button under the commit bar
+for a visible one; the two new subflows are the fix, and the two runs after it passed), the CSV
+flow twice (passed both times).
+
+Git status clean, nothing left running (API, Metro, web servers and the Gradle daemon of this
+session stopped; the emulator accounts of the walk deleted), the simulator still booted, light, at
+its default text size. Not run: the Android half of the native suite (no Android SDK on this Mac).
+
+### Walked by hand on the owner's simulator (iPhone 18 Pro, iOS 27.0, Expo Go)
+
+- **A deck by file**: "Choose a file" opens the Files picker; `fictional-deck.ydk` (CRLF line
+  ends, a comment line), copied into "On My iPhone", is selectable although its type is unknown,
+  and becomes the preview of the worked example (1 new card, 2 to choose, 1 not recognised;
+  sections 3 / 1 / 2). The picker is another process: Maestro sees none of it, it was driven by
+  taps on positions.
+- **A CSV by file**: the 640-row export above, replacing the open import after "Replace your open
+  import?".
+- **A deck and a CSV by paste**: the two native flows.
+- **Leaving**: the header's back button and the back gesture of iOS both ask "Leave this
+  import?"; "Stay" keeps the preview, "Leave" goes back to the Inventory tab, and "Import" offers
+  "Continue your import" with the choices made.
+- **Dark**: the preview, the lines, "Which copy", the condition dialog. **Largest text size** (the
+  launch argument of `relaunch-large-text.yaml`, no setting of the device changed): every screen
+  scrolls and nothing is cut; the commit bar stays two lines high. The simulator was left booted,
+  light, at its default text size.
+- **What a screen reader would say** (`maestro hierarchy`): the back button "Inventory"; "Import
+  Fixture Lantern Wisp, checkbox, checked"; "Which copy of Fixture Clockwork Heron: Choose
+  printing"; "Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies";
+  a line nothing fits as one sentence ("Not recognised: Passcode 919999999, 1 copy, No card of the
+  catalog has this passcode."); the filter as radio buttons with their state; the condition dialog
+  with its radios and "Copies".
+
+### Found, not fixed (not caused by this stage)
+
+- **A second dialog of another kind on a stack screen has an empty accessibility snapshot on iOS
+  in Expo Go.** Found while reading the names above, then reproduced on a screen from before this
+  stage: in the card editor, open the binder sheet, close it, press "Delete card". The
+  confirmation is on screen and works by touch, but `maestro hierarchy` lists none of its
+  elements, and a flow cannot press its buttons by id. The same order on the Inventory tab (a bulk
+  sheet, then the delete confirmation) works, and the first dialog of a launch is always complete.
+  On the import screen: a sheet then the condition dialog, or the condition dialog then "Leave
+  this import?". Removing `aria-modal` changes nothing. Whether a release build and VoiceOver on a
+  device are affected could not be checked here (no native build; a production bundle in Expo Go
+  refuses the emulator sign-in). The import flows only open bottom sheets one after the other,
+  which works. **Owner: one session with VoiceOver on a real iPhone would settle it.**
+- The web build does not hold the browser's own Back button (a limit of React Navigation on the
+  web); the header's back button asks. Nothing is lost either way: the preview is kept.
+- The header's back button of the web build is named "(tabs), back" (the group's name; iOS shows
+  "Inventory" through `backTitles.ts`, which is iOS only by design).
+
+### Could not be verified
+
+- **The Android run** (no Android SDK on this Mac): the screens, the two flows and the two new
+  subflows on Android, and the upload of a file from Android. The upload uses the file part of
+  `localFilePart.ts`, which on Android is still React Native's own part and is expected to fail
+  the way photo uploads are expected to (the open item of "Mobile app on the iOS simulator").
+- **Collectr's real CSV header** (never fetched): the alias table covers the header it is believed
+  to have and the usual variants.
+- **VoiceOver itself**: the names were read from the accessibility tree, not heard.
+- **The Files picker with iCloud Drive** or another provider: only "On My iPhone" of the simulator.
+
+### Not built, recorded
+
+- **The web import screen** and a web admin page for the `inventory.import.*` settings (web
+  paused; the admin API exists, and `inventory.items.max` is editable in `/admin/usage-limits`).
+- A label for the job `inventory-import-purge` on the web admin health page (it shows under its
+  name); a data export section for import previews (API decision 10).
+- A way back to the top of a very long preview on Android (iOS has the tap on the status bar):
+  the bulk actions and the filter stand in the head of the list.
+- No feature flag and no analytics event for the import: the spec asks for neither.
+
+### Review fix 1 (2026-10-13)
+
+Two independent reviews of the stage (a product and usability walk on the simulator, U1 to U14;
+a functional and security verification with attacks and mutations, F1 to F10) asked for changes.
+Each finding, and what was done. Migration **V114** (`V114__inventory_import_review_fixes.sql`).
+
+**What changes for a collector**
+
+- **A plan limit on the inventory can no longer be passed by an import (F1, blocker).** An import
+  of more than 500 cards is written in parts, and between two parts a card added by hand, or a
+  second import, took room that was already promised: 1 514 cards at a limit of 1 500. From the
+  moment a commit starts, the cards it has still to write count as used
+  (`inventory_import.chunk_new_items`), for `POST /inventory/items`, for a second import and in
+  `GET /me/plan`. No plan has a number for this limit today, so nothing was exceeded in practice.
+- **A card shown as "Left out" is never imported (U1, F2).** On a slow connection the commit
+  could overtake an edit that was still being saved. The phone now sends the commit only after
+  every edit made before it was answered (one queue for the edits and the commit), and the button
+  waits and says "Saving your changes…" meanwhile. A change that still comes too late (the import
+  was committed on another device) is said on the result, with the card to check.
+- **An import never changes a card the collector shows (U2).** Copies equal to a public card were
+  added to it and became public at once, without a word. They now become, or join, a private card
+  of their own, and the line says so ("You show 1 publicly: that card stays as it is, and these 2
+  copies are added as a private card."). **Owner decision asked**: this is the cautious choice;
+  the alternative is to raise the public card and say so before the commit.
+- **"Use the most recent printing" no longer picks a 1st Edition or a foil by the alphabet (U3,
+  F9).** Where the most recent set holds a card in several editions or finishes, the plain copy
+  is taken (Unlimited, no foil: the one that claims least, like the lowest condition), the line
+  says so until the collector changes it, and the message counts those lines. Where the date
+  decides nothing otherwise (two rarities, two languages), the line stays "Choose printing" and
+  the message says how many. **Owner decision asked**: the alternative is to leave every such
+  line to the collector (with the sample catalog, where every Yu-Gi-Oh! card has a 1st Edition
+  and an Unlimited copy in one set, the action would then decide nothing).
+- **"Not recognised" is no dead end (U4).** "Passcode" is explained where the deck file is chosen
+  and on the line ("the number printed in the lower left corner of a card"); every reason says
+  what can be done next (find the card with "Add card", check the spelling, add the set or the
+  number); a deck line says in which section it stands; and after the commit the lines that were
+  not added stay readable on the result ("Not recognised (3)", "Without a printing (1)").
+- **At the largest text size the pages that end the flow scroll (U5)**: "This preview expired"
+  and "The import could not load" kept "Start over" and "Try again" out of reach.
+- **Smaller things**: the card "Check the conditions" says what the cards were set to after "Set
+  one condition" (U7); one word per thing, "different cards" of a deck, "lines" of a CSV, "copies",
+  and the copies next to the cards on the button, "Add 12 cards (40 copies)" (U8); the paste field
+  has a "Done" bar over the keyboard on iOS and a drag of the page puts the keyboard away (U9); a
+  CSV in another encoding is told to be saved as UTF-8 (U10); the plan limit is said on top of the
+  preview before any commit, and a refusal says how many cards to leave out (U11); the filter
+  stays on screen above the list, the two counts that ask something are buttons, and a filter
+  brings its first line up (U12); a recognised line shows what the file said, a passcode or the
+  set, number and rarity as written (U13); a line of a game OrenjiTrade does not have shows the
+  copies its file wrote (U14, F10).
+- **A file chosen with the picker is not kept on the phone (F6)**: the copy the system picker
+  makes in the app's cache is deleted after the upload, after a refusal, and when the collector
+  keeps the open import instead.
+
+**Each finding**
+
+| Finding | Done |
+| --- | --- |
+| F1 limit passed by an import of several chunks (blocker) | V114 `chunk_new_items`; the usage of `inventory.items.max` = live items + what the collector's `COMMITTING` imports have still to write (`InventoryExtensions`, `InventoryImportRepository.reservedItems`). A later chunk that needs more than it reserved (its merge target was deleted and the room given away) is refused with 429 and waits. Tests: `InventoryImportIT` `theCardsACommitHasStillToWriteKeepTheirRoomUnderTheLimit`, `cardsAddedByHandWhileAnImportIsWrittenNeverPassTheLimit` (8 writers), `aChunkThatNeedsMoreRoomThanItsCommitReservedWaitsForIt` |
+| F4 the limit of an import of more than 500 lines untested | `anImportOfSeveralChunksIsRefusedAsAWholeBeyondTheLimit` (limit 600, 1 000 lines: 429 `requested` 1000, nothing written, still `PENDING`) |
+| F3 no test fails when the commit stops taking the owner lock first | `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`: the preview is uploaded before the lock is held, the check also locks the collector's `inventory_import` rows `NOWAIT` and reads the preview `PENDING` with no row frozen |
+| F5 the guard that re-plans a commit after an edit untested | `InventoryLockOrderIT.aCommitThatWaitedPlansAgainAfterAnEditOfItsPreview` (the reviewer's recipe: owner lock held, commit waits, a row is left out with 200, lock released: 2 of 3 rows imported) |
+| F7 the account purge deleted the previews before the owner lock | order swapped (`InventoryExtensions`: items, which take the lock, then previews); new case `ACCOUNT_PURGE` in `everyWriteStartsWithTheOwnerLock` |
+| F8 a finish no printing has was dropped and the row preselected | `ImportMatcher`: such a row is never preselected (`aFinishNoneOfThePrintingsHasIsNeverDroppedSilently`) |
+| F9 / U3 the tie of "most recent printing" | `ImportMatcher.mostRecent` (plain copy of several versions, marked `MOST_RECENT_ASSUMED`; anything else undecided); `assumed` and `undecided` in the answer; tests in `ImportMatcherTest` (2) and `InventoryImportIT` |
+| F10 four small inaccuracies | (1) uploads of one collector take an upload lock and wait for an edit: one open preview however they arrive (two tests); (2) the unknown-game row keeps its copies; (3) a quantity above 9 999 is `INVALID_QUANTITY`, not cut to 9 999; (4) `result.copiesNotAdded`, said on the result |
+| U1 / F2 commit while edits are being saved | `useCommitImport` in the edits' mutation scope, `useImportEditsPending`, the button; jest: `api/importCommitQueue.test.tsx` and a screen test with a slow API |
+| U2 merged copies became public | API: only a private item is raised (`mergeTargets`, `OWNED_KEYS`), `shownQuantity` on a row; phone: the line says it |
+| U4, U7, U8, U10, U11, U13 wording | `importLabels.ts`, `ImportRowCard`, `ImportResult` (the lists), `ImportPreviewHeader`; `summary.defaultCondition` added for U7 |
+| U5 the expired page does not scroll | `app/items/import.tsx`: the three end states are scroll screens; seen on the simulator at the largest size, and a jest test |
+| U9 "Use this text" under the keyboard | `Screen.keyboardDismissMode`, an iOS `InputAccessoryView` "Done", `Keyboard.dismiss()` on submit |
+| U12 three screens of header, the filter at its end | the filter pinned above the list (text size capped like the commit bar), counts as buttons, a filter scrolls to the first line |
+| F6 the picked copy stays in the cache | `discardUpload` (`importFile.ts`): after the upload, on a refusal before sending, on "Keep it", on leaving; only ever a file of the picker's own folder |
+| U6 a dialog once on screen with an empty accessibility tree | **Not changed: not reproduced, and not in this stage's code.** Three more controlled attempts here (the card editor: binder sheet closed by an option, then by its backdrop, then "Delete card"; the import: bulk action, "Which copy" closed by its backdrop, then the row dialog) all exposed the dialog, after the reviewer's eight. A lead for the task the builders flagged: the test driver takes its snapshot honouring `accessibilityViewIsModal` (our `aria-modal`), so a modal whose native view outlives its React unmount for a moment would hide everything else, from the snapshot and from VoiceOver. To try there: keep a modal's turn (`modalTurns.tsx`) until React Native's `onDismiss`, and check with VoiceOver on a device |
+
+**Proof that the new tests catch what the reviewers' mutants escaped** (each mutation applied to
+the worktree, the two suites run, the worktree restored): the usage without the reservation, the
+purge order reversed and `SKIP LOCKED` back: 5 tests fail; the owner lock out of both chunk
+transactions: the `IMPORT_COMMIT` case fails; the revision ignored and the limit of the first
+chunk only: the re-plan test and the chunks test fail; no upload lock, the later-chunk guard off
+and public merge targets: 4 tests fail; the import row locked before the owner lock: the
+`IMPORT_COMMIT` case fails. On the phone: the commit out of the queue fails the queue test, the
+button not waiting fails the screen test.
+
+**Tests added**: API `InventoryImportIT` 17 → 26, `InventoryLockOrderIT` 81 → 83,
+`ImportMatcherTest` 14 → 17, `ImportResultTest` 2 (a result stored before V114 still reads). Phone
+jest 879 → 909 tests (`importCommitQueue.test.tsx` new; the wording, row, upload and screen
+tests extended). The web E2E spec and the two native flows assert the new wording, the pinned
+filter, the source line, the condition card after "Set one condition" and the left-out list.
+
+**Checks of review fix 1** (2026-10-13, Mac mini, JDK 21, OrbStack; retries off)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck)` | green |
+| `npm run test:api`, twice in a row | green both times: **984 tests** in 173 classes, 0 failures, 0 skipped (3 min 2 s and 3 min 10 s); 968 before the fix (the count includes the 12 catalog tests and the OpenAPI export test) |
+| `InventoryLockOrderIT`, three times in a row (`./gradlew test --rerun --tests ...`) | green three times: **83 tests**, 19.6 s, 19.7 s and 19.8 s |
+| `(cd apps/api && ./gradlew exportOpenApi)` then `npm run generate:api` | committed; a second run changes nothing (`git status` clean). No path added or removed: four fields and one enum value (`shownQuantity`, `assumed`, `undecided`, `copiesNotAdded`, `defaultCondition`; `MOST_RECENT_ASSUMED`) |
+| `npm run build -w apps/web-angular` | compiles; initial total **899.93 kB** (unchanged: the web app is not touched) |
+| `npm run test:web`, `npm run lint -w apps/web-angular` | green: 142 files, **678 tests**; all files pass |
+| `npm run test:e2e -- --retries=0` (the web suite, as a regression check of the API) | **74 passed** on the first attempt (1.3 min of specs) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | green |
+| `npm run test:mobile` (typecheck, lint, jest, the harness guard tests) | green: jest 89 suites, **909 tests**; guard tests 28 |
+| `npx expo export --platform ios`, `--platform android`, `--platform web` (throw-away directories) | all three export: entry 5.6 MB (ios, Hermes bytecode), 5.9 MB (android), and the web build |
+| `npm run test:mobile:e2e -- --retries=0` | **59 passed** on the first attempt (53.6 s of specs) |
+| `npm run test:mobile:maestro -- --platform ios` on the owner's simulator | **29/29 flows passed** in 46 min 7 s (46 min 30 s with the stack); `inventory-import-deck.yaml` 2 min 21 s, `inventory-import-csv.yaml` 1 min 37 s |
+| `npm run test:scripts` | green: **133 tests** in 25 suites |
+| `npm run audit:gate` | OK, no unreviewed high or critical advisory |
+
+Git status clean, nothing left running (the API, Metro and web servers of the runs stopped, the
+emulator accounts of the walk deleted, the Gradle daemon of this session stopped), the simulator
+still booted, light, at its default text size. Not run: the Android half of the native suite (no
+Android SDK on this Mac).
+
+Walked on the owner's simulator after the fixes (screenshots kept outside the repository): the
+preview with the pinned filter and the units; the bulk action on a CSV of the sample catalog ("2
+lines got their most recent printing. Their most recent set has several versions: the plain copy
+(Unlimited, no foil) was taken. Check them. 1 line has several printings in its most recent set:
+choose it."); the three kinds of line not recognised with their next step (the unknown game with
+its 4 copies, 12 000 copies refused); the result with both lists opened; at the largest text size
+the filter bar stays one line high, "All" brings the first line up in one press, and "This
+preview expired" scrolls to "Start over". The paste step showed its "Done" bar; this simulator
+shows no software keyboard, so the drag that puts it away was not seen with a keyboard on screen.
+**The picked copy (F6), on the device**: a deck chosen in the Files picker while the test API was
+held still: the copy stood in the app's `Library/Caches/DocumentPicker` for as long as the upload
+waited, and was gone the moment the upload answered (the folder stays, empty). After the whole
+native suite no `orenjitrade-import-*` file of a pasted text was left either.
+
+**Still open after review fix 1**: the two owner decisions above (U2, U3); U6 as described; the
+Android run (no SDK on this Mac); the "Done" bar and the drag with a software keyboard on a
+device. The earlier line "A way back to the top of a very long preview on Android" under "Not
+built, recorded" no longer applies: the filter is pinned on both platforms.
+
+### Review fix 2 (2026-10-13)
+
+The second, independent look at the branch (head `7e40bfc`) found the 23 findings of review fix 1
+fixed and approved it, with one new finding, a minor one. It is answered here. No migration; the
+commit of an import, its locks and its idempotency are not touched (a count and a read filter in
+the API, one card and one chip on the phone).
+
+**R1-1 (minor): the lines whose copy was assumed could not be listed once the snackbar was gone.**
+"Use the most recent printing" answered "115 lines got their most recent printing. Their most
+recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check them." in a
+snackbar that leaves after four seconds. After that nothing on screen counted those lines and no
+filter listed them: in the reviewer's file of 435 lines the collector scrolled past every line
+looking for the note under each copy. Nothing wrong was imported (each line is marked and the
+plain copy claims least); it was the checking that was laborious.
+
+What a collector has now:
+
+- **A card that stays**, above the lines, for as long as one such line is unchecked: "Plain copy
+  assumed for 115 lines", why the copy was taken, how to check one ("open its copy and pick yours,
+  or pick the plain copy again to confirm it"), and a button "Show these 115 lines". A deck is
+  counted in cards, as everywhere on its preview.
+- **A chip of the filter that stays on screen**: "Plain copy assumed (115)", shown while there
+  are such lines. The chips stand in the order of what they ask of the collector: All, Needs a
+  printing, Plain copy assumed, Not recognised.
+- **The list of exactly those lines**, in file order and paged like every list of the preview. A
+  line leaves it, and the count goes down, when its copy is picked again (which confirms it) or
+  changed; when the last one is checked the list says "No plain copy left to check".
+
+What was done:
+
+| Where | Change |
+| --- | --- |
+| API | `summary.assumedPrintings`: the rows that have a printing and whose `printing_choice` is still `MOST_RECENT_ASSUMED`, left out or not (`InventoryImportRepository.summary`). `GET /inventory/imports/{id}/rows` takes `printingChoice` (alone or with `status`): `MOST_RECENT_ASSUMED` lists exactly the rows the summary counts. A row whose assumed printing left the catalog has no printing any more: it is to choose again and is neither counted nor listed |
+| Phone | `ImportPreviewHeader` (the card `import-assumed`, its button sets the filter), `importLabels` (`assumedCopiesText`, `filterOptions` with the chip and the order, the empty list), the filter `MOST_RECENT_ASSUMED` of `useImportRows` (sent as `printingChoice`); a row whose assumed copy was confirmed or changed reads the filtered lists again; a line whose assumed copy left the catalog no longer says that a copy was taken |
+| Phone, found while proving the fix on the simulator | As the fourth chip of the pinned row, "Plain copy assumed" stood off screen to the right, and after the card's button had set the filter the row showed no chosen chip. Hence the order above (on a phone the third chip is cut at the edge, which says that the row scrolls) and `ChoiceChips revealSelected`: the row of the import filter brings the chosen chip whole on screen whenever the choice changes, also when the card's button or a count set it. The option is off by default: the other scrolling rows of chips (search, offers, trades, community) behave as before |
+| Contract, documents | `docs/api/contracts/s5-inventory-import.md` (the count, the parameter, "Keep what was assumed in reach"), `apps/mobile/README.md`, the OpenAPI document and both generated clients (one field, one query parameter, no path added or removed) |
+
+**Tests that would have caught it**
+
+- API: `InventoryImportIT.theRowsWhoseCopyWasAssumedAreCountedAndCanBeListedUntilEachIsChecked`
+  (the count on the preview after the answer of the bulk action; the filter alone, with a status
+  and paged; a row left out stays; a row confirmed with the same printing, or put back to
+  "choose", leaves both; a printing that leaves the catalog; an unknown value is a 400).
+- Phone jest: a screen test that opens a preview whose bulk action ran earlier (no snackbar at
+  all) and follows the card, the chip, the request for `printingChoice`, a confirmation, a change
+  and the empty list; the wording and the chip order (`inventoryImport.test.ts`); the card and the
+  line whose copy left the catalog (`importRow.test.tsx`); the row that brings its chosen chip on
+  screen (`choice.test.tsx`).
+- Mobile web E2E: a new test in `inventory-import.spec.ts` (a CSV whose two cards have a 1st
+  Edition and an Unlimited copy in one set: the snackbar goes away, the card and the chip stay,
+  the list, one line confirmed, one changed, the editions of the imported cards read on the API).
+- Native: a new flow `inventory-import-assumed.yaml`, the same walk on the owner's simulator.
+
+**Proof by mutation** (each applied to the worktree, the test run, the worktree restored): the
+count without "has a printing" and the filter without it each fail the new API test; a filter
+that sends nothing to the API, and no re-read of the filtered lists after a confirmation, each
+fail the new screen test.
+
+**Seen on the owner's simulator** (the reviewer's file of 435 lines; screenshots kept outside the
+repository): after the snackbar is gone the card "Plain copy assumed for 115 lines" and its
+button; deep in the list the pinned row with "Plain copy assumed (115)"; the chip pressed: the
+assumed lines from the first one, each with its note; one copy picked again: the line leaves the
+list, the chip says 114, and the API counts 114 and lists 114; at the largest text size the card
+and the button, and the button brings the chosen chip whole on screen; the card in the dark
+theme. The simulator was put back to light.
+
+**Not part of this fix**: the two nits the second look also noted (on a line that is left out
+the note "Taken as the plain copy…" is cut at the card's edge; a line of a game OrenjiTrade does
+not have with an unreadable quantity shows no copies) are not blockers of the reviewers and are
+recorded here. The dialog that was once seen with an empty accessibility tree (U6 of review fix
+1) is answered outside this branch: its cause was found and fixed on branch
+`fix/ios-second-modal-accessibility`, which ships after this one (not verified here). The owner
+decisions of review fix 1 (U2, U3) stand as they were.
+
+**Checks of review fix 2 and its independent verification (2026-10-13, head `3fbcaa1`): approved,
+only small points left.** The fixer was stopped by the owner's pause before its native run ended;
+the verifier ran the whole list itself, retries off: `spotlessCheck --rerun-tasks`; `npm run
+test:api` twice (984 tests each, 194 s and 228 s); `InventoryLockOrderIT` three times (83 tests);
+`exportOpenApi` + `npm run generate:api` with git clean; the web build (initial total 899.93 kB),
+`npm run test:web` (678) and the web lint as a regression check; `npm run test:e2e -- --retries=0`
+(74 passed); mobile typecheck, lint, format check; `npm run test:mobile` (jest 89 suites / 916
+tests, 28 guard tests); the three exports; `npm run test:mobile:e2e -- --retries=0` (60 passed);
+**the native suite, 30 of 30 flows in 47 min 54 s on the owner's iPhone 18 Pro simulator**;
+`npm run test:scripts` (133); the audit gate. R1-1 was reproduced through the real API and on the
+phone with a file of 435 lines (356 assumed: the card, the chip, the count going down with each
+confirmation). Around it: eight commits at once gave one result, for one chunk (171 items) and
+for two (800 items); a repeated commit added nothing; the same file again merged (0 created, 800
+merged); everything imported was Private; nothing of the file in the log or the tables. Twelve
+mutants around the fix were all caught. Left open, small:
+- the chip "Plain copy assumed (N)" is cut at the edge of its pinned row until it is dragged or
+  chosen (the card above the lines carries the count; a shorter label would keep it in view);
+- the commit label wraps onto two lines after the reason above it changed; on a line that is left
+  out the note "Taken as the plain copy…" is cut at the card's edge;
+- a line of a game OrenjiTrade does not have with an unreadable quantity shows no copies; when the
+  file names a finish no printing has, the line never shows the file's variant;
+- in a file that names cards without a set, most lines are assumed (356 of 435 in the test file)
+  and each is confirmed one at a time: there is no "confirm all" (an owner question under U3).
+Not verified: the Android run (no Android SDK on this Mac; the Android export builds) and
+VoiceOver speech itself (the accessibility tree was read).
+
 ## NEXT TASK
 
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
 > wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
 > Apple Silicon (#59, 2026-10-10); the iOS path of the native Maestro harness and the iOS defects
-> it found (#61, 2026-10-12). The owner's local database migrates on the next `npm run dev` and
-> loses its trading areas by design (S1).
+> it found (#61, 2026-10-12); mobile stage M9, regions on the phone (#67, 2026-10-13); the binder /
+> inventory lock fix (#68, 2026-10-13). The owner's local database migrates on the next
+> `npm run dev` and loses its trading areas by design (S1).
 >
 > **Owner order of 2026-10-12: mobile only. The web app is paused until a new order** (do not
-> change `apps/web-angular`; it stays the reference for what the phone should offer).
->
-> **Mobile stage M9, regions on the phone (branch `feature/mobile-regions-map`, on `main` at
-> `00714a9`, not pushed):** built and checked on 2026-10-12 (see "Mobile app: regions and the
-> region map"): the region switcher, the region map in the Map tab, the binders of a state or
-> province, the map libraries removed. Reviewed on 2026-10-12 (17 findings, no blocker) and fixed
-> on 2026-10-13 ("Review fix 1" in that section). The second review approved the branch the same
-> day and left three minors, fixed at once ("Review fix 2"). Next for this branch: the pull
-> request, merged when CI is green. The Android steps were not executed (no Android SDK on the
-> Mac). The two stale sentences of `CLAUDE.md` were updated by the lead in the ship step. The owner
-> may try the status-bar tap of iOS on the Search tab with a finger ("Review fix 2", not verified).
->
-> **The binder / inventory lock fix (branch `fix/inventory-lock-order`, the former
-> `fix/binder-count-deadlock` merged with `main`):** its third and final independent review ended
-> on 2026-10-13 without a regression of the branch and with one older corner, closed the same day
-> by a one-line fix that a second verifier approved (see "Binder count deadlock ...", "Final review
-> (2026-10-13) and its one fix"). Next for this branch: the pull request, merged when CI is green.
+> change `apps/web-angular`; it stays the reference for what the phone should offer). The native
+> suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its UDID>`;
+> nothing boots or shuts down a simulator).
 >
 > **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
 > skipped until the owner asks for them.**
 >
-> **Exact next task: stage S5 for the phone, inventory import from a YDK file and from a Collectr
-> CSV (spec section 6), its API and its mobile screens, on a new branch from `main`.** One
-> preview-then-commit flow for both sources: the preview is kept server-side for a short time and
-> belongs to its collector, the commit is idempotent and merges duplicates (same printing,
-> condition, edition and language): one transaction for an import of at most 500 rows, and above
-> that chunks of 500 in order, each its own transaction, where a repeated commit continues after
-> the last chunk that was written (the rule "A new bulk write" of `docs/database/schema.md`: the
-> owner lock first, never one transaction for an unbounded write, one collector's chunks never in
-> parallel), items are Private by default, the freemium inventory
-> limit and the rate limiter apply, file contents are never logged, Collectr is never called and
-> its prices are never stored (the header is detected through aliases: the real one is
-> unconfirmed; the `/mnt/project-files/...` prompt the spec names does not exist). A row without a
-> printing is chosen on the phone with the existing "which copy" chooser of the wish form (the
-> shared picker of the card page belongs to the skipped S3), plus "Use the most recent printing for
-> all unchosen rows". The import is a new bulk write of inventory items and starts from a `main`
-> that holds the lock fix above. The web import screen waits for the owner's order. **Then stage S6**: the final documents and the
-> definition-of-done walkthrough (sections 8 and 9), which must list what S3 and S4 would have
-> delivered as not built (the printing picker with holder counts, "Who has it" / "Who wants it",
-> "Wanted by N", the search history; community photos), not as done.
+> **Stage S5, the inventory import: built on 2026-10-13** (branch `feature/s5-inventory-import`,
+> not pushed; section "Inventory import: YDK and Collectr CSV (stage S5, 2026-10-13)" above): the
+> API (contract `docs/api/contracts/s5-inventory-import.md`) and the phone screens ("Import" on
+> the Inventory tab: a deck file or a Collectr CSV export, chosen or pasted, previewed, edited and
+> committed; new cards are Private). Checked on the iOS simulator and the web export; the Android
+> run could not be verified on this Mac. Reviewed independently the same day; **review fix 1**
+> ("Review fix 1 (2026-10-13)" in that section, migration V114) answers every finding, and the
+> second look approved the branch with one minor finding, answered by **review fix 2** ("Review
+> fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed), which an
+> independent verifier approved the same evening (30 of 30 native flows). **Next for this branch:
+> the pull request, merged when CI is green.** Right after it ships the small branch
+> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal).
+> Owner questions it leaves open: the default condition of a card whose file names none
+> (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
+> collector shows (today it never does: the copies become a private card), whether "use the most
+> recent printing" may take the plain copy where a set holds several versions (today it does, and
+> says so), one session with VoiceOver on a real iPhone (the dialog finding of that section), a
+> real Collectr export to check the column titles. Not built: the web import screen (web paused).
+>
+> **Exact next task: stage S6**, the final documents and the definition-of-done walkthrough (spec
+> sections 8 and 9 and "Definition of done"), on a new branch from a `main` that holds S5. It
+> must list what the skipped stages would have delivered as **not built**, not as done: S3 (the
+> printing picker with holder counts on the card page, "Who has it" / "Who wants it", "Wanted by
+> N", the rarity query parsing, the search history) and S4 (photos in community posts), and the
+> web import screen of S5. The mobile app is the client of every change since 2026-10-12; the web
+> app stays paused until the owner says otherwise.
 >
 > **Skipped (S3, spec sections 2 and 2b), kept here for the day it is asked for.** API: a grouped
 > per-printing holder count, `/search/card-holders` extended (rarity, country / subdivision

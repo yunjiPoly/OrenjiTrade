@@ -135,6 +135,24 @@ wording and no "See Premium" unless `premiumPlans` is on; the plan-limit notific
 Premium only when the API's payload carries `upgradeUrl`). Nothing here claims legal compliance:
 the legal texts stay drafts (banner kept).
 
+Stage S5 (2026-10-13) adds the **inventory import** (`items/import`, "Import" on the Inventory
+tab; the phone is its only client, a web screen is a recorded follow-up): a Yu-Gi-Oh! **deck file
+(.ydk)** or a **Collectr CSV export**, chosen with the system file picker or pasted as text, is
+uploaded and becomes a **preview** the API keeps for an hour. Nothing reaches the inventory before
+the collector confirms. The preview says on top how many new cards the import adds, how many go
+into cards already owned, how many lines still need a printing and how many were not recognised;
+a deck shows its three sections as switches with their card counts; the lines are a long list
+loaded page by page (the card with its picture, the copy or "Choose printing", the condition, the
+copies, in or out) with a filter for "needs a printing" and "not recognised". "Which copy" lists
+the card's printings as the card page does, the ones that fit a CSV row first. Two actions work
+on many lines at once: "Use the most recent printing for all unchosen rows" and one condition for
+the cards whose file names none. The commit button says what it adds; while lines need a printing
+it is disabled and says why, unless the collector ticks "Leave out the N cards that still need a
+printing". The result says what was added, what was merged and what was left out, and leads to
+the inventory, where the new cards are Private. An import left open is offered again ("Continue
+your import"), one that expired says so, leaving asks first, and a commit sent twice adds nothing
+twice. OrenjiTrade never calls Collectr and never reads its prices.
+
 ## Prerequisites
 
 - Node 24 (`.nvmrc` at the repo root), npm 11, `npm ci` once at the repository root.
@@ -239,6 +257,8 @@ app/                       expo-router routes
   cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
                            it, `?printing=any` any printing: neither picks one)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
+  items/import.tsx         import cards from a deck file or a CSV export (stage S5): source ->
+                           file or pasted text -> preview -> result
   binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
 src/
   config/env.ts            the typed configuration (platform defaults)
@@ -303,6 +323,67 @@ Conventions later stages reuse:
   plus the separate "accepts offers" flag; wanting a card is a wishlist entry. Visibility is
   private / public / temporarily public (1 h to 30 days); `visibilityStatus.ts` explains why
   something set to public is not visible yet (binder private, hidden until confirmed, owner hidden).
+- **Inventory import** (stage S5, `src/features/inventory/import/`, hooks in
+  `src/api/hooks/inventoryImport.ts`, contract `docs/api/contracts/s5-inventory-import.md`):
+  - **The upload** is one multipart part `file` whatever the collector did. A picked file is the
+    local file it is (`localFilePart`: on iOS an `expo-file-system` `File`, what Expo's fetch
+    reads). A pasted text takes the same road: it is written to a file of the cache directory,
+    sent as that file and deleted once the upload answered (`importFile.ts`; the web build sends a
+    Blob, `importFile.web.ts`). **Nothing of a file stays on the device**: the system picker
+    hands the app a copy of the chosen file in `<caches>/DocumentPicker` and never removes it, so
+    `discardUpload` deletes that copy after the upload, after a refusal before sending, on "Keep
+    it" and when the screen is left (and only ever a file of that folder). The file picker is `expo-document-picker` and offers every file
+    (`*/*`): a `.ydk` has no registered type and a CSV is reported under several, so a filter
+    would grey out the very file the collector looks for; the API decides from the content. A file
+    larger than the admin limit (`GET /inventory/imports/limits`) is refused before any upload;
+    the API checks again whatever the app did. The wait is shown as an indeterminate progress line
+    (the typed client has no byte progress, and a file is at most 2 MB).
+  - **Refusals** are worded by `importRefusal` (`importLabels.ts`) from the problem's `reason`,
+    `fileLimit` and `missingColumns`: too large, too many lines or rows, not a text file, the
+    column that could not be found (named), an empty file, too many imports in a short time.
+  - **The preview** (`ImportPreview.tsx`) is a `FlatList` over `useImportRows` (pages of 50, one
+    list per filter). Every edit is sent as it is made and answers with the new counts; edits of
+    one preview run one after the other (a mutation `scope`), so the last answer is the last edit.
+    **The commit is in that queue too** (`useCommitImport`), and the button waits while an edit is
+    on its way (`useImportEditsPending`, "Saving your changes…"): on a slow connection a commit
+    pressed right after unticking a card would otherwise reach the API first, and the card shown
+    as left out would be imported. The filter is pinned above the list (its text size capped like
+    the commit bar) and brings the first line of its list up; the counts "need a printing" and
+    "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
+    on top before any commit (`planRoomText`).
+    **The lines whose copy was assumed stay in reach** (review fix 2): "Use the most recent
+    printing" says once, in a snackbar, how many lines got the plain copy. While
+    `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
+    assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
+    the chip "Plain copy assumed (115)" (the filter `MOST_RECENT_ASSUMED`, sent as
+    `printingChoice`). The chips stand in the order of what they ask (All, Needs a printing, Plain
+    copy assumed, Not recognised), and the row brings the chosen chip whole on screen when
+    something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
+    copy again in "Which copy" confirms it: the line leaves that list and the count.
+    Leaving a line out shows at once and is put back if the API refuses. A row that changes its
+    status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
+    that got its printing leaves "needs a printing", and the next page would otherwise skip a
+    row); an action on the whole preview keeps the first page only and reads it again. The rows are not read again just because the app came back to
+    the foreground.
+  - **Which copy** is the card's printings (`GET /cards/{id}`) in `PrintingList`, the list of the
+    card page and of "Add a card", in a bottom sheet; a pick is saved at once. The condition and
+    the copies are a form dialog (its fields stay above the keyboard).
+  - **The commit** is `POST .../commit`, with `skipUnresolved` only when the collector ticked
+    "Leave out the N cards that still need a printing". When the answer is lost the import is read
+    again: a commit that went through shows its result, one that did not can be pressed again, and
+    the API adds nothing twice. A commit that was cut between two parts (`COMMITTING`) shows
+    "Finish the import". `LIMIT_REACHED` (`inventory.items.max`) shows the app's limit notice, with
+    "See Premium" only while premium plans are sold.
+  - **Leaving**: an open preview or a pasted text holds the screen (`useLeaveGuard`, React
+    Navigation's `usePreventRemove`): the back button, the back gesture and Android's back key ask
+    "Leave this import?" first. Leaving loses nothing of a preview: the start screen offers it
+    again until it expires. Discarding it, or replacing it by a new file, asks before the choices
+    are thrown away. (The web build does not hold the browser's own Back button; the header's
+    button asks.)
+  - **Large text**: the commit bar stays on screen under the list, so its text follows the system
+    size only a little (`PINNED_MAX_FONT_SCALE`), like the "Import" and "Select" buttons of the
+    Inventory tab; from a text scale of 1.4 a line puts its name and controls under the picture,
+    across the width, and the counts stand one per line.
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
   (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
   anything else (for example a YGOPRODeck URL) shows the placeholder.
@@ -477,7 +558,11 @@ Both end-to-end suites use their own stack and never touch a developer's: the da
 jar on **:8090** (profile `local`, Redis database 1 (flushed with the database) with its own realtime channels
 `e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
 `.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled and pointed at a closed local port,
-no image downloads), the shared Auth emulator, and the web build on **:19006** (Playwright) or
+no image downloads; plus, since stage S5, the three fictional deck passcodes of
+`SEED_IMPORT_FIXTURES` (910000001 to 910000003, `ImportFixtureSeedContributor`), which only this
+isolated database gets: a deck file is matched through the provider `ygoprodeck`, and a
+developer's database, which can import the real catalog, never receives an invented passcode),
+the shared Auth emulator, and the web build on **:19006** (Playwright) or
 Metro on **:8082** (Maestro). `scripts/lib/mobile-e2e-guard.mjs` (built on the web E2E harness's
 shared helpers in `web-e2e-guard.mjs`, `local-db.mjs` and `auth-emulator.mjs`) refuses to start the
 API when its database (or its host), port, Redis database, realtime prefix or directories are not
@@ -562,7 +647,16 @@ Blocked users -> Unblock, checked on the API and on what the other collector can
 `item-photos.spec.ts` (a text file refused before any upload, a PNG uploaded and served through the
 API's media route, removed), `bulk-actions.spec.ts` (select two cards -> public, select all ->
 private with the skipped one explained, temporarily public for 24 hours, an availability, delete
-after a confirmation), `age-confirmation.spec.ts` (an account from
+after a confirmation), `inventory-import.spec.ts` (stage S5: a fictional deck file through the
+file chooser, after a picture that is refused as "not a text file": the counts, the sections, a
+printing chosen in "Which copy", the most recent printing for the other card, one condition for
+all, a section switched off, the condition and copies of a line, a line left out and put back,
+the commit, three Private cards on the API, the same commit sent again adding nothing, the cards
+in the Inventory tab; a fictional Collectr CSV pasted, after one whose card name column is
+missing: the row added to the copies already owned, the row that fits nothing with what the file
+said and no price anywhere, the commit raising the owned card to four copies; an import left open
+that the header's back button asks about, that is offered again and that is discarded only after
+a question), `age-confirmation.spec.ts` (an account from
 before the 18+ rule, created with `confirmAge: false`, is asked for the confirmation alone on its
 next sign-in, a link opened meanwhile is remembered and reopened after it, the consent checked on
 the API; Sign out from the step), `legal-french.spec.ts` (French by default for a `fr-CA` browser,
@@ -669,7 +763,19 @@ relaunch, then sign-out), `search-card-detail.yaml` (down the catalog the field 
 away and the Search tab pressed again brings it back; search, a schema language filter, card
 detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
 details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
-`binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
+`inventory-import-deck.yaml` (stage S5: the text of a fictional deck file pasted, the preview
+with its counts and the commit that says why it cannot be pressed, a printing chosen in "Which
+copy", "Use the most recent printing for all unchosen rows", one condition for the cards of the
+file, the commit, three cards in the inventory as Private; `scripts/check-import.js` checks the
+API before and after the commit), `inventory-import-csv.yaml` (the text of a fictional Collectr
+CSV pasted by a collector who already has two copies of a card, given on the host by
+`scripts/own-printing.js`: the preview says the row goes into the card already owned, the row
+nothing fits is shown with what the file said, and the commit raises the owned card to four
+copies instead of adding a second one), `inventory-import-assumed.yaml` (a pasted CSV whose two
+cards get the plain copy from "Use the most recent printing": once the snackbar is gone the
+filter that stays on screen and a card above the lines still count them, the card's button lists
+them, one is confirmed by picking its copy again, one is changed, and the commit adds the copies
+the collector chose), `binder-create-add-item.yaml` (a card added on the host by `scripts/add-card.js`, a new binder,
 "Add cards", publish for 24 hours, checked on the API), `map-region-binders.yaml` (stage M9: a seed
 collector's Map tab draws Americas (North) and counts its binders, the zoom buttons, the list of
 states and provinces, a state without a binder, Quebec and its public binders with the owner and
@@ -725,7 +831,14 @@ shows the "Trade safely" notice, the guide opens in-app, the composer keeps work
 after a relaunch). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `large-text.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
 that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the scroll subflows (on Android an edge swipe: a slow swipe in the middle can start on a text
-field); option lists of the pickers scroll with `scrollUntilVisible`. Shared steps are in `.maestro/subflows/` (cleared
+field); option lists of the pickers scroll with `scrollUntilVisible`. A list with a bar that stays on screen under it
+(the commit bar of the import preview) scrolls with `scroll-down-above.yaml` and
+`scroll-to-top-below.yaml`: on iOS the accessibility tree also lists what the list holds under such
+a bar, so `scrollUntilVisible` takes a covered element for a visible one, starts its centring swipe
+on the bar, which does not scroll, and the tap lands on the bar. The system file picker is another
+process that Maestro cannot see, so the import flows paste the text of their files; the picker is
+walked by hand (a fictional `.ydk` and `.csv` copied into the simulator's "On My iPhone" folder).
+Shared steps are in `.maestro/subflows/` (cleared
 launch in Expo Go, dismissing the Expo Go developer menu and an "isn't responding" dialog,
 sign-in, and scrolls that swipe along the screen edge so a slow swipe never starts on a filled
 text field, which Android turns into a text-selection long press) and host-side helpers in

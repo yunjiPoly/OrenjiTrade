@@ -24,6 +24,11 @@ export interface ScreenProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** The scroll view of a `scroll` screen (to scroll to a section). */
   scrollRef?: Ref<ScrollView>;
+  /**
+   * `on-drag`: dragging a `scroll` screen puts the keyboard away. For a screen whose field has no
+   * key that does (a multiline field), so what is under the keyboard can be reached.
+   */
+  keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
   testID?: string;
 }
 
@@ -55,6 +60,7 @@ export function Screen({
   style,
   contentContainerStyle,
   scrollRef,
+  keyboardDismissMode,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
@@ -83,6 +89,7 @@ export function Screen({
           style={[styles.fill, { backgroundColor: palette.background }, style]}
           contentContainerStyle={[padding, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={keyboardDismissMode}
           contentInsetAdjustmentBehavior="automatic"
         >
           {children}

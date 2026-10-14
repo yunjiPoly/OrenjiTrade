@@ -89,6 +89,8 @@ describe('isolation of the mobile E2E API environment', () => {
     assert.equal(env.CARD_IMAGE_CACHE_DIR, path.join(workDir, 'card-images'));
     assert.equal(env.STORAGE_PUBLIC_BASE_URL, '');
     assert.equal(env.YGOPRODECK_ENABLED, 'false');
+    // The fictional deck cards of the inventory import, only next to a disabled provider.
+    assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
     // One address for every worker: the anonymous budget of a single visitor is not enough.
     assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
   });

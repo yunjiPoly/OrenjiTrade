@@ -42,13 +42,18 @@ export function resetRouterMock(): void {
   mockSegments.current = ['(tabs)'];
   mockPathname.current = null;
   mockScrollToTopRefs.length = 0;
+  mockDispatch.mockClear();
 }
+
+/** What screens dispatched on their navigation object (a held-back "leave" carried out). */
+export const mockDispatch = jest.fn();
 
 /** The screen's own navigation object: its `setParams` is the router's, so one mock records both. */
 const mockNavigation = {
   setParams: (params: unknown) => mockRouter.setParams(params),
   isFocused: () => true,
   addListener: () => () => undefined,
+  dispatch: (action: unknown) => mockDispatch(action),
 };
 
 function hrefText(href: unknown): string {

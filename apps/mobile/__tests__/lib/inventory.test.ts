@@ -135,7 +135,13 @@ describe('freemium limits', () => {
       used: 5,
       resetsAt: null,
       planCode: 'FREE',
+      requested: null,
     });
+    // An import says how many new cards it asked room for: the notice can say what to leave out.
+    expect(
+      limitReachedInfo(limit({ limitKey: 'inventory.items.max', limit: 6, used: 5, requested: 2 }))
+        .requested
+    ).toBe(2);
     // No Premium pitch unless premium plans are sold (launch configuration: every money flag off).
     expect(limitReachedMessage(limitReachedInfo(error))).toBe(
       'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
