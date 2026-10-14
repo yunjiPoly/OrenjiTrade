@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 13 of 22 clauses done, 4 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; every document brought to today; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
@@ -2735,17 +2736,17 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 3 | Configure privacy settings | PASS | `settings.spec.ts` (discoverability needs a location, then saved; the state or province only, S1); acceptance `map.spec.ts` / `privacy.spec.ts` (discoverable collectors); SettingsIT, PrivacyPolicyServiceTest; mobile (M1): `account.spec.ts` (privacy switches saved, notification preferences), `location.spec.ts` (discoverable opt-in, off by default, needs a location, the state or province only, S1), Maestro `discoverability.yaml`; mobile (M7): Settings → Blocked users (`blocked.spec.ts`, Maestro `blocked-users.yaml`), "Show my wishlist on my profile" shown on profiles (`collector-wishlist.spec.ts`) |
 | 4 | Choose approximate trading location → **declare a location (ADR 0017)** | PASS (S1) | acceptance `registration.spec.ts` (region, country, state and city pickers; no map, no GPS), `auth.spec.ts`, `settings.spec.ts`; LocationIT, RegionsIT, GeoPrivacyContractTest; mobile (S1): `location.spec.ts`, `auth.spec.ts` (pickers), Maestro `sign-up-onboarding.yaml`, `discoverability.yaml` (+ `scripts/check-location.js`) |
 | 5 | Select TCG interests | PASS | acceptance `registration.spec.ts` (interests step), `auth.spec.ts`; ProfileIT, TagIT; mobile (M1): `auth.spec.ts` (interests step), `profile.spec.ts`, Maestro `sign-up-onboarding.yaml`, `profile-edit.yaml` |
-| 6 | Open dedicated inventory page | PASS | acceptance `inventory.spec.ts`, `inventory.spec.ts`, `smoke.spec.ts`; walkthrough `/inventory`; mobile (M2): Inventory tab, `inventory.spec.ts` (2), Maestro `inventory-add-edit-delete.yaml`; mobile (M7): owner photos on a card (`item-photos.spec.ts`), multi-select bulk actions (`bulk-actions.spec.ts`), the visibility filter and binder reordering (jest `screens/inventory`) — the web's inventory extras |
+| 6 | Open dedicated inventory page | PASS | acceptance `inventory.spec.ts`, `inventory.spec.ts`, `smoke.spec.ts`; walkthrough `/inventory`; mobile (M2): Inventory tab, `inventory.spec.ts` (2), Maestro `inventory-add-edit-delete.yaml`; mobile (M7): owner photos on a card (`item-photos.spec.ts`), multi-select bulk actions (`bulk-actions.spec.ts`), the visibility filter and binder reordering (jest `screens/inventory`) — the web's inventory extras; mobile (S5, 2026-10-13): "Import" fills the inventory from a .ydk deck file or a Collectr CSV through a preview (`inventory-import.spec.ts`, Maestro `inventory-import-deck.yaml`, `inventory-import-csv.yaml`, `inventory-import-assumed.yaml`; InventoryImportIT); the web has no import screen (paused) |
 | 7 | Create private inventory | PASS | acceptance `inventory.spec.ts` (card added Private by default); InventoryIT (owner-only reads, others 404); mobile (M2): `inventory.spec.ts` (cards added private by default, edit, delete), Maestro `inventory-add-edit-delete.yaml` (checked on the API), jest `screens/items` |
 | 8 | Create multiple binders | PASS | acceptance `inventory.spec.ts`, `inventory.spec.ts` (five binders, keyboard reorder, delete, `binders.max` dialog); BinderIT; mobile (M2/M6): `binders.spec.ts` (create, rename, delete; `binders.max` explained), `billing.spec.ts` (a sixth binder once Premium), Maestro `binder-create-add-item.yaml`, `premium.yaml` |
 | 9 | Move cards between binders | PASS | acceptance `inventory.spec.ts` (card moved into a binder), `inventory.spec.ts` (bulk move); BulkOperationsIT `MOVE_TO_BINDER`, InventoryIT; mobile (M2): `binders.spec.ts` (a card added to a binder and removed), Maestro `binder-create-add-item.yaml` ("Add cards", checked on the API), jest `screens/binders` / `screens/items` (move to a binder) |
 | 10 | Toggle private/public visibility | PASS | acceptance `inventory.spec.ts` (made public), `inventory.spec.ts` (bulk public 24 h / private); VisibilityIT, BulkOperationsIT; mobile (M2): `binders.spec.ts` (publish for 24 hours → make private), jest `screens/items` / `features/itemForm` (card visibility), Maestro `binder-create-add-item.yaml` (temporarily public, checked on the API); mobile (M7): `bulk-actions.spec.ts` (bulk public, temporarily public for 24 h, private with the skipped card explained) |
 | 11 | Publish a binder | PASS | acceptance `inventory.spec.ts` (publish → another collector sees it); BinderIT, PublicBinderIT; walkthrough (publish → second collector opens the public binder); mobile (M2): `binders.spec.ts` (publish → another collector's view of it), Maestro `binder-create-add-item.yaml` |
-| 12 | Another user opens the map | PASS (S1) | acceptance `map.spec.ts` (boundary map of the browsed region, states shaded by binder counts, region switcher), `map.spec.ts`, `smoke.spec.ts`; RegionMapIT; mobile (S1): the Map tab is a placeholder naming the home region (`map.spec.ts`, Maestro `map-placeholder-profile.yaml`); drawing the map on mobile is a follow-up |
+| 12 | Another user opens the map | PASS (S1) | acceptance `map.spec.ts` (boundary map of the browsed region, states shaded by binder counts, region switcher), `map.spec.ts`, `smoke.spec.ts`; RegionMapIT; mobile (M9, 2026-10-12): the Map tab draws the region map of the browsed region with the region switcher and the same places as a list (`map.spec.ts`, `regions.spec.ts`, Maestro `map-region-binders.yaml`, `region-switch.yaml`, `map-gestures-links.yaml`; jest `screens/map`) |
 | 13 | Public collectors at approximate positions → **per state or province (ADR 0017)** | PASS (S1) | no position exists: acceptance `map.spec.ts` + `privacy.spec.ts` (states only, no coordinate or distance key, no map provider request, cities only on profiles); GeoPrivacyContractTest; mobile: `placePrivacy.test.tsx`, Playwright privacy fixture |
-| 14 | Click collector marker → **choose a state** | PASS (S1) | markers are gone by design (ADR 0017): acceptance `map.spec.ts` (click or keyboard on a state, the accessible state list, `/map?region=&subdivision=`); mobile: follow-up with the boundary map |
-| 15 | Collector preview appears → **state panel** | PASS (S1) | the preview is removed (ADR 0017); the state panel lists the state's public binders in cursor pages with skeleton, empty state and error with retry (acceptance `map.spec.ts`, `map.spec.ts`; RegionMapIT); mobile: follow-up |
-| 16 | Open full profile | PASS (S1) | acceptance `map.spec.ts` (state panel → binder → profile), `registration.spec.ts` (the city on the profile only while discoverable and shown); CollectorProfileIT; mobile (S1): `map.spec.ts` (profile with the state and the shown city), `holders.spec.ts`, Maestro `map-placeholder-profile.yaml` |
+| 14 | Click collector marker → **choose a state** | PASS (S1) | markers are gone by design (ADR 0017): acceptance `map.spec.ts` (click or keyboard on a state, the accessible state list, `/map?region=&subdivision=`); mobile (M9): a tap or the list opens a state, links `/?region=&subdivision=` (`regions.spec.ts`, Maestro `map-region-binders.yaml`, `map-gestures-links.yaml`) |
+| 15 | Collector preview appears → **state panel** | PASS (S1) | the preview is removed (ADR 0017); the state panel lists the state's public binders in cursor pages with skeleton, empty state and error with retry (acceptance `map.spec.ts`, `map.spec.ts`; RegionMapIT); mobile (M9): the place screen `regions/[region]/[code]` with the same cursor pages, skeleton, empty state and retry (jest `screens/place`, `regions.spec.ts`, Maestro `map-region-binders.yaml`) |
+| 16 | Open full profile | PASS (S1) | acceptance `map.spec.ts` (state panel → binder → profile), `registration.spec.ts` (the city on the profile only while discoverable and shown); CollectorProfileIT; mobile (S1, M9): `map.spec.ts` (profile with the state and the shown city), `holders.spec.ts`, Maestro `map-region-binders.yaml` (a binder of Quebec, then its owner's profile with the state and the shown city) |
 | 17 | View public binder | PASS | acceptance `map.spec.ts` / `inventory.spec.ts`, `inventory.spec.ts` (the owner's state only, no private notes); PublicBinderIT; mobile (M2/M5/S1): `binders.spec.ts` (another collector's public binder: public cards, the owner's state, never the city), Maestro `binder-create-add-item.yaml` |
 | 18 | Search for a card | PASS | acceptance `search.spec.ts` (top-bar search), `catalog.spec.ts` (autocomplete, filters, printing codes); CatalogSearchIT; walkthrough `/search`, `/cards`; mobile (M2): Search tab, `catalog.spec.ts` (filters, card detail, printing codes), Maestro `search-card-detail.yaml`; mobile (M7): the Search tab's Collectors and Binders segments on `GET /search` like the web's `/search` tabs (`search-segments.spec.ts`: by name or handle with their state or province (no distance since S1), opted-out collectors absent, recent searches per segment; public binders by name with their owner), set pages `sets/[id]` (jest `screens/sets`) |
 | 19 | Nearby collectors with that card → **holders in my region** | PASS (S1) | acceptance `search.spec.ts` ("Who has this in my region" → card holders of the browsed region with the holder's state; another region does not list them), `map.spec.ts`; SearchIT, CardHoldersIT; mobile (S1): `holders.spec.ts`, Maestro `card-holders-region.yaml`, `holders-filters.yaml` |
@@ -2769,7 +2770,7 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 | 37 | Account deletion works | PASS | acceptance `account-deletion.spec.ts` (hidden at once; deletion job anonymises, identity deleted, consents/audit kept), `settings.spec.ts`; DeletionIT, ExportIT; mobile (M1): `account.spec.ts` (deletion request with re-authentication → the deletion-pending screen → cancelled; data export), jest `screens/account-states` |
 | 38 | Legal pages exist | PARTIAL | 9 pages served under `/legal/*` in English and French (EN/FR switch, French by default for a French browser, `launch-safety.spec.ts`) with versioned consent recording the language shown (TermsIT, ConsentIT, `smoke.spec.ts` draft banner, walkthrough `/legal/terms`); mobile (M8): the same 9 texts in-app in both languages, synced from the web files, an EN/FR switch on the index and every document, French by default on a French device, the draft banner on both and the translation marking in French, consents with the language shown (`legal-french.spec.ts`, Maestro `legal-french.yaml`, jest `screens/legal`, `features/legalLanguage`); texts are drafts until counsel review and the French translation awaits the lawyer's validation (owner action) |
 | 39 | CI runs automatically | PASS | GitHub Actions CI green on `main` for the stage 11 merge (`7bb5c27`) and on stage PRs (API incl. Testcontainers, web, mobile, ML, Terraform); `e2e.yml` now runs the whole Playwright suite on PRs, nightly and on demand (first GitHub run with the next PR); `npm run test:all` mirrors it locally; mobile: CI runs the mobile typecheck, lint, jest and the `mobile-web` Playwright job; the Maestro flows are local only (they need an Android emulator or a Mac's iOS simulator) |
-| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android emulator and iOS simulator) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium; iOS (2026-10-10): the 24 Maestro flows of today's suite, one set for both platforms, in Expo Go 57 on an iOS 27.0 simulator (`npm run test:mobile:maestro -- --platform ios`: 24/24 passed in one run from a cold start, 33 min 28 s), with the iOS defects they found fixed (the back button's "(tabs)", dialogs opened from a sheet, photo picking and upload, the doubled home-indicator inset); the Android run was not repeated on the Mac (no Android SDK), a physical iPhone and a store build are not proven |
+| 40 | E2E covers critical workflows | PASS (web) · PASS (mobile, Android emulator and iOS simulator) | 67/67 Playwright tests (51 feature + 16 acceptance) against the real local stack, 0 flaky, 0 skipped; mobile (M1–M7): 54/54 Playwright mobile web specs (`apps/mobile/e2e`, isolated stack, 0 flaky, 0 skipped) and 21 Maestro flows in Expo Go on the Android emulator (`apps/mobile/.maestro`), covering accounts, Google sign-in, inventory (photos, bulk actions), binders, the map, card holders, collector and binder search, messages, blocked users, wishlist, offers, trades, ratings, reports, payment protection, disputes and Premium; iOS (2026-10-10): the 24 Maestro flows of today's suite, one set for both platforms, in Expo Go 57 on an iOS 27.0 simulator (`npm run test:mobile:maestro -- --platform ios`: 24/24 passed in one run from a cold start, 33 min 28 s), with the iOS defects they found fixed (the back button's "(tabs)", dialogs opened from a sheet, photo picking and upload, the doubled home-indicator inset); the Android run was not repeated on the Mac (no Android SDK), a physical iPhone and a store build are not proven. Latest (2026-10-14, stage S6): 74 web Playwright tests, 60 mobile web specs and **30/30 Maestro flows on the owner's iPhone 18 Pro simulator** (30 since S5's review fix 2), all with retries off |
 | 41 | Runs locally | PASS | `npm run infra:reset -- --yes` → `npm run test:all` green → `npm run dev` ready in 50.6 s → 36/36 API + 28/28 UI walkthrough checks; fake payments/billing/donations, log push/e-mail/analytics, no external credentials; mobile: Expo Go on a local Android emulator, or on the iOS simulator of a Mac, against the local stack; `npm run test:mobile:e2e` (isolated API :8090, web build :19006) and `npm run test:mobile:maestro` (Metro :8082; `-- --platform android\|ios`, the iOS simulator created and booted by the harness) run locally and free (no EAS, no Expo account, no Maestro Cloud) |
 | 42 | Deploys to Google Cloud | DEFERRED-CLOUD | owner decision (docs/deployment/DEFERRED.md); Terraform validates (`npm run infra:validate`), never planned or applied |
 | 43 | Cloudflare configuration documented | PASS | `infrastructure/cloudflare/README.md` + Cloudflare Terraform (validated by `npm run infra:validate`); applying it is DEFERRED-CLOUD |
@@ -4367,51 +4368,178 @@ text size.
 - Not verified: the Android run (no Android SDK on this Mac; the Android export builds);
   VoiceOver itself (the accessibility tree was read).
 
+## Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)
+
+The last stage of the owner's change of 2026-10-08: the specification's sections 8 ("Docs"), 9
+("Tests") and "Definition of done", applied to what exists. Branch `feature/s6-final-docs`, after
+the small fixes above. The result for the owner, in plain words, is the
+[delivery report](docs/product/2026-10-08-change-delivery-report.md); this section is the
+engineering record. Nothing of S3, S4 or the redesign of 2026-10-14 is built; `apps/web-angular`
+is not changed (paused); no migration; the API contract is unchanged.
+
+**The walkthrough in numbers** (an independent verifier, 2026-10-14, head `734d4e6`: the web on its
+own stack at 1280 x 800, the phone on the owner's iPhone 18 Pro simulator under the lock, the
+database, every suite with retries off). Of the 22 clauses of the definition of done: **13 done**
+(C1, C5, C10–C15, C17, C18, C20; C21 and C22 with this stage's documents), **4 partly** (C2 "ash
+blossom": the search works but the sample catalog has no such card; C4 holders by rarity; C8
+recent searches on the phone's device only; C19 the S3 and S4 tests do not exist), **5 not built**
+(C3, C6, C7, C9: S3; C16: S4). Of the 34 tests of section 9: 22 exist, 2 partly, 8 missing (all
+S3), 2 not applicable (S4). Two clauses are done on one client only: the imports (phone and API,
+no web screen). The table of each clause with its evidence is in the delivery report, sections
+(b) and (i).
+
+**Its findings, and what was done**
+
+| Finding | Done |
+| --- | --- |
+| W1 (major) `IMPLEMENTATION_STATUS.md`: "NEXT TASK" said S6 was next and S5 waited for its PR; the header began with S2 | "NEXT TASK" rewritten (the redesign of 2026-10-14 is the decided next task; the merged list holds #67 to #70); a new "Last updated" line; the acceptance tracker rows 6, 12, 14, 15, 16 and 40 carry the phone halves of M9 and S5 |
+| W2 (major) `claude-handoff.md`: M9, the lock fix and S5 listed as waiting; section 3 said the harness boots its own simulator | rewritten to today: what is on `main`, S6 waiting for its ship step, S3 and S4 not built, the redesign next; the owner's simulator is the rule everywhere (also `macos-setup.md` 9.5, `local-setup.md`, `apps/mobile/README.md`); the working agreements learned on the Mac (the agents' shell variables, Docker after a restart, the simulator lock, the notes files, mobile only, S3 and S4 skipped, CLAUDE.md proposals) |
+| W3 (major) `product-overview.md`: the phone's Map tab a "placeholder"; no import | the Map tab as M9 built it; the phone import; the clients today; what is not built; the redesign as a decided future change |
+| W4 (major) `schema.md`: `near_mint_only` "feeds Who wants it" | "Who wants it only if stage S3 is built: skipped by the owner on 2026-10-13, not built" (twice); the lock rule no longer names the wishlist matches among the rows that reference an item |
+| W5 (minor, phone) the visible text of the import chip ("356 assumed") and of the leave-out button was not part of their accessible name (WCAG 2.5.3) | **fixed**: "356 assumed: the lines whose plain copy was assumed" (cards for a deck) and "Add 434 cards, leave 12 out (1,266 copies added)"; unit tests pin "the name starts with the visible label" for every count and form (6 tests fail on the old labels); the screen test, the mobile web E2E spec and the native flow `inventory-import-assumed.yaml` read the new names |
+| W6 (nit, web) the initial bundle is 0.07 kB under its 900 kB budget | recorded (web paused): the delivery report, section (h) |
+| W7 (nit, web) the wish dialog's hint names a rarity filter that is hidden when all printings share one rarity | recorded (web paused) |
+
+**The documents, audited against the code** (each changed where it said something false today):
+
+- New: [`docs/product/2026-10-08-change-delivery-report.md`](docs/product/2026-10-08-change-delivery-report.md);
+  [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
+  (the owner's build prompt of the redesign under a short header, byte for byte: SHA-256
+  `35d5009f…` of the prompt, checked with `cmp`).
+- Changed: the root `README.md` (no ADR 0004 or map-provider claim, the mobile section, the mobile
+  suites, the documentation map), `apps/api/README.md` (a section for the S5 import routes, which
+  it lacked; the migrations up to V114), `apps/mobile/README.md` (the tabs as they are today and the
+  redesign, ADR 0017 instead of 0004, the map preview gone, S3 and S4 not built, the owner's
+  simulator), `docs/development/local-setup.md` (the Map tab, the browsed region, the import, the
+  owner's simulator, the latest timings), `macos-setup.md` 9.5, `seed-data.md` (the sample
+  catalog has no real card names, the import fixtures), `claude-handoff.md`, ADR 0017
+  (consequences: M9 closed the mobile follow-ups; the redesign keeps the decision),
+  `docs/api/contracts/README.md` (the S2 row; S3 and S4 have no contract), `docs/security/README.md`
+  (the rules of import files next to the image upload rules), `docs/product/product-overview.md`,
+  `docs/database/schema.md`.
+- Checked and left as they are: the ADR index and ADRs 0004 (marked superseded, points to 0017),
+  0010 (amended, its last section says M9 draws the map), 0015; every phase contract that ADR 0017
+  or S2 replaced carries a banner that says so and points to the replacement, and none describes a
+  removed endpoint as live; `schema.md` lists V106 to V114; `docs/deployment` (no map key, nine
+  scheduler jobs); test accounts and the boundaries provenance; the three `.env.example` files (no
+  map key, no distance or radius setting); the legal drafts in English and French (the web files
+  and the phone's synced copy, `npm run sync:legal -- --check` up to date): what they say about
+  location already matches ADR 0017 (a declared country, state or province and optional city; no
+  GPS, no device location, no IP location, no coordinates), with the draft banners and the
+  "[to confirm]" placeholders kept, so nothing was changed for the lawyer to re-read.
+- The words a lead's search found ("near me / nearby", "km away / distance", "trading area",
+  "Google Maps", "wishlist_match / matches nearby", "approximate area / location / position"),
+  file by file. Changed: the comment of `InventoryItemRepository` (the sent wishlist alerts, not
+  the matches, reference items), a comment of `CardImageUrlContractIT` and of
+  `accountStatus.test.ts` (a declared location, not a trading area), and the documents above.
+  Stay, and why: the applied migrations (V004, V005, V011, V022, V041, V050, V060, V108 to V112;
+  frozen); the tests and fixtures that assert the words are absent or that the old paths are gone
+  (`GeoPrivacyContractTest`, `FlywayMigrationIT`, `OpenApiExportTest`, `LocationIT`, `ExportIT`,
+  `PublicBinderIT`, `SettingsIT`, `AnalyticsIT`, `SimplifiedWishlistMigrationIT`, the phone's
+  `regionWording`, `placePrivacy`, `coordinateLiterals`, `legalLanguage` tests, the E2E privacy
+  fixtures and `check-location.js`); the analytics list of refused keys (`AnalyticsEvent`); the
+  reserved handle "nearby" (`ReservedHandles`: old links never land on a collector); the phone's
+  mapping of the old `/settings/trading-area` link to Settings → Location (`notificationKinds.ts`);
+  every "never a distance" assurance in code, OpenAPI descriptions and legal texts; the history
+  sections marked as such (ADR 0004, ADR 0010, the Phase 1, 3, 4 and 6 contracts, `schema.md`
+  V005 and Phase 4, the API README's "Deviations from the Phase 4 contract"); "distance" meaning
+  something else (the Hamming distance of `apps/ml`, scroll and relative-time distances). The web
+  hits (2 "near", 24 "distance", 4 "trading area", 1 "Google Maps", 1 "wishlist_match") are all of
+  these kinds too (the legal guard spec, the `/settings/trading-area` redirect, "no Google Maps"
+  in its README, the privacy assurances, the relative-time pipe and the message list's scroll): recorded, not changed (web paused).
+
+**Checks** (2026-10-14, the owner's Mac mini, JDK 21, OrbStack; retries off; on the final tree
+unless said)
+
+- The walkthrough's own run on `734d4e6` (before this stage's documents and the W5 fix): every
+  suite listed below green, with the web ones (`npm run build -w apps/web-angular` initial total
+  899.93 kB; `npm run test:web` 142 files / 678 tests; web lint and format check; `npm run test:e2e
+  -- --retries=0` 74 passed) and the whole native suite (**30 of 30 flows**, 48 min 7 s, on the
+  owner's iPhone 18 Pro simulator).
+- After this stage's changes (the W5 fix in `apps/mobile`, comments in `apps/api`, documents):
+  `npm run test:mobile` (typecheck, lint, jest 89 suites / **922 tests**, no "worker process"
+  warning, 28 harness guard tests); `npm run format:check -w apps/mobile` clean; the two test files
+  of the import labels fail on the old labels (6 tests) and pass on the new ones;
+  `npm run test:mobile:e2e -- --retries=0`: **60 passed**; the three native import flows
+  (`inventory-import-assumed.yaml`, `inventory-import-deck.yaml`, `inventory-import-csv.yaml`) on
+  the owner's iPhone 18 Pro simulator under the lock: **3 of 3** in 6 min 2 s (the other 27 flows
+  read nothing this stage changed, and passed in the walkthrough's full run on `734d4e6`).
+- `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` clean; `npm run test:api`: **974 tests
+  in 170 classes and 12 catalog tests**, no failure, none skipped, 3 min 14 s;
+  `./gradlew exportOpenApi` then `npm run generate:api`: nothing changed in git.
+- `npx expo export` into throw-away directories: iOS 5,562,204 B (1,789 modules), Android
+  5,854,833 B (1,913 modules), web entry 2,917,118 B (75 static pages).
+- `npm run test:scripts`: 133 tests in 25 suites. `npm run audit:gate`: OK (the 2 allowlisted
+  advisories, `braces` and `node-forge`, until 2026-11-30).
+- The web app and the lockfile are not changed by this stage (`git diff 734d4e6 -- apps/web-angular
+  package-lock.json` is empty), so the web suites were not re-run after the walkthrough's run.
+- The documents: a script in the session's scratch folder read every Markdown file this stage
+  changed or added (15, this one included): 86 relative links, none broken (files and heading
+  anchors); 575 quoted `npm run` commands, each a script of the root or of the workspace the text
+  names (`npm run card-images:*` stands for the three `card-images:` scripts). The redesign spec's prompt part is
+  byte for byte the owner's file (`cmp`, SHA-256 `35d5009f…`).
+- Not verified: the Android run (no Android SDK on this Mac; the Android export builds); VoiceOver
+  and Voice Control themselves (W5 is proven by the accessibility names, not by speech).
+
+**Open after this stage** (the delivery report, sections (f) to (j), has the whole list): the
+ship step of S6 (merge `main`, which holds #70; expect conflicts in this file, where #70's section
+and S6's sections both follow S5, and in "NEXT TASK" and the handoff's section 6: keep this
+branch's text and #70's own section); the owner decisions of S5 and of the earlier stages; the
+Android run; the hardening follow-ups; the proposed CLAUDE.md sentences (the end of the delivery
+report).
+
 ## NEXT TASK
 
+> **The owner's change of 2026-10-08 ends with stage S6** (branch `feature/s6-final-docs`: the
+> small fixes, the final documents, the definition-of-done walkthrough and the delivery report
+> `docs/product/2026-10-08-change-delivery-report.md`; section "Final documents and the
+> definition-of-done walkthrough (stage S6, 2026-10-14)" above). **Next for this branch: its ship
+> step** (merge `main`, which holds #70; run the check list of `docs/development/claude-handoff.md`;
+> the pull request; merge when CI is green). Of the 22 clauses of the definition of done: 13 done,
+> 4 partly, 5 not built. **Not built, by the owner's decisions: stages S3 and S4 (skipped on
+> 2026-10-13) and the web import screen of S5 (the web app is paused since 2026-10-12).**
+>
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
-> wishlist, wishlist alerts and no matches (#60, 2026-10-10; V112 is frozen); the first run on
-> Apple Silicon (#59, 2026-10-10); the iOS path of the native Maestro harness and the iOS defects
-> it found (#61, 2026-10-12); mobile stage M9, regions on the phone (#67, 2026-10-13); the binder /
-> inventory lock fix (#68, 2026-10-13). The owner's local database migrates on the next
-> `npm run dev` and loses its trading areas by design (S1).
+> wishlist, wishlist alerts and no matches (#60, 2026-10-10); the first run on Apple Silicon (#59,
+> 2026-10-10); the iOS path of the native Maestro harness and the iOS defects it found (#61,
+> 2026-10-12); mobile stage M9, regions on the phone (#67, 2026-10-13); the binder / inventory lock
+> fix (#68, 2026-10-13); stage S5, the inventory import on the phone and the API (#69,
+> 2026-10-13); the scrim fix, a dark backdrop iOS took for a modal (#70, 2026-10-14). Migrations
+> V001 to V114 are applied and frozen; the next one is V115. The owner's local database migrates
+> on the next `npm run dev` and loses its trading areas by design (S1).
 >
-> **Owner order of 2026-10-12: mobile only. The web app is paused until a new order** (do not
-> change `apps/web-angular`; it stays the reference for what the phone should offer). The native
-> suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its UDID>`;
-> nothing boots or shuts down a simulator).
+> **Owner orders in force:** mobile only, the web app is paused until a new order (2026-10-12; do
+> not change `apps/web-angular`; read, build, test and walk it; a defect found there is recorded);
+> stages S3 and S4 are skipped until the owner asks (2026-10-13; never describe them as done); the
+> native suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
+> UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
+> ("the Android run could not be verified").
 >
-> **Owner decision of 2026-10-13: after the map, only stages S5 and S6; stages S3 and S4 are
-> skipped until the owner asks for them.**
+> **Exact next task (decided by the owner on 2026-10-14): the phone redesign of 2026-10-14,
+> stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`** (the owner's prompt,
+> verbatim). Start with **R1** ("Offers out, shipping wording, look") on a new branch from a
+> `main` that holds S6, then R2 to R8 in order, one branch and one PR each, each with its builder,
+> at least two independent reviewers and at most two fix rounds (the spec's section 15). Read
+> first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where things stand, the working
+> agreements, the check list, the simulator rules and lock); this section; the spec's section 0
+> (ADR 0011, ADR 0015, ADR 0017, `docs/api/contracts/phase8-offers-trades.md`,
+> `docs/api/contracts/s5-inventory-import.md`, `docs/product/specs/2026-10-08-have-want-regions.md`,
+> and the code it lists); then the delivery report's sections (f) and (h) for the decisions and
+> defects that the redesign meets. Until a stage lands, documents describe the phone as it is
+> today (six tabs, offers on the phone).
 >
-> **Stage S5, the inventory import: built on 2026-10-13** (branch `feature/s5-inventory-import`,
-> not pushed; section "Inventory import: YDK and Collectr CSV (stage S5, 2026-10-13)" above): the
-> API (contract `docs/api/contracts/s5-inventory-import.md`) and the phone screens ("Import" on
-> the Inventory tab: a deck file or a Collectr CSV export, chosen or pasted, previewed, edited and
-> committed; new cards are Private). Checked on the iOS simulator and the web export; the Android
-> run could not be verified on this Mac. Reviewed independently the same day; **review fix 1**
-> ("Review fix 1 (2026-10-13)" in that section, migration V114) answers every finding, and the
-> second look approved the branch with one minor finding, answered by **review fix 2** ("Review
-> fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed), which an
-> independent verifier approved the same evening (30 of 30 native flows). **Next for this branch:
-> the pull request, merged when CI is green.** Right after it ships the small branch
-> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal).
-> Owner questions it leaves open: the default condition of a card whose file names none
-> (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
-> collector shows (today it never does: the copies become a private card), whether "use the most
-> recent printing" may take the plain copy where a set holds several versions (today it does, and
-> says so), one session with VoiceOver on a real iPhone (the dialog finding of that section), a
-> real Collectr export to check the column titles. Not built: the web import screen (web paused).
+> **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
+> screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
+> it", "Wanted by N" and holder counts and keeps recent searches on the phone; S4 stays skipped);
+> the Android SDK on the Mac; the hardening list (a lock timeout on inventory writes, the
+> after-commit analytics listeners, blocked collectors in the collectors section of search, the
+> photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
+> (store purchases, an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
+> placeholders, OrbStack's licence, VoiceOver on a real iPhone). Proposed CLAUDE.md sentences wait
+> for the owner (the end of the delivery report).
 >
-> **Exact next task: stage S6**, the final documents and the definition-of-done walkthrough (spec
-> sections 8 and 9 and "Definition of done"), on a new branch from a `main` that holds S5. It
-> must list what the skipped stages would have delivered as **not built**, not as done: S3 (the
-> printing picker with holder counts on the card page, "Who has it" / "Who wants it", "Wanted by
-> N", the rarity query parsing, the search history) and S4 (photos in community posts), and the
-> web import screen of S5. The mobile app is the client of every change since 2026-10-12; the web
-> app stays paused until the owner says otherwise.
->
-> **Skipped (S3, spec sections 2 and 2b), kept here for the day it is asked for.** API: a grouped
+> **Not built (S3, spec sections 2 and 2b; skipped by the owner on 2026-10-13), kept here for
+> the day it is asked for.** API: a grouped
 > per-printing holder count, `/search/card-holders` extended (rarity, country / subdivision
 > filters, per-printing counts, sorts), "Who wants it" (visible wishlists, the S2 public note and
 > NM / % TCG chips; `CollectorDiscoveryService.markersFor` gives the rows' collectors), "Wanted by
@@ -4420,8 +4548,14 @@ text size.
 > (`/me/search-history`, privacy switch, export, deletion). Mobile: the printing picker of the
 > card screen, "Who has it" / "Who wants it", "Wanted by N" (S1 follow-ups 3 and 4). Web: reuse
 > `shared/catalog/printing-picker` on the card page, "Find this card". S2's "Known gaps" that S3
-> was to close stay open. **Skipped (S4, section 5):** photos in community posts.
+> was to close stay open. **Not built (S4, section 5; skipped on 2026-10-13):** photos in community
+> posts.
 
+**Below: the earlier next-task notes, kept as history.** The pushes and merges they name are
+done; the Expo SDK 58 upgrade and the full French UI translation they plan are on hold by the
+owner; the backend follow-ups of the low-cost profile at their end (a database-backed
+`Idempotency-Key` for offers and reports, the `/internal/events/pubsub` receiver, a `storage`
+field on the card image cache status) are still open.
 
 > **Web MVP complete locally (2026-09-30).** Workflow `web-mvp-local` / `web-mvp-local-continue`
 > (run `wf_7e879796-9e0`) delivered stages 1–12: Phases 1–10 backend + web, local environment
