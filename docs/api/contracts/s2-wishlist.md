@@ -13,7 +13,7 @@ A wish holds only:
 | --- | --- |
 | which copy | `cardId` (any printing), optionally with `rarity` (any printing of that rarity: one of the rarities of the card's printings), or `printingId` (that printing; it fixes its own rarity, so `rarity` is empty — a rarity equal to the printing's is accepted and dropped, another one is 400) |
 | `note` | public, optional, plain text (no control characters other than line feed and tab), at most 280 characters counted as code points after trimming (`\r\n` becomes `\n`), checked with `TextModerationService` (scope PROFILE, like the bio): BLOCK is 400 `note: contains a term that is not allowed`, FLAG is accepted and logged without the text. Shown wherever the wish is visible |
-| `nearMintOnly` | default false: only Near Mint or better (Mint) copies fit the wish (alerts; "Who wants it" in S3) |
+| `nearMintOnly` | default false: only Near Mint or better (Mint) copies fit the wish (wishlist alerts; "Who wants it" only if stage S3 is built: skipped by the owner on 2026-10-13, not built) |
 | `priceTerm` | optional, at most one, one of the admin list (`GET /wishlist/price-terms`): a display term for sellers relative to the TCG market price, **never a filter** |
 
 Removed (V112 drops the columns and their data; private notes were **not** copied into the public
@@ -58,12 +58,17 @@ never reads as a bare "$" next to a term.
 TCGplayer-based, USD, dated by the provider database's last update — `YgoProDeckMapper`), `SAMPLE`
 (the fictional local sample catalog, `MockCardProvider`, CAD) or `CATALOG` (entered by staff). The
 UIs label it "TCG market price" / "Sample market price" / "Market price" with the source and date
-in a tooltip (web) or hint (mobile).
+in a tooltip (web) or hint (mobile) where the card page shows the price of the selected printing.
+The web's printings table ("Market price" column) and the mobile printing list ("Market 42.00
+CAD") still show prices without their source: a known gap (delivery report of 2026-10-14, section
+(h)), which the printing picker of stage S3 was to close; S3 is not built.
 
 ## Wishlist alerts (what replaces matches)
 
-Default chosen by the owner's spec: wishes drive no stored matches. They drive "Who wants it" and
-"Wanted by N" (stage S3, computed live) and a **wishlist alert**:
+Default chosen by the owner's spec: wishes drive no stored matches. Today they drive only a
+**wishlist alert**. The spec also has them drive "Who wants it" and "Wanted by N", computed live,
+in stage S3: the owner skipped S3 on 2026-10-13 and nothing of it is built, and the phone redesign
+of 2026-10-14 ([spec](../../product/specs/2026-10-14-phone-redesign.md), section 2) drops both.
 
 - `InventoryItemPublished` (after commit, Spring Modulith registry) → `WishlistAlerts`: the item is
   effectively public and fresh; wishes of **other** collectors fit it when they name its printing,
@@ -89,9 +94,11 @@ Default chosen by the owner's spec: wishes drive no stored matches. They drive "
   `?rarity=` shows "Any printing in <rarity>" with the printings of that rarity, `?printing=any`
   shows "Any printing"; the last two select no printing, highlight no single row and show no price
   of one printing. A wish's own link (wishlist page, public "Looking for") uses the same three
-  shapes. Without any parameter the card page still shows its first printing: stage S3 replaces
-  that block with the printing picker ("Any printing" by default, the selection kept in
-  `?printing=` / `?rarity=`), and `?printing=any` then simply names the default.
+  shapes. Without any parameter the card page still shows its first printing. Stage S3 was to
+  replace that block with the printing picker ("Any printing" by default, the selection kept in
+  `?printing=` / `?rarity=`, `?printing=any` then simply naming the default); S3 is skipped (owner,
+  2026-10-13) and not built. On the phone, the redesign of 2026-10-14 removes the "Selected
+  printing" block from the card page (its section 8); the web is paused.
 - Settings: one switch, `wishlistAlerts` in `GET|PUT /me/settings/notifications` (default true;
   `notification_preferences.wishlist_alerts`). A `PUT` that leaves the member out keeps the stored
   value (the rest of the body is still a full replacement), so a client that does not know the
@@ -141,10 +148,10 @@ and recreate that database (the E2E harnesses do so on every run); never `flyway
 
 ## Clients
 
-- Web: the shared printing picker (`shared/catalog/printing-picker`, reused by the card page in
-  S3), the wish dialog (note, Near Mint only, terms, picker), the wishlist page, Settings →
-  Notifications "Wishlist alerts", `/admin/wishlist` (price terms). `/wishlist/<id>` links open the
-  list.
+- Web: the shared printing picker (`shared/catalog/printing-picker`, written to be reused by the
+  card page in stage S3, which is not built: today only the wish dialog uses it), the wish dialog
+  (note, Near Mint only, terms, picker), the wishlist page, Settings → Notifications "Wishlist
+  alerts", `/admin/wishlist` (price terms). `/wishlist/<id>` links open the list.
 - Mobile: the wish editor ("Which copy" chooser, note, Near Mint only, terms), the Wishlist tab,
   Settings → Notifications "Wishlist alerts", alerts open the card screen with `?printing=<id>`,
   `?rarity=` or `?printing=any`.
