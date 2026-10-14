@@ -4491,9 +4491,10 @@ unless said)
   and Voice Control themselves (W5 is proven by the accessibility names, not by speech).
 
 **Fact check, round 1** (2026-10-14). An independent fact checker read this stage's documents
-against the code, the database and the suites on head `dd6761b` and found nine points, D1 to D9
-(two major). Each was corrected where it was said, by changing the sentence, never by building what
-it claimed:
+against the code, the database and the suites on head `dd6761b` and found nine findings, D1 to D9
+(two major), and seven nits, D10 to D16. Each finding was answered where it was said, by changing
+the sentence, never by building what it claimed; of the nits, this round corrected only D12 (in the
+D5 row), the other six are in round 2 below:
 
 | Finding | Done |
 | --- | --- |
@@ -4517,6 +4518,23 @@ it touched hold 26 relative links, none broken (the checker flags only the short
 failure, none skipped, 3 min 9 s. Not re-run: the mobile web E2E and the native suite (the code
 changes are three comments and one jest fixture: nothing the browser or the simulator runs changed)
 and the web suites (nothing under `apps/web-angular` changed).
+
+**Fact check, round 2** (2026-10-14). An independent check of round 1 (head `c62bfca`) approved
+its corrections and found two minor points. Each was corrected where it was said:
+
+| Finding | Done |
+| --- | --- |
+| R1-1 (minor) round 1 narrowed where the market price names its source: the S2 contract said "where the card page shows the price of the selected printing" and the D1 row above "on the selected printing only", but the wish editors name it too (the web wish dialog's printing picker gives each row's price a tooltip and an accessible name with the source; the price-terms hint of the web and of the phone names it) | the contract's "Price terms and the market price" and the D1 row: the card page's selected printing and the wish editors. Found while checking it: the printing list of the web inventory's "Add a card" dialog shows "Market …" without the source too: added to the contract's gap sentence and to the report's web list in (h) (recorded, the web is paused) |
+| R1-2 (minor) the report's C21 row said "the rest of what it found is fixed" and this section "nine points", while the fact checker's notes also list seven nits, D10 to D16, some still untrue | C21 now reads: nine findings and seven nits; the stale lines it found are recorded, everything else was corrected in two rounds; round 1 above counts both. The nits, which its notes name in a few words each, were re-derived from those words and the code and corrected: **D10** the PR lists (the handoff's "since 2026-10-04" list began on 2026-10-05 and lacked #58: now "from 2026-10-05 on" with #58; the report's "two other pieces" are four, with #58 and #59; NEXT TASK names #58; the "Last updated" line's "merged since the line below" adds #60, #59 and #61); **D11** the import fixtures are two cards and an alternate artwork of the second, not three cards (`seed-data.md`, and `apps/api/README.md` with "the phone's end-to-end suites"); **D13** the legal check above is `npm run sync:legal -w apps/mobile -- --check` (a script of the mobile workspace only; run in this round: both files up to date); **D14** the report's last full run names its head, `734d4e6`, and what ran again after it; **D15** C8: recent searches per account since M2 (2026-10-05), per segment since M7 (2026-10-06); **D16** NEXT TASK's notes on S3 say what the redesign overrides on the phone ("Who wants it", "Wanted by N" and holder counts dropped; recent searches on the phone, no server history; S4 still skipped). D12 was corrected in round 1 (the D5 row) |
+
+Checks of the round (the owner's Mac mini; documents only, no code changed): the six Markdown
+files it touched (this file, the S2 contract, the delivery report, `apps/api/README.md`, the
+handoff, `seed-data.md`) hold 19 relative links, none broken, and the 18 Markdown files this
+branch changes hold 100, none broken (files and heading anchors); `git diff --check` clean; no
+formatter covers these files (Spotless formats the API's Java, Prettier only the `apps/mobile` and
+`apps/web-angular` workspaces); `npm run sync:legal -w apps/mobile -- --check` up to date. No suite
+was re-run: nothing a suite reads changed (no test reads these documents), so the results of round
+1 and of the checks above stand.
 
 **Open after this stage** (the delivery report, sections (f) to (j), has the whole list): the
 ship step of S6 (merge `main`, which holds #70; expect conflicts in this file, where #70's section
