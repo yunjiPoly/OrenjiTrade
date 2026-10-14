@@ -431,7 +431,8 @@ Conventions later stages reuse:
   (`src/features/map/`). `RegionMap` draws the region with `react-native-svg` from a file of the
   app: one path for every state and province, one for the country borders, one per state that has
   binders (five shades, the web's steps, outlined in a strong colour) and one for the state opened
-  last; a place with binders that is only a few points wide at the current zoom also gets a dot.
+  last; a place with binders that is only a few points wide at the current zoom also gets a dot,
+  tinted like the place itself (the legend's step of its count, over the land's colour).
   A tap opens a state (hit-tested in JS on the drawing, a dot first, with ten points of reach for
   small ones); holding a place names it first (its name, its number of public binders, "Open").
   While the whole region is on screen a finger dragged over the map scrolls the page; once zoomed
@@ -555,6 +556,12 @@ Conventions later stages reuse:
 | `npm run test:mobile`         | typecheck, lint, Jest (unit + screen tests in `__tests__/`, every screen with loading / empty / error / validation states) and the E2E harness guard tests (`node --test scripts/lib/mobile-e2e-guard.test.mjs`; `npm run test:scripts` runs every `scripts/lib` test) |
 | `npm run test:mobile:e2e`     | Playwright (`apps/mobile/e2e`) driving the Expo **web** build against a real, isolated stack                                                                                                                                                                           |
 | `npm run test:mobile:maestro` | Maestro flows (`apps/mobile/.maestro`) in Expo Go on a running Android emulator or on the iOS simulator (`-- --platform android\|ios`; a Mac without an Android device runs them on iOS)                                                                               |
+
+A Jest test file that ends with a real timer of 5 s or more still armed fails (`jest.setup.ts`),
+and is told where the timer was armed: such a timer keeps its worker alive, and Jest then prints
+"A worker process has failed to exit gracefully" without naming the file. The usual cause is a
+mocked request that never answers, behind which the read timeout of the API client (20 s) stays
+armed: hold the answer back and give it before the test ends, or use fake timers.
 
 ### Isolation of the end-to-end suites
 

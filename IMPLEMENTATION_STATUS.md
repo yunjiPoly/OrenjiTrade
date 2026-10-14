@@ -3392,11 +3392,14 @@ same iPhone 18 Pro simulator the owner keeps booted.
   never clears the parameters), nor the wait for `GET /regions` for a region the app does not
   ship; on the device both behave (walked by the reviewer).
 - R1-4: the dot of a place too small to be seen is the solid tint, which is also the legend's
-  colour for "10+", whatever the place's count.
+  colour for "10+", whatever the place's count. **Closed in stage S6** (the dot has the tint of
+  its count's step; "Small fixes before the final documents (stage S6, 2026-10-13)").
 - R1-5: at the largest text size the name card of a held place covers the top third of the
   240-point map, sometimes the place it names.
 - R1-6: jest prints "A worker process has failed to exit gracefully" once per run since the read
-  timeout of fix 1 (no open handle is reported when the suite runs in one process).
+  timeout of fix 1 (no open handle is reported when the suite runs in one process). **Closed in
+  stage S6** (a test left the read timeout armed; a guard in `jest.setup.ts` now names such a
+  file; same section).
 
 **Checks after the fixes** (2026-10-13, the owner's Mac mini, retries off)
 - `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`,
@@ -3445,14 +3448,18 @@ web tests as a regression check. R1-1, R1-2 and R1-7 are fixed (14 mutants aroun
   `SearchService.cardHolders` drops blocked owners after `CardHolderRepository.page` has counted
   them, so `totalItems` is too high and a page can come back short. To fix in the API (both
   directions of a block in the SQL of the page and of the count, with an integration test).
+  **Closed in stage S6** ("Small fixes before the final documents (stage S6, 2026-10-13)", which
+  also lists the other lists of the search module).
 - **At the largest text size every line of a collector row in Search is cut with "…"** (the state
   or province is not visible; VoiceOver reads the whole row). `CollectorResultRow`, not touched by
-  this stage; check `BinderResultRow` the same way.
+  this stage; check `BinderResultRow` the same way. **Closed in stage S6** (the line with the
+  place wraps, in both rows).
 - Small: the status-bar tap of iOS probably does nothing in Search > Cards (a second scroll view
   is on screen; not provable on a simulator); the dot of a place too small to see has the solid
-  colour the legend uses for "10+"; at the largest text size the name card of a held place covers
-  the top third of the map; jest does not see a link to an unknown region that also names a
-  state; jest prints "A worker process has failed to exit gracefully" once per run.
+  colour the legend uses for "10+" (**closed in stage S6**); at the largest text size the name
+  card of a held place covers the top third of the map; jest does not see a link to an unknown
+  region that also names a state; jest prints "A worker process has failed to exit gracefully"
+  once per run (**closed in stage S6**).
 From this stage on the native suite runs on the simulator the owner keeps booted (owner order of
 2026-10-12: `ORENJI_IOS_SIMULATOR_UDID=<its UDID>` on every run; nothing boots or shuts down a
 simulator, because each boot makes the desktop app ask the owner for permission).
@@ -4193,7 +4200,8 @@ theme. The simulator was put back to light.
 **Not part of this fix**: the two nits the second look also noted (on a line that is left out
 the note "Taken as the plain copy…" is cut at the card's edge; a line of a game OrenjiTrade does
 not have with an unreadable quantity shows no copies) are not blockers of the reviewers and are
-recorded here. The dialog that was once seen with an empty accessibility tree (U6 of review fix
+recorded here. (Stage S6: the copies of that line are shown; the cut note was not seen again;
+"Small fixes before the final documents (stage S6, 2026-10-13)".) The dialog that was once seen with an empty accessibility tree (U6 of review fix
 1) is answered outside this branch: its cause was found and fixed on branch
 `fix/ios-second-modal-accessibility`, which ships after this one (not verified here). The owner
 decisions of review fix 1 (U2, U3) stand as they were.
@@ -4215,14 +4223,149 @@ merged); everything imported was Private; nothing of the file in the log or the 
 mutants around the fix were all caught. Left open, small:
 - the chip "Plain copy assumed (N)" is cut at the edge of its pinned row until it is dragged or
   chosen (the card above the lines carries the count; a shorter label would keep it in view);
-- the commit label wraps onto two lines after the reason above it changed; on a line that is left
-  out the note "Taken as the plain copy…" is cut at the card's edge;
-- a line of a game OrenjiTrade does not have with an unreadable quantity shows no copies; when the
-  file names a finish no printing has, the line never shows the file's variant;
+  **closed in stage S6** ("N assumed", the count first);
+- the commit label wraps onto two lines after the reason above it changed (**closed in stage
+  S6**: a label that fits one line); on a line that is left out the note "Taken as the plain
+  copy…" is cut at the card's edge (**not reproduced in stage S6**, nothing changed);
+- a line of a game OrenjiTrade does not have with an unreadable quantity shows no copies
+  (**closed in stage S6**); when the file names a finish no printing has, the line never shows
+  the file's variant (**left in stage S6**: the preview does not store it; a migration and a
+  contract change);
 - in a file that names cards without a set, most lines are assumed (356 of 435 in the test file)
   and each is confirmed one at a time: there is no "confirm all" (an owner question under U3).
 Not verified: the Android run (no Android SDK on this Mac; the Android export builds) and
 VoiceOver speech itself (the accessibility tree was read).
+
+## Small fixes before the final documents (stage S6, 2026-10-13)
+
+Stages M9 and S5 recorded a short list of small defects and left them open. Each is closed here at
+its cause, with a test, or left with the reason. Branch `feature/s6-final-docs`, one commit per
+point. Nothing of the skipped stages (S3, S4) is built, the web app is not changed (paused), no
+migration, and the API contract is unchanged (the OpenAPI document and both generated clients
+regenerate to the same files).
+
+**1. The card holders count included collectors in a block relation with the viewer (API, both
+clients).** After a block the row left the list but "1 listing in your region" stayed, and a page
+could come back short: `SearchService.cardHolders` dropped blocked owners after
+`CardHolderRepository.page` had counted and paged them.
+
+- Changed: both directions of a block are excluded in the SQL of the page and of the count
+  (`DiscoverySql.notBlocked`, the clause the binders of a state already had); the per-row lookups
+  it replaces are gone (`MarkerAssembler.isBlocked`). `apps/api/README.md` says so per route.
+- The other lists of the search module, checked for the same shape:
+
+  | List | Before | Now |
+  | --- | --- | --- |
+  | Binders of a state and the counts of the map (`RegionBinderRepository`) | excluded in SQL already | unchanged |
+  | Binder section of `GET /search` (`BinderSearchRepository.search`) | limited in SQL, blocked owners dropped afterwards: a short or empty section while a match existed (no count) | same clause, before the limit |
+  | Collectors and binders of `GET /search/suggest` | limited in SQL, one lookup per row afterwards: fewer suggestions (no count) | same clause, before each limit |
+  | Collectors section of `GET /search` (`CollectorDiscoveryService.find`) | read from a cache shared by every viewer (60 s), blocked collectors removed afterwards; no count reaches a client | **not changed, recorded**: with two or more blocked collectors among the first `limit + 1` rows the section holds fewer than `limit` while more match. Not a one-clause change: the cached page is the same for every viewer |
+
+- Tests: `CardHoldersIT.collectorsInABlockRelationWithTheViewerAreNeitherListedNorCounted`
+  (listed and counted before; neither after; the viewer blocks, then is blocked; pages of one are
+  exact in both sorts; by card; with a filter; others unaffected; unblock) and
+  `SearchIT.aBlockLeavesTheBinderSectionAndTheSuggestionsBeforeTheirLimit` (with `limit=1` the next
+  binder and the next suggestion take the place, both directions). Both fail on the code before
+  ("expected 2 but was 3"; an empty binder section); six mutants of the clause (each direction
+  alone, the clause taken out of each of the four queries) are killed.
+
+**2. At the largest text size the state or province of a collector found by search was not on
+screen (phone).** The handle and the place shared one line held to one line, cut after a few
+letters of the handle ("@collecto…"); a long handle did the same at any size. The owner line of a
+binder found by search had the same limit.
+
+- Changed (`SearchResultRows.tsx`): both lines wrap, as the web's do; a screen reader hears the
+  owner's place with a binder too. The name, the ratings line and the games line keep their one
+  line, like every list row of the app (the pass of every screen at the largest sizes stays
+  open, "Open (owner)" of stage M9).
+- Tests: `search-segments.test.tsx` (the line that carries the place has no line limit in both
+  rows, and both labels; fails with the limit put back); `large-text.yaml` takes the picture of the
+  row at the largest size and checks that its label ends with the place.
+
+**3. The small points of the import (stage S5, phone).**
+
+- *The chip "Plain copy assumed (N)" was cut at the edge of its pinned row.* Measured in the
+  system font, about 80 of the row's 370 points are left for the third chip after "All (435)" and
+  "Needs a printing (0)": a count at the end of any wording ("Assumed (2)" included) is the part
+  that is cut. The chip now shows **"356 assumed"** (the count leads, so it is what is in view)
+  and a screen reader hears "Plain copy assumed (356)" (`ChoiceOption.accessibilityLabel`, new and
+  optional). At the largest text size the row (held to its pinned size) shows only the first digit
+  of that chip in "All"; the card above the lines carries the whole count there, and its button
+  brings the chip whole on screen.
+- *The commit label wrapped onto two lines.* "Add 434 cards (1,266 copies) to my inventory" is
+  345 points for a 302-point button: with a real file's numbers it always wrapped. The button now
+  shows a label that fits one line (`commitState().shortLabel`: "Add 434 cards (1,266 copies)",
+  "Add 40 cards to my inventory", "Add 434 cards, leave 12 out"); the whole sentence stays its
+  accessible name, which the E2E specs and the native flows read.
+- *A line of a game OrenjiTrade does not have, with an unreadable quantity, showed no copies.* The
+  API reports that line for its game with `fileQuantity` 0. It now says "copies: not a number from
+  1 to 9,999" where its copies would stand (not on a line whose reason is the quantity itself: the
+  sentence under it says so).
+- *On a line that is left out the note "Taken as the plain copy…" was cut at the card's edge.*
+  **Not reproduced, nothing changed.** It was seen once, during the first verification of S5
+  (a file of 435 lines, the API frozen, two lines left out, the commit pressed twice). On this tree
+  it was walked on the owner's simulator in that order and others: a file of 4 lines and one of 400
+  (320 assumed copies), lines left out with the API answering and with the API frozen
+  (`SIGSTOP`), the commit pressed twice while saving, then the API resumed; at the default and the
+  largest text size. The note stayed whole inside its card every time. If it is seen again, a
+  picture with the text size and the steps before it would let it be found.
+- *When the file names a finish no printing has, the line never shows the file's variant.*
+  **Left, recorded.** The preview keeps of a file only what it shows (`ImportDraftRow`: the name,
+  set, number and rarity as written); the variant is read to narrow the printings and not stored.
+  Showing it needs a migration after V114, the row's record and repository, the response and the
+  contract, the OpenAPI document, both generated clients and the phone: not a small change, and a
+  decision about what of a collector's file is kept. Nothing is wrong meanwhile: nothing is
+  preselected, the line asks for a printing and "In your file: …" shows the rest.
+- Tests: `inventoryImport.test.ts` (the chip and its accessible name, the three label forms and
+  none longer than the longest measured to fit, the copies of the unknown-game line),
+  `choice.test.tsx`, `importRow.test.tsx`, the preview screen test.
+
+**4. The small points of the region map (stage M9, phone).**
+
+- *The dot of a place too small to be seen had the solid colour the legend uses for "10+",
+  whatever its count.* It is now the land's colour under the tint of the step its count belongs
+  to, as the place itself is drawn (`PlaceMark.level`). On the simulator the dot of Buenos Aires
+  (one binder) has the colour of the legend's "1" and of São Paulo (one binder), pixel for pixel.
+  Tests: `regionOutlines.test.ts` (the step of each count), `map.test.tsx` (one binder over the
+  land's colour; 3, 7 and 12 binders; four tests fail with the tint taken out).
+- *jest printed "A worker process has failed to exit gracefully" once per run.* Found by tracing
+  the real timers still armed when a test file ends: one, of 20 000 ms, the read timeout of the API
+  client (`withReadTimeout`), armed for the request of `auth.test.tsx` "shows a skeleton while the
+  legal documents load", whose mocked answer never came. That file runs first and a run lasts 14 to
+  24 seconds: its worker still held the timer at the end. The test now holds the answer back and
+  then gives it (it also sees the documents replace the skeleton). `jest.setup.ts` fails a test
+  file that ends with a real timer of 5 s or more still armed and says where it was armed (the
+  unfixed test fails under it, naming `src/api/client.ts`). Five runs of the suite: no warning
+  (before: every run). Left as they are: three test files end with an 800 ms timer of the
+  notification receipts, under the guard's threshold.
+
+**Walked on the owner's simulator** (iPhone 18 Pro, iOS 27.0, Expo Go; the default text size and
+the largest one through the launch argument; screenshots kept outside the repository): Search >
+Collectors and Binders in Europe ("@collector8 · Île-de-France, France", "Noah Kim · Île-de-France,
+France" whole at both sizes); an import with two assumed copies, a line of an unknown game and a
+line left out, and one of 400 lines (the chip "320 assum…" with its count in view, the button on
+one line in every state, "Plain copy assumed (320)" as the chip's accessible name); the maps of
+Americas (South) and Europe with their dots. The simulator was put back to light and its default
+text size.
+
+**Checks** (the final tree, the owner's Mac mini, JDK 21, OrbStack; retries off)
+
+- `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)`: clean. `npm run test:api`: 974 tests
+  in 170 classes and 12 catalog tests, no failure, none skipped (986; 984 before the two new
+  ones), 3 min 5 s. `exportOpenApi` then `npm run generate:api`: nothing changed in git.
+- `npm run build -w apps/web-angular`: initial total 899.93 kB (unchanged); `npm run test:web`:
+  lint clean, 142 files / 678 tests; web lint and format check clean; `npm run test:e2e --
+  --retries=0`: 74 passed. The web app was not changed (paused); these are regression checks.
+- `npm run typecheck`, `lint`, `format:check -w apps/mobile`: clean. `npm run test:mobile`: jest 89
+  suites / 922 tests with no "worker process" warning, 28 harness guard tests.
+- `npx expo export` into throw-away directories: iOS 5,562,009 B (1,789 modules), Android
+  5,854,444 B (1,913 modules), web entry 2,916,958 B (75 static pages).
+- `npm run test:mobile:e2e -- --retries=0`: 60 passed. `npm run test:mobile:maestro -- --platform
+  ios` on the owner's iPhone 18 Pro simulator: **30 of 30 flows in 47 min 56 s**, its 33 emulator
+  accounts deleted, ports 8090 / 8082 / 19006 free afterwards.
+- `npm run test:scripts`: 133. `npm run audit:gate`: OK (the 2 allowlisted advisories).
+- Not verified: the Android run (no Android SDK on this Mac; the Android export builds);
+  VoiceOver itself (the accessibility tree was read).
 
 ## NEXT TASK
 
