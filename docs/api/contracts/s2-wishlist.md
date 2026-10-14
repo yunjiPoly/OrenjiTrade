@@ -58,10 +58,13 @@ never reads as a bare "$" next to a term.
 TCGplayer-based, USD, dated by the provider database's last update — `YgoProDeckMapper`), `SAMPLE`
 (the fictional local sample catalog, `MockCardProvider`, CAD) or `CATALOG` (entered by staff). The
 UIs label it "TCG market price" / "Sample market price" / "Market price" with the source and date
-in a tooltip (web) or hint (mobile) where the card page shows the price of the selected printing.
-The web's printings table ("Market price" column) and the mobile printing list ("Market 42.00
-CAD") still show prices without their source: a known gap (delivery report of 2026-10-14, section
-(h)), which the printing picker of stage S3 was to close; S3 is not built.
+in a tooltip (web) or hint (mobile) on the card page's selected printing and in the wish editors:
+the price of each row of the web wish dialog's printing picker, and the price-terms hint of both
+clients when the wish names one printing that has a price. The web's printings table ("Market
+price" column), the printing list of the web inventory's "Add a card" dialog and the printing list
+of the mobile card page ("Market 42.00 CAD") still show prices without their source: a known gap
+(delivery report of 2026-10-14, section (h)), which the printing picker of stage S3 was to close;
+S3 is not built.
 
 ## Wishlist alerts (what replaces matches)
 

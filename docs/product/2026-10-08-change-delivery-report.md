@@ -273,7 +273,8 @@ Larger:
 - The main bundle is 899.93 kB, 0.07 kB under its 900 kB warning budget: any new web feature
   crosses it.
 - The card page picks the first printing by itself ("Selected printing TMP-EN014 …"), and its
-  printings table shows market prices without their source.
+  printings table shows market prices without their source; so does the printing list of the
+  inventory's "Add a card" dialog.
 - The wish dialog's hint mentions a rarity filter that is not shown when all printings share one
   rarity.
 - The header search opens a code shared by several printings on the first one; on a 375 px screen
