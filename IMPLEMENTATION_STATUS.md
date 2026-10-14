@@ -4971,6 +4971,43 @@ verified:** the Android run (no Android SDK on this Mac); the dark splash (Expo 
 only a device build shows the app's); native alerts and pickers in the app's theme beyond the
 keyboard (none opened in the walk).
 
+**Review fix 2** (2026-10-14; the second round, one finding, R1-1, minor): the web's legal
+exception reached two spec files outside the files the owner named, and `legal-content.spec.ts`
+gained a new `describe` block rather than only updated expectations.
+
+- **The new block is gone from the web.** It was not needed by any web check: its three tests
+  (deals by mail, the same in French, still a draft; no meetup advice, no claim of compliance)
+  now live, unchanged, in the phone's `__tests__/screens/legal.test.tsx`, which reads the phone's
+  copy of the same text, kept identical to the web files by the test beside it (`npm run
+  sync:legal`). The web's `legal-content.spec.ts` is again exactly as S6 left it. A meetup
+  sentence put into the phone's copy in both languages fails two of the three tests.
+- **The two other spec files stay changed, for the owner to confirm** (decision 11): they pinned
+  sentences the R1 text removes ("safe exchange zones", "zones d’échange sécuritaires", "Bring
+  someone along when the cards are valuable"); keeping them would keep meetup advice or fail the
+  web checks the same order requires. Since S6 the web differs only in the trading-safely section
+  of `legal-content.ts` and `legal-content.fr.ts`, one assertion of `legal-page.component.spec.ts`
+  and three strings of `e2e/launch-safety.spec.ts`. No test can hold an order about a diff; the
+  evidence is `git diff --stat ad97d0d -- apps/web-angular`.
+
+**Checks of review fix 2** (2026-10-14, this Mac, retries off; on the code of `05f2c50`, later
+commits are documents):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 982 tests in 172 classes + 12 catalog tests in 2 classes, 0 failures, 0 skipped (4 min 13 s) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | no change, git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **899.31 kB** (unchanged) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 142 files / 678 tests (the three moved tests left); lint and format clean |
+| `npm run test:e2e -- --retries=0` | **74 / 74** (1 min 30 s) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint: 0 warnings) |
+| `npm run test:mobile` | passed: jest 91 suites / 908 tests (the three moved tests added) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **57 / 57** (53 s) |
+| `npm run test:mobile:maestro -- --platform ios` | **30 / 30** in 46 min 55 s on the owner's iPhone 18 Pro simulator, under the lock; the simulator left as found (light, text size large), nothing in its Files storage |
+| `npm run test:scripts` | 133 / 133 |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
 **What R4 completes:** the chats' pinned card (subject), which feeds `dealSideOf` and so the buying
 and selling tips; quick replies; the "+" sheet with Settings → Shipping details; Mark as sold
 (the `deals` module, the `SALE` interaction, the buyer's notification, the 10-minute undo); the
