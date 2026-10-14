@@ -43,7 +43,7 @@ describe('Choose the printing (screen 5)', () => {
 
   it('offers the rarities in the order they first appear', () => {
     expect(rarityChoices([lavd, macr, macrFirst])).toEqual(['Common', 'Secret']);
-    expect(rarityChoices([printingFixture({ rarity: null })])).toEqual([]);
+    expect(rarityChoices([printingFixture({ rarity: undefined })])).toEqual([]);
   });
 
   it('filters by set code, set name or code, and by rarity', () => {
