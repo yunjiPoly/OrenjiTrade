@@ -37,14 +37,33 @@ export const InventoryCardRow = memo(function InventoryCardRow({
   highlighted = false,
 }: InventoryCardRowProps) {
   const { palette } = useTheme();
-  // One line as in the mockup; two at large text sizes, where one line keeps only a word.
-  const nameLines = useWindowDimensions().fontScale > 1.3 ? 2 : 1;
+  // One line as in the mockup. At large text sizes the price and the copies go under the code,
+  // which gives the name the width of the row (side by side, names broke in the middle of a word)
+  // and up to three lines.
+  const large = useWindowDimensions().fontScale > 1.3;
+  const nameLines = large ? 3 : 1;
   const code = printingCode(item.printing);
   const price = itemPriceText(item);
   const spoken = [item.card.name, code, price, INVENTORY_COPY.copiesSpoken(item.quantity)]
     .filter(Boolean)
     .join(', ');
   const ring = selected || highlighted ? palette.primary : palette.border;
+  const end = (
+    <View style={large ? styles.endBelow : styles.end}>
+      {price ? (
+        <Text
+          numberOfLines={2}
+          testID={`item-${item.id}-price`}
+          style={[styles.price, large && styles.priceBelow, { color: palette.ink }]}
+        >
+          {price}
+        </Text>
+      ) : null}
+      <Text style={[styles.copies, { color: palette.textMuted }]}>
+        {INVENTORY_COPY.copies(item.quantity)}
+      </Text>
+    </View>
+  );
 
   return (
     <Pressable
@@ -82,21 +101,9 @@ export const InventoryCardRow = memo(function InventoryCardRow({
         <Text numberOfLines={1} style={[styles.code, { color: palette.textMuted }]}>
           {code}
         </Text>
+        {large ? end : null}
       </View>
-      <View style={styles.end}>
-        {price ? (
-          <Text
-            numberOfLines={2}
-            testID={`item-${item.id}-price`}
-            style={[styles.price, { color: palette.ink }]}
-          >
-            {price}
-          </Text>
-        ) : null}
-        <Text style={[styles.copies, { color: palette.textMuted }]}>
-          {INVENTORY_COPY.copies(item.quantity)}
-        </Text>
-      </View>
+      {large ? null : end}
     </Pressable>
   );
 });
@@ -118,7 +125,9 @@ const styles = StyleSheet.create({
   name: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
   code: { fontFamily: fontFamily.mono, fontSize: 12, lineHeight: 16 },
   end: { alignItems: 'flex-end', gap: 4, maxWidth: '40%' },
+  endBelow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12 },
   price: { fontSize: 14, lineHeight: 18, fontWeight: fontWeight.bold, textAlign: 'right' },
+  priceBelow: { textAlign: 'left', flexShrink: 1 },
   copies: { fontSize: 12, lineHeight: 16 },
   pressed: { opacity: 0.8 },
 });

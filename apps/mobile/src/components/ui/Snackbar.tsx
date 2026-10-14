@@ -9,7 +9,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/src/components/ui/Text';
@@ -158,6 +165,9 @@ function SnackbarView({
 }) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // At large text sizes the action goes under the text, which keeps the width of the toast
+  // (side by side, "Saved" broke in the middle of the word).
+  const stacked = useWindowDimensions().fontScale > 1.3;
   // Above the tab bar, or above the bottom bar of a form screen.
   const bottom = Math.max(insets.bottom + spacing[16], clearance + spacing[2]);
   const error = message.tone === 'error';
@@ -170,6 +180,7 @@ function SnackbarView({
         testID="snackbar"
         style={[
           styles.bar,
+          stacked && styles.barStacked,
           elevation.menu,
           error
             ? { backgroundColor: palette.danger, borderColor: palette.danger }
@@ -183,7 +194,7 @@ function SnackbarView({
           accessibilityHint="Tap to dismiss"
           onPress={onDismiss}
           testID="snackbar-message"
-          style={styles.message}
+          style={[styles.message, stacked && styles.messageStacked]}
         >
           {message.icon ? <ToastIcon icon={message.icon} /> : null}
           <View style={styles.texts}>
@@ -191,7 +202,7 @@ function SnackbarView({
               <Text style={[textStyle('md'), styles.title, { color: ink }]}>{message.title}</Text>
             ) : null}
             <Text
-              numberOfLines={message.title ? 1 : undefined}
+              numberOfLines={message.title ? (stacked ? 3 : 1) : undefined}
               style={[
                 textStyle('sm'),
                 message.title ? null : styles.only,
@@ -213,7 +224,11 @@ function SnackbarView({
             }}
             hitSlop={8}
             testID={message.action.testID ?? 'snackbar-action'}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.action,
+              stacked && styles.actionStacked,
+              pressed && styles.pressed,
+            ]}
           >
             <Text
               style={[
@@ -279,6 +294,7 @@ const styles = StyleSheet.create({
     paddingRight: spacing[2],
     paddingVertical: spacing[1],
   },
+  barStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 0 },
   message: {
     flex: 1,
     flexDirection: 'row',
@@ -287,6 +303,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: spacing[2],
   },
+  messageStacked: { flex: 0 },
   texts: { flex: 1, gap: 2 },
   title: { fontWeight: fontWeight.bold },
   only: { fontWeight: fontWeight.medium },
@@ -304,6 +321,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionStacked: { alignSelf: 'flex-end' },
   actionLabel: { fontWeight: fontWeight.bold },
   pressed: { opacity: 0.7 },
 });

@@ -1,4 +1,4 @@
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, lightPalette, spacing, textStyle, useTheme } from '@/src/theme';
@@ -40,7 +40,8 @@ export function ConfirmSheet({
   const { palette } = useTheme();
   return (
     <BottomSheet visible={visible} onClose={busy ? () => undefined : onCancel} testID={testID}>
-      <View style={styles.body}>
+      {/* The question scrolls at the largest text sizes; the two buttons stay on screen. */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} bounces={false}>
         <Text
           accessibilityRole="header"
           style={[textStyle('lg'), styles.title, { color: palette.ink }]}
@@ -48,7 +49,7 @@ export function ConfirmSheet({
           {title}
         </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{message}</Text>
-      </View>
+      </ScrollView>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={confirmLabel}
@@ -89,6 +90,7 @@ export function ConfirmSheet({
 }
 
 const styles = StyleSheet.create({
+  scroll: { flexGrow: 0, flexShrink: 1 },
   body: { gap: spacing[2], paddingTop: spacing[2] },
   title: { fontWeight: fontWeight.bold },
   button: {

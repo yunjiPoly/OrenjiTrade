@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import type { CardDetail, PrintingSummary } from '@/src/api/types';
@@ -217,10 +217,24 @@ function PrintingRow({
   onPress: () => void;
 }) {
   const { palette } = useTheme();
+  // At large text sizes the rarity goes under the set line: side by side, the code broke every
+  // two characters.
+  const large = useWindowDimensions().fontScale > 1.3;
   const code = printingCode(printing);
   const setLine = [PRINTING_COPY.setAndYear(printing.setName ?? '', releaseYear(printing)), variant]
     .filter(Boolean)
     .join(' · ');
+  const rarity = printing.rarity ? (
+    <Text
+      style={[
+        styles.rarity,
+        large && styles.rarityBelow,
+        { backgroundColor: palette.surfaceVariant, color: palette.ink },
+      ]}
+    >
+      {printing.rarity}
+    </Text>
+  ) : null;
   return (
     <Pressable
       accessibilityRole="button"
@@ -242,17 +256,12 @@ function PrintingRow({
       />
       <View style={styles.texts}>
         <Text style={[styles.code, { color: palette.ink }]}>{code}</Text>
-        <Text numberOfLines={2} style={[textStyle('sm'), { color: palette.textMuted }]}>
+        <Text numberOfLines={large ? 4 : 2} style={[textStyle('sm'), { color: palette.textMuted }]}>
           {setLine}
         </Text>
+        {large ? rarity : null}
       </View>
-      {printing.rarity ? (
-        <Text
-          style={[styles.rarity, { backgroundColor: palette.surfaceVariant, color: palette.ink }]}
-        >
-          {printing.rarity}
-        </Text>
-      ) : null}
+      {large ? null : rarity}
     </Pressable>
   );
 }
@@ -301,6 +310,7 @@ const styles = StyleSheet.create({
   art: { width: 40, height: 58, borderRadius: 5, borderWidth: 1 },
   texts: { flex: 1, minWidth: 0, gap: 3 },
   code: { fontFamily: fontFamily.mono, fontSize: 14, lineHeight: 19 },
+  rarityBelow: { alignSelf: 'flex-start' },
   rarity: {
     fontSize: 12,
     lineHeight: 16,
