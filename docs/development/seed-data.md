@@ -102,3 +102,19 @@ entries. Nothing happens while the real catalog is absent.
   mail" since V116 (stage R1), no longer "trades, meetups, locals".
 - Profile tags: the curated "Local Meetups" tag is hidden since V115 (stage R1); seed profiles 01
   and 07 carry "Shipping" instead.
+
+### A database seeded before stage R1
+
+The rows whose texts stage R1 rewrote (profiles, the seed conversation, binders and cards,
+community posts and replies, offers, ratings, the donation, the sponsored campaign) are inserted
+once and never rewritten. A database seeded before stage R1 (2026-10-14) and migrated since keeps
+their earlier texts: collector1's bio ("always up for a meetup"), the seed conversation ending "see
+you Saturday at the café!", the binder descriptions, community posts and replies, the open offer's
+message ("I can meet at Berri-UQAM after work."), the rating comments, the donation message and the
+sponsored headline, with their meetup, game store, café and "trade nights" lines; collector1 and
+collector7 keep the hidden "Local Meetups" tag (no longer shown,
+V115) and do not gain "Shipping". Only what the migrations change follows: V115 hides the tag and
+V116 rewrites the untouched region channel descriptions. The shipping texts above appear on a
+fresh database: `npm run infra:reset` (it **deletes all local data**, see
+[local-setup.md](local-setup.md#reset-and-reseed)), then `npm run dev`. The owner's database
+`orenjitrade` (V114 when R1 was built) is in this case.

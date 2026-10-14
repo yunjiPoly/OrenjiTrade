@@ -60,8 +60,8 @@ Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel a
 **realtime** STOMP 1.2 client over the app's WebSocket (`/ws`; live while a ready account is
 signed in, paused in the background, reconnecting with backoff), the **Messages** tab (Inbox |
 Community: the inbox with unread counts and previews, the full conversation with card / binder /
-photos, read markers, typing, "Seen", mute / archive / block; old offer links read "Offer (no
-longer available)" since stage R1; the public community
+photos, read markers, typing, "Seen", mute / archive / block; old offer links and offer or trade
+updates read "Offer (no longer available)" since stage R1, in the chat and in the inbox; the public community
 channels with posts, replies and own edits), the **Wishlist** tab (stage S2: which copy, public
 note, "Near Mint only" and price term chips, edit, remove, "Let others see what you want", a prompt
 to set a location for alerts; "Add to wishlist" on the card detail with its printing or rarity;
@@ -297,9 +297,12 @@ src/
   lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
                            (a new install starts in dark; Settings → Appearance: System / Light /
-                           Dark), fonts.ts + useAppFonts.ts (Sora, Inter, JetBrains Mono, loaded
-                           before the first screen; components/ui/Text.tsx maps family + weight to
-                           the loaded face, so every screen imports Text and TextInput from there)
+                           Dark; on iOS the keyboard, alerts and pickers follow the chosen theme,
+                           and the splash is dark), fonts.ts + useAppFonts.ts (Sora, Inter,
+                           JetBrains Mono, loaded before the first screen;
+                           components/ui/Text.tsx maps family + weight to the loaded face, so
+                           every screen imports Text and TextInput from there: lint refuses
+                           React Native's own in app/ and src/)
 ```
 
 Conventions later stages reuse:
@@ -494,33 +497,26 @@ Conventions later stages reuse:
   read marker is sent only while the thread is visible; photos are checked (JPEG / PNG / WebP,
   8 MB) before `POST /uploads/images?kind=MESSAGE`; refusals (`MESSAGING_BLOCKED`,
   `MESSAGE_BLOCKED`, `POST_BLOCKED`, `DUPLICATE_POST`, 429 with `retryAfterSeconds`) are explained
-  where they happen. Offer links open the offer; "Share an offer" links a negotiation with the
-  other collector (OFFER_LINK).
-- **Offers and trades** (`src/features/offers/`, `src/features/trades/`, the web's
-  `shared/offers` and `features/{offers,trades}`): "Make an offer" (`MakeOfferButton`) shows only
-  on a card that accepts a kind of offer and is not the viewer's; it hands the card over to
-  `offers/new` in memory (`offerTargetStore`: no endpoint reads one public item; a reloaded page
-  asks to choose the card again). The form offers only the kinds the availability allows, sends
-  once with an `Idempotency-Key` fixed for the screen, and words every refusal through
-  `offerProblem` (the web's wording; `LIMIT_REACHED` with used / allowed and the reset). Answers
-  always send the version on screen; `STALE_OFFER` moves to `latestOfferId`, other conflicts
-  re-read. Screens only offer the API's `allowedActions` / `allowedOperations`. A counter-offer
-  that arrives while its offer is open replaces it on screen (`router.setParams`). Pushed OFFER_* and
-  trade notifications invalidate `['me', uid, 'offers' | 'trades']`.
-- **Payment protection and disputes** (`src/features/payments/`, `src/features/disputes/`,
-  `src/api/hooks/payments.ts`, the web's `shared/payments`, `features/{trades,checkout,disputes}`
-  and `settings/payouts`): the trade screen offers only the API's `allowedOperations` (Pay, Mark as
-  shipped, Confirm receipt, Open a dispute; hidden while `protectedPayments` is known to be off);
-  refusals are worded by `paymentProblem` (SELLER_NOT_ONBOARDED, DISPUTE_WINDOW_CLOSED with the
-  date, EVIDENCE_LIMIT_REACHED, FEATURE_DISABLED). Pay follows only the app's fake checkout path
-  or an https provider page (`checkoutTargets.ts`); the checkout polls until the synthetic webhook
-  lands (`useProviderCheckout`, about 45 s at most) and goes back to the trade with
-  `?payment=secured|failed` (`router.dismissTo`). Evidence photos are checked (JPEG / PNG / WebP,
-  8 MB) before the multipart upload and shown from the authenticated file route as `data:` URIs
-  (never a public URL, never a disk cache). DISPUTE_UPDATE notifications refresh the dispute.
+  where they happen. Every chat starts with the safety tip of its side (`ChatSafetyTip`,
+  `src/features/safety/chatSafetyTips.ts`: buying, selling, or a chat without a card, which every
+  chat reads until stage R4 pins a card; it opens "Trading safely"). An old offer (an OFFER_LINK,
+  or a SYSTEM message the API posted on an offer or trade update) reads as one grey line, "Offer
+  (no longer available)" (`OfferUnavailableLine`; the text sent with an offer link stays in its
+  bubble), and so does the inbox line of a chat whose last message is one (`listPreview`).
+- **No offers, trades, protected payments or disputes on the phone** (ADR 0018, "Deals happen
+  in the chat"; the API keeps them for the paused web): an old offer, trade, payment or dispute
+  notification opens nothing and says where deals happen (`DEALS_IN_CHAT_NOTE`, the
+  `{ kind: 'note' }` target of `notificationKinds.ts`); a link to a removed screen
+  (`orenjitrade://offers/…`, `trades/…`, `disputes/…`, `checkout/fake/…`, `settings/offers`,
+  `settings/payouts`) lands on Messages or Settings with that note (`removedRouteTarget`,
+  `src/navigation/removedRoutes.ts`, through the not-found screen); the notification settings no
+  longer list the OFFER and TRADE categories (their stored values are sent back unchanged).
 - **Premium, credits, donations and ads** (`src/features/billing/`, `src/features/ads/`,
   `src/api/hooks/billing.ts`, the web's `features/{premium,credits,support,checkout}` and
-  `shared/{billing,ads}`): a plan change (checkout, cancel) re-reads `/me`, the plan, the ads and
+  `shared/{billing,ads}`): the Premium and donation checkouts follow only the app's fake checkout
+  paths (`checkout/fake-billing/<ref>`, `checkout/fake-donation/<ref>`) or an https provider page
+  (`src/features/billing/checkoutTargets.ts`) and poll until the synthetic webhook lands
+  (`useProviderCheckout`, `FakeProviderCheckout`); a plan change (checkout, cancel) re-reads `/me`, the plan, the ads and
   discovery; a credit spend keeps one idempotency key per dialog; donations validate the amount
   (two decimals) and show the API's range on the field; a sponsored slot serves nothing while
   `advertising` is off or for Premium (`[]`), always says "Sponsored", records one impression per
@@ -536,8 +532,9 @@ Conventions later stages reuse:
 - **Notifications** (`src/features/notifications/notificationKinds.ts`, the web's
   `notification-kinds.ts`): an icon / tone / label per type, and the web path of a notification
   (`data.deepLink` when it is a safe same-app path, else rebuilt from its ids) mapped to an app
-  screen (`mobileTarget`: offers, trades, disputes, Premium, credits, support, My reports, payouts
-  and `?tab=ratings` included), or a note for the settings that stay on the web (blocked users).
+  screen (`mobileTarget`: Premium, credits, support, My reports and `?tab=ratings` included), or a
+  note: for the settings that stay on the web, and, since stage R1, for offers, trades, disputes
+  and the offer and payout settings, which say that deals happen in the chat (ADR 0018).
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
@@ -920,23 +917,23 @@ Writing a flow that passes on both:
 - Custom scheme: `orenjitrade://collectors/<handle>`, `orenjitrade://cards/<id>`,
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
   `orenjitrade://wishlist`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
-  `orenjitrade://offers/<id>`, `orenjitrade://trades/<id>`, `orenjitrade://settings/reports`,
-  `orenjitrade://disputes/<id>`, `orenjitrade://premium`, `orenjitrade://credits`,
-  `orenjitrade://support`, `orenjitrade://settings/payouts`, `orenjitrade://holders?card=<id>`
-  (or `?printing=<id>`), `orenjitrade://sets/<id>`, `orenjitrade://settings/blocked`).
+  `orenjitrade://settings/reports`, `orenjitrade://premium`, `orenjitrade://credits`,
+  `orenjitrade://support`, `orenjitrade://holders?card=<id>` (or `?printing=<id>`),
+  `orenjitrade://sets/<id>`, `orenjitrade://settings/blocked`).
   Signed out, a link leads to sign-in and opens after signing in.
+- Links to the screens stage R1 removed (`orenjitrade://offers/<id>`, `trades/<id>`,
+  `disputes/<id>`, `checkout/fake/<ref>`) land on Messages, and `settings/offers` and
+  `settings/payouts` on Settings, with a note that deals happen in the chat (ADR 0018); never on a
+  blank or not-found screen.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
   `ios.associatedDomains` and Android `intentFilters` (`autoVerify`) in `app.config.ts`.
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
 - The admin / moderator consoles (web only, including dispute resolution, refunds, plans,
-  campaigns and donation refunds). PDF evidence of a dispute is listed by name and size and opened
-  on the website (the app adds statements and photos). Store builds: real payment providers and
-  in-app purchase are not wired (open owner question, ADR 0011); the fake providers are local
-  only. "Make an offer" is on public cards of binders, profiles and the holders list (the Map tab
-  lists places and binders, not cards). Moderators remove community posts on the web only; photos
-  come from the library (no camera).
+  campaigns and donation refunds). Store builds: real payment providers and in-app purchase are
+  not wired (open owner question, ADR 0011); the fake providers are local only. Moderators remove
+  community posts on the web only; photos come from the library (no camera).
 - Google sign-in on a device needs the OAuth client ids of the real Firebase project
   (`EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`, deferred with that project: `docs/deployment/DEFERRED.md`);
   locally it is proven only against the Auth emulator's simulated account, and a device build
@@ -947,7 +944,6 @@ Writing a flow that passes on both:
   opened while signed out reopens after signing in.
 - Device push notifications (preferences are saved; Expo / FCM push tokens need an EAS project
   and a real FCM sender, so notifications arrive in the app and over the realtime channel only).
-- Sora / Inter fonts (system font until `expo-font` loading is added).
 - EAS: `extra.eas.projectId` stays a placeholder; no EAS build is used (local and free only).
 - Not built, by the owner's decision of 2026-10-13 (stages S3 and S4 of the 2026-10-08 change):
   the printing picker with holder counts on the card screen (the card screen still preselects a

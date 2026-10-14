@@ -271,14 +271,17 @@ each) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab
 (stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
 region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
-collector and My reports; rating a collector and writing a reference after an interaction;
-"Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
-with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
-(payment protection on the trade: pay on the app's fake checkout, ship, confirm receipt, disputes
-with statements and photos, Settings → Payouts; Premium through the fake billing checkout, credits
-with referrals and day unlocks, voluntary donations through the fake donation checkout,
-"Sponsored" placements) are implemented on the same API and the same local fake providers as the
-web; the admin consoles stay on the web. Stage M7 (2026-10-06) closes the web parity gaps:
+collector and My reports; rating a collector and writing a reference after a deal or a
+conversation) and Phase 10 (Premium through the fake billing checkout, credits with referrals and
+day unlocks, voluntary donations through the fake donation checkout, "Sponsored" placements) are
+implemented on the same API and the same local fake providers as the web; the admin consoles stay
+on the web. Offers and trades (Phase 8) and payment protection, disputes and Settings → Payouts
+(Phase 9) were on the phone from stages M5 and M6 until stage R1 of the phone redesign
+(2026-10-14) removed them: deals happen in the chat and cards ship by mail
+([ADR 0018](../architecture/adr/0018-deals-happen-in-the-chat.md)). Since R1 they are web-only
+(the API keeps them for the paused web); on the phone an old offer reads "Offer (no longer
+available)" and an old offer, trade or dispute notification or link says that deals happen in
+the chat. Stage M7 (2026-10-06) closes the web parity gaps:
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
@@ -287,7 +290,8 @@ mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the 
 first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
 both web files), consents recorded with the language shown, the dismissible "Trade safely"
-notice in conversations and on offers / trades (dismissal kept on the device), Block / Unblock
+notice in conversations and on offers / trades (since stage R1: a shipping-first safety tip at
+the start of every chat, which opens "Trading safely"), Block / Unblock
 on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
@@ -313,13 +317,10 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
 (collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
-collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
-Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
-payouts set up, 300 credits and the referral code `COLLECTOR1`; collector5's protected trade with
-collector2 is disputed: Trades → the trade → "View the dispute"; `premium_user` has a live fake
-Premium subscription). The app's checkouts (`checkout/fake/…`, `checkout/fake-billing/…`,
-`checkout/fake-donation/…`) are the local fake providers: a "Local test payment" banner, no card,
-no money; whether a store build may sell Premium or take donations at all is an open owner
+collector1 has 300 credits and the referral code `COLLECTOR1`; `premium_user` has a live fake
+Premium subscription; the seed's offers, trades, payouts and dispute show on the web only since
+stage R1). The app's checkouts (`checkout/fake-billing/…`, `checkout/fake-donation/…`) are the
+local fake providers: a "Local test payment" banner, no card, no money; whether a store build may sell Premium or take donations at all is an open owner
 question (in-app purchase rules, ADR 0011).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
@@ -385,10 +386,8 @@ it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on m
 for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform (the API address is
 inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
-second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
-`wishlist.js` and `offers.js`, the seller of the payment-protection flow and the member of the
-Premium flow from `payments.js`; `offers.js` and `payments.js` post `{}` to body-less endpoints
-because Maestro's `http.post` needs a body)
+second collector of the messaging, wishlist and report flows comes from `messaging.js`,
+`wishlist.js` and `reports.js`, the member of the Premium flow from `billing.js`)
 and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
