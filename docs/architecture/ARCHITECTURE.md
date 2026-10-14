@@ -90,9 +90,7 @@ flowchart TB
     ratings
     reports
     offers --> trades --> payments
-    billing --> credits
-    donations
-    ads
+    limits
     moderation
     admin
     audit
@@ -131,7 +129,8 @@ sequenceDiagram
   A-->>C: 200 profile  | 403 SUSPENDED | 428 TERMS_REQUIRED
 ```
 
-Roles (`USER`, `PREMIUM_USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN`) live in `user_role`. Admin
+Roles (`USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN`; `PREMIUM_USER` left with stage F1, ADR 0019)
+live in `user_role`. Admin
 routes additionally require a recent second factor. Local dev uses the Firebase emulator;
 tests use a static verifier (ADR 0008).
 

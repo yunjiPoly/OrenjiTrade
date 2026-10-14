@@ -59,3 +59,16 @@ Options for Premium (and donations):
 
 Until the owner decides, the local builds keep the fake providers (clearly labelled "Local test
 payment"), and no store build is produced (EAS stays unused).
+
+## Amendment 2026-10-14 (stage F1): only protected payments remain
+
+[ADR 0019](0019-free-for-all-no-paid-features.md) removed Premium, credits and donations (and the
+ads) on the owner's decision of 2026-10-14: the `FakeBillingProvider`, `StripeBillingProvider`,
+`FakeDonationProvider`, their checkouts (`checkout/fake-billing/[ref]`,
+`checkout/fake-donation/[ref]`, `/checkout/fake-billing/:ref`, `/checkout/fake-donation/:ref`) and
+the reserved `POST /me/subscription/mobile-receipt` are gone. The decision above (payment
+protection through `PaymentProvider`, Stripe Connect, the fake provider, the `protectedPayments`
+flag) is unchanged. The open question of the 2026-10-05 amendment now concerns protected payments
+only (physical goods between people, outside in-app purchase rules); the Premium and donation rows
+of its table and options 1 to 3 apply again only if the owner brings a paid feature back
+(`archive/paid-features`).

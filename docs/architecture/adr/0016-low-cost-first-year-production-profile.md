@@ -388,3 +388,18 @@ Watch the alert policies of the monitoring module (`[prod] ...` in Cloud Monitor
   need); a regional external LB (cheaper hourly rate in the Montreal table but a second
   certificate story and no global anycast); persistence for the sidecar (RDB files would live on
   the in-memory disk and count against the container's memory for data nobody needs back).
+
+## Amendment 2026-10-14 (stage F1, ADR 0019)
+
+Premium, credits, donations and ads left OrenjiTrade. Removed from the profile: the
+`credits-reconcile` and `subscriptions-period` Cloud Scheduler jobs (7 jobs remain), the
+`ads-token-secret` secret (generated password and version) and the operator-added
+`stripe-billing-webhook-secret`, the `billing_provider` and `stripe_price_premium` variables and
+the `BILLING_PROVIDER`, `DONATION_PROVIDER`, `ADS_WEB_BASE_URL`, `ADS_TOKEN_SECRET`,
+`STRIPE_PRICE_PREMIUM` and `STRIPE_BILLING_WEBHOOK_SECRET` variables of the api service. The API
+now starts outside `local`/`test` without an ads token secret (`AdsConfig` is gone). In the Redis
+table above, the rule caches no longer hold plans, entitlements, credit products or settings and
+donation settings (they hold the usage limits instead), and the credit balance cache is gone.
+The cost table does not change in a measurable way (two hourly jobs fewer; the first three jobs
+per billing account were free anyway). Protected payments keep `stripe-secret-key` and
+`stripe-webhook-secret`.
