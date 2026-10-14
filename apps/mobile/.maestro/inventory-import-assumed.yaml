@@ -33,14 +33,15 @@ tags:
       id: 'inventory-empty'
     timeout: 60000
 
+# Add cards (stage R2 of the phone redesign), then the import it opens on its source.
 - tapOn:
-    id: 'inventory-import'
+    id: 'inventory-add-card'
 - extendedWaitUntil:
     visible:
-      id: 'import-source-COLLECTR_CSV'
+      id: 'add-cards-import-collectr'
     timeout: 30000
 - tapOn:
-    id: 'import-source-COLLECTR_CSV'
+    id: 'add-cards-import-collectr'
 - extendedWaitUntil:
     visible:
       id: 'import-choose-file'

@@ -4,8 +4,10 @@
 // GET /api/v1/binders when a binder is expected).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, EXPECT_COUNT, and optionally
-// EXPECT_QUANTITY, EXPECT_AVAILABILITY, EXPECT_FINISH (of the only item), EXPECT_BINDER (its
-// binder's name) and EXPECT_BINDER_VISIBILITY (that binder's visibility).
+// EXPECT_QUANTITY, EXPECT_AVAILABILITY, EXPECT_FINISH, EXPECT_PRICE_TEXT (the asking price as
+// typed), EXPECT_PRICE (its amount, or "null"), EXPECT_CONDITION_STATED, EXPECT_IMAGES (the number
+// of photos), EXPECT_VISIBILITY (of the only item), EXPECT_BINDER (its binder's name) and
+// EXPECT_BINDER_VISIBILITY (that binder's visibility).
 // Outputs: output.inventory.{count}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
@@ -66,6 +68,31 @@ if (items.length === 1) {
     item.finish,
     typeof EXPECT_FINISH !== 'undefined' ? EXPECT_FINISH : undefined,
     'finish'
+  );
+  expectEqual(
+    item.askingPriceText,
+    typeof EXPECT_PRICE_TEXT !== 'undefined' ? EXPECT_PRICE_TEXT : undefined,
+    'asking price text'
+  );
+  expectEqual(
+    item.askingPrice === null ? 'null' : item.askingPrice,
+    typeof EXPECT_PRICE !== 'undefined' ? EXPECT_PRICE : undefined,
+    'asking price'
+  );
+  expectEqual(
+    item.conditionStated,
+    typeof EXPECT_CONDITION_STATED !== 'undefined' ? EXPECT_CONDITION_STATED : undefined,
+    'condition stated'
+  );
+  expectEqual(
+    (item.images || []).length,
+    typeof EXPECT_IMAGES !== 'undefined' ? EXPECT_IMAGES : undefined,
+    'photos'
+  );
+  expectEqual(
+    item.visibility,
+    typeof EXPECT_VISIBILITY !== 'undefined' ? EXPECT_VISIBILITY : undefined,
+    'visibility'
   );
   if (typeof EXPECT_BINDER !== 'undefined') {
     expectEqual(item.binder ? item.binder.name : '(none)', EXPECT_BINDER, 'binder');

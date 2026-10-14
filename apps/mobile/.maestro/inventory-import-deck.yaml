@@ -34,18 +34,18 @@ tags:
       id: 'inventory-empty'
     timeout: 60000
 
-# The entry on the Inventory tab, then the source.
+# Add cards (stage R2 of the phone redesign): the two imports, then the deck file's.
 - tapOn:
-    id: 'inventory-import'
+    id: 'inventory-add-card'
 - extendedWaitUntil:
     visible:
-      id: 'import-source-YDK'
+      id: 'add-cards-import-deck'
     timeout: 30000
 - assertVisible:
-    id: 'import-source-COLLECTR_CSV'
+    id: 'add-cards-import-collectr'
 - takeScreenshot: import-start
 - tapOn:
-    id: 'import-source-YDK'
+    id: 'add-cards-import-deck'
 - extendedWaitUntil:
     visible:
       id: 'import-choose-file'
