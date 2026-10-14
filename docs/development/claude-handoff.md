@@ -37,7 +37,7 @@ modal, #70, 2026-10-14). Merged PRs since 2026-10-04: #39 #40 #41 #45 #46 #47 #4
 
 | What | Where | State |
 | --- | --- | --- |
-| Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent. Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
+| Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (round 1). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -73,7 +73,7 @@ The owner's spec is in [`docs/product/specs/2026-10-08-have-want-regions.md`](..
 | S5 inventory import: YDK + Collectr CSV | 6 | merged (#69): the API and the phone screens; not built: the web import screen (web paused) |
 | S6 final docs, definition-of-done walkthrough | 8, 9, DoD | branch `feature/s6-final-docs`, waits for its ship step |
 
-The clause-by-clause result (13 done, 4 partly, 5 not built), what each skipped piece would take
+The clause-by-clause result (12 done, 5 partly, 5 not built), what each skipped piece would take
 and the decisions the owner can still overrule are in the
 [delivery report](../product/2026-10-08-change-delivery-report.md).
 

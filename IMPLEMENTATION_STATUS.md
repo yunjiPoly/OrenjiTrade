@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 13 of 22 clauses done, 4 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; every document brought to today; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
+**Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, round 1; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
 **Last updated:** 2026-10-06 (mobile stage M8: launch readiness on the Expo app — the 18+ confirmation (the bilingual checkbox at sign-up and on the consent screen, a first onboarding "Age" step for existing accounts, `needsOnboarding` while `ageConfirmed === false`, the `403 AGE_CONFIRMATION_REQUIRED` answer routed to the step), every consent recorded with the language shown, the French legal pages with an EN / FR switch (French by default on a French device), the dismissible "Trade safely" notice in conversations and on offers / trades, Block / Unblock on the collector profile, the money-off follow-ups (neutral limit wording, the plan-limit notification without a Premium link unless the API carries it); the mobile E2E harness and the Maestro host scripts record the age consent so the suites pass against the gated API — branch `feature/launch-readiness` with mobile stage M7 merged in (then `origin/main` with #53), builder done: 60 Playwright specs and 24 Maestro flows green; see "Mobile app (stage M8)")
@@ -4383,12 +4383,14 @@ is not changed (paused); no migration; the API contract is unchanged.
 
 **The walkthrough in numbers** (an independent verifier, 2026-10-14, head `734d4e6`: the web on its
 own stack at 1280 x 800, the phone on the owner's iPhone 18 Pro simulator under the lock, the
-database, every suite with retries off). Of the 22 clauses of the definition of done: **13 done**
-(C1, C5, C10–C15, C17, C18, C20; C21 and C22 with this stage's documents), **4 partly** (C2 "ash
+database, every suite with retries off). Of the 22 clauses of the definition of done: **12 done**
+(C1, C5, C10–C15, C17, C18, C20; C22 with this stage's documents), **5 partly** (C2 "ash
 blossom": the search works but the sample catalog has no such card; C4 holders by rarity; C8
-recent searches on the phone's device only; C19 the S3 and S4 tests do not exist), **5 not built**
-(C3, C6, C7, C9: S3; C16: S4). Of the 34 tests of section 9: 22 exist, 2 partly, 8 missing (all
-S3), 2 not applicable (S4). Two clauses are done on one client only: the imports (phone and API,
+recent searches on the phone's device only; C19 the S3 and S4 tests do not exist; C21 two lines
+of the paused web README and two database comments of V112 stay stale, see "Fact check, round 1"
+below), **5 not built** (C3, C6, C7, C9: S3; C16: S4). Of the 34 tests of section 9: 21 exist, 3
+partly (the wishlist region rule has an integration test, `WishlistAlertsIT`, and no unit test),
+8 missing (all S3), 2 not applicable (S4). Two clauses are done on one client only: the imports (phone and API,
 no web screen). The table of each clause with its evidence is in the delivery report, sections
 (b) and (i).
 
@@ -4424,8 +4426,9 @@ no web screen). The table of each clause with its evidence is in the delivery re
 - Checked and left as they are: the ADR index and ADRs 0004 (marked superseded, points to 0017),
   0010 (amended, its last section says M9 draws the map), 0015; every phase contract that ADR 0017
   or S2 replaced carries a banner that says so and points to the replacement, and none describes a
-  removed endpoint as live; `schema.md` lists V106 to V114; `docs/deployment` (no map key, nine
-  scheduler jobs); test accounts and the boundaries provenance; the three `.env.example` files (no
+  removed endpoint as live; `schema.md` lists V106 to V114; `docs/deployment` (no map key; one
+  paragraph still said ten scheduler jobs, and the S2 contract still described S3: both corrected
+  by the fact check, round 1, below); test accounts and the boundaries provenance; the three `.env.example` files (no
   map key, no distance or radius setting); the legal drafts in English and French (the web files
   and the phone's synced copy, `npm run sync:legal -- --check` up to date): what they say about
   location already matches ADR 0017 (a declared country, state or province and optional city; no
@@ -4489,8 +4492,10 @@ unless said)
 ship step of S6 (merge `main`, which holds #70; expect conflicts in this file, where #70's section
 and S6's sections both follow S5, and in "NEXT TASK" and the handoff's section 6: keep this
 branch's text and #70's own section); the owner decisions of S5 and of the earlier stages; the
-Android run; the hardening follow-ups; the proposed CLAUDE.md sentences (the end of the delivery
-report).
+Android run; the hardening follow-ups (the search text in the search analytics events among
+them); two database comments of V112 that still name "Who wants it" (a new migration can restate
+them; this stage adds none, the redesign numbers its migrations from V115); two stale lines of
+the paused web README; the proposed CLAUDE.md sentences (the end of the delivery report).
 
 ## NEXT TASK
 
@@ -4499,8 +4504,8 @@ report).
 > `docs/product/2026-10-08-change-delivery-report.md`; section "Final documents and the
 > definition-of-done walkthrough (stage S6, 2026-10-14)" above). **Next for this branch: its ship
 > step** (merge `main`, which holds #70; run the check list of `docs/development/claude-handoff.md`;
-> the pull request; merge when CI is green). Of the 22 clauses of the definition of done: 13 done,
-> 4 partly, 5 not built. **Not built, by the owner's decisions: stages S3 and S4 (skipped on
+> the pull request; merge when CI is green). Of the 22 clauses of the definition of done: 12 done,
+> 5 partly, 5 not built. **Not built, by the owner's decisions: stages S3 and S4 (skipped on
 > 2026-10-13) and the web import screen of S5 (the web app is paused since 2026-10-12).**
 >
 > **Merged into `main`:** stage S1, geography (#57, 2026-10-09); stage S2, the simplified
@@ -4537,7 +4542,7 @@ report).
 > it", "Wanted by N" and holder counts and keeps recent searches on the phone; S4 stays skipped);
 > the Android SDK on the Mac; the hardening list (a lock timeout on inventory writes, the
 > after-commit analytics listeners, blocked collectors in the collectors section of search, the
-> photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
+> search text in the search analytics events, the photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
 > (store purchases, an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
 > placeholders, OrbStack's licence, VoiceOver on a real iPhone). Proposed CLAUDE.md sentences wait
 > for the owner (the end of the delivery report).
