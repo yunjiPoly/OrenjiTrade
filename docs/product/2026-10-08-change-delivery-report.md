@@ -262,6 +262,9 @@ Larger:
 - The staff channel list shows the raw region code.
 - No import screen, no admin page for the import limits, no label for the purge job on the health
   page.
+- Its README still names "ADR 0004 rules" for the inventory's privacy notice (ADR 0017 replaced
+  ADR 0004) and lists a "preview Report button" test among those of Phase 7 (the map preview and
+  that test are gone since S1). Left as they are with the rest of `apps/web-angular`.
 
 ## (i) The tests of section 9
 
