@@ -113,6 +113,7 @@ export default function InventoryScreen() {
               label={INVENTORY_COPY.addCards}
               icon="plus"
               size="small"
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
               onPress={() => router.push('/items/new')}
               testID="inventory-add-card"
             />

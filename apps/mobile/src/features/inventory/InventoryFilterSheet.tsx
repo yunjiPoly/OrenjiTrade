@@ -13,7 +13,14 @@ import {
   type VisibilityFilter,
 } from '@/src/lib/inventoryFilters';
 import { gameLabel } from '@/src/lib/profile';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  textStyle,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { FILTER_COPY } from './inventoryCopy';
 
@@ -103,6 +110,7 @@ export function InventoryFilterSheet({
       <View style={styles.head}>
         <Text
           accessibilityRole="header"
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[textStyle('lg'), styles.title, { color: palette.ink }]}
         >
           {FILTER_COPY.title}
@@ -162,7 +170,10 @@ export function InventoryFilterSheet({
           pressed && styles.pressed,
         ]}
       >
-        <Text style={[textStyle('md'), styles.showLabel, { color: palette.onPrimary }]}>
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[textStyle('md'), styles.showLabel, { color: palette.onPrimary }]}
+        >
           {FILTER_COPY.show(shown)}
         </Text>
       </Pressable>
@@ -249,8 +260,15 @@ export function ownedGameSlugs(
 }
 
 const styles = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontWeight: fontWeight.bold },
+  // At the largest text sizes "Clear all" goes under the title rather than off the screen.
+  head: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing[3],
+  },
+  title: { fontWeight: fontWeight.bold, flexShrink: 1 },
   clear: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end' },
   clearLabel: { fontWeight: fontWeight.semibold },
   scroll: { flexGrow: 0 },

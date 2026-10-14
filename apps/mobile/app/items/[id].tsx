@@ -48,7 +48,14 @@ import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached } from '@/src/lib/limits';
 import { isRegionCode, regionName } from '@/src/lib/place';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 /**
  * Edit card (owner spec 2026-10-14, section 6, mockup screen 7): the fields of Add to inventory,
@@ -302,6 +309,7 @@ function CardEditor({
         disabled={!dirty}
         loading={saving}
         onPress={() => void save()}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         testID="edit-item-save"
       />
       <Pressable
@@ -312,7 +320,10 @@ function CardEditor({
         testID="edit-item-delete"
         style={({ pressed }) => [styles.delete, pressed && styles.pressed]}
       >
-        <Text style={[textStyle('md'), styles.deleteLabel, { color: palette.danger }]}>
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[textStyle('md'), styles.deleteLabel, { color: palette.danger }]}
+        >
           {EDIT_CARD_COPY.delete}
         </Text>
       </Pressable>

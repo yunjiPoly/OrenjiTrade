@@ -24,6 +24,12 @@ export interface PillButtonProps {
   /** `large`: the 52 pt main button of a screen; `small`: the 44 pt "Add cards" of a header. */
   size?: 'large' | 'small';
   accessibilityHint?: string;
+  /**
+   * How far the label follows the system text size: a button that stays on screen (a header, the
+   * bar at the bottom of a form) follows it a little only (PINNED_MAX_FONT_SCALE), or it would
+   * take the screen at the largest sizes; a long press shows it enlarged (iOS).
+   */
+  maxFontSizeMultiplier?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -41,6 +47,7 @@ export function PillButton({
   loadingLabel,
   size = 'large',
   accessibilityHint,
+  maxFontSizeMultiplier,
   style,
   testID,
 }: PillButtonProps) {
@@ -53,6 +60,8 @@ export function PillButton({
       accessibilityRole="button"
       accessibilityLabel={text}
       accessibilityHint={accessibilityHint}
+      accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
+      accessibilityLargeContentTitle={maxFontSizeMultiplier !== undefined ? text : undefined}
       aria-disabled={inactive}
       aria-busy={loading}
       disabled={inactive}
@@ -72,6 +81,7 @@ export function PillButton({
           <MaterialCommunityIcons name={icon} size={size === 'large' ? 20 : 18} color={color} />
         ) : null}
         <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
           style={[
             textStyle(size === 'large' ? 'md' : 'sm'),
             styles.label,

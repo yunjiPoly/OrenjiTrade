@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { InventoryItemResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
@@ -37,6 +37,8 @@ export const InventoryCardRow = memo(function InventoryCardRow({
   highlighted = false,
 }: InventoryCardRowProps) {
   const { palette } = useTheme();
+  // One line as in the mockup; two at large text sizes, where one line keeps only a word.
+  const nameLines = useWindowDimensions().fontScale > 1.3 ? 2 : 1;
   const code = printingCode(item.printing);
   const price = itemPriceText(item);
   const spoken = [item.card.name, code, price, INVENTORY_COPY.copiesSpoken(item.quantity)]
@@ -74,7 +76,7 @@ export const InventoryCardRow = memo(function InventoryCardRow({
         style={[styles.art, { borderColor: palette.borderStrong }]}
       />
       <View style={styles.text}>
-        <Text numberOfLines={1} style={[styles.name, { color: palette.ink }]}>
+        <Text numberOfLines={nameLines} style={[styles.name, { color: palette.ink }]}>
           {item.card.name}
         </Text>
         <Text numberOfLines={1} style={[styles.code, { color: palette.textMuted }]}>

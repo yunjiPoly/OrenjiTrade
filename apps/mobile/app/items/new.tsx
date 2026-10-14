@@ -43,7 +43,7 @@ import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { isLimitReached } from '@/src/lib/limits';
 import { isRegionCode, regionName } from '@/src/lib/place';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 type Step = 'start' | 'typing' | 'printing' | 'details';
 
@@ -344,9 +344,13 @@ export default function AddCardsScreen() {
             icon="plus"
             loading={saving}
             onPress={() => void submit()}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             testID="add-item-submit"
           />
-          <Text style={[textStyle('xs'), styles.footnote, { color: palette.textMuted }]}>
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[textStyle('xs'), styles.footnote, { color: palette.textMuted }]}
+          >
             {ADD_DETAILS_COPY.footnote}
           </Text>
         </>
