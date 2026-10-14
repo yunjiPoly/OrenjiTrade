@@ -118,9 +118,10 @@ public class CollectorDiscoveryService {
     }
 
     /**
-     * Markers of the given collectors as {@code viewerId} sees them (collector lists built
-     * elsewhere, such as the card page's "Who wants it" of stage S3): only discoverable collectors
-     * with a location and no block with the viewer are returned.
+     * Markers of the given collectors as {@code viewerId} sees them, for collector lists built
+     * elsewhere: only discoverable collectors with a location and no block with the viewer are
+     * returned. Nothing calls it today; it was written for the card page's "Who wants it" of stage
+     * S3, which the owner skipped on 2026-10-13 and the phone redesign of 2026-10-14 drops.
      */
     @Transactional(readOnly = true)
     public Map<UUID, CollectorMarker> markersFor(UUID viewerId, Collection<UUID> ids) {
