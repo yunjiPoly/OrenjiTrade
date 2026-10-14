@@ -1,11 +1,19 @@
 # Picks the newest photo of the device's library in the system photo picker the app opened
 # ("Choose from your photos": several photos at once, so the picker waits for its check button).
-# The picker runs outside the app and outside its accessibility tree: it is driven by the place of
-# its parts. iOS 27 (the owner's iPhone 18 Pro simulator): the newest photo is the first tile, top
-# left; the check button sits top right. Android: the system photo picker's newest photo is also
-# the first tile and "Add" confirms; these steps were never run (no Android SDK on this Mac).
+# The picker runs outside the app and outside its accessibility tree: while it is up, the app's
+# elements are not visible (BEHIND: the id of one of them), and its parts are tapped by their
+# place. iOS 27 (the owner's iPhone 18 Pro simulator): the newest photo is the first tile, top
+# left; the check button sits top right. When the app is still covered after the check, the check
+# is tapped again (the photo was chosen, the check missed), then, if it is still covered, the
+# photo and the check (the photo was missed: the check does nothing without one).
+# Android: the system photo picker's newest photo is also the first tile and "Add" confirms; these
+# steps were never run (no Android SDK on this Mac).
 appId: ${APP_ID}
 ---
+- extendedWaitUntil:
+    notVisible:
+      id: ${BEHIND}
+    timeout: 30000
 - runFlow:
     when:
       platform: iOS
@@ -18,6 +26,28 @@ appId: ${APP_ID}
           timeout: 3000
       - tapOn:
           point: 90%, 15%
+      - waitForAnimationToEnd:
+          timeout: 5000
+      - runFlow:
+          when:
+            notVisible:
+              id: ${BEHIND}
+          commands:
+            - tapOn:
+                point: 90%, 15%
+            - waitForAnimationToEnd:
+                timeout: 5000
+      - runFlow:
+          when:
+            notVisible:
+              id: ${BEHIND}
+          commands:
+            - tapOn:
+                point: 16%, 26%
+            - waitForAnimationToEnd:
+                timeout: 3000
+            - tapOn:
+                point: 90%, 15%
 - runFlow:
     when:
       platform: Android

@@ -1,7 +1,8 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { spacing, useTheme } from '@/src/theme';
 
 export interface InventoryFormScreenProps {
@@ -31,6 +32,15 @@ export function InventoryFormScreen({
 }: InventoryFormScreenProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  const snackbar = useSnackbar();
+  const [footerHeight, setFooterHeight] = useState(0);
+  // A toast on this screen sits above its bottom bar, not over its main button.
+  useEffect(() => {
+    if (!footer || footerHeight === 0) {
+      return undefined;
+    }
+    return snackbar.keepClear(footerHeight);
+  }, [footer, footerHeight, snackbar]);
   return (
     <View style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}>
       <View style={styles.header}>{header}</View>
@@ -55,6 +65,7 @@ export function InventoryFormScreen({
       </KeyboardAvoidingView>
       {footer ? (
         <View
+          onLayout={(event) => setFooterHeight(Math.round(event.nativeEvent.layout.height))}
           style={[
             styles.footer,
             {

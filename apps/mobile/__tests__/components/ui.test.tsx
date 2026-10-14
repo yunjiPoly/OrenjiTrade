@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { KeyboardAvoidingView, ScrollView, Switch, Text } from 'react-native';
+import { useEffect } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Switch, Text } from 'react-native';
 
 import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
@@ -360,6 +361,24 @@ describe('Snackbar', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  function FormScreenTrigger() {
+    const snackbar = useSnackbar();
+    useEffect(() => snackbar.keepClear(120), [snackbar]);
+    return <Text onPress={() => snackbar.show('Card saved.')}>save</Text>;
+  }
+
+  it('sits above the bottom bar of a form screen while it is mounted (stage R2)', () => {
+    const { unmount } = renderWithProviders(<FormScreenTrigger />);
+    fireEvent.press(screen.getByText('save'));
+    let node = screen.getByTestId('snackbar').parent;
+    while (node && StyleSheet.flatten(node.props.style)?.bottom === undefined) {
+      node = node.parent;
+    }
+    // The tab bar's place (the bottom inset + 64) is lower than the bar's 120 + 8.
+    expect(StyleSheet.flatten(node?.props.style).bottom).toBe(128);
+    unmount();
   });
 
   function ActionTrigger({ onUndo }: { onUndo: () => void }) {

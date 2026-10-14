@@ -94,11 +94,14 @@ tags:
     timeout: 30000
 - tapOn:
     id: 'card-photos-library'
-- runFlow: subflows/pick-newest-photo.yaml
+- runFlow:
+    file: subflows/pick-newest-photo.yaml
+    env:
+      BEHIND: 'card-photos-count'
 - extendedWaitUntil:
     visible:
       id: 'card-photos-count'
-      text: '1 / 4'
+      text: '1 of 4 photos'
     timeout: 60000
 - takeScreenshot: r2-add-to-inventory
 - tapOn:

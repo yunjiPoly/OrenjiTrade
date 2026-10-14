@@ -242,13 +242,15 @@ function CardsView() {
     setFilters(clearedFilters({ ...filters, q: '' }));
   };
 
-  const totals = summary.data
-    ? INVENTORY_COPY.summary(
-        summary.data.totalItems,
-        summary.data.totalQuantity,
-        summary.data.byVisibility.PUBLIC + summary.data.byVisibility.TEMPORARILY_PUBLIC
-      )
-    : null;
+  // No totals over an empty inventory ("0 cards · 0 copies"): its empty state says it.
+  const totals =
+    summary.data && summary.data.totalItems > 0
+      ? INVENTORY_COPY.summary(
+          summary.data.totalItems,
+          summary.data.totalQuantity,
+          summary.data.byVisibility.PUBLIC + summary.data.byVisibility.TEMPORARILY_PUBLIC
+        )
+      : null;
 
   let body;
   if (!items.data && items.error) {

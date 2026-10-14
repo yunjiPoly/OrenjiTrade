@@ -56,6 +56,11 @@ interface SnackbarMessage {
 export interface Snackbar {
   show: (text: string, options?: SnackbarOptions) => void;
   hide: () => void;
+  /**
+   * A screen with a bar at its bottom (the main button of a form) keeps the toast above it while
+   * the screen is mounted: the bar's height in points; returns the release.
+   */
+  keepClear: (height: number) => () => void;
 }
 
 const SnackbarContext = createContext<Snackbar | null>(null);
@@ -68,6 +73,9 @@ const SnackbarContext = createContext<Snackbar | null>(null);
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<SnackbarMessage | null>(null);
   const nextId = useRef(1);
+  // The bottom bars that asked for room, the latest last (a screen on top of another).
+  const [clearances, setClearances] = useState<readonly { id: number; height: number }[]>([]);
+  const nextClearance = useRef(1);
   const screenReader = useRef(false);
 
   useEffect(() => {
@@ -120,25 +128,44 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const value = useMemo<Snackbar>(() => ({ show, hide }), [show, hide]);
+  const keepClear = useCallback((height: number) => {
+    const id = nextClearance.current++;
+    setClearances((current) => [...current, { id, height }]);
+    return () => setClearances((current) => current.filter((entry) => entry.id !== id));
+  }, []);
+
+  const value = useMemo<Snackbar>(() => ({ show, hide, keepClear }), [show, hide, keepClear]);
+  const clearance = clearances[clearances.length - 1]?.height ?? 0;
 
   return (
     <SnackbarContext.Provider value={value}>
       {children}
-      {message ? <SnackbarView key={message.id} message={message} onDismiss={hide} /> : null}
+      {message ? (
+        <SnackbarView key={message.id} message={message} clearance={clearance} onDismiss={hide} />
+      ) : null}
     </SnackbarContext.Provider>
   );
 }
 
-function SnackbarView({ message, onDismiss }: { message: SnackbarMessage; onDismiss: () => void }) {
+function SnackbarView({
+  message,
+  clearance,
+  onDismiss,
+}: {
+  message: SnackbarMessage;
+  clearance: number;
+  onDismiss: () => void;
+}) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // Above the tab bar, or above the bottom bar of a form screen.
+  const bottom = Math.max(insets.bottom + spacing[16], clearance + spacing[2]);
   const error = message.tone === 'error';
   const ink = error ? palette.background : palette.ink;
   const muted = error ? palette.background : palette.textMuted;
   const spoken = [message.title, message.text].filter(Boolean).join(', ');
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: insets.bottom + spacing[16] }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
       <View
         testID="snackbar"
         style={[
