@@ -14,16 +14,15 @@ import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Phase 10 feature flags: with {@code premiumPlans} or {@code credits} off, their member routes
- * answer 404 FEATURE_DISABLED with the flag in the {@code feature} extension; admin routes stay
- * available.
+ * Phase 10 feature flags: with {@code premiumPlans} off, its member routes answer 404
+ * FEATURE_DISABLED with the flag in the {@code feature} extension; admin routes stay available.
  */
 class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
     @Test
-    void premiumAndCreditRoutesAreFeatureDisabledWhileTheirFlagIsOff() {
+    void premiumRoutesAreFeatureDisabledWhileTheirFlagIsOff() {
         Member member = member("flags-off");
         String checkoutRef =
                 callJson(
@@ -37,7 +36,6 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                         .replace("/checkout/fake-billing/", "");
 
         flag("premiumPlans", false);
-        flag("credits", false);
 
         List<String> failures = new ArrayList<>();
         expectDisabled(
@@ -61,34 +59,12 @@ class Phase10FeatureFlagOffIT extends AbstractPhase10IT {
                         member.uid(),
                         null),
                 failures);
-        for (Route route :
-                List.of(
-                        new Route(HttpMethod.GET, "/api/v1/me/credits", member.uid(), null),
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/me/credits/spend",
-                                member.uid(),
-                                Map.of("featureKey", "premium_search_day", "idempotencyKey", "k")),
-                        new Route(HttpMethod.GET, "/api/v1/me/referrals", member.uid(), null),
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/me/referrals/redeem",
-                                member.uid(),
-                                Map.of("code", "COLLECTOR1")))) {
-            expectDisabled("credits", route, failures);
-        }
         assertThat(failures).as("routes answering something else than FEATURE_DISABLED").isEmpty();
 
         // The live subscription can still be cancelled; admins keep their consoles.
         callJson(HttpMethod.POST, "/api/v1/me/subscription/cancel", member.uid(), null, 200);
         String admin = staff("flags-off-admin", Role.ADMIN);
-        for (String path :
-                List.of(
-                        "/api/v1/admin/subscriptions",
-                        "/api/v1/admin/credits/ledger",
-                        "/api/v1/admin/credits/products")) {
-            callJson(HttpMethod.GET, path, admin, null, 200);
-        }
+        callJson(HttpMethod.GET, "/api/v1/admin/subscriptions", admin, null, 200);
     }
 
     private void expectDisabled(String feature, Route route, List<String> failures) {

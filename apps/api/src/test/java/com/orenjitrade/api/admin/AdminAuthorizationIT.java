@@ -185,7 +185,7 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
         routes.add(get("/api/v1/admin/payments/webhooks", Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/webhooks/" + id, Level.ADMIN));
         routes.add(get("/api/v1/admin/payments/settings", Level.ADMIN));
-        // Phase 10: subscriptions and credits (reads and harmless writes).
+        // Phase 10: subscriptions (reads and harmless writes).
         routes.add(get("/api/v1/admin/subscriptions", Level.ADMIN));
         routes.add(get("/api/v1/admin/subscriptions/" + id, Level.ADMIN));
         routes.add(
@@ -193,14 +193,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                         "/api/v1/admin/subscriptions/" + id + "/cancel",
                         Map.of("immediately", false),
                         Level.ADMIN));
-        routes.add(
-                post(
-                        "/api/v1/admin/credits/grant",
-                        Map.of("userId", id, "amount", 1, "reason", "ADMIN"),
-                        Level.ADMIN));
-        routes.add(get("/api/v1/admin/credits/ledger", Level.ADMIN));
-        routes.add(get("/api/v1/admin/credits/products", Level.ADMIN));
-        routes.add(get("/api/v1/admin/credits/settings", Level.ADMIN));
         routes.add(get("/api/v1/admin/wishlist/settings", Level.ADMIN));
         routes.add(
                 new Route(
@@ -239,24 +231,6 @@ class AdminAuthorizationIT extends AbstractIntegrationTest {
                         HttpMethod.PUT,
                         "/api/v1/admin/usage-limits/" + id,
                         Map.of("unlimited", true),
-                        Level.SUPER_ADMIN));
-        // Phase 10 SUPER_ADMIN writes (validated after the role check: harmless 4xx for them).
-        Map<String, Object> product = new LinkedHashMap<>();
-        product.put("name", "x");
-        product.put("cost", 1);
-        product.put("durationHours", 1);
-        product.put("active", true);
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/credits/products/no_such_product",
-                        product,
-                        Level.SUPER_ADMIN));
-        routes.add(
-                new Route(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/credits/settings",
-                        Map.of("referrerReward", -1),
                         Level.SUPER_ADMIN));
         Map<String, Object> broadcast = new LinkedHashMap<>();
         broadcast.put("title", "Maintenance");

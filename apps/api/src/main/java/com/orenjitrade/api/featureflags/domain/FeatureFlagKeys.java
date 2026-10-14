@@ -18,8 +18,5 @@ public final class FeatureFlagKeys {
     /** Premium plans marketing and checkout (Phase 10). */
     public static final String PREMIUM_PLANS = "premiumPlans";
 
-    /** Credits ledger (Phase 10). */
-    public static final String CREDITS = "credits";
-
     private FeatureFlagKeys() {}
 }

@@ -567,41 +567,31 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void subscriptionsAndCreditsNeverCarryGeography(CapturedOutput output) {
+    void subscriptionsNeverCarryGeography(CapturedOutput output) {
         String premium = "seed-premium-user:premium@orenjitrade.test";
-        String collector1 = "seed-collector1:collector1@orenjitrade.test";
         String subscription = "00000000-0000-4000-a000-000000000001";
 
         JsonNode plan;
-        JsonNode credits;
         // Every money flag is off by the migrations (V105 launch configuration): switch on the
-        // two this test reads through, and put them back afterwards.
+        // one this test reads through, and put it back afterwards.
         testUsers.update(
-                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
-                        + " ('premiumPlans', 'credits')");
+                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key ="
+                        + " 'premiumPlans'");
         featureFlags.invalidate();
         try {
             plan = fetch("/api/v1/me/plan", premium);
-            credits = fetch("/api/v1/me/credits", collector1);
-            fetch("/api/v1/me/referrals", collector1);
         } finally {
-            testUsers.update(
-                    "UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans',"
-                            + " 'credits')");
+            testUsers.update("UPDATE feature_flag SET enabled = false WHERE key = 'premiumPlans'");
             featureFlags.invalidate();
         }
         for (String path :
                 List.of(
                         "/api/v1/admin/subscriptions?size=100",
                         "/api/v1/admin/subscriptions/" + subscription,
-                        "/api/v1/admin/credits/ledger?size=100",
-                        "/api/v1/admin/credits/products",
-                        "/api/v1/admin/credits/settings",
                         "/api/v1/plans")) {
             fetch(path, SEED_ADMIN);
         }
         assertThat(plan.path("subscription").path("status").asString()).isEqualTo("ACTIVE");
-        assertThat(credits.path("balance").asLong()).isGreaterThanOrEqualTo(300);
         for (Fetched document : fetched) {
             String text = document.body().toString();
             assertThat(text)

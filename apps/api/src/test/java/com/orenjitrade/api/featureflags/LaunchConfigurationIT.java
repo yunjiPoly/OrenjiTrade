@@ -19,17 +19,17 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The launch configuration (2026-10-05, "discovery + messaging only"): with {@code
- * protectedPayments}, {@code premiumPlans}, {@code credits} and {@code mlScanning} all off — the
- * migration state since V105 — every money route refuses with the existing {@code 404
- * FEATURE_DISABLED} Problem Details (extension {@code feature}), and everything else keeps working
- * end to end: region discovery, a public listing and a binder, the wishlist, messaging, an offer as
- * a plain proposal, the trade agreed and completed in person, a rating and a report. The plan
- * endpoints stay readable.
+ * protectedPayments}, {@code premiumPlans} and {@code mlScanning} all off — the migration state
+ * since V105 — every money route refuses with the existing {@code 404 FEATURE_DISABLED} Problem
+ * Details (extension {@code feature}), and everything else keeps working end to end: region
+ * discovery, a public listing and a binder, the wishlist, messaging, an offer as a plain proposal,
+ * the trade agreed and completed in person, a rating and a report. The plan endpoints stay
+ * readable.
  */
 class LaunchConfigurationIT extends AbstractOffersIT {
 
     static final List<String> MONEY_FLAGS =
-            List.of("protectedPayments", "premiumPlans", "credits", "mlScanning");
+            List.of("protectedPayments", "premiumPlans", "mlScanning");
 
     record Route(HttpMethod method, String path, @Nullable String uid, @Nullable Object body) {}
 
@@ -154,21 +154,6 @@ class LaunchConfigurationIT extends AbstractOffersIT {
                                 "/api/v1/me/subscription/checkout",
                                 member.uid(),
                                 Map.of("planCode", "PREMIUM"))));
-        byFlag.put(
-                "credits",
-                List.of(
-                        new Route(HttpMethod.GET, "/api/v1/me/credits", member.uid(), null),
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/me/credits/spend",
-                                member.uid(),
-                                Map.of("featureKey", "premium_search_day", "idempotencyKey", "k")),
-                        new Route(HttpMethod.GET, "/api/v1/me/referrals", member.uid(), null),
-                        new Route(
-                                HttpMethod.POST,
-                                "/api/v1/me/referrals/redeem",
-                                member.uid(),
-                                Map.of("code", "COLLECTOR1"))));
         byFlag.put(
                 "protectedPayments",
                 List.of(

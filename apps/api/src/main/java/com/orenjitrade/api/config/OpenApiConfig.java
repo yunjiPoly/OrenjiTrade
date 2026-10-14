@@ -272,23 +272,11 @@ public class OpenApiConfig {
                         .format("uuid")
                         .description("The caller's live subscription (ALREADY_SUBSCRIBED)"));
         schema.addProperty(
-                "balance",
-                new IntegerSchema()
-                        .format("int64")
-                        .description("The caller's credit balance (INSUFFICIENT_CREDITS)"));
-        schema.addProperty(
-                "cost",
-                new IntegerSchema()
-                        .format("int64")
-                        .description("Credits the action needs (INSUFFICIENT_CREDITS)"));
-        schema.addProperty(
                 "reason",
                 new StringSchema()
                         .description(
-                                "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED):"
-                                        + " SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD,"
-                                        + " REFERRER_LIMIT. Why an inventory import file was"
-                                        + " refused (POST /inventory/imports): TOO_LARGE,"
+                                "Why an inventory import file was refused (POST"
+                                        + " /inventory/imports): TOO_LARGE,"
                                         + " NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS,"
                                         + " MISSING_COLUMNS, MALFORMED, NO_CARDS"));
         schema.addProperty(

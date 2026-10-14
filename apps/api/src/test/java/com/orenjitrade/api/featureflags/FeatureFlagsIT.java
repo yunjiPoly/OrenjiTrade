@@ -33,8 +33,7 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
                     "mlScanning", false,
                     "protectedPayments", false,
                     "publicChat", true,
-                    "premiumPlans", false,
-                    "credits", false);
+                    "premiumPlans", false);
 
     @Autowired private FeatureFlags featureFlags;
     @Autowired private FeatureFlagRepository repository;
@@ -213,10 +212,10 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
     void localSeedEnablesTheFakeProviderFlagsButNotMlScanningAndKeepsAdminEdits() {
         String superAdmin = uniqueUid("ff-seed-super");
         provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
-        // An admin explicitly turned credits off: the seed must leave it alone.
+        // An admin explicitly turned premiumPlans off: the seed must leave it alone.
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/credits",
+                "/api/v1/admin/feature-flags/premiumPlans",
                 superAdmin,
                 Map.of("enabled", false),
                 200);
@@ -224,8 +223,7 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         new FeatureFlagSeedContributor(repository, featureFlags, timeProvider).seed();
 
         assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
-        assertThat(featureFlags.isEnabled("premiumPlans")).isTrue();
-        assertThat(featureFlags.isEnabled("credits")).isFalse();
+        assertThat(featureFlags.isEnabled("premiumPlans")).isFalse();
         assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
         assertThat(featureFlags.isEnabled("publicChat")).isTrue();
     }

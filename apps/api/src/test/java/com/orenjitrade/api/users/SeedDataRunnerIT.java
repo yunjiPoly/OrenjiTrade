@@ -450,10 +450,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionAndCreditsIdempotently() {
+    void seedsASubscriptionIdempotently() {
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
-        UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
-        UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM subscription WHERE id ="
@@ -461,21 +459,11 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " AND status = 'ACTIVE' AND provider = 'fake'",
                                 premiumId))
                 .isEqualTo(1);
-        int entries = testUsers.count("SELECT count(*) FROM credit_ledger_entry");
         seedDataRunner.seedAll();
-        assertThat(testUsers.count("SELECT count(*) FROM credit_ledger_entry"))
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM subscription WHERE user_id = ?", premiumId))
                 .as("idempotent")
-                .isEqualTo(entries);
-        assertThat(
-                        testUsers.count(
-                                "SELECT COALESCE(SUM(amount), 0) FROM credit_ledger_entry WHERE"
-                                        + " user_id = ?",
-                                collector1))
-                .isGreaterThanOrEqualTo(300);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM referral_redemption WHERE referee_id = ?",
-                                collector8))
                 .isEqualTo(1);
     }
 
@@ -506,8 +494,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "offers",
                         "trades",
                         "payments",
-                        "subscriptions",
-                        "credits");
+                        "subscriptions");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(

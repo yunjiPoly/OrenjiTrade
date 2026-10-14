@@ -460,7 +460,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "CardImageCacheStatus", "CatalogImportReport", "CatalogSyncRun")) {
             assertThat(document.path("components").path("schemas").has(schema)).as(schema).isTrue();
         }
-        // Phase 10 (subscriptions, credits, referrals, admin).
+        // Phase 10 (subscriptions, admin).
         for (String path :
                 java.util.List.of(
                         "/api/v1/me/plan",
@@ -473,17 +473,7 @@ class OpenApiExportTest extends AbstractIntegrationTest {
                         "/api/v1/admin/subscriptions",
                         "/api/v1/admin/subscriptions/{id}",
                         "/api/v1/admin/subscriptions/{id}/cancel",
-                        "/internal/jobs/subscriptions-period",
-                        "/api/v1/me/credits",
-                        "/api/v1/me/credits/spend",
-                        "/api/v1/me/referrals",
-                        "/api/v1/me/referrals/redeem",
-                        "/api/v1/admin/credits/grant",
-                        "/api/v1/admin/credits/ledger",
-                        "/api/v1/admin/credits/products",
-                        "/api/v1/admin/credits/products/{key}",
-                        "/api/v1/admin/credits/settings",
-                        "/internal/jobs/credits-reconcile")) {
+                        "/internal/jobs/subscriptions-period")) {
             assertThat(paths.has(path)).as(path).isTrue();
             paths.path(path)
                     .properties()

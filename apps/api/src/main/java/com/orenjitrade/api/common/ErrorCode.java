@@ -99,16 +99,6 @@ public enum ErrorCode {
      */
     ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "Already subscribed"),
     /**
-     * The credit balance does not cover a spend or a negative adjustment (Phase 10; extensions
-     * {@code balance}, {@code cost}). Credits are never bought with money through this API.
-     */
-    INSUFFICIENT_CREDITS(HttpStatus.CONFLICT, "Insufficient credits"),
-    /**
-     * A referral code cannot be redeemed by the caller (Phase 10; extension {@code reason}: SELF,
-     * ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT).
-     */
-    REFERRAL_NOT_ALLOWED(HttpStatus.CONFLICT, "Referral not allowed"),
-    /**
      * An inventory import preview is older than its time to live (stage S5): upload the file again.
      * Once the purge job removed it, the same request answers {@link #NOT_FOUND}.
      */
