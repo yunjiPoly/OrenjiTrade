@@ -4941,7 +4941,33 @@ second lens on the product (U1 to U8); every fix with a test that fails on the o
 - **U6:** the offer and protection wording of the other legal texts is added to the lawyer's list
   above, with the owner question about the phone's legal index; no text changed.
 
-The checks of review fix 1 are listed under "Checks of review fix 1" below.
+**Checks of review fix 1** (2026-10-14, this Mac, retries off, the owner's iPhone 18 Pro
+simulator under the lock; on the code of `f086eba` unless said):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 982 tests in 172 classes (+ `SeedWordingTest`, `SeedIT.seedsShippingWordingOnly`) + 12 catalog tests in 2 classes, 0 failures, 0 skipped (3 min 34 s) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | no change (no API surface changed), git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **899.31 kB** (unchanged: only the lazy French legal text changed) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 142 files / 681 tests; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **74 / 74** (1 min 39 s) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint now also refuses React Native's `Text` / `TextInput` in `app/` and `src/`) |
+| `npm run test:mobile` | passed: jest 91 suites / 905 tests + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **57 / 57** (`old-offers.spec.ts` now also reads the inbox line) |
+| `npm run test:mobile:maestro -- --platform ios` | **30 / 30** in 47 min 19 s (on the code of `90c3e88`; the only later change is the inbox assertion `f086eba` added to the phone's Playwright spec) |
+| `npm run test:scripts` | 133 / 133 |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+| Mutations (one at a time, the old code back) | the old placeholder fails the source guard and the onboarding test; an empty `HIDDEN_CATEGORIES` fails 2 tests; the old offer seed line fails `SeedWordingTest` and `SeedIT`; the old report reason fails `ReportFlowIT`; React Native's `Text` in `app/messages/[id].tsx` is a lint error; no `keyboardAppearance` or no `Appearance` sync fails the theme test |
+
+**Walk** (the owner's simulator in light, a new install in dark): Edit profile opens a dark
+keyboard and the bio reads "What do you collect? Do you trade, sell or ship?"; the off switches of
+Settings → Privacy and Notifications show a white thumb on the dark track. The simulator was left
+as found (light, text size large), Expo Go stopped, nothing in its Files storage. **Could not be
+verified:** the Android run (no Android SDK on this Mac); the dark splash (Expo Go shows its own;
+only a device build shows the app's); native alerts and pickers in the app's theme beyond the
+keyboard (none opened in the walk).
 
 **What R4 completes:** the chats' pinned card (subject), which feeds `dealSideOf` and so the buying
 and selling tips; quick replies; the "+" sheet with Settings → Shipping details; Mark as sold
