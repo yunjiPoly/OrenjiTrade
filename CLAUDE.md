@@ -54,7 +54,9 @@ feature flag off. Everything else proceeds.
 ### Explicitly out of scope for the MVP (do not build)
 Stores, events/meetups, binder-to-binder matching, unboxing-video evidence, Kubernetes/GKE,
 microservices, Kafka, Elasticsearch, service mesh, a homemade payment processor, storing card
-payment data, "regulated escrow" claims.
+payment data, "regulated escrow" claims. OrenjiTrade is free for all (owner decision 2026-10-14,
+ADR 0019): no Premium plans, ads, credits or donations, and the same usage limits for every
+collector; their code waits on the branch `archive/paid-features` until the owner brings them back.
 
 ## Privacy rule that overrides everything else
 
@@ -70,7 +72,7 @@ call for geography (boundaries are bundled static assets).
 - Every public representation is a **place**: the state or province and the country. The city
   appears **only on its owner's public profile, while `show_city` is on**: never in search,
   binders, offers, messages, notifications, the map, admin lists, exports to others or analytics.
-- Discovery (search, card holders, map, wishlist alerts, ads) is scoped to one **platform
+- Discovery (search, card holders, map, wishlist alerts) is scoped to one **platform
   region** (`americas-north` default, `americas-south`, `europe`); clients always send `region`.
 - `GeoPrivacyContractTest` signs in as every seed account and fails on any coordinate, distance or
   radius key, any number with more than 3 decimals, "km away" wording, or a city outside its
@@ -81,8 +83,8 @@ call for geography (boundaries are bundled static assets).
 
 - Root package `com.orenjitrade.api`. One package per module:
   `auth users profiles location games cards inventory binders search wishlist messaging
-  community notifications ratings reports offers trades payments billing credits donations
-  ads moderation admin audit analytics featureflags delisting jobs common config`.
+  community notifications ratings reports offers trades payments limits moderation admin
+  audit analytics featureflags delisting jobs common config`.
   `auth` is the lowest business module (owns `Role`, `AccountStatus`, `AuthenticatedUser`, the
   `AccountResolver` SPI); `users` implements that SPI. `jobs` owns `job_run` and `/internal/jobs/*`.
 - Inside a module: `api/` (controllers + request/response DTOs), `domain/` (entities, value
@@ -104,9 +106,10 @@ call for geography (boundaries are bundled static assets).
   binder rows before item rows, each in ascending id and `FOR NO KEY UPDATE`; only the freshness
   job skips locked rows. Rules, and the one for a new bulk write: `docs/database/schema.md`,
   "Locks of binders and inventory items".
-- Configurable business rules (freemium limits, auto-delist thresholds, feature flags) live
-  in DB tables edited through `/admin`, cached in Redis, never hard-coded constants.
-- Money is `NUMERIC(12,2)` + ISO currency code. Credits are an append-only ledger.
+- Configurable business rules (usage limits, the same for every collector; auto-delist
+  thresholds, feature flags) live in DB tables edited through `/admin`, cached in Redis, never
+  hard-coded constants.
+- Money is `NUMERIC(12,2)` + ISO currency code.
 - Flyway: `apps/api/src/main/resources/db/migration/V001__...sql`. Seed data lives in
   `db/seed/` and is applied only by the `local`/`dev` profiles through `SeedDataRunner`.
 - Tests: JUnit 6 + Spring Boot Test + Testcontainers 2 (`org.testcontainers.postgresql.PostgreSQLContainer`
