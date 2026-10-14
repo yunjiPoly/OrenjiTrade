@@ -45,7 +45,7 @@ update it in the same change.
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
 | `inventory_import`, `inventory_import_row` | The preview of a file a collector uploaded (YDK deck file, Collectr CSV export) | Owner only: every other caller gets 404 (`/inventory/imports/**`), no admin view. A row keeps of the file only a passcode, or the card name, set, number and rarity as written, and the copies: **never the file, its name, a price, a note or a date of the export**. Nothing a file holds is logged at any level (ids and counts only; `InventoryImportIT.nothingOfAFileIsEverLogged`). Purged after `expires_at` (job `inventory-import-purge`, with the hourly `freshness` job) and with the account |
-| `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" in stage S3). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
+| `wishlist_item.public_note` | **Public** note of a wish (there is no private wishlist note any more: V112 dropped `wishlist_item.notes` without copying it) | Public wherever the wish is visible: the owner (`GET /wishlist`, `GET /me/export`) and, when the wishlist is shown, everyone who can see it (`GET /collectors/{handle}/wishlist`; "Who wants it" only if stage S3 is built: skipped by the owner on 2026-10-13, not built). Plain text, moderated like profile text; never in notifications, events, analytics or logs |
 | `wishlist_item` (rows) | What a collector is looking for | The owner always; others see the card, which copy (printing, or any printing with its optional rarity), the public note, "Near Mint only" and the price term through `GET /collectors/{handle}/wishlist` only when `privacy_settings.wishlist_visible` and no block. Wishlist alerts work for hidden wishlists and tell the wisher only |
 | `notification.title`, `.body`, `.data` | Recipient-only content | Returned to the recipient only; never message text, private notes or coordinates; purged with the account |
 | `push_token.token` | Device secret | Never returned by the API (export lists platform and dates only), never logged (the log provider logs the device count) |
@@ -881,7 +881,7 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   the row out. The full row lock (`FOR UPDATE`) would also conflict with the key-share lock of a
   foreign key check, and two kinds of check reach these rows from outside the owner lock:
   - a row of another module that references an item is inserted (offers, trade lines, trades,
-    wishlist matches). A new offer references the seller's card, then the buyer's trade cards,
+    the sent wishlist alerts of `wishlist_alert_sent`; the wishlist matches did until V112). A new offer references the seller's card, then the buyer's trade cards,
     which need not be the ascending order of the trade transfer;
   - PostgreSQL checks the foreign keys of a row again when a transaction updates a row it has
     already written. A second update of an item therefore takes a key-share lock on the item's
@@ -1361,7 +1361,7 @@ mirror); there is no separate notification rate-limit table.
 | `printing_id` | `uuid` | FK → `card_printing.id` (cascade); `NULL` = any printing of the card (`ck_wishlist_item_target`, "card or printing required", was dropped by V112: `card_id` is `NOT NULL`) |
 | `rarity` | `text` | "any printing" wishes only (`ck_wishlist_item_rarity_any_printing`): any printing of this rarity, one of the rarities of the card's printings (validated by the API), 1-40 characters; `NULL` = any rarity |
 | `public_note` | `text` | V112: **public** note, plain text, ≤ 280 (`ck_wishlist_item_public_note`), moderated by the API; `''` = none |
-| `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (alerts, "Who wants it") |
+| `near_mint_only` | `boolean` | V112: only Near Mint or better copies fit (wishlist alerts; "Who wants it" only if stage S3 is built: skipped by the owner on 2026-10-13, not built) |
 | `price_term` | `text` | V112: optional display term relative to the TCG market price (`ck_wishlist_item_price_term`: `"<percent>% TCG"` with an optional `+`); one of `platform_settings` `wishlist.price_terms` when chosen; never a filter |
 | `created_at`, `updated_at` | `timestamptz` | |
 

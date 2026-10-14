@@ -108,6 +108,16 @@ object becomes referenced.
 | Scanning | Card photos sent to the ML service are processed in memory; the ML service never writes originals; moderation hooks flag reported images for review |
 | Client hints | Web/mobile compress client-side before upload to reduce size, but server rules are authoritative |
 
+**Inventory import files (stage S5, 2026-10-13; `docs/api/contracts/s5-inventory-import.md`).** A
+Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV export is a text upload, not an image, and follows its
+own rules: the content decides (UTF-8 text or `415 UNSUPPORTED_MEDIA_TYPE`, never the extension or
+the client's type); the size and line limits are admin settings read at every upload (YDK 100 kB
+and 500 lines, CSV 2 MB and 5,000 rows by default; the server takes at most 10 MB for any upload);
+the file itself is never stored, logged or exported: a preview row keeps a passcode, or the name,
+set, number and rarity as written, and the copies, and a price column is never read; the preview
+belongs to its collector (404 for anyone else) and is purged once expired (60 minutes by default);
+30 uploads and 30 commits an hour per collector (Redis). OrenjiTrade never calls Collectr.
+
 ## 6. Rate-limiting plan
 
 Two layers: coarse edge limits in Cloudflare (`infrastructure/cloudflare/README.md` section 6.3)

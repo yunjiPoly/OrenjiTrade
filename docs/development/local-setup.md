@@ -182,6 +182,11 @@ when the stack is reused), `test:mobile:maestro` about 50 min (24 flows on the
 while Expo CLI installs Expo Go). On the iOS simulator of a Mac mini (Apple M6, 2026-10-10):
 `test:mobile:maestro -- --platform ios` 33 min 28 s for the 24 flows from a cold start (the
 simulator created, the API jar built, Expo Go installed), `test:mobile:e2e` 1 min 14 s (52 specs).
+Latest (2026-10-13/14, stage S6, the same Mac mini): `test:api` 3 min 5 s to 3 min 23 s (974 tests in
+170 classes plus 12 catalog tests), `test:web` 142 files / 678 tests, `test:e2e` 74 specs in about
+1 min 30 s, `test:mobile` about 20 s (jest 89 suites / 922 tests + 28 guard tests),
+`test:mobile:e2e` 60 specs in about 1 min 20 s, `test:mobile:maestro -- --platform ios` 30 flows in
+about 48 min on the owner's iPhone 18 Pro simulator.
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -256,8 +261,9 @@ The Expo app (`apps/mobile`, details in [apps/mobile/README.md](../../apps/mobil
 against the same local stack. Phase 1 (accounts, onboarding, profile, settings) and Phases 2–3
 (the Search tab and card detail; the Inventory tab with adding, editing and deleting cards;
 binders, their publication and the public binder view) and Phase 4 ("Who has this in my region"
-and the collector profile; since ADR 0017 the Map tab is a placeholder that names the home region
-until it draws the web's boundary map) and Phases 5–6 (the Messages tab with the inbox,
+and the collector profile; since stage M9 (2026-10-12) the Map tab draws the region map of the
+web's boundaries, shaded by public binders, with a list of states and provinces and the binders of
+each) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab
 (stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
 region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
@@ -283,9 +289,14 @@ Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), a
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The location is declared like on the web (ADR 0017): region, country, state or
 province and an optional city, with pickers fed by `GET /api/v1/regions`; there is no map picker,
-no GPS and no location permission. Region-scoped calls (search, card holders, ads) send the
-collector's home region (`americas-north` without a location). The seed collectors are spread
-over the three platform regions (see [test-accounts.md](test-accounts.md)).
+no GPS and no location permission. Region-scoped calls (search, card holders, ads, the map) send
+the browsed region: the region switcher on the Map and Search tabs and in the card holders' header,
+the collector's home region by default (`americas-north` without a location). The seed collectors
+are spread over the three platform regions (see [test-accounts.md](test-accounts.md)). Stage S5
+(2026-10-13) adds "Import" on the Inventory tab: a Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV
+export, chosen or pasted, previewed, edited and committed into private cards (the phone is its only
+client; contract `docs/api/contracts/s5-inventory-import.md`). The phone is the client of new work
+since 2026-10-12 (the web app is paused).
 
 ```bash
 npm run infra:up && npm run api:dev     # the developer stack (API on :8080)
@@ -360,7 +371,10 @@ same flows; the harness gives them Expo Go's app id and the project URL of the p
   `expo start` with the app pointed at `localhost:8090`, and Expo Go is installed on that simulator
   by Expo CLI's installer (`scripts/lib/expo-go-ios.mjs`), whatever else is booted.
   `ORENJI_IOS_SIMULATOR_NAME`, `ORENJI_IOS_SIMULATOR_TYPE` and `ORENJI_IOS_SIMULATOR_UDID` choose
-  another simulator (`apps/mobile/README.md`).
+  another simulator (`apps/mobile/README.md`). **On the owner's Mac** (owner order of 2026-10-12)
+  every run sets `ORENJI_IOS_SIMULATOR_UDID` to the iPhone simulator the owner keeps booted, and
+  nothing boots, creates, erases or shuts down a simulator (each boot makes the desktop app ask the
+  owner); see [claude-handoff.md](claude-handoff.md).
 
 Maestro is found on `PATH` or in `~/.maestro/bin`; set `MAESTRO_BIN=<path to maestro(.bat)>` when
 it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on macOS and Linux,

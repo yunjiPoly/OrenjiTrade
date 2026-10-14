@@ -403,6 +403,32 @@ routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_P
 | `GET /api/v1/admin/delist-policies`, `PUT /api/v1/admin/delist-policies/{id}` | delisting | ADMIN+ (Phase 7 contract, built with the table); ordering validated, audited `delist_policy.update`, cache evicted |
 | `POST /internal/jobs/freshness` (hourly), `POST /internal/jobs/delist` (daily) | inventory, delisting | service auth; `@Scheduled` stand-ins under `local` (`FreshnessScheduler` every hour, `DelistScheduler` daily); both record a `job_run` |
 
+### Inventory import (stage S5, 2026-10-13)
+
+Contract: `docs/api/contracts/s5-inventory-import.md` (every field, error code, limit and two
+worked examples). Module `inventory` (`InventoryImportService`, pure parsers `YdkParser`,
+`CsvReader`, `CollectrCsvParser`, `CollectrCsvFormat` and the matcher `ImportMatcher`); migrations
+V113 and V114. A Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV export becomes a **preview** that the
+collector edits and then commits; new items are PRIVATE and unfiled. The phone is the only client
+(the web app is paused). OrenjiTrade never calls Collectr and never reads a price column.
+
+| Route | Notes |
+| --- | --- |
+| `GET /api/v1/inventory/imports/limits` | the admin limits, for a check before the upload |
+| `POST /api/v1/inventory/imports?source=YDK\|COLLECTR_CSV&game=` (multipart `file`) | 201 + `Location`: parses, matches through `card.external_ref` (provider `ygoprodeck`) or the provider's artwork ids, stores the preview; replaces the collector's open preview; refusals 400 / 413 / 415 / 429 as in the contract |
+| `GET /api/v1/inventory/imports`, `GET /api/v1/inventory/imports/{id}` | the open preview, a commit that was cut, recent results; owner only (404 for others) |
+| `GET /api/v1/inventory/imports/{id}/rows?status=&printingChoice=&page=&size=` | the lines in file order (`printingChoice=MOST_RECENT_ASSUMED`: the plain copies the bulk action assumed) |
+| `PATCH /api/v1/inventory/imports/{id}`, `PATCH .../rows/{rowId}` | which deck sections count; a line's printing, condition, copies, in or out |
+| `POST /api/v1/inventory/imports/{id}/bulk` | `USE_MOST_RECENT_PRINTING`, `SET_CONDITION` |
+| `POST /api/v1/inventory/imports/{id}/commit` | `{skipUnresolved?}`; idempotent; up to 500 items in one transaction, then chunks of 500, each its own; follows the rule "A new bulk write" of `docs/database/schema.md` (owner lock first); 409 `IMPORT_ROWS_UNRESOLVED`, 410 `IMPORT_EXPIRED`, 429 `LIMIT_REACHED` (`inventory.items.max`, no number for any plan today) |
+| `DELETE /api/v1/inventory/imports/{id}` | discards a preview no commit has started |
+| `GET\|PUT /api/v1/admin/inventory/import-settings` | ADMIN; the `inventory.import.*` platform settings (no web page: the web is paused) |
+
+Expired previews are purged by `POST /internal/jobs/inventory-import-purge`, which runs after every
+hourly `freshness` job (no Cloud Scheduler job of its own). Rate limits: 30 uploads and 30 commits
+an hour per collector. `SEED_IMPORT_FIXTURES=true` adds three fictional deck cards for the
+end-to-end suites only (`ImportFixtureSeedContributor`).
+
 ### Effective public visibility
 
 Item public ⇔ visibility PUBLIC or TEMPORARILY_PUBLIC not expired ∧ binder public (or none) ∧
@@ -1431,7 +1457,12 @@ with the `payments.*` rows, `seller_account`, `payment`, `payment_event`, `payme
 `credit_product`, `referral_code`, `referral_redemption`, `credits.*` settings),
 `V092__advertising.sql` (`advertiser`, `ad_placement`, `ad_campaign`, `ad_creative`,
 `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily`) and
-`V093__donations.sql` (`donation`, `donation_webhook_event`, `donations.*` settings).
+`V093__donations.sql` (`donation`, `donation_webhook_event`, `donations.*` settings). The card
+images (ADR 0015) add V100–V102, launch readiness V103–V105 (18+ confirmation, consent language,
+money flags off), and the owner's change of 2026-10-08 V106–V114: stage S1, platform regions and
+the self-declared location (V106–V111, ADR 0017); stage S2, the simplified wishlist (V112); stage
+S5, the inventory import (V113, V114). V001 to V114 are applied and frozen; the next migration is
+V115.
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
