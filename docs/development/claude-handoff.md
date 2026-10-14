@@ -229,7 +229,7 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
   and says so on the line (the alternative is to leave those lines to the collector). Since
   review fix 2 those lines stay counted on the preview and can be listed until each is checked.
 - A dialog on screen with an empty accessibility tree (found during stage S5): **cause found and
-  fixed on 2026-10-13**, branch `fix/ios-second-modal-accessibility`, which ships after S5
+  fixed on 2026-10-13**, branch `fix/ios-second-modal-accessibility`, shipped right after S5
   (IMPLEMENTATION_STATUS.md, "A scrim iOS takes for a modal"). iOS takes a window-sized view with
   a translucent pure black background for the dimming view of a modal, the native view keeps
   that mark, and React Native reuses it: the dark theme's scrim was such a black. A view that

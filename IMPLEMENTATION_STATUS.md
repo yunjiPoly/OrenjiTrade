@@ -4220,8 +4220,10 @@ VoiceOver speech itself (the accessibility tree was read).
 
 ## A scrim iOS takes for a modal: the dialog with an empty accessibility tree (2026-10-13)
 
-> Branch `fix/ios-second-modal-accessibility`, cut from `feature/s5-inventory-import` at `05427c2`,
-> not pushed (it ships after stage S5). Mobile only; `apps/web-angular` and the design tokens are
+> Branch `fix/ios-second-modal-accessibility`, cut from `feature/s5-inventory-import` at `05427c2`
+> and merged with `main` once stage S5 was on it (#69). Found, fixed and tested by a side session
+> on 2026-10-13; shipped the same evening by the lead, because that session ended with a restart
+> of the Mac ("Ship step" below). Mobile only; `apps/web-angular` and the design tokens are
 > not touched. It closes the finding recorded by stage S5 ("Found, not fixed").
 
 ### What was recorded, and what it really is
@@ -4346,7 +4348,7 @@ VoiceOver options:
 | `.maestro/dialog-after-sheet.yaml` on the old black scrim | **fails**, at "edit-item-delete-dialog-cancel is visible" (the dialog is on screen) |
 | `.maestro/dialog-after-sheet.yaml` with the fix | **passes** (1 min 54 s): sheet, dialog, sheet, dialog, the card deleted on the API |
 | `inventory-add-edit-delete.yaml`, `blocked-users.yaml`, `inventory-import-deck.yaml`, `inventory-import-csv.yaml` (the flows with the most sheets and dialogs) | pass |
-| the whole native suite, `npm run test:mobile:maestro`, and the mobile web E2E, `npm run test:mobile:e2e` | **not run**: see below |
+| the whole native suite, `npm run test:mobile:maestro`, and the mobile web E2E, `npm run test:mobile:e2e` | not run by the side session; **run in the ship step, both green**: see below |
 
 The five native flows above ran with Maestro called directly, against an API and a Metro of this
 branch on their own ports (8690 and 8087, database `orenjitrade_mobile_a11y`), on the iPhone 17
@@ -4356,6 +4358,14 @@ simulator (US English, a plain keyboard), which needs a restart of the simulator
 pull request, once S5 is on `main` and merged into this branch: the whole native suite and the
 mobile web E2E with the usual commands on the prepared simulator**, with the other checks of a
 stage (docs/development/claude-handoff.md, section 3).
+
+**Ship step (2026-10-13, 21:40 to 22:35, by the lead, on this branch merged with `main` at
+`4a64244`, head `9b06581`):** `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`
+and `npm run format:check -w apps/mobile` clean; `npm run test:mobile`: jest 90 suites / 930
+tests; `npm run test:mobile:e2e -- --retries=0`: 60 passed; **the whole native suite on the
+prepared iPhone 18 Pro simulator: 31 of 31 flows in 50 min 23 s**, the new flow "A dialog after a
+sheet on a stack screen" among them (1 min 49 s, the only one in the app's Dark theme), the
+simulator light again afterwards. The two documents were the only conflicts of the merge.
 
 Left as found: git holds only the files of this change, the React Native file edited for the
 "release build" measurement is back as installed, the API and Metro of this work are stopped,
@@ -4371,7 +4381,6 @@ their database dropped, their emulator accounts deleted; both simulators booted 
   the measured limit; the native flow is the guard if another version draws the line elsewhere.
 - **The Android run** of the new flow (no Android SDK on this Mac). Its only step no other flow
   has is the selected state of the theme chip (`selected: true`).
-- **The whole native suite on the prepared simulator**: see the checks.
 
 ### Notes
 
@@ -4410,8 +4419,9 @@ their database dropped, their emulator accounts deleted; both simulators booted 
 > second look approved the branch with one minor finding, answered by **review fix 2** ("Review
 > fix 2 (2026-10-13)": the lines whose copy was assumed stay counted and can be listed), which an
 > independent verifier approved the same evening (30 of 30 native flows). **Next for this branch:
-> the pull request, merged when CI is green.** Right after it ships the small branch
-> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal).
+> the pull request, merged when CI is green** (done: #69). Right after it shipped the small branch
+> `fix/ios-second-modal-accessibility` (a dark backdrop that iOS takes for a modal; "A scrim iOS
+> takes for a modal" above).
 > Owner questions it leaves open: the default condition of a card whose file names none
 > (`DAMAGED` today), a number for `inventory.items.max`, whether an import may raise a card the
 > collector shows (today it never does: the copies become a private card), whether "use the most
