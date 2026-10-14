@@ -356,15 +356,19 @@ Conventions later stages reuse:
     `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
     assumed for 115 lines", `assumedCopiesText`) and its button lists them; the pinned filter gets
     the chip "115 assumed" (the filter `MOST_RECENT_ASSUMED`, sent as `printingChoice`; a screen
-    reader hears "Plain copy assumed (115)", `ChoiceOption.accessibilityLabel`). It is the third
+    reader hears "115 assumed: the lines whose plain copy was assumed",
+    `ChoiceOption.accessibilityLabel`, which starts with the words on screen so that Voice Control
+    reaches the chip by them; a deck says "cards"). It is the third
     chip of the row and is cut at the screen's edge: its count leads so that the count is the part
     in view. The chips stand in the order of what they ask (All, Needs a printing, the assumed
     copies, Not recognised), and the row brings the chosen chip whole on screen when
     something else than a press on it chose it (`ChoiceChips revealSelected`). Picking the plain
     copy again in "Which copy" confirms it: the line leaves that list and the count.
     **The commit button shows a label that fits one line** (`commitState().shortLabel`: "Add 434
-    cards (1,266 copies)", "Add 434 cards, leave 12 out"); the whole sentence ("… to my
-    inventory") is its accessible name, which the tests and the flows read.
+    cards (1,266 copies)", "Add 434 cards, leave 12 out"); the whole sentence is its accessible
+    name, which the tests and the flows read, and it always starts with the words on screen ("…
+    to my inventory", "Add 434 cards, leave 12 out (1,266 copies added)"; WCAG 2.5.3, label in
+    name).
     Leaving a line out shows at once and is put back if the API refuses. A row that changes its
     status, or whose assumed copy was confirmed or changed, reads the filtered lists again (a row
     that got its printing leaves "needs a printing", and the next page would otherwise skip a

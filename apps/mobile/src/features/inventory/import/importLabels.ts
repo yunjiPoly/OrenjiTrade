@@ -420,22 +420,29 @@ export interface ImportFilterOption {
  * is cut at the screen's edge (which also says that the row scrolls). Its count therefore leads
  * and its words are few, "356 assumed": after "All (435)" and "Needs a printing (0)" some 80
  * points of it are in view, and a count at the end of any wording, "Assumed (356)" included,
- * would be the part that is cut. A screen reader hears the whole of it, "Plain copy assumed
- * (356)".
+ * would be the part that is cut. A screen reader hears what it shows and then what it means,
+ * "356 assumed: the lines whose plain copy was assumed": the name starts with the words on
+ * screen, so a collector who says them to Voice Control reaches the chip (WCAG 2.5.3).
  */
 export function filterOptions(
   summary: ImportSummary,
-  current: ImportRowFilter = 'ALL'
+  current: ImportRowFilter = 'ALL',
+  source: ImportSource = 'YDK'
 ): ImportFilterOption[] {
   const assumed = assumedCopies(summary);
+  const shown = `${formatCount(assumed)} assumed`;
+  const noun = source === 'YDK' ? 'card' : 'line';
   const options: (ImportFilterOption | null)[] = [
     { value: 'ALL', label: `All (${formatCount(summary.rows)})` },
     { value: 'CHOOSE_PRINTING', label: `Needs a printing (${formatCount(summary.toChoose)})` },
     assumed > 0 || current === 'MOST_RECENT_ASSUMED'
       ? {
           value: 'MOST_RECENT_ASSUMED',
-          label: `${formatCount(assumed)} assumed`,
-          accessibilityLabel: `Plain copy assumed (${formatCount(assumed)})`,
+          label: shown,
+          accessibilityLabel:
+            assumed === 1
+              ? `${shown}: the ${noun} whose plain copy was assumed`
+              : `${shown}: the ${noun}s whose plain copy was assumed`,
         }
       : null,
     { value: 'UNMATCHED', label: `Not recognised (${formatCount(summary.unmatched)})` },
@@ -682,14 +689,18 @@ export function orderedPrintings(
 // --- The commit --------------------------------------------------------------------------------
 
 export interface CommitState {
-  /** What a press does, in full: the button's name for a screen reader. */
+  /**
+   * What a press does, in full: the button's name for a screen reader. It always starts with
+   * `shortLabel`, the words on screen, so a collector who says them to Voice Control reaches the
+   * button (WCAG 2.5.3, label in name).
+   */
   label: string;
   /**
    * What the button shows: `label` held to one line of a phone. The cards, their copies and "to
    * my inventory" together are wider than the button ("Add 434 cards (1,266 copies) to my
    * inventory" broke onto a second line), so where the copies are named the words the screen
    * already says give way to the numbers, and a press that leaves lines out names the cards
-   * and how many lines stay out.
+   * and how many lines stay out (its name adds the copies at the end).
    */
   shortLabel: string;
   disabled: boolean;
@@ -744,10 +755,13 @@ export function commitState(
   }
   const reason = privacySentence(summary);
   if (summary.toChoose > 0) {
-    const out = `leave ${formatCount(summary.toChoose)} out`;
+    const shown = `Add ${plural(summary.items, 'card')}, leave ${formatCount(summary.toChoose)} out`;
     return {
-      label: `Add ${cards}, ${out}`,
-      shortLabel: `Add ${plural(summary.items, 'card')}, ${out}`,
+      label:
+        summary.copies === summary.items
+          ? shown
+          : `${shown} (${plural(summary.copies, 'copy', 'copies')} added)`,
+      shortLabel: shown,
       disabled: false,
       reason,
     };

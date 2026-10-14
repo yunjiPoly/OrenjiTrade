@@ -281,7 +281,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           scroll
           revealSelected
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          options={filterOptions(preview.summary, filter)}
+          options={filterOptions(preview.summary, filter, preview.source)}
           value={filter}
           onChange={chooseFilter}
           testID="import-filter"

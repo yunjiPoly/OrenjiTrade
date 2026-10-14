@@ -869,7 +869,9 @@ describe('Import cards: the preview', () => {
         name: 'Plain copy assumed for 1 card',
       })
     ).toBeOnTheScreen();
-    expect(screen.getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('radio', { name: '1 assumed: the card whose plain copy was assumed' })
+    ).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-1-printing')).not.toBeDisabled();
     // The card nothing could decide still asks: nothing was taken for the collector.
     await waitFor(() => expect(screen.getByLabelText('1 needs a printing')).toBeOnTheScreen());
@@ -913,12 +915,13 @@ describe('Import cards: the preview', () => {
       within(card).getByRole('header', { name: 'Plain copy assumed for 2 lines' })
     ).toBeOnTheScreen();
     const bar = screen.getByTestId('import-filter-bar');
-    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).not.toBeChecked();
+    const named = '2 assumed: the lines whose plain copy was assumed';
+    expect(within(bar).getByRole('radio', { name: named })).not.toBeChecked();
     // What the chip shows leads with its count (the part in view of a chip cut at the edge).
     expect(within(bar).getByText('2 assumed').props.maxFontSizeMultiplier).toBe(
       PINNED_MAX_FONT_SCALE
     );
-    expect(within(bar).queryByText('Plain copy assumed (2)')).toBeNull();
+    expect(within(bar).queryByText(named)).toBeNull();
     // On a phone the row of chips is wider than the screen: this chip is cut at the edge.
     const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     fireEvent(within(bar).getByTestId('import-filter-row'), 'layout', {
@@ -948,7 +951,7 @@ describe('Import cards: the preview', () => {
     const asked = api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query;
     expect(asked?.get('printingChoice')).toBe('MOST_RECENT_ASSUMED');
     expect(asked?.has('status')).toBe(false);
-    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (2)' })).toBeChecked();
+    expect(within(bar).getByRole('radio', { name: named })).toBeChecked();
 
     // The plain copy of the first one is right: picked again, it is the collector's choice, the
     // line leaves the list and the count goes down.
@@ -960,7 +963,9 @@ describe('Import cards: the preview', () => {
       printingId: HERON_FIRST,
     });
     expect(screen.getByTestId('import-row-3')).toBeOnTheScreen();
-    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (1)' })).toBeChecked();
+    expect(
+      within(bar).getByRole('radio', { name: '1 assumed: the line whose plain copy was assumed' })
+    ).toBeChecked();
     expect(
       within(screen.getByTestId('import-assumed')).getByRole('button', { name: 'Show this line' })
     ).toBeOnTheScreen();
@@ -975,10 +980,12 @@ describe('Import cards: the preview', () => {
     expect(await screen.findByText('No plain copy left to check')).toBeOnTheScreen();
     expect(screen.queryByTestId('import-assumed')).toBeNull();
     // The chip that is pressed does not vanish under the finger; it goes with the filter.
-    expect(within(bar).getByRole('radio', { name: 'Plain copy assumed (0)' })).toBeChecked();
+    expect(
+      within(bar).getByRole('radio', { name: '0 assumed: the lines whose plain copy was assumed' })
+    ).toBeChecked();
     fireEvent.press(screen.getByRole('button', { name: 'Show all lines' }));
     expect(await screen.findByTestId('import-row-0')).toBeOnTheScreen();
-    expect(within(bar).queryByRole('radio', { name: /Plain copy assumed/ })).toBeNull();
+    expect(within(bar).queryByRole('radio', { name: /assumed/ })).toBeNull();
     expect(within(bar).getAllByRole('radio')).toHaveLength(3);
   });
 
@@ -1101,7 +1108,7 @@ describe('Import cards: the commit', () => {
         name: 'Leave out the 2 cards that still need a printing',
       })
     );
-    expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies), leave 2 out');
+    expect(commit.props.accessibilityLabel).toBe('Add 1 card, leave 2 out (2 copies added)');
     expect(within(commit).getByText('Add 1 card, leave 2 out')).toBeOnTheScreen();
     expect(commit).not.toBeDisabled();
     fireEvent.press(commit);

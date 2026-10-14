@@ -330,11 +330,12 @@ describe('the counts on top of a preview', () => {
       { value: 'ALL', label: 'All (435)' },
       { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
       // The third chip of a pinned row is cut at the screen's edge: its count leads, so the
-      // count is the part in view, and a screen reader hears the whole wording.
+      // count is the part in view, and a screen reader hears the words on screen, then what
+      // they mean (a deck counts in cards).
       {
         value: 'MOST_RECENT_ASSUMED',
         label: '115 assumed',
-        accessibilityLabel: 'Plain copy assumed (115)',
+        accessibilityLabel: '115 assumed: the cards whose plain copy was assumed',
       },
       { value: 'UNMATCHED', label: 'Not recognised (15)' },
     ]);
@@ -347,8 +348,28 @@ describe('the counts on top of a preview', () => {
     expect(filterOptions(summaryOf(), 'MOST_RECENT_ASSUMED')[2]).toEqual({
       value: 'MOST_RECENT_ASSUMED',
       label: '0 assumed',
-      accessibilityLabel: 'Plain copy assumed (0)',
+      accessibilityLabel: '0 assumed: the cards whose plain copy was assumed',
     });
+    // A CSV counts in lines, and one is one.
+    expect(
+      filterOptions({ ...long, assumedPrintings: 1 }, 'ALL', 'COLLECTR_CSV')[2]?.accessibilityLabel
+    ).toBe('1 assumed: the line whose plain copy was assumed');
+    expect(filterOptions(long, 'ALL', 'COLLECTR_CSV')[2]?.accessibilityLabel).toBe(
+      '115 assumed: the lines whose plain copy was assumed'
+    );
+    // Label in name (WCAG 2.5.3): whatever a chip shows starts the name a screen reader and
+    // Voice Control use, so "Tap 115 assumed" reaches it.
+    for (const source of ['YDK', 'COLLECTR_CSV'] as const) {
+      for (const assumedPrintings of [0, 1, 115, 1234]) {
+        for (const option of filterOptions(
+          { ...long, assumedPrintings },
+          'MOST_RECENT_ASSUMED',
+          source
+        )) {
+          expect((option.accessibilityLabel ?? option.label).startsWith(option.label)).toBe(true);
+        }
+      }
+    }
     expect(emptyFilterText('MOST_RECENT_ASSUMED')).toEqual({
       title: 'No plain copy left to check',
       description: 'Every copy that was taken for you has been confirmed or changed.',
@@ -589,7 +610,7 @@ describe('the commit button says what a press does', () => {
 
   it('leaves them out only when the collector said so, and says it', () => {
     expect(commitState(summaryOf(), true)).toEqual({
-      label: 'Add 1 card (2 copies), leave 2 out',
+      label: 'Add 1 card, leave 2 out (2 copies added)',
       shortLabel: 'Add 1 card, leave 2 out',
       disabled: false,
       reason: 'It starts private: nobody sees it until you publish it.',
@@ -638,8 +659,12 @@ describe('the commit button says what a press does', () => {
       true,
       'COLLECTR_CSV'
     );
-    expect(leaving.label).toBe('Add 434 cards (1,266 copies), leave 12 out');
+    expect(leaving.label).toBe('Add 434 cards, leave 12 out (1,266 copies added)');
     expect(leaving.shortLabel).toBe('Add 434 cards, leave 12 out');
+    // Where the copies are the cards, there is nothing to add to what the button shows.
+    expect(
+      commitState(summaryOf({ toChoose: 12, items: 434, ready: 434, copies: 434 }), true).label
+    ).toBe('Add 434 cards, leave 12 out');
     // No visible label is longer than the longest one that fits ("Add 1,234 cards to my
     // inventory", 31 characters), whatever the counts.
     for (const summary of [
@@ -651,7 +676,8 @@ describe('the commit button says what a press does', () => {
       for (const leaveOut of [false, true]) {
         const state = commitState(summary, leaveOut, 'COLLECTR_CSV');
         expect(state.shortLabel.length).toBeLessThanOrEqual(31);
-        expect(state.label.startsWith('Add')).toBe(true);
+        // Label in name (WCAG 2.5.3): the name starts with what the button shows.
+        expect(state.label.startsWith(state.shortLabel)).toBe(true);
       }
     }
   });
