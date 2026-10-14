@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { KeyboardAvoidingView, ScrollView, Text } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, Switch, Text } from 'react-native';
 
 import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
@@ -18,7 +18,22 @@ import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
 
+import { darkPalette } from '@/src/theme/palette';
+
 import { renderWithProviders } from '../test-utils';
+
+/** WCAG contrast of two `#RRGGBB` colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const channel = (offset: number) => {
+      const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (light + 0.05) / (dark + 0.05);
+}
 
 describe('CardImage', () => {
   it('renders an API picture with a skeleton until it loads', () => {
@@ -196,6 +211,20 @@ describe('form controls', () => {
     expect(toggle).toBeChecked();
     fireEvent.press(toggle);
     expect(onSwitch).toHaveBeenCalledWith(false);
+  });
+
+  it('draws a switch that is off so it can be seen in dark (a white thumb on the off track)', () => {
+    renderWithProviders(
+      <SwitchRow label="Show me on the map" value={false} onChange={jest.fn()} />,
+      {
+        scheme: 'dark',
+      }
+    );
+    const native = screen.UNSAFE_getByType(Switch);
+    expect(native.props.thumbColor).toBe('#FFFFFF');
+    expect(native.props.trackColor.false).toBe(darkPalette.borderStrong);
+    expect(contrast(native.props.thumbColor, darkPalette.borderStrong)).toBeGreaterThan(3);
+    expect(contrast(native.props.thumbColor, darkPalette.surface)).toBeGreaterThan(3);
   });
 
   it('selects a radio option', () => {
