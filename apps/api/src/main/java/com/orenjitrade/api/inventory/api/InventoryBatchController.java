@@ -8,6 +8,7 @@ import com.orenjitrade.api.inventory.domain.InventoryBatchService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -88,12 +89,12 @@ public class InventoryBatchController {
      */
     @Schema(name = "AddInventoryItemsBatchResponse", description = "What a batch added")
     public record AddInventoryItemsBatchResponse(
-            int itemsCreated,
-            int itemsRaised,
-            int copiesAdded,
-            int copiesNotAdded,
-            List<UUID> createdItemIds,
-            List<UUID> raisedItemIds) {}
+            @Schema(requiredMode = RequiredMode.REQUIRED) int itemsCreated,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int itemsRaised,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int copiesAdded,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int copiesNotAdded,
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<UUID> createdItemIds,
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<UUID> raisedItemIds) {}
 
     @PostMapping(
             path = "/api/v1/inventory/items/batch",

@@ -1753,6 +1753,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/items/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add several cards at once (camera scan)
+         * @description One transaction. Lines of the same printing are summed. Each line adds its copies to the caller's equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing's language, edition and finish, the game's NEAR_MINT, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. `inventory.items.max` is checked for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing written. 404 when `binderId` is not one of the caller's binders, 404 FEATURE_DISABLED while the flag cardTextScan is off.
+         */
+        post: operations["addInventoryItemsBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/imports": {
         parameters: {
             query?: never;
@@ -2007,6 +2027,26 @@ export interface paths {
          * @description `body` 1-2000 characters, optional `cardPrintingId` and public `binderId` links. 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review).
          */
         post: operations["createCommunityPost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cards/scan-match": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find the card a scan read
+         * @description Yu-Gi-Oh! English cards only. The codes are tried as read, in the other form of an old code (LOB-005 / LOB-EN005, LOB-E001 → LOB-EN001), with a missing dash at each place, then with look-alike characters (O/0, D/0, I/1, L/1, S/5, B/8, Z/2, G/6) only when the catalog has the result; the names as /cards/suggest finds them. FOUND: one card and one printing; PICK_RARITY: the code comes in several rarities (`rarities`); PICK_PRINTING: the card is known, not its printing (`printings`, newest set first); NOT_FOUND (`reason`). A code with another language's region (MACR-FR036) is NOT_FOUND whatever the name says. `otherMatches`: at most 6 other cards (look-alike codes, also 3/8, 6/8, 5/6, 0/8 and 1/7, then close names). Pictures are this API's card-images addresses. 404 FEATURE_DISABLED while the flag cardTextScan is off.
+         */
+        post: operations["matchScannedCard"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8034,6 +8074,40 @@ export interface components {
              */
             reason: "NOT_FOUND" | "UNCHANGED";
         };
+        /** @description A printing and its copies */
+        AddInventoryItemsBatchLine: {
+            /** Format: uuid */
+            printingId: string;
+            /** Format: int32 */
+            quantity: number;
+        };
+        /** @description Cards to add in one go */
+        AddInventoryItemsBatchRequest: {
+            /**
+             * @description PRIVATE by default
+             * @enum {string}
+             */
+            visibility?: "PRIVATE" | "PUBLIC";
+            /**
+             * Format: uuid
+             * @description One of the caller's binders; none by default
+             */
+            binderId?: string;
+            lines: components["schemas"]["AddInventoryItemsBatchLine"][];
+        };
+        /** @description What a batch added */
+        AddInventoryItemsBatchResponse: {
+            /** Format: int32 */
+            itemsCreated: number;
+            /** Format: int32 */
+            itemsRaised: number;
+            /** Format: int32 */
+            copiesAdded: number;
+            /** Format: int32 */
+            copiesNotAdded: number;
+            createdItemIds: string[];
+            raisedItemIds: string[];
+        };
         /** @description An inventory import of the caller: a preview, then its commit */
         InventoryImportResponse: {
             /** Format: uuid */
@@ -8516,6 +8590,68 @@ export interface components {
             canDelete: boolean;
             /** @enum {string} */
             moderationState: "OK" | "FLAGGED" | "REMOVED";
+        };
+        /** @description What the phone read on one card */
+        CardScanMatchRequest: {
+            /** @example yugioh */
+            game: string;
+            /** @description 0 to 3 printing codes as read, best first */
+            codes?: string[];
+            /** @description 0 to 3 card names as read, best first */
+            names?: string[];
+        };
+        /** @description The matched card */
+        CardScanCard: {
+            /** Format: uuid */
+            id: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            imageUrl?: string;
+        };
+        /** @description The card a scan read points to */
+        CardScanMatch: {
+            /** @enum {string} */
+            status: "FOUND" | "PICK_RARITY" | "PICK_PRINTING" | "NOT_FOUND";
+            /** @enum {string} */
+            reason?: "OTHER_LANGUAGE" | "AMBIGUOUS" | "NO_MATCH" | "NOTHING_READ";
+            card?: components["schemas"]["CardScanCard"];
+            printing?: components["schemas"]["CardScanPrinting"];
+            rarities: components["schemas"]["CardScanPrinting"][];
+            printings: components["schemas"]["CardScanPrinting"][];
+            otherMatches: components["schemas"]["CardScanOtherMatch"][];
+            read: components["schemas"]["CardScanRead"];
+        };
+        /** @description Another card the scan could be */
+        CardScanOtherMatch: {
+            /** Format: uuid */
+            cardId: string;
+            name: string;
+            imageUrl?: string;
+            /** @enum {string} */
+            kind: "CODE" | "NAME";
+            printingCode?: string;
+            setName?: string;
+            /** Format: uuid */
+            printingId?: string;
+            rarity?: string;
+        };
+        /** @description A printing of the matched card */
+        CardScanPrinting: {
+            /** Format: uuid */
+            id: string;
+            /** @example MACR-EN036 */
+            printingCode?: string;
+            /** @example MACR */
+            setCode: string;
+            /** @example Maximum Crisis */
+            setName: string;
+            /** @example Secret Rare */
+            rarity?: string;
+        };
+        /** @description What the phone read, as the server cleaned it */
+        CardScanRead: {
+            codes: string[];
+            names: string[];
         };
         /** @description A new binder */
         CreateBinderRequest: {
@@ -19228,6 +19364,93 @@ export interface operations {
             };
         };
     };
+    addInventoryItemsBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddInventoryItemsBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description What was added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddInventoryItemsBatchResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (bad lines, unknown printings) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND (binder) or FEATURE_DISABLED (cardTextScan is off) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (inventory.items.max), nothing written */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listInventoryImports: {
         parameters: {
             query?: never;
@@ -20647,6 +20870,93 @@ export interface operations {
             };
             /** @description POST_BLOCKED */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    matchScannedCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardScanMatchRequest"];
+            };
+        };
+        responses: {
+            /** @description The match */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CardScanMatch"];
+                };
+            };
+            /** @description VALIDATION_FAILED (another game than yugioh, a bad body) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FEATURE_DISABLED (cardTextScan is off) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,6 +1,7 @@
 package com.orenjitrade.api.cards.domain.scan;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -21,14 +22,14 @@ import org.jspecify.annotations.Nullable;
  */
 @Schema(name = "CardScanMatch", description = "The card a scan read points to")
 public record ScanMatch(
-        ScanStatus status,
+        @Schema(requiredMode = RequiredMode.REQUIRED) ScanStatus status,
         @Nullable ScanNotFoundReason reason,
         @Nullable Card card,
         @Nullable Printing printing,
-        List<Printing> rarities,
-        List<Printing> printings,
-        List<OtherMatch> otherMatches,
-        Read read) {
+        @Schema(requiredMode = RequiredMode.REQUIRED) List<Printing> rarities,
+        @Schema(requiredMode = RequiredMode.REQUIRED) List<Printing> printings,
+        @Schema(requiredMode = RequiredMode.REQUIRED) List<OtherMatch> otherMatches,
+        @Schema(requiredMode = RequiredMode.REQUIRED) Read read) {
 
     /**
      * A card.
@@ -39,8 +40,9 @@ public record ScanMatch(
      */
     @Schema(name = "CardScanCard", description = "The matched card")
     public record Card(
-            UUID id,
-            @Schema(example = "Ash Blossom & Joyous Spring") String name,
+            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Ash Blossom & Joyous Spring")
+                    String name,
             @Nullable String imageUrl) {}
 
     /**
@@ -54,10 +56,11 @@ public record ScanMatch(
      */
     @Schema(name = "CardScanPrinting", description = "A printing of the matched card")
     public record Printing(
-            UUID id,
+            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(example = "MACR-EN036") @Nullable String printingCode,
-            @Schema(example = "MACR") String setCode,
-            @Schema(example = "Maximum Crisis") String setName,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "MACR") String setCode,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Maximum Crisis")
+                    String setName,
             @Schema(example = "Secret Rare") @Nullable String rarity) {}
 
     /**
@@ -74,10 +77,10 @@ public record ScanMatch(
      */
     @Schema(name = "CardScanOtherMatch", description = "Another card the scan could be")
     public record OtherMatch(
-            UUID cardId,
-            String name,
+            @Schema(requiredMode = RequiredMode.REQUIRED) UUID cardId,
+            @Schema(requiredMode = RequiredMode.REQUIRED) String name,
             @Nullable String imageUrl,
-            ScanOtherMatchKind kind,
+            @Schema(requiredMode = RequiredMode.REQUIRED) ScanOtherMatchKind kind,
             @Nullable String printingCode,
             @Nullable String setName,
             @Nullable UUID printingId,
@@ -90,5 +93,7 @@ public record ScanMatch(
      * @param names the name candidates, trimmed
      */
     @Schema(name = "CardScanRead", description = "What the phone read, as the server cleaned it")
-    public record Read(List<String> codes, List<String> names) {}
+    public record Read(
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<String> codes,
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<String> names) {}
 }
