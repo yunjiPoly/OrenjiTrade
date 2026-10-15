@@ -484,6 +484,40 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void anOldEuropeFormReadWithoutItsDashIsRefusedWhenTheCatalogKnowsTheOtherLanguagesSet() {
+        // V3-2, owner 2026-10-15: ZT10E001 is ZT10-E001, never printed (its other old form
+        // ZT10-EN001 is), or the German ZT1-DE001 read with its dash lost and its D as 0. The
+        // catalog knows the set ZT1: refused, even with the English card's name (batch B1 found
+        // ZT10-EN001 through the old form).
+        for (List<String> names : List.of(List.of("Zither Tin Herald"), List.<String>of())) {
+            ScanMatch herald = match(List.of("ZT10E001"), names);
+            assertThat(herald.status()).as("%s", names).isEqualTo(ScanStatus.NOT_FOUND);
+            assertThat(herald.reason())
+                    .as("%s", names)
+                    .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+            assertThat(herald.card()).isNull();
+            assertThat(herald.otherMatches()).isEmpty();
+        }
+        // Its EN region read, or its dash: found.
+        assertThat(match(List.of("ZT10EN001"), List.of()).printing().printingCode())
+                .isEqualTo("ZT10-EN001");
+        assertThat(match(List.of("ZT10-E001"), List.of()).printing().printingCode())
+                .isEqualTo("ZT10-EN001");
+        // The Yu-Gi-Oh! catalog knows no set ZV1 (only another game's): ZV10E001 stays English
+        // through the old form ZV10-EN001 of its place ZV10-E001.
+        ScanMatch sentry = match(List.of("ZV10E001"), List.of());
+        assertThat(sentry.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(sentry.printing().printingCode()).isEqualTo("ZV10-EN001");
+        // The places as read are what settles a doubt whatever the sets, never their old form.
+        assertThat(ScanCodes.englishPlaces("ZMDE001"))
+                .startsWith("ZMD-E001")
+                .doesNotContain("ZMD-EN001");
+        assertThat(ScanCodes.englishPlaces("ZT10E001"))
+                .startsWith("ZT10-E001")
+                .doesNotContain("ZT10-EN001");
+    }
+
+    @Test
     void aFrenchPrintingInTheCatalogIsNeverMatched() {
         // The catalog knows ZACR-FR036; a read that cleans to it is refused above, and an English
         // read never reaches it as a look-alike or a printing of the card.

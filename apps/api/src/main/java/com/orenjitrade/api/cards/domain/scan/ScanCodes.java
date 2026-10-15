@@ -34,10 +34,12 @@ import org.jspecify.annotations.Nullable;
  *       through its English code.
  *   <li>{@link #languageInDoubt}: a read without its dash where one place of the dash gives another
  *       language's code and another an English one ({@code VLBDE005}: {@code VLB-DE005} or {@code
- *       VLBD-E005}): English when the catalog has one of its {@link #englishForms} as read ({@code
- *       MRDE001} is {@code MRD-E001}), or knows the set of an English place and none of the other
- *       language's places ({@link #englishSets}, {@link #otherLanguageSets}: {@code SR10EN0O1} is
- *       {@code SR10-EN0O1}, the catalog has no set {@code SR1}); otherwise another language's.
+ *       VLBD-E005}): English when the catalog has one of its {@link #englishPlaces} as read ({@code
+ *       MRDE001} is {@code MRD-E001}; their other old form does not count), or knows the set of an
+ *       English place and none of the other language's places ({@link #englishSets}, {@link
+ *       #otherLanguageSets}: {@code SR10EN0O1} is {@code SR10-EN0O1}, the catalog has no set {@code
+ *       SR1}); otherwise another language's ({@code CT10E001} is the German {@code CT1-DE001}
+ *       misread when the catalog knows {@code CT1}, though it has {@code CT10-EN001}).
  *   <li>{@link #isPasscode}: the card's 8-digit passcode (or a stat) is never looked up, not even
  *       read with a stray dash or two look-alike letters.
  * </ul>
@@ -190,11 +192,12 @@ public final class ScanCodes {
      * gives another language's code, as printed or misread, and another place an English one
      * ({@code VLBDE005} is {@code VLB-DE005} or {@code VLBD-E005}, {@code MRDE001} is {@code
      * MR-DE001} or {@code MRD-E001}). The catalog decides (owner spec 2026-10-15, section 3.5, rule
-     * 5): English when it has one of the {@link #englishForms} as read; otherwise by the sets it
-     * knows: English, look-alikes allowed, when it knows the set of an English place ({@link
+     * 5): English when it has one of the {@link #englishPlaces} as read (not their other old form:
+     * {@code CT10-EN001} does not make {@code CT10E001} English); otherwise by the sets it knows:
+     * English, old forms and look-alikes allowed, when it knows the set of an English place ({@link
      * #englishSets}: {@code SR10} of {@code SR10EN0O1}) and none of the sets of the other
      * language's places ({@link #otherLanguageSets}: {@code SR1}); another language's otherwise
-     * ({@code VLBDE005}: the catalog knows {@code VLB}).
+     * ({@code VLBDE005}: the catalog knows {@code VLB}; {@code CT10E001}: it knows {@code CT1}).
      */
     public static boolean languageInDoubt(String cleaned) {
         List<String> bases = bases(cleaned);
@@ -203,17 +206,24 @@ public final class ScanCodes {
     }
 
     /**
+     * The places of a read's dash that may be English, as read, best first ({@code MRD-E001} of
+     * {@code MRDE001}, without its other old form {@code MRD-EN001}): what a read in doubt ({@link
+     * #languageInDoubt}) is when it is English as printed.
+     */
+    public static List<String> englishPlaces(String cleaned) {
+        return bases(cleaned).stream().filter(ScanCodes::mayBeEnglish).toList();
+    }
+
+    /**
      * The English codes a read in doubt ({@link #languageInDoubt}) may be, best first: each place
-     * of the dash that may be English, with the other form of an old code; the places that give
-     * another language's code (or no code shape) are left out.
+     * of the dash that may be English ({@link #englishPlaces}), with the other form of an old code;
+     * the places that give another language's code (or no code shape) are left out.
      */
     public static List<String> englishForms(String cleaned) {
         Set<String> forms = new LinkedHashSet<>();
-        for (String base : bases(cleaned)) {
-            if (mayBeEnglish(base)) {
-                forms.add(base);
-                forms.addAll(oldForms(base));
-            }
+        for (String place : englishPlaces(cleaned)) {
+            forms.add(place);
+            forms.addAll(oldForms(place));
         }
         return List.copyOf(forms);
     }

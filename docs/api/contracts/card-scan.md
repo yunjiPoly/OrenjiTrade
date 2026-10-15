@@ -78,22 +78,26 @@ five grouped queries whatever the number of variants (a sixth for a code read in
    language's region are never matched, listed or offered, not even as look-alikes. A read without
    its dash where one place of the dash gives another language's code and another an English one
    (`VLBDE005`: `VLB-DE005` or `VLBD-E005`; `VMCR0E036`) is in doubt, and the catalog settles it:
-   English when it has one of its English places as read, or their other old form (`MRDE001` is
-   the old Europe `MRD-E001`); English too, its look-alikes then allowed, when the Yu-Gi-Oh! catalog
-   knows the set of one of its English places (a set with a printing) and none of the sets of its
-   other language's places (`SR10EN0O1` is `SR10-EN0O1`, read `SR10-EN001`: the catalog has the set
+   English when it has one of its English places as read (`MRDE001` is the old Europe `MRD-E001`);
+   English too, its old forms and look-alikes then allowed, when the Yu-Gi-Oh! catalog knows the set
+   of one of its English places (a set with a printing) and none of the sets of its other
+   language's places (`SR10EN0O1` is `SR10-EN0O1`, read `SR10-EN001`: the catalog has the set
    `SR10` and no set `SR1`); otherwise another language's: NOT_FOUND (`OTHER_LANGUAGE`), whatever
-   the name says (`VLBDE005`: the catalog knows `VLB`). The sets are a sixth grouped query, made only
-   for a read in doubt. On the owner's catalog snapshot (35,223 English codes, 648 sets), every
-   English code read without its dash is found, and of those read without the dash **and** with one
-   look-alike digit (`SR10EN0O1`) 129 are still refused, all in the sets `CT10`, `DL10`, `DP10`,
-   `SD10` and `SDPD`, whose other place's set (`CT1`, `DL1`, `DP1`, `SD1`, `SDP`) exists too
-   (batch B1 refused 4,302 of them, in 55 sets). Of 890,478 synthetic other-language reads of
-   those codes (`DE`, `FR`, `IT`, `SP`, `PT` as printed or misread, without the dash, with a
-   look-alike digit or a second dash), the set rule takes none as English; 64 were and stay
-   English because they are an English code as read (`CT1` + `0E001` is `CT10-E001`, the old form
-   of `CT10-EN001`). A second dash between a region and
-   the number is the same code (`VLB-DE-005` is `VLB-DE005`, `LOB-E-001` is `LOB-E001`).
+   the name says (`VLBDE005`: the catalog knows `VLB`). The other old form of a place is no place as
+   read (owner, 2026-10-15): `CT10E001` is refused although the catalog has `CT10-EN001`, the other
+   form of `CT10-E001`, because it knows `CT1`: it is the German `CT1-DE001` read with its dash lost
+   and its D as 0 (batch B1 answered the English `CT10-EN001`, another card); the collector
+   searches. The sets are a sixth grouped query, made only for a read in doubt. On the owner's
+   catalog snapshot (35,955 English codes, 732 of them printed in the old Europe form, 648 sets),
+   every English code read without its dash is found, and of those read without the dash **and**
+   with one look-alike digit (`SR10EN0O1`) 129 are still refused, all in the sets `CT10`, `DL10`,
+   `DP10`, `SD10` and `SDPD`, whose other place's set (`CT1`, `DL1`, `DP1`, `SD1`, `SDP`) exists
+   too (batch B1 refused 4,302 of them, in 55 sets). The old Europe form of their 129 codes
+   (`CT10E001`), never printed, is refused too. Of 949,869 synthetic other-language reads of those
+   codes (`DE`, `FR`, `IT`, `SP`, `PT` as printed or misread, without the dash, with a look-alike
+   digit or a second dash), none is taken as English (batch B1 took 64 through the old form). A
+   second dash between a region and the number is the same code (`VLB-DE-005` is `VLB-DE005`,
+   `LOB-E-001` is `LOB-E001`).
 6. **Never the passcode**: a read with no letter (the 8-digit passcode, a stat), or one of 6 to 10
    characters, dashes left out (7 to 10 when it has a dash: `DL1-001` has six), all digits but at
    most two letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like `9955812I` or

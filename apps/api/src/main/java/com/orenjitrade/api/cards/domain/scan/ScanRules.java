@@ -36,7 +36,10 @@ import org.jspecify.annotations.Nullable;
  *       its dash that may be another language's or English ({@code VLBDE005}) is English when the
  *       catalog has one of its English places as read ({@code MRDE001} is {@code MRD-E001}), or
  *       knows the set of an English place and none of the other language's places ({@code
- *       SR10EN0O1}: {@code SR10} but no {@code SR1}; then its look-alikes count too).
+ *       SR10EN0O1}: {@code SR10} but no {@code SR1}; then its old forms and look-alikes count too).
+ *       The other old form of a place is no place as read: {@code CT10E001} is refused when the
+ *       catalog knows {@code CT1}, though it has {@code CT10-EN001}, as the German {@code
+ *       CT1-DE001} read with its dash lost and its D as 0 (owner, 2026-10-15).
  * </ol>
  *
  * A name that is close to no card counts as no name. Without a name, the first code read (best
@@ -74,8 +77,10 @@ public final class ScanRules {
      * @param otherLanguage it carries another language's region
      * @param languageInDoubt without its dash it may be another language's or English ({@link
      *     ScanCodes#languageInDoubt}): only its English places are its exact forms, and it is
-     *     English when the catalog has one of them, or knows one of its {@code englishSets} and
-     *     none of its {@code otherLanguageSets}; another language's otherwise
+     *     English when the catalog has one of its {@code englishPlaces} as read, or knows one of
+     *     its {@code englishSets} and none of its {@code otherLanguageSets}; another language's
+     *     otherwise
+     * @param englishPlaces in doubt: its English places as read, without their other old form
      * @param otherLanguageSets in doubt: the set parts of its other language's places
      * @param englishSets in doubt: the set parts of its English places
      * @param exactForms the codes it is, best first
@@ -86,6 +91,7 @@ public final class ScanRules {
             String cleaned,
             boolean otherLanguage,
             boolean languageInDoubt,
+            List<String> englishPlaces,
             List<String> otherLanguageSets,
             List<String> englishSets,
             List<String> exactForms,
@@ -137,6 +143,7 @@ public final class ScanRules {
                             cleaned,
                             other,
                             inDoubt,
+                            inDoubt ? ScanCodes.englishPlaces(cleaned) : List.of(),
                             inDoubt ? ScanCodes.otherLanguageSets(cleaned) : List.of(),
                             inDoubt ? ScanCodes.englishSets(cleaned) : List.of(),
                             forms,
@@ -340,10 +347,12 @@ public final class ScanRules {
 
     /**
      * Whether a code read in doubt ({@link ReadCode#languageInDoubt}) is another language's after
-     * all: the catalog has none of its English forms as read, and its sets do not make it English
-     * (the catalog knows no set of its English places, or knows a set of another language's place:
-     * {@code VLBDE005} is German, the catalog knows {@code VLB}; {@code SR10EN0O1} is English, it
-     * knows {@code SR10} and no {@code SR1}, and its look-alike {@code SR10-EN001} counts).
+     * all: the catalog has none of its English places as read (their other old form does not
+     * count), and its sets do not make it English (the catalog knows no set of its English places,
+     * or knows a set of another language's place: {@code VLBDE005} is German, the catalog knows
+     * {@code VLB}; {@code CT10E001} is the German {@code CT1-DE001} misread when it knows {@code
+     * CT1}, though it has {@code CT10-EN001}; {@code SR10EN0O1} is English, it knows {@code SR10}
+     * and no {@code SR1}, and its look-alike {@code SR10-EN001} counts).
      */
     static boolean anotherLanguageAfterAll(Evidence evidence, Catalog catalog) {
         return evidence.codes().stream()
@@ -351,22 +360,24 @@ public final class ScanRules {
                 .anyMatch(read -> !englishAsRead(read, catalog) && !englishBySet(read, catalog));
     }
 
-    /** The catalog has one of the English forms of {@code read} as read. */
+    /** The catalog has one of the English places of {@code read} as read ({@code MRD-E001}). */
     private static boolean englishAsRead(ReadCode read, Catalog catalog) {
-        return read.exactForms().stream()
-                .anyMatch(
-                        form ->
-                                catalog.printings(form).stream()
-                                        .anyMatch(ref -> catalog.known(ref.cardId())));
+        return read.englishPlaces().stream().anyMatch(place -> has(catalog, place));
     }
 
     /**
      * The catalog knows the set of an English place of {@code read} and none of the sets of its
-     * other language's places.
+     * other language's places (then its old forms and look-alikes count: {@code SR10E001} is {@code
+     * SR10-EN001} when it knows {@code SR10} and no {@code SR1}).
      */
     private static boolean englishBySet(ReadCode read, Catalog catalog) {
         return read.englishSets().stream().anyMatch(catalog.knownSets()::contains)
                 && read.otherLanguageSets().stream().noneMatch(catalog.knownSets()::contains);
+    }
+
+    /** The catalog has an English printing of a known card with the code {@code code}. */
+    private static boolean has(Catalog catalog, String code) {
+        return catalog.printings(code).stream().anyMatch(ref -> catalog.known(ref.cardId()));
     }
 
     /** One decision's state. */

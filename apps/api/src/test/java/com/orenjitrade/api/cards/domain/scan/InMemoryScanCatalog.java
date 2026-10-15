@@ -44,6 +44,8 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
     final Card tenfold = card("Tenfold Iron Sentry");
     final Card gateKeeper = card("Twin Gate Keeper");
     final Card gateWarden = card("Twin Gate Warden");
+    final Card tinHerald = card("Zither Tin Herald");
+    final Card tinPage = card("Zither Tin Page");
     final Card otherGame = card("pokemon", "Yew Flowers Fox");
 
     static final String[] ZA01_RARITIES = {
@@ -123,6 +125,10 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
         // Two sets whose codes make a dashless ZBOEN0O1 English (ZBO) or a German misread (ZB).
         printing(gateKeeper, "ZB", "Fictional Gates", za01, "ZB-EN001", "Common", "en");
         printing(gateWarden, "ZBO", "Fictional Gates Two", za01, "ZBO-EN001", "Common", "en");
+        // Read without its dash, ZT10E001 could be ZT10-E001 (the old form of ZT10-EN001) or a
+        // German ZT1-DE001 with its D read as 0: the catalog knows both sets.
+        printing(tinHerald, "ZT10", "Fictional Tins Ten", za01, "ZT10-EN001", "Common", "en");
+        printing(tinPage, "ZT1", "Fictional Tins", zob, "ZT1-EN001", "Common", "en");
         printing(otherGame, "ZACR", "Fictional Pokemon Set", zacr, "ZACR-EN036", "Rare", "en");
         printing(otherGame, "ZV1", "Fictional Pokemon Sentries", za01, "ZV1-EN001", "Rare", "en");
     }
