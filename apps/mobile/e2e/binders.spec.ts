@@ -76,17 +76,20 @@ async function binders(request: APIRequestContext, token: string): Promise<Saved
 test.describe('mobile binders and deck cores', () => {
   requireStack();
 
-  test('make a binder a deck core with a photo and a price, and see it on its page', async ({
+  test('make a binder a deck core with a photo and a price, see it on its page, edit and delete it', async ({
     page,
     request,
   }) => {
-    test.setTimeout(240_000);
+    test.setTimeout(300_000);
     const seller = await createOnboardedCollector(request, 'core', 'Mobile Core Seller', {
       location: PLACES.quebec,
       discoverable: true,
     });
     const itemId = await addCardThroughApi(request, seller.idToken, 'Lantern Fox Spirit', {
       quantity: 3,
+      visibility: 'PRIVATE',
+    });
+    const dragonId = await addCardThroughApi(request, seller.idToken, 'Azure-Eyes Sky Dragon', {
       visibility: 'PRIVATE',
     });
     await signInThroughUi(page, seller.email, seller.password);
@@ -124,8 +127,9 @@ test.describe('mobile binders and deck cores', () => {
     await form.getByRole('button', { name: 'Add cards' }).click();
     const sheet = page.getByTestId('card-picker-sheet');
     await sheet.getByRole('checkbox', { name: /^Lantern Fox Spirit/ }).click();
-    await sheet.getByRole('button', { name: 'Add 1 card' }).click();
-    await expect(form.getByText('Added when you save')).toBeVisible();
+    await sheet.getByRole('checkbox', { name: /^Azure-Eyes Sky Dragon/ }).click();
+    await sheet.getByRole('button', { name: 'Add 2 cards' }).click();
+    await expect(form.getByText('Added when you save')).toHaveCount(2);
 
     const upload = page.waitForResponse(
       (response) =>
@@ -148,8 +152,10 @@ test.describe('mobile binders and deck cores', () => {
     expect(core?.photos).toHaveLength(1);
     const moved = await item(request, seller.idToken, itemId);
     expect(moved.binder?.name).toBe('Lantern core');
-    // A deck core's cards show to buyers with it.
-    expect(moved.visibility).toBe('PUBLIC');
+    // The cards keep the visibility their collector gave them: buyers see them as the deck
+    // core's key cards, never one by one.
+    expect(moved.visibility).toBe('PRIVATE');
+    expect((await item(request, seller.idToken, dragonId)).visibility).toBe('PRIVATE');
 
     // Back on Inventory › Binders: the deck core with its tag.
     const list = screen(page, 'inventory');
@@ -177,7 +183,52 @@ test.describe('mobile binders and deck cores', () => {
       'Quebec · 1 public binder'
     );
     await expect(page16.getByRole('link', { name: /^Lantern Fox Spirit, 3 copies/ })).toBeVisible();
-    await expect(page16.getByRole('button', { name: 'Edit binder' })).toBeVisible();
+    await expect(
+      page16.getByRole('link', { name: /^Azure-Eyes Sky Dragon, 1 copy/ })
+    ).toBeVisible();
+
+    // "Edit binder" goes back to the Edit binder it came from (never a second one over it).
+    await page16.getByRole('button', { name: 'Edit binder' }).click();
+    await expect(edit.getByLabel('Name')).toHaveValue('Lantern core', { timeout: 30_000 });
+    await expect(page.getByTestId('screen-edit-binder')).toHaveCount(1);
+    // A card taken out of the deck core stays private.
+    await edit.getByRole('button', { name: 'Remove Lantern Fox Spirit from this binder' }).click();
+    await edit.getByRole('button', { name: 'Save changes' }).click();
+    await expect(snackbar(page)).toContainText('Saved', { timeout: 30_000 });
+    await expect
+      .poll(async () => (await item(request, seller.idToken, itemId)).binder ?? null)
+      .toBeNull();
+    expect((await item(request, seller.idToken, itemId)).visibility).toBe('PRIVATE');
+
+    // From its page, Edit binder and Save changes: the page under it shows the new price.
+    await openInApp(page, `/binders/${core!.id}?view=public`);
+    const again = page.getByTestId('deck-core-page').filter({ visible: true });
+    await expect(again.getByTestId('deck-core-price')).toHaveText('$180', { timeout: 30_000 });
+    await again.getByRole('button', { name: 'Edit binder' }).click();
+    const second = screen(page, 'edit-binder');
+    await second.getByLabel('Asking price').fill('$150', { timeout: 30_000 });
+    await second.getByRole('button', { name: 'Save changes' }).click();
+    await expect(again.getByTestId('deck-core-price')).toHaveText('$150', { timeout: 30_000 });
+    await expect(again.getByRole('link', { name: /^Lantern Fox Spirit/ })).toHaveCount(0);
+
+    // Delete binder closes every screen of it; the card left in it stays private.
+    await again.getByRole('button', { name: 'Edit binder' }).click();
+    await screen(page, 'edit-binder')
+      .getByRole('button', { name: 'Delete binder' })
+      .click({ timeout: 30_000 });
+    const confirm = page.getByTestId('edit-binder-delete-sheet');
+    await expect(
+      confirm.getByText('Its photos, price and note go away. Your cards stay in your inventory.')
+    ).toBeVisible();
+    await confirm.getByRole('button', { name: 'Delete binder' }).click();
+    await expect(snackbar(page)).toContainText('Binder deleted', { timeout: 30_000 });
+    await expect(screen(page, 'inventory').getByText('No binders yet')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('deck-core-page').filter({ visible: true })).toHaveCount(0);
+    const left = await item(request, seller.idToken, dragonId);
+    expect(left.binder ?? null).toBeNull();
+    expect(left.visibility).toBe('PRIVATE');
   });
 
   test('a buyer sees a deck core page and messages the seller', async ({ page, request }) => {
