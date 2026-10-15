@@ -43,6 +43,8 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 
 ## Endpoints — binders
 
+> **Stage R3 (2026-10-15):** deck cores (`sellsAsCore`, the price as typed, photos with `POST` / `DELETE /binders/{id}/images`, key cards, `confirm` on `PATCH`) and the rule that a public deck core shows without cards: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
+
 - `GET /binders` (mine) → `[BinderResponse]`; `POST /binders` `{ name, description, kind, visibility, publicUntil }`; `GET|PATCH|DELETE /binders/{id}` (delete moves items to no binder unless `?deleteItems=true`)
 - `POST /binders/{id}/publish` body `{ "mode": "PUBLIC|ONE_HOUR|ONE_DAY|UNTIL_DISABLED" }` → sets visibility/public_until; `POST /binders/{id}/unpublish`; `POST /binders/{id}/confirm`
 - `GET /binders/{id}/items?…` (owner: all; others: only effective-public items via the public route below)

@@ -67,6 +67,8 @@ it). Nothing else ever carries a city.
 
 ## Map
 
+> **Stage R3 (2026-10-15):** `deckCoreCount` / `deckCoreTotal` on the binder counts, `deckCore` and `q` on the state binders, and the region-wide `GET /regions/{region}/binders`: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
+
 - `GET /api/v1/regions/{region}/binder-counts` → `{ "region": "americas-north", "total": 12,
   "subdivisions": [ { "code": "CA-QC", "binderCount": 5 } ] }` (public binders of discoverable
   collectors per subdivision; 404 for an unknown region).

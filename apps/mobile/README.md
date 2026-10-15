@@ -20,8 +20,17 @@ public note, up to 4 photos uploaded after the card); Edit card ("No changes yet
 a save confirms the card, photos saved with the button, "1 photo wasn't saved. Try again.");
 deleting asks in a sheet and "Undo" restores the card within 10 minutes. Condition, language,
 edition, finish, "Available for", "Accepts offers", currency, "Temporarily public" and private
-notes are gone from the phone's forms. Stages R3 to R8 are not built: the rest of this README
-describes the app as it is (six tabs until R5).
+notes are gone from the phone's forms. **Stage R3 is built** ("Binders and deck cores", mockup
+screens 16 to 18 and Inventory › Binders, contract `docs/api/contracts/r3-binders-deck-cores.md`):
+Inventory › Binders lists the deck cores first (photo, "{n} photos · Public", the purple tag "Deck
+core · {price}"), then the binders (a fan of three cards, "{n} cards · Public" or "· Private"), with
+"New binder", the tip "Selling a whole deck?" and "Reorder"; a row opens Edit binder (also New
+binder: name, Private | Public, the "Sell as a deck core" card with up to 4 photos, the asking price
+as typed and the public note, "Key cards · optional" or "Cards inside" with cards picked from the
+inventory, "Save changes" disabled until a change, "Delete binder" asked in a sheet); the deck core
+page (photo pager, tag, game, name and price, the seller row, the note, key card chips, "Message
+{handle}"); the plain public binder restyled. Stages R4 to R8 are not built: the rest of this
+README describes the app as it is (six tabs until R5).
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
@@ -51,9 +60,10 @@ opens the card holders), the **Inventory** tab (stage R2: cards with search, the
 totals, stale or hidden cards with "Confirm all", paused listings with "Resume"; binders), adding
 cards (`items/new`: Add cards → search → printing → details), Edit card and deleting one with
 "Undo" (`items/[id]`),
-and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
-24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
-anyone's public binder). Usage limits (`binders.max`, binder views per day; the same for every
+and **binders** (stage R3: Inventory › Binders; `binders/new` and `binders/edit` are New binder and
+Edit binder, with "Sell as a deck core"; `binders/[id]` opens Edit binder for the owner and, for
+anyone else or with `?view=public`, the deck core page or the public binder page). The publication
+for 1 h / 24 h of the paused web is not offered any more (Private | Public, as for cards). Usage limits (`binders.max`, binder views per day; the same for every
 collector since stage F1) are explained where they happen.
 
 Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08 and by stage M9 on 2026-10-12):
@@ -271,7 +281,8 @@ app/                       expo-router routes
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   items/import.tsx         import cards from a deck file or a CSV export (stage S5): source ->
                            file or pasted text -> preview -> result
-  binders/                 [id] (own binder, or the public view; `?view=public`), new, edit (`?id=`)
+  binders/                 [id] (Edit binder for the owner, else the deck core page or the public
+                           binder; `?view=public`), new, edit (`?id=`): stage R3
 src/
   config/env.ts            the typed configuration (platform defaults)
   auth/                    AuthPort (Firebase), session provider + reducer, friendly auth errors,

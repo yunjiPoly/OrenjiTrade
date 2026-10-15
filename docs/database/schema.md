@@ -160,6 +160,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V122 | `V122__remove_credits.sql` | Stage F1: `credit_ledger_entry` (with its append-only trigger function), view `credit_balance`, `credit_product`, `referral_code`, `referral_redemption` dropped; `credits.*` settings, the `credits` flag, the entitlements bought with credits and the `credits-reconcile` job runs deleted |
 | V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
 | V125 | `V125__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards; written as V117 and renumbered after F1's V120–V123 when R2 merged `main`, V124 being kept for another branch): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
+| V126 | `V126__binder_deck_cores.sql` | Stage R3 of the phone redesign (binders and deck cores; V124 is kept for another branch): `binder.sells_as_core` ("Sell as a deck core", default false), `binder.asking_price_text` (≤ 40, trimmed, `ck_binder_asking_price_text`; a plain amount also fills `binder.asking_price` in `binder.currency`, default `CAD`), `binder.sold_at` (a sold binder is never public; stage R4 sets it), `binder_image` (the photos of a deck core: at most 4, the rules of `inventory_item_image`), partial index `ix_binder_deck_core`; `binder.description` is the deck core's public note |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -743,7 +744,9 @@ Indexes: `ix_catalog_sync_run_created_at`, `ix_catalog_sync_run_game (game_id, c
 An item is public ⇔ `visibility` is `PUBLIC`, or `TEMPORARILY_PUBLIC` with `public_until > now()`
 ∧ its binder is public (or it has none) ∧ `freshness_state <> 'HIDDEN'` ∧ it is not deleted ∧ its
 game is `ACTIVE` ∧ the owner is listed. A binder is public ⇔ the same visibility/expiry rule ∧ the
-binder's `freshness_state <> 'HIDDEN'` ∧ the owner is listed. The owner is listed ⇔
+binder's `freshness_state <> 'HIDDEN'` ∧ it is not sold (`sold_at IS NULL`, V126) ∧ the owner is
+listed. Public lists (a collector's binders, search, the map) show a public binder that holds a
+public item or is a deck core (`sells_as_core`, V126: a deck core needs no cards). The owner is listed ⇔
 `user_account.status = 'ACTIVE'` (or `SUSPENDED` with `suspended_until <= now()`) ∧
 (`privacy_settings.discoverable` ∨ `profile_visibility = 'PUBLIC'`) ∧ `profile_visibility <>
 'PRIVATE'`. The SQL lives in `PublicVisibilityRules` (binders module) and
@@ -798,6 +801,10 @@ SQL use the same cut-offs.
 | `confirmed_at` | `timestamptz` | last confirmation: binder created, published or confirmed, or an item created, confirmed or moved into it |
 | `last_owner_activity_at` | `timestamptz` | last owner write on the binder or its items |
 | `search_vector` | `tsvector` | generated: name (A) + description (B), `simple` config + `unaccent_immutable` (public binder search, Phase 4) |
+| `sells_as_core` | `boolean` | V126: "Sell as a deck core" (default `false`): the binder is offered as one bundle with its photos, one price and its description as the public note; it needs no cards (public lists show it without a public card) |
+| `asking_price_text` | `varchar(40)` | V126: the deck core's price as typed ("$180", "Trade only"), trimmed, one line; kept when the switch goes off (public views show it for a deck core only) |
+| `asking_price`, `currency` | `numeric(12,2)`, `char(3)` | V126: the amount of a plain-amount text (`common/AskingPriceText`), in `currency` (default `CAD`); `NULL` for a text price |
+| `sold_at` | `timestamptz` | V126: when the deck core was sold (stage R4); a sold binder is not public, nor are the cards still filed in it (`PublicVisibilityRules.binderListed`) |
 
 Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_search_vector` (GIN),
 `ix_binder_listed_owner (owner_id) WHERE publicly_listed`, `ix_binder_confirmed_at`,
@@ -805,7 +812,25 @@ Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_s
 
 Deleting a binder (`DELETE /binders/{id}`) unfiles its items (they keep their visibility only when
 the binder was `PUBLIC` without an end date, otherwise they become `PRIVATE`) or soft-deletes them
-with `?deleteItems=true`.
+with `?deleteItems=true`; its photos (`binder_image`, V126) go with it, their stored files after the
+commit.
+
+#### `binder_image` (V126)
+
+The photos of a binder, a deck core's (stage R3); `POST` / `DELETE /binders/{id}/images`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `binder_id` | `uuid` | FK → `binder.id` (cascade); at most 4 per binder (API, 409 beyond) |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg` |
+| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side; EXIF and GPS stripped: the item photo processor) |
+| `sort_order` | `integer` | position |
+| `created_at` | `timestamptz` | |
+
+Index `ix_binder_image_binder (binder_id, sort_order)`. Public views show the photos of a deck core
+only (a binder whose switch was turned off keeps them for its owner).
 
 ### V022 — inventory items, photos and freshness events
 
@@ -872,8 +897,10 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   (create, update, publish, unpublish, admin unpublish, confirm, delete, reorder), the listing
   reconciliation of an owner (`ListingReconciler.owner`: privacy, suspension, listing pause,
   deletion request), the account purge (the items first, which take the lock, then the import
-  previews: the order of a commit) and the two seed contributors of the `local`/`dev`
-  profiles. The writes of one collector therefore run one after the other: none reads the binder
+  previews: the order of a commit), the photos of a binder (`BinderService.addPhoto` /
+  `deletePhoto`, V126, stage R3: the owner lock, then the binder row; the file is written before
+  the transaction and deleted again when the binder refuses it) and the two seed contributors of
+  the `local`/`dev` profiles. The writes of one collector therefore run one after the other: none reads the binder
   of an item while another one moves it, and none waits in the middle of its work for a row that
   another write of the same collector holds. **A new write path starts with
   `BinderService.lockOwners`.**
@@ -937,7 +964,8 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   item that a restore or a binder delete holds is left to the next hour (the restore checks its own
   window; the binder delete ends the window and deletes the photos itself).
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
-  and decide nothing about the listing, so they wait for nothing else.
+  and decide nothing about the listing, so they wait for nothing else. (The photos of a binder,
+  stage R3, are binder writes and take the owner lock: see above.)
 
 **A new bulk write** (an import, a mass edit: anything that writes many binders or items of one
 collector) follows every part of the above. The rule of the final review (2026-10-13):
