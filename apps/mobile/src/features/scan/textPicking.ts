@@ -494,8 +494,10 @@ export function nameCandidatesFromArea(
 
 /**
  * How far the left edge of a name may lie from the card's text column (`textColumn`), in widths of
- * the column. On the owner's real photos (gate, 2026-10-15) a card's own name started within 0.05
- * of its text column, and most names of the cards lying behind it 0.2 or more away from it.
+ * the column. On the owner's real photos (gate, 2026-10-15) a card's own name started within 0.07
+ * of its text column on the reads that stood upright (0.11 on a read turned back), the name of a
+ * card lying behind it 0.25 to 0.32 away; other words of such cards lay anywhere from 0.1 on, and
+ * some on the column by chance.
  */
 export const NAME_ALIGNMENT = 0.12;
 
@@ -513,11 +515,7 @@ interface TextColumn {
  */
 function textColumn(lines: readonly OcrLine[]): TextColumn | null {
   const anchors = lines.filter(
-    (line) =>
-      isRunningText(line.text) ||
-      /^\s*\[/.test(line.text) ||
-      isTypeLine(line.text) ||
-      holdsPasscode(line.text)
+    (line) => isRunningText(line.text) || isTypeLine(line.text) || holdsPasscode(line.text)
   );
   if (anchors.length < 2) {
     return null;

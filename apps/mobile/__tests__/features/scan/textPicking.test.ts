@@ -481,6 +481,59 @@ describe('name candidates', () => {
     ).toBe('QUILLFEATHER MAGE');
   });
 
+  it('keeps a name 0.1 column widths from the column, never one 0.17 away', () => {
+    // The column of CARD_BEFORE_ANOTHER: from 0.178, 0.582 wide. A card's own name lay up to
+    // 0.11 from it on the owner's real photos; the name of a card behind it 0.25 or more.
+    const read = CARD_BEFORE_ANOTHER.map((line) =>
+      line.text === 'QUILLFEATHER MAGE'
+        ? { ...line, box: { ...line.box, x: 0.178 + 0.1 * 0.582 } }
+        : line.text === 'GLIMMERWING HERALD'
+          ? { ...line, box: { ...line.box, x: 0.178 + 0.17 * 0.582 } }
+          : line
+    );
+    expect(nameCandidatesFromPhoto(read)).toEqual([
+      'QUILLFEATHER MAGE',
+      'A quiet scholar who writes the winds into old books',
+    ]);
+  });
+
+  it("keeps the card's column when a line of a card beside it lies far to its left", () => {
+    // A Pendulum card on the right half of the photo: its passcode starts a little left of its
+    // text, its pendulum text further right; a card beside it shows its name and a line of its
+    // text at the photo's left edge. The column's left edge is the lower quartile of the five
+    // anchors' (the passcode's), not the leftmost (the other card's text).
+    const read = [
+      at('LANTERN WARDEN', 0.03, 0.05, 0.25, 0.04),
+      at('TIDEGLASS SAGE', 0.36, 0.08, 0.4, 0.04),
+      at('Once each turn the glass may tip toward the sea.', 0.44, 0.6, 0.45, 0.02),
+      at('The lantern on the left glows over the old road.', 0.02, 0.45, 0.26, 0.02),
+      at('[Spellcaster/Pendulum/Effect]', 0.36, 0.75, 0.3, 0.022),
+      at('A sage who keeps the tides in a jar of glass.', 0.36, 0.78, 0.55, 0.02),
+      at('87654321 1st Edition', 0.33, 0.95, 0.2, 0.02),
+    ];
+    expect(nameCandidatesFromPhoto(read)).toEqual([
+      'TIDEGLASS SAGE',
+      'A sage who keeps the tides in a jar of glass',
+    ]);
+  });
+
+  it("never takes a spell's or trap's mark for the column: it lies at the right of its card", () => {
+    // The photographed card on the right half; a trap lying beside it on the left, its
+    // [TRAP CARD] mark (at its own right) left of this card's text.
+    const read = [
+      at('BRAMBLE SNARE', 0.02, 0.1, 0.24, 0.04),
+      at('[TRAP CARD]', 0.28, 0.16, 0.18, 0.025),
+      at('QUILLFEATHER MAGE', 0.56, 0.2, 0.35, 0.04),
+      at('[Spellcaster/Normal]', 0.55, 0.78, 0.3, 0.022),
+      at('A quiet scholar who writes the winds into old books.', 0.55, 0.8, 0.42, 0.019),
+      at('12345678 1st Edition', 0.53, 0.95, 0.2, 0.02),
+    ];
+    expect(nameCandidatesFromPhoto(read)).toEqual([
+      'QUILLFEATHER MAGE',
+      'A quiet scholar who writes the winds into old books',
+    ]);
+  });
+
   it('keeps every name when the read shows no text column, or no name on it', () => {
     // One anchor (the type line) is no column.
     const noColumn = [
