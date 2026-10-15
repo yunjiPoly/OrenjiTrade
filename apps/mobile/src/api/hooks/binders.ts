@@ -7,6 +7,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { liveBinders } from '@/src/features/binders/binderForm';
 import { boundedQuery } from '@/src/lib/catalog';
 
 import { ApiError, isApiError } from '../ApiError';
@@ -51,12 +52,17 @@ export function useDeletingBinder(id: string | null | undefined): boolean {
   );
 }
 
-/** `GET /api/v1/binders`: the caller's binders in their order. */
+/**
+ * `GET /api/v1/binders`: the caller's binders in their order, without the deck cores they sold
+ * (`liveBinders`: a sold core is in no list, count or picker of the phone; R3 leftover U10). The
+ * cache keeps the server's whole list.
+ */
 export function useMyBinders() {
   const uid = useUid();
   return useQuery<BinderResponse[], ApiError>({
     queryKey: meKeys.binderList(uid),
     queryFn: async () => required((await api.GET('/api/v1/binders')).data),
+    select: liveBinders,
     enabled: useIsAuthenticated(),
   });
 }

@@ -601,6 +601,24 @@ describe('Inventory › Binders (screen 17)', () => {
     expect(screen.queryByTestId('binders-tip')).toBeNull();
   });
 
+  it('leaves a sold deck core out of the list, the "Binders {n}" count and Reorder (R3 leftover U10)', async () => {
+    mockParams.current = { view: 'binders' };
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/binders': ok([
+          binderFixture({ name: 'Magic trades' }),
+          deckCoreFixture({ soldAt: '2026-10-15T12:00:00Z' }),
+        ]),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('binders-summary')).toHaveTextContent(/^1 binder$/);
+    expect(screen.getByTestId('inventory-view-binders')).toHaveTextContent(/Binders\s*1/);
+    expect(screen.queryByText('Snake-Eye core')).toBeNull();
+    // One binder left: nothing to reorder.
+    expect(screen.queryByTestId('binders-reorder')).toBeNull();
+  });
+
   it('shows a binder list error with retry', async () => {
     mockParams.current = { view: 'binders' };
     mockApi(
