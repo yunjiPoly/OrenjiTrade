@@ -5997,7 +5997,41 @@ findings; all fixed at their cause, with a test that catches each, or recorded:
 | U6 (minor): "Public note" broke mid-word beside its counter at the largest text size | the label row wraps (the counter goes under the label), the label shrinks by words. Jest (styles) and the walk at the largest size |
 | U7 (minor): a deck core without public cards never named its game | with U2 the game comes from every card of a public core; a core without cards names none (recorded; the owner may want a game picker, follow-up above) |
 
-REVIEW_FIX_1_CHECKS
+Also found and recorded: a private card filed in a public deck core still reads "Only you see it
+until you make it public." on Edit card, while buyers see its name and copies as one of the core's
+key cards (the item response does not say its binder is a deck core; for R5, which reworks the card
+side of deck cores). Mutations run by hand on the fixed tree, each caught: key cards from listed
+cards only, `q` matching any live card of a core, `q` matching listed cards only, the deck cores of
+a card from listed cards only, the public games from listed cards only, the owner's key cards
+counting deleted cards (API); the phone's flip back to PUBLIC (jest and Playwright), no form
+rebase, no public page refresh, no removal of a deleted binder's page, back instead of dismiss,
+photos uploaded with the switch off, the label's `flex: 1`, `from=edit` ignored (jest).
+
+**Checks after review fix 1** (retries off; this Mac, 2026-10-15, the owner's iPhone 18 Pro
+simulator under the lock)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 25 s: **166 classes / 1015 tests** (+2: `DeckCoreIT` 8) + 12 catalog tests, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | descriptions only (key cards, preview pictures, the deck cores of a card), committed; git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB**; no file of `apps/web-angular` changed |
+| `npm run test:web`, web `lint`, `format:check` | 136 files / **633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | jest **91 suites / 960 tests** (+10) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **56 / 56** (57.2 s) |
+| `npm run test:mobile:maestro -- --platform ios` | **31 / 31** in 47 min 52 s on the owner's iPhone 18 Pro (native flow 2 `deck-core.yaml`, now with the edit and the delete, in 2 min 25 s) |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+The walk after the fix (Maestro on the owner's iPhone 18 Pro): native flow 2 alone (2 min 26 s:
+the page's "Edit binder" back to Edit binder, $150 on Inventory › Binders and on the page, "Delete
+binder" landing on Inventory › Binders, the card private in the core and after the delete), and
+Edit binder of collector2's "Moth Queen core" at the largest text size ("Public note" on one line,
+"124 / 500" under it), with a temporary flow file deleted afterwards. The owner's appearance
+(light) and text size (Large) were not changed.
 
 ## NEXT TASK
 
