@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1, F1, R2 and the builder of R3): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1, F1, R2 and the builder and two review fixes of R3): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -49,7 +49,7 @@ PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 
 | --- | --- | --- |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
-| Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | branch `feature/r3-binders-deck-cores` (worktree `OrenjiTrade-s2-ux`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fix 1 done (a public deck core shows all its cards as key cards, cards keep their own visibility; Edit binder follows saves made elsewhere); a second round if asked, then its pull request. Not pushed. |
+| Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | branch `feature/r3-binders-deck-cores` (worktree `OrenjiTrade-s2-ux`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done (a public deck core shows all its cards as key cards, cards keep their own visibility; Edit binder follows saves made elsewhere; round 2: the Add cards and Reorder sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms); its pull request next. Not pushed. |
 
 **Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
 with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
@@ -109,9 +109,8 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 ## 3. Exact next steps
 
 1. **The review of stage R3** (binders and deck cores, branch `feature/r3-binders-deck-cores`,
-   builder done, review fix 1 done; IMPLEMENTATION_STATUS.md, "Phone redesign R3"): a functional
-   verifier and a product and UX reviewer as a collector, at most two fix rounds, then its pull
-   request. R5 must pass `excludeDeckCoreItems=true` with the "Also in a deck core" banner. **Then stage R4**
+   builder done, review fixes 1 and 2 done, the two fix rounds the spec allows; IMPLEMENTATION_STATUS.md,
+   "Phone redesign R3"): its pull request. R5 must pass `excludeDeckCoreItems=true` with the "Also in a deck core" banner. **Then stage R4**
    (messages and Mark as sold, mockup screens 22 to 25), from the `main` that holds R3; R5 to R8
    follow in order, one branch and one PR each, none of them bringing back a paid feature (ADR
    0019). Migrations: the newest is R3's V126 (R2's is V125, written as V117 and renumbered after
