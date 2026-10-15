@@ -20,9 +20,11 @@ import {
 import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import {
   binderVisibilityStatus,
+  cardVisibilityHint,
   itemVisibilityStatus,
   ownerIsVisible,
   publicCardHint,
+  temporaryPublicationEnded,
   UNKNOWN_FINDABILITY,
   type CardFindability,
 } from '@/src/features/inventory/visibilityStatus';
@@ -77,7 +79,7 @@ describe('the card form (screens 6 and 7)', () => {
     expect(newCardForm('b-1').binderId).toBe('b-1');
   });
 
-  it('fills the form of a card; a temporary publication reads as Public', () => {
+  it('fills the form of a card; a temporary publication reads as Public while it runs', () => {
     const item = itemFixture({
       askingPrice: 40,
       askingPriceText: null,
@@ -85,12 +87,34 @@ describe('the card form (screens 6 and 7)', () => {
       publicUntil: '2026-10-20T00:00:00Z',
       binder: { id: 'b-2', name: 'Trades' },
     });
-    expect(cardFormOf(item)).toEqual({
+    expect(cardFormOf(item, NOW)).toEqual({
       quantity: '2',
       price: '40.00',
       visibility: 'PUBLIC',
       binderId: 'b-2',
       publicNote: 'Sleeved.',
+    });
+  });
+
+  it('reads an ended temporary publication as Private, and Public then publishes it (review fix 2)', () => {
+    const ended = itemFixture({
+      visibility: 'TEMPORARILY_PUBLIC',
+      publicUntil: '2026-10-01T00:00:00Z',
+      effectivePublic: false,
+    });
+    expect(temporaryPublicationEnded(ended, NOW)).toBe(true);
+    expect(
+      temporaryPublicationEnded({ visibility: 'TEMPORARILY_PUBLIC', publicUntil: null }, NOW)
+    ).toBe(true);
+    expect(
+      temporaryPublicationEnded({ visibility: 'PUBLIC', publicUntil: '2026-10-01T00:00:00Z' }, NOW)
+    ).toBe(false);
+    const form = cardFormOf(ended, NOW);
+    expect(form.visibility).toBe('PRIVATE');
+    expect(toPatch(form, ended)).toBeNull();
+    expect(toPatch({ ...form, visibility: 'PUBLIC' }, ended)).toEqual({
+      visibility: 'PUBLIC',
+      confirm: true,
     });
   });
 
@@ -342,6 +366,85 @@ describe('the Public hint of the card form (review fix 1 of stage R2)', () => {
       reason({}, binder({ visibility: 'TEMPORARILY_PUBLIC', publicUntil: '2026-10-20T00:00:00Z' }))
         .findable
     ).toBe(true);
+  });
+});
+
+describe('the hint of Edit card, from the card itself (review fix 2 of stage R2)', () => {
+  const findable: CardFindability = {
+    regionName: 'Americas (North)',
+    located: true,
+    discoverable: true,
+    privateProfile: false,
+    paused: false,
+  };
+  const hidden = itemFixture({
+    visibility: 'PUBLIC',
+    effectivePublic: false,
+    freshness: { ...itemFixture().freshness, state: 'HIDDEN' },
+  });
+  const hint = (
+    visibility: 'PRIVATE' | 'PUBLIC',
+    item: ReturnType<typeof itemFixture>,
+    changed: boolean,
+    owner: Partial<CardFindability> = {}
+  ) => cardVisibilityHint(visibility, { ...findable, ...owner }, null, { item, changed }, NOW);
+
+  it('says a card hidden until confirmed cannot be found, until a save confirms it', () => {
+    expect(hint('PUBLIC', hidden, false)).toEqual({
+      findable: false,
+      text: 'Nobody can find it until you confirm it is still available.',
+    });
+    // "Save changes" confirms the card.
+    expect(hint('PUBLIC', hidden, true)).toEqual({
+      findable: true,
+      text: 'Collectors in Americas (North) can find it once you save.',
+    });
+    expect(hint('PUBLIC', hidden, true, { regionName: null }).text).toBe(
+      'Collectors in your region can find it once you save.'
+    );
+    // A reason of the owner comes first: a save does not change it.
+    expect(hint('PUBLIC', hidden, true, { paused: true }).text).toBe(
+      'Your public cards are paused, so nobody can find it right now.'
+    );
+  });
+
+  it('says collectors can find a card public now, and a private card once saved as public', () => {
+    const listed = itemFixture({ visibility: 'PUBLIC', effectivePublic: true });
+    expect(hint('PUBLIC', listed, false).text).toBe('Collectors in Americas (North) can find it.');
+    expect(hint('PUBLIC', listed, true).text).toBe('Collectors in Americas (North) can find it.');
+    const privateCard = itemFixture({ visibility: 'PRIVATE', effectivePublic: false });
+    expect(hint('PRIVATE', privateCard, false).text).toBe(
+      'Only you see it until you make it public.'
+    );
+    expect(hint('PUBLIC', privateCard, true).text).toBe(
+      'Collectors in Americas (North) can find it once you save.'
+    );
+    // Not public for a reason the phone does not know of: no claim either way.
+    expect(
+      hint('PUBLIC', itemFixture({ visibility: 'PUBLIC', effectivePublic: false }), false)
+    ).toEqual({ findable: false, text: 'Nobody can find it right now.' });
+  });
+
+  it('says a temporary publication has ended, and Public publishes it again on save', () => {
+    const ended = itemFixture({
+      visibility: 'TEMPORARILY_PUBLIC',
+      publicUntil: '2026-10-01T00:00:00Z',
+      effectivePublic: false,
+    });
+    expect(hint('PRIVATE', ended, false)).toEqual({
+      findable: true,
+      text: 'Its temporary publication has ended: only you see it until you make it public again.',
+    });
+    expect(hint('PUBLIC', ended, true).text).toBe(
+      'Collectors in Americas (North) can find it once you save.'
+    );
+    // Adding a card: no card yet, the spec's hints.
+    expect(cardVisibilityHint('PUBLIC', findable, null, null, NOW).text).toBe(
+      'Collectors in Americas (North) can find it.'
+    );
+    expect(cardVisibilityHint('PRIVATE', findable, null, null, NOW).text).toBe(
+      'Only you see it until you make it public.'
+    );
   });
 });
 

@@ -6,6 +6,7 @@ import type {
 } from '@/src/api/types';
 import { endsLabel, VISIBILITY_INFO } from '@/src/lib/inventory';
 
+import type { CardVisibility } from './cardForm';
 import { CARD_FORM_COPY } from './inventoryCopy';
 
 /**
@@ -165,15 +166,62 @@ export function binderShowsCards(
 }
 
 /**
+ * A temporary publication (set on the paused web) whose end has passed, or that has none: nobody
+ * sees the card (the API's `effectivePublic` rule).
+ */
+export function temporaryPublicationEnded(
+  item: Pick<InventoryItemResponse, 'visibility' | 'publicUntil'>,
+  now = Date.now()
+): boolean {
+  return (
+    item.visibility === 'TEMPORARILY_PUBLIC' &&
+    !(item.publicUntil && Date.parse(item.publicUntil) > now)
+  );
+}
+
+/**
+ * Edit card's card as saved, for the hint under "Who can see it" (review fix 2 of stage R2): the
+ * hint of a public card also depends on the card itself (hidden until confirmed, a temporary
+ * publication that ended), and on whether "Save changes" is pending (a save confirms the card and
+ * saves the visibility the form shows).
+ */
+export interface SavedCardState {
+  item: Pick<InventoryItemResponse, 'visibility' | 'publicUntil' | 'freshness' | 'effectivePublic'>;
+  /** Something changed (the form or the photos): "Save changes" is on. */
+  changed: boolean;
+}
+
+/** The hint under "Who can see it" of Add to inventory and Edit card. */
+export function cardVisibilityHint(
+  visibility: CardVisibility,
+  owner: CardFindability,
+  binder: Pick<BinderResponse, 'name' | 'visibility' | 'publicUntil' | 'freshness'> | null,
+  saved: SavedCardState | null = null,
+  now = Date.now()
+): { findable: boolean; text: string } {
+  if (visibility === 'PRIVATE') {
+    const ended = saved && !saved.changed && temporaryPublicationEnded(saved.item, now);
+    return {
+      findable: true,
+      text: ended ? CARD_FORM_COPY.privateHintEnded : CARD_FORM_COPY.privateHint,
+    };
+  }
+  return publicCardHint(owner, binder, now, saved);
+}
+
+/**
  * The hint under "Who can see it" for a card set to Public (spec section 6, screen 6): "Collectors
  * in {region} can find it." only when they really can, otherwise why nobody can: no location,
  * hidden from the map, a private profile, paused public cards, or a binder that is private or not
- * public right now. `findable` is false only for a known reason.
+ * public right now. `findable` is false only for a known reason. On Edit card (`saved`), a card
+ * nobody can find now says so while nothing changed (hidden until confirmed, or not right now),
+ * and that collectors can find it once "Save changes" is pressed otherwise.
  */
 export function publicCardHint(
   owner: CardFindability,
   binder: Pick<BinderResponse, 'name' | 'visibility' | 'publicUntil' | 'freshness'> | null,
-  now = Date.now()
+  now = Date.now(),
+  saved: SavedCardState | null = null
 ): { findable: boolean; text: string } {
   const blocked = (text: string) => ({ findable: false, text });
   if (owner.located === false) {
@@ -193,6 +241,21 @@ export function publicCardHint(
   }
   if (binder && !binderShowsCards(binder, now)) {
     return blocked(CARD_FORM_COPY.notFoundBinderOff(binder.name));
+  }
+  if (saved && !saved.item.effectivePublic) {
+    if (!saved.changed) {
+      return blocked(
+        saved.item.freshness.state === 'HIDDEN'
+          ? CARD_FORM_COPY.notFoundUntilConfirmed
+          : CARD_FORM_COPY.notFoundNow
+      );
+    }
+    return {
+      findable: true,
+      text: owner.regionName
+        ? CARD_FORM_COPY.publicHintOnSave(owner.regionName)
+        : CARD_FORM_COPY.publicHintOnSaveNoRegion,
+    };
   }
   return {
     findable: true,

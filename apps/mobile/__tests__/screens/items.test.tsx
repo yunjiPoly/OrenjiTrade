@@ -1018,6 +1018,84 @@ describe('Edit card (screen 7)', () => {
     await waitFor(() => expect(screen.queryByTestId('edit-item-stale')).not.toBeOnTheScreen());
   });
 
+  it('says a card hidden until confirmed cannot be found yet, and can once saved', async () => {
+    const hidden = itemFixture({
+      visibility: 'PUBLIC',
+      effectivePublic: false,
+      freshness: {
+        state: 'HIDDEN',
+        confirmedAt: '2026-08-01T00:00:00Z',
+        updatedAt: '2026-08-01T00:00:00Z',
+        label: 'Updated 2 months ago',
+      },
+    });
+    const listed = itemFixture({ visibility: 'PUBLIC', effectivePublic: true });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
+        'GET /api/v1/inventory/items/{id}': [ok(hidden), ok(listed)],
+        'POST /api/v1/inventory/items/{id}/confirm': ok(listed),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    expect(await screen.findByTestId('edit-item-stale')).toBeOnTheScreen();
+    const hint = () => screen.getByTestId('card-visibility-hint');
+    // The banner says the card is hidden: the hint does not say collectors can find it.
+    await waitFor(() =>
+      expect(hint()).toHaveTextContent(
+        'Nobody can find it until you confirm it is still available.'
+      )
+    );
+    // A change: "Save changes" confirms the card.
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    expect(hint()).toHaveTextContent('Collectors in Americas (North) can find it once you save.');
+    fireEvent.press(screen.getByRole('button', { name: 'One less' }));
+    expect(hint()).toHaveTextContent('Nobody can find it until you confirm it is still available.');
+    // Confirmed: listed again.
+    fireEvent.press(screen.getByTestId('edit-item-confirm'));
+    await waitFor(() =>
+      expect(hint()).toHaveTextContent('Collectors in Americas (North) can find it.')
+    );
+  });
+
+  it('reads a temporary publication that ended as Private, and Public publishes it', async () => {
+    const ended = itemFixture({
+      visibility: 'TEMPORARILY_PUBLIC',
+      publicUntil: '2026-10-01T00:00:00Z',
+      effectivePublic: false,
+    });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
+        'GET /api/v1/inventory/items/{id}': ok(ended),
+        'PATCH /api/v1/inventory/items/{id}': ok(
+          itemFixture({ visibility: 'PUBLIC', effectivePublic: true })
+        ),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-visibility-hint');
+    expect(screen.getByRole('radio', { name: 'Private' })).toBeChecked();
+    expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
+      'Its temporary publication has ended: only you see it until you make it public again.'
+    );
+    expect(screen.getByTestId('edit-item-save')).toHaveTextContent('No changes yet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Public' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
+        'Collectors in Americas (North) can find it once you save.'
+      )
+    );
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      visibility: 'PUBLIC',
+      confirm: true,
+    });
+  });
+
   it('deletes after the sheet, then undoes from the toast (screen 9)', async () => {
     const api = mockApi(
       signedInRoutes({

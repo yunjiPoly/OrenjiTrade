@@ -7,6 +7,7 @@ import type {
 
 import { CARD_FORM_COPY } from './inventoryCopy';
 import { ASKING_PRICE_MAX, priceFieldText, priceTextOf } from './itemPrice';
+import { temporaryPublicationEnded } from './visibilityStatus';
 
 /**
  * The card form of Add to inventory and Edit card (owner spec 2026-10-14, section 6, screens 6
@@ -41,14 +42,20 @@ export function newCardForm(binderId: string | null = null): CardFormValue {
 }
 
 /**
- * The form of an existing card. A temporary publication reads as Public (the phone offers no
- * end date any more); a card priced on the paused web shows its amount ("42.00").
+ * The form of an existing card. A temporary publication reads as Public while it runs (the phone
+ * offers no end date any more), and as Private once it has ended (review fix 2 of stage R2: nobody
+ * can see it, and choosing Public publishes it again); a card priced on the paused web shows its
+ * amount ("42.00").
  */
-export function cardFormOf(item: InventoryItemResponse): CardFormValue {
+export function cardFormOf(item: InventoryItemResponse, now = Date.now()): CardFormValue {
   return {
     quantity: String(item.quantity),
     price: priceFieldText(item),
-    visibility: item.visibility === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC',
+    visibility:
+      item.visibility === 'PUBLIC' ||
+      (item.visibility === 'TEMPORARILY_PUBLIC' && !temporaryPublicationEnded(item, now))
+        ? 'PUBLIC'
+        : 'PRIVATE',
     binderId: item.binder?.id ?? null,
     publicNote: item.publicNotes ?? '',
   };

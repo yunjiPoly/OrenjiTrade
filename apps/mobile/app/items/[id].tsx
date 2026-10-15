@@ -431,6 +431,7 @@ function CardEditor({
         errors={errors}
         binders={binders.data ?? []}
         findability={findability}
+        saved={{ item, changed: dirty }}
         disabled={busy}
         photos={{
           tiles,

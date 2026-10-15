@@ -114,8 +114,17 @@ export const CARD_FORM_COPY = {
   private: 'Private',
   public: 'Public',
   privateHint: 'Only you see it until you make it public.',
+  // Edit card, a temporary publication (set on the paused web) that ended: the card reads Private.
+  privateHintEnded:
+    'Its temporary publication has ended: only you see it until you make it public again.',
   publicHint: (region: string) => `Collectors in ${region} can find it.`,
   publicHintNoRegion: 'Collectors in your region can find it.',
+  // Edit card, a card nobody can find now that "Save changes" makes public (review fix 2 of R2).
+  publicHintOnSave: (region: string) => `Collectors in ${region} can find it once you save.`,
+  publicHintOnSaveNoRegion: 'Collectors in your region can find it once you save.',
+  // Edit card, unchanged: the card's own state (review fix 2 of R2).
+  notFoundUntilConfirmed: 'Nobody can find it until you confirm it is still available.',
+  notFoundNow: 'Nobody can find it right now.',
   // Public, but nobody can find it (review fix 1 of stage R2): the reason instead of the claim.
   notFoundNoLocation:
     'Nobody can find it yet: add your state or province in Settings › Location, then turn on “Show me on the map”.',

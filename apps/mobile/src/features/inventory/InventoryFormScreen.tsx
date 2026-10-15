@@ -64,14 +64,13 @@ export function InventoryFormScreen({
     }
     return snackbar.keepClear(footerHeight);
   }, [footer, footerHeight, snackbar]);
-  // The part of the content a toast covers (above the bottom bar, once that is laid out).
-  useEffect(() => {
-    if (cover === 0 || (footer && footerHeight === 0)) {
-      return;
-    }
-    const covered = cover - (footer ? footerHeight : 0);
-    setToastRoom((room) => Math.max(room, covered));
-  }, [cover, footer, footerHeight]);
+  // The part of the content a toast covers (above the bottom bar, once that is laid out); the
+  // largest one so far stays.
+  const covered =
+    cover > 0 && (!footer || footerHeight > 0) ? cover - (footer ? footerHeight : 0) : 0;
+  if (covered > toastRoom) {
+    setToastRoom(covered);
+  }
   useEffect(() => {
     if (showEnd > 0) {
       keepEnd.current = true;

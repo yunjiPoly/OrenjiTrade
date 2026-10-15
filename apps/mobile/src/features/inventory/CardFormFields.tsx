@@ -20,7 +20,7 @@ import {
 import { CardPhotos, type CardPhotosProps } from './CardPhotos';
 import { CARD_FORM_COPY } from './inventoryCopy';
 import { ASKING_PRICE_MAX } from './itemPrice';
-import { publicCardHint, type CardFindability } from './visibilityStatus';
+import { cardVisibilityHint, type CardFindability, type SavedCardState } from './visibilityStatus';
 
 export interface CardFormFieldsProps {
   value: CardFormValue;
@@ -32,6 +32,11 @@ export interface CardFormFieldsProps {
    * profile, a pause): the Public hint says they can only when they really can.
    */
   findability: CardFindability;
+  /**
+   * Edit card: the card as saved and whether a change is pending, for the hint (hidden until
+   * confirmed, a temporary publication that ended). None while adding.
+   */
+  saved?: SavedCardState | null;
   photos: CardPhotosProps;
   disabled?: boolean;
 }
@@ -47,6 +52,7 @@ export function CardFormFields({
   errors,
   binders,
   findability,
+  saved = null,
   photos,
   disabled = false,
 }: CardFormFieldsProps) {
@@ -58,10 +64,7 @@ export function CardFormFields({
     ? (binders.find((binder) => binder.id === value.binderId) ?? null)
     : null;
   const binderName = chosenBinder?.name ?? CARD_FORM_COPY.noBinder;
-  const hint =
-    value.visibility === 'PRIVATE'
-      ? { findable: true, text: CARD_FORM_COPY.privateHint }
-      : publicCardHint(findability, chosenBinder);
+  const hint = cardVisibilityHint(value.visibility, findability, chosenBinder, saved);
   const quantity = parseQuantity(value.quantity);
   const inputStyle = [
     textStyle('md'),
