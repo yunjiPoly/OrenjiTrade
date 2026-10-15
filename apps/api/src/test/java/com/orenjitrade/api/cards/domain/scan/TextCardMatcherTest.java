@@ -402,6 +402,13 @@ class TextCardMatcherTest {
         }
         assertThat(match(List.of("ZBM1-EN"), List.of("Brinemoss Warden")).status())
                 .isEqualTo(ScanStatus.PICK_PRINTING);
+        // With a whole code too (the phone never sends both), the codes decide as for any code
+        // read: the cut one takes no printing in its set, and a whole code none of the card's
+        // printings leaves its printing to pick.
+        ScanMatch withWhole = match(List.of("ZR04-EN", "ZR04-EN999"), List.of("Quillfeather Mage"));
+        assertThat(withWhole.status()).isEqualTo(ScanStatus.PICK_PRINTING);
+        assertThat(withWhole.card().id()).isEqualTo(catalog.quillfeather.id());
+        assertThat(withWhole.printing()).isNull();
 
         // Without a name it finds nothing.
         ScanMatch alone = match(List.of("ZR04-EN"), List.of());

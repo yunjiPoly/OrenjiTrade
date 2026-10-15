@@ -120,12 +120,15 @@ five grouped queries whatever the number of variants (a sixth for a code read in
    words in both test suites) and sends one only when none of its reads of the photo held a whole
    code; a word the server would read as an English code but the phone does not (3 digits after
    `E`, a real digit in the number) it sends neither way. It never finds a card by itself
-   (NO_MATCH without a name). When the name wins, the card's printing in that set is its printing
-   when exactly one of its English printings fits: the same set and an `EN` code whose number
-   starts with the characters read after the region when those are digits, the look-alikes O and
-   D 0, I and L 1, S 5, B 8, Z 2, G 6 folded on both sides (`ZRO4-ENO` fits `ZR04-EN015`), FOUND
-   or PICK_RARITY; none (a set without a printing of the card) or several: PICK_PRINTING, as for
-   a code that is none of its printings. No query more.
+   (NO_MATCH without a name). When the name wins and every code read is cut short, the card's
+   printing in that set is its printing when exactly one of its English printings fits: the same
+   set and an `EN` code whose number starts with the characters read after the region when those
+   are digits, the look-alikes O and D 0, I and L 1, S 5, B 8, Z 2, G 6 folded on both sides
+   (`ZRO4-ENO` fits `ZR04-EN015`), FOUND or PICK_RARITY; none (a set without a printing of the
+   card) or several: PICK_PRINTING, as for a code that is none of its printings. A request that
+   also holds a whole code (the phone never sends both) is decided by the codes as in rules 1 to
+   4: the cut code is looked up as read, finds nothing and takes no printing in its set (with a
+   whole code none of the named card's printings: PICK_PRINTING). No query more.
 
 ### Answer `CardScanMatch` (200)
 
