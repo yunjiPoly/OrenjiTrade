@@ -8,9 +8,21 @@ import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text, TextInput } from '@/src/components/ui/Text';
-import { QUERY_MAX_LENGTH, SUGGEST_DEBOUNCE_MS, SUGGEST_MIN_CHARS } from '@/src/lib/catalog';
+import {
+  QUERY_MAX_LENGTH,
+  SUGGEST_DEBOUNCE_MS,
+  SUGGEST_MIN_CHARS,
+  suggestionVariant,
+} from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
-import { fontFamily, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { ADD_CARDS_COPY } from './inventoryCopy';
 
@@ -32,7 +44,8 @@ export interface AddCardSearchProps {
  * Add cards while typing (owner spec 2026-10-14, section 6, screen 4): the focused field with
  * Clear and Cancel; "Cards" (picture, name, "{game} · {n} printings"), which open Choose the
  * printing; "Exact printings" when the text looks like a code (code, set name, rarity), which go
- * straight to the details; and the hint at the bottom.
+ * straight to the details; and the hint at the bottom. Printings that share a code are each a row
+ * of their own with what tells them apart ("1st Edition", "Unlimited"): the one tapped is added.
  */
 export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: AddCardSearchProps) {
   const { palette } = useTheme();
@@ -43,7 +56,7 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
     return () => clearTimeout(timer);
   }, [text]);
 
-  const suggestions = useCardSuggestions(query, ADD_SEARCH_LIMIT);
+  const suggestions = useCardSuggestions(query, ADD_SEARCH_LIMIT, true);
   const cards = (suggestions.data ?? []).filter((entry) => entry.kind === 'CARD');
   const printings = (suggestions.data ?? []).filter((entry) => entry.kind === 'PRINTING');
   const tooShort = query.length < SUGGEST_MIN_CHARS;
@@ -96,6 +109,7 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
               <PrintingResult
                 key={`${printing.printingId ?? printing.id}:${printing.printingCode ?? ''}`}
                 printing={printing}
+                variant={suggestionVariant(printing, printings)}
                 onPress={() => onPrinting(printing)}
               />
             ))}
@@ -146,7 +160,10 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
           testID="add-search-cancel"
           style={({ pressed }) => [styles.cancel, pressed && styles.pressed]}
         >
-          <Text style={[textStyle('md'), styles.strong, { color: palette.primary }]}>
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[textStyle('md'), styles.strong, { color: palette.primary }]}
+          >
             {ADD_CARDS_COPY.cancel}
           </Text>
         </Pressable>
@@ -209,25 +226,45 @@ function CardResult({ card, onPress }: { card: CardSuggestion; onPress: () => vo
   );
 }
 
-function PrintingResult({ printing, onPress }: { printing: CardSuggestion; onPress: () => void }) {
+function PrintingResult({
+  printing,
+  variant,
+  onPress,
+}: {
+  printing: CardSuggestion;
+  /** What tells it apart from the other printings with its code; null when none shares it. */
+  variant: string | null;
+  onPress: () => void;
+}) {
   const { palette } = useTheme();
-  const spoken = [printing.printingCode, printing.name, printing.setName, printing.rarity]
+  const spoken = [printing.printingCode, variant, printing.name, printing.setName, printing.rarity]
     .filter(Boolean)
     .join(', ');
+  const code = printing.printingCode ?? printing.printingId;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={spoken}
       accessibilityHint="Opens the details to add it"
       onPress={onPress}
-      testID={`add-printing-${printing.printingCode ?? printing.printingId}`}
+      testID={variant ? `add-printing-${code}-${printing.printingId}` : `add-printing-${code}`}
       style={({ pressed }) => [
         styles.printing,
         { borderColor: palette.border },
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.code, { color: palette.ink }]}>{printing.printingCode}</Text>
+      <View style={styles.codeColumn}>
+        <Text style={[styles.code, { color: palette.ink }]}>{printing.printingCode}</Text>
+        {variant ? (
+          <Text
+            testID="add-printing-variant"
+            style={[textStyle('xs'), styles.strong, { color: palette.ink }]}
+          >
+            {variant}
+          </Text>
+        ) : null}
+      </View>
       <Text numberOfLines={1} style={[textStyle('sm'), styles.set, { color: palette.textMuted }]}>
         {printing.setName ?? printing.name}
       </Text>
@@ -296,6 +333,7 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   code: { fontFamily: fontFamily.mono, fontSize: 13, lineHeight: 18 },
+  codeColumn: { flexShrink: 0, gap: 2 },
   set: { flex: 1, minWidth: 0 },
   rarity: {
     fontSize: 12,

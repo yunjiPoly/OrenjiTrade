@@ -5,7 +5,9 @@ import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
-import { fontFamily, fontWeight, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import { fontFamily, fontWeight, textStyle, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+
+import { printingVariant } from './PrintingPicker';
 
 export interface CardHeaderProps {
   name: string;
@@ -15,17 +17,31 @@ export interface CardHeaderProps {
   fallbackImage?: string | null;
   /** `add`: Add to inventory ("{code} · {set}"); `edit`: Edit card (larger, the code only). */
   variant: 'add' | 'edit';
+  /**
+   * Every printing of the card, when known: a printing that shares its code with another one
+   * names what tells it apart ("1st Edition", "Unlimited") under the code.
+   */
+  printings?: readonly PrintingSummary[];
 }
 
 /**
  * The card at the top of Add to inventory and Edit card (mockup v32, screens 6 and 7): the
- * picture, the game in capitals, the name and the card code in mono.
+ * picture, the game in capitals, the name and the card code in mono; for a code that several
+ * printings share, the edition, language or finish of this one.
  */
-export function CardHeader({ name, game, printing, fallbackImage, variant }: CardHeaderProps) {
+export function CardHeader({
+  name,
+  game,
+  printing,
+  fallbackImage,
+  variant,
+  printings,
+}: CardHeaderProps) {
   const { palette } = useTheme();
   const edit = variant === 'edit';
   const code = printing ? printingCode(printing) : '';
   const line = edit || !printing?.setName ? code : `${code} · ${printing.setName}`;
+  const twin = printing && printings ? printingVariant(printing, printings) : null;
   return (
     <View style={styles.row} testID="card-header">
       <CardImage
@@ -54,6 +70,14 @@ export function CardHeader({ name, game, printing, fallbackImage, variant }: Car
             {line}
           </Text>
         ) : null}
+        {twin ? (
+          <Text
+            testID="card-header-variant"
+            style={[textStyle('xs'), styles.twin, { color: palette.ink }]}
+          >
+            {twin}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -74,4 +98,5 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   code: { fontFamily: fontFamily.mono, fontSize: 12, lineHeight: 16 },
+  twin: { fontWeight: fontWeight.semibold },
 });
