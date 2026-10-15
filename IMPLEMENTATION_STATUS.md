@@ -5713,6 +5713,64 @@ accounts deleted afterwards): the walks in the table. The owner's appearance (li
 (`IMG_0024`, from native flow 1): 17 copies (`IMG_0007` to `IMG_0024`, but `IMG_0014`, a reviewer's
 fictional 9000 × 1200 picture). Not verifiable here: the Android run (no Android SDK on this Mac).
 
+**Merged with free for all (2026-10-15).** `origin/main` with stage F1 ("free for all", #73:
+Premium, sponsored placements, credits and donations removed; the same usage limits for everyone in
+a `limits` module; V120–V123; ADR 0019) was merged into this branch (merge commit "Merge origin/main
+(free for all, #73) into feature/r2-inventory-adding-cards", `ab700d7`); 11 conflicts, resolved so
+that both stages' intents hold. **Code (4):** the inventory controller's description of `POST
+/inventory/items` keeps R2's `conditionStated` and `askingPriceText` with F1's limit wording (the
+same for every collector, unlimited until an admin gives it a number); the Inventory tab keeps R2's
+header, switch and summary row (both sides had dropped the sponsored slot, and R2 had replaced
+`InventorySummaryStrip` with its summary row); `screens/inventory` keeps R2's checks and F1's "no
+Sponsored row" check; `screens/items` keeps R2's tests (its "plain cap" limit test already has no
+plan, no Premium and no "See Premium"). Merged without a conflict: R2's `InventoryService` and
+`InventoryExtensions` now take `Limits` and `LimitUsageSource` from the `limits` module (the restore
+of a deleted card consumes `inventory.items.max` there), F1's `ErrorCode`, the import screens and
+their tests. **Generated (4):** `docs/api/openapi.json`, the inventory service of
+`packages/api-client` and `packages/shared-types` were taken from one side, then regenerated on the
+merged code (`exportOpenApi`, `npm run generate:api`): 216 paths, 249 operations, 316 schemas (F1's
+215 / 248 / 316 plus `POST /inventory/items/{id}/restore`). **Documents (3):** this file keeps F1's
+section, then R2's, and NEXT TASK says R1, F1 and R2 are merged and R3 is next; `schema.md` lists
+V120–V123, then R2's migration; the handoff says both (R2's row leaves "Not on `main`"). **Limits on
+R2's screens:** a reached `inventory.items.max` on Add to inventory and Edit card reads as R2's
+plain cap ("Your inventory is full: it holds at most {n} cards. Delete a card you no longer have to
+add another.", the numbers from F1's `limitReachedInfo`, no plan, nothing to buy); "New binder" on
+Inventory › Binders opens F1's binder form and its `LimitReachedNotice`; the Undo of a delete
+refused by a full inventory fell back to the generic error and now says F1's `limitReachedMessage`
+("You have used 100 of 100 inventory cards.", `b17898b`, a jest test seen failing without it). A
+grep of `apps/mobile` finds no sponsored row, upgrade offer, Premium, credits or donation entry
+point: only comments, the removed-route notes, the card data credit line and tests asserting their
+absence.
+
+**The migration renumbered (`461f03b`).** `main` holds V120–V123 and Flyway runs without
+`outOfOrder`, so R2's `V117__inventory_price_text_restore.sql` would be refused by any database
+already at V123 (the owner's dev database after pulling `main`, any deployed environment). It is now
+**`V125__inventory_price_text_restore.sql`** (V124 is kept for another branch; V117–V119 stay
+unused; the next migration is V126). Its content is unchanged (only its header comment says so): it
+touches `inventory_item` alone, which F1 left as it was, and every Testcontainers suite migrates
+through V123 then V125. The API README, `schema.md`, the R2 contract, the handoff and this file name
+V125. A scratch database where an earlier R2 run applied V117 is refused by Flyway ("applied
+migration not resolved locally") and must be recreated; the E2E databases are recreated by every
+run.
+
+Checks after the merge (retries off; head `b17898b`): `./gradlew spotlessCheck --rerun-tasks`
+passed; `npm run test:api` passed in 3 min 28 s: **162 classes / 996 tests** + 12 catalog tests, 0
+failures, 0 skipped (`FlywayMigrationIT`, `PaidFeaturesRemovalMigrationIT`, `LimitsIT`,
+`SeedAccountLimitsIT` and `InventoryPhoneFormIT` included); `exportOpenApi` + `npm run generate:api`
+left git clean; `npm run build -w apps/web-angular` passed, initial total **896.09 kB** (no web file
+differs from `main`); `npm run test:web` 136 files / **633 tests**; web lint and `format:check`
+clean; `npm run test:e2e -- --retries=0` **70 / 70** (1.2 min); mobile typecheck, lint and
+`format:check` clean; `npm run test:mobile` jest **90 suites / 928 tests** + 28 guard tests (F1
+deleted three billing suites, R2 replaced `itemForm`); `npx expo export` ios, android and web passed
+(scratch folders); `npm run test:mobile:e2e -- --retries=0` **54 / 54** (56 s; 57 on R2 before the
+merge: F1 deleted `billing.spec.ts` and added `removed-links.spec.ts`); `npm run test:mobile:maestro
+-- --platform ios` on the owner's iPhone 18 Pro simulator, under the lock: **30 / 30 flows** in 45
+min 32 s (native flow 1, `inventory-add-edit-undo.yaml`, and F1's `limit-reached.yaml` included);
+Expo Go stopped afterwards, the simulator left light at its default text size, no file left in its
+Files storage, its photo library one fictional copy of the flow picture richer (`IMG_0029`); `npm
+run test:scripts` **135 / 135**; `npm run infra:validate` passed (nothing planned or applied); `npm
+run audit:gate` OK. Not verifiable here: the Android run (no Android SDK on this Mac).
+
 ## NEXT TASK
 
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
