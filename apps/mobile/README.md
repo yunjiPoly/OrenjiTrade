@@ -29,7 +29,8 @@ binder: name, Private | Public, the "Sell as a deck core" card with up to 4 phot
 as typed and the public note, "Key cards · optional" or "Cards inside" with cards picked from the
 inventory, "Save changes" disabled until a change, "Delete binder" asked in a sheet); the deck core
 page (photo pager, tag, game, name and price, the seller row, the note, key card chips, "Message
-{handle}"); the plain public binder restyled. Stages R4 to R8 are not built: the rest of this
+{handle}"); the plain public binder restyled. A public deck core shows every card in it as a key
+card; the cards keep the visibility their collector gave them (none is made public to join a core). Stages R4 to R8 are not built: the rest of this
 README describes the app as it is (six tabs until R5).
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is

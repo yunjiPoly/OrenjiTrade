@@ -13,6 +13,16 @@
 are enough. The cards its owner puts in it are its key cards; they sell only together, so the
 card holders can leave them out (stage R5 shows the core on the card page instead).
 
+**The core decides what buyers see of its cards (review fix 1).** Every live card filed in an
+effectively public, unsold deck core is one of its key cards, whatever the card's own visibility
+(`InventoryItemRepository.IN_PUBLIC_CORE`: not deleted, its game active, its freshness not
+HIDDEN, the core listed and its owner's listings public). The card's own visibility alone decides
+whether it is listed **on its own** (`LISTED`: who has this card, public item lists, `itemCount`,
+covers and item photos). So no client ever flips a card public to put it in a deck core, and a
+card that leaves the core (taken out, the core deleted, or the switch turned off) is exactly as
+private or public as its collector made it. A key card shows a card's name, its copies, its game
+and its catalog picture, never an item's own photo, note, condition or price.
+
 All under `/api/v1`.
 
 ## The binder's columns (V126)
@@ -69,10 +79,15 @@ All under `/api/v1`.
 
 - `previewImages`: up to 3 pictures for lists — a deck core's first photo when it has one,
   otherwise the card pictures (printing images) of the binder's first items, one per printing, in
-  the order they were added (public items only in public views).
+  the order they were added (in public views the cards buyers see: public items, and every card
+  of a public deck core).
 - `keyCards`: a deck core's cards with their copies, every printing of a card together, most
-  copies first then by name, at most 30; empty for other binders. Public views count the public
-  cards only.
+  copies first then by name, at most 30; empty for other binders. Public views count every live
+  card of the public deck core, whatever its own visibility (`SHOWN_PUBLICLY`); the owner's view
+  every live card. A deleted card leaves them until it is restored.
+- `games` (public views): the games of the cards buyers see, a public deck core's cards included
+  (so the deck core page names its game); `itemCount` stays the number of cards listed on their
+  own.
 - `photos`: in public views a deck core's only.
 
 ## Public binders
@@ -96,12 +111,15 @@ All under `/api/v1`.
   cards filed in a deck core (the phone passes it from R5, with the "Also in a deck core" banner).
 - `GET /search/deck-cores?cardId=&region=&limit=3` (limit 1–10, default 3; region as everywhere,
   400 for an unknown code) → `[PublicBinderSummary]`: the public deck cores of discoverable
-  collectors of the region that hold a public copy of the card (any printing), most recently
-  updated first; never the caller's own, never a collector blocked with the caller.
+  collectors of the region that hold the card among their key cards (any printing, whatever the
+  card's own visibility), most recently updated first; never the caller's own, never a collector
+  blocked with the caller.
 - `GET /search?types=binders&q=…&deckCore=true|false` (optional): deck cores only, or the other
   binders only. The text matches a binder's name and description (as before), its **owner's
-  handle** (a substring; a leading `@` is allowed) and, **for a deck core, the names of its public
-  cards**.
+  handle** (a substring; a leading `@` is allowed) and, **for a deck core, the names of its key
+  cards** (every live card of the public core; never a card of a plain binder, a deleted card, a
+  card hidden as stale, or the cards of a binder whose switch is off). The `game` filter counts
+  the cards buyers see the same way.
 - `GET /regions/{region}/subdivisions/{code}/binders?deckCore=&q=&cursor=&limit=`: the same
   optional `deckCore` and `q` (the same matching).
 - **New:** `GET /regions/{region}/binders?deckCore=&q=&cursor=&limit=` — the same list for every

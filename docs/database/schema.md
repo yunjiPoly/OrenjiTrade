@@ -746,7 +746,11 @@ An item is public ⇔ `visibility` is `PUBLIC`, or `TEMPORARILY_PUBLIC` with `pu
 game is `ACTIVE` ∧ the owner is listed. A binder is public ⇔ the same visibility/expiry rule ∧ the
 binder's `freshness_state <> 'HIDDEN'` ∧ it is not sold (`sold_at IS NULL`, V126) ∧ the owner is
 listed. Public lists (a collector's binders, search, the map) show a public binder that holds a
-public item or is a deck core (`sells_as_core`, V126: a deck core needs no cards). The owner is listed ⇔
+public item or is a deck core (`sells_as_core`, V126: a deck core needs no cards). A live card
+(not deleted, game `ACTIVE`, not `HIDDEN`) filed in a public, unsold deck core of a listed owner
+is shown as one of its key cards whatever its own visibility (`InventoryItemRepository.IN_PUBLIC_CORE`,
+stage R3 review fix 1): the core's key cards, games, card pictures and the card names binder
+search matches; the card is listed on its own only by the item rule above. The owner is listed ⇔
 `user_account.status = 'ACTIVE'` (or `SUSPENDED` with `suspended_until <= now()`) ∧
 (`privacy_settings.discoverable` ∨ `profile_visibility = 'PUBLIC'`) ∧ `profile_visibility <>
 'PRIVATE'`. The SQL lives in `PublicVisibilityRules` (binders module) and
