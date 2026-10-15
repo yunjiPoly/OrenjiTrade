@@ -815,6 +815,9 @@ describe('Edit card (screen 7)', () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(mockLeave.held).toBe(false);
     expect(screen.queryByTestId('edit-item-leave-sheet-confirm')).toBeNull();
+    // Once only, however often the screen renders afterwards.
+    screen.rerender(<EditCardScreen />);
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
   });
 
   it('refuses the wrong type before uploading, and a denied permission', async () => {

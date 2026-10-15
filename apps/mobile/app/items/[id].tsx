@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -192,8 +192,11 @@ function CardEditor({
   // Not saved, and "Try again" may still save them: leaving would lose them.
   const unsaved = picked.filter((tile) => tile.state === 'failed' && !tile.photo.problem);
   const guard = useLeaveGuard(unsaved.length > 0 && !gone);
+  // Once, whatever re-renders the screen meanwhile (`onLeave` is a new function each time).
+  const left = useRef(false);
   useEffect(() => {
-    if (gone) {
+    if (gone && !left.current) {
+      left.current = true;
       onLeave();
     }
   }, [gone, onLeave]);
