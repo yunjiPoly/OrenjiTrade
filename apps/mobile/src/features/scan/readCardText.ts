@@ -37,8 +37,9 @@ import type { ScanRead } from './types';
  *   aligned by the frame: never turned);
  * - a library photo whose reads, turns included, hold no code is read once more where its code
  *   lies (`codeBand`: around a code cut short after its region, or right above the top of the
- *   card's text box at the right), like the camera's set code area: twice its size, without
- *   language correction, turned the way the read it was placed on stood;
+ *   card's text box at the right, both on the card's text column, never on a card beside it),
+ *   like the camera's set code area: twice its size, without language correction, turned the way
+ *   the read it was placed on stood;
  * - a whole-photo read that still ends without a code sends the code cut short after its region
  *   one of its reads held (`codeFragment`, "ZR04-EN"), decided after the turns so that a turned
  *   read can still find the whole code.

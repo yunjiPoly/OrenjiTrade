@@ -537,6 +537,15 @@ function startsOnColumn(box: FractionRect, column: TextColumn): boolean {
 }
 
 /**
+ * Whether a box starts within the text column's width (from its left edge to its right one,
+ * `NAME_ALIGNMENT` of it more on either side): the set code, at the right of the column.
+ */
+function startsWithinColumn(box: FractionRect, column: TextColumn): boolean {
+  const slack = NAME_ALIGNMENT * column.width;
+  return box.x >= column.left - slack && box.x <= column.left + column.width + slack;
+}
+
+/**
  * The part of a row that starts on the text column: the row from its first line whose left edge
  * lies within `NAME_ALIGNMENT` of the column's (a name the reader joined to a mark at its left
  * keeps the name); null when none does.
@@ -607,23 +616,32 @@ export const TEXT_TOP_BAND = { centre: 0.25, height: 6, left: 0.3, right: 1.1 };
  * the camera's set code area (`readCardText`, library photos). In fractions of the image read, the
  * card upright; null when the read shows neither of these marks:
  *
- * - a code cut short after its region (`codeFragment`): the band is centred where the whole code
- *   lies (the rest of it to the right), `FRAGMENT_BAND.width` times its width and
- *   `FRAGMENT_BAND.height` times its height;
- * - the top of the card's text box on its text column (`textColumn`): the type line, or a spell's
- *   or trap's first line of running text. The set code is printed right above it at the right,
- *   under the artwork: the band is centred a quarter of that line's height above it,
+ * - a code cut short after its region (`codeFragment`) that starts within the card's text column
+ *   (`textColumn`, when the read shows one: the code is printed at its right): the band is
+ *   centred where the whole code lies (the rest of it to the right), `FRAGMENT_BAND.width` times
+ *   its width and `FRAGMENT_BAND.height` times its height;
+ * - the top of the card's text box, starting on its text column: the type line, or a spell's or
+ *   trap's first line of running text. The set code is printed right above it at the right, under
+ *   the artwork: the band is centred a quarter of that line's height above it,
  *   `TEXT_TOP_BAND.height` times its height, from 30 % of the column's width to 110 %.
  *
- * The band holds the code with room around it: on the owner's real photos (gate, 2026-10-15) Apple
- * Vision read nothing in a crop holding little more than a legible code (538 × 155 pixels around
- * it), and read it in crops several times its size. A mark whose box is taller than wide in the
- * image's pixels (`size`) lies sideways: no band.
+ * A mark of a card lying beside or behind the photographed one starts elsewhere and is passed
+ * over, so that the band never reads that card's code. The band holds the code with room around
+ * it: on the owner's real photos (gate, 2026-10-15) Apple Vision read nothing in a crop holding
+ * little more than a legible code (538 × 155 pixels around it), and read it in crops several
+ * times its size. A mark whose box is taller than wide in the image's pixels (`size`) lies
+ * sideways: no band.
  */
 export function codeBand(lines: readonly OcrLine[], size: PixelSize): FractionRect | null {
   const wide = (box: FractionRect) => box.width * size.width > box.height * size.height;
   const rows = rowsOf(lines);
-  const fragment = rows.find((row) => codeFragment(row.text) !== null && wide(row.box));
+  const column = textColumn(lines);
+  const fragment = rows.find(
+    (row) =>
+      codeFragment(row.text) !== null &&
+      wide(row.box) &&
+      (column === null || startsWithinColumn(row.box, column))
+  );
   if (fragment) {
     const { x, y, width, height } = fragment.box;
     const bandWidth = FRAGMENT_BAND.width * width;
@@ -635,13 +653,13 @@ export function codeBand(lines: readonly OcrLine[], size: PixelSize): FractionRe
       height: bandHeight,
     });
   }
-  const column = textColumn(lines);
   if (!column) {
     return null;
   }
+  const onColumn = (row: OcrRow) => startsOnColumn(row.box, column) && wide(row.box);
   const top =
-    rows.find((row) => isTypeLine(row.text) && wide(row.box)) ??
-    rows.find((row) => isRunningText(row.text) && startsOnColumn(row.box, column) && wide(row.box));
+    rows.find((row) => isTypeLine(row.text) && onColumn(row)) ??
+    rows.find((row) => isRunningText(row.text) && onColumn(row));
   if (!top) {
     return null;
   }

@@ -635,6 +635,21 @@ describe('where the code lies', () => {
     );
   });
 
+  it('is never on the mark of a card lying beside or behind the photographed one', () => {
+    // Codes cut short of cards beside it, left and right of its text column, higher in the photo
+    // than its own: the band is around its own.
+    for (const x of [0.02, 0.9]) {
+      const beside = [at('ZQ11-EN', x, 0.3, 0.09, 0.013), ...CARD_BEFORE_ANOTHER];
+      expect(codeBand(beside, SIZE)).toEqual(codeBand(CARD_BEFORE_ANOTHER, SIZE));
+    }
+    // A card behind it shows its type line at the photo's top, right of this card's column: the
+    // band is right above this card's own type line (0.782, 0.022 high), never at the top.
+    const noFragment = CARD_BEFORE_ANOTHER.filter((line) => line.text !== 'ZR04-EN');
+    const behind = codeBand([at('[Fairy/Effect]', 0.55, 0.04, 0.3, 0.022), ...noFragment], SIZE);
+    expect(behind?.y).toBeCloseTo(0.782 - 0.25 * 0.022 - 3 * 0.022, 4);
+    expect(behind?.height).toBeCloseTo(6 * 0.022, 4);
+  });
+
   it('is nowhere without those marks, or when they lie sideways, and never leaves the image', () => {
     expect(codeBand(linesOf(['Quillfeather Mage']), SIZE)).toBeNull();
     expect(codeBand([at('ZR04-EN', 0.5, 0.2, 0.013, 0.09)], SIZE)).toBeNull();
