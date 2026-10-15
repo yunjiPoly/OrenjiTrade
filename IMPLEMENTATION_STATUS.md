@@ -5361,6 +5361,62 @@ Checks of this round (retries off):
 | `npm run audit:gate` | OK |
 | Android | **the Android run could not be verified** (no Android SDK on this Mac) |
 
+### Merged with R1 (2026-10-15)
+
+`origin/main` with stage R1 (#72) was merged into this branch (merge commit "Merge origin/main
+(redesign R1, #72) into feature/f1-free-for-all"); 46 conflicts, resolved so that both stages'
+intents hold. **Modify/delete (22):** every file one stage deleted stays deleted (F1's Premium,
+credits, support and checkout screens, billing and ads parts, `billing.test.tsx`, `premium.yaml`,
+the ads and donation seed contributors; R1's offer, trade, payment and dispute files, tests and
+`scripts/payments.js`), after checking that nothing kept imports them. R1's provider checkout,
+which it had moved to `src/features/billing` for Premium and donations (`FakeProviderCheckout`,
+`checkoutTargets`, `useProviderCheckout`, with `billing.test.ts`, `providerCheckout.test.tsx` and
+`.maestro/scripts/billing.js`), had no user left and was deleted: **the phone has no checkout at
+all**. **Both edited (24):** the phone files keep R1's removals, `Text` imports and wording and
+F1's removals and plain limit messages (the Profile tab without offer, trade or money rows; no
+sponsored slot; no checkout query key; no offer or paid-feature types, stack screens or app
+roots); `paymentFixtures.ts` keeps only the seed flags. **Removed routes, one mechanism:** R1's
+`removedRouteTarget` (through the not-found screen) now also sends `/premium`, `/credits`,
+`/support` and the `fake-billing` / `fake-donation` checkouts to the Profile tab with F1's
+free-for-all note, as it sends offers, trades, disputes and the payment checkout to Messages or
+Settings with the deals note; old notifications of both use R1's `{ kind: 'note' }` target (F1's
+`'later'` renamed). Tests: `removedRoutes.test.tsx` (the F1 paths and the not-found screen on
+`/premium`), `freeForAll.test.tsx` (no `checkout/` route and no `billing`, `checkout`, `payments`
+or `ads` folder left; the old links through `removedRouteTarget`), `gate.test.ts`,
+`notifications.test.ts`, a new Playwright spec `removed-links.spec.ts`, and `limit-reached.yaml`
+now expects the Profile tab and the note instead of the not-found screen. **API:** R1's
+`SeedWordingTest` and `SeedIT` no longer read the deleted donation contributor and table.
+**Documents:** both sections kept (R1's first), NEXT TASK rewritten (R1 and F1 merged; next R2,
+whose V117 must become V124 or later), the ADR index lists 0018 and 0019, ADR 0011 carries both
+amendments (the app-store question has nothing left to apply to on the phone), ADR 0018 and 0019
+point at each other, and CLAUDE.md, the READMEs, `schema.md` (V115, V116, V120–V123), the
+handoff, local setup, seed data and the product overview say both. The paused web holds exactly
+F1's deletions and R1's "Trading safely" exception. Migrations unchanged: V115, V116, V120–V123.
+
+Checks after the merge, retries off: `spotlessCheck --rerun-tasks` passed; `npm run test:api`
+**962 tests** (950 in 160 classes + 12 catalog tests), 0 failures, 0 skipped; `exportOpenApi` and
+`npm run generate:api` left git clean; web build passed, initial total **896.09 kB**; `npm run
+test:web` 136 files / 633 tests, web lint and `format:check` clean; `npm run test:e2e --
+--retries=0` **70 / 70** (1 min 45 s); mobile typecheck, lint (0 warnings) and `format:check` clean; `npm run
+test:mobile` jest **89 suites / 886 tests** + 28 guard tests; `npx expo export` ios, android and
+web passed; `npm run test:mobile:e2e -- --retries=0` **54 / 54** (1 min 14 s, the new `removed-links.spec.ts` included); `npm run
+test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro simulator, under the lock:
+**29 / 30** in 48 min 39 s, then `limit-reached.yaml` fixed (it looked for the 6-second note only
+after the developer-menu checks, which take about 7 s; it now reads the note right after the
+link) and **passed alone twice** (1 min 26 s, 1 min 25 s); the simulator left light at its
+default text size; `npm run test:scripts` 133 / 133; `npm run
+infra:validate` passed; `npm run audit:gate` OK. A grep of `apps/mobile` finds no import of a
+deleted file, no route to a removed screen (only the web paths `notificationLink` builds, which
+`mobileTarget` turns into the deals note) and no upgrade, Premium, credits, donation, sponsored,
+offer or trade entry point; "Accepts offers" remains only as a card attribute, which R2 removes
+from the phone's forms.
+
+Seen on the simulator, not changed (R1's mechanism, now shared): the Maestro screenshot taken
+during the move shows the Profile tab sliding in over the earlier Profile tab, so `router.replace`
+from the not-found screen to a tab seems to add a second tab navigator rather than return to the
+first one (not checked further: the back swipe was not tried). The tests pin `replace`;
+`router.navigate` or `dismissTo` would return to the existing tabs: a choice for R2 or later.
+
 ### Owner follow-ups
 
 - Keep or drop the CLAUDE.md commit `e4ee954` (the handoff says CLAUDE.md is the owner's; the task

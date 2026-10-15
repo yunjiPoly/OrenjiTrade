@@ -117,7 +117,7 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
 apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1,
-WEB_BUNDLE_AFTER_MERGE with R1 and F1; the English legal texts sit in the main bundle, and the
+896.09 kB with R1 and F1; the English legal texts sit in the main bundle, and the
 deckCore tokens are kept out of `tokens.css`); `npm run test:e2e -- --retries=0` (every spec green
 on the first attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform
 android` and `--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
