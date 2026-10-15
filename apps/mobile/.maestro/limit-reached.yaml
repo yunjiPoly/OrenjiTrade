@@ -63,14 +63,19 @@ tags:
 - takeScreenshot: limit-profile
 
 # An old link to the Premium screen: the page is gone; the link lands on the Profile tab with a
-# note that the app is free, never on the not-found screen.
+# note that the app is free, never on the not-found screen. The note is a snackbar of 6 s, so it is
+# read at once, before the developer-menu checks (several seconds when nothing is there; the menu's
+# introduction was already dismissed after the first link of this flow).
 - openLink: ${APP_URL}/--/premium
-- runFlow: subflows/dismiss-dev-menu.yaml
 - extendedWaitUntil:
     visible: 'OrenjiTrade is free for every collector now.*'
-    timeout: 60000
-- assertVisible:
-    id: 'screen-profile'
+    timeout: 30000
+- takeScreenshot: limit-premium-note
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'profile-name'
+    timeout: 30000
 - assertNotVisible:
     id: 'screen-not-found'
 - takeScreenshot: limit-premium-gone
