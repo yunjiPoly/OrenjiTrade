@@ -4950,6 +4950,73 @@ gets, on the sixth, "You reached the number of binders you can have — You have
 binders. Delete a binder you no longer need." with nothing to buy. The owner's simulator was left
 as found (light appearance, large text) and the lock released.
 
+### Review fix 1 (2026-10-14)
+
+Two independent reviews (product and functional) asked for changes; every finding was fixed at its
+cause, with a test:
+
+- **The "Premium member." bio on a database seeded before F1** (major): profiles are seeded once
+  and local edits kept, so the owner's dev database and the GCP dev environment kept the old seed
+  bio on `premium_user`'s public profile. `ProfileSeedContributor` (local/dev only, the
+  `WishlistSeedContributor` precedent) now replaces a bio that is still exactly the old seed text
+  with today's; a bio written by hand is never changed. `SeedDataRunnerIT` plants the old bio and
+  checks one seed run removes it (`c4aa683`).
+- **Old broadcasts that promoted a removed feature, and `saved_searches.max`** (minor, the
+  builder's decisions 6 and 7, now changed, see above): V123 deletes the admin broadcasts that
+  linked to `/premium`, `/credits`, `/support` or their checkouts, and deletes
+  `saved_searches.max` with its counters (V109's precedent); the web and phone labels go and the
+  admin-rules E2E raises `binder.views.per_day` instead (`c22f834`). **V123 was edited** rather
+  than followed by a V124: it is this stage's own migration, not merged and never applied to a
+  persistent database (the walk and review databases were dropped; `orenjitrade_e2e` is
+  recreated by every run). Once F1 is on `main`, V120–V123 are frozen like the others.
+- **Tests that let a regression through** (minor): `SeedAccountLimitsIT` (the 12 seed accounts,
+  staff and the former Premium account included, see the same numbers and are refused at the same
+  count by `Limits.consume`) and `GeoPrivacyContractTest` comparing the numbers, not the sizes
+  (`a8f7299`); the phone checks the views-limit message for Premium, plan, upgrade or credits and
+  the Search tab (three segments), the holders and the inventory for a "Sponsored" row
+  (`9a8512f`); a web spec for the search page (results, holders, invitation) checks for no
+  sponsored placement (`e3157dd`; the inventory's is covered by the usage-limits E2E). Each new
+  check was seen failing against the regression the reviewers planted (a Limits that lets the
+  former Premium account through; an upgrade sentence in the views message; a sponsored row in
+  the phone's search results; a sponsored aside on the web search page).
+- **Documents** (minor): the owner account checklist's Stripe row lists no subscriptions; the
+  Phase 6 contract and the schema say the limit notice offers no upgrade since F1 (`f0ead8d`).
+- **Stage R2's V117** (minor): the merge notes, NEXT TASK and the handoff say R2 renumbers it
+  after F1's migrations if it merges after F1 (Flyway refuses out-of-order migrations) (`9524f97`).
+
+The builder's walk and migration check above predate this round (they show
+`saved_searches.max` 0 and a broadcast that kept its text). **Re-checked on a database seeded by
+`main`'s jar** (`bf1135a`, with six old broadcasts for collector2: "Go Premium", "Earn credits",
+"Support OrenjiTrade", a Premium checkout, a `/wishlist` one and a `/premiumcards` look-alike),
+then started with this branch's jar (V120–V123 in 0.09 s, then "Seed account 09: the bio of an
+earlier seed was replaced"): the API answers 14 of 14 checks (the bio, the four promotions gone,
+the two others kept, no link to a removed page, the same six limits for the former Premium account
+and collector1, six rows in `/admin/usage-limits`); the web build on that stack, at 1280 and 390
+px, passes 19 of 19 (the profile of `premium_user` reads "Collector and trader across all four
+games.", collector2's notifications hold no promotion). The database was dropped and Redis db 6
+emptied afterwards.
+
+Checks of this round (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 18 s: **952 tests** (940 in 158 classes + 12 catalog tests), 0 failures, 0 skipped (new: `SeedAccountLimitsIT` 2, `SeedDataRunnerIT` 1) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | git clean afterwards (no API change) |
+| `npm run build -w apps/web-angular` | passed; initial total **896.71 kB** (899.93 kB on `main`) |
+| `npm run test:web` | 136 files, **633 tests** passed |
+| `npm run lint` / `format:check -w apps/web-angular` | passed / passed |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min), `admin-rules` on `binder.views.per_day` included |
+| `npm run typecheck` / `lint` / `format:check -w apps/mobile` | passed / passed / passed |
+| `npm run test:mobile` | 90 suites, **916 tests** passed |
+| `npx expo export --platform ios`, `android`, `web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` | **56 passed** (53 s) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro simulator, under the lock) | **31 of 31 flows passed** (49 min 44 s), `limit-reached.yaml` and `payment-protection.yaml` included; the simulator left as found (light appearance, large text), the lock released |
+| `npm run test:scripts` | **133 tests** passed |
+| `npm run infra:validate` | passed (nothing planned or applied) |
+| `npm run audit:gate` | OK |
+| Android | **the Android run could not be verified** (no Android SDK on this Mac) |
+
 ### Owner follow-ups
 
 - Keep or drop the CLAUDE.md commit `e4ee954` (the handoff says CLAUDE.md is the owner's; the task
@@ -4967,8 +5034,9 @@ as found (light appearance, large text) and the lock released.
 > **Stage F1, "free for all" (owner, 2026-10-14), is built** on `feature/f1-free-for-all`: Premium,
 > sponsored placements, credits and donations removed from the API, the phone and the web; the
 > usage limits the same for everyone; protected payments kept; V120–V123; ADR 0019; the removed code
-> on `archive/paid-features` (section "Free for all" above). **Next for this branch: review, then
-> its ship step after R1** (merge `main` with R1 as that section's merge notes say; the check list of
+> on `archive/paid-features` (section "Free for all" above). Review round 1 (product and
+> functional) asked for changes: fixed, with tests (section "Review fix 1"). **Next for this
+> branch: a second look by the reviewers if the lead wants one, then its ship step after R1** (merge `main` with R1 as that section's merge notes say; the check list of
 > `docs/development/claude-handoff.md`; the pull request; merge when CI is green). Where the redesign
 > spec says the paid features "keep their flags" or "move into Settings", this later decision wins.
 >
