@@ -120,6 +120,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         faceIDPermission: 'OrenjiTrade can use Face ID to unlock your saved session.',
       },
     ],
+    // The scan's own app only: the scene life cycle iOS 27 requires of an app built with Xcode 27.
+    ...(APP_VARIANT === 'scan' ? ['./plugins/withIosSceneLifecycle'] : []),
   ],
   experiments: {
     typedRoutes: true,
