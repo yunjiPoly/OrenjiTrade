@@ -16,7 +16,8 @@ import type { OcrRotation, PixelRect } from './types';
  *   keeps no copy of it. The module makes no network call; on Android, Google's ML Kit SDK itself
  *   sends Google diagnostics and usage metrics (device and app information, latency, image format
  *   and size, error codes; no image content and no text, by Google's ML Kit data disclosure),
- *   which the Play data-safety form and the privacy policy must name (the module's README).
+ *   which the owner accepted on 2026-10-15 and the Play data-safety form and the privacy policy
+ *   must name (the module's README).
  * - The read image's longest side is at most 4096 pixels: a larger crop or photo is read smaller.
  */
 export const NATIVE_TEXT_READER_MODULE = 'OrenjiTextReader';
