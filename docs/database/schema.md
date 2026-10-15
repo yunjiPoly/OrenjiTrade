@@ -862,7 +862,10 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 - **Owner lock** (`BinderRepository.lockOwners`: `pg_advisory_xact_lock` on
   `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
   first step of every write to a collector's binders or inventory items, before any row is locked:
-  item create, update, move, delete, confirm, bulk actions, every chunk of an import commit
+  item create, update, move, delete, restore (`POST /inventory/items/{id}/restore`, the owner's
+  undo of a delete, stage R2: the owner lock, then the binder the deleted item still names, then
+  the item, through `InventoryItemRepository.lockDeleteState`), confirm, bulk actions, every chunk
+  of an import commit
   (`InventoryImportService` takes it before the import row, `InventoryService.importLines` again
   before the items, V113), admin restore, admin hide, trade
   transfer (the locks of both collectors, in ascending key order), every `BinderService` write
@@ -893,8 +896,11 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
     binder. The freshness job does that when it hides an item and then unlists it.
 
   Only the two writes that delete rows take the full lock, as their last step on those rows: a
-  binder delete (its `DELETE`, after the binder's items were released: all of them unfiled, or
-  the live ones soft-deleted when the items go with the binder) and the account purge
+  binder delete (its `DELETE`, after the binder's items were released: first the deleted items of
+  the binder that can still be restored, whose undo ends with the binder
+  (`InventoryItemRepository.endRestoreWindowsInBinder`, `ORDER BY id FOR NO KEY UPDATE`, owner
+  lock and binder held), then all of them unfiled, or the live ones soft-deleted when the items go
+  with the binder) and the account purge
   (`InventoryItemRepository.lockAllOf`, then the deletes).
 - **The freshness job takes no lock in front of the writes** (`FreshnessService.run`, hourly, one
   transaction). It writes binders and items of every collector in several statements, so no row
@@ -923,6 +929,13 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 
   A transaction that waits for nothing a write holds cannot be part of a lock cycle with one. The
   statements of the collectors' writes do not skip: they wait for a held row.
+
+  The photo purge that the same hourly trigger runs after the job (`inventory-photo-purge`, stage
+  R2: `InventoryItemRepository.closeRestoreWindows`) follows the same rule in its own
+  transaction: one statement that takes the deleted items whose restore window has passed through
+  `ORDER BY id FOR NO KEY UPDATE SKIP LOCKED`, writes only those and deletes their photo rows. An
+  item that a restore or a binder delete holds is left to the next hour (the restore checks its own
+  window; the binder delete ends the window and deletes the photos itself).
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else.
 
