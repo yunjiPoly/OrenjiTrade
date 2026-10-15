@@ -148,6 +148,22 @@ class ScanCodesTest {
     }
 
     @Test
+    void aReadInDoubtNamesTheSetsOfItsOtherLanguagesPlacesAndOfItsEnglishPlaces() {
+        // The catalog settles the doubt by these sets (W1).
+        assertThat(ScanCodes.otherLanguageSets("VLBDE005")).containsExactly("VLB");
+        assertThat(ScanCodes.englishSets("VLBDE005")).containsExactly("VLBD", "VLBDE");
+        // ZV1-0EN0O1 reads as a German misread (0E is DE), ZV10-EN0O1 as English.
+        assertThat(ScanCodes.languageInDoubt("ZV10EN0O1")).isTrue();
+        assertThat(ScanCodes.otherLanguageSets("ZV10EN0O1")).containsExactly("ZV1");
+        assertThat(ScanCodes.englishSets("ZV10EN0O1")).containsExactly("ZV10");
+        assertThat(ScanCodes.otherLanguageSets("ZMDE0O1")).containsExactly("ZM");
+        assertThat(ScanCodes.englishSets("ZMDE0O1")).containsExactly("ZMD", "ZMDE", "ZMDE0");
+        assertThat(ScanCodes.otherLanguageSets("VLB-DE-005")).containsExactly("VLB");
+        assertThat(ScanCodes.englishSets("VLB-DE-005")).isEmpty();
+        assertThat(ScanCodes.otherLanguageSets("ZACR-EN036")).isEmpty();
+    }
+
+    @Test
     void aSecondDashBetweenTheRegionAndTheNumberIsTheSameCode() {
         assertThat(ScanCodes.bases("VLB-DE-005")).containsExactly("VLB-DE005");
         assertThat(ScanCodes.otherLanguage("VLB-DE-005")).isTrue();

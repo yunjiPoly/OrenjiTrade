@@ -194,6 +194,25 @@ class CardScanMatchIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aReadInDoubtIsEnglishWhenTheCatalogKnowsOnlyTheSetOfItsEnglishPlace() {
+        // W1: ZIROEN0O1 is ZIRO-EN0O1 or a German ZIR-DEN0O1 misread. The Yu-Gi-Oh! catalog has
+        // the set ZIRO and no set ZIR (the Pokemon set ZIR never counts): English, look-alike
+        // ZIRO-EN001 found, with the name or without.
+        for (List<String> names : List.of(List.of(ScanTestCatalog.SENTRY), List.<String>of())) {
+            JsonNode match = scan(List.of("ZIROEN0O1"), names);
+            assertThat(match.path("status").asString()).as("%s", names).isEqualTo("FOUND");
+            assertThat(match.path("card").path("name").asString())
+                    .isEqualTo(ScanTestCatalog.SENTRY);
+            assertThat(match.path("printing").path("printingCode").asString())
+                    .isEqualTo("ZIRO-EN001");
+        }
+        // ZOB is a known set: ZOBDE0O5 stays another language's whatever its English place.
+        JsonNode german = scan(List.of("ZOBDE0O5"), List.of(ScanTestCatalog.DARK_MOONSEER));
+        assertThat(german.path("reason").asString()).isEqualTo("OTHER_LANGUAGE");
+        assertThat(german.has("card")).isFalse();
+    }
+
+    @Test
     void aNameOnlyFindsTheCardAndItsPrintingWhenItHasOne() {
         JsonNode several = scan(List.of(), List.of("inkshade interference"));
         assertThat(several.path("status").asString()).isEqualTo("PICK_PRINTING");

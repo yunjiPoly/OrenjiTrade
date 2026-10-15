@@ -41,6 +41,9 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
     final Card swordDancer = card("Sword Dancer of the Dunes");
     final Card shadowOracle = card("Shadow Oracle");
     final Card europeGolem = card("Old Europe Golem");
+    final Card tenfold = card("Tenfold Iron Sentry");
+    final Card gateKeeper = card("Twin Gate Keeper");
+    final Card gateWarden = card("Twin Gate Warden");
     final Card otherGame = card("pokemon", "Yew Flowers Fox");
 
     static final String[] ZA01_RARITIES = {
@@ -115,7 +118,13 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
         printing(shadowOracle, "Z05", "Fictional Oracles", zob, "Z05-EN001", "Common", "en");
         // An old English Europe print: read without its dash, ZMDE001 could be a German ZM-DE001.
         printing(europeGolem, "ZMD", "Fictional Raiders", zob, "ZMD-E001", "Common", "en");
+        // Read without its dash, ZV10EN0O1 could be a German ZV1-0EN0O1: no set ZV1 here.
+        printing(tenfold, "ZV10", "Fictional Sentries", za01, "ZV10-EN001", "Common", "en");
+        // Two sets whose codes make a dashless ZBOEN0O1 English (ZBO) or a German misread (ZB).
+        printing(gateKeeper, "ZB", "Fictional Gates", za01, "ZB-EN001", "Common", "en");
+        printing(gateWarden, "ZBO", "Fictional Gates Two", za01, "ZBO-EN001", "Common", "en");
         printing(otherGame, "ZACR", "Fictional Pokemon Set", zacr, "ZACR-EN036", "Rare", "en");
+        printing(otherGame, "ZV1", "Fictional Pokemon Sentries", za01, "ZV1-EN001", "Rare", "en");
     }
 
     Card card(String name) {
@@ -258,5 +267,17 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
             }
         }
         return result;
+    }
+
+    @Override
+    public Set<String> knownSetCodes(UUID gameId, Collection<String> setCodes) {
+        count("knownSetCodes");
+        Set<String> known = new LinkedHashSet<>();
+        for (CatalogPrintingRef ref : printings) {
+            if (ref.game().equals("yugioh") && setCodes.contains(ref.setCode())) {
+                known.add(ref.setCode());
+            }
+        }
+        return known;
     }
 }

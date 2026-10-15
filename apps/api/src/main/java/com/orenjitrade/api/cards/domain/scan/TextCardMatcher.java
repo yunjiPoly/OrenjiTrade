@@ -25,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * The text matcher of the camera scan (owner spec 2026-10-15, section 3.5): the name and set code
  * the phone read, matched against the catalog in at most five grouped queries (the codes with all
  * their forms and variants, the names, the candidate cards' printings, their summaries and
- * pictures), then decided by {@link ScanRules}. Yu-Gi-Oh! English cards only.
+ * pictures; a sixth, the sets, only for a code read in doubt between English and another language),
+ * then decided by {@link ScanRules}. Yu-Gi-Oh! English cards only.
  *
  * <p>Privacy: what was read is never logged (only the status and how many codes and names were
  * read, without the caller).
@@ -58,7 +59,7 @@ public class TextCardMatcher implements CardMatcher {
         Map<UUID, CardSummary> cards;
         if (evidence.otherLanguage()) {
             // English cards only: nothing is looked up for a read of another language.
-            catalog = new ScanRules.Catalog(Map.of(), Map.of(), Map.of(), List.of());
+            catalog = ScanRules.Catalog.empty();
             cards = Map.of();
         } else {
             Set<String> codes = ScanRules.codesToLookUp(evidence);
@@ -84,13 +85,15 @@ public class TextCardMatcher implements CardMatcher {
             cards = cardIds.isEmpty() ? Map.of() : lookup.cards(cardIds);
             Map<UUID, String> names = new LinkedHashMap<>();
             cards.forEach((id, card) -> names.put(id, card.name()));
+            Set<String> sets = ScanRules.setsToLookUp(evidence);
             catalog =
                     ScanRules.Catalog.of(
                             GAME,
                             byCode,
                             byCard,
                             names,
-                            named.stream().map(CatalogCardRef::id).toList());
+                            named.stream().map(CatalogCardRef::id).toList(),
+                            sets.isEmpty() ? Set.of() : lookup.knownSetCodes(game.id(), sets));
         }
         ScanRules.Decision decision = ScanRules.decide(evidence, catalog);
         log.debug(

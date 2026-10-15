@@ -34,8 +34,10 @@ import org.jspecify.annotations.Nullable;
  *       through its English code.
  *   <li>{@link #languageInDoubt}: a read without its dash where one place of the dash gives another
  *       language's code and another an English one ({@code VLBDE005}: {@code VLB-DE005} or {@code
- *       VLBD-E005}): English only when the catalog has one of its {@link #englishForms} as read
- *       ({@code MRDE001} is {@code MRD-E001}), otherwise another language's.
+ *       VLBD-E005}): English when the catalog has one of its {@link #englishForms} as read ({@code
+ *       MRDE001} is {@code MRD-E001}), or knows the set of an English place and none of the other
+ *       language's places ({@link #englishSets}, {@link #otherLanguageSets}: {@code SR10EN0O1} is
+ *       {@code SR10-EN0O1}, the catalog has no set {@code SR1}); otherwise another language's.
  *   <li>{@link #isPasscode}: the card's 8-digit passcode (or a stat) is never looked up, not even
  *       read with a stray dash or two look-alike letters.
  * </ul>
@@ -187,9 +189,12 @@ public final class ScanCodes {
      * goes: read without its dash (or with dashes that are not one region's), one place of the dash
      * gives another language's code, as printed or misread, and another place an English one
      * ({@code VLBDE005} is {@code VLB-DE005} or {@code VLBD-E005}, {@code MRDE001} is {@code
-     * MR-DE001} or {@code MRD-E001}). The catalog decides: English only when it has one of the
-     * {@link #englishForms} as read, otherwise another language's (owner spec 2026-10-15, section
-     * 3.5, rule 5: never matched through its English code nor as a look-alike).
+     * MR-DE001} or {@code MRD-E001}). The catalog decides (owner spec 2026-10-15, section 3.5, rule
+     * 5): English when it has one of the {@link #englishForms} as read; otherwise by the sets it
+     * knows: English, look-alikes allowed, when it knows the set of an English place ({@link
+     * #englishSets}: {@code SR10} of {@code SR10EN0O1}) and none of the sets of the other
+     * language's places ({@link #otherLanguageSets}: {@code SR1}); another language's otherwise
+     * ({@code VLBDE005}: the catalog knows {@code VLB}).
      */
     public static boolean languageInDoubt(String cleaned) {
         List<String> bases = bases(cleaned);
@@ -211,6 +216,33 @@ public final class ScanCodes {
             }
         }
         return List.copyOf(forms);
+    }
+
+    /**
+     * The set parts of the places of a read's dash that give another language's code, as printed or
+     * misread ({@code VLB} of {@code VLB-DE005} for {@code VLBDE005}, {@code SR1} of {@code
+     * SR1-0EN0O1} for {@code SR10EN0O1}): the sets a read in doubt would be another language's in.
+     */
+    public static List<String> otherLanguageSets(String cleaned) {
+        return setsOf(cleaned, true);
+    }
+
+    /**
+     * The set parts of a read's English places ({@code VLBD} and {@code VLBDE} for {@code
+     * VLBDE005}, {@code SR10} for {@code SR10EN0O1}): the sets a read in doubt would be English in.
+     */
+    public static List<String> englishSets(String cleaned) {
+        return setsOf(cleaned, false);
+    }
+
+    private static List<String> setsOf(String cleaned, boolean otherLanguage) {
+        Set<String> sets = new LinkedHashSet<>();
+        for (String base : bases(cleaned)) {
+            if (otherLanguage ? anotherLanguagesBase(base) : mayBeEnglish(base)) {
+                sets.add(base.substring(0, base.indexOf('-')));
+            }
+        }
+        return List.copyOf(sets);
     }
 
     private static boolean anotherLanguagesBase(String base) {

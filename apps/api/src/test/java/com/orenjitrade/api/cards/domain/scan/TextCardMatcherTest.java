@@ -429,15 +429,58 @@ class TextCardMatcherTest {
         assertThat(golem.printing().printingCode()).isEqualTo("ZMD-E001");
         assertThat(match(List.of("ZMDE001"), List.of("Old Europe Golem")).status())
                 .isEqualTo(ScanStatus.FOUND);
-        // A look-alike of an English place never settles the doubt: ZMDE0O1 stays refused.
-        assertThat(match(List.of("ZMDE0O1"), List.of("Old Europe Golem")).reason())
-                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        // W1: the catalog knows the set ZMD and no set ZM, so ZMDE0O1 is English and its
+        // look-alike ZMD-E001 counts (batch B1 refused it as another language's).
+        ScanMatch misread = match(List.of("ZMDE0O1"), List.of("Old Europe Golem"));
+        assertThat(misread.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(misread.printing().printingCode()).isEqualTo("ZMD-E001");
         // A second dash between an English region and the number is the same code.
         ScanMatch europe = match(List.of("ZOB-E-005"), List.of());
         assertThat(europe.status()).isEqualTo(ScanStatus.FOUND);
         assertThat(europe.printing().printingCode()).isEqualTo("ZOB-EN005");
         assertThat(match(List.of("ZA01-EN-075"), List.of()).status())
                 .isEqualTo(ScanStatus.PICK_RARITY);
+    }
+
+    @Test
+    void aReadInDoubtIsEnglishWhenTheCatalogKnowsTheSetOfAnEnglishPlaceOnly() {
+        // W1: ZV10EN0O1 (dash lost, 0 read as O) is ZV10-EN0O1 or a German ZV1-DEN0O1 misread.
+        // The catalog knows the set ZV10 and no set ZV1 (the Pokemon card's ZV1 is another game's):
+        // English, and its look-alike counts.
+        for (List<String> names : List.of(List.of("Tenfold Iron Sentry"), List.<String>of())) {
+            ScanMatch sentry = match(List.of("ZV10EN0O1"), names);
+            assertThat(sentry.status()).as("%s", names).isEqualTo(ScanStatus.FOUND);
+            assertThat(sentry.card().id()).isEqualTo(catalog.tenfold.id());
+            assertThat(sentry.printing().printingCode()).isEqualTo("ZV10-EN001");
+        }
+        // One more grouped lookup, the sets, and only for a read in doubt.
+        assertThat(catalog.calls).containsEntry("knownSetCodes", 2);
+        catalog.calls.clear();
+        match(List.of("ZV10-EN0O1"), List.of("Tenfold Iron Sentry"));
+        assertThat(catalog.calls).doesNotContainKey("knownSetCodes");
+    }
+
+    @Test
+    void aReadInDoubtStaysAnotherLanguagesWhenTheCatalogKnowsTheSetOfItsOtherPlace() {
+        // VLBDE005 style: the catalog knows ZOB (the German place ZOB-DE005's set), whatever an
+        // English place's set: refused, also with a look-alike in the number.
+        for (String code : List.of("ZOBDE005", "ZOBDE0O5", "ZOB0E0O5", "ZOBIT0O5")) {
+            assertThat(ScanCodes.languageInDoubt(code)).as(code).isTrue();
+            assertThat(match(List.of(code), List.of()).reason())
+                    .as(code)
+                    .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        }
+        // The catalog knows both ZB (the German place ZB-DEN0O1 misread) and ZBO (the English
+        // ZBO-EN0O1): refused, even with the English card's name. Read as printed, it is found.
+        ScanMatch both = match(List.of("ZBOEN0O1"), List.of("Twin Gate Warden"));
+        assertThat(both.status()).isEqualTo(ScanStatus.NOT_FOUND);
+        assertThat(both.reason()).isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        assertThat(both.otherMatches()).isEmpty();
+        assertThat(match(List.of("ZBOEN001"), List.of()).printing().printingCode())
+                .isEqualTo("ZBO-EN001");
+        // Neither set known: refused.
+        assertThat(match(List.of("QZX0EN0O1"), List.of()).reason())
+                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
     }
 
     @Test

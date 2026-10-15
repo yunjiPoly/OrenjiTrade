@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -56,5 +57,10 @@ class CatalogScanLookup implements ScanCatalogLookup {
             cards.put(card.id(), card);
         }
         return cards;
+    }
+
+    @Override
+    public Set<String> knownSetCodes(UUID gameId, Collection<String> setCodes) {
+        return scanQueries.knownSetCodes(gameId, setCodes);
     }
 }

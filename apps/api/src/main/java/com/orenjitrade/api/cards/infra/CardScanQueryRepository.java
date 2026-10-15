@@ -3,9 +3,11 @@ package com.orenjitrade.api.cards.infra;
 import com.orenjitrade.api.cards.domain.CatalogCardRef;
 import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.cards.domain.scan.NameSimilarity;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -13,7 +15,7 @@ import org.springframework.stereotype.Repository;
 /**
  * The name lookup of a scan match: the cards {@code GET /cards/suggest} would suggest for each name
  * read ({@link CatalogQueryRepository#suggestCards}: the same conditions and order), for every name
- * read in one query.
+ * read in one query; and the sets the catalog knows, which settle a code read in doubt.
  */
 @Repository
 public class CardScanQueryRepository {
@@ -95,5 +97,28 @@ public class CardScanQueryRepository {
                                         rs.getString("game"),
                                         rs.getString("name")))
                 .list();
+    }
+
+    /**
+     * The codes among {@code setCodes} of the sets of the game {@code gameId} that have a printing,
+     * in one query (the unique index on {@code card_set (game_id, code)}).
+     */
+    public Set<String> knownSetCodes(UUID gameId, Collection<String> setCodes) {
+        if (setCodes.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(
+                jdbc.sql(
+                                """
+                                SELECT s.code
+                                  FROM card_set s
+                                 WHERE s.game_id = :gameId
+                                   AND s.code IN (:codes)
+                                   AND EXISTS (SELECT 1 FROM card_printing p WHERE p.set_id = s.id)
+                                """)
+                        .param("gameId", gameId)
+                        .param("codes", List.copyOf(setCodes))
+                        .query(String.class)
+                        .list());
     }
 }
