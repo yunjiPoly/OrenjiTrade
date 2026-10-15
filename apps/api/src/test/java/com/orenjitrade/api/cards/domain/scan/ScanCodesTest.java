@@ -3,6 +3,7 @@ package com.orenjitrade.api.cards.domain.scan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /** The code cleaning, the exact forms, the look-alike variants and the language of a code read. */
@@ -216,28 +217,63 @@ class ScanCodesTest {
         assertThat(ScanCodes.exactForms("ZL1-001")).containsExactly("ZL1-001", "ZL1-EN001");
     }
 
+    /** The words of {@link #NO_FRAGMENTS} the API reads as English codes and the phone as none. */
+    private static final List<String> ENGLISH_FOR_THE_API_ONLY =
+            List.of("ZR04-E01", "ZR04-E0O", "ZR04-EO0", "ZR04-EOO", "ZR04-ENOO", "ZR04-ES1");
+
+    /**
+     * Words of the shape of a code cut short, fragments and not: the same tables as the phone's
+     * {@code textPicking.test.ts} ({@code codeFragment}), so that the two never drift apart.
+     */
+    private static final List<String> FRAGMENTS =
+            List.of(
+                    "ZR04-EN",
+                    "ZRO2-ENOT",
+                    "ZR04-ENO",
+                    "ZR04-EN0",
+                    "ZR04-E0",
+                    "ZR04-EO",
+                    "ZR04-ENX",
+                    "ZR04-ENA1",
+                    "2R0A-EN1");
+
+    private static final List<String> NO_FRAGMENTS =
+            Stream.concat(
+                            ENGLISH_FOR_THE_API_ONLY.stream(),
+                            // Codes (as printed or with look-alikes), another region, no letter or
+                            // no digit in the set part, nothing after E, more than two characters
+                            // after the region, no dash, a long set part.
+                            Stream.of(
+                                    "ZR04-EN015",
+                                    "ZR04-EN01",
+                                    "ZR04-ENO1",
+                                    "ZR04-EN0O",
+                                    "ZR04-E001",
+                                    "ZR04-DE",
+                                    "ZR04-E",
+                                    "ZRAB-EN",
+                                    "1234-EN",
+                                    "ZR04-EXYZ",
+                                    "ZR04-ENO15",
+                                    "ZR04EN",
+                                    "ZR0400-EN"))
+                    .toList();
+
     @Test
     void aCodeCutShortAfterItsEnglishRegionIsAFragment() {
-        for (String fragment : List.of("ZR04-EN", "ZRO2-ENOT", "ZR04-ENO", "ZR04-E0", "2R0A-EN1")) {
-            assertThat(ScanCodes.isFragment(fragment)).as(fragment).isTrue();
+        assertThat(FRAGMENTS).allMatch(ScanCodes::isFragment);
+        assertThat(NO_FRAGMENTS).noneMatch(ScanCodes::isFragment);
+    }
+
+    @Test
+    void aWordEnglishWithLookAlikeDigitsIsACodeNoFragment() {
+        // E or EN, then two digits or look-alike letters: an English code to look up (its old
+        // form, its look-alikes), which the phone, stricter, neither sends nor takes for a name.
+        for (String word : ENGLISH_FOR_THE_API_ONLY) {
+            assertThat(ScanCodes.englishPlaces(word)).as(word).containsExactly(word);
+            assertThat(ScanCodes.otherLanguage(word)).as(word).isFalse();
         }
-        // A code (as printed or with look-alikes), another region, no digit or no letter in the
-        // set part, nothing after E, more than two characters after the region: no fragment.
-        for (String other :
-                List.of(
-                        "ZR04-EN015",
-                        "ZR04-ENO1",
-                        "ZR04-E001",
-                        "ZR04-DE",
-                        "ZR04-E",
-                        "ZRAB-EN",
-                        "1234-EN",
-                        "ZR04-EXYZ",
-                        "ZR04-ENO15",
-                        "ZR04EN",
-                        "ZR0400-EN")) {
-            assertThat(ScanCodes.isFragment(other)).as(other).isFalse();
-        }
+        assertThat(ScanCodes.exactForms("ZR04-E01")).containsExactly("ZR04-E01", "ZR04-EN01");
     }
 
     @Test

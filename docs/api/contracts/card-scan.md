@@ -114,8 +114,12 @@ five grouped queries whatever the number of variants (a sixth for a code read in
    `9955-8127`, is ignored: it is never looked up and counts as no code.
 7. **A code cut short after its region** (`ZR04-EN`, `ZRO2-ENOT`): a set part of 2 to 5 characters
    with a letter and a digit, a dash, `E` or `EN` and at most two more characters, that is no code
-   (not English, not even with look-alike digits, and not another language's). The phone sends one
-   only when none of its reads of the photo held a whole code. It never finds a card by itself
+   (not English, not even with look-alike digits, and not another language's). `E` or `EN` then two
+   digits or look-alike letters (`ZR04-E01`, `ZR04-ENOO`) is an English code read with look-alikes
+   (rules 1 to 4), no fragment. The phone uses the same shape (`codeFragment`, the same table of
+   words in both test suites) and sends one only when none of its reads of the photo held a whole
+   code; a word the server would read as an English code but the phone does not (3 digits after
+   `E`, a real digit in the number) it sends neither way. It never finds a card by itself
    (NO_MATCH without a name). When the name wins, the card's printing in that set is its printing
    when exactly one of its English printings fits: the same set and an `EN` code whose number
    starts with the characters read after the region when those are digits, the look-alikes O and
