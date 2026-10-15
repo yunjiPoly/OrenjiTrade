@@ -473,20 +473,76 @@ export function nameCandidatesFromArea(
 }
 
 /**
+ * How far the left edge of a name may lie from the card's text column (`textColumn`), in widths of
+ * the column. On the owner's real photos (gate, 2026-10-15) a card's own name started within 0.05
+ * of its text column, and most names of the cards lying behind it 0.2 or more away from it.
+ */
+export const NAME_ALIGNMENT = 0.12;
+
+/** The left edge and width of a card's text column, in fractions of the image read. */
+interface TextColumn {
+  left: number;
+  width: number;
+}
+
+/**
+ * The card's text column, from the lines that start at its left edge: running text (5 words or
+ * more, some in lower case), the monster's type line and the passcode line. Its left edge is the
+ * lower quartile of their left edges (a Pendulum card's pendulum text starts further right, the
+ * passcode a little further left), its right edge their farthest one. Null from fewer than 2.
+ */
+function textColumn(lines: readonly OcrLine[]): TextColumn | null {
+  const anchors = lines.filter(
+    (line) =>
+      (line.text.trim().split(/\s+/).length >= 5 && /\p{Ll}/u.test(line.text)) ||
+      /^\s*\[/.test(line.text) ||
+      isTypeLine(line.text) ||
+      holdsPasscode(line.text)
+  );
+  if (anchors.length < 2) {
+    return null;
+  }
+  const lefts = anchors.map((line) => line.box.x).sort((a, b) => a - b);
+  const left = lefts[Math.floor((lefts.length - 1) / 4)] ?? 0;
+  const right = Math.max(...anchors.map((line) => line.box.x + line.box.width));
+  return right > left ? { left, width: right - left } : null;
+}
+
+/**
+ * The part of a row that starts on the text column: the row from its first line whose left edge
+ * lies within `NAME_ALIGNMENT` of the column's (a name the reader joined to a mark at its left
+ * keeps the name); null when none does.
+ */
+function partOnColumn(row: OcrRow, column: TextColumn): OcrRow | null {
+  const from = row.lines.findIndex(
+    (line) => Math.abs(line.box.x - column.left) <= NAME_ALIGNMENT * column.width
+  );
+  if (from <= 0) {
+    return from === 0 ? row : null;
+  }
+  const lines = row.lines.slice(from);
+  return { ...row, text: lines.map((line) => line.text.trim()).join(' '), lines };
+}
+
+/**
  * The name candidates of a whole-photo read: the highest rows with at least 3 letters that are
  * not a code, a [SPELL CARD] or [TRAP CARD] line (or any bracketed type line), an attribute word,
- * level stars or stats. At most `max`, top first.
+ * level stars or stats. When the read shows the card's text column (`textColumn`), only rows that
+ * start on it: the name of a card lying behind the photographed one starts elsewhere (unless no
+ * row that can be a name starts on it). At most `max`, top first.
  */
 export function nameCandidatesFromPhoto(
   lines: readonly OcrLine[],
   max: number = MAX_NAME_CANDIDATES
 ): string[] {
-  return firstDistinct(
-    rowsOf(lines)
-      .map(nameOfRow)
-      .filter((name): name is string => name !== null),
-    max
-  );
+  const rows = rowsOf(lines);
+  const names = (candidates: readonly OcrRow[]) =>
+    candidates.map(nameOfRow).filter((name): name is string => name !== null);
+  const column = textColumn(lines);
+  const aligned = column
+    ? names(rows.map((row) => partOnColumn(row, column)).filter((row) => row !== null))
+    : [];
+  return firstDistinct(aligned.length > 0 ? aligned : names(rows), max);
 }
 
 // --- Both -----------------------------------------------------------------------------------------

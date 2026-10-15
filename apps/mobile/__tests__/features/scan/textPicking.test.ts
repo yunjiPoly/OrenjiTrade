@@ -403,6 +403,38 @@ describe('name candidates', () => {
     expect(areaNames('ZR04-EN', 'Quillfeather Mage')).toEqual(['Quillfeather Mage']);
   });
 
+  it("takes only names that start on the card's text column, never a card's behind it", () => {
+    expect(nameCandidatesFromPhoto(CARD_BEFORE_ANOTHER)).toEqual([
+      'QUILLFEATHER MAGE',
+      'A quiet scholar who writes the winds into old books',
+    ]);
+    // A name the reader joined to the other card's text at its left keeps its own part.
+    expect(
+      nameCandidatesFromPhoto([
+        at('HERA', 0.0, 0.2, 0.08, 0.04),
+        ...CARD_BEFORE_ANOTHER.filter((line) => line.text !== 'GLIMMERWING HERALD'),
+      ])[0]
+    ).toBe('QUILLFEATHER MAGE');
+  });
+
+  it('keeps every name when the read shows no text column, or no name on it', () => {
+    // One anchor (the type line) is no column.
+    const noColumn = [
+      at('GLIMMERWING HERALD', 0.36, 0.0, 0.53, 0.037),
+      at('QUILLFEATHER MAGE', 0.21, 0.197, 0.41, 0.045),
+      at('[Spellcaster/Normal]', 0.198, 0.782, 0.385, 0.022),
+    ];
+    expect(nameCandidatesFromPhoto(noColumn)).toEqual(['GLIMMERWING HERALD', 'QUILLFEATHER MAGE']);
+    // A column, but no row that can be a name starts on it.
+    expect(
+      nameCandidatesFromPhoto([
+        at('GLIMMERWING HERALD', 0.5, 0.05, 0.4, 0.04),
+        at('[Spellcaster/Normal]', 0.1, 0.782, 0.385, 0.022),
+        at('12345678 1st Edition', 0.1, 0.955, 0.236, 0.02),
+      ])
+    ).toEqual(['GLIMMERWING HERALD']);
+  });
+
   it('keeps a name with a "/" that is no type line', () => {
     expect(
       nameCandidatesFromPhoto(linesOf(['Glassfin Dragon/Tempest Mode', 'Dragon/Effect']))
