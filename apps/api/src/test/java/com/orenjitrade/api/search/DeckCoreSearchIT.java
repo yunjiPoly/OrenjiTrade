@@ -287,6 +287,86 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         assertThat(textHits(privateInCore.name())).containsExactly(List.of(), List.of(), List.of());
     }
 
+    /**
+     * A plain public binder shows buyers its public cards only: a private card filed in it gives
+     * the binder no game, no card picture and no hit of the binder search's game filter. Turned
+     * into a deck core, the binder shows every live card it holds (they sell only together): the
+     * private card's game, its catalog picture and the game filter's hit come with it, and leave
+     * again when the switch is turned off (stage R3, review fix 2: the term {@code b.sells_as_core}
+     * of {@code InventoryItemRepository.IN_PUBLIC_CORE} and the game filter's {@code
+     * SHOWN_PUBLICLY}).
+     */
+    @Test
+    void aPlainBinderShowsBuyersNoGamePictureOrGameHitOfItsPrivateCards() {
+        String word = token();
+        Collector owner = collector("core-plain-private");
+        String binder = plainBinder(owner, word + " shelf");
+        file(owner, binder, printing("ygo-p012a"), 1);
+        fileWith(owner, binder, printing("pkm-p002a"), "PRIVATE");
+        String viewer = uniqueUid("core-plain-private-viewer");
+        provisionCompliant(viewer);
+
+        JsonNode plain = publicBinder(binder, viewer);
+        assertThat(strings(plain.path("games")))
+                .as("the public card's game only")
+                .containsExactly("yugioh");
+        assertThat(plain.path("previewImages")).as("the public card's picture only").hasSize(1);
+        assertThat(plain.path("keyCards")).isEmpty();
+        assertThat(gameHits(word, "pokemon", viewer)).as("the private card's game").isEmpty();
+        assertThat(gameHits(word, "yugioh", viewer)).containsExactly(binder);
+
+        // "Sell as a deck core": the private card is one of its key cards, so its game, its
+        // picture and the game filter's hit come with it.
+        callJson(
+                HttpMethod.PATCH,
+                "/api/v1/binders/" + binder,
+                owner.uid(),
+                Map.of("sellsAsCore", true),
+                200);
+        JsonNode core = publicBinder(binder, viewer);
+        assertThat(strings(core.path("games"))).containsExactlyInAnyOrder("yugioh", "pokemon");
+        assertThat(core.path("previewImages")).hasSize(2);
+        assertThat(core.path("keyCards")).hasSize(2);
+        assertThat(gameHits(word, "pokemon", viewer)).containsExactly(binder);
+        assertThat(gameHits(word, "pokemon", null)).as("anonymously too").containsExactly(binder);
+
+        // The switch off: a plain binder again, nothing of the private card.
+        callJson(
+                HttpMethod.PATCH,
+                "/api/v1/binders/" + binder,
+                owner.uid(),
+                Map.of("sellsAsCore", false),
+                200);
+        JsonNode again = publicBinder(binder, viewer);
+        assertThat(strings(again.path("games"))).containsExactly("yugioh");
+        assertThat(again.path("previewImages")).hasSize(1);
+        assertThat(gameHits(word, "pokemon", viewer)).isEmpty();
+        assertThat(gameHits(word, "yugioh", viewer)).containsExactly(binder);
+    }
+
+    private JsonNode publicBinder(String id, String viewer) {
+        return callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
+    }
+
+    /** The binders binder search finds for the text with the game filter. */
+    private List<String> gameHits(String text, String game, @Nullable String viewer) {
+        return ids(
+                get(
+                                viewer,
+                                200,
+                                "/api/v1/search?types=binders&region={r}&q={q}&game={g}",
+                                REGION,
+                                text,
+                                game)
+                        .path("binders"));
+    }
+
+    private static List<String> strings(JsonNode array) {
+        List<String> values = new ArrayList<>();
+        array.forEach(node -> values.add(node.asString()));
+        return values;
+    }
+
     /** Files a copy of {@code printingId} in the binder with a visibility; returns the item id. */
     private String fileWith(
             Collector owner, String binderId, java.util.UUID printingId, String visibility) {

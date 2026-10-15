@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.net.URI;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ class DeckCoreIT extends AbstractIntegrationTest {
     static final String BINDERS = "/api/v1/binders";
 
     @Autowired private CatalogImportService importService;
+    @Autowired private GameService gameService;
 
     @BeforeEach
     void catalog() {
@@ -446,6 +448,59 @@ class DeckCoreIT extends AbstractIntegrationTest {
         callJson(HttpMethod.POST, "/api/v1/inventory/items/" + relic + "/restore", uid, null, 200);
         assertThat(keyCardNames(callJson(HttpMethod.GET, BINDERS + "/" + id, uid, null, 200)))
                 .containsExactly("Cursed Hourglass Relic", "Verdant Moth Queen");
+    }
+
+    /**
+     * A public deck core shows a card only while its game is active (review fix 2 of stage R3: the
+     * term {@code g.status = 'ACTIVE'} of {@code InventoryItemRepository.IN_PUBLIC_CORE}): a game
+     * an admin hides takes its cards out of the core's key cards and games.
+     */
+    @Test
+    void aCardOfAHiddenGameLeavesAPublicCoresKeyCards() {
+        String uid = collector("core-hidden-game");
+        String viewer = uniqueUid("core-hidden-game-viewer");
+        provisionCompliant(viewer);
+        String slug = "coregame-" + Long.toHexString(System.nanoTime() & 0xffffffL);
+        testUsers.update(
+                """
+                INSERT INTO game (slug, name, short_name, publisher, status, sort_order, schema)
+                SELECT ?, 'Deck core test game', 'Core test', 'Konami', 'ACTIVE', 98, schema
+                  FROM game WHERE slug = 'yugioh'
+                """,
+                slug);
+        gameService.invalidate();
+        try {
+            IsolatedCard card = InventoryTestSupport.isolatedCard(testUsers, "ygo-p017a");
+            testUsers.update(
+                    "UPDATE card SET game_id = (SELECT id FROM game WHERE slug = ?) WHERE id = ?",
+                    slug,
+                    card.cardId());
+            String id = create(uid, core("Two games core", "PUBLIC", "$45"));
+            fileItem(uid, id, "ygo-p012a", 1, "PRIVATE");
+            fileCopies(uid, id, card, 2, "PRIVATE");
+            JsonNode page =
+                    callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
+            assertThat(keyCardNames(page)).containsExactly(card.name(), "Verdant Moth Queen");
+            assertThat(gameSlugs(page)).containsExactlyInAnyOrder("yugioh", slug);
+
+            testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", slug);
+            gameService.invalidate();
+            JsonNode hidden =
+                    callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
+            assertThat(keyCardNames(hidden))
+                    .as("the hidden game's card is no longer shown")
+                    .containsExactly("Verdant Moth Queen");
+            assertThat(gameSlugs(hidden)).containsExactly("yugioh");
+        } finally {
+            testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", slug);
+            gameService.invalidate();
+        }
+    }
+
+    private static List<String> gameSlugs(JsonNode binder) {
+        List<String> slugs = new ArrayList<>();
+        binder.path("games").forEach(game -> slugs.add(game.asString()));
+        return slugs;
     }
 
     private static List<String> keyCardNames(JsonNode binder) {
