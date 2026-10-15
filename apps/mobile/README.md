@@ -228,7 +228,7 @@ ORENJI_APP_VARIANT=scan npx expo prebuild --platform ios --clean --no-install
 git checkout -- package.json          # prebuild rewrites the "ios" and "android" scripts
 cd ios && LANG=en_US.UTF-8 pod install
 xcodebuild -workspace OrenjiTradeScan.xcworkspace -scheme OrenjiTradeScan -configuration Debug \
-  -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+  -sdk iphonesimulator -destination 'id=<udid>' \
   -derivedDataPath <scratch>/DerivedData RCT_METRO_PORT=8084 build
 xcrun simctl install <udid> <scratch>/DerivedData/Build/Products/Debug-iphonesimulator/OrenjiTradeScan.app
 
@@ -237,9 +237,13 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:8470 npx expo start --port 8084
 xcrun simctl launch <udid> com.orenjitrade.app.scan
 ```
 
+- `-destination 'id=<udid>'` builds for that simulator only (its own architecture, arm64 on Apple
+  silicon); `generic/platform=iOS Simulator` would compile x86_64 too.
 - `RCT_METRO_PORT=8084` makes the debug build load its JavaScript from that Metro; the Auth
   emulator stays the default `localhost:9099`. Sign in with a seed account
-  (`docs/development/test-accounts.md`).
+  (`docs/development/test-accounts.md`). On a fresh database the seed accounts have not confirmed
+  being 18+ yet (they predate the rule): the first sign-in stops at the onboarding "Age" step;
+  tick the box and continue, once per account and database.
 - iOS 27 stops an app built with Xcode 27 at launch unless it adopts the scene life cycle; Expo SDK
   57's native template does not, so the variant applies `plugins/withIosSceneLifecycle.js` (Expo's
   `ExpoAppSceneDelegate`, as SDK 58's template does). Builds without the variant are unchanged.
