@@ -36,6 +36,13 @@ export const PENDULUM_SET_CODE_AREA: CardArea = { left: 0.04, top: 0.7, right: 0
 /**
  * Margin added on each side of an area before it is cropped, as a share of that area's own width
  * and height ("about 10 %"). The crop never leaves the photo.
+ *
+ * To tune in the real-card check (section 7): on the set code's band, 5 % of the card high, it is
+ * 0.5 % of the card's height. On the simulator (batch B1, synthetic photos), a card 2.5 % / 1.5 %
+ * of the photo off the frame and tilted 1.5° left nothing in the set code area or the Pendulum
+ * spot; the whole-photo read found the code, but the read took about 1.2 s instead of 0.55 s. The
+ * camera-path times measured so far hold for a card exactly under the frame: count how often the
+ * whole photo has to be read on real cards before changing this margin or the band's height.
  */
 export const AREA_MARGIN = 0.1;
 

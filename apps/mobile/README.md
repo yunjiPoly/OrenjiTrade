@@ -249,6 +249,15 @@ xcrun simctl launch <udid> com.orenjitrade.app.scan
   `xcrun simctl openurl <udid> orenjitrade://scan/dev-reader`. It reads the picked photos through
   the areas and as a whole, and shows the lines, the candidates, the match and the times.
 - The areas of the card the scan reads are set in one place, `src/features/scan/cardAreas.ts`.
+  The camera-path times measured on the simulator hold for a card exactly under the frame; a card
+  slightly off it misses the set code area and costs a whole-photo read (`AREA_MARGIN`, to tune
+  with real cards).
+- For the phone-install task: the scan app keeps the owner app's URL scheme (`orenjitrade`), its
+  associated domains and its Google sign-in redirect (`src/auth/googleNative.ts` names
+  `com.orenjitrade.app`). With both apps on one phone, `orenjitrade://` links may open either, and
+  Google sign-in from the scan app returns to the owner's app: give the variant its own scheme
+  (`orenjitrade-scan`) and derive the redirect id from the variant, or sign in to the scan app by
+  email only. On the simulator it does not matter.
 - Android (`ORENJI_APP_VARIANT=scan npx expo prebuild --platform android`, then Gradle): written,
   but it could not be verified on this Mac (no Android SDK); the owner tries it on an Android
   phone.
