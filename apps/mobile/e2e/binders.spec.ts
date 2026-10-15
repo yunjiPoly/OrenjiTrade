@@ -96,7 +96,7 @@ test.describe('mobile binders and deck cores', () => {
     const inventory = screen(page, 'inventory');
     await inventory.getByRole('tab', { name: /^Binders/ }).click();
     await expect(inventory.getByText('No binders yet')).toBeVisible({ timeout: 30_000 });
-    await inventory.getByRole('button', { name: 'New binder' }).click();
+    await inventory.getByTestId('inventory-new-binder').click();
 
     // New binder (screen 18): the switch, a photo, the price, the note and a key card.
     const form = screen(page, 'new-binder');
@@ -344,9 +344,11 @@ test.describe('mobile binders and deck cores', () => {
     await expect(binder.getByRole('button', { name: 'Message collector1' })).toBeVisible();
 
     // Search this binder.
-    await binder.getByLabel('Search this binder').fill('azure');
+    await binder.getByLabel('Search this binder').fill('Lantern');
     await expect(binder.getByTestId('public-binder-count')).toHaveText('1 card', {
       timeout: 30_000,
     });
+    await expect(binder.getByText('Lantern Fox Spirit', { exact: true })).toBeVisible();
+    await expect(binder.getByText('Azure-Eyes Sky Dragon', { exact: true })).toHaveCount(0);
   });
 });
