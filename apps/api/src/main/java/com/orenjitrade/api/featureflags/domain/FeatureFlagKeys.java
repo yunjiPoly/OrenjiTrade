@@ -27,5 +27,11 @@ public final class FeatureFlagKeys {
     /** Voluntary donations (Phase 10). */
     public static final String DONATIONS = "donations";
 
+    /**
+     * Scan with camera: the phone reads a Yu-Gi-Oh! card's name and set code on the device, the API
+     * matches them and adds the scanned cards (V124, on by default).
+     */
+    public static final String CARD_TEXT_SCAN = "cardTextScan";
+
     private FeatureFlagKeys() {}
 }

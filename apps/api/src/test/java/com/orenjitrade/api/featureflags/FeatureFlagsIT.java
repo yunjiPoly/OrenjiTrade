@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.featureflags.infra.FeatureFlagRepository;
 import com.orenjitrade.api.featureflags.infra.FeatureFlagSeedContributor;
@@ -18,8 +19,8 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature
- * off), public map, admin reads/writes, rollout, 404 when off.
+ * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature off;
+ * V124: the camera card scan on), public map, admin reads/writes, rollout, 404 when off.
  */
 class FeatureFlagsIT extends AbstractIntegrationTest {
 
@@ -31,7 +32,8 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
                     "premiumPlans", false,
                     "advertising", false,
                     "credits", false,
-                    "donations", false);
+                    "donations", false,
+                    "cardTextScan", true);
 
     @Autowired private FeatureFlags featureFlags;
     @Autowired private FeatureFlagRepository repository;
@@ -82,7 +84,7 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", null, null, 401);
         callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", collector, null, 403);
         JsonNode list = callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", admin, null, 200);
-        assertThat(list.size()).isEqualTo(7);
+        assertThat(list.size()).isEqualTo(8);
         assertThat(list.get(0).has("rolloutPercent")).isTrue();
         assertThat(list.get(0).has("description")).isTrue();
 
@@ -223,5 +225,62 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         assertThat(featureFlags.isEnabled("donations")).isFalse();
         assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
         assertThat(featureFlags.isEnabled("publicChat")).isTrue();
+        assertThat(featureFlags.isEnabled("cardTextScan")).isTrue();
+    }
+
+    /**
+     * The camera card scan (V124) is on by default, for every account, and a SUPER_ADMIN switches
+     * it off and on again in the admin console like any other flag; the public map follows at once.
+     * mlScanning, the on-hold photo pipeline, stays off.
+     */
+    @Test
+    void cardTextScanIsOnByDefaultAndEditableInTheAdminConsole() {
+        String superAdmin = uniqueUid("ff-scan-super");
+        provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
+        String user = uniqueUid("ff-scan-user");
+        UUID userId = provisionCompliant(user);
+        featureFlags.invalidate();
+
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN)).isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN, userId)).isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.ML_SCANNING)).isFalse();
+        JsonNode admin =
+                callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", superAdmin, null, 200);
+        JsonNode row = null;
+        for (JsonNode flag : admin) {
+            if (flag.path("key").asString().equals("cardTextScan")) {
+                row = flag;
+            }
+        }
+        assertThat(row).as("listed in /admin").isNotNull();
+        assertThat(row.path("enabled").asBoolean()).isTrue();
+        assertThat(row.path("rolloutPercent").asInt()).isEqualTo(100);
+        assertThat(row.path("description").asString()).contains("Scan with camera");
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/admin/feature-flags/cardTextScan",
+                superAdmin,
+                Map.of("enabled", false),
+                200);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/public/feature-flags", user, null, 200)
+                                .path("cardTextScan")
+                                .asBoolean())
+                .isFalse();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN, userId)).isFalse();
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/admin/feature-flags/cardTextScan",
+                superAdmin,
+                Map.of("enabled", true),
+                200);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/public/feature-flags", null, null, 200)
+                                .path("cardTextScan")
+                                .asBoolean())
+                .isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.ML_SCANNING)).isFalse();
     }
 }
