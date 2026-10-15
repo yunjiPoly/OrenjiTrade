@@ -49,7 +49,7 @@ export function SellerRow({
     >
       <Avatar src={owner.avatarUrl} name={owner.displayName || owner.handle} size={40} />
       <View style={styles.text}>
-        <Text numberOfLines={1} style={[styles.handle, { color: palette.ink }]}>
+        <Text numberOfLines={2} style={[styles.handle, { color: palette.ink }]}>
           {owner.handle}
         </Text>
         <Text testID={`${testID}-line`} style={[styles.line, { color: palette.textMuted }]}>

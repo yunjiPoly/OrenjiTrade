@@ -587,8 +587,12 @@ function BinderEditor({
               textStyle('xs'),
               styles.grow,
               {
+                // The mockup's amber in dark; in light the amber reads under 4.5 : 1 on the
+                // background, so the words take the ink and the icon keeps the amber.
                 color: privateCore
-                  ? palette.warning
+                  ? palette.scheme === 'dark'
+                    ? palette.warning
+                    : palette.ink
                   : hint.findable
                     ? palette.textMuted
                     : palette.ink,

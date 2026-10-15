@@ -60,6 +60,9 @@ export function Avatar({
         />
       ) : (
         <Text
+          // The initials are sized to their circle, which does not grow with the text size: at
+          // the largest sizes they overflowed it (seen in stage R3's walk).
+          allowFontScaling={false}
           style={[
             styles.initials,
             { color: palette.onPrimaryContainer, fontSize: Math.round(size * 0.38) },
