@@ -5017,6 +5017,48 @@ Checks of this round (retries off):
 | `npm run audit:gate` | OK |
 | Android | **the Android run could not be verified** (no Android SDK on this Mac) |
 
+### Review fix 2 (2026-10-15)
+
+The second review round found two minor gaps; both were fixed:
+
+- **A per-account exception on a limit another module counts went unnoticed** (minor):
+  `binders.max`, `wishlist.items.max` and `inventory.items.max` are counted by their modules (a
+  `LimitUsageSource` each), and `Limits.consume` decides them in a branch of its own. A
+  regression in that branch that let the former Premium account through still passed every test:
+  `SeedAccountLimitsIT` checked only a counter limit. Two new tests, run against the 12 seed
+  accounts (`premium_user` and the staff included), close the gap. For each of the three limits,
+  the number is set to the account's own usage: the probe answers `429 LIMIT_REACHED` (with the
+  `limitKey`, no plan and no upgrade link), and `GET /me/limits` shows it as not allowed with 0
+  left. One more allows it again. With `binders.max` at the account's binder count, the binder
+  creation itself answers 429 and creates nothing. The numbers are restored after each test.
+  Both tests failed against the reviewers' regression (an exception for seed account 09 in the
+  source branch of `Limits.consume`) and pass without it (`ec9d508`).
+- **The runbook's Redis restart table still listed the credit balance cache** (minor):
+  `docs/deployment/runbooks.md` section 9 no longer names it. A line under the table says the
+  cache went with credits in F1 (ADR 0019, V122), and that no Premium, credit or advertising key
+  is left in Redis (`b4ecba7`; checked against the key prefixes in `apps/api/src/main`).
+
+Checks of this round (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 41 s: **954 tests** (942 in 158 classes + 12 catalog tests), 0 failures, 0 skipped (new: `SeedAccountLimitsIT` 2) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | git clean afterwards (no API change) |
+| `npm run build -w apps/web-angular` | passed; initial total **896.71 kB** (899.93 kB on `main`) |
+| `npm run test:web` | 136 files, **633 tests** passed |
+| `npm run lint` / `format:check -w apps/web-angular` | passed / passed |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.5 min) |
+| `npm run typecheck` / `lint` / `format:check -w apps/mobile` | passed / passed / passed |
+| `npm run test:mobile` | 90 suites, **916 tests** passed (and the 28 harness guard tests) |
+| `npx expo export --platform ios`, `android`, `web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` | **not run in this round**: the simulator lock was held by stage R2's fixer for the whole round (this round changed no phone code; review fix 1: 56 passed) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro simulator, under the lock) | **not run in this round**, same reason (review fix 1: 31 of 31 flows) |
+| `npm run test:scripts` | **133 tests** passed |
+| `npm run infra:validate` | passed (nothing planned or applied) |
+| `npm run audit:gate` | OK |
+| Android | **the Android run could not be verified** (no Android SDK on this Mac) |
+
 ### Owner follow-ups
 
 - Keep or drop the CLAUDE.md commit `e4ee954` (the handoff says CLAUDE.md is the owner's; the task
@@ -5035,7 +5077,8 @@ Checks of this round (retries off):
 > sponsored placements, credits and donations removed from the API, the phone and the web; the
 > usage limits the same for everyone; protected payments kept; V120–V123; ADR 0019; the removed code
 > on `archive/paid-features` (section "Free for all" above). Review round 1 (product and
-> functional) asked for changes: fixed, with tests (section "Review fix 1"). **Next for this
+> functional) asked for changes: fixed, with tests (section "Review fix 1"); round 2 found two
+> minor gaps, fixed (section "Review fix 2"). **Next for this
 > branch: a second look by the reviewers if the lead wants one, then its ship step after R1** (merge `main` with R1 as that section's merge notes say; the check list of
 > `docs/development/claude-handoff.md`; the pull request; merge when CI is green). Where the redesign
 > spec says the paid features "keep their flags" or "move into Settings", this later decision wins.
