@@ -24,7 +24,10 @@ export type FakeAnswer = FakeLines | Error;
 export interface FakeCardText {
   /** The name area. */
   name?: FakeAnswer;
-  /** The set code area: the first `recognizeSetCode` call of the photo. */
+  /**
+   * The set code area of a camera photo, or the code band of a library photo: the first
+   * `recognizeSetCode` call of the photo.
+   */
   setCode?: FakeAnswer;
   /** The Pendulum spot: the second (and any later) `recognizeSetCode` call of the photo. */
   pendulum?: FakeAnswer;
@@ -94,11 +97,20 @@ export class FakeOcrProvider implements OcrProvider {
     return ocrResultOf(answer(this.cards.get(photo.uri)?.name));
   }
 
-  async recognizeSetCode(photo: OcrPhoto, box: PixelRect): Promise<OcrResult> {
+  async recognizeSetCode(
+    photo: OcrPhoto,
+    box: PixelRect,
+    options?: RecognizeLinesOptions
+  ): Promise<OcrResult> {
     const earlier = this.callsFor(photo.uri).filter(
       (call) => call.method === 'recognizeSetCode'
     ).length;
-    this.calls.push({ method: 'recognizeSetCode', uri: photo.uri, box });
+    this.calls.push({
+      method: 'recognizeSetCode',
+      uri: photo.uri,
+      box,
+      ...(options?.rotation ? { rotation: options.rotation } : {}),
+    });
     const card = this.cards.get(photo.uri);
     return ocrResultOf(answer(earlier === 0 ? card?.setCode : card?.pendulum));
   }

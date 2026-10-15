@@ -65,8 +65,12 @@ export function createDeviceOcrProvider(native: NativeTextReaderModule): OcrProv
   return {
     recognizeName: (photo, box) =>
       area(photo, box, { scale: NAME_READ_SCALE, languageCorrection: true }),
-    recognizeSetCode: (photo, box) =>
-      area(photo, box, { scale: SET_CODE_READ_SCALE, languageCorrection: false }),
+    recognizeSetCode: (photo, box, options) =>
+      area(photo, box, {
+        scale: SET_CODE_READ_SCALE,
+        languageCorrection: false,
+        rotation: options?.rotation ?? 0,
+      }),
     recognizeLines: (photo, options) =>
       recognize(native, photo, {
         crop: null,

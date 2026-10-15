@@ -11,7 +11,8 @@
  *   after it when an area gave nothing;
  * - "library path": the whole photo, picked the way up its lines say; read again turned when it
  *   lacks a code or a name or lies sideways or upside down, first the way its lines ask, then 90°,
- *   180° and 270° (`readCardText`).
+ *   180° and 270°; without a code after that, the band where the code lies, like the set code area
+ *   ("Code band", `readCardText`).
  *
  * For each: the lines every reader call returned (with their boxes) and its time, the code and
  * name candidates of the text picking, and the answer of `POST /cards/scan-match` with its time.
@@ -97,10 +98,14 @@ function recording(provider: OcrProvider, crops: CardCrops | null, calls: Reader
         () => provider.recognizeName(photo, box),
         (result) => result.lines
       ),
-    recognizeSetCode: (photo, box) =>
+    recognizeSetCode: (photo, box, options) =>
       record(
-        crops && sameRect(box, crops.pendulumSetCode) ? 'Pendulum spot' : 'Set code area (x2)',
-        () => provider.recognizeSetCode(photo, box),
+        !crops
+          ? `Code band (x2) ${options?.rotation ?? 0}°`
+          : sameRect(box, crops.pendulumSetCode)
+            ? 'Pendulum spot'
+            : 'Set code area (x2)',
+        () => provider.recognizeSetCode(photo, box, options),
         (result) => result.lines
       ),
     recognizeLines: (photo, options) =>

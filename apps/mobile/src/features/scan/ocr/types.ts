@@ -65,9 +65,14 @@ export interface OcrProvider {
   /**
    * Reads a set code area (`box`, photo pixels, margin included). The code is tiny: the
    * implementation reads the area at twice its size (`SET_CODE_READ_SCALE`) and without language
-   * correction.
+   * correction. `rotation` turns the area clockwise after it is cut (the code band of a library
+   * photo read turned: `readCardText`).
    */
-  recognizeSetCode(photo: OcrPhoto, box: PixelRect): Promise<OcrResult>;
+  recognizeSetCode(
+    photo: OcrPhoto,
+    box: PixelRect,
+    options?: RecognizeLinesOptions
+  ): Promise<OcrResult>;
   /** Reads the whole photo, turned by `rotation`, and returns its lines with their boxes. */
   recognizeLines(photo: OcrPhoto, options?: RecognizeLinesOptions): Promise<OcrLine[]>;
 }

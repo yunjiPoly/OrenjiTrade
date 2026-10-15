@@ -1,5 +1,5 @@
 import { rowsOf, type OcrRow } from './ocr/lines';
-import type { OcrLine } from './ocr/types';
+import type { FractionRect, OcrLine } from './ocr/types';
 import {
   MAX_CODE_CANDIDATES,
   MAX_CODE_LENGTH,
@@ -494,7 +494,7 @@ interface TextColumn {
 function textColumn(lines: readonly OcrLine[]): TextColumn | null {
   const anchors = lines.filter(
     (line) =>
-      (line.text.trim().split(/\s+/).length >= 5 && /\p{Ll}/u.test(line.text)) ||
+      isRunningText(line.text) ||
       /^\s*\[/.test(line.text) ||
       isTypeLine(line.text) ||
       holdsPasscode(line.text)
@@ -508,15 +508,23 @@ function textColumn(lines: readonly OcrLine[]): TextColumn | null {
   return right > left ? { left, width: right - left } : null;
 }
 
+/** A line of a card's running text: 5 words or more, some in lower case. */
+function isRunningText(text: string): boolean {
+  return text.trim().split(/\s+/).length >= 5 && /\p{Ll}/u.test(text);
+}
+
+/** Whether a box starts on the text column (within `NAME_ALIGNMENT` of its left edge). */
+function startsOnColumn(box: FractionRect, column: TextColumn): boolean {
+  return Math.abs(box.x - column.left) <= NAME_ALIGNMENT * column.width;
+}
+
 /**
  * The part of a row that starts on the text column: the row from its first line whose left edge
  * lies within `NAME_ALIGNMENT` of the column's (a name the reader joined to a mark at its left
  * keeps the name); null when none does.
  */
 function partOnColumn(row: OcrRow, column: TextColumn): OcrRow | null {
-  const from = row.lines.findIndex(
-    (line) => Math.abs(line.box.x - column.left) <= NAME_ALIGNMENT * column.width
-  );
+  const from = row.lines.findIndex((line) => startsOnColumn(line.box, column));
   if (from <= 0) {
     return from === 0 ? row : null;
   }
@@ -543,6 +551,90 @@ export function nameCandidatesFromPhoto(
     ? names(rows.map((row) => partOnColumn(row, column)).filter((row) => row !== null))
     : [];
   return firstDistinct(aligned.length > 0 ? aligned : names(rows), max);
+}
+
+// --- Where the code lies -------------------------------------------------------------------------
+
+/** A size in pixels. */
+interface PixelSize {
+  width: number;
+  height: number;
+}
+
+/** The part of a box inside the image (0 to 1); null when none is. */
+function insideImage(box: FractionRect): FractionRect | null {
+  const left = Math.max(0, box.x);
+  const top = Math.max(0, box.y);
+  const right = Math.min(1, box.x + box.width);
+  const bottom = Math.min(1, box.y + box.height);
+  return right > left && bottom > top
+    ? { x: left, y: top, width: right - left, height: bottom - top }
+    : null;
+}
+
+/**
+ * The band around a code cut short: its centre at `centre` widths from the cut code's left edge
+ * (a code of 10 characters read as its first 7), `width` and `height` times the cut code's.
+ */
+export const FRAGMENT_BAND = { centre: 0.7, width: 4.5, height: 12 };
+
+/**
+ * The band above the top of the text box: its centre `centre` heights of that line above it,
+ * `height` times its height, from `left` to `right` widths of the text column.
+ */
+export const TEXT_TOP_BAND = { centre: 0.25, height: 6, left: 0.3, right: 1.1 };
+
+/**
+ * The band where the set code lies in a whole-photo read that holds no code, to read it again like
+ * the camera's set code area (`readCardText`, library photos). In fractions of the image read, the
+ * card upright; null when the read shows neither of these marks:
+ *
+ * - a code cut short after its region (`codeFragment`): the band is centred where the whole code
+ *   lies (the rest of it to the right), `FRAGMENT_BAND.width` times its width and
+ *   `FRAGMENT_BAND.height` times its height;
+ * - the top of the card's text box on its text column (`textColumn`): the type line, or a spell's
+ *   or trap's first line of running text. The set code is printed right above it at the right,
+ *   under the artwork: the band is centred a quarter of that line's height above it,
+ *   `TEXT_TOP_BAND.height` times its height, from 30 % of the column's width to 110 %.
+ *
+ * The band holds the code with room around it: on the owner's real photos (gate, 2026-10-15) Apple
+ * Vision read nothing in a crop holding little more than a legible code (538 × 155 pixels around
+ * it), and read it in crops several times its size. A mark whose box is taller than wide in the
+ * image's pixels (`size`) lies sideways: no band.
+ */
+export function codeBand(lines: readonly OcrLine[], size: PixelSize): FractionRect | null {
+  const wide = (box: FractionRect) => box.width * size.width > box.height * size.height;
+  const rows = rowsOf(lines);
+  const fragment = rows.find((row) => codeFragment(row.text) !== null && wide(row.box));
+  if (fragment) {
+    const { x, y, width, height } = fragment.box;
+    const bandWidth = FRAGMENT_BAND.width * width;
+    const bandHeight = FRAGMENT_BAND.height * height;
+    return insideImage({
+      x: x + FRAGMENT_BAND.centre * width - bandWidth / 2,
+      y: y + height / 2 - bandHeight / 2,
+      width: bandWidth,
+      height: bandHeight,
+    });
+  }
+  const column = textColumn(lines);
+  if (!column) {
+    return null;
+  }
+  const top =
+    rows.find((row) => isTypeLine(row.text) && wide(row.box)) ??
+    rows.find((row) => isRunningText(row.text) && startsOnColumn(row.box, column) && wide(row.box));
+  if (!top) {
+    return null;
+  }
+  const bandHeight = TEXT_TOP_BAND.height * top.box.height;
+  const left = column.left + TEXT_TOP_BAND.left * column.width;
+  return insideImage({
+    x: left,
+    y: top.box.y - TEXT_TOP_BAND.centre * top.box.height - bandHeight / 2,
+    width: column.left + TEXT_TOP_BAND.right * column.width - left,
+    height: bandHeight,
+  });
 }
 
 // --- Both -----------------------------------------------------------------------------------------

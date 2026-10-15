@@ -357,8 +357,8 @@ describe('reading a library photo', () => {
     expect(methods(fake)).toEqual(['recognizeLines@0']);
   });
 
-  it('sends a code cut short after its region when no read holds a code', async () => {
-    const fake = new FakeOcrProvider({ [PHOTO.uri]: { whole: CODE_CUT_SHORT } });
+  it('sends a code cut short after its region when no read, its code band included, holds a code', async () => {
+    const fake = new FakeOcrProvider({ [PHOTO.uri]: { whole: CODE_CUT_SHORT, setCode: ['~~'] } });
     const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
     expect(read).toEqual({
       codes: ['ZR04-EN'],
@@ -369,6 +369,55 @@ describe('reading a library photo', () => {
       'recognizeLines@90',
       'recognizeLines@180',
       'recognizeLines@270',
+      'recognizeSetCode',
+    ]);
+  });
+
+  it('reads the code band of a read without a code, like the set code area, and keeps its code', async () => {
+    const fake = new FakeOcrProvider({
+      [PHOTO.uri]: { whole: CODE_CUT_SHORT, setCode: ['ZR04-EN015'] },
+    });
+    const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZR04-EN015']);
+    expect(read.names[0]).toBe('QUILLFEATHER MAGE');
+    // Around the code cut short (0.72, 0.75, 0.09 × 0.013 of the photo), with room around it.
+    const band = fake.calls[4];
+    expect(band?.method).toBe('recognizeSetCode');
+    expect(band?.rotation).toBeUndefined();
+    expect(band?.box).toEqual({ x: 1741, y: 2714, width: 1215, height: 624 });
+  });
+
+  it('turns the code band the way the read it was placed on stood', async () => {
+    // Nothing upright; the photo read turned 90° gives the card standing: its band is cut from
+    // the photo where the turned read saw it, and read turned 90° too.
+    const fake = new FakeOcrProvider({
+      [PHOTO.uri]: { whole: [], turned: { 90: CODE_CUT_SHORT }, setCode: ['ZR04-EN015'] },
+    });
+    const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZR04-EN015']);
+    const band = fake.calls.find((call) => call.method === 'recognizeSetCode');
+    expect(band?.rotation).toBe(90);
+    expect(band?.box).toEqual({ x: 2036, y: 58, width: 468, height: 1620 });
+  });
+
+  it('reads no code band when a read holds a code, or for a camera photo', async () => {
+    const withCode = new FakeOcrProvider({
+      [PHOTO.uri]: { whole: [...CODE_CUT_SHORT, at('ZR04-EN015', 0.72, 0.75, 0.13, 0.013)] },
+    });
+    await readCardText(withCode, { photo: PHOTO, source: 'LIBRARY' });
+    expect(methods(withCode)).toEqual(['recognizeLines@0']);
+    const camera = reader({
+      name: ['Quillfeather Mage'],
+      setCode: [],
+      pendulum: [],
+      whole: CODE_CUT_SHORT,
+    });
+    await readCardText(camera, { photo: PHOTO, source: 'CAMERA', crops: CROPS });
+    expect(methods(camera)).toEqual([
+      'recognizeName',
+      'recognizeSetCode',
+      'recognizeSetCode',
+      'recognizeLines@0',
     ]);
   });
 

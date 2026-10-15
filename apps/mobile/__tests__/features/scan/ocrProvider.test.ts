@@ -102,6 +102,17 @@ describe('the device reader', () => {
     });
   });
 
+  it('reads a set code area turned as asked (the code band of a library photo read turned)', async () => {
+    const native = nativeModule([]);
+    await createDeviceOcrProvider(native).recognizeSetCode(PHOTO, BOX, { rotation: 270 });
+    expect(native.recognize).toHaveBeenCalledWith(PHOTO.uri, {
+      crop: BOX,
+      rotation: 270,
+      scale: 2,
+      languageCorrection: false,
+    });
+  });
+
   it('reads the name area at its size, and the whole photo turned as asked', async () => {
     const native = nativeModule([]);
     const provider = createDeviceOcrProvider(native);
