@@ -36,7 +36,7 @@ tags:
 - inputText: 'One too many'
 - runFlow: subflows/hide-keyboard.yaml
 - tapOn:
-    id: 'binder-save'
+    id: 'edit-binder-save'
 - extendedWaitUntil:
     visible:
       id: 'binder-limit-message'
@@ -49,10 +49,10 @@ tags:
 - assertNotVisible: '.*Premium.*'
 - takeScreenshot: limit-binders
 
-# The Profile tab: no Premium, credits or "Support OrenjiTrade". (Cancel leaves the form: a link
+# The Profile tab: no Premium, credits or "Support OrenjiTrade". (Back leaves the form: a link
 # to the app's root does not close a pushed screen.)
 - tapOn:
-    id: 'binder-cancel'
+    id: 'edit-binder-back'
 - runFlow: subflows/open-profile-tab.yaml
 - assertNotVisible:
     id: 'profile-premium'

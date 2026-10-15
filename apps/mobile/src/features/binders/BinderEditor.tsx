@@ -516,7 +516,7 @@ function BinderEditor({
       footer={footer}
       startAtEnd={initialFailed.length > 0}
       showEnd={showEnd}
-      testID="screen-edit-binder"
+      testID={binder ? 'screen-edit-binder' : 'screen-new-binder'}
     >
       {binder && needsConfirmation(binder.freshness.state) ? (
         <View

@@ -1,0 +1,198 @@
+# Native flow 2 of the phone redesign (owner spec 2026-10-14, section 14; stage R3, mockup screens
+# 16 to 18 and Inventory › Binders), as far as stage R3 reaches: a fresh collector (Quebec,
+# "Show me on the map" on) makes a binder a deck core with a photo and a price (New binder: the
+# "Sell as a deck core" switch, Photos, Asking price, Public note and a key card picked from the
+# inventory), sees it first on Inventory › Binders with its purple tag, then on its own page
+# (screen 16) as buyers see it. scripts/check-binder.js checks on the host what the isolated API
+# holds, and the public page an anonymous buyer gets (the price, the photo, the key card, Quebec,
+# never a city).
+#
+# Not in this flow yet: finding the deck core in Search › Binders › Deck cores and on the map's
+# state card ("{n} binders · {n} deck cores") comes with stage R5, which builds those screens on
+# the API of this stage (`deckCore` and `q` on the binder searches, `deckCoreCount`).
+#
+# The photo is the fictional picture of native flow 1 (media/fictional-card-photo.jpg, 600 × 800),
+# put in the simulator's photo library by `addMedia` and picked as the newest photo
+# (subflows/pick-newest-photo.yaml; see inventory-add-edit-undo.yaml).
+appId: ${APP_ID}
+name: Make a binder a deck core with a photo and a price, and see it on its page
+tags:
+  - mobile-r3
+  - binders
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: core
+      DISPLAY_NAME: Maestro Deck Core
+      PLACE: 'CA:CA-QC'
+      DISCOVERABLE: 'true'
+- runScript:
+    file: scripts/add-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      QUERY: 'Lantern Fox Spirit'
+- addMedia:
+    - media/fictional-card-photo.jpg
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible: 'Lantern Fox Spirit, .*'
+    timeout: 60000
+
+# Inventory › Binders (screen 17): none yet; New binder.
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-empty'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-new-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 30000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'Maestro core'
+- runFlow: subflows/hide-keyboard.yaml
+
+# "Sell as a deck core": the binder becomes public, the card shows Photos, Asking price and
+# Public note, and the section names its key cards.
+- tapOn:
+    id: 'binder-deck-core-switch'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-price'
+    timeout: 30000
+- assertVisible:
+    id: 'binder-visibility-hint'
+    text: 'Collectors in Americas \(North\) can find it.'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-photos-add'
+- tapOn:
+    id: 'card-photos-add'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-library'
+    timeout: 30000
+- tapOn:
+    id: 'card-photos-library'
+- runFlow:
+    file: subflows/pick-newest-photo.yaml
+    env:
+      BEHIND: 'card-photos-count'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-count'
+      text: '1 of 4 photos'
+    timeout: 60000
+- tapOn:
+    id: 'binder-price'
+- inputText: '$180'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-note'
+- tapOn:
+    id: 'binder-note'
+- inputText: 'All NM, English. Sleeves included.'
+- runFlow: subflows/hide-keyboard.yaml
+
+# A key card, picked from the inventory (it moves in with the save).
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-add-cards'
+- assertVisible:
+    id: 'binder-cards-title'
+    text: 'Key cards · optional'
+- tapOn:
+    id: 'binder-add-cards'
+- extendedWaitUntil:
+    visible: 'Lantern Fox Spirit, .*unfiled'
+    timeout: 30000
+- tapOn: 'Lantern Fox Spirit, .*unfiled'
+- tapOn:
+    id: 'card-picker-submit'
+- extendedWaitUntil:
+    visible: 'Added when you save'
+    timeout: 30000
+- takeScreenshot: r3-new-deck-core
+- tapOn:
+    id: 'edit-binder-save'
+
+# Saved: the toast, then Inventory › Binders with the deck core first and its purple tag. A photo
+# that failed reads "Saved · 1 photo wasn't saved" and opens Edit binder: the flow stops and says so.
+- extendedWaitUntil:
+    visible: 'Saved.*, Maestro core'
+    timeout: 60000
+- assertNotVisible: ".*photo wasn't saved.*"
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$180'
+    timeout: 60000
+- assertVisible:
+    id: 'binders-summary'
+    text: '0 binders · 1 deck core'
+- takeScreenshot: r3-inventory-binders
+- runScript:
+    file: scripts/check-binder.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      NAME: 'Maestro core'
+      EXPECT_CORE: 'true'
+      EXPECT_VISIBILITY: 'PUBLIC'
+      EXPECT_PRICE_TEXT: '$180'
+      EXPECT_PRICE: '180'
+      EXPECT_NOTE: 'All NM, English. Sleeves included.'
+      EXPECT_PHOTOS: '1'
+      EXPECT_PHOTO_SIZE: '600x800'
+      EXPECT_ITEMS: '1'
+      EXPECT_KEY_CARD: 'Lantern Fox Spirit'
+      EXPECT_PUBLIC_PLACE: 'Quebec, Canada'
+
+# Edit binder (screen 18): "No changes yet" until a change; its public page from the eye button.
+- tapOn: 'Maestro core, 1 photo · Public, Deck core · \$180'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- takeScreenshot: r3-edit-binder
+- tapOn:
+    id: 'edit-binder-public-page'
+
+# The deck core page (screen 16), what buyers see: the photo, the tag, the name and the price,
+# the seller row with the province, the note and the key card. The owner sees "Edit binder".
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-name'
+      text: 'Maestro core'
+    timeout: 60000
+- assertVisible:
+    id: 'deck-core-price'
+    text: '\$180'
+- assertVisible:
+    id: 'deck-core-tag'
+- assertVisible: 'Quebec · 1 public binder'
+- assertVisible: 'All NM, English. Sleeves included.'
+- assertVisible: 'Lantern Fox Spirit, 1 copy. Opens the card.'
+- assertVisible:
+    id: 'deck-core-edit'
+- takeScreenshot: r3-deck-core-page

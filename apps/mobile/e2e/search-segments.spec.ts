@@ -153,6 +153,10 @@ test.describe('mobile search segments', () => {
     await expect(view.getByTestId('public-binder-title')).toHaveText(`${token} trade binder`, {
       timeout: 30_000,
     });
-    await expect(view.getByTestId('public-binder-owner')).toContainText(`${token} Neighbour`);
+    // The seller row of the redesign (stage R3): the handle and the province.
+    await expect(view.getByTestId('public-binder-owner')).toContainText(neighbour.handle);
+    await expect(view.getByTestId('public-binder-owner-line')).toHaveText(
+      /^Ontario · \d+ public binders?$/
+    );
   });
 });

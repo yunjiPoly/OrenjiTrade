@@ -119,7 +119,12 @@ function Frame({ onBack, children }: { onBack: () => void; children: ReactNode }
     >
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.top}>
-        <BackBar label="" backLabel={PUBLIC_BINDER_COPY.backLabel} onBack={onBack} />
+        <BackBar
+          label=""
+          backLabel={PUBLIC_BINDER_COPY.backLabel}
+          onBack={onBack}
+          testID="BackButton"
+        />
       </View>
       <View style={styles.frameBody}>{children}</View>
     </View>
@@ -167,7 +172,8 @@ function PlainBinder({
           label={binder.name}
           backLabel={PUBLIC_BINDER_COPY.backLabel}
           onBack={onBack}
-          testID="public-binder-back"
+          // The id of the navigation header's back button: the flows go back the same way.
+          testID="BackButton"
         />
       </View>
       <FlatList

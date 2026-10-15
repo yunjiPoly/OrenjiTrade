@@ -71,7 +71,8 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
             accessibilityRole="button"
             accessibilityLabel={DECK_CORE_COPY.backLabel}
             onPress={back}
-            testID="deck-core-back"
+            // The id of the navigation header's back button: the flows go back the same way.
+            testID="BackButton"
             style={({ pressed }) => [
               styles.back,
               { top: insets.top + 10 },
