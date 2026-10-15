@@ -321,6 +321,38 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void aRegionOfAnotherLanguageReadWithLookAlikesIsNotFoundWhateverTheNameSays() {
+        // Dark Moonseer and Pale-Moon have one printing each and their names are read clearly:
+        // a German, Italian or Spanish code misread is still never their English printing.
+        for (String code :
+                List.of(
+                        "ZOB-0E005",
+                        "ZOB-OE005",
+                        "ZOB-1T005",
+                        "ZOB-LT005",
+                        "ZOB-5P005",
+                        "ZOB-5005",
+                        "ZOB-1005",
+                        "ZOB-6005")) {
+            ScanMatch match = match(List.of(code), List.of("Dark Moonseer"));
+            assertThat(match.status()).as(code).isEqualTo(ScanStatus.NOT_FOUND);
+            assertThat(match.reason()).as(code).isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+            assertThat(match.card()).isNull();
+            assertThat(match.printings()).isEmpty();
+            assertThat(match.otherMatches()).isEmpty();
+            assertThat(match.read().codes()).containsExactly(code);
+        }
+        assertThat(match(List.of("ZOB-5001"), List.of("Pale-Moon Frost Dragon")).reason())
+                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        // Yew Flowers has several printings: no Pick printing list of English ones either.
+        ScanMatch yew = match(List.of("ZACR-0E036"), List.of("Yew Flowers & Velvet Breeze"));
+        assertThat(yew.status()).isEqualTo(ScanStatus.NOT_FOUND);
+        assertThat(yew.reason()).isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        assertThat(yew.printings()).isEmpty();
+        assertThat(catalog.totalCalls()).as("nothing is looked up").isZero();
+    }
+
+    @Test
     void aFrenchPrintingInTheCatalogIsNeverMatched() {
         // The catalog knows ZACR-FR036; a read that cleans to it is refused above, and an English
         // read never reaches it as a look-alike or a printing of the card.
@@ -347,10 +379,18 @@ class TextCardMatcherTest {
                 .isEqualTo(ScanNotFoundReason.NOTHING_READ);
         assertThat(match(List.of("ATK"), List.of()).reason())
                 .isEqualTo(ScanNotFoundReason.NOTHING_READ);
-        // The passcode is never used, not even sent as a code.
-        assertThat(match(List.of("19608153"), List.of()).reason())
-                .isEqualTo(ScanNotFoundReason.NOTHING_READ);
+        // The passcode is never used, not even sent as a code, with a stray dash or two look-alike
+        // letters.
+        for (String passcode : List.of("19608153", "9955-8127", "9955812I", "I9608-153")) {
+            assertThat(match(List.of(passcode), List.of()).reason())
+                    .as(passcode)
+                    .isEqualTo(ScanNotFoundReason.NOTHING_READ);
+        }
         assertThat(catalog.totalCalls()).isZero();
+        // Next to a name, it is no code that could disagree with it.
+        assertThat(match(List.of("9955-8127"), List.of("Fable Tide - Lyra")).status())
+                .isEqualTo(ScanStatus.FOUND);
+        assertThat(catalog.codeLookups).isEmpty();
 
         ScanMatch junk = match(List.of("ATK/2500"), List.of("@@ ##"));
         assertThat(junk.status()).isEqualTo(ScanStatus.NOT_FOUND);

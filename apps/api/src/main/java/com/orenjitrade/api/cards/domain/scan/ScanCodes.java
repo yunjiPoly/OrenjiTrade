@@ -28,8 +28,11 @@ import java.util.regex.Pattern;
  *   <li>{@link #neighbours}: the codes one look-alike character away, the wider look-alikes 3/8,
  *       6/8, 5/6, 0/8 and 1/7 included: shown as other matches, never accepted on their own.
  *   <li>{@link #otherLanguage}: a code with another language's region ({@code MACR-FR036}, the old
- *       {@code LOB-F001}). English cards only: such a read is never matched, not even through its
- *       English code.
+ *       {@code LOB-F001}), also when the region was read with look-alike characters ({@code
+ *       MACR-0E036}, {@code LOB-5001}). English cards only: such a read is never matched, not even
+ *       through its English code.
+ *   <li>{@link #isPasscode}: the card's 8-digit passcode (or a stat) is never looked up, not even
+ *       read with a stray dash or two look-alike letters.
  * </ul>
  */
 public final class ScanCodes {
@@ -61,8 +64,29 @@ public final class ScanCodes {
             Pattern.compile(
                     "^[A-Z0-9]{2,10}-(?:(?:FR|DE|IT|SP|PT|JP|KR)[A-Z0-9]{2,4}|[FGISP][0-9]{3})$");
 
+    /** The two-letter regions of other languages. */
+    private static final Set<String> OTHER_REGIONS =
+            Set.of("FR", "DE", "IT", "SP", "PT", "JP", "KR");
+
+    /** The old one-letter regions of other languages (before three digits). */
+    private static final String OTHER_OLD_REGIONS = "FGISP";
+
+    /**
+     * A number read with look-alike letters for some digits (at least one real digit): after a
+     * two-letter region, 2 or 3 of them, sometimes after one letter.
+     */
+    private static final Pattern MISREAD_NUMBER = Pattern.compile("^[A-Z]?[0-9ODILSBZG]{2,3}$");
+
+    /** The same, after an old one-letter region: three of them. */
+    private static final Pattern MISREAD_OLD_NUMBER = Pattern.compile("^[0-9ODILSBZG]{3}$");
+
+    /** An English part after the dash, read with look-alike letters for some digits. */
+    private static final Pattern MISREAD_ENGLISH =
+            Pattern.compile("^(?:(?:EN|E)[A-Z]?[0-9ODILSBZG]{2,3}|[0-9ODILSBZG]{2,3})$");
+
     private static final Pattern OLD_NUMBER = Pattern.compile("^[0-9]{2,3}$");
-    private static final Pattern DIGITS = Pattern.compile("^[0-9]+$");
+    private static final Pattern ANY_DIGIT = Pattern.compile("[0-9]");
+    private static final Pattern NO_LETTER = Pattern.compile("^[0-9-]+$");
     private static final Pattern OLD_EUROPE = Pattern.compile("^E([0-9]{2,3})$");
     private static final Pattern OLD_ENGLISH = Pattern.compile("^EN([0-9]{2,3})$");
 
@@ -138,16 +162,82 @@ public final class ScanCodes {
     }
 
     /**
-     * Whether a cleaned code read carries another language's region: its one dash form does, or,
-     * read without a dash, some place of the dash gives another language's code and none gives an
-     * English one ({@code MACRFR036} is French, {@code MRDE001} may be {@code MRD-E001}).
+     * Whether a cleaned code read carries another language's region, as printed or misread: its one
+     * dash form does, or, read without a dash, some place of the dash gives another language's code
+     * and none gives an English one ({@code MACRFR036} is French, {@code MRDE001} may be {@code
+     * MRD-E001}).
+     *
+     * <p>A region read with look-alike characters counts ({@link #misreadOtherLanguage}): {@code
+     * VLB-0E005} is German and {@code VLB-1T005} Italian, whatever the name read says. E and N have
+     * no look-alike, so no English region is ever read as another language's.
      */
     public static boolean otherLanguage(String cleaned) {
         List<String> bases = bases(cleaned);
-        if (bases.stream().noneMatch(ScanCodes::isOtherLanguage)) {
+        if (bases.stream().noneMatch(base -> isOtherLanguage(base) || misreadOtherLanguage(base))) {
             return false;
         }
-        return bases.stream().noneMatch(ScanCodes::isEnglish);
+        return bases.stream().noneMatch(ScanCodes::mayBeEnglish);
+    }
+
+    /**
+     * Whether a full code (one dash) is another language's when its region is read with the strict
+     * look-alikes: a digit there is a letter (0 O/D, 1 I/L, 2 Z, 5 S, 6 G, 8 B) and I/L or O/D may
+     * be each other ({@code 0E} DE, {@code 1T} or {@code LT} IT, {@code 5P} SP; the old {@code 5},
+     * {@code 1}, {@code L}, {@code 6} S, I, G), and the number after it is 2 or 3 digits (3 after
+     * an old region) with look-alike letters for some of them but at least one real digit.
+     */
+    static boolean misreadOtherLanguage(String code) {
+        Matcher parts = CODE.matcher(code);
+        if (!parts.matches()) {
+            return false;
+        }
+        String rest = parts.group(2);
+        if (rest.length() >= 4 && rest.length() <= 6) {
+            String number = rest.substring(2);
+            for (char first : regionLetters(rest.charAt(0)).toCharArray()) {
+                for (char second : regionLetters(rest.charAt(1)).toCharArray()) {
+                    if (OTHER_REGIONS.contains("" + first + second)
+                            && MISREAD_NUMBER.matcher(number).matches()
+                            && ANY_DIGIT.matcher(number).find()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        if (rest.length() == 4) {
+            String number = rest.substring(1);
+            for (char region : regionLetters(rest.charAt(0)).toCharArray()) {
+                if (OTHER_OLD_REGIONS.indexOf(region) >= 0
+                        && MISREAD_OLD_NUMBER.matcher(number).matches()
+                        && ANY_DIGIT.matcher(number).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The letters a region's character may stand for: a digit's look-alike letters, or a letter and
+     * the other letter of its look-alike digit (I and L, O and D).
+     */
+    private static String regionLetters(char c) {
+        if (Character.isDigit(c)) {
+            return DIGIT_TO_LETTER.getOrDefault(c, "");
+        }
+        String digit = LETTER_TO_DIGIT.get(c);
+        return digit == null ? String.valueOf(c) : DIGIT_TO_LETTER.get(digit.charAt(0));
+    }
+
+    /**
+     * Whether a full code (one dash) may be English: an English shape, with look-alike letters
+     * allowed for the digits of its number ({@code MRD-E0O1}).
+     */
+    private static boolean mayBeEnglish(String code) {
+        Matcher parts = CODE.matcher(code);
+        return parts.matches()
+                && !isOtherLanguage(code)
+                && MISREAD_ENGLISH.matcher(parts.group(2)).matches();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -168,12 +258,37 @@ public final class ScanCodes {
         return List.copyOf(forms);
     }
 
+    /**
+     * Whether a cleaned read is the card's 8-digit passcode (never used) or a stat, never a
+     * printing code: it has no letter (every printing code has one), or, dashes left out, it has 6
+     * to 10 characters (7 to 10 with a dash: {@code DL1-001} has six), all digits but at most two
+     * letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like {@code 9955812I}. The
+     * phone skips the same reads (a run of 6 to 10 characters, all digits but at most two).
+     */
+    public static boolean isPasscode(String cleaned) {
+        if (NO_LETTER.matcher(cleaned).matches()) {
+            return true;
+        }
+        String compact = cleaned.replace("-", "");
+        int shortest = compact.length() == cleaned.length() ? 6 : 7;
+        if (compact.length() < shortest || compact.length() > 10) {
+            return false;
+        }
+        int letters = 0;
+        for (char c : compact.toCharArray()) {
+            if (Character.isDigit(c)) {
+                continue;
+            }
+            if (!LETTER_TO_DIGIT.containsKey(c) || ++letters > 2) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /** The one-dash codes of a cleaned read (a missing dash or extra dashes tried). */
     static List<String> bases(String cleaned) {
-        if (cleaned.isEmpty()
-                || cleaned.length() > MAX_LENGTH
-                || DIGITS.matcher(cleaned).matches()) {
-            // Only digits: the card's passcode (never used) or a stat, never a printing code.
+        if (cleaned.isEmpty() || cleaned.length() > MAX_LENGTH || isPasscode(cleaned)) {
             return List.of();
         }
         List<String> bases = new ArrayList<>();

@@ -74,6 +74,91 @@ class ScanCodesTest {
     }
 
     @Test
+    void anotherLanguagesRegionReadWithLookAlikesIsAnotherLanguageToo() {
+        // German DE with D read as 0 (or O), Italian IT with I read as 1 (or l, upper-cased L),
+        // Spanish SP with S read as 5: what the phone sends on purpose (it spells 0E as DE).
+        for (String read :
+                List.of(
+                        "VLB-0E005",
+                        "VLB-OE005",
+                        "ZACR-0E036",
+                        "VLB-1T005",
+                        "VLB-LT005",
+                        "ZDK-1T001",
+                        "VLB-5P005",
+                        "VLB-DE0O5",
+                        "VLB-1TS05")) {
+            assertThat(ScanCodes.otherLanguage(read)).as(read).isTrue();
+        }
+        // The old one-letter regions S, I and G before three digits: 5, 1 (or L) and 6.
+        for (String read : List.of("VLB-5005", "VLB-1005", "VLB-L005", "VLB-6005", "VLB-5OO5")) {
+            assertThat(ScanCodes.otherLanguage(read)).as(read).isTrue();
+        }
+        // Without its dash, the same unless a place of the dash gives an English code.
+        assertThat(ScanCodes.otherLanguage("ZACR1T036")).isTrue();
+        assertThat(ScanCodes.otherLanguage("VLB0E005")).as("VLB0-E005").isFalse();
+        assertThat(ScanCodes.otherLanguage("ZMDE0O1")).as("ZMD-E0O1").isFalse();
+
+        // E and N have no look-alike: an English region is never read as another language's.
+        for (String read :
+                List.of(
+                        "VLB-EN005",
+                        "VLB-EN0O5",
+                        "VLB-E005",
+                        "VLB-005",
+                        "VLB-0O5",
+                        "ZAVD-ENS08",
+                        "ZX1-001",
+                        "ZL1-001",
+                        "ZL1-E001",
+                        "2087-EN001",
+                        "ZOC-SE1",
+                        "VLB-0D05",
+                        "VLB-B005")) {
+            assertThat(ScanCodes.otherLanguage(read)).as(read).isFalse();
+        }
+        // A word of look-alike letters is no number.
+        assertThat(ScanCodes.otherLanguage("VLB-GOOD")).isFalse();
+        assertThat(ScanCodes.otherLanguage("VLB-1TOO")).isFalse();
+    }
+
+    @Test
+    void thePasscodeIsNeverACodeNotEvenWithAStrayDashOrTwoLookAlikeLetters() {
+        for (String read :
+                List.of(
+                        "19608153",
+                        "9955-8127",
+                        "9955812I",
+                        "99558I2I",
+                        "I9608-153",
+                        "1960815",
+                        "196081",
+                        "2500",
+                        "12-345")) {
+            assertThat(ScanCodes.isPasscode(read)).as(read).isTrue();
+            assertThat(ScanCodes.exactForms(read)).as(read).isEmpty();
+            assertThat(ScanCodes.lookAlikes(ScanCodes.exactForms(read))).isEmpty();
+            assertThat(ScanCodes.neighbours(ScanCodes.exactForms(read))).isEmpty();
+        }
+        // Real codes with few letters stay codes: ZL1-001 has six characters and a dash, X is no
+        // look-alike, a region is two letters.
+        for (String read :
+                List.of(
+                        "ZL1-001",
+                        "ZX1-001",
+                        "ZX1001",
+                        "ZP1-001",
+                        "2087-EN001",
+                        "ZACR-EN036",
+                        "ZOB-005",
+                        "99558IZIB",
+                        "1960815345I")) {
+            assertThat(ScanCodes.isPasscode(read)).as(read).isFalse();
+        }
+        assertThat(ScanCodes.exactForms("ZL1-001")).containsExactly("ZL1-001", "ZL1-EN001");
+    }
+
+    @Test
     void lookAlikesSwapLettersToDigitsInTheNumberAndBothWaysInTheSetPartFewestFirst() {
         List<String> variants =
                 ScanCodes.lookAlikes(ScanCodes.exactForms("ZAO1-ENO75")).stream()

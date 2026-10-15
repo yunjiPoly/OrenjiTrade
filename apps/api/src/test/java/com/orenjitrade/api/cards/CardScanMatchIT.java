@@ -157,6 +157,20 @@ class CardScanMatchIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aRegionOfAnotherLanguageReadWithLookAlikesStaysNotFoundEvenWithAMatchingName() {
+        // Dark Moonseer has one English printing (ZOB-EN005) and its name is read clearly; the
+        // German, Italian and Spanish regions misread (0E, 1T, 5P, the old 5) are still refused.
+        for (String code : List.of("ZOB-0E005", "ZOB-1T005", "ZOB-5P005", "ZOB-5005")) {
+            JsonNode match = scan(List.of(code), List.of(ScanTestCatalog.DARK_MOONSEER));
+            assertThat(match.path("status").asString()).as(code).isEqualTo("NOT_FOUND");
+            assertThat(match.path("reason").asString()).as(code).isEqualTo("OTHER_LANGUAGE");
+            assertThat(match.has("card")).isFalse();
+            assertThat(match.path("printings").size()).isZero();
+            assertThat(match.path("otherMatches").size()).isZero();
+        }
+    }
+
+    @Test
     void aNameOnlyFindsTheCardAndItsPrintingWhenItHasOne() {
         JsonNode several = scan(List.of(), List.of("inkshade interference"));
         assertThat(several.path("status").asString()).isEqualTo("PICK_PRINTING");
@@ -197,6 +211,12 @@ class CardScanMatchIT extends AbstractIntegrationTest {
         assertThat(bare.path("reason").asString()).isEqualTo("NOTHING_READ");
         assertThat(scan(List.of("ZZZZ-EN999"), List.of("qxqxqx")).path("reason").asString())
                 .isEqualTo("NO_MATCH");
+        // The passcode is never a code, not even with a stray dash or a look-alike letter.
+        for (String passcode : List.of("19608153", "9955-8127", "9955812I")) {
+            assertThat(scan(List.of(passcode), List.of()).path("reason").asString())
+                    .as(passcode)
+                    .isEqualTo("NOTHING_READ");
+        }
     }
 
     @Test
