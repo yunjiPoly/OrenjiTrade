@@ -8,8 +8,10 @@
 # simulator's photo library by `addMedia` (`xcrun simctl addmedia`): each run adds one more copy
 # there, nothing else of the device is touched. The system photo picker lives outside the app's
 # accessibility tree, so subflows/pick-newest-photo.yaml taps the newest photo by its place: the
-# harness dates the picture now before every run (`freshenFlowMedia`), so this run's copy is the
-# newest photo of the library, and the flow checks the upload worked before it goes on.
+# photo library dates a photo by its file's creation date, and the harness writes the picture
+# again as a new file before every run (`freshenFlowMedia`), so this run's copy is the newest
+# photo of the library. The flow checks the upload worked before it goes on, and that the saved
+# photo is this picture (600 × 800, kept as it is by the API), not another photo of the device.
 appId: ${APP_ID}
 name: Add a card with a text price and a photo, see Saved, edit it, delete it and undo
 tags:
@@ -136,6 +138,7 @@ tags:
       EXPECT_CONDITION_STATED: 'false'
       EXPECT_AVAILABILITY: 'TRADE_OR_SALE'
       EXPECT_IMAGES: '1'
+      EXPECT_IMAGE_SIZE: '600x800'
 
 # Edit card (screen 7): "No changes yet" until a change; a new price.
 - tapOn: 'Tidal Otterling, SVX-025, 85% TCG, 2 copies'

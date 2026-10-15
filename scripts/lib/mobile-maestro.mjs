@@ -97,16 +97,20 @@ const SEED_EMAIL = 'collector1@orenjitrade.test';
 const SEED_PASSWORD = 'LocalDev!2026';
 
 /**
- * Dates the flows' fictional pictures (apps/mobile/.maestro/media) now, before Maestro runs. Their
- * `addMedia` (`xcrun simctl addmedia`) keeps a file's modification date as the photo's date, and
- * the photo pickers of the flows take the newest photo of the library: a checkout's date made the
- * copy of this run older than any photo added to the device since (a reviewer's fictional 9000 px
- * picture was taken instead, and refused by the API; one of the device owner's own photos would
- * have been uploaded to the local API). Only the dates change, never the content.
+ * Makes the flows' fictional pictures (apps/mobile/.maestro/media) new files, before Maestro runs.
+ * Their `addMedia` (`xcrun simctl addmedia`) dates a photo by the file's creation date (its
+ * birthtime: the photo library's ZDATECREATED), and the photo pickers of the flows take the newest
+ * photo of the library: a checkout's date made the copy of this run older than any photo added to
+ * the device since (a reviewer's fictional 9000 px picture was taken instead, and refused by the
+ * API; one of the device owner's own photos would have been uploaded to the local API). A new
+ * modification date alone is not enough (review fix 2 of stage R2: `utimes` leaves the birthtime,
+ * so the photo kept the checkout's date): each picture is written again as a new file with the
+ * same bytes and mode (a sibling, renamed over it), so it is created, and modified, now. Only the
+ * dates change, never the content.
  *
- * @returns the files dated
+ * @returns the files renewed
  */
-export function freshenFlowMedia(dir = MAESTRO_MEDIA, now = new Date()) {
+export function freshenFlowMedia(dir = MAESTRO_MEDIA) {
   if (!fs.existsSync(dir)) {
     return [];
   }
@@ -114,7 +118,14 @@ export function freshenFlowMedia(dir = MAESTRO_MEDIA, now = new Date()) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isFile() && !entry.name.startsWith('.')) {
       const file = path.join(dir, entry.name);
-      fs.utimesSync(file, now, now);
+      const fresh = path.join(dir, `.${entry.name}.fresh-${process.pid}`);
+      try {
+        fs.writeFileSync(fresh, fs.readFileSync(file));
+        fs.chmodSync(fresh, fs.statSync(file).mode & 0o777);
+        fs.renameSync(fresh, file);
+      } finally {
+        fs.rmSync(fresh, { force: true });
+      }
       dated.push(file);
     }
   }

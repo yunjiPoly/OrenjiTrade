@@ -56,14 +56,31 @@ describe('the fictional pictures of the flows', () => {
     try {
       const photo = path.join(dir, 'fictional-card-photo.jpg');
       fs.writeFileSync(photo, 'jpeg');
+      fs.chmodSync(photo, 0o640);
       fs.writeFileSync(path.join(dir, '.DS_Store'), '');
       const checkout = new Date('2026-10-14T16:58:00Z');
       fs.utimesSync(photo, checkout, checkout);
-      const now = new Date('2026-10-14T23:30:00Z');
+      const before = fs.statSync(photo);
+      // The clock moves on between the checkout and the run.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30);
+      const started = Date.now();
 
-      assert.deepEqual(freshenFlowMedia(dir, now), [photo]);
-      assert.equal(fs.statSync(photo).mtime.getTime(), now.getTime());
+      assert.deepEqual(freshenFlowMedia(dir), [photo]);
+      const after = fs.statSync(photo);
+      assert.ok(after.mtimeMs >= started - 5, `modified ${after.mtime.toISOString()}`);
+      // `simctl addmedia` dates the photo by the file's creation date: the picture is a new file
+      // (a new modification date alone left the photo at the checkout's date).
+      assert.notEqual(after.ino, before.ino);
+      if (before.birthtimeMs > 0 && after.birthtimeMs > 0) {
+        assert.ok(
+          after.birthtimeMs >= started - 5,
+          `created ${after.birthtime.toISOString()}, before the run started`
+        );
+      }
       assert.equal(fs.readFileSync(photo, 'utf8'), 'jpeg');
+      assert.equal(after.mode & 0o777, 0o640);
+      // Nothing else is left in the folder.
+      assert.deepEqual(fs.readdirSync(dir).sort(), ['.DS_Store', 'fictional-card-photo.jpg']);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

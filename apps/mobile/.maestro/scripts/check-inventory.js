@@ -6,8 +6,9 @@
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, EXPECT_COUNT, and optionally
 // EXPECT_QUANTITY, EXPECT_AVAILABILITY, EXPECT_FINISH, EXPECT_PRICE_TEXT (the asking price as
 // typed), EXPECT_PRICE (its amount, or "null"), EXPECT_CONDITION_STATED, EXPECT_IMAGES (the number
-// of photos), EXPECT_VISIBILITY (of the only item), EXPECT_BINDER (its binder's name) and
-// EXPECT_BINDER_VISIBILITY (that binder's visibility).
+// of photos), EXPECT_IMAGE_SIZE (each photo's "<width>x<height>": the flow's fictional picture, not
+// another photo of the device), EXPECT_VISIBILITY (of the only item), EXPECT_BINDER (its binder's
+// name) and EXPECT_BINDER_VISIBILITY (that binder's visibility).
 // Outputs: output.inventory.{count}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
@@ -89,6 +90,12 @@ if (items.length === 1) {
     typeof EXPECT_IMAGES !== 'undefined' ? EXPECT_IMAGES : undefined,
     'photos'
   );
+  if (typeof EXPECT_IMAGE_SIZE !== 'undefined') {
+    var images = item.images || [];
+    for (var j = 0; j < images.length; j++) {
+      expectEqual(images[j].width + 'x' + images[j].height, EXPECT_IMAGE_SIZE, 'photo size');
+    }
+  }
   expectEqual(
     item.visibility,
     typeof EXPECT_VISIBILITY !== 'undefined' ? EXPECT_VISIBILITY : undefined,
