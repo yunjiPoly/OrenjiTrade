@@ -20,11 +20,9 @@ import {
   useInventoryItems,
   useInventorySummary,
 } from '@/src/api/hooks/inventory';
-import { usePrivacySettings } from '@/src/api/hooks/location';
 import { useGames } from '@/src/api/hooks/profile';
 import { useUid } from '@/src/api/hooks/useUid';
-import type { BinderResponse, InventoryItemResponse } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
+import type { InventoryItemResponse } from '@/src/api/types';
 import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -34,8 +32,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text, TextInput } from '@/src/components/ui/Text';
 import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
-import { BinderRow } from '@/src/features/binders/BinderRow';
-import { ReorderBindersSheet } from '@/src/features/binders/ReorderBindersSheet';
+import { InventoryBinders } from '@/src/features/binders/InventoryBinders';
 import {
   bulkResultMessage,
   toBulkRequest,
@@ -52,7 +49,6 @@ import {
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { ListingsPausedBanner } from '@/src/features/inventory/ListingsPausedBanner';
 import { NeedsConfirmationNotice } from '@/src/features/inventory/NeedsConfirmationNotice';
-import { ownerIsVisible } from '@/src/features/inventory/visibilityStatus';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { boundedQuery, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import {
@@ -80,8 +76,8 @@ type View_ = 'cards' | 'binders';
  * button (how many filters are on), "{n} cards · {n} copies · {n} public" with "Select", and rows
  * of only the picture, the name, the code, the asking price as typed and the copies. A row opens
  * Edit card. Select mode keeps Move to binder, Make public, Make private, Still available and
- * Delete. The listings-paused banner and the freshness notice stay. The Binders side keeps today's
- * binder list until stage R3.
+ * Delete. The listings-paused banner and the freshness notice stay. The Binders side is Inventory ›
+ * Binders (section 7, screen 17, stage R3).
  */
 export default function InventoryScreen() {
   const router = useRouter();
@@ -142,7 +138,7 @@ export default function InventoryScreen() {
           testID="inventory-view"
         />
       </View>
-      {view === 'cards' ? <CardsView /> : <BindersView />}
+      {view === 'cards' ? <CardsView /> : <InventoryBinders />}
     </View>
   );
 }
@@ -484,93 +480,6 @@ function CardsView() {
   );
 }
 
-function BindersView() {
-  const router = useRouter();
-  const binders = useMyBinders();
-  const privacy = usePrivacySettings();
-  const ownerVisible = ownerIsVisible(privacy.data);
-  const [reordering, setReordering] = useState(false);
-  const [pulling, setPulling] = useState(false);
-  const open = (binder: BinderResponse) =>
-    router.push({ pathname: '/binders/[id]', params: { id: binder.id } });
-
-  if (!binders.data && binders.error) {
-    return (
-      <ErrorState
-        testID="binders-error"
-        error={binders.error}
-        title="Your binders could not load"
-        onRetry={() => void binders.refetch()}
-      />
-    );
-  }
-  if (!binders.data) {
-    return <SkeletonList rows={3} rowHeight={80} testID="binders-loading" />;
-  }
-  return (
-    <FlatList
-      testID="binders-list"
-      data={binders.data}
-      keyExtractor={(binder) => binder.id}
-      renderItem={({ item }) => (
-        <BinderRow binder={item} ownerVisible={ownerVisible} onPress={open} />
-      )}
-      ItemSeparatorComponent={Separator}
-      ListHeaderComponent={
-        <>
-          <ListingsPausedBanner />
-          <View style={styles.binderTools}>
-            <Button
-              label="New binder"
-              icon="plus"
-              variant="secondary"
-              onPress={() => router.push('/binders/new')}
-              style={styles.binderTool}
-              testID="inventory-new-binder"
-            />
-            {binders.data.length > 1 ? (
-              <Button
-                label="Reorder"
-                icon="swap-vertical"
-                variant="ghost"
-                onPress={() => setReordering(true)}
-                style={styles.binderTool}
-                testID="binders-reorder"
-              />
-            ) : null}
-          </View>
-          <ReorderBindersSheet
-            visible={reordering}
-            binders={binders.data}
-            onClose={() => setReordering(false)}
-          />
-        </>
-      }
-      ListHeaderComponentStyle={styles.header}
-      ListEmptyComponent={
-        <EmptyState
-          testID="binders-empty"
-          icon="book-open-page-variant-outline"
-          title="No binders yet"
-          description="Binders group your cards (a trade binder, cards for sale, a deck). New binders are private until you publish them."
-          actionLabel="Create a binder"
-          onAction={() => router.push('/binders/new')}
-        />
-      }
-      refreshControl={
-        <RefreshControl
-          refreshing={pulling}
-          onRefresh={() => {
-            setPulling(true);
-            void binders.refetch().finally(() => setPulling(false));
-          }}
-        />
-      }
-      contentContainerStyle={styles.listContent}
-    />
-  );
-}
-
 function Separator() {
   return <View style={styles.separator} />;
 }
@@ -645,7 +554,5 @@ const styles = StyleSheet.create({
   listContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[6] },
   bulk: { paddingHorizontal: spacing[4], paddingBottom: spacing[2] },
   separator: { height: spacing[2] },
-  binderTools: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  binderTool: { minHeight: 44, paddingVertical: spacing[2] },
   pressed: { opacity: 0.8 },
 });

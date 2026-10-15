@@ -3,14 +3,15 @@ import { StyleSheet, View } from 'react-native';
 
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { OwnBinderView } from '@/src/features/binders/OwnBinderView';
+import { BinderEditorScreen } from '@/src/features/binders/BinderEditor';
 import { PublicBinderView } from '@/src/features/binders/PublicBinderView';
 import { spacing, useTheme } from '@/src/theme';
 
 /**
  * A binder (deep-link target: https://www.orenjitrade.com/binders/<id> and
- * orenjitrade://binders/<id>): the owner's view for one of the collector's own binders, the public
- * view for anyone else's (also the owner's "Public page", `?view=public`).
+ * orenjitrade://binders/<id>): Edit binder for one of the collector's own binders (spec
+ * 2026-10-14, section 7, screen 18), the public view for anyone else's: the deck core page
+ * (screen 16) or the public binder page. `?view=public` shows the owner what buyers see.
  */
 export default function BinderScreen() {
   const { id, view } = useLocalSearchParams<{ id: string; view?: string }>();
@@ -23,7 +24,7 @@ export default function BinderScreen() {
     // Not one of the collector's binders (or the list cannot tell): the public view answers.
     content = <PublicBinderView id={id} />;
   } else if (mine.data) {
-    content = <OwnBinderView id={id} />;
+    content = <BinderEditorScreen id={id} />;
   } else {
     content = (
       <View style={styles.loading}>

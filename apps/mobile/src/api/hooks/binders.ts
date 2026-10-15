@@ -8,8 +8,9 @@ import {
 
 import { boundedQuery } from '@/src/lib/catalog';
 
-import type { ApiError } from '../ApiError';
+import { ApiError, isApiError } from '../ApiError';
 import { api, required } from '../client';
+import { imageFormData, type PickedImage } from '../imageFormData';
 import { meKeys, publicKeys } from '../queryKeys';
 import type {
   BinderResponse,
@@ -128,7 +129,10 @@ export interface UpdateBinderInput {
   patch: UpdateBinderRequest;
 }
 
-/** `PATCH /api/v1/binders/{id}`: rename, kind, description (absent fields unchanged). */
+/**
+ * `PATCH /api/v1/binders/{id}`: name, visibility, "Sell as a deck core", the price, the note
+ * (absent fields unchanged; `confirm` also confirms the binder and its cards).
+ */
 export function useUpdateBinder() {
   return useBinderWrite<UpdateBinderInput>(
     async ({ id, patch }) =>
@@ -256,6 +260,72 @@ export function usePublicBinderItems(id: string, filters: PublicBinderFilters, e
     getNextPageParam: (last) => nextPage(last),
     placeholderData: keepPreviousData,
     enabled,
+  });
+}
+
+export interface BinderPhotoChangesInput {
+  id: string;
+  /** Photos to upload, in order. */
+  add: readonly (PickedImage & { key: string })[];
+  /** Photos of the binder to delete. */
+  remove: readonly string[];
+}
+
+export interface BinderPhotoChangesResult {
+  /** The keys of the photos that could not be uploaded (the binder is kept: "Try again"). */
+  failed: string[];
+  /** Why each of them failed, by key (the API's refusal of the photo, or a network error). */
+  errors: Record<string, ApiError>;
+  /** The photos that could not be deleted. */
+  notRemoved: string[];
+}
+
+/**
+ * The photos of a deck core (stage R3), with "Save changes": `DELETE /binders/{id}/images/{imageId}`
+ * for the ones taken away, then `POST /binders/{id}/images` for each new one, in order (the API
+ * keeps at most 4, re-encoded without location data). A photo that fails does not stop the others.
+ */
+export function useApplyBinderPhotoChanges() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<BinderPhotoChangesResult, ApiError, BinderPhotoChangesInput>({
+    mutationFn: async ({ id, add, remove }) => {
+      const notRemoved: string[] = [];
+      for (const imageId of remove) {
+        try {
+          await api.DELETE('/api/v1/binders/{id}/images/{imageId}', {
+            params: { path: { id, imageId } },
+          });
+        } catch (error) {
+          // Already gone is what was wanted.
+          if ((error as ApiError).status !== 404) {
+            notRemoved.push(imageId);
+          }
+        }
+      }
+      const failed: string[] = [];
+      const errors: Record<string, ApiError> = {};
+      for (const photo of add) {
+        try {
+          const body = await imageFormData(photo, 'binder');
+          await api.POST('/api/v1/binders/{id}/images', {
+            params: { path: { id } },
+            body: body as unknown as { file: string },
+            bodySerializer: () => body,
+          });
+        } catch (error) {
+          failed.push(photo.key);
+          errors[photo.key] = isApiError(error) ? error : ApiError.network(error);
+        }
+      }
+      return { failed, errors, notRemoved };
+    },
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) }),
+        queryClient.invalidateQueries({ queryKey: ['public', 'binders'] }),
+      ]);
+    },
   });
 }
 

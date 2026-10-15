@@ -130,6 +130,8 @@ export const tokens = {
         tagBackground: "#EDE9FE",
         tagText: "#5B21B6",
         switch: "#7C3AED",
+        surface: "#FAF7FF",
+        border: "#C4B5FD",
       },
     },
     dark: {
@@ -179,6 +181,8 @@ export const tokens = {
         tagBackground: "#2E2547",
         tagText: "#C4B5FD",
         switch: "#8B5CF6",
+        surface: "#1A1720",
+        border: "#4C3D74",
       },
     },
   },

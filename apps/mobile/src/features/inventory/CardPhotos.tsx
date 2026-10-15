@@ -45,6 +45,10 @@ export interface CardPhotosProps {
   disabled?: boolean;
   /** The label of the add tile: "Add photos" while adding, "Add" on Edit card (the mockup). */
   addLabel?: string;
+  /** The line under the tiles (the card's by default; none for a deck core, screen 18). */
+  hint?: string | null;
+  /** The photos' block (`card-photos` by default). */
+  testID?: string;
 }
 
 /**
@@ -60,6 +64,8 @@ export function CardPhotos({
   onRetry,
   disabled = false,
   addLabel = CARD_FORM_COPY.addPhotos,
+  hint = CARD_FORM_COPY.photosHint,
+  testID = 'card-photos',
 }: CardPhotosProps) {
   const { palette } = useTheme();
   // At large text sizes the add tile grows with its label instead of clipping it.
@@ -96,7 +102,7 @@ export function CardPhotos({
   };
 
   return (
-    <View style={styles.root} testID="card-photos">
+    <View style={styles.root} testID={testID}>
       <View style={styles.head}>
         <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>
           {CARD_FORM_COPY.photos}
@@ -144,9 +150,7 @@ export function CardPhotos({
           </Pressable>
         ) : null}
       </View>
-      <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-        {CARD_FORM_COPY.photosHint}
-      </Text>
+      {hint ? <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{hint}</Text> : null}
       {failed > 0 ? (
         <View
           testID="card-photos-failed"

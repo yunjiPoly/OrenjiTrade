@@ -327,14 +327,20 @@ function StepButton({
   );
 }
 
-function VisibilityToggle({
+/**
+ * "Who can see it": Private | Public (the card form, and Edit binder of stage R3 with its own
+ * test ids).
+ */
+export function VisibilityToggle({
   value,
   onChange,
   disabled,
+  testIDPrefix = 'card-visibility',
 }: {
   value: CardVisibility;
   onChange: (value: CardVisibility) => void;
   disabled: boolean;
+  testIDPrefix?: string;
 }) {
   const { palette } = useTheme();
   const options: { value: CardVisibility; label: string }[] = [
@@ -357,7 +363,7 @@ function VisibilityToggle({
             aria-checked={on}
             disabled={disabled}
             onPress={() => onChange(option.value)}
-            testID={`card-visibility-${option.value}`}
+            testID={`${testIDPrefix}-${option.value}`}
             style={({ pressed }) => [
               styles.toggleOption,
               on && { backgroundColor: palette.ink },
