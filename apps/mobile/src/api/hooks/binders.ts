@@ -1,5 +1,6 @@
 import {
   keepPreviousData,
+  type QueryClient,
   useInfiniteQuery,
   useMutation,
   useMutationState,
@@ -28,6 +29,20 @@ import { refreshInventory } from './inventory';
 import { useIsAuthenticated, useUid } from './useUid';
 
 export const BINDER_ITEMS_PAGE_SIZE = 24;
+
+/**
+ * The lists that show a binder to other collectors, as this viewer reads them: profiles (the
+ * owner's "Public binders" rows, with a deck core's price and photo, and the binder counts), the
+ * map's counts and state lists, and search. A binder write or delete marks them out of date (the
+ * ones on screen read again now, the others when next shown), so the owner's own rows never keep
+ * an old price, an old photo or a deleted binder (review fix 2 of stage R3). Not awaited: a save
+ * does not wait for lists that are not its own.
+ */
+function refreshBinderListings(queryClient: QueryClient, uid: string | null) {
+  void queryClient.invalidateQueries({ queryKey: meKeys.collectors(uid) });
+  void queryClient.invalidateQueries({ queryKey: meKeys.regionMap(uid) });
+  void queryClient.invalidateQueries({ queryKey: meKeys.searches(uid) });
+}
 
 /** The mutation key of {@link useDeleteBinder}. */
 const DELETE_BINDER_KEY = ['binders', 'delete'] as const;
@@ -117,6 +132,7 @@ export function useCreateBinder() {
       queryClient.setQueryData<BinderResponse[]>(meKeys.binderList(uid), (binders) =>
         binders ? [...binders, binder] : binders
       );
+      refreshBinderListings(queryClient, uid);
       await queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) });
     },
   });
@@ -124,7 +140,8 @@ export function useCreateBinder() {
 
 /**
  * Writes answering the updated binder: it replaces the cached one, then everything refreshes, its
- * public page too (the deck core page an owner opened from Edit binder shows the new price).
+ * public page too (the deck core page an owner opened from Edit binder shows the new price), and
+ * the lists that show it to others (the owner's profile rows, the map, search).
  */
 function useBinderWrite<TInput>(
   request: (input: TInput) => Promise<BinderResponse>,
@@ -139,6 +156,7 @@ function useBinderWrite<TInput>(
       queryClient.setQueryData<BinderResponse[]>(meKeys.binderList(uid), (binders) =>
         binders?.map((candidate) => (candidate.id === binder.id ? binder : candidate))
       );
+      refreshBinderListings(queryClient, uid);
       await Promise.all([
         // Publishing confirms the binder and its items; visibility changes their effective state.
         refreshItems
@@ -227,6 +245,7 @@ export function useDeleteBinder() {
       );
       // Its public page is gone too: no screen shows it from the cache again.
       queryClient.removeQueries({ queryKey: publicKeys.publicBinderAll(id) });
+      refreshBinderListings(queryClient, uid);
       // The deleted binder's own queries are not refetched (404 while its screen closes).
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: meKeys.inventory(uid) }),
@@ -350,6 +369,7 @@ export function useApplyBinderPhotoChanges() {
       return { failed, errors, notRemoved };
     },
     onSettled: async () => {
+      refreshBinderListings(queryClient, uid);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) }),
         queryClient.invalidateQueries({ queryKey: publicKeys.publicBinders }),
@@ -370,6 +390,8 @@ export function useReorderBinders() {
       required((await api.PUT('/api/v1/binders/reorder', { body: { binderIds } })).data),
     onSuccess: async (binders) => {
       queryClient.setQueryData(meKeys.binderList(uid), binders);
+      // The order is the one collectors see on the owner's profile.
+      refreshBinderListings(queryClient, uid);
       await queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) });
     },
   });
