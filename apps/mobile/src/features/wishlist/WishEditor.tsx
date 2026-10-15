@@ -49,7 +49,7 @@ export type WishEditorProps =
  * only when exactly one printing of the card has it; a code several printings share starts on
  * "Any printing" and "Which copy" lists those printings first (never a silent pick). Wishlist alerts come from collectors of the same region (ADR
  * 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409)
- * and plan limits (429) are explained in place.
+ * and usage limits (429, the same for every collector) are explained in place.
  */
 export function WishEditor(props: WishEditorProps) {
   const { palette } = useTheme();
