@@ -3,6 +3,9 @@ import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fake
 import { turnLines } from '@/src/features/scan/orientation';
 import { readCardText } from '@/src/features/scan/readCardText';
 import {
+  PENDULUM_NO_PASSCODE_PHOTO,
+  PENDULUM_NO_PASSCODE_READ,
+  PENDULUM_NO_PASSCODE_READ_TURNED_180,
   SIDEWAYS_PHOTO,
   SIDEWAYS_READ,
   SIDEWAYS_READ_TURNED_90,
@@ -245,6 +248,36 @@ describe('reading a library photo', () => {
     expect(read.codes).toEqual(['ZRA1-EN075']);
     expect(read.names[0]).toBe('Crimson Lantern Dragon');
     expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@270']);
+  });
+
+  it('reads an upright Pendulum card without a passcode once, name first', async () => {
+    // Batch B1 judged it upside down, read it again turned 180° and kept that read: the code
+    // misread (LPEN-EN015) and the names its bottom rows.
+    const fake = new FakeOcrProvider({
+      [PENDULUM_NO_PASSCODE_PHOTO.uri]: {
+        whole: PENDULUM_NO_PASSCODE_READ,
+        turned: { 180: PENDULUM_NO_PASSCODE_READ_TURNED_180 },
+      },
+    });
+    const read = await readCardText(fake, { photo: PENDULUM_NO_PASSCODE_PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZPEN-EN015']);
+    expect(read.names[0]).toBe('Odd-Glass Pendulum Magician');
+    expect(methods(fake)).toEqual(['recognizeLines@0']);
+  });
+
+  it('keeps the first read when the turn it asked for still reads the card upside down', async () => {
+    // The 180° read stands no better (the reader gave the card as it was): the first read, picked
+    // name first, is kept over it, and no other turn is tried.
+    const stillUpsideDown = UPSIDE_DOWN_READ.map((entry) =>
+      entry.text === 'ZMD-E001' ? { ...entry, text: 'ZMD-E007' } : entry
+    );
+    const fake = new FakeOcrProvider({
+      [UPSIDE_DOWN_PHOTO.uri]: { whole: UPSIDE_DOWN_READ, turned: { 180: stillUpsideDown } },
+    });
+    const read = await readCardText(fake, { photo: UPSIDE_DOWN_PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZMD-E001']);
+    expect(read.names[0]).toBe('Marble Roc Drake');
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@180']);
   });
 
   it('reads an upright card once', async () => {

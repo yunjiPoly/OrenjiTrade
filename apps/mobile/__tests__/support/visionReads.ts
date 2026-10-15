@@ -76,3 +76,52 @@ export const UPSIDE_DOWN_READ: OcrLine[] = [
   line('ATK/2200 DEF/1500', 0.328, 0.478, 0.095, 0.011),
   line('©2026 ORENJI FICTION', 0.328, 0.466, 0.086, 0.006),
 ];
+
+/** A Spell card upright (photo 3024 × 4032), its passcode read. */
+export const SPELL_READ: OcrLine[] = [
+  line('Starlit Ritual of Mirrors', 0.319, 0.119, 0.213, 0.013),
+  line('[SPELL CARD]', 0.578, 0.146, 0.106, 0.013),
+  line('ZSPL-EN044', 0.575, 0.42, 0.095, 0.011),
+  line('Lay 1 Ritual Monster upon your Deck by your pyre, ther', 0.33, 0.442, 0.193, 0.011),
+  line('shuffle 1 card upon vour pyre into the Deck', 0.33, 0.452, 0.149, 0.004),
+  line('45638947', 0.313, 0.528, 0.043, 0.011),
+];
+
+/**
+ * A Pendulum card upright (photo 3024 × 4032), its pendulum text five rows long, one row of
+ * monster text, no passcode or copyright printed: more lines above its code than below it.
+ */
+export const PENDULUM_NO_PASSCODE_PHOTO = {
+  uri: 'file:///cache/scan/pendulum-no-passcode.jpg',
+  width: 3024,
+  height: 4032,
+};
+export const PENDULUM_NO_PASSCODE_READ: OcrLine[] = [
+  line('Odd-Glass Pendulum Magician', 0.319, 0.119, 0.256, 0.015),
+  line('****', 0.577, 0.148, 0.104, 0.018),
+  line('Once per dusk: you can kindle the silver candle', 0.348, 0.353, 0.207, 0.011),
+  line('vou draw trom an amulet enclosing a Pendulum', 0.348, 0.366, 0.19, 0.004),
+  line('Monster to O. Before your End Phase: one may', 0.348, 0.373, 0.193, 0.013),
+  line('shelter that lamp, and if one is, set 1 Pendulum', 0.348, 0.384, 0.204, 0.011),
+  line('Monster past your Deck to your lamp.', 0.348, 0.394, 0.161, 0.011),
+  line('ZPEN-EN015', 0.319, 0.42, 0.095, 0.011),
+  line('[Spellcaster/Pendulum/Effect]', 0.328, 0.442, 0.144, 0.013),
+  line('If this lamp dazzles, your opponent draws double shadow.', 0.328, 0.453, 0.201, 0.011),
+  line('ATK/1500 DEF/1300', 0.578, 0.509, 0.095, 0.011),
+];
+/** The same photo turned 180°: the card upside down, its code misread, its name the last row. */
+export const PENDULUM_NO_PASSCODE_READ_TURNED_180: OcrLine[] = [
+  line('Odd-Glass Pendulum Magician', 0.425, 0.864, 0.253, 0.015),
+  line('*', 0.402, 0.838, 0.017, 0.011),
+  line('Once per dusk: you can kindle the silver candle', 0.445, 0.638, 0.204, 0.006),
+  line('4', 0.652, 0.621, 0.026, 0.013),
+  line('you draw trom an amulet enclosing a Pendulum', 0.46, 0.627, 0.19, 0.006),
+  line('Monster to O. Before your End Phase: one may', 0.457, 0.614, 0.195, 0.013),
+  line('shelter nat lama, and in one is, set engulum', 0.445, 0.608, 0.204, 0.004),
+  line('Monster past your Deck to your lamp.', 0.491, 0.597, 0.158, 0.006),
+  line('LPEN-EN015', 0.586, 0.569, 0.092, 0.006),
+  line('[Spellcaster/Pendulum/Effect]', 0.532, 0.545, 0.141, 0.011),
+  line('i tens lam dazes, your opponent draws double shadow.', 0.471, 0.539, 0.198, 0.004),
+  line('4', 0.319, 0.623, 0.017, 0.011),
+  line('ATK/1500 DEF/1300', 0.328, 0.478, 0.095, 0.011),
+];
