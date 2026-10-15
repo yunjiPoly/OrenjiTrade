@@ -1054,6 +1054,12 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       // The saved detail: the hint and the field scroll, Save and Cancel stay.
       fireEvent.press(within(rows).getByTestId('composer-send-etransfer'));
       const ask = await screen.findByTestId('saved-detail-sheet');
+      // The field comes first, its hint under it (at the top, the hint pushed the field out of view).
+      const fields = within(ask).UNSAFE_getByType(ScrollView);
+      const order = within(fields)
+        .getAllByTestId(/^saved-detail-(input|hint)$/)
+        .map((node) => node.props.testID);
+      expect(order).toEqual(['saved-detail-input', 'saved-detail-hint']);
       expect(within(ask).getByText('Save and use')).toHaveProp(
         'maxFontSizeMultiplier',
         PINNED_MAX_FONT_SCALE

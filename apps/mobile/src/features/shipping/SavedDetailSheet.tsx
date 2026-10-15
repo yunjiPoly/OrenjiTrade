@@ -67,16 +67,14 @@ export function SavedDetailSheet({
       testID="saved-detail-sheet"
       avoidKeyboard
     >
-      {/* The hint and the field scroll at the largest text sizes; the buttons stay in reach. */}
+      {/* The field, then where it is kept: at the largest text sizes they scroll, the field first
+          in view, and the buttons stay in reach. */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {SAVED_DETAIL_COPY.hint}
-        </Text>
         <TextField
           label={address ? SAVED_DETAIL_COPY.addressLabel : SAVED_DETAIL_COPY.etransferLabel}
           value={value}
@@ -97,6 +95,9 @@ export function SavedDetailSheet({
           inputStyle={address ? styles.address : undefined}
           testID="saved-detail-input"
         />
+        <Text testID="saved-detail-hint" style={[textStyle('sm'), { color: palette.textMuted }]}>
+          {SAVED_DETAIL_COPY.hint}
+        </Text>
       </ScrollView>
       <View style={styles.buttons}>
         <Button
