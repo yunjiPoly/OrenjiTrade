@@ -308,6 +308,8 @@ describe('Public binder', () => {
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText("You reached today's binder views")).toBeOnTheScreen();
     expect(screen.getByText(/You have used 30 of 30 public binder views today/)).toBeOnTheScreen();
+    // Every collector has the same limits (stage F1): nothing to buy, no plan to name.
+    expect(screen.queryByText(/Premium|\bplans?\b|upgrade|credits/i)).toBeNull();
   });
 
   it('shows an error with retry', async () => {

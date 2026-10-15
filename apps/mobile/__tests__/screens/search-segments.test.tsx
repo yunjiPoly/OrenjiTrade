@@ -66,6 +66,8 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(screen.getByTestId('search-collectors-count')).toHaveTextContent(
       '1 collector for “noé”'
     );
+    // No sponsored row among the results (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     // The home region scopes the search (ADR 0017); only the collectors section is asked for.
     const query = api.callsTo('GET /api/v1/search').at(-1)?.query;
     expect(query?.get('region')).toBe('americas-north');
@@ -425,6 +427,7 @@ describe('Search tab segments (the web /search tabs)', () => {
     expect(screen.getByTestId('search-binders-count')).toHaveTextContent(
       '1 public binder for “magic”'
     );
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     fireEvent.press(row);
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',

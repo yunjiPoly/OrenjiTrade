@@ -54,6 +54,8 @@ describe('Inventory tab', () => {
     expect(await screen.findByTestId('inventory-summary-totals')).toHaveTextContent(
       '1 card · 2 copies · 0 public now'
     );
+    // No sponsored row in the inventory (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/items/[id]',

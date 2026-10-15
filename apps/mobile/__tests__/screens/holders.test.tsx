@@ -86,6 +86,8 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     const second = screen.getByTestId(`holder-${OTHER_ITEM}`);
     expect(within(second).getByTestId(`holder-${OTHER_ITEM}-price`)).toHaveTextContent('No price');
     expect(within(second).queryByRole('button', { name: /Make an offer/ })).toBeNull();
+    // No sponsored row among the holders (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     // The home region (ADR 0017): no position; the card id, the default sort and page.
     const query = api.callsTo('GET /api/v1/search/card-holders')[0]?.query;
     expect(Object.fromEntries(query ?? [])).toEqual({
