@@ -427,6 +427,37 @@ describe('New binder', () => {
     expect(useBinderUiStore.getState().failedPhotos['core-new']).toHaveLength(1);
   });
 
+  it('a card move that fails after the binder was made opens Edit binder with the photos kept', async () => {
+    const created = binderFixture({ id: 'b-new', name: 'Holos' });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([OTHER])),
+        'POST /api/v1/binders': ok(created, 201),
+        'POST /api/v1/inventory/items/bulk': problem(500, 'INTERNAL_ERROR', 'boom'),
+      })
+    );
+    libraryPick('core.jpg');
+    renderWithProviders(<NewBinderScreen />, { port: port() });
+    fireEvent.changeText(screen.getByTestId('binder-name'), 'Holos');
+    fireEvent(screen.getByTestId('binder-deck-core-switch'), 'valueChange', true);
+    fireEvent.press(screen.getByTestId('card-photos-add'));
+    fireEvent.press(await screen.findByTestId('card-photos-library'));
+    expect(await screen.findByText('1 / 4')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('binder-add-cards'));
+    const sheet = await screen.findByTestId('card-picker-sheet');
+    fireEvent.press(await within(sheet).findByTestId('card-picker-item-2'));
+    fireEvent.press(within(sheet).getByTestId('card-picker-submit'));
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    await waitFor(() =>
+      expect(mockRouter.replace).toHaveBeenCalledWith({
+        pathname: '/binders/edit',
+        params: { id: 'b-new' },
+      })
+    );
+    expect(await screen.findByTestId('snackbar')).toBeOnTheScreen();
+    expect(useBinderUiStore.getState().failedPhotos['b-new']).toHaveLength(1);
+  });
+
   it('explains the binders limit plainly', async () => {
     mockApi(
       signedInRoutes({

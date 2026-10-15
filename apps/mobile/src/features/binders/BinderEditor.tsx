@@ -368,7 +368,15 @@ function BinderEditor({
       setSaving(false);
       setMessage(friendlyMessage(error as ApiError));
       if (!binder) {
-        // The binder exists now: its own screen keeps the rest of the work.
+        // The binder exists now: its own screen keeps the rest of the work (the photos not
+        // uploaded yet wait there with "Try again"; the cards can be added again).
+        snackbar.show(friendlyMessage(error as ApiError), { tone: 'error' });
+        if (pending.length > 0) {
+          keepFailedPhotos(
+            saved.id,
+            pending.map((tile) => tile.photo)
+          );
+        }
         router.replace({ pathname: '/binders/edit', params: { id: saved.id } });
       }
       return;
