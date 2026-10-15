@@ -50,7 +50,8 @@ WHERE w.active AND w.owner_id <> :ownerId
 → insert `wishlist_match` (ignore conflicts) → `NotificationService.notify(userId, type
 WISHLIST_MATCH, dedupKey "wishlist:{wishlistItemId}:{inventoryItemId}", data {…})` which
 applies notification preferences, quiet hours, daily limit per type (limit-reached creates a
-single "You have more matches — upgrade" notification once per day), then fans out: in-app
+single "You have more matches — upgrade" notification once per day; since stage F1, ADR 0019, it
+names the limit and when it resets, with no upgrade), then fans out: in-app
 row + realtime `/user/queue/notifications`, push via `PushProvider` (FCM adapter with
 multicast + invalid-token cleanup; `LogPushProvider` locally), email via `EmailProvider`
 (log locally). Body example: "Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km away".
