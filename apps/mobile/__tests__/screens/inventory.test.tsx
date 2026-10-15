@@ -1,13 +1,16 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
-import { lightPalette } from '@/src/theme';
+import { lightPalette, PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   binderFixture,
   BINDER_ID,
+  BINDER_PHOTO,
+  deckCoreFixture,
   inventoryPage,
   ITEM_ID,
   itemFixture,
@@ -435,7 +438,7 @@ describe('Inventory (screen 1)', () => {
   });
 });
 
-describe('Inventory › Binders (kept until stage R3)', () => {
+describe('Inventory › Binders (screen 17)', () => {
   it('reorders the binders with the arrows and saves the order', async () => {
     const second = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 1 });
     const api = mockApi(
@@ -457,41 +460,145 @@ describe('Inventory › Binders (kept until stage R3)', () => {
     });
   });
 
-  it('lists binders, opens one, creates one and explains an empty list', async () => {
+  it('reorders inside each group, the deck cores first as in the list', async () => {
+    const sale = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 2 });
+    const core = deckCoreFixture({ sortOrder: 1 });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/binders': ok([binderFixture(), core, sale]),
+        'PUT /api/v1/binders/reorder': ok([core, sale, binderFixture()]),
+      })
+    );
+    mockParams.current = { view: 'binders' };
+    render();
+    fireEvent.press(await screen.findByTestId('binders-reorder'));
+    const sheet = await screen.findByTestId('reorder-binders');
+    // The order of the list: "Deck cores" first, then "Binders", each counted on its own.
+    expect(within(sheet).getByTestId('reorder-group-cores')).toHaveTextContent('Deck cores');
+    expect(within(sheet).getByTestId('reorder-group-binders')).toHaveTextContent('Binders');
+    expect(within(sheet).getByTestId(`reorder-${core.id}`).props.accessibilityLabel).toBe(
+      'Snake-Eye core, position 1 of 1'
+    );
+    expect(within(sheet).getByTestId(`reorder-${BINDER_ID}`).props.accessibilityLabel).toBe(
+      'Trade binder, position 1 of 2'
+    );
+    // A binder never moves into the deck cores, nor a deck core among the binders.
+    expect(within(sheet).getByTestId(`reorder-${core.id}-down`)).toBeDisabled();
+    expect(within(sheet).getByTestId(`reorder-${BINDER_ID}-up`)).toBeDisabled();
+    fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
+    fireEvent.press(within(sheet).getByTestId('reorder-save'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Binder order saved.');
+    expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
+      binderIds: [core.id, 'b-2', BINDER_ID],
+    });
+  });
+
+  it('keeps the binders, Cancel and Save order within reach at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([binderFixture(), deckCoreFixture()]) }));
+      mockParams.current = { view: 'binders' };
+      render();
+      fireEvent.press(await screen.findByTestId('binders-reorder'));
+      const sheet = await screen.findByTestId('reorder-binders');
+      // The description scrolls with the binders (above them it filled the sheet: no binder was
+      // left on screen), and the title grows no more than a screen's title.
+      const list = within(sheet).getByTestId('reorder-list');
+      expect(
+        within(list).getByText('Move binders up or down. The order is the one collectors see.')
+      ).toBeOnTheScreen();
+      expect(within(list).getByTestId(`reorder-${BINDER_ID}`)).toBeOnTheScreen();
+      expect(within(sheet).getByTestId('reorder-binders-title')).toHaveTextContent(
+        'Reorder binders'
+      );
+      expect(within(sheet).getByTestId('reorder-binders-title')).toHaveProp(
+        'maxFontSizeMultiplier',
+        2
+      );
+      // The two buttons stay under the list, wrapping rather than pushing Cancel off the screen.
+      const actions = within(sheet).getByTestId('reorder-actions');
+      expect(actions).toHaveStyle({ flexWrap: 'wrap' });
+      expect(within(list).queryByTestId('reorder-cancel')).toBeNull();
+      expect(within(actions).getByText('Cancel')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      expect(within(actions).getByText('Save order')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      fireEvent.press(within(actions).getByTestId('reorder-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('reorder-binders')).toBeNull());
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+
+  it('lists the deck cores first, then the binders, with the summary and the tip', async () => {
     mockApi(
       signedInRoutes({
         'GET /api/v1/binders': ok([
-          binderFixture(),
-          binderFixture({
-            id: 'b-2',
-            name: 'Holo binder',
-            kind: 'SALE',
-            visibility: 'PUBLIC',
-            effectivePublic: false,
-            itemCount: 4,
-            publicItemCount: 0,
+          binderFixture({ itemCount: 9, visibility: 'PUBLIC', effectivePublic: true }),
+          deckCoreFixture({
+            photos: [BINDER_PHOTO, { ...BINDER_PHOTO, id: 'photo-2', sortOrder: 1 }],
           }),
+          binderFixture({ id: 'b-3', name: 'Staples', itemCount: 1 }),
         ]),
       })
     );
     const { unmount } = render();
     fireEvent.press(screen.getByTestId('inventory-view-binders'));
-    expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
-    expect(screen.getByText(/For sale · 4 cards · 0 public/)).toBeOnTheScreen();
-    expect(screen.getByText('Public · not visible')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('link', { name: /^Trade binder/ }));
+    expect(await screen.findByTestId('binders-summary')).toHaveTextContent(
+      '2 binders · 1 deck core'
+    );
+    const core = deckCoreFixture();
+    // Deck cores first: photo count and visibility, and the purple tag with the price.
+    const rows = screen.getAllByTestId(/^binder-row-name-/);
+    expect(rows.map((row) => row.props.children)).toEqual([
+      'Snake-Eye core',
+      'Trade binder',
+      'Staples',
+    ]);
+    expect(screen.getByTestId(`binder-row-line-${core.id}`)).toHaveTextContent('2 photos · Public');
+    expect(screen.getByTestId(`binder-row-tag-${core.id}`)).toHaveTextContent('Deck core · $180');
+    expect(screen.getByTestId(`binder-row-line-${BINDER_ID}`)).toHaveTextContent(
+      '9 cards · Public'
+    );
+    expect(screen.getByTestId('binder-row-line-b-3')).toHaveTextContent('1 card · Private');
+    expect(screen.getByTestId('binders-tip')).toHaveTextContent(
+      /Selling a whole deck\? Turn on “Sell as a deck core” in a binder\. Photos, a price and a note are enough\.$/
+    );
+    // A row opens Edit binder; "New binder" opens the same form, empty.
+    fireEvent.press(screen.getByRole('button', { name: /^Snake-Eye core, 2 photos · Public/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/binders/[id]',
-      params: { id: BINDER_ID },
+      pathname: '/binders/edit',
+      params: { id: core.id },
     });
     fireEvent.press(screen.getByTestId('inventory-new-binder'));
     expect(mockRouter.push).toHaveBeenCalledWith('/binders/new');
     unmount();
 
+    // Without deck cores the summary drops its second part.
+    mockParams.current = { view: 'binders' };
+    const plain = mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([binderFixture()]) }));
+    const second = render();
+    expect(await screen.findByTestId('binders-summary')).toHaveTextContent(/^1 binder$/);
+    expect(plain.callsTo('GET /api/v1/binders').length).toBeGreaterThan(0);
+    second.unmount();
+
     mockParams.current = { view: 'binders' };
     mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([]) }));
     render();
     expect(await screen.findByText('No binders yet')).toBeOnTheScreen();
+    expect(screen.queryByTestId('binders-tip')).toBeNull();
   });
 
   it('shows a binder list error with retry', async () => {

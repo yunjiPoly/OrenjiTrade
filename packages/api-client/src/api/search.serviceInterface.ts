@@ -13,6 +13,7 @@ import { Observable }                                        from 'rxjs';
 
 import { PageResponseCardHolderResult } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { PublicBinderSummary } from '../model/models';
 import { SearchSuggestion } from '../model/models';
 import { UnifiedSearchResponse } from '../model/models';
 
@@ -26,6 +27,7 @@ export interface SearchRequestParams {
     game?: string;
     region?: string;
     limit?: number;
+    deckCore?: boolean;
 }
 
 export interface SearchCardHoldersRequestParams {
@@ -43,6 +45,13 @@ export interface SearchCardHoldersRequestParams {
     sort?: 'freshness' | 'price';
     page?: number;
     size?: number;
+    excludeDeckCoreItems?: boolean;
+}
+
+export interface SearchDeckCoresRequestParams {
+    cardId: string;
+    region?: string;
+    limit?: number;
 }
 
 export interface SuggestSearchRequestParams {
@@ -59,7 +68,7 @@ export interface SearchServiceInterface {
 
     /**
      * Unified search (auth optional)
-     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60;; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
+     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60;; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north; 400 for an unknown code). Binders match their name or description, their owner\&#39;s handle and, for a deck core, its card names; deck cores show without cards, &#x60;deckCore&#x60; keeps only them (true) or only the other binders (false). Binders carry their owner block and, for a deck core, its price, photos and key cards. Emits the analytics events search_performed / search_no_results.
      * @endpoint get /api/v1/search
 * @param requestParameters
      */
@@ -72,6 +81,14 @@ export interface SearchServiceInterface {
 * @param requestParameters
      */
     searchCardHolders(requestParameters: SearchCardHoldersRequestParams, extraHttpRequestParams?: any): Observable<PageResponseCardHolderResult>;
+
+    /**
+     * Public deck cores of a region holding a card (auth optional)
+     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a copy of &#x60;cardId&#x60; among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+     * @endpoint get /api/v1/search/deck-cores
+* @param requestParameters
+     */
+    searchDeckCores(requestParameters: SearchDeckCoresRequestParams, extraHttpRequestParams?: any): Observable<Array<PublicBinderSummary>>;
 
     /**
      * Mixed autocomplete (auth optional)

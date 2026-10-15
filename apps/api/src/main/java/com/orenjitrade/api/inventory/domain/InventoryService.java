@@ -3,6 +3,7 @@ package com.orenjitrade.api.inventory.domain;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.binders.domain.BinderView;
+import com.orenjitrade.api.binders.domain.KeyCard;
 import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -43,8 +44,10 @@ import com.orenjitrade.api.inventory.infra.InventoryItemRepository.BinderStatsRo
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Confirmed;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.CoverRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.DeleteState;
+import com.orenjitrade.api.inventory.infra.InventoryItemRepository.KeyCardRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.LockedItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.MergeCandidate;
+import com.orenjitrade.api.inventory.infra.InventoryItemRepository.PreviewRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.SummaryRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
 import com.orenjitrade.api.limits.domain.LimitDecision;
@@ -69,6 +72,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -896,15 +900,7 @@ public class InventoryService {
         try {
             processed = imageProcessor.process(upload);
         } catch (ImageRejectedException e) {
-            throw switch (e.rejection()) {
-                case TOO_LARGE -> new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, e.getMessage());
-                case UNSUPPORTED_TYPE ->
-                        new ApiException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, e.getMessage());
-                case EMPTY, DIMENSIONS, UNREADABLE ->
-                        ApiException.validation(
-                                "Validation failed",
-                                List.of(new ProblemFieldError("file", e.getMessage())));
-            };
+            throw ItemImageProcessor.problem(e);
         }
         String key =
                 ObjectKeys.newKey(IMAGE_NAMESPACE, ownerId, ItemImageProcessor.OUTPUT_EXTENSION);
@@ -1096,6 +1092,56 @@ public class InventoryService {
                             row.publicCount(),
                             publicOnly ? row.publicGames() : row.games(),
                             covers.get(binderId)));
+        }
+        return result;
+    }
+
+    /**
+     * Up to {@code max} card pictures per binder: the printing images of its first items, one per
+     * printing (a binder's preview pictures, stage R3).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<String>> binderPreviewImages(
+            Collection<UUID> binderIds, boolean publicOnly, int max) {
+        List<PreviewRow> rows =
+                items.binderPreviews(binderIds, publicOnly, max, timeProvider.now());
+        if (rows.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, String> printingImages = new HashMap<>();
+        for (PrintingSummary printing :
+                catalog.printingsIncludingHidden(
+                        rows.stream().map(PreviewRow::printingId).collect(Collectors.toSet()))) {
+            if (!printing.images().isEmpty()) {
+                printingImages.put(printing.id(), printing.images().get(0).url());
+            }
+        }
+        Map<UUID, List<String>> result = new HashMap<>();
+        for (PreviewRow row : rows) {
+            @Nullable String url = printingImages.get(row.printingId());
+            if (url != null) {
+                result.computeIfAbsent(row.binderId(), id -> new ArrayList<>()).add(url);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The cards of each binder with their copies, most copies first (a deck core's key cards, stage
+     * R3).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<KeyCard>> binderKeyCards(
+            Collection<UUID> binderIds, boolean publicOnly, int max) {
+        Map<UUID, List<KeyCard>> result = new HashMap<>();
+        for (KeyCardRow row :
+                items.binderKeyCards(binderIds, publicOnly, max, timeProvider.now())) {
+            result.computeIfAbsent(row.binderId(), id -> new ArrayList<>())
+                    .add(
+                            new KeyCard(
+                                    row.cardId(),
+                                    row.cardName(),
+                                    (int) Math.min(Integer.MAX_VALUE, row.copies())));
         }
         return result;
     }

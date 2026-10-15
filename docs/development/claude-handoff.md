@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1, F1 and R2): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1, F1, R2 and the builder and two review fixes of R3): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -49,6 +49,7 @@ PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 
 | --- | --- | --- |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
+| Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | branch `feature/r3-binders-deck-cores` (worktree `OrenjiTrade-s2-ux`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done (a public deck core shows all its cards as key cards, cards keep their own visibility; Edit binder follows saves made elsewhere; round 2: the Add cards and Reorder sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms); its pull request next. Not pushed. |
 
 **Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
 with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
@@ -60,7 +61,8 @@ card scanning), the full French UI translation and every cloud deployment stay o
 **Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
 verbatim). **R1 and R2 are on `main`** (#72; R2, mockup screens 1 to 9, by its own pull request
-after it merged F1 on 2026-10-15); R3 to R8 are not built. The documents
+after it merged F1 on 2026-10-15); **R3 is built on its branch** (binders and deck cores, mockup
+screens 16 to 18, waiting for its review); R4 to R8 are not built. The documents
 describe the phone as R1, F1 and R2 leave it: six tabs until R5, no offers, trades, protected
 payments or disputes on the phone (ADR 0018), deals in the chat by mail, nothing to buy (ADR 0019),
 and the Inventory and the adding of cards of the redesign.
@@ -74,8 +76,8 @@ decision wins: they are gone, and R2 to R8 build no screen for them (R2 has no s
 upgrade offer or paid entry point; its limit messages are F1's plain caps).
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
-migrates to the newest level (V125: R1's V115 and V116, F1's V120–V123, R2's V125; V117–V119
-unused, V124 kept for another branch) at the
+migrates to the newest level of `main` (V125: R1's V115 and V116, F1's V120–V123, R2's V125;
+V117–V119 unused, V124 kept for another branch; R3's V126 once it lands) at the
 first `npm run dev`, and
 loses its trading areas by design (S1).
 
@@ -106,11 +108,13 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-1. **Stage R3 of the phone redesign** (binders and deck cores, mockup screens 16 to 18), from the
-   `main` that holds R2, as the spec's sections 7, 12, 14 and 15 say; R4 to R8 follow in order,
-   one branch and one PR each, none of them bringing back a paid feature (ADR 0019). Migrations:
-   the newest is R2's V125 (written as V117, renumbered after F1's V120–V123 when R2 merged
-   `main`), and V124 is kept for another branch, so R3 starts at **V126** (Flyway, without
+1. **The review of stage R3** (binders and deck cores, branch `feature/r3-binders-deck-cores`,
+   builder done, review fixes 1 and 2 done, the two fix rounds the spec allows; IMPLEMENTATION_STATUS.md,
+   "Phone redesign R3"): its pull request. R5 must pass `excludeDeckCoreItems=true` with the "Also in a deck core" banner. **Then stage R4**
+   (messages and Mark as sold, mockup screens 22 to 25), from the `main` that holds R3; R5 to R8
+   follow in order, one branch and one PR each, none of them bringing back a paid feature (ADR
+   0019). Migrations: the newest is R3's V126 (R2's is V125, written as V117 and renumbered after
+   F1's V120–V123), and V124 is kept for another branch, so R4 starts at **V127** (Flyway, without
    `outOfOrder`, refuses a version older than the database's newest one).
 2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
    (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
@@ -131,8 +135,8 @@ sit in the main bundle, and the deckCore tokens are kept out of `tokens.css`); `
 lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`, `npm run typecheck -w
 apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`; and, when
 `apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`,
-30 flows since R1 and F1 (R2 renamed `inventory-add-edit-delete.yaml` to
-`inventory-add-edit-undo.yaml`, native flow 1 of the redesign), about 50 minutes) on the owner's
+31 flows since R3 (R2 renamed `inventory-add-edit-delete.yaml` to `inventory-add-edit-undo.yaml`,
+native flow 1 of the redesign; R3 added `deck-core.yaml`, native flow 2), about 50 minutes) on the owner's
 simulator (section 4). While the web is paused its checks are regression checks: a web failure is
 recorded, not fixed.
 

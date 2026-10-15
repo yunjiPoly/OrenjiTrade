@@ -529,8 +529,45 @@ export function binderFixture(overrides: Partial<BinderResponse> = {}): BinderRe
     },
     createdAt: '2026-10-01T12:00:00Z',
     updatedAt: '2026-10-01T12:00:00Z',
+    sellsAsCore: false,
+    askingPriceText: null,
+    askingPrice: null,
+    currency: 'CAD',
+    soldAt: null,
+    photos: [],
+    previewImages: ['/api/v1/public/card-images/pa'],
+    keyCards: [],
     ...overrides,
   };
+}
+
+/** A photo of a binder (a deck core's), as the API serves it. */
+export const BINDER_PHOTO = {
+  id: '00000000-0000-4000-8b10-000000000001',
+  url: '/api/v1/public/media/binders/core-1.jpg',
+  width: 1200,
+  height: 900,
+  sortOrder: 0,
+};
+
+/** One of the caller's deck cores ("Sell as a deck core" on, a photo and a price; stage R3). */
+export function deckCoreFixture(overrides: Partial<BinderResponse> = {}): BinderResponse {
+  return binderFixture({
+    id: '00000000-0000-4000-8b00-000000000002',
+    name: 'Snake-Eye core',
+    description: 'All NM, English. Sleeves and a deck box included.',
+    kind: 'DECK',
+    visibility: 'PUBLIC',
+    effectivePublic: true,
+    itemCount: 0,
+    games: [],
+    sellsAsCore: true,
+    askingPriceText: '$180',
+    askingPrice: 180,
+    photos: [BINDER_PHOTO],
+    previewImages: [BINDER_PHOTO.url],
+    ...overrides,
+  });
 }
 
 export function publicBinderFixture(
@@ -558,8 +595,51 @@ export function publicBinderFixture(
     itemCount: 1,
     games: ['yugioh'],
     coverImageUrl: null,
+    sellsAsCore: false,
+    askingPriceText: null,
+    photos: [],
+    previewImages: ['/api/v1/public/card-images/pa'],
+    keyCards: [],
+    ownerPublicBinderCount: 2,
     ...overrides,
   };
+}
+
+/** Someone's public deck core, as buyers see it (mockup screen 16). */
+export function publicDeckCoreFixture(
+  overrides: Partial<PublicBinderResponse> = {}
+): PublicBinderResponse {
+  return publicBinderFixture({
+    id: 'core-1',
+    name: 'Yubel core',
+    description: 'Full Yubel engine plus 2 Ash Blossom. All NM, English.',
+    kind: 'DECK',
+    itemCount: 8,
+    sellsAsCore: true,
+    askingPriceText: '$95',
+    photos: [
+      BINDER_PHOTO,
+      {
+        ...BINDER_PHOTO,
+        id: 'photo-2',
+        url: '/api/v1/public/media/binders/core-2.jpg',
+        sortOrder: 1,
+      },
+      {
+        ...BINDER_PHOTO,
+        id: 'photo-3',
+        url: '/api/v1/public/media/binders/core-3.jpg',
+        sortOrder: 2,
+      },
+    ],
+    previewImages: [BINDER_PHOTO.url],
+    keyCards: [
+      { cardId: 'card-yubel', name: 'Yubel', quantity: 3 },
+      { cardId: 'card-spirit', name: 'Spirit of Yubel', quantity: 3 },
+      { cardId: 'card-ash', name: 'Ash Blossom & Joyous Spring', quantity: 2 },
+    ],
+    ...overrides,
+  });
 }
 
 export function publicItemFixture(

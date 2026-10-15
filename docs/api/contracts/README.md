@@ -20,9 +20,10 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | S2 | [A simpler wishlist, wishlist alerts, no matches (supersedes the wishlist of 6)](s2-wishlist.md) |
 | S5 | [Inventory import: YDK deck files and Collectr CSV exports](s5-inventory-import.md) |
 | R2 | [The inventory and adding cards of the phone redesign: the price as typed, a condition not stated, undo a delete (extends 3)](r2-inventory-phone.md) |
+| R3 | [Binders and deck cores: the deck core fields, binder photos, key cards, deck cores in search and on the map (extends 3, 4 and the map of S1)](r3-binders-deck-cores.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
 2026-10-13 and nothing of them is built (`docs/product/2026-10-08-change-delivery-report.md`). The
 phone redesign of 2026-10-14 (`docs/product/specs/2026-10-14-phone-redesign.md`) adds its own
-contracts for its new endpoints, one per stage (R2 above; R3 to R7 to come).
+contracts for its new endpoints, one per stage (R2 and R3 above; R4 to R7 to come).

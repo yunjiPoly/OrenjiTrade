@@ -40,6 +40,8 @@ All under `/api/v1`. Discovery reads work for anonymous users with reduced detai
 
 ## Unified search
 
+> **Stage R3 (2026-10-15):** binder search gains `deckCore` and matches owner handles and a deck core's card names; `GET /search/deck-cores` and `excludeDeckCoreItems` on the card holders: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
+
 `GET /search?q=&lat=&lng=&radiusKm=&types=cards,printings,sets,collectors,binders&game=&limit=` →
 ```json
 { "query":"blue eyes", "cards":[CardSummary], "printings":[PrintingSummary], "sets":[SetSummary],

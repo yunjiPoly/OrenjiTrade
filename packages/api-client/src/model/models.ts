@@ -27,6 +27,8 @@ export * from './assignReportRequest';
 export * from './auditActor';
 export * from './auditLogEntry';
 export * from './avatarResponse';
+export * from './binderImage';
+export * from './binderKeyCard';
 export * from './binderLink';
 export * from './binderResponse';
 export * from './blockUserRequest';

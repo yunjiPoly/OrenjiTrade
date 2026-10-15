@@ -448,6 +448,67 @@ describe('the hint of Edit card, from the card itself (review fix 2 of stage R2)
   });
 });
 
+describe('a private card in a public deck core (review fix 2 of stage R3)', () => {
+  const findable: CardFindability = {
+    regionName: 'Americas (North)',
+    located: true,
+    discoverable: true,
+    privateProfile: false,
+    paused: false,
+  };
+  const core = (overrides: Parameters<typeof binderFixture>[0] = {}) =>
+    binderFixture({
+      name: 'Moth core',
+      visibility: 'PUBLIC',
+      effectivePublic: true,
+      sellsAsCore: true,
+      ...overrides,
+    });
+  const privateCard = itemFixture({
+    visibility: 'PRIVATE',
+    effectivePublic: false,
+    binder: { id: 'b', name: 'Moth core' },
+  });
+
+  it('says buyers see it as one of the core’s key cards, never on its own', () => {
+    expect(cardVisibilityHint('PRIVATE', findable, core(), null, NOW)).toEqual({
+      findable: true,
+      text: 'Buyers see it as a key card of “Moth core”. It is not listed on its own.',
+    });
+    expect(
+      cardVisibilityHint('PRIVATE', findable, core(), { item: privateCard, changed: false }, NOW)
+        .text
+    ).toBe('Buyers see it as a key card of “Moth core”. It is not listed on its own.');
+    expect(itemVisibilityStatus(privateCard, { binder: core() })).toMatchObject({
+      label: 'Private',
+      note: 'Buyers see it as a key card of “Moth core”. It is not listed on its own.',
+    });
+  });
+
+  it('keeps “only you” for a core buyers do not see, a plain binder, or a card hidden as stale', () => {
+    const onlyYou = 'Only you see it until you make it public.';
+    const hint = (binder: ReturnType<typeof binderFixture>) =>
+      cardVisibilityHint('PRIVATE', findable, binder, null, NOW).text;
+    expect(hint(core({ visibility: 'PRIVATE', effectivePublic: false }))).toBe(onlyYou);
+    expect(hint(core({ effectivePublic: false }))).toBe(onlyYou);
+    expect(hint(core({ soldAt: '2026-10-04T00:00:00Z' }))).toBe(onlyYou);
+    expect(hint(core({ sellsAsCore: false }))).toBe(onlyYou);
+    const stale = itemFixture({
+      ...privateCard,
+      freshness: { ...privateCard.freshness, state: 'HIDDEN' },
+    });
+    expect(
+      cardVisibilityHint('PRIVATE', findable, core(), { item: stale, changed: false }, NOW).text
+    ).toBe(onlyYou);
+    expect(itemVisibilityStatus(stale, { binder: core() }).note).toBe(
+      'Only you can see this card.'
+    );
+    expect(itemVisibilityStatus(privateCard, { binder: core({ sellsAsCore: false }) }).note).toBe(
+      'Only you can see this card.'
+    );
+  });
+});
+
 describe('a photo the API refused (review fix 1 of stage R2)', () => {
   const refusal = (status: number, file?: string) =>
     photoRefusal(

@@ -84,7 +84,11 @@ test.describe('mobile map tab and places', () => {
     await expect(profile.getByTestId('collector-area-note')).toContainText(
       'On the map in Ontario, Canada.'
     );
-    await expect(profile).not.toContainText(/\bkm\b|away|approximate area/i);
+    // Distance wording only: a seeded reference says "shipped right away" (stage R1), and the
+    // ratings section loading before this check made a plain "away" fail (found in stage R3).
+    await expect(profile).not.toContainText(
+      /\bkm\b|\bmiles? away\b|away from you|approximate area/i
+    );
 
     await profile
       .getByRole('button', { name: /^Message/ })

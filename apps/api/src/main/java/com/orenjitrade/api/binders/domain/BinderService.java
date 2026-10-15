@@ -5,7 +5,10 @@ import com.orenjitrade.api.binders.domain.BinderChanges.NewBinder;
 import com.orenjitrade.api.binders.events.BinderFreshnessChanged;
 import com.orenjitrade.api.binders.events.BinderPublished;
 import com.orenjitrade.api.binders.events.BinderUnpublished;
+import com.orenjitrade.api.binders.infra.BinderImageRepository;
+import com.orenjitrade.api.binders.infra.BinderImageRepository.ImageRow;
 import com.orenjitrade.api.binders.infra.BinderRepository;
+import com.orenjitrade.api.binders.infra.BinderRepository.CoreFields;
 import com.orenjitrade.api.binders.infra.BinderRepository.ListingChange;
 import com.orenjitrade.api.binders.infra.BinderRepository.StateChange;
 import com.orenjitrade.api.binders.infra.BinderRepository.Warned;
@@ -13,13 +16,17 @@ import com.orenjitrade.api.cards.domain.CatalogService;
 import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
+import com.orenjitrade.api.common.AskingPriceText;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.common.storage.ObjectKeys;
+import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
 import com.orenjitrade.api.limits.domain.Limits;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,8 +45,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The binders module's service interface (Phase 3 contract "Endpoints — binders"): the owner's
@@ -59,6 +70,12 @@ import org.springframework.transaction.annotation.Transactional;
  * freshness job ({@link #runFreshness}, {@link #reconcileListing} of {@link ListingScope.All},
  * {@link #warn}) writes every collector's binders without an owner lock: it skips the binders
  * another transaction holds instead of waiting for them, and handles them at its next run.
+ *
+ * <p>Deck cores (owner spec 2026-10-14, sections 7 and 12, stage R3): a binder with "Sell as a deck
+ * core" on is offered as one bundle: its photos (at most {@value #MAX_PHOTOS}, {@link #addPhoto}),
+ * one asking price as typed ({@link AskingPriceText}, a plain amount also stored as an amount) and
+ * its description as the public note. It needs no cards; the cards in it are its key cards. A photo
+ * write is a binder write: the owner lock, then the binder row.
  */
 @Service
 public class BinderService {
@@ -66,33 +83,57 @@ public class BinderService {
     public static final String BINDERS_MAX = "binders.max";
     public static final int NAME_MAX = 80;
     public static final int DESCRIPTION_MAX = 1000;
+
+    /** Photos of a binder (a deck core), as for inventory items. */
+    public static final int MAX_PHOTOS = 4;
+
+    /** Preview pictures of a binder in lists (a fan of three cards, or a deck core's photo). */
+    public static final int PREVIEW_MAX = 3;
+
+    /** Key cards of a deck core in its responses (the cards with the most copies first). */
+    public static final int KEY_CARDS_MAX = 30;
+
+    /** Default currency of a binder's price (as inventory items). */
+    public static final String DEFAULT_CURRENCY = "CAD";
+
     static final String NOT_FOUND = "Binder not found";
+    static final String IMAGE_NAMESPACE = "binders";
+    static final String PHOTO_NOT_FOUND = "Photo not found";
 
     private static final Logger log = LoggerFactory.getLogger(BinderService.class);
 
     private final BinderRepository repository;
+    private final BinderImageRepository images;
     private final Limits limits;
     private final FreshnessEventLog freshnessEvents;
     private final ObjectProvider<BinderContents> contents;
     private final CatalogService catalogService;
+    private final ObjectStorage storage;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
+    private final TransactionTemplate transaction;
 
     public BinderService(
             BinderRepository repository,
+            BinderImageRepository images,
             Limits limits,
             FreshnessEventLog freshnessEvents,
             ObjectProvider<BinderContents> contents,
             CatalogService catalogService,
+            ObjectStorage storage,
             TimeProvider timeProvider,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            PlatformTransactionManager transactionManager) {
         this.repository = repository;
+        this.images = images;
         this.limits = limits;
         this.freshnessEvents = freshnessEvents;
         this.contents = contents;
         this.catalogService = catalogService;
+        this.storage = storage;
         this.timeProvider = timeProvider;
         this.events = events;
+        this.transaction = new TransactionTemplate(transactionManager);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -130,6 +171,7 @@ public class BinderService {
         errors.addAll(
                 PublicVisibilityRules.validatePublicUntil(visibility, input.publicUntil(), now));
         validateCover(input.coverPrintingId(), errors);
+        @Nullable String priceText = validPriceText(input.askingPriceText(), errors);
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
@@ -147,9 +189,15 @@ public class BinderService {
                 PublicVisibilityRules.storedPublicUntil(visibility, input.publicUntil()),
                 repository.nextSortOrder(ownerId),
                 input.coverPrintingId(),
+                coreFields(Boolean.TRUE.equals(input.sellsAsCore()), priceText),
                 now);
         reconcileListing(ListingScope.Binders.of(List.of(id)));
-        log.info("Binder created owner={} binder={} visibility={}", ownerId, id, visibility);
+        log.info(
+                "Binder created owner={} binder={} visibility={} deckCore={}",
+                ownerId,
+                id,
+                visibility,
+                Boolean.TRUE.equals(input.sellsAsCore()));
         return getMine(ownerId, id);
     }
 
@@ -184,9 +232,15 @@ public class BinderService {
         if (patch.coverPrintingIdSet()) {
             validateCover(cover, errors);
         }
+        @Nullable String priceText =
+                patch.askingPriceTextSet()
+                        ? validPriceText(patch.askingPriceText(), errors)
+                        : current.askingPriceText();
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        boolean sellsAsCore =
+                patch.sellsAsCore() != null ? patch.sellsAsCore() : current.sellsAsCore();
         repository.update(
                 binderId,
                 name,
@@ -195,12 +249,77 @@ public class BinderService {
                 visibility,
                 PublicVisibilityRules.storedPublicUntil(visibility, publicUntil),
                 cover,
+                patch.askingPriceTextSet()
+                        ? coreFields(sellsAsCore, priceText)
+                        : new CoreFields(sellsAsCore, priceText, current.askingPrice()),
                 now);
-        if (visibilityChanged && visibility.isPublic()) {
+        if ((visibilityChanged && visibility.isPublic()) || patch.confirm()) {
             confirmBinderAndItems(ownerId, binderId, now);
         }
         afterChange(ownerId, binderId);
         return getMine(ownerId, binderId);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Photos (deck cores, stage R3)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * {@code POST /binders/{id}/images}: stores a photo already re-encoded by the caller (a JPEG
+     * without metadata, {@code inventory}'s {@code ItemImageProcessor}) and adds it to the owner's
+     * binder: {@code 404} for another collector's binder, {@code 409} beyond {@value #MAX_PHOTOS}.
+     * The object is written before the transaction (nothing slow under the owner lock) and deleted
+     * again when the binder refuses it.
+     */
+    public BinderDetails addPhoto(UUID ownerId, UUID binderId, byte[] jpeg, int width, int height) {
+        String key = ObjectKeys.newKey(IMAGE_NAMESPACE, ownerId, "jpg");
+        storage.put(key, jpeg, "image/jpeg");
+        try {
+            BinderDetails details =
+                    transaction.execute(
+                            status -> {
+                                lockOwned(ownerId, binderId);
+                                if (images.countByBinder(binderId) >= MAX_PHOTOS) {
+                                    throw ApiException.conflict(
+                                            "A binder can have at most " + MAX_PHOTOS + " photos");
+                                }
+                                Instant now = timeProvider.now();
+                                images.insert(
+                                        UUID.randomUUID(),
+                                        binderId,
+                                        key,
+                                        storage.publicUrl(key),
+                                        width,
+                                        height,
+                                        images.nextSortOrder(binderId),
+                                        now);
+                                repository.touch(binderId, now);
+                                return getMine(ownerId, binderId);
+                            });
+            if (details == null) {
+                throw new IllegalStateException("Photo transaction returned nothing");
+            }
+            log.info(
+                    "Binder photo stored owner={} binder={} bytes={}",
+                    ownerId,
+                    binderId,
+                    jpeg.length);
+            return details;
+        } catch (RuntimeException e) {
+            storage.delete(key);
+            throw e;
+        }
+    }
+
+    /** {@code DELETE /binders/{id}/images/{imageId}}: {@code 404} for an unknown photo. */
+    @Transactional
+    public void deletePhoto(UUID ownerId, UUID binderId, UUID imageId) {
+        lockOwned(ownerId, binderId);
+        String key =
+                images.delete(binderId, imageId)
+                        .orElseThrow(() -> ApiException.notFound(PHOTO_NOT_FOUND));
+        repository.touch(binderId, timeProvider.now());
+        deleteObjectsAfterCommit(List.of(key));
     }
 
     /**
@@ -300,7 +419,9 @@ public class BinderService {
             binderContents.releaseItems(ownerId, binderId, deleteItems, keepVisibility, now);
         }
         boolean wasListed = repository.isPubliclyListed(binderId);
+        List<String> photoKeys = images.keysOf(List.of(binderId));
         repository.delete(binderId);
+        deleteObjectsAfterCommit(photoKeys);
         if (wasListed) {
             events.publishEvent(new BinderUnpublished(binderId, ownerId, now));
         }
@@ -523,7 +644,10 @@ public class BinderService {
     public int purge(UUID ownerId) {
         repository.lockOwners(List.of(ownerId));
         repository.lockAllOf(ownerId);
-        return repository.deleteAllOf(ownerId).size();
+        List<String> photoKeys = images.keysOfOwner(ownerId);
+        int deleted = repository.deleteAllOf(ownerId).size();
+        deleteObjectsAfterCommit(photoKeys);
+        return deleted;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -589,6 +713,7 @@ public class BinderService {
         Map<UUID, BinderContents.Stats> stats =
                 binderContents == null ? Map.of() : binderContents.statsOf(ids, publicOnly);
         Map<UUID, String> covers = coverImages(binders);
+        Map<UUID, BinderShowcase> showcases = showcases(binders, publicOnly, binderContents);
         List<BinderDetails> result = new ArrayList<>();
         for (BinderView binder : binders) {
             BinderContents.Stats binderStats =
@@ -598,7 +723,60 @@ public class BinderService {
                     new BinderDetails(
                             binder,
                             binderStats,
-                            cover != null ? cover : binderStats.coverImageUrl()));
+                            cover != null ? cover : binderStats.coverImageUrl(),
+                            showcases.getOrDefault(binder.id(), BinderShowcase.EMPTY)));
+        }
+        return result;
+    }
+
+    /**
+     * Photos, preview pictures and key cards of the binders (three queries for the whole list). A
+     * public view shows the photos only of a deck core (a binder whose switch was turned off keeps
+     * them for its owner) and key cards only of deck cores: in public views every live card of a
+     * public deck core, whatever the card's own visibility (they sell only together).
+     */
+    private Map<UUID, BinderShowcase> showcases(
+            List<BinderView> binders, boolean publicOnly, @Nullable BinderContents binderContents) {
+        List<UUID> ids = binders.stream().map(BinderView::id).toList();
+        List<UUID> cores =
+                binders.stream().filter(BinderView::sellsAsCore).map(BinderView::id).toList();
+        Map<UUID, List<BinderPhoto>> photos = new HashMap<>();
+        for (ImageRow image : images.findByBinders(ids)) {
+            photos.computeIfAbsent(image.binderId(), id -> new ArrayList<>())
+                    .add(
+                            new BinderPhoto(
+                                    image.id(),
+                                    storage.publicUrl(image.storageKey()),
+                                    image.width(),
+                                    image.height(),
+                                    image.sortOrder()));
+        }
+        Map<UUID, List<String>> previews =
+                binderContents == null
+                        ? Map.of()
+                        : binderContents.previewImagesOf(ids, publicOnly, PREVIEW_MAX);
+        Map<UUID, List<KeyCard>> keyCards =
+                binderContents == null || cores.isEmpty()
+                        ? Map.of()
+                        : binderContents.keyCardsOf(cores, publicOnly, KEY_CARDS_MAX);
+        Map<UUID, BinderShowcase> result = new HashMap<>();
+        for (BinderView binder : binders) {
+            List<BinderPhoto> binderPhotos = photos.getOrDefault(binder.id(), List.of());
+            List<BinderPhoto> shown =
+                    publicOnly && !binder.sellsAsCore() ? List.of() : binderPhotos;
+            List<String> cardPictures = previews.getOrDefault(binder.id(), List.of());
+            List<String> preview =
+                    binder.sellsAsCore() && !binderPhotos.isEmpty()
+                            ? List.of(binderPhotos.get(0).url())
+                            : cardPictures;
+            result.put(
+                    binder.id(),
+                    new BinderShowcase(
+                            shown,
+                            preview,
+                            binder.sellsAsCore()
+                                    ? keyCards.getOrDefault(binder.id(), List.of())
+                                    : List.of()));
         }
         return result;
     }
@@ -645,6 +823,49 @@ public class BinderService {
             errors.add(new ProblemFieldError("description", "must be at most 1000 characters"));
         }
         return description;
+    }
+
+    /** The price text as stored (trimmed, {@code null} when blank), or a field error. */
+    private static @Nullable String validPriceText(
+            @Nullable String raw, List<ProblemFieldError> errors) {
+        @Nullable String text = AskingPriceText.normalise(raw);
+        @Nullable String problem = AskingPriceText.problem(text);
+        if (problem != null) {
+            errors.add(new ProblemFieldError("askingPriceText", problem));
+        }
+        return text;
+    }
+
+    /** The deck core columns of a write: a plain-amount text also gives the amount. */
+    static CoreFields coreFields(boolean sellsAsCore, @Nullable String priceText) {
+        @Nullable BigDecimal amount = AskingPriceText.amountOf(priceText).orElse(null);
+        return new CoreFields(sellsAsCore, priceText, amount);
+    }
+
+    /** Deletes stored photos once the transaction has committed (never a row without its file). */
+    private void deleteObjectsAfterCommit(List<String> keys) {
+        if (keys.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            keys.forEach(BinderService.this::deleteQuietly);
+                        }
+                    });
+        } else {
+            keys.forEach(this::deleteQuietly);
+        }
+    }
+
+    private void deleteQuietly(String key) {
+        try {
+            storage.delete(key);
+        } catch (RuntimeException e) {
+            log.warn("Could not delete stored binder photo {}: {}", key, e.getMessage());
+        }
     }
 
     private void validateCover(@Nullable UUID coverPrintingId, List<ProblemFieldError> errors) {

@@ -113,6 +113,28 @@ describe('The public binders of a state or province', () => {
     });
   });
 
+  it('shows a deck core with its photo, the tag and its price, never a count of cards', async () => {
+    const core = quebecBinder({
+      id: SECOND_BINDER,
+      name: 'Lantern core',
+      kind: 'DECK',
+      itemCount: 0,
+      games: ['yugioh'],
+      sellsAsCore: true,
+      askingPriceText: '$60',
+      previewImages: ['/api/v1/public/media/binders/core-1.jpg'],
+    });
+    mockApi(routes({ [BINDERS]: ok(placeBindersPage([core])) }));
+    render();
+    const row = await screen.findByTestId(`place-binder-${SECOND_BINDER}`);
+    expect(screen.getByTestId(`place-binder-tag-${SECOND_BINDER}`)).toHaveTextContent(
+      'Deck core · $60'
+    );
+    expect(row).toHaveTextContent(/Yu-Gi-Oh!/);
+    expect(row).not.toHaveTextContent(/cards|Collection|Deck ·/);
+    expect(row.props.accessibilityLabel).toMatch(/^Lantern core, Deck core · \$60, by /);
+  });
+
   it('never shows a city, even if an answer carried one', async () => {
     // Not something the API sends (GeoPrivacyContractTest): the row only ever reads `place.label`.
     const leaky = quebecBinder();

@@ -64,6 +64,23 @@
       ]
     },
     {
+      "id": "00000000-0000-4000-8b00-000000000202",
+      "owner": "02",
+      "name": "Moth Queen core",
+      "description": "Full Verdant Moth Queen engine plus 2 Mirror Maze Trap. All NM, English. Ships by mail with tracking; payment by e-Transfer.",
+      "kind": "DECK",
+      "visibility": "PUBLIC",
+      "sellsAsCore": true,
+      "askingPriceText": "$95",
+      "confirmedDaysAgo": 1,
+      "sortOrder": 1,
+      "items": [
+        { "id": "00000000-0000-4000-8c00-000000020201", "printing": "ygo-p012a", "quantity": 3, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000020202", "printing": "ygo-p019a", "quantity": 3, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false },
+        { "id": "00000000-0000-4000-8c00-000000020203", "printing": "ygo-p017a", "quantity": 2, "condition": "NEAR_MINT", "availability": "TRADE_OR_SALE", "acceptsOffers": false }
+      ]
+    },
+    {
       "id": "00000000-0000-4000-8b00-000000000301",
       "owner": "03",
       "name": "Vintage Yu-Gi-Oh! singles",

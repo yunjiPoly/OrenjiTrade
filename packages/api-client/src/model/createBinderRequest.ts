@@ -14,6 +14,9 @@
  */
 export interface CreateBinderRequest { 
     name: string;
+    /**
+     * At most 1 000 characters; a deck core\'s public note (the phone caps it at 500)
+     */
     description?: string;
     kind?: CreateBinderRequestKindEnum;
     /**
@@ -22,6 +25,14 @@ export interface CreateBinderRequest {
     visibility?: CreateBinderRequestVisibilityEnum;
     publicUntil?: string;
     coverPrintingId?: string;
+    /**
+     * Sell as a deck core: one bundle with photos, one price and the description as its note (false when omitted)
+     */
+    sellsAsCore?: boolean;
+    /**
+     * The deck core\'s asking price as typed (at most 40 characters once trimmed, one line): \"$180\", \"Trade only\". A plain amount also sets askingPrice
+     */
+    askingPriceText?: string;
 }
 export enum CreateBinderRequestKindEnum {
     Collection = 'COLLECTION',

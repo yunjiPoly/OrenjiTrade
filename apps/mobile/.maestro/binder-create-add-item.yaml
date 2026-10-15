@@ -1,7 +1,8 @@
-# Binders (mobile Phase 3): a fresh collector with one card (added on the host through the API)
-# creates a binder, adds the card to it from the binder's "Add cards" sheet and publishes the
-# binder for 24 hours. scripts/check-inventory.js checks on the host that the API holds the card
-# in that binder and the binder temporarily public.
+# Binders (mobile Phase 3, the screens of stage R3): a fresh collector with one card (added on the
+# host through the API) creates a binder from Inventory › Binders with the card picked from the
+# inventory ("Add cards" of New binder), then makes it public from Edit binder.
+# scripts/check-inventory.js checks on the host that the API holds the card in that binder and the
+# binder public.
 appId: ${APP_ID}
 name: Create a binder and add a card
 tags:
@@ -35,7 +36,7 @@ tags:
     visible: 'Lantern Fox Spirit, .*'
     timeout: 60000
 
-# The Binders view: none yet, create one.
+# The Binders view (screen 17): none yet, create one (New binder, screen 18) with the card in it.
 - tapOn:
     id: 'inventory-view-binders'
 - extendedWaitUntil:
@@ -52,19 +53,15 @@ tags:
     id: 'binder-name'
 - inputText: 'Maestro trades'
 - runFlow: subflows/hide-keyboard.yaml
-- tapOn:
-    id: 'binder-save'
-- extendedWaitUntil:
-    visible:
-      id: 'binder-title'
-      text: 'Maestro trades'
-    timeout: 60000
-- extendedWaitUntil:
-    visible:
-      id: 'binder-empty'
-    timeout: 30000
+- assertVisible:
+    id: 'binder-cards-title'
+    text: 'Cards inside'
 
-# Add the card from the inventory.
+# Add the card from the inventory (it moves in with the save).
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-add-cards'
 - tapOn:
     id: 'binder-add-cards'
 - extendedWaitUntil:
@@ -72,30 +69,33 @@ tags:
     timeout: 30000
 - tapOn: 'Lantern Fox Spirit, .*unfiled'
 - tapOn:
-    id: 'add-items-submit'
+    id: 'card-picker-submit'
 - extendedWaitUntil:
-    visible: 'Lantern Fox Spirit, .*'
+    visible: 'Added when you save'
     timeout: 30000
+- tapOn:
+    id: 'edit-binder-save'
 - extendedWaitUntil:
-    visible:
-      id: 'binder-counts'
-      text: 'Trade binder · 1 card'
-    timeout: 30000
+    visible: 'Saved.*, Maestro trades'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Maestro trades, 1 card · Private'
+    timeout: 60000
 
-# Publish for 24 hours.
-- tapOn:
-    id: 'binder-publish'
+# Edit binder: make it public and save.
+- tapOn: 'Maestro trades, 1 card · Private'
 - extendedWaitUntil:
     visible:
-      id: 'binder-publish-ONE_DAY'
-    timeout: 30000
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
 - tapOn:
-    id: 'binder-publish-ONE_DAY'
+    id: 'binder-visibility-PUBLIC'
+- tapOn:
+    id: 'edit-binder-save'
 - extendedWaitUntil:
-    visible:
-      id: 'binder-visibility'
-      text: 'Public · ends in.*'
-    timeout: 30000
+    visible: 'Maestro trades, 1 card · Public'
+    timeout: 60000
 - takeScreenshot: binder-published
 - runScript:
     file: scripts/check-inventory.js
@@ -104,4 +104,4 @@ tags:
       PASSWORD: ${output.collector.password}
       EXPECT_COUNT: '1'
       EXPECT_BINDER: 'Maestro trades'
-      EXPECT_BINDER_VISIBILITY: 'TEMPORARILY_PUBLIC'
+      EXPECT_BINDER_VISIBILITY: 'PUBLIC'

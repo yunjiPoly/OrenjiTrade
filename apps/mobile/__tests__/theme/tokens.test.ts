@@ -37,15 +37,20 @@ describe('design tokens of the phone redesign (spec 2026-10-14, section 3)', () 
   });
 
   it('adds the deckCore family in dark and in matching light values', () => {
+    // surface and border (stage R3): the "Sell as a deck core" card and a deck core's row.
     expect(darkPalette.deckCore).toEqual({
       tagBackground: '#2E2547',
       tagText: '#C4B5FD',
       switch: '#8B5CF6',
+      surface: '#1A1720',
+      border: '#4C3D74',
     });
     expect(lightPalette.deckCore).toEqual({
       tagBackground: '#EDE9FE',
       tagText: '#5B21B6',
       switch: '#7C3AED',
+      surface: '#FAF7FF',
+      border: '#C4B5FD',
     });
     // The tag stays readable in both themes (WCAG AA for small text).
     for (const palette of [darkPalette, lightPalette]) {
@@ -53,6 +58,9 @@ describe('design tokens of the phone redesign (spec 2026-10-14, section 3)', () 
         4.5
       );
       expect(contrast(palette.deckCore.switch, palette.surface)).toBeGreaterThan(3);
+      // Text on the card stays as readable as on the screen's own surface.
+      expect(contrast(palette.ink, palette.deckCore.surface)).toBeGreaterThan(12);
+      expect(contrast(palette.textMuted, palette.deckCore.surface)).toBeGreaterThan(4.5);
     }
   });
 

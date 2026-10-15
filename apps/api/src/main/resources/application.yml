@@ -306,6 +306,13 @@ orenji:
         limit: 60
         window-seconds: 3600
         key-by: USER
+      - name: binder-image-upload
+        # The photos of a deck core (stage R3), the same pace as the photos of a card.
+        path-patterns: ["/api/v1/binders/*/images"]
+        methods: [POST]
+        limit: 60
+        window-seconds: 3600
+        key-by: USER
       - name: inventory-import-upload
         # An upload is parsed, matched to the catalog and stored: 30 files an hour is a collector
         # importing every deck they own, not a script.

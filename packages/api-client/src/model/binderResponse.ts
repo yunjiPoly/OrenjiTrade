@@ -7,6 +7,8 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { BinderKeyCard } from './binderKeyCard';
+import { BinderImage } from './binderImage';
 import { Freshness } from './freshness';
 
 
@@ -51,6 +53,38 @@ export interface BinderResponse {
     freshness: Freshness;
     createdAt: string;
     updatedAt: string;
+    /**
+     * \"Sell as a deck core\" (stage R3): the binder is offered as one bundle with its photos, one price and its description as the public note. Always sent
+     */
+    sellsAsCore?: boolean;
+    /**
+     * The deck core\'s asking price as typed; null without one. Kept when the switch is turned off (public views show it only for a deck core)
+     */
+    askingPriceText?: string | null;
+    /**
+     * The amount of a plain-amount price text (\"$180\", \"180,00 $\"), in `currency`; null for a text price or none
+     */
+    askingPrice?: number | null;
+    /**
+     * ISO 4217 currency of `askingPrice`
+     */
+    currency?: string;
+    /**
+     * When the deck core was sold (stage R4); a sold binder is not public
+     */
+    soldAt?: string | null;
+    /**
+     * The binder\'s photos in order (at most 4). Always sent
+     */
+    photos?: Array<BinderImage>;
+    /**
+     * Up to 3 pictures for lists: a deck core\'s first photo, otherwise the card pictures of its first items. Always sent
+     */
+    previewImages?: Array<string>;
+    /**
+     * A deck core\'s cards with their copies, most copies first (at most 30); empty for other binders. Always sent
+     */
+    keyCards?: Array<BinderKeyCard>;
 }
 export enum BinderResponseKindEnum {
     Collection = 'COLLECTION',
