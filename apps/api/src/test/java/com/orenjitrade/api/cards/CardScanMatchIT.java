@@ -290,4 +290,43 @@ class CardScanMatchIT extends AbstractIntegrationTest {
         scan(List.of(code), List.of(name));
         assertThat(output.getAll()).doesNotContain(name).doesNotContain(code);
     }
+
+    @Test
+    void aRejectedReadNeverReachesTheLogsEither(CapturedOutput output) {
+        // Too many codes, a name too long, a code of another type, a malformed body: the 400 is
+        // logged (DEBUG in tests) with its request id and path, never with the values sent.
+        callJson(
+                HttpMethod.POST,
+                SCAN,
+                uid,
+                read(List.of("ZQRA-EN001", "ZQRB-EN002", "ZQRC-EN003", "ZQRD-EN004"), List.of()),
+                400);
+        callJson(
+                HttpMethod.POST,
+                SCAN,
+                uid,
+                read(List.of(), List.of("Zqrejectprobe " + "N".repeat(150))),
+                400);
+        Map<String, Object> wrongType = new LinkedHashMap<>(read(List.of(), List.of()));
+        wrongType.put("names", Map.of("zqobjectprobe", "Zqvalueprobe"));
+        callJson(HttpMethod.POST, SCAN, uid, wrongType, 400);
+        EntityExchangeResult<byte[]> malformed =
+                http.post()
+                        .uri(SCAN)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(uid))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"game\": \"yugioh\", \"codes\": [ZQRMALFORMED-EN005]}")
+                        .exchange()
+                        .expectBody()
+                        .returnResult();
+        assertThat(malformed.getStatus().value()).isEqualTo(400);
+
+        assertThat(output.getAll())
+                .contains("Request rejected")
+                .contains("path=" + SCAN)
+                .doesNotContain("ZQR")
+                .doesNotContain("Zqrejectprobe")
+                .doesNotContain("zqobjectprobe")
+                .doesNotContain("Zqvalueprobe");
+    }
 }

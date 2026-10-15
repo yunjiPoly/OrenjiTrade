@@ -23,7 +23,9 @@ flag `cardTextScan`: while an admin has it off they answer **404 `FEATURE_DISABL
 ## `POST /api/v1/cards/scan-match`
 
 One call per photo. A POST so the text read stays out of addresses and access logs; the server
-never logs it (only the status and how many codes and names were read, without the caller).
+never logs it (only the status and how many codes and names were read, without the caller). A
+rejected body is logged at DEBUG with its request id, path and the exception's type, never with the
+values it held.
 
 ### Body `CardScanMatchRequest`
 

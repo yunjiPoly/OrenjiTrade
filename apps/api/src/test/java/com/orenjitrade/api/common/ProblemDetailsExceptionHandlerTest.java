@@ -9,6 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -20,6 +23,7 @@ import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
@@ -238,6 +242,49 @@ class ProblemDetailsExceptionHandlerTest {
                 .andExpect(jsonPath("$.message").isNotEmpty())
                 .andExpect(jsonPath("$.requestId").value(REQUEST_ID))
                 .andExpect(jsonPath("$.timestamp").value(FROZEN.toString()));
+    }
+
+    @Test
+    void aRejectedRequestIsLoggedWithoutTheValuesItSent() throws Exception {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger)
+                        LoggerFactory.getLogger(ProblemDetailsExceptionHandler.class);
+        Level level = logger.getLevel();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.DEBUG);
+        try {
+            mockMvc.perform(
+                            post("/probe/validate")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"name\":\" \",\"quantity\":-7731}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(
+                            post("/probe/validate")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("{\"name\": zqprobe}"))
+                    .andExpect(status().isBadRequest());
+            mockMvc.perform(get("/probe/not-found")).andExpect(status().isNotFound());
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(level);
+        }
+
+        List<String> lines =
+                appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+        assertThat(lines).hasSize(3);
+        assertThat(lines)
+                .allSatisfy(
+                        line ->
+                                assertThat(line)
+                                        .startsWith("Request rejected requestId=" + REQUEST_ID)
+                                        .doesNotContain("-7731")
+                                        .doesNotContain("zqprobe"));
+        // The framework's exceptions by their type, an application exception by its safe message.
+        assertThat(lines.get(0)).endsWith("reason=MethodArgumentNotValidException");
+        assertThat(lines.get(1)).endsWith("reason=HttpMessageNotReadableException");
+        assertThat(lines.get(2)).endsWith("reason=Card not found");
     }
 
     record ProbeRequest(@NotBlank String name, @Min(1) int quantity) {}
