@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches; review fix 1: a public deck core shows every card in it as a key card and the cards keep their own visibility, Edit binder follows saves made elsewhere — branch `feature/r3-binders-deck-cores`, builder done, review fix 1 done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
+**Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches; review fix 1: a public deck core shows every card in it as a key card and the cards keep their own visibility, Edit binder follows saves made elsewhere; review fix 2: the sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms — branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
 **Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 (V125 since the merge with F1) — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
 **Last updated:** 2026-10-15 (stage F1, "free for all", merged with `main` after stage R1 of the phone redesign (#72): both stages' removals hold together — no offer, trade, payment, dispute, Premium, credits, donation or sponsored screen, row, route or checkout left on the phone; one removed-route mechanism for the links of both (`src/navigation/removedRoutes.ts`); R1's fonts, tokens, wording and safety tip with F1's limit messages; migrations V115, V116 (R1) and V120–V123 (F1); ADR 0018 and ADR 0019 — branch `feature/f1-free-for-all`, not pushed; see "Merged with R1 (2026-10-15)" in the F1 section)
@@ -6000,7 +6000,7 @@ findings; all fixed at their cause, with a test that catches each, or recorded:
 Also found and recorded: a private card filed in a public deck core still reads "Only you see it
 until you make it public." on Edit card, while buyers see its name and copies as one of the core's
 key cards (the item response does not say its binder is a deck core; for R5, which reworks the card
-side of deck cores). Mutations run by hand on the fixed tree, each caught: key cards from listed
+side of deck cores). Fixed in review fix 2 (R1-1) from the binder list the card form already has. Mutations run by hand on the fixed tree, each caught: key cards from listed
 cards only, `q` matching any live card of a core, `q` matching listed cards only, the deck cores of
 a card from listed cards only, the public games from listed cards only, the owner's key cards
 counting deleted cards (API); the phone's flip back to PUBLIC (jest and Playwright), no form
@@ -6032,6 +6032,55 @@ binder" landing on Inventory › Binders, the card private in the core and after
 Edit binder of collector2's "Moth Queen core" at the largest text size ("Public note" on one line,
 "124 / 500" under it), with a temporary flow file deleted afterwards. The owner's appearance
 (light) and text size (Large) were not changed.
+
+**Review fix 2 (2026-10-15).** The second review round (a functional verifier on the owner's iPhone
+18 Pro, with mutations of the new SQL rule over the whole suite) found 3 major and 3 minor findings;
+each is fixed at its cause with a test that catches it (every fix below was reverted once and the
+named test failed):
+
+| Finding | Fix |
+| --- | --- |
+| R1-2 (major): no test kept a plain public binder's private cards out of its games, its card pictures and the binder search's game filter (dropping `b.sells_as_core` from `IN_PUBLIC_CORE` survived all 1015 tests) | the behaviour was right; the rule now has its test: `DeckCoreSearchIT.aPlainBinderShowsBuyersNoGamePictureOrGameHitOfItsPrivateCards` files a private Pokémon card in a plain public binder: buyers get no `pokemon` game, one picture (the public card's) and no `game=pokemon` hit; "Sell as a deck core" on brings all three, off takes them away |
+| R1-3 (major): at the largest text size the "Add cards" picker showed no card and no "Add {n} cards", and Reorder no binder, with Cancel off the screen (the text above their lists filled the sheets) | at large text sizes the picker's search field and hint scroll with the cards (above them at the default sizes, as before); Reorder's description scrolls with the binders and its two buttons wrap; the buttons under these lists follow the text size as far as the app's other pinned controls (`PINNED_MAX_FONT_SCALE`) and a sheet's title as far as a screen's title (`TITLE_MAX_FONT_SCALE`). Jest at a font scale of 3.1; native flow 2 now opens both sheets at the largest size (the card and "Add 1 card"; both binders, Cancel and "Save order"). The delete sheet's message was already in a scrolling area (`ConfirmSheet`): the rest of the sentence is a scroll away and its buttons stay on screen, so it is unchanged |
+| R1-4 (major): "Delete binder" in an Edit binder opened through the binder's own link (`/binders/[id]`: a profile row, a chat card, a deep link) landed on "This binder is not available" | the delete took the binder out of the owner's list first, and `/binders/[id]` swapped Edit binder for the public view before Edit binder could close the binder's screens. The delete mutation has a key, and `/binders/[id]` keeps Edit binder while this app deletes that binder (`useDeletingBinder`): it lands on Inventory › Binders from every entry. Jest, Playwright (the plain binder is deleted from `/binders/{id}`), native flow 2 (deleted from the deck core's row on Profile › Public preview) |
+| R1-1 (minor): a private card in a public deck core read "Only you see it until you make it public." while buyers see it as one of the core's key cards | the hint under "Who can see it" (and the item's visibility note) says "Buyers see it as a key card of “{core}”. It is not listed on its own." while the card's binder is a deck core buyers see (`shownAsDeckCore`: "Sell as a deck core" on and `effectivePublic`, the phone's mirror of `IN_PUBLIC_CORE`), and keeps "Only you" for a private or sold core, a plain binder or a card hidden until confirmed. Unit tests |
+| R1-5 (minor): two terms of the rule had no test: an inactive game in a core, and the game filter counting a core's private cards | `DeckCoreIT.aCardOfAHiddenGameLeavesAPublicCoresKeyCards` (a game of its own, hidden by SQL as an admin would, takes its card out of the core's key cards and games) and the R1-2 test (the game filter finds a core of a private card, and no longer once the switch is off) |
+| R1-6 (minor): after "Save changes" the owner's profile row (and a state list) kept the old price | creating, saving, publishing, confirming, deleting, reordering a binder and changing a deck core's photos also mark out of date this viewer's collector reads, the region map (counts and state lists) and search (`refreshBinderListings`, not awaited by the save). Jest (every write and the delete), native flow 2 (the profile row shows a price saved from the Edit binder it opens) |
+
+Mutations, each caught: in the API `IN_PUBLIC_CORE` without `b.sells_as_core`, without the active
+game, and the binder search's game filter on listed cards only (the three that survived round 1);
+on the phone `/binders/[id]` without the delete flag (jest and Playwright), the picker never in its
+large layout, Reorder's buttons not wrapping, a sheet title not capped, no collector refresh, no
+region map refresh, the key card hint never shown or shown for a card hidden as stale (jest). No API
+code, migration or contract changed in this round (no OpenAPI diff); no file of `apps/web-angular`
+changed.
+
+**Checks after review fix 2** (retries off; this Mac, 2026-10-15, the owner's iPhone 18 Pro
+simulator under the lock)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 29 s: **166 classes / 1017 tests** (+2) + 12 catalog tests, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | no change; git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB**; no file of `apps/web-angular` changed |
+| `npm run test:web`, web `lint`, `format:check` | 136 files / **633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.3 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | jest **91 suites / 966 tests** (+6) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **56 / 56** (57.9 s) |
+| `npm run test:mobile:maestro -- --platform ios` | **31 / 31** in 49 min 58 s on the owner's iPhone 18 Pro (native flow 2 `deck-core.yaml`, now with the largest text size, the profile row and the delete from the binder's own link, in 4 min 24 s) |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+On the iPhone (native flow 2's screenshots): at the largest text size the picker shows "Add cards",
+the field, the hint, then "Lantern Fox Spirit · ×1, AZR-EN011 · in Maestro core" ticked and "Add 1
+card" under the list; Reorder shows "Deck cores" and "Binders" with one binder each, Cancel and
+"Save order" side by side (the names are cut to one line there, as before this round: a screen
+reader reads them whole); the profile row reads "Deck core · $120" right after the save; the delete
+from that row's Edit binder lands on Inventory › Binders ("1 binder", "Binder deleted"). The
+owner's appearance (light) and text size (Large) were not changed.
 
 ## NEXT TASK
 
@@ -6103,15 +6152,16 @@ Edit binder of collector2's "Moth Queen core" at the largest text size ("Public 
 >
 > **Stage R3 of the phone redesign is built** ("Binders and deck cores", mockup screens 16 to 18
 > and Inventory › Binders; section "Phone redesign R3: binders and deck cores (2026-10-15)" above;
-> branch `feature/r3-binders-deck-cores`, builder done, review fix 1 done, not pushed): V126 (`sells_as_core`, the
+> branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed): V126 (`sells_as_core`, the
 > price as typed, `sold_at`, `binder_image`), binder photos, key cards and preview pictures, deck
 > cores in the public lists, and the search API of R5 (`excludeDeckCoreItems`, `GET
 > /search/deck-cores`, `deckCore` and `q`, `GET /regions/{region}/binders`, `deckCoreCount`); on the
 > phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core
 > page and the public binder restyled. Its review found 3 blockers (fixed in review fix 1: a
 > public deck core shows all its cards as key cards and the cards keep their own visibility; Edit
-> binder follows saves made elsewhere); a second review round, if the lead asks for one, and its
-> pull request come first.
+> binder follows saves made elsewhere) and review fix 2 the round after it (tests for the rule's
+> terms, the sheets at the largest text size, a delete from the binder's own link, the profile
+> rows after a save, the key card hint); its pull request comes first.
 >
 > **R5 acceptance items left by R3** (its review, U5 and U3): Who has this card passes
 > `excludeDeckCoreItems=true` **together with** the "Also in a deck core" banner (`GET
