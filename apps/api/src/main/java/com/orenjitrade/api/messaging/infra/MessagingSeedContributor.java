@@ -26,11 +26,11 @@ import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Seeds the fictional conversation between collector1 and collector2 ({@code
- * docs/development/seed-data.md} "Interactions"): six messages about a Saturday meetup, one sharing
- * collector1's public Yu-Gi-Oh! trade binder and one a printing of it. Inserted once with stable
- * ids ({@code 00000000-0000-4000-8d00-...}) relative to the first seed run; skipped when either
- * account is missing or inactive, or when the pair already has a conversation. collector2 has not
- * read the last message yet (one unread).
+ * docs/development/seed-data.md} "Interactions"): six messages about a deal shipped by mail, one
+ * sharing collector1's public Yu-Gi-Oh! trade binder and one a printing of it. Inserted once with
+ * stable ids ({@code 00000000-0000-4000-8d00-...}) relative to the first seed run; skipped when
+ * either account is missing or inactive, or when the pair already has a conversation. collector2
+ * has not read the last message yet (one unread).
  */
 @Component
 public class MessagingSeedContributor implements SeedContributor {
@@ -124,8 +124,8 @@ public class MessagingSeedContributor implements SeedContributor {
                                 1,
                                 COLLECTOR2,
                                 MessageKind.TEXT,
-                                "Hi Maïka! I saw your binder on the map. Will you be at a game"
-                                        + " store this weekend?",
+                                "Hi Maïka! I saw your binder on the map. Do you ship with"
+                                        + " tracking?",
                                 0),
                         binder.isPresent()
                                 ? new SeedMessage(
@@ -166,14 +166,14 @@ public class MessagingSeedContributor implements SeedContributor {
                                 5,
                                 COLLECTOR2,
                                 MessageKind.TEXT,
-                                "Sure: 20 CAD plus one of my rares. Café on Mont-Royal, Saturday"
-                                        + " at 2 pm?",
+                                "Sure: 20 CAD by e-Transfer plus one of my rares. We both ship"
+                                        + " with tracking?",
                                 60),
                         new SeedMessage(
                                 6,
                                 COLLECTOR1,
                                 MessageKind.TEXT,
-                                "Perfect, see you Saturday at the café!",
+                                "Perfect, I ship Monday and send you the tracking number.",
                                 120));
         @Nullable Instant lastAt = null;
         @Nullable UUID lastId = null;

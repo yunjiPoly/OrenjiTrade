@@ -254,7 +254,7 @@ describe('Public binder', () => {
     );
   });
 
-  it('reports the owner and makes an offer on a card of someone else’s binder', async () => {
+  it('reports the owner of someone else’s binder, whose cards offer no offer', async () => {
     mockApi(publicRoutes());
     renderWithProviders(<BinderScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId('public-binder-report'));
@@ -269,11 +269,9 @@ describe('Public binder', () => {
       },
     });
     const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: item.id },
-    });
+    expect(await screen.findByTestId(`item-${item.id}`)).toBeOnTheScreen();
+    // Offers left the phone (ADR 0018).
+    expect(screen.queryByTestId(`make-offer-${item.id}`)).toBeNull();
   });
 
   it('opens the owner’s own binder as the public sees it', async () => {

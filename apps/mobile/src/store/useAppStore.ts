@@ -34,8 +34,15 @@ export const DEFAULT_PREFS: SessionPrefs = {
 
 export const APP_STORE_STORAGE_KEY = 'orenjitrade.app-store.v1';
 
+/**
+ * A new install starts in the dark theme (owner default of the phone redesign, spec 2026-10-14,
+ * sections 3 and 16). Settings → Appearance keeps System / Light / Dark, and a stored choice
+ * always wins: persisted state is merged over this one when it is read back.
+ */
+export const DEFAULT_THEME: ThemeOverride = 'dark';
+
 const initialState = {
-  themeOverride: 'system' as ThemeOverride,
+  themeOverride: DEFAULT_THEME,
   prefs: DEFAULT_PREFS,
 };
 

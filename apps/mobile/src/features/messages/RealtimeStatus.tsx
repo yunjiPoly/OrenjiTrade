@@ -1,5 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { useRealtimeState } from '@/src/realtime/RealtimeProvider';
 import type { RealtimeState } from '@/src/realtime/realtimeClient';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

@@ -1,11 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import type { BinderLink, CardLink, OfferLink } from '@/src/api/types';
+import type { BinderLink, CardLink } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
-import { offerStatusInfo } from '@/src/features/offers/offerLabels';
+import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+
+import { OFFER_UNAVAILABLE_TEXT } from './messageText';
 
 /**
  * A card or binder shared in a message or a community post (the web's `app-shared-link-card`):
@@ -95,54 +97,24 @@ export function SharedLinkCard({
   return null;
 }
 
-/** Human status of an offer (`OfferLink.status`). */
-export function offerStatusLabel(status: string): string {
-  return offerStatusInfo(status).label;
-}
-
 /**
- * An offer shared in a conversation (OFFER_LINK message, or the SYSTEM message the API posts on
- * every offer transition; web: `app-offer-link-card`): the card picture, the live proposal's
- * summary and status. A tap opens the offer.
+ * An offer that a conversation still holds (an OFFER_LINK message, or the SYSTEM message the API
+ * posted on an offer or trade update): offers, trades and protected payments left the phone (ADR
+ * 0018), so it reads as one grey line and opens nothing. Old conversations keep their place.
  */
-export function OfferLinkCard({ offer }: { offer: OfferLink }) {
+export function OfferUnavailableLine({ testID = 'offer-unavailable' }: { testID?: string }) {
   const { palette } = useTheme();
-  const router = useRouter();
-  const status = offerStatusLabel(offer.status);
   return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`Open the offer: ${offer.summary}, ${status}`}
-      onPress={() => router.push({ pathname: '/offers/[id]', params: { id: offer.id } })}
-      testID="offer-link-card"
-      style={({ pressed }) => [
-        styles.link,
-        { backgroundColor: palette.surface, borderColor: palette.border },
-        pressed && styles.pressed,
-      ]}
-    >
-      {offer.imageUrl ? (
-        <CardImage src={offer.imageUrl} alt="" size="xs" />
-      ) : (
-        <View style={[styles.icon, { backgroundColor: palette.surfaceVariant }]}>
-          <MaterialCommunityIcons
-            name="tag-outline"
-            size={22}
-            color={palette.availability.offers}
-          />
-        </View>
-      )}
-      <View style={styles.text}>
-        <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.textMuted }]}>Offer</Text>
-        <Text numberOfLines={3} style={[textStyle('sm'), styles.name, { color: palette.ink }]}>
-          {offer.summary}
-        </Text>
-        <Text style={[textStyle('xs'), styles.status, { color: palette.availability.offers }]}>
-          {status}
-        </Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
-    </Pressable>
+    <View style={styles.unavailable} testID={testID}>
+      <MaterialCommunityIcons
+        name="tag-off-outline"
+        size={16}
+        color={palette.textMuted}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{OFFER_UNAVAILABLE_TEXT}</Text>
+    </View>
   );
 }
 
@@ -166,7 +138,13 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 1 },
   eyebrow: { textTransform: 'uppercase', letterSpacing: 0.5 },
   name: { fontWeight: fontWeight.semibold },
-  status: { fontWeight: fontWeight.semibold },
   mono: { fontFamily: fontFamily.mono },
+  unavailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing[1],
+    paddingVertical: spacing[1],
+  },
   pressed: { opacity: 0.8 },
 });

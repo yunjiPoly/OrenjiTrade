@@ -15,10 +15,17 @@ independently; consume tokens.
 
 | Token | Web | Mobile | Use |
 | --- | --- | --- | --- |
-| `font.display` | "Sora", system-ui | Sora | wordmark, page titles |
+| `font.display` | "Sora", system-ui | Sora | wordmark, screen titles, big numbers |
 | `font.body` | "Inter", system-ui | Inter | everything else |
-| `font.mono` | "JetBrains Mono" | monospace | set codes, collector numbers |
+| `font.mono` | "JetBrains Mono" | JetBrains Mono | card codes, set codes, collector numbers, tracking numbers |
 | Scale | 12 · 14 · 16 · 18 · 20 · 24 · 30 · 36 px | same | line-height 1.5 body, 1.2 headings |
+
+The phone bundles the three families with `expo-font` (the pinned `@expo-google-fonts/sora`,
+`@expo-google-fonts/inter` and `@expo-google-fonts/jetbrains-mono` packages; stage R1 of the
+phone redesign) and holds its splash screen until they are loaded. Each weight is its own family
+on React Native, so the phone's `Text` and `TextInput` map the requested family and weight to the
+loaded face (`apps/mobile/src/theme/fonts.ts`): Sora 600 / 700, Inter 400 / 500 / 600 / 700,
+JetBrains Mono 500.
 
 ## Spacing, radius, elevation
 
@@ -39,6 +46,17 @@ messages side panel from `md`; below that it becomes a bottom sheet/drawer.
 | Availability | Collection only · Trade · Sale · Trade or sale · Accepting offers · Not available | chips: neutral · teal · orange · gradient · violet · neutral-outline |
 | Visibility | Private · Public · Temporarily public (with countdown) | lock icon · globe icon · timer icon |
 | Online | Online · Recently active · Offline | dot green · dot amber · none |
+| Deck core (phone) | The purple "Deck core · {price}" tag and the "Sell as a deck core" switch | `deckCore.tagBackground` · `deckCore.tagText` · `deckCore.switch` |
+
+The `deckCore` family (phone redesign, 2026-10-14): dark `#2E2547` tag background, `#C4B5FD`
+tag text, `#8B5CF6` switch (the mockup's values); light `#EDE9FE`, `#5B21B6`, `#7C3AED` (the
+same violets, picked for contrast on the light surfaces: 7.6 : 1 for the tag text, as dark has
+7.7 : 1). The group is marked `"$platforms": ["mobile"]` in `tokens.json`, so `tokens.css` leaves
+it out: the paused web has no deck cores, and its initial bundle has no room for unused custom
+properties. Remove the marker the day the web shows deck cores.
+
+**Theme on the phone:** a new install starts in the dark theme (owner default, phone redesign
+section 16); Settings → Appearance keeps System / Light / Dark and every screen works in both.
 
 ## Card condition labels
 

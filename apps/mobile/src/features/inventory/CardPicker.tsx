@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useCardSuggestions } from '@/src/api/hooks/catalog';
 import type { CardSuggestion } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { QUERY_MAX_LENGTH, SUGGEST_DEBOUNCE_MS, SUGGEST_MIN_CHARS } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';

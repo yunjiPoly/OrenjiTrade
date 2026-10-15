@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useSetDetail } from '@/src/api/hooks/catalog';
 import type { PrintingSummary } from '@/src/api/types';
@@ -11,6 +11,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { printingCode, printingFacts, printingImageUrl } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

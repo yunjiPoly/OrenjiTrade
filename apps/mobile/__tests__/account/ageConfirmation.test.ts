@@ -71,7 +71,7 @@ describe('the 18+ rule (launch readiness)', () => {
     expect(friendlyError(error)).toEqual({
       title: 'Age confirmation required',
       message:
-        'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+        'Please confirm that you are 18 years of age or older to be shown on the map, message or post. We will take you to the confirmation.',
     });
     expect(signalFromError(error, 7)).toEqual({ kind: 'age-confirmation-required', at: 7 });
     // The signal itself is not an account state: `/me` (reloaded) decides through its flag.

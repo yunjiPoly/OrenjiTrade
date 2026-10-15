@@ -593,40 +593,44 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
     title: 'Échanger en toute sécurité',
     shortTitle: 'Échanger en sécurité',
     summary:
-      'Conseils pratiques pour rencontrer d’autres collectionneurs et échanger avec eux, ce qu’OrenjiTrade montre à votre sujet, et comment signaler ou bloquer quelqu’un.',
-    version: '0.1-draft',
+      'Comment se concluent les transactions sur OrenjiTrade\u00a0: les cartes sont expédiées par la poste et le paiement se fait hors de l’application. Ce qu’il faut vérifier avant de payer, ce qu’OrenjiTrade montre à votre sujet, et comment signaler ou bloquer quelqu’un.',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS_FR,
     contact: CONTACT_SUPPORT_FR,
     sections: [
       {
-        id: 'before-you-meet',
-        heading: 'Avant la rencontre',
+        id: 'how-deals-work',
+        heading: 'Comment se concluent les transactions',
         clauses: [
-          'Donnez-vous rendez-vous dans un lieu public achalandé, de jour\u00a0: un café, un centre commercial, une boutique de cartes ou une bibliothèque. Certains postes de police offrent des zones d’échange sécuritaires; consultez le site Web de votre service de police local.',
-          'Faites-vous accompagner lorsque les cartes ont de la valeur, et dites à un proche où vous allez et à quelle heure vous comptez revenir.',
-          'Ne communiquez jamais votre adresse domiciliaire, votre lieu de travail ni vos habitudes. OrenjiTrade n’affiche jamais que votre province ou votre État (et votre ville sur votre profil, si vous le choisissez), et vous contrôlez ce que vous publiez.',
-          'Convenez des détails dans l’application avant la rencontre\u00a0: quelles cartes, quel état, quel prix ou quel échange, et comment vous paierez. La conversation et l’offre restent comme trace.',
+          'Vous concluez la transaction dans la conversation avec l’autre collectionneur, et les cartes sont expédiées par la poste.',
+          'OrenjiTrade ne gère jamais l’argent\u00a0: le paiement se fait hors de l’application, par exemple par virement Interac. OrenjiTrade n’est pas partie à vos transactions et ne peut pas les rembourser.',
         ],
       },
       {
-        id: 'during-the-exchange',
-        heading: 'Pendant l’échange',
+        id: 'before-you-pay',
+        heading: 'Avant de payer',
         clauses: [
-          'Vérifiez les cartes avant de remettre de l’argent ou vos propres cartes\u00a0: état, édition, impression et signes de contrefaçon. Prenez votre temps; un collectionneur de bonne foi s’y attend.',
-          'Gardez l’échange simple\u00a0: une seule rencontre, en personne, cartes et paiement au même moment.',
-          'Partez si quelque chose cloche. Vous n’avez jamais l’obligation de conclure un échange.',
+          'Consultez les évaluations et les références du collectionneur, et demandez des photos de la vraie carte, recto et verso.',
+          'Convenez dans la conversation de la carte, de son état, du prix, de l’expédition et du mode de paiement. La conversation en garde une trace.',
+        ],
+      },
+      {
+        id: 'shipping',
+        heading: 'Expédition',
+        clauses: [
+          'Le vendeur expédie la carte une fois le paiement reçu, avec un numéro de suivi, et ajoute ce numéro lorsqu’il marque la carte comme vendue.',
+          'Ne communiquez votre adresse que dans la conversation privée avec l’autre collectionneur, jamais dans une publication, un cartable ou votre profil.',
         ],
       },
       {
         id: 'warning-signs',
         heading: 'Signaux d’alarme',
         clauses: [
-          'La pression pour décider tout de suite, pour se rencontrer dans un endroit isolé ou la nuit, ou pour poursuivre la conversation hors d’OrenjiTrade.',
-          'Les offres qui semblent trop belles pour être vraies le sont généralement.',
-          'Les demandes de paiement hors du mode convenu\u00a0: un acompte avant la rencontre, des cartes-cadeaux, des virements bancaires ou des cryptomonnaies pour «\u00a0réserver\u00a0» une carte.',
-          'Les histoires qui changent, les comptes tout neufs sans historique, ou le refus de montrer la vraie carte.',
+          'La pression pour décider ou pour payer tout de suite.',
+          'Un mode de paiement autre que celui convenu, ou une demande de cartes-cadeaux ou de cryptomonnaies.',
+          'Un prix très inférieur à celui du marché, un refus d’expédier avec suivi ou un refus de montrer la vraie carte.',
         ],
       },
       {
@@ -644,14 +648,6 @@ export const LEGAL_DOCUMENTS_FR: Record<LegalKey, LegalDocument> = {
           'Signalez un collectionneur depuis son profil, depuis le menu de la conversation ou depuis une publication communautaire («\u00a0Signaler le collectionneur\u00a0»). Choisissez un motif; les modérateurs examinent chaque signalement, et le collectionneur signalé n’apprend jamais qui l’a signalé.',
           'Bloquez un collectionneur depuis son profil ou depuis le menu de la conversation\u00a0: vous cessez de voir les cartables, le profil et les publications l’un de l’autre sur la carte, dans la recherche et dans la communauté, et aucun de vous deux ne peut écrire à l’autre. Gérez les blocages dans Paramètres → Utilisateurs bloqués.',
           'Si vous êtes en danger, communiquez d’abord avec les services d’urgence de votre région (le 911 au Canada).',
-        ],
-      },
-      {
-        id: 'payments',
-        heading: 'Paiements',
-        clauses: [
-          'Au lancement, OrenjiTrade ne traite aucun paiement entre collectionneurs\u00a0: vous réglez vos échanges et vos ventes directement entre vous. OrenjiTrade n’est pas partie à vos échanges et ne peut pas les rembourser.',
-          'Si vous payez, privilégiez un mode de paiement que vous pouvez vérifier sur place, et seulement après avoir vérifié les cartes.',
         ],
       },
     ],

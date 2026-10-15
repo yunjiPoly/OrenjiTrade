@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { usePublicBinder, usePublicBinderItems } from '@/src/api/hooks/binders';
@@ -13,10 +13,9 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
-import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
-import { offerTargetFromItem, type OfferSeller } from '@/src/features/offers/offerTarget';
 import { reportParams } from '@/src/features/reports/reportLabels';
 import { boundedQuery, QUERY_MAX_LENGTH, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import {
@@ -40,9 +39,9 @@ export interface PublicBinderViewProps {
 /**
  * A public binder (web: `/binders/:id`, `GET /public/binders/{id}` + its public cards): only what
  * the owner made public, never private notes, never coordinates (the owner block carries a region
- * state or province). Search and availability filters, "Make an offer" on the cards
- * that accept one, "Report" the owner (BINDER context); 404 when it is not public, and the daily
- * binder views (the same limit for every collector) explained when they run out.
+ * state or province). Search and availability filters, "Report" the owner (BINDER context); 404
+ * when it is not public, and the daily binder views (the same limit for every collector) explained
+ * when they run out.
  */
 export function PublicBinderView({ id }: PublicBinderViewProps) {
   const { palette } = useTheme();
@@ -101,13 +100,6 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
   }
 
   const current = binder.data;
-  const seller: OfferSeller = {
-    id: current.owner.id,
-    displayName: current.owner.displayName,
-    handle: current.owner.handle,
-    avatarUrl: current.owner.avatarUrl ?? null,
-    placeLabel: placeLabel(current.owner.place),
-  };
   return (
     <>
       <Stack.Screen options={{ title: current.name }} />
@@ -115,12 +107,7 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
         testID="public-binder-items"
         data={list}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ItemRow
-            item={item}
-            footer={<MakeOfferButton inCard target={offerTargetFromItem(item, seller)} />}
-          />
-        )}
+        renderItem={({ item }) => <ItemRow item={item} />}
         ItemSeparatorComponent={Separator}
         ListHeaderComponent={
           <View style={styles.header}>

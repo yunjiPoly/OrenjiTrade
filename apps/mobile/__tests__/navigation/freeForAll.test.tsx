@@ -12,7 +12,7 @@ import {
   notificationLink,
   notificationTarget,
 } from '@/src/features/notifications/notificationKinds';
-import { checkoutTarget } from '@/src/features/payments/checkoutTargets';
+import { removedRouteTarget } from '@/src/navigation/removedRoutes';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { meFixture } from '../support/fixtures';
@@ -72,8 +72,11 @@ describe('no screen of the removed paid features', () => {
     ]) {
       expect(routes).not.toContain(removed);
     }
-    expect(existsSync(join(__dirname, '..', '..', 'src', 'features', 'ads'))).toBe(false);
-    expect(existsSync(join(__dirname, '..', '..', 'src', 'features', 'billing'))).toBe(false);
+    // With the protected-payment checkout gone too (ADR 0018), the phone has no checkout at all.
+    expect(routes.filter((route) => route.startsWith('checkout/'))).toEqual([]);
+    for (const folder of ['ads', 'billing', 'checkout', 'payments']) {
+      expect(existsSync(join(__dirname, '..', '..', 'src', 'features', folder))).toBe(false);
+    }
   });
 
   it('knows no flag of the removed features', () => {
@@ -110,7 +113,7 @@ describe('no screen of the removed paid features', () => {
 describe('old links to the removed screens', () => {
   it('say the app is free instead of opening a screen that is gone', () => {
     for (const path of ['/premium', '/premium?checkout=success', '/credits', '/support']) {
-      expect(mobileTarget(path)).toEqual({ kind: 'later', note: FREE_FOR_ALL_NOTE });
+      expect(mobileTarget(path)).toEqual({ kind: 'note', note: FREE_FOR_ALL_NOTE });
     }
     expect(FREE_FOR_ALL_NOTE).toBe(
       'OrenjiTrade is free for every collector now: there is no Premium, credits or donations.'
@@ -132,16 +135,18 @@ describe('old links to the removed screens', () => {
     // An old notice that kept its deep link to Premium says the app is free.
     expect(
       notificationTarget({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED', deepLink: '/premium' } })
-    ).toEqual({ kind: 'later', note: FREE_FOR_ALL_NOTE });
+    ).toEqual({ kind: 'note', note: FREE_FOR_ALL_NOTE });
   });
 
-  it('never open the old Premium or donation checkouts', () => {
-    expect(checkoutTarget('/checkout/fake-billing/fake_cs_1')).toBeNull();
-    expect(checkoutTarget('/checkout/fake-donation/fake_dn_1')).toBeNull();
-    expect(checkoutTarget('/checkout/fake/fake_pi_1')).toEqual({
-      kind: 'app',
-      screen: 'payment',
-      ref: 'fake_pi_1',
-    });
+  it('move an old Premium, credits, support or checkout link on to the Profile tab', () => {
+    for (const path of [
+      '/premium',
+      '/credits',
+      '/support',
+      '/checkout/fake-billing/fake_cs_1',
+      '/checkout/fake-donation/fake_dn_1',
+    ]) {
+      expect(removedRouteTarget(path)).toEqual({ href: '/profile', note: FREE_FOR_ALL_NOTE });
+    }
   });
 });

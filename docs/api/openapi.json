@@ -23895,11 +23895,11 @@
           },
           "slug": {
             "type": "string",
-            "example": "local-meetups"
+            "example": "shipping"
           },
           "label": {
             "type": "string",
-            "example": "Local Meetups"
+            "example": "Shipping"
           },
           "category": {
             "type": "string",

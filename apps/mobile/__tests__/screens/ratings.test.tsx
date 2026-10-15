@@ -81,17 +81,24 @@ describe('Rate a collector', () => {
     fireEvent.press(screen.getByTestId('rate-overall-5'));
     expect(screen.getByTestId('rate-overall-5')).toBeChecked();
     expect(screen.getByTestId('rate-overall-4')).not.toBeChecked();
+    // Overall, Communication, Card condition and Shipping; never "Meetup reliability" (ADR 0018).
+    for (const label of ['Communication', 'Card condition', 'Shipping']) {
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByText(/Meetup reliability/)).toBeNull();
+    expect(screen.queryByTestId('rate-meetupReliability-5')).toBeNull();
+    expect(screen.queryByText(/agreed place/)).toBeNull();
     fireEvent.press(screen.getByTestId('rate-communication-4'));
     fireEvent.press(screen.getByTestId('rate-shipping-2'));
     fireEvent.press(screen.getByTestId('rate-shipping-clear'));
-    fireEvent.changeText(screen.getByTestId('rate-comment'), ' Smooth meetup. ');
+    fireEvent.changeText(screen.getByTestId('rate-comment'), ' Well packed, quick shipping. ');
     fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/ratings')[0]?.body).toEqual({
       interactionId: '00000000-0000-4000-9e00-000000000001',
       overall: 5,
       communication: 4,
-      comment: 'Smooth meetup.',
+      comment: 'Well packed, quick shipping.',
     });
     expect(screen.getByTestId('snackbar')).toHaveTextContent(
       'Thanks! Your rating of Noé Verdun is published.'
@@ -158,11 +165,12 @@ describe('Rate a collector', () => {
     );
   });
 
-  it('edits the caller’s own rating with PUT', async () => {
+  it('edits the caller’s own rating with PUT, keeping an old meetup score it no longer asks', async () => {
     mockParams.current = { ...mockParams.current, rating: RATING_ID };
+    const old = { ...OWN_RATING, breakdown: { ...OWN_RATING.breakdown, meetupReliability: 4 } };
     const api = mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture({ items: [OWN_RATING] })),
+        'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture({ items: [old] })),
       })
     );
     renderWithProviders(<RateCollectorScreen />, { port: port() });
@@ -173,10 +181,12 @@ describe('Rate a collector', () => {
     fireEvent.press(screen.getByTestId('rate-overall-2'));
     fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(api.callsTo('PUT /api/v1/ratings/{id}')).toHaveLength(1));
+    expect(screen.queryByText(/Meetup reliability/)).toBeNull();
     expect(api.callsTo('PUT /api/v1/ratings/{id}')[0]?.body).toEqual({
       overall: 2,
       communication: 5,
       shipping: 3,
+      meetupReliability: 4,
       comment: 'Friendly.',
     });
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Your rating is updated.');
@@ -302,7 +312,7 @@ describe('Ratings section of a profile', () => {
     );
     renderWithProviders(<CollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rating-hint')).toHaveTextContent(
-      /You can rate Noé Verdun after a completed trade/
+      /You can rate Noé Verdun after a deal with them or a conversation/
     );
     expect(screen.queryByTestId('collector-write-reference')).not.toBeOnTheScreen();
   });

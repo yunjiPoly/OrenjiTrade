@@ -1,6 +1,6 @@
 import { useRouter, useScrollToTop } from 'expo-router';
 import { useCallback, useRef, type ReactElement } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useUnifiedSearch } from '@/src/api/hooks/search';
 import { useUid } from '@/src/api/hooks/useUid';
@@ -8,6 +8,7 @@ import type { CollectorMarker, PublicBinderSummary } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { RecentSearches } from '@/src/features/catalog/RecentSearches';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';

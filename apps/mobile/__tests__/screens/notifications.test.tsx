@@ -85,7 +85,7 @@ describe('Notification centre', () => {
     expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1);
   });
 
-  it('opens offers, trades, reports, ratings and disputes, and marks one read in place', async () => {
+  it('opens reports and ratings, explains old offers, trades and disputes, and marks one read in place', async () => {
     const trade = notificationFixture({
       id: 'n-trade',
       type: 'TRADE_UPDATE',
@@ -126,21 +126,29 @@ describe('Notification centre', () => {
       })
     );
     renderWithProviders(<NotificationsScreen />, { port: port() });
-    fireEvent.press(await screen.findByTestId(`notification-${offer.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith('/offers/o1');
+    // Old offer, trade and dispute notifications still render (ADR 0018), mark read, open nothing
+    // and say why: those screens left the phone and the notification names no collector.
+    expect(await screen.findByText('New offer on Lantern Fox')).toBeOnTheScreen();
+    expect(screen.getByText('Trade updated')).toBeOnTheScreen();
+    expect(screen.getByText('Dispute opened')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId(`notification-${offer.id}`));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/notifications/{id}/read')[0]?.path).toBe(
         `/api/v1/notifications/${offer.id}/read`
       )
     );
+    expect(
+      await screen.findByText(
+        'Offers and trades are no longer in the app. Deals happen in the chat, in Messages.'
+      )
+    ).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId(`notification-${trade.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith('/trades/t1');
+    fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
+    expect(mockRouter.push).not.toHaveBeenCalled();
     fireEvent.press(screen.getByTestId(`notification-${decision.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
     fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/collectors/maika?tab=ratings');
-    fireEvent.press(screen.getByTestId(`notification-${dispute.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith('/disputes/d1');
     fireEvent.press(screen.getByTestId(`notification-read-${match.id}`));
     await waitFor(() => expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0));
   });

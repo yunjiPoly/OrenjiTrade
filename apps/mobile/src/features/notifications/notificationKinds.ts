@@ -146,14 +146,27 @@ export function notificationLink(
   }
 }
 
-/** Where a notification leads in the app, or why it cannot yet (a screen of a later stage). */
-export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'later'; note: string };
+/**
+ * Where a notification leads in the app, or a note saying why it opens nothing (a setting that is
+ * on the website only, or an offer or trade: they left the phone, ADR 0018).
+ */
+export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'note'; note: string };
 
 const SETTINGS_LATER = 'This setting is on orenjitrade.com only for now.';
 
 /** Said by an old link to Premium, credits or donations (removed by stage F1, 2026-10-14). */
 export const FREE_FOR_ALL_NOTE =
   'OrenjiTrade is free for every collector now: there is no Premium, credits or donations.';
+
+/**
+ * What an old offer, trade, payment or dispute notification says when tapped: those screens left
+ * the phone and the notification names no collector, so it opens nothing (ADR 0018).
+ */
+export const DEALS_IN_CHAT_NOTE =
+  'Offers and trades are no longer in the app. Deals happen in the chat, in Messages.';
+
+/** Settings pages that left the phone with offers and protected payments (ADR 0018). */
+const REMOVED_SETTINGS = new Set(['offers', 'payouts']);
 
 /** Settings pages of the app, by their web path segment (`/settings/<segment>`). */
 const SETTINGS_PAGES: Record<string, string> = {
@@ -165,8 +178,6 @@ const SETTINGS_PAGES: Record<string, string> = {
   account: 'account',
   appearance: 'appearance',
   reports: 'reports',
-  offers: 'offers',
-  payouts: 'payouts',
   blocked: 'blocked',
 };
 
@@ -178,10 +189,10 @@ function route(href: string): NotificationTarget {
  * The mobile screen of a web path (the API's deep links are web paths): the wishlist,
  * conversations, community channels, binders (`/inventory?binder=`), cards (with the
  * `?printing=<id>`, `?printing=any` or `?rarity=` of a wishlist alert), collector profiles
- * (`?tab=ratings` scrolls to the ratings), offers, trades, disputes, legal pages and settings
- * (My reports, offer settings, payouts) map to their app screens; the web-only settings explain
- * where to go instead, and an old link to Premium, credits or "Support OrenjiTrade" (removed by
- * stage F1) says that the app is free. Ids are validated again.
+ * (`?tab=ratings` scrolls to the ratings), legal pages and settings (My reports) map to their app
+ * screens; the web-only settings explain where to go instead, offers, trades, disputes, offer
+ * settings and payouts say that deals happen in the chat (ADR 0018), and an old link to Premium,
+ * credits or "Support OrenjiTrade" says that the app is free (ADR 0019). Ids are validated again.
  */
 export function mobileTarget(webPath: string): NotificationTarget {
   const [pathname = '', query = ''] = webPath.split('?');
@@ -245,19 +256,20 @@ export function mobileTarget(webPath: string): NotificationTarget {
       if (!rawId) {
         return route('/settings');
       }
+      if (REMOVED_SETTINGS.has(rawId)) {
+        return { kind: 'note', note: DEALS_IN_CHAT_NOTE };
+      }
       const page = SETTINGS_PAGES[rawId];
-      return page ? route(`/settings/${page}`) : { kind: 'later', note: SETTINGS_LATER };
+      return page ? route(`/settings/${page}`) : { kind: 'note', note: SETTINGS_LATER };
     }
     case 'offers':
-      return route(id ? `/offers/${id}` : '/offers');
     case 'trades':
-      return route(id ? `/trades/${id}` : '/trades');
     case 'disputes':
-      return route(id ? `/disputes/${id}` : '/trades');
+      return { kind: 'note', note: DEALS_IN_CHAT_NOTE };
     case 'premium':
     case 'credits':
     case 'support':
-      return { kind: 'later', note: FREE_FOR_ALL_NOTE };
+      return { kind: 'note', note: FREE_FOR_ALL_NOTE };
     default:
       return route('/notifications');
   }

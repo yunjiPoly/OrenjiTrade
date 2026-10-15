@@ -61,7 +61,7 @@ export function friendlyError(error: ApiError): FriendlyError {
       return {
         title: 'Age confirmation required',
         message:
-          'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+          'Please confirm that you are 18 years of age or older to be shown on the map, message or post. We will take you to the confirmation.',
       };
     case 'FORBIDDEN':
       return {

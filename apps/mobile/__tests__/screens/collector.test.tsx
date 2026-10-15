@@ -3,7 +3,6 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react-nativ
 import CollectorScreen from '@/app/collectors/[id]';
 import { meKeys } from '@/src/api/queryKeys';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
-import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -72,7 +71,7 @@ describe('Collector profile', () => {
     expect(screen.getByTestId('collector-last-active')).toHaveTextContent('Active this week');
     expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
     expect(screen.getByText('Magic and Pokémon in Verdun.')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Local pickup');
+    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Tracked shipping');
     expect(screen.queryByTestId('public-preview-banner')).toBeNull();
 
     // The location card: the state or province only, no map, no zone, no distance (ADR 0017).
@@ -128,28 +127,19 @@ describe('Collector profile', () => {
         source: 'PROFILE',
       },
     });
-    const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: item.id },
-    });
-    expect(offerTargetFor(item.id)).toMatchObject({
-      cardName: 'Azure-Eyes Sky Dragon',
-      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Ontario, Canada' },
-    });
   });
 
-  it('offers no offer on cards that refuse them', async () => {
-    const item = publicItemFixture({ acceptsOffers: false });
+  it('lists the public cards without "Make an offer" (offers left the phone, ADR 0018)', async () => {
+    const item = publicItemFixture();
     mockApi(
       routes({
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
       })
     );
     render();
-    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
+    expect(await screen.findByTestId(`collector-card-${item.id}`)).toBeOnTheScreen();
     expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
+    expect(screen.queryByText('Make an offer')).not.toBeOnTheScreen();
   });
 
   it('shows empty binders, and a retry when they fail', async () => {
@@ -192,7 +182,7 @@ describe('Collector profile', () => {
     render();
     expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
     expect(screen.getByTestId('rating-count')).toHaveTextContent('12 ratings');
-    expect(screen.getByText('Smooth trade at the café.')).toBeOnTheScreen();
+    expect(screen.getByText('Well packed, shipped with tracking.')).toBeOnTheScreen();
     expect(screen.getByText('Communication')).toBeOnTheScreen();
     expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('ratings-more'));

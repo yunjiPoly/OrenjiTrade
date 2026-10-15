@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useGames } from '@/src/api/hooks/profile';
 import { Chip } from '@/src/components/ui/Chip';
+import { Text } from '@/src/components/ui/Text';
 import { gamesFrom, PROFILE_LANGUAGES } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

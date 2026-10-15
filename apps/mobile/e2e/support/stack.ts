@@ -496,7 +496,10 @@ export async function apiOffer(
   return (await response.json()) as ApiOffer;
 }
 
-/** A cash offer by `buyer` on a public item (the second user of two-user specs). */
+/**
+ * A cash offer by `buyer` on a public item, made through the API (offers left the phone, ADR 0018;
+ * the API keeps them for the paused web): what an old conversation and notification still hold.
+ */
 export async function apiMakeOffer(
   api: APIRequestContext,
   buyer: EmulatorUser,
@@ -509,28 +512,6 @@ export async function apiMakeOffer(
     data: { itemId, kind: 'CASH', cashAmount, currency: 'CAD', ...(message ? { message } : {}) },
   });
   expect(response.status(), 'POST /offers').toBe(201);
-  return (await response.json()) as ApiOffer;
-}
-
-/** A cash counter-offer by `as` on the live proposal `offerId` (its current version). */
-export async function apiCounterOffer(
-  api: APIRequestContext,
-  as: EmulatorUser,
-  offerId: string,
-  cashAmount: number
-): Promise<ApiOffer> {
-  const current = await apiOffer(api, as, offerId);
-  const response = await api.post(`${API_URL}/api/v1/offers/${offerId}/counter`, {
-    headers: authHeader(as.idToken),
-    data: {
-      kind: 'CASH',
-      cashAmount,
-      currency: 'CAD',
-      tradeItemIds: [],
-      version: current.version,
-    },
-  });
-  expect(response.status(), 'POST /offers/{id}/counter').toBe(200);
   return (await response.json()) as ApiOffer;
 }
 
@@ -549,32 +530,47 @@ export async function apiDeclineOffer(
   expect(response.status(), 'POST /offers/{id}/decline').toBe(200);
 }
 
-/** `as` confirms the exchange of a trade (both confirmations complete it). */
-export async function apiCompleteTrade(
-  api: APIRequestContext,
-  as: EmulatorUser,
-  tradeId: string
-): Promise<{ status: string }> {
-  const response = await api.post(`${API_URL}/api/v1/trades/${tradeId}/complete`, {
-    headers: authHeader(as.idToken),
-  });
-  expect(response.status(), 'POST /trades/{id}/complete').toBe(200);
-  return (await response.json()) as { status: string };
-}
-
 /** The ratings of a collector as `as` sees them. */
 export async function apiCollectorRatings(
   api: APIRequestContext,
   as: EmulatorUser,
   handle: string
-): Promise<{ items: { rater: { handle: string }; overall: number; comment?: string | null }[] }> {
+): Promise<{
+  items: {
+    rater: { handle: string };
+    overall: number;
+    comment?: string | null;
+    breakdown?: Record<string, number | null>;
+  }[];
+}> {
   const response = await api.get(`${API_URL}/api/v1/collectors/${handle}/ratings`, {
     headers: authHeader(as.idToken),
   });
   expect(response.ok(), 'GET /collectors/{handle}/ratings').toBeTruthy();
   return (await response.json()) as {
-    items: { rater: { handle: string }; overall: number; comment?: string | null }[];
+    items: {
+      rater: { handle: string };
+      overall: number;
+      comment?: string | null;
+      breakdown?: Record<string, number | null>;
+    }[];
   };
+}
+
+/** Whether `as` may rate `userId` now (`GET /ratings/eligibility`). */
+export async function apiCanRate(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  userId: string
+): Promise<boolean> {
+  const response = await api.get(`${API_URL}/api/v1/ratings/eligibility?userId=${userId}`, {
+    headers: authHeader(as.idToken),
+  });
+  if (!response.ok()) {
+    return false;
+  }
+  const body = (await response.json()) as { interactions?: { alreadyRated: boolean }[] };
+  return (body.interactions ?? []).some((interaction) => !interaction.alreadyRated);
 }
 
 /** `as`'s own reports (`GET /me/reports`). */

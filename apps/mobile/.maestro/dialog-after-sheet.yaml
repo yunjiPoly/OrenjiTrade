@@ -3,8 +3,9 @@
 # are found by id, which is what a screen reader has to find too. Then the other order (the sheet
 # after the dialog), and the deletion itself, checked on the host by scripts/check-inventory.js.
 #
-# Why Dark (chosen in Settings > Appearance, the device stays as it is): its scrim is the darkest
-# one. iOS takes a full-window view with a translucent pure black background for the dimming view
+# Why Dark (a new install's theme since stage R1 of the phone redesign; chosen again in Settings >
+# Appearance so the flow never depends on that default; the device stays as it is): its scrim is
+# the darkest one. iOS takes a full-window view with a translucent pure black background for the dimming view
 # of a modal and hides what is behind it from accessibility; the native view keeps that mark when
 # React Native reuses it, and the dialog that followed a sheet was on screen with an empty
 # accessibility tree (src/theme/scrim.ts). A scrim that is black again fails here.

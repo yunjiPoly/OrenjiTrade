@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { BinderResponse, GameSchema } from '@/src/api/types';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { SwitchRow } from '@/src/components/ui/FormControls';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { editionLabel, finishLabel, languageName } from '@/src/lib/catalog';
 import {

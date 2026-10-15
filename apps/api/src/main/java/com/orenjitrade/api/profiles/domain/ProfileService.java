@@ -226,7 +226,7 @@ public class ProfileService {
     /** Removes the avatar (no-op without one). */
     @Transactional
     public void deleteAvatar(UUID userId) {
-        profiles.findById(userId)
+        profiles.findWithTagsByUserId(userId)
                 .ifPresent(
                         profile -> {
                             @Nullable String previous = profile.getAvatarKey();
@@ -240,7 +240,9 @@ public class ProfileService {
     /**
      * Replaces the profile tags with {@code tagIds} (existing, active tags) plus {@code
      * customLabels} (created as CUSTOM tags after the banned-term check, or reused when a tag with
-     * the same slug exists). At most {@value #MAX_TAGS} in total.
+     * the same slug exists). At most {@value #MAX_TAGS} in total. A hidden or banned tag is
+     * refused; the owner's own profile never lists one (see {@link #getMine}), so an edit form that
+     * sends back what it read keeps working after a tag is hidden (V115 hid local-meetups).
      */
     @Transactional
     public List<TagView> replaceTags(UUID userId, List<UUID> tagIds, List<String> customLabels) {
@@ -356,7 +358,9 @@ public class ProfileService {
                 List.copyOf(profile.getGames()),
                 List.copyOf(profile.getLanguages()),
                 profile.getAvatarKey() == null ? null : storage.publicUrl(profile.getAvatarKey()),
-                profile.getTags().stream().map(Tag::toView).sorted(TagView.DISPLAY_ORDER).toList(),
+                // Active tags only, as others see them: a hidden or banned tag (V115 hid
+                // local-meetups) is neither shown nor sent back by an edit form.
+                activeTagViews(profile),
                 profile.getCompletedAt(),
                 profile.getUpdatedAt());
     }

@@ -186,7 +186,11 @@ Latest (2026-10-13/14, stage S6, the same Mac mini): `test:api` 3 min 5 s to 3 m
 170 classes plus 12 catalog tests), `test:web` 142 files / 678 tests, `test:e2e` 74 specs in about
 1 min 30 s, `test:mobile` about 20 s (jest 89 suites / 922 tests + 28 guard tests),
 `test:mobile:e2e` 60 specs in about 1 min 20 s, `test:mobile:maestro -- --platform ios` 30 flows in
-about 48 min on the owner's iPhone 18 Pro simulator.
+about 48 min on the owner's iPhone 18 Pro simulator. After stage R1 of the phone redesign
+(2026-10-14): `test:api` 3 min 30 s (978 tests in 171 classes plus 12 catalog tests), `test:web` 142
+files / 681 tests, `test:e2e` 74 specs in 1 min 36 s, `test:mobile` jest 89 suites / 895 tests,
+`test:mobile:e2e` 57 specs in about 1 min 15 s, `test:mobile:maestro -- --platform ios` 30 flows
+in about 48 min.
 
 E2E logs: `.local-dev/logs/e2e-api.log` and `.local-dev/logs/e2e-web.log`; Playwright traces and
 screenshots of failures under `apps/web-angular/test-results/`.
@@ -267,14 +271,18 @@ each) and Phases 5–6 (the Messages tab with the inbox,
 conversations and the community channels, live over the realtime channel; the Wishlist tab
 (stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
 region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
-collector and My reports; rating a collector and writing a reference after an interaction;
-"Make an offer", the offers inbox, one offer with accept / counter / decline / withdraw; trades
-with the meetup, confirming the exchange, cancelling, and rating once completed) and Phases 9–10
-(payment protection on the trade: pay on the app's fake checkout, ship, confirm receipt, disputes
-with statements and photos, Settings → Payouts) are implemented on the same API and the same local
-fake provider as the web (Premium, credits, donations and the sponsored placements of Phase 10
-left with stage F1 on 2026-10-14, ADR 0019); the admin consoles stay on the web. Stage M7
-(2026-10-06) closes the web parity gaps:
+collector and My reports; rating a collector and writing a reference after a deal or a
+conversation) are implemented on the same API as the web; the admin consoles stay on the web.
+Offers and trades (Phase 8) and payment protection, disputes and Settings → Payouts (Phase 9)
+were on the phone from stages M5 and M6 until stage R1 of the phone redesign (2026-10-14) removed
+them: deals happen in the chat and cards ship by mail
+([ADR 0018](../architecture/adr/0018-deals-happen-in-the-chat.md)). Since R1 they are web-only
+(the API keeps them for the paused web); on the phone an old offer reads "Offer (no longer
+available)" and an old offer, trade or dispute notification or link says that deals happen in
+the chat. Premium, credits, donations and the sponsored placements of Phase 10 (on the phone since
+stage M6) left the app, the API and the web with stage F1 on 2026-10-14
+([ADR 0019](../architecture/adr/0019-free-for-all-no-paid-features.md)): an old link to one opens
+the Profile tab and says that the app is free. Stage M7 (2026-10-06) closes the web parity gaps:
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
@@ -283,8 +291,9 @@ mobile) adds the 18+ confirmation (the bilingual checkbox at sign-up and on the 
 first onboarding "Age" step for existing accounts: seed accounts see it once), the French legal
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
 both web files), consents recorded with the language shown, the dismissible "Trade safely"
-notice in conversations and on offers / trades (dismissal kept on the device), Block / Unblock
-on collector profiles. Locally the catalog is the fictional mock catalog of the seed (the real
+notice in conversations and on offers / trades (since stage R1: a shipping-first safety tip at
+the start of every chat, which opens "Trading safely"), Block / Unblock on collector profiles.
+Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The location is declared like on the web (ADR 0017): region, country, state or
@@ -309,12 +318,9 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
 (collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
-collector1 has collector5's open offer waiting for an answer and completed trades: Profile tab →
-Offers / Trades; collector1 also sells a protected trade waiting for collector8's receipt, has
-payouts set up; collector5's protected trade with collector2 is disputed: Trades → the trade →
-"View the dispute"). The app's checkout (`checkout/fake/…`) is the local fake payment provider: a
-"Local test payment" banner, no card, no money. A reached usage limit is explained plainly (the
-same limits for every collector, nothing to buy: the `limit-reached.yaml` flow).
+the seed's offers, trades, payouts and dispute show on the web only since stage R1). The phone
+has no checkout and sells nothing (stages R1 and F1). A reached usage limit is explained plainly
+(the same limits for every collector, nothing to buy: the `limit-reached.yaml` flow).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
 `ws://10.0.2.2:8080/ws` with the ID token in the handshake's `Authorization` header (the web build
@@ -379,11 +385,9 @@ it is somewhere else (on Windows, for example `D:/maestro/bin/maestro.bat`; on m
 for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform (the API address is
 inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
-second collector of the messaging, wishlist, offer and report flows comes from `messaging.js`,
-`wishlist.js` and `offers.js`, the seller of the payment-protection flow from `payments.js`, the
-collector at the binders limit of the usage-limit flow from `limits.js`; `offers.js` and
-`payments.js` post `{}` to body-less endpoints
-because Maestro's `http.post` needs a body)
+second collector of the messaging, wishlist and report flows comes from `messaging.js`,
+`wishlist.js` and `reports.js`, the collector at the binders limit of the usage-limit flow from
+`limits.js`)
 and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows

@@ -97,7 +97,8 @@ test.describe('mobile card holders', () => {
     await expect(offersRow).not.toContainText('Zqholdcity');
     await expect(offersRow).not.toContainText(/\bkm\b|away/);
     await expect(offersRow.getByRole('button', { name: 'View binder' })).toBeVisible();
-    await expect(offersRow.getByRole('button', { name: 'Make an offer' })).toBeVisible();
+    // Offers left the phone (ADR 0018: deals happen in the chat).
+    await expect(holders.getByRole('button', { name: 'Make an offer' })).toHaveCount(0);
 
     // Sort by price: the cheaper copy first.
     const byPrice = page.waitForRequest(

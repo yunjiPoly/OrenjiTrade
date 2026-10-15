@@ -4,8 +4,10 @@
 
 OrenjiTrade is a regional discovery network for trading cards. Instead of hunting through
 marketplace listings, Facebook groups, Discord servers and forums, a collector opens one map and
-sees which collectors of their region, state by state, own, trade, sell, want or accept offers for
-a card. The network and its data graph (who owns / wants / trades / sells what, in which state or
+sees which collectors of their region, state by state, own, trade, sell or want a card. Deals
+happen in the chat and cards ship by mail: the buyer pays the seller outside the app (Interac
+e-Transfer), the seller ships with tracking, and OrenjiTrade never handles the money (ADR 0018,
+2026-10-14). The network and its data graph (who owns / wants / trades / sells what, in which state or
 province) is the long-term asset. Since ADR 0017 (2026-10-08) collectors declare a country and a
 state or province; OrenjiTrade never handles positions or distances.
 
@@ -19,8 +21,13 @@ redesign of the phone app on 2026-10-14 (stages R1 to R8,
 [specs/2026-10-14-phone-redesign.md](specs/2026-10-14-phone-redesign.md)): five tabs (Home,
 Search, Inventory, Messages, Profile), "Make an offer" and with it trades, protected payments and
 disputes taken off the phone, deals that ship by mail with payment by e-Transfer outside the app,
-deck cores, a map-first Search and new profiles. It is not built yet: this page describes the
-product as it is today. What the owner's change of 2026-10-08 delivered and what it did not:
+deck cores, a map-first Search and new profiles. **Stage R1 is built** ("Offers out, shipping
+wording, look", ADR 0018): the phone has no offers, trades, protected payments or disputes any
+more (the API keeps them for the paused web), every chat opens with a shipping safety tip, ratings
+no longer ask about meetups, the meetup wording left the app, the seeds and the "Trading safely"
+page, and the phone opens in the dark theme with the redesign's typefaces (Sora, Inter, JetBrains
+Mono). Stages R2 to R8 are not built: the rest of this page describes the phone as it is (six tabs
+until R5). What the owner's change of 2026-10-08 delivered and what it did not:
 [2026-10-08-change-delivery-report.md](2026-10-08-change-delivery-report.md).
 
 ## Two primary surfaces
@@ -41,9 +48,9 @@ product as it is today. What the owner's change of 2026-10-08 delivered and what
    copies, lines left out) and nothing is added before the collector confirms; new cards start
    private. The web has no import screen (paused).
 
-Supporting surfaces: search, collector profile + public binder, wishlist + alerts, private chat,
-community channels, offers and trades (on the phone until the redesign's stage R1), ratings and
-references, collector reporting, settings (privacy, notifications, account deletion), legal pages,
+Supporting surfaces: search, collector profile + public binder, wishlist + alerts, private chat
+(where deals happen), community channels, offers and trades (web only since stage R1, ADR 0018),
+ratings and references, collector reporting, settings (privacy, notifications, account deletion), legal pages,
 admin console (web only).
 
 **Not built** (owner decision of 2026-10-13, stages S3 and S4 of the 2026-10-08 change): the
@@ -59,7 +66,9 @@ Registration → profile → location (region, country, state or province, optio
 interests · Inventory add/organise/publish · Map → state → binder → profile → message · Card
 search → holders in my region ·
 Wishlist (which copy, public note, Near Mint only, % TCG term) → a collector of the region lists
-it → wishlist alert → card page · Offer lifecycle · Rating after eligible interaction ·
+it → wishlist alert → card page · A deal in the chat: ask, agree on the price and the shipping,
+pay outside the app, ship with tracking (Mark as sold arrives with stage R4) · Rating after an
+eligible interaction (a real conversation; a sale from R4) ·
 Report collector (reason + confirm) → admin review → audit · Usage limit reached → a plain
 explanation (no plan, nothing to buy) ·
 Account deletion → public traces removed.
@@ -73,14 +82,18 @@ Account deletion → public traces removed.
   cannot become discoverable on the map, message, post in the community or make offers
   (`403 AGE_CONFIRMATION_REQUIRED`). Self-declaration only, no identity verification; accounts
   found to belong to minors are closed (Terms of Service, Privacy Policy).
-- **Trading safety.** OrenjiTrade is a discovery and messaging venue, not a party to trades:
-  collectors meet and trade on their own. A "Trading safely" page (`/legal/trading-safely`, English
-  and French) explains how: busy public places in daylight (police safe exchange zones), bring
-  someone along for valuable cards, never share a home address, check the cards before paying,
-  warning signs, how to report and block. A short, dismissible safety notice with that link and the
-  Report / Block actions appears in every conversation and on the offer and trade pages; it never
-  blocks messaging. Report and Block are available from the profile, the conversation menu and
-  Settings.
+- **Trading safety.** OrenjiTrade is a discovery and messaging venue, not a party to deals:
+  collectors agree in the chat and cards ship by mail; there are no meetups (ADR 0018). A "Trading
+  safely" page (`/legal/trading-safely`, English and French, a draft) explains it: payment happens
+  outside the app (for example Interac e-Transfer) and OrenjiTrade never handles the money; check
+  ratings and references and ask for photos of the real card before paying; sellers ship once paid,
+  with tracking; share an address only in the chat with the person you deal with; the warning signs
+  (pressure, another payment method, gift cards or crypto, a price far below the market, refusing
+  tracking); how to report and block. On the phone a small tip with a shield opens every chat, worded
+  for its side (buying, selling, or a chat without a card; every chat reads the last one until chats
+  get a pinned card in stage R4); it never blocks messaging and opens that page. Report and Block are
+  available from the profile, the conversation menu and Settings. (The paused web keeps its meetup
+  notice on conversations, offers and trades.)
 - **Legal pages in French and English (Bill 96).** Every legal page (Terms, Privacy, Community
   Guidelines, Marketplace, Payment Protection, Refunds, Cookies, Acceptable Use, Trading safely)
   exists in French and in English with an EN/FR switch, French by default for a French browser; the
@@ -94,9 +107,11 @@ Account deletion → public traces removed.
   Defaults favour safety.
 - Freshness is first-class: stale inventory ranks lower, is warned about, then hidden until the
   owner reconfirms. Nothing is deleted automatically.
-- Ratings require an eligible interaction. Reporting is simple (collector only) and audited.
+- Ratings require an eligible interaction (Overall, Communication, Card condition and Shipping on
+  the phone; no meetup score). Reporting is simple (collector only) and audited.
 - Payment protection (feature-flagged, Stripe Connect) uses provider-held funds with delayed
-  payout. It is described as payment protection, never as escrow.
+  payout. It is described as payment protection, never as escrow. Web only (paused): the phone has
+  no payment protection and never claims any (ADR 0018).
 
 ## Business model
 
@@ -118,8 +133,9 @@ protection, is built and feature-flagged but **switched off at launch**: `protec
 (payment protection, payouts, disputes); `mlScanning` stays off by the Phase 11 hold and
 `publicChat` stays on (the `premiumPlans`, `credits`, `donations` and `advertising` flags left
 with their features on 2026-10-14). With the flag off no screen offers to pay, the payment routes
-answer `404 FEATURE_DISABLED`, offers are plain proposals and an accepted offer opens an
-in-person trade. The flags live in the database (migrations V010 + V105)
+answer `404 FEATURE_DISABLED`, and on the web offers are plain proposals and an accepted offer
+opens an in-person trade. The phone has no offers or payments at all since stage R1: deals happen
+in the chat and ship by mail (ADR 0018). The flags live in the database (migrations V010 + V105)
 and a super admin turns a feature on in `/admin > Feature flags` once its provider, keys and
 policies are ready (`docs/deployment/runbooks.md`, "Launch configuration").
 

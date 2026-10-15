@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useScrollToTop } from 'expo-router';
 import { memo, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SectionList, StyleSheet, View } from 'react-native';
 
 import type { PlatformRegion } from '@/src/api/types';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SwitchRow } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

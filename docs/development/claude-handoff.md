@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1 and F1): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -18,7 +18,7 @@ either (ML is on hold). A Spotless failure with `NoSuchFieldError ... EndPosTabl
 cached from a JDK 27 daemon: run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in that
 worktree.
 
-## 1. Where things stand (2026-10-14)
+## 1. Where things stand (2026-10-15)
 
 **On `main` (everything merged, CI green):** the web MVP (Phases 1–10), the mobile app
 (Phases 1–10 + web parity, stages M1–M8), launch readiness (18+ rule, trading safety, French legal
@@ -30,17 +30,20 @@ of 2026-10-08 as far as it was built: **stage S1** (platform regions replace geo
 region switcher and the region map on the phone, #67), **the inventory lock fix** (writes to one
 collector's binders and cards take turns, #68), **stage S5** (the inventory import from a .ydk deck
 file or a Collectr CSV, API and phone, #69), the scrim fix (a dark backdrop iOS took for a
-modal, #70, 2026-10-14) and **stage S6** (the final documents of the 2026-10-08 change, the
-delivery report `docs/product/2026-10-08-change-delivery-report.md`, #71, 2026-10-14). Merged PRs
-from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67 #68
-#69 #70 #71.
+modal, #70, 2026-10-14), **stage S6** (the final documents of the 2026-10-08 change, the
+delivery report `docs/product/2026-10-08-change-delivery-report.md`, #71, 2026-10-14), **stage R1**
+of the phone redesign (offers, trades, protected payments and disputes off the phone, ADR 0018;
+the chat safety tip, shipping wording, the deckCore tokens, the fonts, the dark default; #72,
+2026-10-14) and **stage F1**, free for all (Premium, ads, credits and donations removed from the
+API, the phone and the web, ADR 0019; the same usage limits for everyone; merged with R1 on
+2026-10-15, then its own pull request). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48
+#49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67 #68 #69 #70 #71 #72.
 
 **Not on `main`:**
 
 | What | Where | State |
 | --- | --- | --- |
-| Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`) | Built and under review on 2026-10-14 (its own section of IMPLEMENTATION_STATUS.md on that branch); migrations V115–V119 are its range. |
-| Stage F1, "free for all" (owner, 2026-10-14; ADR 0019): Premium, ads, credits and donations removed from the API, the phone and the paused web app; the usage limits the same for everyone; protected payments kept | branch `feature/f1-free-for-all` (worktree `OrenjiTrade-s2-ux`), cut from `main` at `bf1135a` | Built on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Free for all"): migrations V120–V123, ADR 0019, the legal drafts, the docs; the check list in that section. Review rounds 1 and 2 fixed ("Review fix 1" and "Review fix 2" in that section). Waits for its ship step, **after R1** (merge notes in that section). The removed code is kept on the pushed branch `archive/paid-features` (`main` at `bf87f0b`). |
+| Phone redesign, stage R2 ("Inventory and adding cards", mockup screens 1 to 9) | branch `feature/r2-inventory-adding-cards`, built on R1 at the same time as F1 | Being finished elsewhere. Before its ship step it merges `main` (R1 and F1), renumbers its `V117__inventory_price_text_restore.sql` to V124 or later (Flyway refuses an out-of-order migration; IMPLEMENTATION_STATUS.md, "Free for all", "Merging with stage R1") and keeps every paid feature out (ADR 0019). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -53,17 +56,21 @@ card scanning), the full French UI translation and every cloud deployment stay o
 
 **Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
-verbatim). Nothing of it is built. Until a stage lands, every document describes the phone as it
-is today (six tabs, offers on the phone).
+verbatim). **R1 is on `main`** (#72); R2 is being finished on its branch (table above); R3 to R8
+are not built. The documents describe the phone as R1 and F1 leave it: six tabs until R5, no
+offers, trades, protected payments or disputes on the phone (ADR 0018), deals in the chat by mail,
+and nothing to buy (ADR 0019).
 
 **Free for all (owner, 2026-10-14, after the redesign spec):** *"can you remove the implementation
 of premium subscription and ads? Just save pay service feature in a new branch for later. I am
-trying to make this app free for all first."* Stage F1 does it (ADR 0019). Where the redesign spec
+trying to make this app free for all first."* Stage F1 did it (ADR 0019; merged with R1 on
+2026-10-15). Where the redesign spec
 says Premium, credits, donations or ads "keep their flags" or "move into Settings", this later
 decision wins: they are gone, and R2 to R8 build no screen for them.
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
-migrates to the newest level (V114 on `main`, V123 with stage F1) at the first `npm run dev`, and
+migrates to the newest level (V123: R1's V115 and V116, F1's V120–V123; V117–V119 unused) at the
+first `npm run dev`, and
 loses its trading areas by design (S1).
 
 ## 2. The 2026-10-08 change: how it ended
@@ -93,33 +100,33 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-1. **Stage R1 of the phone redesign** ("Offers out, shipping wording, look"): built on
-   `feature/r1-offers-out-shipping-look`; its review, then its ship step (merge `main`, the check
-   list below, the pull request, merge on green CI), as the spec's section 15 says.
-2. S6 is on `main` (#71); nothing left of the 2026-10-08 change except what the owner skipped.
-3. **Stage F1, free for all**, after R1: review, then its ship step (merge `main` with R1: the
-   merge notes in IMPLEMENTATION_STATUS.md, "Free for all", say how the conflicts resolve), the
-   check list below, the pull request, merge on green CI.
-4. **Then stage R2** of the phone redesign, from the new `main`; R3 to R8 follow in order, one
-   branch and one PR each. None of them brings back a paid feature (ADR 0019). R2's branch
-   (`feature/r2-inventory-adding-cards`) adds `V117`: if it merges after F1 (V120–V123), renumber
-   it to V124 or later first, because Flyway (no `outOfOrder`) refuses a migration older than the
-   database's newest one (merge notes in IMPLEMENTATION_STATUS.md, "Free for all").
-5. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
+1. **Stage R2 of the phone redesign** (inventory and adding cards, mockup screens 1 to 9), as the
+   spec's sections 6, 12 and 15 say: its branch (`feature/r2-inventory-adding-cards`, built on R1)
+   is being finished elsewhere. Before its ship step it merges `main` (which holds R1 and F1),
+   renumbers its `V117` to V124 or later, because Flyway (no `outOfOrder`) refuses a migration older
+   than the database's newest one (V123; merge notes in IMPLEMENTATION_STATUS.md, "Free for all"),
+   and builds no paid feature (ADR 0019); then the check list below, the pull request, merge on
+   green CI. R3 to R8 follow in order, one branch and one PR each, none of them bringing back a paid
+   feature.
+2. R1 (#72) and F1 are on `main`, merged together on 2026-10-15 (IMPLEMENTATION_STATUS.md, "Free
+   for all", "Merged with R1 (2026-10-15)"); S6 is on `main` (#71); nothing is left of the
+   2026-10-08 change except what the owner skipped.
+3. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
-`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
-`npm run build -w apps/web-angular` (initial bundle under the 900 kB warning budget: 899.93 kB
-on `main`, 896.71 kB with stage F1); `npm run test:e2e -- --retries=0` (every spec green on the first
-attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform android` and
-`--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
-`npm run test:scripts`; exactly what GitHub CI runs: `npm run lint -w apps/web-angular`,
-`npm run format:check -w apps/web-angular`, `npm run typecheck -w apps/mobile`,
-`npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`; and, when `apps/mobile`
-changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`, 30 flows, about
-48 minutes) on the owner's simulator (section 4). While the web is paused its checks are
-regression checks: a web failure is recorded, not fixed.
+`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
+apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1,
+WEB_BUNDLE_AFTER_MERGE with R1 and F1; the English legal texts sit in the main bundle, and the
+deckCore tokens are kept out of `tokens.css`); `npm run test:e2e -- --retries=0` (every spec green
+on the first attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform
+android` and `--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
+`npm run test:scripts`; exactly what GitHub CI runs: `npm run lint -w apps/web-angular`, `npm run
+format:check -w apps/web-angular`, `npm run typecheck -w apps/mobile`, `npm run lint -w
+apps/mobile`, `npm run format:check -w apps/mobile`; and, when `apps/mobile` changed, the full
+Maestro set (`npm run test:mobile:maestro -- --platform ios`, 30 flows since R1 and F1, about 50
+minutes) on the owner's simulator (section 4). While the web is paused its checks are regression
+checks: a web failure is recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
 `apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;
@@ -251,8 +258,22 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
 ## 6. Open owner decisions
 
 - In-app purchases in store builds: no longer open for Premium, credits or donations (removed by
-  stage F1, ADR 0019); protected payments are physical goods between people, outside in-app
-  purchase rules (ADR 0011).
+  stage F1, ADR 0019), and the phone takes no payment at all since stage R1 (ADR 0018: no
+  protected payments on the phone); the question of ADR 0011 comes back only if a paid feature or
+  payment protection returns to the phone.
+- Stage R1 of the phone redesign (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): confirm that the
+  web exception for the "Trading safely" text also covered the two web spec files that pinned the
+  old text (one assertion of `legal-page.component.spec.ts`, three strings of
+  `e2e/launch-safety.spec.ts`; the guard of the new text reads the phone's copy, so the web's
+  `legal-content.spec.ts` is as S6 left it); the lawyer's list of the meetup, offer and protection wording
+  left in the Terms, the Privacy Policy, the Community Guidelines, the Marketplace, Payment
+  Protection, Refund and Dispute and Acceptable Use policies; whether the phone's legal index
+  keeps the Payment Protection and Refund and Dispute policies (ADR 0018: no claim of protection
+  on the phone); the defaults R1 chose (old offer and trade notifications open nothing, a removed
+  link lands on Messages, the chat tip opens "Trading safely", a holder row without a price reads
+  "Open to offers" until R2, the keyboard and the iOS system views follow the app's theme, the
+  splash is dark); the owner's database keeps its earlier seed texts (meetup, café) until a reset
+  (`seed-data.md`).
 - An arm64 PostGIS image: `postgis/postgis:17-3.5` is amd64-only and runs under Rosetta on Apple
   Silicon; decide before macOS 28 (Rosetta's end).
 - `security/npm-audit-allowlist.json`: the node-forge and braces entries expire on 2026-11-30;

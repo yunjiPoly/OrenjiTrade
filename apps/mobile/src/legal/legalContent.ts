@@ -611,40 +611,44 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
     title: 'Trading safely',
     shortTitle: 'Trading safely',
     summary:
-      'Practical advice for meeting and trading with other collectors, what OrenjiTrade shows about you, and how to report or block someone.',
-    version: '0.1-draft',
+      'How deals work on OrenjiTrade: cards ship by mail and payment happens outside the app. What to check before you pay, what OrenjiTrade shows about you, and how to report or block someone.',
+    version: '0.2-draft',
     effectiveDate: null,
-    lastUpdated: LAST_UPDATED,
+    lastUpdated: '2026-10-14',
     definitions: COMMON_DEFINITIONS,
     contact: CONTACT_SUPPORT,
     sections: [
       {
-        id: 'before-you-meet',
-        heading: 'Before you meet',
+        id: 'how-deals-work',
+        heading: 'How deals work',
         clauses: [
-          'Meet in a busy public place, in daylight: a café, a shopping centre, a card shop or a library. Some police stations offer safe exchange zones; check the website of your local police service.',
-          'Bring someone along when the cards are valuable, and tell a friend where you are going and when you expect to be back.',
-          'Never share your home address, your workplace or your routine. OrenjiTrade only ever shows your state or province (and your city on your profile, if you choose), and you control what you publish.',
-          'Agree on the details in the app before you meet: which cards, which condition, which price or trade, and how you will pay. The conversation and the offer stay as a record.',
+          'You agree on the deal in the chat with the other collector, and the cards ship by mail.',
+          'OrenjiTrade never handles the money: payment happens outside the app, for example by Interac e-Transfer. OrenjiTrade is not a party to your deals and cannot refund them.',
         ],
       },
       {
-        id: 'during-the-exchange',
-        heading: 'During the exchange',
+        id: 'before-you-pay',
+        heading: 'Before you pay',
         clauses: [
-          'Check the cards before handing over money or your own cards: condition, edition, printing, and signs of a counterfeit. Take your time; a genuine trader expects it.',
-          'Keep the exchange simple: one meeting, in person, cards and payment at the same time.',
-          'Walk away if something feels wrong. You never owe anyone a trade.',
+          'Check the collector’s ratings and references, and ask for photos of the real card, front and back.',
+          'Agree in the chat on the card, its condition, the price, the shipping and the payment method. The conversation stays as a record.',
+        ],
+      },
+      {
+        id: 'shipping',
+        heading: 'Shipping',
+        clauses: [
+          'Sellers ship once the payment has arrived, with tracking, and add the tracking number when they mark the card sold.',
+          'Share your address only in the chat with the collector you deal with, never in a public post, a binder or your profile.',
         ],
       },
       {
         id: 'warning-signs',
         heading: 'Warning signs',
         clauses: [
-          'Pressure to decide right now, to meet somewhere isolated or at night, or to move the conversation off OrenjiTrade.',
-          'Deals that seem too good to be true usually are.',
-          'Requests to pay outside the agreed method: a deposit before you meet, gift cards, wire transfers or cryptocurrency to "hold" a card.',
-          'Stories that change, brand-new accounts with no history, or a refusal to show the actual card.',
+          'Pressure to decide or to pay right now.',
+          'A payment method other than the one you agreed on, or a request for gift cards or cryptocurrency.',
+          'A price far below the market, a refusal to ship with tracking, or a refusal to show the real card.',
         ],
       },
       {
@@ -662,14 +666,6 @@ export const LEGAL_DOCUMENTS: Record<LegalKey, LegalDocument> = {
           'Report a collector from their profile, from the conversation menu or from a community post ("Report collector"). Choose a reason; moderators review every report, and the reported collector is never told who reported them.',
           'Block a collector from their profile or from the conversation menu: you stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can message the other. Manage blocks in Settings → Blocked users.',
           'If you are in danger, contact your local emergency services first (911 in Canada).',
-        ],
-      },
-      {
-        id: 'payments',
-        heading: 'Payments',
-        clauses: [
-          'At launch, OrenjiTrade does not process payments between collectors: you settle trades and sales directly with each other. OrenjiTrade is not a party to your trades and cannot refund them.',
-          'If you pay, prefer a method you can verify on the spot, and only once you have checked the cards.',
         ],
       },
     ],

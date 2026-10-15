@@ -5,7 +5,6 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type GestureResponderEvent,
   type LayoutChangeEvent,
@@ -16,6 +15,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { publicKeys } from '@/src/api/queryKeys';
 import { Button } from '@/src/components/ui/Button';
 import { Skeleton } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {

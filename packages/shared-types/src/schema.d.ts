@@ -4557,9 +4557,9 @@ export interface components {
         TagResponse: {
             /** Format: uuid */
             id: string;
-            /** @example local-meetups */
+            /** @example shipping */
             slug: string;
-            /** @example Local Meetups */
+            /** @example Shipping */
             label: string;
             /** @enum {string} */
             category: "GAME" | "ROLE" | "STYLE" | "LOGISTICS" | "LANGUAGE" | "CUSTOM";

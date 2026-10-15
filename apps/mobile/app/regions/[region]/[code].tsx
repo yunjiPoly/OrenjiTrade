@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useRegionBinderCounts, useSubdivisionBinders } from '@/src/api/hooks/regionMap';
 import { useRegions } from '@/src/api/hooks/regions';
@@ -10,6 +10,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { PlaceBinderRow } from '@/src/features/map/PlaceBinderRow';
 import { placeCodeFrom, placeLabelOf, regionOf } from '@/src/features/map/places';
 import { binderCountLabel } from '@/src/features/map/shading';

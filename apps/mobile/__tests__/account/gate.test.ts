@@ -58,24 +58,29 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['regions', '[region]', '[code]'])).toBeNull();
     expect(redirectFor('guest', ['regions', '[region]', '[code]'])).toBe('/sign-in');
     expect(redirectFor('app', ['onboarding'])).toBeNull();
-    // Phases 7 and 8: reports, ratings, offers and trades.
+    // Phase 7: reports and ratings (offers, trades and disputes left the phone, ADR 0018: their
+    // old links are unmatched routes, which the not-found screen moves on to Messages).
     expect(redirectFor('app', ['report'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'rate'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'reference'])).toBeNull();
-    expect(redirectFor('app', ['offers'])).toBeNull();
-    expect(redirectFor('app', ['offers', '[id]'])).toBeNull();
-    expect(redirectFor('app', ['offers', 'new'])).toBeNull();
-    expect(redirectFor('app', ['trades', '[id]'])).toBeNull();
-    expect(redirectFor('guest', ['offers', '[id]'])).toBe('/sign-in');
-    // Phase 9: the payment checkout and disputes. Premium, credits and donations left (stage
-    // F1): their screens are no app roots any more.
-    expect(redirectFor('app', ['checkout', 'fake', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['disputes', '[id]'])).toBeNull();
-    expect(redirectFor('app', ['settings', 'payouts'])).toBeNull();
-    expect(redirectFor('guest', ['disputes', '[id]'])).toBe('/sign-in');
-    expect(redirectFor('onboarding', ['disputes', '[id]'])).toBe('/onboarding');
-    for (const removed of ['premium', 'credits', 'support']) {
-      expect(redirectFor('app', [removed])).toBe('/');
+    expect(redirectFor('app', ['+not-found'])).toBeNull();
+    expect(redirectFor('guest', ['+not-found'])).toBeNull();
+    // Offers, trades, protected payments and disputes left the phone (ADR 0018); Premium, credits,
+    // donations and their checkouts left the app (ADR 0019, stage F1): none is an app root any
+    // more (an old link is an unmatched route, which the not-found screen moves on).
+    for (const removed of [
+      ['offers'],
+      ['offers', '[id]'],
+      ['trades', '[id]'],
+      ['disputes', '[id]'],
+      ['checkout', 'fake', '[ref]'],
+      ['checkout', 'fake-billing', '[ref]'],
+      ['checkout', 'fake-donation', '[ref]'],
+      ['premium'],
+      ['credits'],
+      ['support'],
+    ]) {
+      expect(redirectFor('app', removed)).toBe('/');
     }
     expect(redirectFor('guest', ['report'])).toBe('/sign-in');
     // Signed out: the inventory screens, profiles and conversations send the visitor to sign in.

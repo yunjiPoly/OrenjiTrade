@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { FormDialog } from '@/src/components/ui/FormDialog';
 import { FormMessage } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 

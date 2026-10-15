@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { MyLimits, MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { SwitchRow } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { WISH_ITEMS_LIMIT_KEY } from './wishForm';

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Button } from '@/src/components/ui/Button';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { Checkbox } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { editionLabel, languageName } from '@/src/lib/catalog';
 import { conditionLabel } from '@/src/lib/inventory';

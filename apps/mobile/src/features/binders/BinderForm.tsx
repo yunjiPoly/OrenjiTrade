@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -7,6 +7,7 @@ import type { BinderKind, BinderResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { FormMessage } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { BINDER_KIND_LABELS, BINDER_KINDS } from '@/src/lib/inventory';

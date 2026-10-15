@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { useCard } from '@/src/api/hooks/catalog';
@@ -16,6 +16,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
 import { ItemDetailsFields } from '@/src/features/inventory/ItemDetailsFields';

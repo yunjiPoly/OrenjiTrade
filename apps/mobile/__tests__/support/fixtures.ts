@@ -6,15 +6,8 @@ import type {
   UnifiedSearchResponse,
   WishlistSummaryEntry,
   MyReport,
-  OfferPage,
-  OfferParty,
-  OfferResponse,
-  OfferSummary,
   RatingEligibility,
   ReportReasonOption,
-  TradePage,
-  TradeResponse,
-  TradeSummary,
   BinderResponse,
   CommunityChannel,
   ConversationPage,
@@ -213,8 +206,8 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
 export const TAGS: TagResponse[] = [
   {
     id: 'tag-1',
-    slug: 'local-pickup',
-    label: 'Local pickup',
+    slug: 'tracked-shipping',
+    label: 'Tracked shipping',
     category: 'LOGISTICS',
     usageCount: 12,
   },
@@ -627,7 +620,7 @@ export function markerFixture(overrides: Partial<CollectorMarker> = {}): Collect
     avatarUrl: null,
     place: ONTARIO,
     rating: { average: 4.8, count: 12 },
-    tags: ['local-pickup'],
+    tags: ['tracked-shipping'],
     games: ['mtg'],
     lastActiveBucket: 'THIS_WEEK',
     onlineStatus: 'HIDDEN',
@@ -697,7 +690,7 @@ export function ratingsPageFixture(
         rater: { handle: 'collector5', displayName: 'Léa Mile End', avatarUrl: null },
         overall: 5,
         breakdown: { communication: 5 },
-        comment: 'Smooth trade at the café.',
+        comment: 'Well packed, shipped with tracking.',
         createdAt: '2026-09-20T12:00:00Z',
         updatedAt: '2026-09-20T12:00:00Z',
         interactionKind: 'TRADE',
@@ -943,13 +936,10 @@ export function notificationPage(
   return { items, nextCursor: null, hasMore: false, ...overrides };
 }
 
-// --- Ratings, reports, offers and trades (Phases 7 and 8, fictional) -----------------------------
+// --- Ratings and reports (Phase 7, fictional) ---------------------------------------------------
 
-/** The other collector of the offer and trade fixtures (the signed-in one is `meFixture`). */
+/** Another collector of the rating fixtures (the signed-in one is `meFixture`). */
 export const OTHER_ID = '00000000-0000-4000-8000-0000000000b1';
-export const OFFER_ID = '00000000-0000-4000-9c00-000000000001';
-export const TRADE_ID = '00000000-0000-4000-9d00-000000000001';
-export const BUYER_ITEM_ID = '00000000-0000-4000-8c00-000000020202';
 
 export function eligibilityFixture(overrides: Partial<RatingEligibility> = {}): RatingEligibility {
   return {
@@ -987,169 +977,6 @@ export function myReportFixture(overrides: Partial<MyReport> = {}): MyReport {
     },
     ...overrides,
   };
-}
-
-export function offerPartyFixture(overrides: Partial<OfferParty> = {}): OfferParty {
-  return {
-    id: OTHER_ID,
-    handle: 'collector2',
-    displayName: 'Noé Verdun',
-    avatarUrl: null,
-    place: ONTARIO,
-    rating: { average: 4.5, count: 2 },
-    ...overrides,
-  };
-}
-
-export const SELF_PARTY: OfferParty = {
-  id: '00000000-0000-4000-8000-0000000000a1',
-  handle: 'maika',
-  displayName: 'Maïka Test',
-  avatarUrl: null,
-  rating: { average: null, count: 0 },
-};
-
-/** An OPEN cash offer of 40 CAD by Maïka (the buyer, signed in) on Noé's Azure-Eyes. */
-export function offerFixture(overrides: Partial<OfferResponse> = {}): OfferResponse {
-  return {
-    id: OFFER_ID,
-    rootOfferId: OFFER_ID,
-    counterOf: null,
-    latestOfferId: OFFER_ID,
-    item: publicItemFixture(),
-    seller: offerPartyFixture(),
-    buyer: SELF_PARTY,
-    viewerRole: 'BUYER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItems: [],
-    message: 'Could we meet at the café?',
-    status: 'OPEN',
-    currentTurn: 'SELLER',
-    superseded: false,
-    expiresAt: '2099-10-08T12:00:00Z',
-    version: 0,
-    protectionRequested: false,
-    allowedActions: ['CANCEL'],
-    tradeId: null,
-    history: [
-      {
-        id: '00000000-0000-4000-9c10-000000000001',
-        offerId: OFFER_ID,
-        event: 'CREATED',
-        actorRole: 'BUYER',
-        reason: null,
-        terms: {
-          status: 'OPEN',
-          kind: 'CASH',
-          cashAmount: 40,
-          currency: 'CAD',
-          tradeItems: [],
-          message: 'Could we meet at the café?',
-          currentTurn: 'SELLER',
-          expiresAt: '2099-10-08T12:00:00Z',
-          version: 0,
-        },
-        createdAt: '2026-10-05T10:00:00Z',
-      },
-    ],
-    createdAt: '2026-10-05T10:00:00Z',
-    updatedAt: '2026-10-05T10:00:00Z',
-    closedAt: null,
-    ...overrides,
-  };
-}
-
-export function offerSummaryFixture(overrides: Partial<OfferSummary> = {}): OfferSummary {
-  return {
-    id: OFFER_ID,
-    rootOfferId: OFFER_ID,
-    item: publicItemFixture(),
-    counterparty: offerPartyFixture(),
-    viewerRole: 'SELLER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItemCount: 0,
-    status: 'OPEN',
-    currentTurn: 'SELLER',
-    yourTurn: true,
-    allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE'],
-    expiresAt: '2099-10-08T12:00:00Z',
-    version: 0,
-    tradeId: null,
-    createdAt: '2026-10-05T10:00:00Z',
-    updatedAt: '2026-10-05T10:00:00Z',
-    ...overrides,
-  };
-}
-
-export function offerPage(items: OfferSummary[] = [offerSummaryFixture()]): OfferPage {
-  return { items, nextCursor: null, hasMore: false };
-}
-
-/** An AGREED trade from the accepted offer, Maïka buying (her turn to meet and confirm). */
-export function tradeFixture(overrides: Partial<TradeResponse> = {}): TradeResponse {
-  return {
-    id: TRADE_ID,
-    offer: offerFixture({ status: 'ACCEPTED', allowedActions: [], tradeId: TRADE_ID }),
-    viewerRole: 'BUYER',
-    counterparty: offerPartyFixture(),
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    status: 'AGREED',
-    protectionEnabled: false,
-    meetup: false,
-    buyerMarkedMeetup: false,
-    sellerMarkedMeetup: false,
-    buyerConfirmedAt: null,
-    sellerConfirmedAt: null,
-    nextAction: { actor: 'BUYER', action: 'MEET' },
-    allowedOperations: ['MARK_MEETUP', 'CONFIRM_COMPLETION', 'CANCEL'],
-    timeline: [
-      {
-        id: '00000000-0000-4000-9d10-000000000001',
-        event: 'CREATED',
-        actorRole: 'SELLER',
-        details: {},
-        createdAt: '2026-10-05T11:00:00Z',
-      },
-    ],
-    cancelReason: null,
-    createdAt: '2026-10-05T11:00:00Z',
-    updatedAt: '2026-10-05T11:00:00Z',
-    completedAt: null,
-    cancelledAt: null,
-    ...overrides,
-  };
-}
-
-export function tradeSummaryFixture(overrides: Partial<TradeSummary> = {}): TradeSummary {
-  return {
-    id: TRADE_ID,
-    offerId: OFFER_ID,
-    item: publicItemFixture(),
-    counterparty: offerPartyFixture(),
-    viewerRole: 'BUYER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItemCount: 0,
-    status: 'AGREED',
-    protectionEnabled: false,
-    meetup: false,
-    nextAction: { actor: 'BUYER', action: 'MEET' },
-    createdAt: '2026-10-05T11:00:00Z',
-    updatedAt: '2026-10-05T11:00:00Z',
-    completedAt: null,
-    ...overrides,
-  };
-}
-
-export function tradePage(items: TradeSummary[] = [tradeSummaryFixture()]): TradePage {
-  return { items, nextCursor: null, hasMore: false };
 }
 
 // --- Stage M7: unified search, card holders, public wishlist, blocked users, sets -----------------

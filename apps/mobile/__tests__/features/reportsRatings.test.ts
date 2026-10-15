@@ -119,7 +119,9 @@ describe('ratings and references', () => {
     });
     expect(ratingHint(rated, 'Noé')).toMatch(/already rated your interactions with Noé/);
     const none = eligibilityFixture({ eligible: false, interactions: [] });
-    expect(ratingHint(none, 'Noé')).toMatch(/You can rate Noé after a completed trade/);
+    expect(ratingHint(none, 'Noé')).toBe(
+      'You can rate Noé after a deal with them or a conversation where you both sent at least 3 messages.'
+    );
     expect(canWriteReference(none)).toBe(false);
     expect(ratingHint(undefined, 'Noé')).toBeNull();
   });
@@ -128,15 +130,19 @@ describe('ratings and references', () => {
     const now = Date.parse('2026-10-05T00:00:00Z');
     expect(isRatingEditable({ editableUntil: '2026-10-10T00:00:00Z' }, now)).toBe(true);
     expect(isRatingEditable({ editableUntil: '2026-10-01T00:00:00Z' }, now)).toBe(false);
+    // An old rating's meetup score is not shown: collectors don't meet (ADR 0018).
     expect(breakdownEntries({ communication: 5, shipping: null, meetupReliability: 4 })).toEqual([
       { label: 'Communication', value: 5 },
-      { label: 'Meetup reliability', value: 4 },
+    ]);
+    expect(breakdownEntries({ conditionAccuracy: 3, shipping: 4 })).toEqual([
+      { label: 'Card condition', value: 3 },
+      { label: 'Shipping', value: 4 },
     ]);
   });
 
   it('explains refusals of ratings and references, banned terms included', () => {
     expect(ratingProblem(apiError(403, 'RATING_NOT_ELIGIBLE'), 'Noé')).toMatch(
-      /You can rate Noé after a completed trade/
+      /You can rate Noé after a deal with them or a conversation/
     );
     expect(ratingProblem(apiError(403, 'RATING_NOT_ELIGIBLE'), 'Noé', 'reference')).toMatch(
       /write a reference for Noé/

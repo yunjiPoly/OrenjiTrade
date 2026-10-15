@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useCollectorWishlist } from '@/src/api/hooks/collectorWishlist';
 import type { WishlistSummaryEntry } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { SectionCard } from '@/src/components/ui/Layout';
+import { Text } from '@/src/components/ui/Text';
 import { whichCopyLabel, wishCardParams, wishChips } from '@/src/features/wishlist/wishlistLabels';
 import { printingImageUrl } from '@/src/lib/catalog';
 import { cardCount } from '@/src/lib/inventory';

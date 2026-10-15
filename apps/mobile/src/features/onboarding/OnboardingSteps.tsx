@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { LocationFields } from '@/src/features/location/LocationFields';
 import type { LocationDraft } from '@/src/features/location/locationDraft';
@@ -81,7 +82,7 @@ export function AgeStep({
     <View style={styles.step} testID="onboarding-age">
       <StepHeading
         title="Are you 18 or older?"
-        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors, post in the community or make offers."
+        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors or post in the community."
       />
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
         We record only your confirmation and its date; no identity document is requested. Accounts

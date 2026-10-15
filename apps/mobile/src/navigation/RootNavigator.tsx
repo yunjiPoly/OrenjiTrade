@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFlowLock } from '@/src/account/flowLock';
 import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
+import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
 import { groupTitleOptions, type RouteGroup } from './backTitles';
@@ -49,6 +50,8 @@ export function RootNavigator() {
         screenOptions={{
           headerStyle: { backgroundColor: palette.surface },
           headerTintColor: palette.ink,
+          // Screen titles in Sora (spec 2026-10-14, section 3).
+          headerTitleStyle: headerTitleFont(),
           headerShadowVisible: false,
           headerTitleAlign: 'center',
           contentStyle: { backgroundColor: palette.background },
@@ -59,7 +62,7 @@ export function RootNavigator() {
         <Stack.Screen name="(auth)" options={groupOptions('(auth)', { animation: 'fade' })} />
         <Stack.Screen name="(account)" options={groupOptions('(account)', { animation: 'fade' })} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
-        {/* Settings (web: /settings/*). Later phases add offers, payouts, blocked users, ... */}
+        {/* Settings (web: /settings/*). */}
         <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
         <Stack.Screen name="settings/profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
@@ -103,19 +106,6 @@ export function RootNavigator() {
         <Stack.Screen name="ratings/rate" options={{ title: 'Rate' }} />
         <Stack.Screen name="ratings/reference" options={{ title: 'Write a reference' }} />
         <Stack.Screen name="settings/reports" options={{ title: 'My reports' }} />
-        {/* Offers and trades (Phase 8; web: /offers, /offers/:id, the offer dialog, /trades). */}
-        <Stack.Screen name="offers/index" options={{ title: 'Offers' }} />
-        <Stack.Screen name="offers/[id]" options={{ title: 'Offer' }} />
-        <Stack.Screen name="offers/new" options={{ title: 'Make an offer' }} />
-        <Stack.Screen name="offers/counter" options={{ title: 'Counter-offer' }} />
-        <Stack.Screen name="trades/index" options={{ title: 'Trades' }} />
-        <Stack.Screen name="trades/[id]" options={{ title: 'Trade' }} />
-        <Stack.Screen name="settings/offers" options={{ title: 'Offer settings' }} />
-        {/* Payment protection (Phase 9; web: the trade page steps, /checkout/fake/:ref,
-            /disputes/:id, /settings/payouts). */}
-        <Stack.Screen name="checkout/fake/[ref]" options={{ title: 'Checkout' }} />
-        <Stack.Screen name="disputes/[id]" options={{ title: 'Dispute' }} />
-        <Stack.Screen name="settings/payouts" options={{ title: 'Payouts' }} />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

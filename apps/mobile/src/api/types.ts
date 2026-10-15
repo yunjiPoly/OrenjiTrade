@@ -180,41 +180,6 @@ export type ReportConfirmation = Schemas['ReportConfirmation'];
 export type MyReport = Schemas['MyReport'];
 export type ReportStatus = MyReport['status'];
 
-// --- Offers and trades (Phase 8) ----------------------------------------------------------------
-export type OfferResponse = Schemas['OfferResponse'];
-export type OfferSummary = Schemas['OfferSummary'];
-export type OfferPage = Schemas['CursorPageOfferSummary'];
-export type OfferParty = Schemas['OfferParty'];
-export type OfferTradeItem = Schemas['OfferTradeItem'];
-export type OfferEvent = Schemas['OfferEvent'];
-export type OfferTerms = Schemas['OfferTerms'];
-export type OfferKind = OfferResponse['kind'];
-export type OfferStatus = OfferResponse['status'];
-export type OfferRole = OfferResponse['viewerRole'];
-export type OfferAction = OfferResponse['allowedActions'][number];
-export type CreateOfferRequest = Schemas['CreateOfferRequest'];
-export type CounterOfferRequest = Schemas['CounterOfferRequest'];
-export type OfferTradeItemRequest = Schemas['OfferTradeItemRequest'];
-export type OfferSettings = Schemas['OfferSettings'];
-export type TradeResponse = Schemas['TradeResponse'];
-export type TradeSummary = Schemas['TradeSummary'];
-export type TradePage = Schemas['CursorPageTradeSummary'];
-export type TradeEvent = Schemas['TradeEvent'];
-export type TradeNextAction = Schemas['TradeNextAction'];
-export type TradeStatus = TradeResponse['status'];
-export type TradeOperation = TradeResponse['allowedOperations'][number];
-
-// --- Payment protection and disputes (Phase 9) --------------------------------------------------
-export type PaymentSummary = Schemas['PaymentSummary'];
-export type ShipmentSummary = Schemas['ShipmentSummary'];
-export type DisputeSummary = Schemas['DisputeSummary'];
-export type ProtectedPayment = Schemas['ProtectedPayment'];
-export type ShipTradeRequest = Schemas['ShipTradeRequest'];
-export type OpenDisputeRequest = Schemas['OpenDisputeRequest'];
-export type Dispute = Schemas['Dispute'];
-export type DisputeEvidence = Schemas['DisputeEvidence'];
-export type DisputeMessage = Schemas['DisputeMessage'];
-export type DisputeEvent = Schemas['DisputeEvent'];
-export type SellerAccount = Schemas['SellerAccount'];
-export type SellerOnboarding = Schemas['SellerOnboarding'];
-export type FakeCheckout = Schemas['FakeCheckout'];
+// Offers, trades, protected payments and disputes (Phases 8 and 9) left the phone (ADR 0018): the
+// API keeps them for the paused web; old conversations still carry `OfferLink` payloads. Premium,
+// credits, ads and donations (Phase 10) left the app and the API (ADR 0019).

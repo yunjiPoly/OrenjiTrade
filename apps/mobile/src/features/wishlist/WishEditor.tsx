@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
@@ -12,6 +12,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
 import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';

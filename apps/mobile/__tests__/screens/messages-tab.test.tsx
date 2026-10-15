@@ -94,6 +94,39 @@ describe('Messages tab: inbox', () => {
     });
   });
 
+  it('words a last message about an old offer or trade as no longer available (ADR 0018)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/conversations': ok(
+          conversationPage([
+            {
+              ...devon,
+              lastMessage: {
+                id: 'm-trade',
+                preview: 'Devon Okafor cancelled the trade: 18.00 CAD for Tidebinder Sovereign.',
+                kind: 'SYSTEM',
+                createdAt: '2026-10-05T09:00:00Z',
+                senderId: null,
+              },
+            },
+            {
+              ...noe,
+              lastMessage: { ...noe.lastMessage!, preview: 'Offer', kind: 'OFFER_LINK' },
+            },
+          ])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('conversation-preview-collector3')).toHaveTextContent(
+      'Offer (no longer available)'
+    );
+    expect(screen.getByTestId('conversation-preview-collector2')).toHaveTextContent(
+      'You: Offer (no longer available)'
+    );
+    expect(screen.queryByText(/trade/i)).toBeNull();
+  });
+
   it('shows the empty inbox, and an error with retry', async () => {
     mockApi(
       routes({

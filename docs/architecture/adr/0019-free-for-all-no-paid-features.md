@@ -5,7 +5,7 @@
 [0017](0017-platform-regions-instead-of-geolocation.md) · **Stage:** F1 ("free for all")
 
 (ADR 0018, "deals happen in the chat", belongs to the phone redesign's stage R1, built at the same
-time on its own branch.)
+time on its own branch and merged first, #72; this stage merged it on 2026-10-15.)
 
 ## Context
 
@@ -75,6 +75,7 @@ keep protected payments.
   (`orenji:cache:usage-limits:v1`, 60 s) and the counters mirror stay.
 - ADR 0011's open question on app-store purchases now only concerns protected payments (physical
   goods between people, outside in-app purchase rules); Premium, credits and donations are no
-  longer sold anywhere.
+  longer sold anywhere. With ADR 0018 (no protected payments on the phone), the phone sells
+  nothing and takes no payment at all, so the question has nothing to apply to on the phone today.
 - The phone redesign spec of 2026-10-14 (owner's verbatim text) still says these features "keep
   their flags" or "move into Settings": this later decision of the owner wins.

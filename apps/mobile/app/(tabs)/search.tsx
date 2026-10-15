@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter, useScrollToTop } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { EMPTY_CARD_SEARCH, useCardSearch, type CardSearchQuery } from '@/src/api/hooks/catalog';
 import { useGames } from '@/src/api/hooks/profile';
@@ -15,6 +15,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { Skeleton } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { CardFiltersSheet } from '@/src/features/catalog/CardFiltersSheet';
 import { CardRow } from '@/src/features/catalog/CardRow';

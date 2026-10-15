@@ -177,6 +177,31 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
         assertThat(stale).isEmpty();
     }
 
+    /**
+     * Stage R1 of the phone redesign (ADR 0018: deals ship by mail): the meetup tag is hidden
+     * (V115) and no region channel promises meetups or locals any more (V116).
+     */
+    @Test
+    void theShippingWordingMigrationsHideTheMeetupTagAndRewordTheRegionChannels() {
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT status FROM tag WHERE slug = 'local-meetups'",
+                                String.class))
+                .isEqualTo("HIDDEN");
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT slug FROM community_channel WHERE kind = 'REGION'"
+                                        + " AND description ~* '(meetup|locals)'",
+                                String.class))
+                .isEmpty();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT description FROM community_channel WHERE slug ="
+                                        + " 'americas-north'",
+                                String.class))
+                .endsWith("trades and sales by mail.");
+    }
+
     @Test
     void unaccentImmutableStripsAccents() {
         String result =

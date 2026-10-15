@@ -59,7 +59,7 @@ function sentMessage(overrides: Parameters<typeof messageFixture>[0] = {}) {
   return messageFixture({
     id: 'sent-1',
     senderId: SELF_ID,
-    body: 'Yes! Saturday at the café?',
+    body: 'Yes! How much with shipping?',
     createdAt: new Date().toISOString(),
     ...overrides,
   });
@@ -100,13 +100,13 @@ describe('Conversation', () => {
       /Say hello to Noé Verdun/
     );
     expect(screen.getByTestId('conversation-send')).toBeDisabled();
-    fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! Saturday at the café?  ');
+    fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! How much with shipping?  ');
     fireEvent.press(screen.getByTestId('conversation-send'));
-    expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
+    expect(await screen.findByText('Yes! How much with shipping?')).toBeOnTheScreen();
     expect(screen.getByTestId('receipt-sent')).toHaveTextContent('Sent');
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
       kind: 'TEXT',
-      body: 'Yes! Saturday at the café?',
+      body: 'Yes! How much with shipping?',
     });
     expect(screen.getByLabelText('Message').props.value).toBe('');
     // The viewer's own message is never marked read by the viewer.
@@ -350,30 +350,16 @@ describe('Conversation', () => {
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(3);
   });
 
-  it('renders shared cards, binders, photos, offers, system lines and removed messages', async () => {
+  it('renders shared cards, binders, photos, system lines and removed messages', async () => {
     mockApi(
       routes({
         'GET /api/v1/conversations/{id}/messages': ok(
           messagePage([
             messageFixture({
-              id: 'm-offer',
-              kind: 'OFFER_LINK',
-              body: '',
-              createdAt: '2026-10-04T12:05:00Z',
-              payload: {
-                offer: {
-                  id: 'o1',
-                  status: 'OPEN',
-                  summary: '45.00 CAD for Lantern Fox',
-                  imageUrl: null,
-                },
-              },
-            }),
-            messageFixture({
               id: 'm-system',
               kind: 'SYSTEM',
               senderId: null,
-              body: 'Noé countered the offer.',
+              body: 'Noé joined the conversation.',
               createdAt: '2026-10-04T12:04:00Z',
             }),
             messageFixture({
@@ -402,8 +388,7 @@ describe('Conversation', () => {
       })
     );
     render();
-    expect(await screen.findByTestId('offer-link-card')).toHaveTextContent(/Open/);
-    expect(screen.getByText('Noé countered the offer.')).toBeOnTheScreen();
+    expect(await screen.findByText('Noé joined the conversation.')).toBeOnTheScreen();
     expect(screen.getByText('This message was removed by moderation.')).toBeOnTheScreen();
     // A photo outside the API's media routes is never loaded.
     expect(screen.getByTestId('message-photo-unavailable')).toBeOnTheScreen();
@@ -413,12 +398,81 @@ describe('Conversation', () => {
       pathname: '/binders/[id]',
       params: { id: BINDER_ID },
     });
-    // An offer link opens the offer.
-    fireEvent.press(screen.getByTestId('offer-link-card'));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/[id]',
-      params: { id: 'o1' },
-    });
+  });
+
+  it('shows old offer and trade messages as one grey line that opens nothing (ADR 0018)', async () => {
+    const offer = {
+      id: 'o1',
+      status: 'OPEN',
+      summary: '45.00 CAD for Lantern Fox',
+      imageUrl: null,
+    };
+    mockApi(
+      routes({
+        'GET /api/v1/conversations/{id}/messages': ok(
+          messagePage([
+            // A trade update the API posted (it carries the offer too).
+            messageFixture({
+              id: 'm-trade',
+              kind: 'SYSTEM',
+              senderId: null,
+              body: 'Trade completed: 45.00 CAD for Lantern Fox. You can now rate each other.',
+              createdAt: '2026-10-04T12:06:00Z',
+              payload: { offer: { ...offer, status: 'ACCEPTED' } },
+            }),
+            // An offer update the API posted.
+            messageFixture({
+              id: 'm-offer-system',
+              kind: 'SYSTEM',
+              senderId: null,
+              body: 'Noé countered the offer: 45.00 CAD for Lantern Fox.',
+              createdAt: '2026-10-04T12:05:00Z',
+              payload: { offer: { ...offer, status: 'COUNTERED' } },
+            }),
+            // An offer shared with a text: the text stays.
+            messageFixture({
+              id: 'm-offer-caption',
+              kind: 'OFFER_LINK',
+              body: 'Here is my offer',
+              createdAt: '2026-10-04T12:04:00Z',
+              payload: { offer },
+            }),
+            // An offer shared alone, and one whose payload is gone.
+            messageFixture({
+              id: 'm-offer',
+              kind: 'OFFER_LINK',
+              body: '',
+              createdAt: '2026-10-04T12:03:00Z',
+              payload: { offer },
+            }),
+            messageFixture({
+              id: 'm-offer-empty',
+              kind: 'OFFER_LINK',
+              body: '',
+              createdAt: '2026-10-04T12:02:00Z',
+              payload: {},
+            }),
+          ])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('message-m-offer-offer')).toHaveTextContent(
+      /Offer \(no longer available\)$/
+    );
+    expect(screen.getAllByText('Offer (no longer available)')).toHaveLength(5);
+    for (const id of ['m-trade', 'm-offer-system', 'm-offer-caption', 'm-offer-empty']) {
+      expect(screen.getByTestId(`message-${id}-offer`)).toBeOnTheScreen();
+    }
+    // The text sent with an offer stays; what the API wrote about the offer or trade goes.
+    expect(screen.getByText('Here is my offer')).toBeOnTheScreen();
+    expect(screen.queryByText(/countered the offer/)).toBeNull();
+    expect(screen.queryByText(/Trade completed/)).toBeNull();
+    expect(screen.queryByText('45.00 CAD for Lantern Fox')).toBeNull();
+    expect(screen.queryByTestId('offer-link-card')).toBeNull();
+    // Nothing to open: no offer or trade screen on the phone.
+    fireEvent.press(screen.getByTestId('message-m-offer-offer'));
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it('is live: pushed messages, typing, receipts and the read marker', async () => {
@@ -433,7 +487,7 @@ describe('Conversation', () => {
         })
       );
       render(rt);
-      expect(await screen.findByText('Yes! Saturday at the café?')).toBeOnTheScreen();
+      expect(await screen.findByText('Yes! How much with shipping?')).toBeOnTheScreen();
       await waitFor(() => expect(rt.client.state).toBe('connected'));
       const session = rt.current();
 
@@ -552,68 +606,19 @@ describe('Conversation', () => {
     expect(screen.queryByTestId('conversation-rate')).not.toBeOnTheScreen();
   });
 
-  it('shares an offer with the other collector, and explains when there is none', async () => {
-    const offer = {
-      id: 'o-shared',
-      rootOfferId: 'o-shared',
-      item: null,
-      counterparty: {
-        id: OTHER_ID,
-        handle: 'collector2',
-        displayName: 'Noé Verdun',
-        rating: { count: 0 },
-      },
-      viewerRole: 'BUYER',
-      kind: 'CASH',
-      cashAmount: 40,
-      currency: 'CAD',
-      tradeItemCount: 0,
-      status: 'OPEN',
-      currentTurn: 'SELLER',
-      yourTurn: false,
-      allowedActions: ['CANCEL'],
-      expiresAt: '2099-01-01T00:00:00Z',
-      version: 0,
-      createdAt: '2026-10-05T10:00:00Z',
-      updatedAt: '2026-10-05T10:00:00Z',
-    };
-    const other = { ...offer, id: 'o-other', counterparty: { ...offer.counterparty, id: 'x' } };
-    const api = mockApi(
-      routes({
-        'GET /api/v1/offers': [
-          ok({ items: [other], hasMore: false }),
-          ok({ items: [offer, other], hasMore: false }),
-        ],
-        'POST /api/v1/conversations/{id}/messages': ok(
-          sentMessage({
-            kind: 'OFFER_LINK',
-            body: '',
-            payload: { offer: { id: 'o-shared', status: 'OPEN', summary: '40.00 CAD for A card' } },
-          }),
-          201
-        ),
-      })
-    );
+  it('attaches a card, a binder or a photo, and no offer (ADR 0018)', async () => {
+    const api = mockApi(routes());
     render();
     await screen.findByText('Hi! Still have the Lantern Fox?');
     fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-offer'));
-    expect(await screen.findByTestId('offer-link-picker-empty')).toHaveTextContent(
-      /No offer with Noé Verdun yet/
-    );
-    fireEvent.press(screen.getByTestId('link-picker-cancel'));
-    fireEvent.press(screen.getByTestId('composer-attach'));
-    fireEvent.press(await screen.findByTestId('composer-share-offer'));
-    fireEvent.press(await screen.findByTestId('offer-option-o-shared'));
-    expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/Offer.*\$40\.00/);
-    fireEvent.press(screen.getByTestId('conversation-send'));
-    await waitFor(() =>
-      expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
-        kind: 'OFFER_LINK',
-        offerId: 'o-shared',
-      })
-    );
-    expect(api.callsTo('GET /api/v1/offers')[0]?.query.get('limit')).toBe('50');
+    const sheet = await screen.findByTestId('composer-attach-sheet');
+    expect(within(sheet).getByTestId('composer-share-card')).toBeOnTheScreen();
+    expect(within(sheet).getByTestId('composer-share-binder')).toBeOnTheScreen();
+    expect(within(sheet).getByTestId('composer-attach-photo')).toBeOnTheScreen();
+    expect(screen.queryByTestId('composer-share-offer')).toBeNull();
+    expect(screen.queryByText(/Share an offer/)).toBeNull();
+    expect(screen.getByLabelText('Attach a card, binder or photo')).toBeOnTheScreen();
+    expect(api.callsTo('GET /api/v1/offers')).toHaveLength(0);
   });
 
   it('blocks the other collector after a confirmation, then unblocks', async () => {

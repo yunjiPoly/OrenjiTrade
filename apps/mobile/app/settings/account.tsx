@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { messageOf } from '@/src/api/errorMessages';
@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Divider, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { exportMyData } from '@/src/features/account/exportData';
 import { formatLongDate } from '@/src/lib/dates';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

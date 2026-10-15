@@ -27,6 +27,7 @@ import {
 } from '@/src/features/messages/messageDraft';
 import {
   MESSAGE_MAX_LENGTH,
+  OFFER_UNAVAILABLE_TEXT,
   PREVIEW_MAX,
   badgeCount,
   listPreview,
@@ -87,7 +88,25 @@ describe('message text', () => {
     ).toBe('Binder: Trades');
     expect(messagePreview({ kind: 'IMAGE', body: '', payload: {} })).toBe('Photo');
     expect(messagePreview({ kind: 'IMAGE', body: 'Front', payload: {} })).toBe('Photo: Front');
-    expect(messagePreview({ kind: 'OFFER_LINK', body: 'x', payload: {} })).toBe('Offer');
+    // An old offer or trade message (offers left the phone, ADR 0018).
+    expect(messagePreview({ kind: 'OFFER_LINK', body: 'x', payload: {} })).toBe(
+      OFFER_UNAVAILABLE_TEXT
+    );
+    const offer = {
+      id: 'o1',
+      status: 'DECLINED',
+      summary: '18.00 CAD for Tidebinder',
+      imageUrl: null,
+    };
+    expect(
+      messagePreview({
+        kind: 'SYSTEM',
+        body: 'Devon Okafor cancelled the trade: 18.00 CAD for Tidebinder Sovereign.',
+        payload: { offer },
+      })
+    ).toBe('Offer (no longer available)');
+    // A SYSTEM message about something else keeps its sentence.
+    expect(messagePreview({ kind: 'SYSTEM', body: ' Welcome ', payload: {} })).toBe('Welcome');
     const long = messagePreview({ kind: 'TEXT', body: 'é'.repeat(300), payload: {} });
     expect([...long]).toHaveLength(PREVIEW_MAX);
     expect(long.endsWith('…')).toBe(true);
@@ -118,6 +137,42 @@ describe('message text', () => {
       createdAt: '2026-10-05T10:00:00Z',
       senderId: OTHER,
     });
+  });
+
+  it('words an old offer or trade as the last message of a conversation (ADR 0018)', () => {
+    const last = (
+      kind: 'OFFER_LINK' | 'SYSTEM' | 'TEXT',
+      preview: string,
+      senderId: string | null
+    ) =>
+      conversationFixture({
+        unreadCount: 1,
+        lastMessage: { id: 'm', preview, kind, createdAt: '2026-10-05T10:00:00Z', senderId },
+      });
+    // The server's lines: "Offer" for an offer link, its sentence for an offer or trade update.
+    expect(listPreview(last('OFFER_LINK', 'Offer', OTHER), SELF_ID)).toBe(
+      'Offer (no longer available)'
+    );
+    expect(listPreview(last('OFFER_LINK', 'Offer', SELF_ID), SELF_ID)).toBe(
+      'You: Offer (no longer available)'
+    );
+    expect(
+      listPreview(
+        last(
+          'SYSTEM',
+          'Noé Verdun accepted the offer: 45.00 CAD for Lantern Fox. Arrange the exchange on the trade page.',
+          null
+        ),
+        SELF_ID
+      )
+    ).toBe('Offer (no longer available)');
+    expect(
+      rowLabel(last('SYSTEM', 'Devon Okafor cancelled the trade: 18.00 CAD.', null), SELF_ID)
+    ).toBe('Noé Verdun, 1 unread message, Offer (no longer available)');
+    // Any other message keeps the server's line.
+    expect(listPreview(last('TEXT', 'Shipped with tracking', OTHER), SELF_ID)).toBe(
+      'Shipped with tracking'
+    );
   });
 
   it('names inbox rows for screen readers and labels the header status', () => {

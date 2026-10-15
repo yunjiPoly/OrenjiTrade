@@ -1,7 +1,8 @@
 # A usage limit reached (stage F1, "free for all"): Lee (fresh, fictional) already has the five
 # binders every collector may have (scripts/limits.js). "New binder" explains the limit plainly,
 # with no plan and nothing to buy; the Profile tab offers no Premium, credits or donation; an old
-# link to the Premium screen finds no such page.
+# link to the Premium screen lands on the Profile tab with a note that the app is free (the
+# removed-route handling it shares with stage R1's removed screens, src/navigation/removedRoutes.ts).
 appId: ${APP_ID}
 name: Usage limit - reached, explained plainly, nothing to buy
 tags:
@@ -61,11 +62,15 @@ tags:
     id: 'profile-support'
 - takeScreenshot: limit-profile
 
-# An old link to the Premium screen: there is no such page any more.
+# An old link to the Premium screen: the page is gone; the link lands on the Profile tab with a
+# note that the app is free, never on the not-found screen.
 - openLink: ${APP_URL}/--/premium
 - runFlow: subflows/dismiss-dev-menu.yaml
 - extendedWaitUntil:
-    visible:
-      id: 'screen-not-found'
+    visible: 'OrenjiTrade is free for every collector now.*'
     timeout: 60000
+- assertVisible:
+    id: 'screen-profile'
+- assertNotVisible:
+    id: 'screen-not-found'
 - takeScreenshot: limit-premium-gone

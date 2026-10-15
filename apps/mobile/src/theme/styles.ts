@@ -1,15 +1,18 @@
-import { Platform, type TextStyle, type ViewStyle } from 'react-native';
+import { type TextStyle, type ViewStyle } from 'react-native';
 
+import { FONT_FAMILIES } from './fonts';
 import { tokens } from './tokens';
 
 /**
- * Font families. Sora/Inter are not bundled yet (Phase 1 loads them with `expo-font`); until
- * then the system font is used so iOS never throws "Unrecognized font family".
+ * Font families (spec 2026-10-14, section 3): Sora for screen titles and big numbers, Inter for
+ * everything else, JetBrains Mono for card codes and tracking numbers. Styles name a family and a
+ * weight; the app's `Text` and `TextInput` (src/components/ui/Text.tsx) render the bundled face
+ * (src/theme/fonts.ts), or the system font until the fonts are loaded.
  */
 export const fontFamily = {
-  display: undefined as string | undefined,
-  body: undefined as string | undefined,
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
+  display: FONT_FAMILIES.display as string,
+  body: FONT_FAMILIES.body as string,
+  mono: FONT_FAMILIES.mono as string,
 };
 
 export const fontWeight = {
