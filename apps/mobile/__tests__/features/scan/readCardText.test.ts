@@ -1,6 +1,15 @@
 import { cropsUnderFrame } from '@/src/features/scan/frameMapping';
 import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fakeOcrProvider';
+import { turnLines } from '@/src/features/scan/orientation';
 import { readCardText } from '@/src/features/scan/readCardText';
+import {
+  SIDEWAYS_PHOTO,
+  SIDEWAYS_READ,
+  SIDEWAYS_READ_TURNED_90,
+  UPRIGHT_READ,
+  UPSIDE_DOWN_PHOTO,
+  UPSIDE_DOWN_READ,
+} from '@/__tests__/support/visionReads';
 
 const PHOTO = { uri: 'file:///cache/scan/photo-1.jpg', width: 3000, height: 4000 };
 const CROPS = cropsUnderFrame(
@@ -96,6 +105,26 @@ describe('reading a camera photo', () => {
     expect(methods(fake)).toEqual(['recognizeLines@0']);
   });
 
+  it('picks the names of an upside-down card in the whole photo name first, without turning it', async () => {
+    const fake = new FakeOcrProvider({
+      [UPSIDE_DOWN_PHOTO.uri]: { name: [], setCode: [], pendulum: [], whole: UPSIDE_DOWN_READ },
+    });
+    const crops = cropsUnderFrame(
+      { x: 32, y: 228, width: 236, height: 344 },
+      { width: 300, height: 800 },
+      UPSIDE_DOWN_PHOTO
+    );
+    const read = await readCardText(fake, { photo: UPSIDE_DOWN_PHOTO, source: 'CAMERA', crops });
+    expect(read.codes).toEqual(['ZMD-E001']);
+    expect(read.names[0]).toBe('Marble Roc Drake');
+    expect(methods(fake)).toEqual([
+      'recognizeName',
+      'recognizeSetCode',
+      'recognizeSetCode',
+      'recognizeLines@0',
+    ]);
+  });
+
   it('passes a failure of the reader on', async () => {
     const fake = reader({ name: new Error('engine failed'), setCode: ['ZACR-EN036'] });
     await expect(
@@ -176,6 +205,58 @@ describe('reading a library photo', () => {
       codes: [],
       names: ['Hushed by the Tides'],
     });
+  });
+
+  it('reads an upside-down card again turned 180° and keeps that upright read', async () => {
+    // Vision reads the upside-down card in place, its name the last row; turned, it stands.
+    const fake = new FakeOcrProvider({
+      [UPSIDE_DOWN_PHOTO.uri]: {
+        whole: UPSIDE_DOWN_READ,
+        turned: { 180: turnLines(UPSIDE_DOWN_READ, 180).map((line) => ({ ...line })) },
+      },
+    });
+    const read = await readCardText(fake, { photo: UPSIDE_DOWN_PHOTO, source: 'LIBRARY' });
+    expect(read).toEqual({
+      codes: ['ZMD-E001'],
+      names: ['Marble Roc Drake', 'heread araor white marble that nests on the difs above'],
+    });
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@180']);
+  });
+
+  it('keeps an upside-down read, name first, when its 180° turn reads worse', async () => {
+    const fake = new FakeOcrProvider({
+      [UPSIDE_DOWN_PHOTO.uri]: { whole: UPSIDE_DOWN_READ, turned: { 180: ['~~'] } },
+    });
+    const read = await readCardText(fake, { photo: UPSIDE_DOWN_PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZMD-E001']);
+    expect(read.names[0]).toBe('Marble Roc Drake');
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@180']);
+  });
+
+  it('turns a card lying with its top on the right 270° first, never upside down', async () => {
+    // Batch B1 turned it 90° first: upside down, the names came bottom first.
+    const fake = new FakeOcrProvider({
+      [SIDEWAYS_PHOTO.uri]: {
+        whole: SIDEWAYS_READ,
+        turned: { 90: SIDEWAYS_READ_TURNED_90, 270: turnLines(SIDEWAYS_READ, 270) },
+      },
+    });
+    const read = await readCardText(fake, { photo: SIDEWAYS_PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZRA1-EN075']);
+    expect(read.names[0]).toBe('Crimson Lantern Dragon');
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@270']);
+  });
+
+  it('reads an upright card once', async () => {
+    const fake = new FakeOcrProvider({ [PHOTO.uri]: { whole: UPRIGHT_READ } });
+    const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZRA1-EN075']);
+    // The name first; the type line is no name.
+    expect(read.names).toEqual([
+      'Crimson Lantern Dragon',
+      'arces unice moothr at opponent command:; shroud ls',
+    ]);
+    expect(methods(fake)).toEqual(['recognizeLines@0']);
   });
 
   it('reads nothing from a photo without text', async () => {

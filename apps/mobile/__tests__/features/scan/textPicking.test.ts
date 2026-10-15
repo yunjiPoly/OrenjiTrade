@@ -294,6 +294,34 @@ describe('name candidates', () => {
     ).toEqual([]);
   });
 
+  it('never takes a type line, its brackets read or lost, its words misread', () => {
+    // What the library reads of batch B1 took as names.
+    expect(
+      nameCandidatesFromPhoto(
+        linesOf([
+          '(Warrior/Effect',
+          'Cyberse/Link/Effect',
+          'Machine/Effect',
+          '[Dragon/Synchro/Tuner/Effect]',
+          'Winged Beast/Etfect',
+          'Sea Serpent / Effect )',
+          '[Beast-Warrior/Effect1',
+          'Gate Keeper of the Vault',
+        ])
+      )
+    ).toEqual(['Gate Keeper of the Vault']);
+    expect(areaNames('Machine/Effect', 'Iron Sentry')).toEqual(['Iron Sentry']);
+  });
+
+  it('keeps a name with a "/" that is no type line', () => {
+    expect(
+      nameCandidatesFromPhoto(linesOf(['Glassfin Dragon/Tempest Mode', 'Dragon/Effect']))
+    ).toEqual(['Glassfin Dragon/Tempest Mode']);
+    expect(nameCandidatesFromPhoto(linesOf(['Red Dragon Emberlord/Tempest Mode']))).toEqual([
+      'Red Dragon Emberlord/Tempest Mode',
+    ]);
+  });
+
   it('keeps at most 3, the API length, each once', () => {
     expect(nameCandidatesFromPhoto(linesOf(['Alpha', 'Beta', 'alpha', 'Gamma', 'Delta']))).toEqual([
       'Alpha',

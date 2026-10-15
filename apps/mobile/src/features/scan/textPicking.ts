@@ -195,6 +195,21 @@ function parseDashless(cleaned: string): CodeMatch | null {
   return null;
 }
 
+/** Whether a line of text holds a printing code (`parseCode`), alone or among other words. */
+export function holdsCode(text: string): boolean {
+  return codesOfRow(text).length > 0;
+}
+
+/**
+ * Whether a line of text holds the card's passcode (`isPasscode`, at least 6 real digits): the
+ * bottom left of every card.
+ */
+export function holdsPasscode(text: string): boolean {
+  return text
+    .split(/\s+/)
+    .some((token) => isPasscode(token) && token.replace(/[^0-9]/g, '').length >= 6);
+}
+
 /**
  * The 8-digit passcode at the bottom left (never used), or a stat: a run of 6 to 10 characters
  * without a dash, all digits but at most two misread ones. A row holding one is no name; no code
@@ -299,6 +314,73 @@ export function cleanName(raw: string): string {
 
 const STAR = /[★☆✦✧✪✫✬✭✮✯✰*]/gu;
 
+/** The words of a monster's type line ("[Dragon/Effect]", "[Cyberse/Link/Effect]"), lower case. */
+const TYPE_WORDS = new Set([
+  'aqua',
+  'beast',
+  'beast-warrior',
+  'creator god',
+  'cyberse',
+  'dinosaur',
+  'divine-beast',
+  'dragon',
+  'fairy',
+  'fiend',
+  'fish',
+  'illusion',
+  'insect',
+  'machine',
+  'plant',
+  'psychic',
+  'pyro',
+  'reptile',
+  'rock',
+  'sea serpent',
+  'spellcaster',
+  'thunder',
+  'warrior',
+  'winged beast',
+  'wyrm',
+  'zombie',
+  'normal',
+  'effect',
+  'fusion',
+  'ritual',
+  'synchro',
+  'xyz',
+  'pendulum',
+  'link',
+  'tuner',
+  'flip',
+  'gemini',
+  'spirit',
+  'toon',
+  'union',
+  'token',
+]);
+
+/**
+ * Whether a row is a monster's type line, its brackets read or not ("[Dragon/Effect]",
+ * "(Warrior/Effect", "Cyberse/Link/Effect", "Winged Beast/Etfect"): words joined by "/", one at
+ * least a type word, every other one a type word or a single (misread) word. A name with a "/" is
+ * kept: "Stardust Dragon/Assault Mode" has parts of several words that are no type.
+ */
+function isTypeLine(row: string): boolean {
+  const parts = row
+    .trim()
+    .replace(/^[[({]+/, '')
+    .replace(/[^\p{L}]+$/u, '')
+    .split('/')
+    .map((part) => part.trim().replace(/\s+/g, ' ').toLowerCase());
+  if (parts.length < 2 || parts.some((part) => part.length === 0)) {
+    return false;
+  }
+  return (
+    parts.some((part) => TYPE_WORDS.has(part)) &&
+    parts.every((part) => TYPE_WORDS.has(part) || !part.includes(' '))
+  );
+}
+
 /** Why a row is not a name: a code, a spell/trap or type line, an icon word, stars, stats, ... */
 function isNotAName(row: string, name: string): boolean {
   const upper = row.toUpperCase();
@@ -306,6 +388,7 @@ function isNotAName(row: string, name: string): boolean {
     (name.match(/\p{L}/gu) ?? []).length < 3 ||
     ICON_WORDS.has(name.toUpperCase()) ||
     /^\s*\[/.test(row) ||
+    isTypeLine(row) ||
     /\b(?:SPELL|TRAP)\s*CARD\b/.test(upper) ||
     /\b(?:ATK|DEF)\b/.test(upper) ||
     /\bLINK\s*[-–—]?\s*[0-9]\b/.test(upper) ||
@@ -313,7 +396,7 @@ function isNotAName(row: string, name: string): boolean {
     /EDITION/.test(upper) ||
     /©|\bKONAMI\b|\bTAKAHASHI\b/.test(upper) ||
     codesOfRow(row).some((match) => match.shape !== 'dashless') ||
-    row.split(/\s+/).some((token) => isPasscode(token) && token.replace(/[^0-9]/g, '').length >= 6)
+    holdsPasscode(row)
   );
 }
 

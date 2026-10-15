@@ -1,5 +1,6 @@
 import type { CardCrops } from './frameMapping';
-import type { OcrPhoto, OcrProvider, OcrRotation } from './ocr/types';
+import type { OcrLine, OcrPhoto, OcrProvider, OcrRotation } from './ocr/types';
+import { sizeAfterTurn, turnLines, uprightTurn } from './orientation';
 import { codeCandidates, nameCandidatesFromArea, nameCandidatesFromPhoto } from './textPicking';
 import type { ScanRead } from './types';
 
@@ -10,12 +11,14 @@ import type { ScanRead } from './types';
  *   twice its size by the provider); when the set code area holds no code, the Pendulum spot;
  * - then, when the areas gave no name or no code, or for a library photo: the whole photo, its
  *   lines picked by shape and position;
- * - a library photo whose upright read lacks a code or a name is read again turned 90°, 180° and
- *   270°: the first turn that holds both is kept; otherwise the code of the first read holding one,
- *   with the names of the first read holding some (camera photos are aligned by the frame: never
- *   turned). Apple Vision reads the lines of a sideways card without turning it, but such lines
- *   (tall boxes side by side) make one row holding the code, so no name comes out of it until the
- *   photo is turned.
+ * - a whole-photo read is picked the way up its line boxes say (`uprightTurn`): Apple Vision reads
+ *   a sideways or upside-down card in place, its lines then tall or in reverse order, and the
+ *   name must come first, never a line of the card's text;
+ * - a library photo whose read lacks a code or a name, or lies sideways or upside down, is read
+ *   again turned: first the way its lines say, then 90°, 180° and 270°; the first turned read that
+ *   holds both and stands upright is kept; otherwise the first read holding both, or the code of
+ *   the first read holding one with the names of the first read holding some (camera photos are
+ *   aligned by the frame: never turned).
  *
  * A failure of the reader is passed on (the tile then says "Couldn't read").
  */
@@ -31,34 +34,66 @@ export interface ReadCardInput {
 
 const TURNS: readonly Exclude<OcrRotation, 0>[] = [90, 180, 270];
 
+/** One whole-photo read: what it gave, and the turn its lines ask for (null: upright or unknown). */
+interface WholeRead {
+  read: ScanRead;
+  turn: OcrRotation | null;
+}
+
+/** Codes and names of lines picked as if the card stood upright (`turn` applied to the boxes). */
+function pickLines(lines: readonly OcrLine[], turn: OcrRotation | null): ScanRead {
+  const upright = turn === null ? lines : turnLines(lines, turn);
+  return { codes: codeCandidates(upright), names: nameCandidatesFromPhoto(upright) };
+}
+
+async function readTurned(
+  provider: OcrProvider,
+  photo: OcrPhoto,
+  rotation: OcrRotation
+): Promise<WholeRead> {
+  const lines =
+    rotation === 0
+      ? await provider.recognizeLines(photo)
+      : await provider.recognizeLines(photo, { rotation });
+  const turn = uprightTurn(lines, sizeAfterTurn(photo, rotation));
+  return { read: pickLines(lines, turn), turn: turn === 0 ? null : turn };
+}
+
+function complete(read: ScanRead): boolean {
+  return read.codes.length > 0 && read.names.length > 0;
+}
+
 async function readWholePhoto(
   provider: OcrProvider,
   photo: OcrPhoto,
   source: PhotoSource
 ): Promise<ScanRead> {
-  const upright = await provider.recognizeLines(photo);
-  const first: ScanRead = {
-    codes: codeCandidates(upright),
-    names: nameCandidatesFromPhoto(upright),
-  };
-  if (source !== 'LIBRARY' || (first.codes.length > 0 && first.names.length > 0)) {
-    return first;
+  const first = await readTurned(provider, photo, 0);
+  if (source !== 'LIBRARY' || (complete(first.read) && first.turn === null)) {
+    return first.read;
   }
-  let coded: ScanRead | null = first.codes.length > 0 ? first : null;
-  let named: ScanRead | null = first.names.length > 0 ? first : null;
-  for (const rotation of TURNS) {
-    const lines = await provider.recognizeLines(photo, { rotation });
-    const turned: ScanRead = {
-      codes: codeCandidates(lines),
-      names: nameCandidatesFromPhoto(lines),
-    };
-    if (turned.codes.length > 0 && turned.names.length > 0) {
-      return turned;
+  const reads = [first];
+  const asked = first.turn;
+  const turns = asked === null ? TURNS : [asked, ...TURNS.filter((turn) => turn !== asked)];
+  for (const rotation of turns) {
+    // Past the turn the lines asked for, a read that holds both is enough.
+    if (rotation !== asked && reads.some((read) => complete(read.read))) {
+      break;
     }
-    coded ??= turned.codes.length > 0 ? turned : null;
-    named ??= turned.names.length > 0 ? turned : null;
+    const turned = await readTurned(provider, photo, rotation);
+    if (complete(turned.read) && turned.turn === null) {
+      return turned.read;
+    }
+    reads.push(turned);
   }
-  return { codes: coded?.codes ?? [], names: named?.names ?? [] };
+  const both = reads.find((read) => complete(read.read));
+  if (both) {
+    return both.read;
+  }
+  return {
+    codes: reads.find((read) => read.read.codes.length > 0)?.read.codes ?? [],
+    names: reads.find((read) => read.read.names.length > 0)?.read.names ?? [],
+  };
 }
 
 /** What the phone read on one card: its code and name candidates, best first (`ScanRead`). */
