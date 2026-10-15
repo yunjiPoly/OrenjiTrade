@@ -57,6 +57,9 @@ describe('auth gate', () => {
     // Stage M9: the binders of a state or province, behind sign-in like the Map tab.
     expect(redirectFor('app', ['regions', '[region]', '[code]'])).toBeNull();
     expect(redirectFor('guest', ['regions', '[region]', '[code]'])).toBe('/sign-in');
+    // The card scan's screens, behind sign-in (the match is a signed-in call).
+    expect(redirectFor('app', ['scan', 'dev-reader'])).toBeNull();
+    expect(redirectFor('guest', ['scan', 'dev-reader'])).toBe('/sign-in');
     expect(redirectFor('app', ['onboarding'])).toBeNull();
     // Phase 7: reports and ratings (offers, trades and disputes left the phone, ADR 0018: their
     // old links are unmatched routes, which the not-found screen moves on to Messages).

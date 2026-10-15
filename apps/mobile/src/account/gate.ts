@@ -69,6 +69,8 @@ const APP_ROOTS = new Set([
   'sets',
   // Stage M9: the public binders of a state or province (opened from the Map tab).
   'regions',
+  // The card scan (spec 2026-10-15): its screens live under app/scan.
+  'scan',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {
