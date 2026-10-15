@@ -59,23 +59,33 @@ five grouped queries whatever the number of variants:
      variant counts only when it is the only one the catalog has;
    - the name clearly points to another card: the name wins, with that card's printing whose code
      is the one read or one look-alike character from it (3/8, 6/8, 5/6, 0/8 and 1/7 included) when
-     exactly one is; otherwise its printing is unknown (PICK_PRINTING); the code's card goes to
-     `otherMatches`;
+     exactly one is; otherwise its printing is unknown (PICK_PRINTING), **even when the card has a
+     single printing**: the code read is not that printing's (another card's, a printing the
+     catalog lacks), so the collector picks it; the code's card goes to `otherMatches`. With no code
+     read, the name alone finds the card: FOUND when it has one printing;
    - several candidates and nothing to choose between them: NOT_FOUND (`AMBIGUOUS`), the candidates
      first in `otherMatches`.
 5. **English cards only**: a code carrying another language's region (`FR`, `DE`, `IT`, `SP`, `PT`,
    `JP`, `KR`, or the old one-letter `F`, `G`, `I`, `S`, `P` before three digits, like `MACR-FR036` or
    `LOB-F001`) makes the answer NOT_FOUND (`OTHER_LANGUAGE`) **whatever the name says**, with no other
-   match. Printings whose language is not `en` or whose code has another language's region are
-   never matched, listed or offered, not even as look-alikes. A read without a dash is another
-   language's only when no place of the dash gives an English code.
-6. **Never the passcode**: a code read made only of digits (the 8-digit passcode, a stat) is ignored.
+   match. So does a region read with look-alike characters: a digit there read as its letter (0 O/D,
+   1 I/L, 2 Z, 5 S, 6 G, 8 B) and I/L or O/D taken for each other, before a number of digits (some
+   may be look-alike letters, one at least a digit): `MACR-0E036` (DE), `SDK-1T001` or `SDK-LT001`
+   (IT), `LOB-5P005` (SP), `LOB-5005` (the old S). E and N have no look-alike, so an English region is
+   never taken for another language's. Printings whose language is not `en` or whose code has another
+   language's region are never matched, listed or offered, not even as look-alikes. A read without a
+   dash is another language's only when no place of the dash gives an English code (`VLB0E005` may be
+   `VLB0-E005`).
+6. **Never the passcode**: a read with no letter (the 8-digit passcode, a stat), or one of 6 to 10
+   characters, dashes left out (7 to 10 when it has a dash: `DL1-001` has six), all digits but at
+   most two letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like `9955812I` or
+   `9955-8127`, is ignored: it is never looked up and counts as no code.
 
 ### Answer `CardScanMatch` (200)
 
 | Field | When | Meaning |
 | --- | --- | --- |
-| `status` | always | `FOUND` one card and one printing (the code exists in one rarity, or the card has one printing); `PICK_RARITY` one card and one code in several rarities; `PICK_PRINTING` the card is known, not its printing; `NOT_FOUND` |
+| `status` | always | `FOUND` one card and one printing (the code exists in one rarity, or the card has one printing and no code read disagrees); `PICK_RARITY` one card and one code in several rarities; `PICK_PRINTING` the card is known, not its printing (the code was unreadable or is none of its printings); `NOT_FOUND` |
 | `reason` | NOT_FOUND only | `OTHER_LANGUAGE`, `AMBIGUOUS` (several cards fit), `NO_MATCH` (nothing read is in the catalog), `NOTHING_READ` (no code-shaped text and no name) |
 | `card` | all but NOT_FOUND | `CardScanCard` `{id, name, imageUrl?}` |
 | `printing` | FOUND only | `CardScanPrinting` `{id, printingCode?, setCode, setName, rarity?}`: `id` is what a batch line names |

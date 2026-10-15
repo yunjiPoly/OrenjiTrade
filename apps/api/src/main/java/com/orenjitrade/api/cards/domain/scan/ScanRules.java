@@ -27,14 +27,17 @@ import org.jspecify.annotations.Nullable;
  *   <li>Deciding: the code's card when it has the read name or no usable name was read (with no
  *       name, a look-alike variant counts only when it is the only one the catalog has); the name
  *       wins when it clearly points to another card, which then takes its printing one look-alike
- *       character from the read code when exactly one is; several candidates and nothing to choose:
- *       not found.
- *   <li>English cards only: a code with another language's region is NOT_FOUND whatever the name
- *       says, and printings of another language are never matched, not even as look-alikes.
+ *       character from the read code when exactly one is, and otherwise has an unknown printing
+ *       (PICK_PRINTING, even with a single printing); several candidates and nothing to choose: not
+ *       found.
+ *   <li>English cards only: a code with another language's region, as printed or read with
+ *       look-alike characters ({@code MACR-0E036}), is NOT_FOUND whatever the name says, and
+ *       printings of another language are never matched, not even as look-alikes.
  * </ol>
  *
  * A name that is close to no card counts as no name. Without a name, the first code read (best
- * first) that the catalog knows decides.
+ * first) that the catalog knows decides. When the name wins, a card with a single printing is FOUND
+ * only when no code was read.
  */
 public final class ScanRules {
 
@@ -438,9 +441,15 @@ public final class ScanRules {
 
         /**
          * The name wins: its card, with its printing whose code is the one read or one look-alike
-         * character from it when exactly one is; otherwise its printing is unknown.
+         * character from it when exactly one is; otherwise its printing is unknown (PICK_PRINTING,
+         * even for a card with a single printing: the code read is not that printing's, so it may
+         * be another card's, another language's or a printing the catalog lacks). With no code
+         * read, the card alone decides ({@link #withoutCode}).
          */
         private Outcome nameWins(UUID card) {
+            if (forms.isEmpty()) {
+                return withoutCode(card);
+            }
             Set<String> codesOfCard = new LinkedHashSet<>();
             catalog.printingsOf(card).forEach(ref -> codesOfCard.add(ref.printingCode()));
             List<String> same = codesOfCard.stream().filter(forms::contains).toList();
@@ -462,7 +471,7 @@ public final class ScanRules {
                     return withCode(card, near.get(0));
                 }
             }
-            return withoutCode(card);
+            return new Outcome(ScanStatus.PICK_PRINTING, null, card, null, null, List.of());
         }
 
         /** The card and the code: FOUND in one rarity, PICK_RARITY in several. */

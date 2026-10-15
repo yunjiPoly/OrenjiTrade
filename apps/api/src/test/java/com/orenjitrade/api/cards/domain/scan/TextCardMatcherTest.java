@@ -269,6 +269,38 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void whenTheNameWinsOverACodeNotItsOwnACardWithOnePrintingIsStillToPick() {
+        // Inkshade Interference's code with Lyra's name: Lyra has a single printing, but the code
+        // read is not it, so its printing is to pick (one tap), never "Found" unchecked.
+        ScanMatch other = match(List.of("ZA01-EN075"), List.of("Fable Tide - Lyra"));
+        assertThat(other.status()).isEqualTo(ScanStatus.PICK_PRINTING);
+        assertThat(other.card().id()).isEqualTo(catalog.lyra.id());
+        assertThat(other.printing()).isNull();
+        assertThat(other.rarities()).isEmpty();
+        assertThat(other.printings())
+                .extracting(ScanMatch.Printing::printingCode)
+                .containsExactly("ZACR-EN038");
+        assertThat(other.otherMatches().get(0).cardId()).isEqualTo(catalog.interference.id());
+
+        // A code the catalog does not know (a printing it lacks, a garbled read): the same.
+        ScanMatch unknown = match(List.of("ZZZZ-EN999"), List.of("Fable Tide - Lyra"));
+        assertThat(unknown.status()).isEqualTo(ScanStatus.PICK_PRINTING);
+        assertThat(unknown.card().id()).isEqualTo(catalog.lyra.id());
+
+        // Pale-Moon has one printing too, the code read is two look-alike cards' (no name close).
+        assertThat(match(List.of("ZD5-EN001"), List.of("Pale-Moon Frost Dragon")).status())
+                .isEqualTo(ScanStatus.PICK_PRINTING);
+
+        // With no code read, the name of a card with one printing finds it.
+        assertThat(match(List.of(), List.of("Fable Tide - Lyra")).status())
+                .isEqualTo(ScanStatus.FOUND);
+        // A code one look-alike character from its printing (6/8) is its printing.
+        ScanMatch near = match(List.of("ZACR-EN036"), List.of("Fable Tide - Lyra"));
+        assertThat(near.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(near.printing().printingCode()).isEqualTo("ZACR-EN038");
+    }
+
+    @Test
     void aNameCloseToNoCardCountsAsNoName() {
         ScanMatch match = match(List.of("ZACR-EN038"), List.of("xqzv wvvt"));
         assertThat(match.status()).isEqualTo(ScanStatus.FOUND);

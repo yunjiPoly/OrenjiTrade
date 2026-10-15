@@ -199,6 +199,16 @@ class CardScanMatchIT extends AbstractIntegrationTest {
         assertThat(lyra.path("printingCode").asString()).isEqualTo("ZACR-EN038");
         assertThat(lyra.path("printingId").asString())
                 .isEqualTo(ScanTestCatalog.printing("ZACR-EN038", "Super Rare").toString());
+
+        // Lyra has one printing, but the code read is Inkshade Interference's: Lyra's printing is
+        // to pick, never found unchecked.
+        JsonNode single = scan(List.of("ZA01-EN075"), List.of(ScanTestCatalog.LYRA));
+        assertThat(single.path("status").asString()).isEqualTo("PICK_PRINTING");
+        assertThat(single.path("card").path("name").asString()).isEqualTo(ScanTestCatalog.LYRA);
+        assertThat(single.has("printing")).isFalse();
+        assertThat(values(single.path("printings"), "printingCode")).containsExactly("ZACR-EN038");
+        assertThat(single.path("otherMatches").get(0).path("cardId").asString())
+                .isEqualTo(ScanTestCatalog.card(ScanTestCatalog.INTERFERENCE).toString());
     }
 
     @Test
