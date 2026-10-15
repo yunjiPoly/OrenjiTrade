@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The printing codes a scan read, as the catalog can look them up (owner spec 2026-10-15, section
@@ -31,6 +32,10 @@ import java.util.regex.Pattern;
  *       {@code LOB-F001}), also when the region was read with look-alike characters ({@code
  *       MACR-0E036}, {@code LOB-5001}). English cards only: such a read is never matched, not even
  *       through its English code.
+ *   <li>{@link #languageInDoubt}: a read without its dash where one place of the dash gives another
+ *       language's code and another an English one ({@code VLBDE005}: {@code VLB-DE005} or {@code
+ *       VLBD-E005}): English only when the catalog has one of its {@link #englishForms} as read
+ *       ({@code MRDE001} is {@code MRD-E001}), otherwise another language's.
  *   <li>{@link #isPasscode}: the card's 8-digit passcode (or a stat) is never looked up, not even
  *       read with a stray dash or two look-alike letters.
  * </ul>
@@ -173,10 +178,43 @@ public final class ScanCodes {
      */
     public static boolean otherLanguage(String cleaned) {
         List<String> bases = bases(cleaned);
-        if (bases.stream().noneMatch(base -> isOtherLanguage(base) || misreadOtherLanguage(base))) {
-            return false;
+        return bases.stream().anyMatch(ScanCodes::anotherLanguagesBase)
+                && bases.stream().noneMatch(ScanCodes::mayBeEnglish);
+    }
+
+    /**
+     * Whether a cleaned code read may be another language's or English depending on where its dash
+     * goes: read without its dash (or with dashes that are not one region's), one place of the dash
+     * gives another language's code, as printed or misread, and another place an English one
+     * ({@code VLBDE005} is {@code VLB-DE005} or {@code VLBD-E005}, {@code MRDE001} is {@code
+     * MR-DE001} or {@code MRD-E001}). The catalog decides: English only when it has one of the
+     * {@link #englishForms} as read, otherwise another language's (owner spec 2026-10-15, section
+     * 3.5, rule 5: never matched through its English code nor as a look-alike).
+     */
+    public static boolean languageInDoubt(String cleaned) {
+        List<String> bases = bases(cleaned);
+        return bases.stream().anyMatch(ScanCodes::anotherLanguagesBase)
+                && bases.stream().anyMatch(ScanCodes::mayBeEnglish);
+    }
+
+    /**
+     * The English codes a read in doubt ({@link #languageInDoubt}) may be, best first: each place
+     * of the dash that may be English, with the other form of an old code; the places that give
+     * another language's code (or no code shape) are left out.
+     */
+    public static List<String> englishForms(String cleaned) {
+        Set<String> forms = new LinkedHashSet<>();
+        for (String base : bases(cleaned)) {
+            if (mayBeEnglish(base)) {
+                forms.add(base);
+                forms.addAll(oldForms(base));
+            }
         }
-        return bases.stream().noneMatch(ScanCodes::mayBeEnglish);
+        return List.copyOf(forms);
+    }
+
+    private static boolean anotherLanguagesBase(String base) {
+        return isOtherLanguage(base) || misreadOtherLanguage(base);
     }
 
     /**
@@ -215,6 +253,14 @@ public final class ScanCodes {
             }
         }
         return false;
+    }
+
+    /** A region as printed: EN, the old E, or another language's (two letters or the old one). */
+    private static boolean isRegion(String part) {
+        return part.equals("EN")
+                || part.equals("E")
+                || OTHER_REGIONS.contains(part)
+                || (part.length() == 1 && OTHER_OLD_REGIONS.contains(part));
     }
 
     /**
@@ -301,6 +347,13 @@ public final class ScanCodes {
             return bases;
         }
         String compact = cleaned.replace("-", "");
+        String regionDash = regionDashRemoved(cleaned);
+        if (regionDash != null) {
+            // A second dash between the region and the number: the same code (VLB-DE-005 is
+            // VLB-DE005, never VLBDE-005).
+            bases.add(regionDash);
+            return bases;
+        }
         List<Integer> places = new ArrayList<>();
         if (dashes == 0) {
             // The set part has 2 to 5 characters; the rest at least 2.
@@ -328,6 +381,26 @@ public final class ScanCodes {
         candidates.sort(Comparator.comparingInt(ScanCodes::likeliness));
         bases.addAll(candidates);
         return bases;
+    }
+
+    /**
+     * The code a read with two dashes stands for when its second dash sits between a region and the
+     * number ({@code VLB-DE-005} is {@code VLB-DE005}, {@code LOB-E-001} is {@code LOB-E001}): a
+     * middle part that is a region as printed (EN, E, or another language's), then a number (2 or 3
+     * digits, sometimes after one letter, look-alike letters allowed but at least one real digit).
+     * {@code null} otherwise, and the read keeps one of its dashes ({@code DL-1-001} may be {@code
+     * DL1-001}).
+     */
+    private static @Nullable String regionDashRemoved(String cleaned) {
+        String[] parts = cleaned.split("-", -1);
+        if (parts.length != 3 || !isRegion(parts[1])) {
+            return null;
+        }
+        if (!MISREAD_NUMBER.matcher(parts[2]).matches() || !ANY_DIGIT.matcher(parts[2]).find()) {
+            return null;
+        }
+        String code = parts[0] + "-" + parts[1] + parts[2];
+        return CODE.matcher(code).matches() ? code : null;
     }
 
     /**

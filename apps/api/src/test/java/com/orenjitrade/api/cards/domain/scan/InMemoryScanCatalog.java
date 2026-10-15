@@ -40,6 +40,7 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
     final Card paleMoon = card("Pale-Moon Frost Dragon");
     final Card swordDancer = card("Sword Dancer of the Dunes");
     final Card shadowOracle = card("Shadow Oracle");
+    final Card europeGolem = card("Old Europe Golem");
     final Card otherGame = card("pokemon", "Yew Flowers Fox");
 
     static final String[] ZA01_RARITIES = {
@@ -112,6 +113,8 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
                 "en");
         printing(swordDancer, "ZDS", "Fictional Dunes", zob, "ZDS-EN001", "Common", "en");
         printing(shadowOracle, "Z05", "Fictional Oracles", zob, "Z05-EN001", "Common", "en");
+        // An old English Europe print: read without its dash, ZMDE001 could be a German ZM-DE001.
+        printing(europeGolem, "ZMD", "Fictional Raiders", zob, "ZMD-E001", "Common", "en");
         printing(otherGame, "ZACR", "Fictional Pokemon Set", zacr, "ZACR-EN036", "Rare", "en");
     }
 

@@ -171,6 +171,29 @@ class CardScanMatchIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void anotherLanguagesCodeWithoutItsDashOrWithASecondDashStaysNotFoundEvenWithAMatchingName() {
+        // VR2-1: no English placement of the dash exists in the catalog, so a German code read
+        // without its dash (as printed or misread) or with a dash before its number is refused.
+        for (String code : List.of("ZOBDE005", "ZOB0E005", "ZOB-DE-005", "ZACRDE036")) {
+            JsonNode match =
+                    scan(
+                            List.of(code),
+                            List.of(
+                                    code.startsWith("ZOB")
+                                            ? ScanTestCatalog.DARK_MOONSEER
+                                            : ScanTestCatalog.YEW));
+            assertThat(match.path("status").asString()).as(code).isEqualTo("NOT_FOUND");
+            assertThat(match.path("reason").asString()).as(code).isEqualTo("OTHER_LANGUAGE");
+            assertThat(match.has("card")).as(code).isFalse();
+            assertThat(match.path("printings").size()).as(code).isZero();
+            assertThat(match.path("otherMatches").size()).as(code).isZero();
+        }
+        // An English code with the same dash lost is still found.
+        assertThat(scan(List.of("ZOBEN005"), List.of()).path("status").asString())
+                .isEqualTo("FOUND");
+    }
+
+    @Test
     void aNameOnlyFindsTheCardAndItsPrintingWhenItHasOne() {
         JsonNode several = scan(List.of(), List.of("inkshade interference"));
         assertThat(several.path("status").asString()).isEqualTo("PICK_PRINTING");

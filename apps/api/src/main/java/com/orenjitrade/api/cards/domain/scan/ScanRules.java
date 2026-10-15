@@ -32,7 +32,9 @@ import org.jspecify.annotations.Nullable;
  *       found.
  *   <li>English cards only: a code with another language's region, as printed or read with
  *       look-alike characters ({@code MACR-0E036}), is NOT_FOUND whatever the name says, and
- *       printings of another language are never matched, not even as look-alikes.
+ *       printings of another language are never matched, not even as look-alikes. A read without
+ *       its dash that may be another language's or English ({@code VLBDE005}) is English only when
+ *       the catalog has one of its English places as read ({@code MRDE001} is {@code MRD-E001}).
  * </ol>
  *
  * A name that is close to no card counts as no name. Without a name, the first code read (best
@@ -68,6 +70,9 @@ public final class ScanRules {
      *
      * @param cleaned the read, cleaned ({@link ScanCodes#clean})
      * @param otherLanguage it carries another language's region
+     * @param languageInDoubt without its dash it may be another language's or English ({@link
+     *     ScanCodes#languageInDoubt}): English only when the catalog has one of its exact forms
+     *     (then only its English places), otherwise another language's
      * @param exactForms the codes it is, best first
      * @param lookAlikes its strict look-alike variants, the fewest swaps first
      * @param neighbours the codes one look-alike character away (shown only)
@@ -75,6 +80,7 @@ public final class ScanRules {
     public record ReadCode(
             String cleaned,
             boolean otherLanguage,
+            boolean languageInDoubt,
             List<String> exactForms,
             List<ScanCodes.Variant> lookAlikes,
             List<String> neighbours) {}
@@ -112,11 +118,18 @@ public final class ScanRules {
                 continue;
             }
             boolean other = ScanCodes.otherLanguage(cleaned);
-            List<String> forms = other ? List.of() : ScanCodes.exactForms(cleaned);
+            boolean inDoubt = !other && ScanCodes.languageInDoubt(cleaned);
+            List<String> forms =
+                    other
+                            ? List.of()
+                            : inDoubt
+                                    ? ScanCodes.englishForms(cleaned)
+                                    : ScanCodes.exactForms(cleaned);
             reads.add(
                     new ReadCode(
                             cleaned,
                             other,
+                            inDoubt,
                             forms,
                             ScanCodes.lookAlikes(forms),
                             ScanCodes.neighbours(forms)));
@@ -269,7 +282,7 @@ public final class ScanRules {
 
     /** Decides on the rows of {@code catalog} what {@code evidence} points to. */
     public static Decision decide(Evidence evidence, Catalog catalog) {
-        if (evidence.otherLanguage()) {
+        if (evidence.otherLanguage() || anotherLanguageAfterAll(evidence, catalog)) {
             return new Decision(
                     ScanStatus.NOT_FOUND,
                     ScanNotFoundReason.OTHER_LANGUAGE,
@@ -289,6 +302,26 @@ public final class ScanRules {
                     List.of());
         }
         return new Decider(evidence, catalog).decide();
+    }
+
+    /**
+     * Whether a code read in doubt ({@link ReadCode#languageInDoubt}) is another language's after
+     * all: the catalog has none of its English forms as read (a look-alike of one never counts).
+     */
+    static boolean anotherLanguageAfterAll(Evidence evidence, Catalog catalog) {
+        return evidence.codes().stream()
+                .filter(ReadCode::languageInDoubt)
+                .anyMatch(
+                        read ->
+                                read.exactForms().stream()
+                                        .noneMatch(
+                                                form ->
+                                                        catalog.printings(form).stream()
+                                                                .anyMatch(
+                                                                        ref ->
+                                                                                catalog.known(
+                                                                                        ref
+                                                                                                .cardId()))));
     }
 
     /** One decision's state. */

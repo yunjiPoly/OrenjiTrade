@@ -385,6 +385,62 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void anotherLanguagesCodeReadWithoutItsDashOrWithASecondDashIsNotFoundWhateverTheNameSays() {
+        // VR2-1: a German, Italian or old German code without its dash, its region as printed or
+        // misread, or with a second dash before its number. Dark Moonseer (one printing) and Yew
+        // Flowers (several) are read clearly: never their English printing, never a Pick printing
+        // list of English printings.
+        for (String code :
+                List.of(
+                        "ZOBDE005",
+                        "ZOB0E005",
+                        "ZOBIT005",
+                        "ZOBG005",
+                        "ZOB-DE-005",
+                        "ZOB-0E-005",
+                        "ZOB-G-005")) {
+            ScanMatch match = match(List.of(code), List.of("Dark Moonseer"));
+            assertThat(match.status()).as(code).isEqualTo(ScanStatus.NOT_FOUND);
+            assertThat(match.reason()).as(code).isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+            assertThat(match.card()).as(code).isNull();
+            assertThat(match.printings()).as(code).isEmpty();
+            assertThat(match.otherMatches()).as(code).isEmpty();
+            assertThat(match.read().codes()).as(code).hasSize(1);
+        }
+        for (String code : List.of("ZACRDE036", "ZACR0E036", "ZACR-DE-036")) {
+            ScanMatch yew = match(List.of(code), List.of("Yew Flowers & Velvet Breeze"));
+            assertThat(yew.status()).as(code).isEqualTo(ScanStatus.NOT_FOUND);
+            assertThat(yew.reason()).as(code).isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+            assertThat(yew.printings()).as(code).isEmpty();
+        }
+        // Without a name either; and a second code read does not bring the English card back.
+        assertThat(match(List.of("ZACRDE036"), List.of()).reason())
+                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        assertThat(match(List.of("ZACR-EN036", "ZACRDE036"), List.of()).reason())
+                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+    }
+
+    @Test
+    void aReadWithoutItsDashIsEnglishWhenTheCatalogHasOneOfItsEnglishPlaces() {
+        // ZMDE001: ZM-DE001 would be German, but the catalog has the old Europe print ZMD-E001.
+        ScanMatch golem = match(List.of("ZMDE001"), List.of());
+        assertThat(golem.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(golem.card().id()).isEqualTo(catalog.europeGolem.id());
+        assertThat(golem.printing().printingCode()).isEqualTo("ZMD-E001");
+        assertThat(match(List.of("ZMDE001"), List.of("Old Europe Golem")).status())
+                .isEqualTo(ScanStatus.FOUND);
+        // A look-alike of an English place never settles the doubt: ZMDE0O1 stays refused.
+        assertThat(match(List.of("ZMDE0O1"), List.of("Old Europe Golem")).reason())
+                .isEqualTo(ScanNotFoundReason.OTHER_LANGUAGE);
+        // A second dash between an English region and the number is the same code.
+        ScanMatch europe = match(List.of("ZOB-E-005"), List.of());
+        assertThat(europe.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(europe.printing().printingCode()).isEqualTo("ZOB-EN005");
+        assertThat(match(List.of("ZA01-EN-075"), List.of()).status())
+                .isEqualTo(ScanStatus.PICK_RARITY);
+    }
+
+    @Test
     void aFrenchPrintingInTheCatalogIsNeverMatched() {
         // The catalog knows ZACR-FR036; a read that cleans to it is refused above, and an English
         // read never reaches it as a look-alike or a printing of the card.

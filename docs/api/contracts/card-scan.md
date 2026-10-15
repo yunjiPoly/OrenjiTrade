@@ -46,7 +46,7 @@ five grouped queries whatever the number of variants:
 
 1. **Exact codes**: each code as read; the other form of an old code (`LOB-005 ↔ LOB-EN005`,
    `LOB-E001 → LOB-EN001`); a missing dash tried at each place it could go (a set part of 2 to 5
-   characters).
+   characters; a set part may be digits only, like `2017-EN001`).
 2. **Look-alike characters**, only when the catalog has the result: O↔0, D↔0, I↔1, L↔1, S↔5, B↔8,
    Z↔2, G↔6; letters become digits in the number part, digits become letters in the region, both
    ways in the set part; the fewest swaps first, at most 64 variants per code read.
@@ -75,9 +75,13 @@ five grouped queries whatever the number of variants:
    may be look-alike letters, one at least a digit): `MACR-0E036` (DE), `SDK-1T001` or `SDK-LT001`
    (IT), `LOB-5P005` (SP), `LOB-5005` (the old S). E and N have no look-alike, so an English region is
    never taken for another language's. Printings whose language is not `en` or whose code has another
-   language's region are never matched, listed or offered, not even as look-alikes. A read without a
-   dash is another language's only when no place of the dash gives an English code (`VLB0E005` may be
-   `VLB0-E005`).
+   language's region are never matched, listed or offered, not even as look-alikes. A read without
+   its dash where one place of the dash gives another language's code and another an English one
+   (`VLBDE005`: `VLB-DE005` or `VLBD-E005`; `VMCR0E036`) is English only when the catalog has one of
+   its English places as read, or their other old form (`MRDE001` is the old Europe `MRD-E001`); a
+   look-alike of an English place never settles it. Otherwise it is another language's: NOT_FOUND
+   (`OTHER_LANGUAGE`), whatever the name says. A second dash between a region and the number is the
+   same code (`VLB-DE-005` is `VLB-DE005`, `LOB-E-001` is `LOB-E001`).
 6. **Never the passcode**: a read with no letter (the 8-digit passcode, a stat), or one of 6 to 10
    characters, dashes left out (7 to 10 when it has a dash: `DL1-001` has six), all digits but at
    most two letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like `9955812I` or

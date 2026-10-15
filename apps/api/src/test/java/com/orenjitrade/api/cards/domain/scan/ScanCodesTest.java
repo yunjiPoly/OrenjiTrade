@@ -123,6 +123,48 @@ class ScanCodesTest {
     }
 
     @Test
+    void withoutItsDashAReadThatMayBeAnotherLanguagesIsInDoubtAndOffersOnlyItsEnglishPlaces() {
+        // VLB-DE005 or VLBD-E005 / VLBDE-005: the catalog decides (English only when it has one).
+        assertThat(ScanCodes.otherLanguage("VLBDE005")).isFalse();
+        assertThat(ScanCodes.languageInDoubt("VLBDE005")).isTrue();
+        assertThat(ScanCodes.englishForms("VLBDE005"))
+                .containsExactly("VLBD-E005", "VLBD-EN005", "VLBDE-005", "VLBDE-EN005");
+        // A German region misread (0E), Italian and the old German G, all without their dash.
+        for (String read : List.of("VMCR0E036", "VMCRDE036", "VLBIT005", "VLBG005", "VLB0E005")) {
+            assertThat(ScanCodes.languageInDoubt(read)).as(read).isTrue();
+            assertThat(ScanCodes.englishForms(read))
+                    .as(read)
+                    .isNotEmpty()
+                    .noneMatch(ScanCodes::isOtherLanguage)
+                    .noneMatch(ScanCodes::misreadOtherLanguage);
+        }
+        // ZMD-E001 is an old English Europe print: its English place is offered first.
+        assertThat(ScanCodes.languageInDoubt("ZMDE001")).isTrue();
+        assertThat(ScanCodes.englishForms("ZMDE001")).startsWith("ZMD-E001", "ZMD-EN001");
+        // English without doubt, or another language's without doubt.
+        for (String read : List.of("ZACREN036", "ZOB005", "VLB-DE005", "ZACR-EN036", "ZACRFR036")) {
+            assertThat(ScanCodes.languageInDoubt(read)).as(read).isFalse();
+        }
+    }
+
+    @Test
+    void aSecondDashBetweenTheRegionAndTheNumberIsTheSameCode() {
+        assertThat(ScanCodes.bases("VLB-DE-005")).containsExactly("VLB-DE005");
+        assertThat(ScanCodes.otherLanguage("VLB-DE-005")).isTrue();
+        assertThat(ScanCodes.otherLanguage("ZACR-FR-036")).isTrue();
+        assertThat(ScanCodes.otherLanguage("ZOB-G-005")).isTrue();
+        assertThat(ScanCodes.exactForms("ZOB-E-001")).containsExactly("ZOB-E001", "ZOB-EN001");
+        assertThat(ScanCodes.exactForms("ZA01-EN-075")).containsExactly("ZA01-EN075", "ZA01-075");
+        assertThat(ScanCodes.exactForms("ZAVD-EN-S08")).containsExactly("ZAVD-ENS08");
+        // A middle part that is no region as printed keeps one of the dashes: ZL-1-001 may be
+        // ZL1-001 (or an Italian ZL-I001 misread: in doubt, the catalog decides).
+        assertThat(ScanCodes.bases("ZL-1-001")).contains("ZL1-001", "ZL-1001");
+        assertThat(ScanCodes.languageInDoubt("ZL-1-001")).isTrue();
+        assertThat(ScanCodes.englishForms("ZL-1-001")).contains("ZL1-001");
+        assertThat(ScanCodes.languageInDoubt("VLB-0E-005")).isTrue();
+    }
+
+    @Test
     void thePasscodeIsNeverACodeNotEvenWithAStrayDashOrTwoLookAlikeLetters() {
         for (String read :
                 List.of(
