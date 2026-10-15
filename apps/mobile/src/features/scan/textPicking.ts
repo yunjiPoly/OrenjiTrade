@@ -206,13 +206,20 @@ function parseDashless(cleaned: string, joined: boolean): CodeMatch | null {
 const FRAGMENT = /^([A-Z0-9]{2,5})-(EN?[A-Z0-9]{0,2})$/;
 
 /**
- * A code the reader cut short after its English region, alone on its row ("ZR04-EN", "ZRO2-ENOT"):
- * one word, a set part of 2 to 5 letters and digits with at least one of each, a dash, E or EN and
- * at most two more characters (two at least after the dash), and no code (`parseCode`). It is no
- * name; the scan sends it as a code only when no read of the photo holds a code (`readCardText`),
- * and the API takes the named card's printing in that set. Returns it cleaned, or null.
+ * What the API reads after the dash as an English code, look-alike letters allowed for its digits
+ * (`ScanCodes.mayBeEnglish`): E or EN, sometimes a letter, then 2 or 3 digits or look-alike letters
+ * ("E01", "ENOO"). The phone's own codes are stricter (`parseTail`: 3 digits after E, at least one
+ * real digit).
  */
-export function codeFragment(text: string): string | null {
+const ENGLISH_FOR_THE_API = new RegExp(`^(?:EN|E)[A-Z]?${DIGITISH}{2,3}$`);
+
+/**
+ * A word shaped like a code cut short after its English region: one word, a set part of 2 to 5
+ * letters and digits with at least one of each, a dash, E or EN and at most two more characters
+ * (two at least after the dash), and no code (`parseCode`). It is no name (`isNotAName`). Returns
+ * it cleaned and the part after its dash, or null.
+ */
+function cutCode(text: string): { cleaned: string; tail: string } | null {
   const word = text.trim();
   if (word.length === 0 || /\s/.test(word)) {
     return null;
@@ -224,7 +231,20 @@ export function codeFragment(text: string): string | null {
   if (!match || tail.length < 2 || !/[A-Z]/.test(setPart) || !/[0-9]/.test(setPart)) {
     return null;
   }
-  return parseCode(cleaned) ? null : cleaned;
+  return parseCode(cleaned) ? null : { cleaned, tail };
+}
+
+/**
+ * A code the reader cut short after its English region, alone on its row ("ZR04-EN", "ZRO2-ENOT"):
+ * a word of that shape (`cutCode`) the API reads as a fragment too (`ScanCodes.isFragment`), not as
+ * an English code with look-alike digits ("ZR04-E01", "ZR04-ENOO": the phone takes neither for a
+ * code, sends neither and takes neither for a name). The scan sends it as a code only when no read
+ * of the photo holds a code (`readCardText`), and the API takes the named card's printing in that
+ * set. Returns it cleaned, or null.
+ */
+export function codeFragment(text: string): string | null {
+  const cut = cutCode(text);
+  return cut && !ENGLISH_FOR_THE_API.test(cut.tail) ? cut.cleaned : null;
 }
 
 /** The code fragment of a read (`codeFragment`), the highest one; none when no row holds one. */
@@ -440,7 +460,7 @@ function isNotAName(row: string, name: string): boolean {
     /EDITION/.test(upper) ||
     /©|\bKONAMI\b|\bTAKAHASHI\b/.test(upper) ||
     codesOfRow(row).some((match) => match.shape !== 'dashless') ||
-    codeFragment(row) !== null ||
+    cutCode(row) !== null ||
     holdsPasscode(row)
   );
 }

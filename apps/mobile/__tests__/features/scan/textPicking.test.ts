@@ -151,6 +151,50 @@ describe('the shape of a code', () => {
 });
 
 describe('a code cut short', () => {
+  /** The words of the table the API reads as English codes and the phone as no code. */
+  const ENGLISH_FOR_THE_API_ONLY = [
+    'ZR04-E01',
+    'ZR04-E0O',
+    'ZR04-EO0',
+    'ZR04-EOO',
+    'ZR04-ENOO',
+    'ZR04-ES1',
+  ];
+
+  /**
+   * Words of the shape of a code cut short, fragments and not: the same tables as the API's
+   * `ScanCodesTest` (`ScanCodes.isFragment`), so that the phone and the API never drift apart.
+   */
+  const FRAGMENTS = [
+    'ZR04-EN',
+    'ZRO2-ENOT',
+    'ZR04-ENO',
+    'ZR04-EN0',
+    'ZR04-E0',
+    'ZR04-EO',
+    'ZR04-ENX',
+    'ZR04-ENA1',
+    '2R0A-EN1',
+  ];
+  const NO_FRAGMENTS = [
+    ...ENGLISH_FOR_THE_API_ONLY,
+    // Codes (as printed or with look-alikes), another region, no letter or no digit in the set
+    // part, nothing after E, more than two characters after the region, no dash, a long set part.
+    'ZR04-EN015',
+    'ZR04-EN01',
+    'ZR04-ENO1',
+    'ZR04-EN0O',
+    'ZR04-E001',
+    'ZR04-DE',
+    'ZR04-E',
+    'ZRAB-EN',
+    '1234-EN',
+    'ZR04-EXYZ',
+    'ZR04-ENO15',
+    'ZR04EN',
+    'ZR0400-EN',
+  ];
+
   it('is one word: a set part with a letter and a digit, a dash, E or EN and at most two more', () => {
     expect(codeFragment('ZR04-EN')).toBe('ZR04-EN');
     expect(codeFragment(' zr04-en ')).toBe('ZR04-EN');
@@ -175,6 +219,25 @@ describe('a code cut short', () => {
       '',
     ]) {
       expect(codeFragment(text)).toBeNull();
+    }
+  });
+
+  it("is what the API reads as one: the same table as the API's ScanCodesTest", () => {
+    expect(FRAGMENTS.map(codeFragment)).toEqual(FRAGMENTS);
+    expect(NO_FRAGMENTS.filter((word) => codeFragment(word) !== null)).toEqual([]);
+  });
+
+  it('is never a word the API reads as an English code, which the phone sends no way', () => {
+    // E or EN, then two digits or look-alike letters: the API reads a code (with look-alikes),
+    // the phone none (3 digits after E, a real digit). No code, no fragment, and no name.
+    for (const word of ENGLISH_FOR_THE_API_ONLY) {
+      const read = linesOf(['Quillfeather Mage', word]);
+      expect([
+        word,
+        codeCandidates(read),
+        codeFragments(read),
+        nameCandidatesFromPhoto(read),
+      ]).toEqual([word, [], [], ['Quillfeather Mage']]);
     }
   });
 
