@@ -48,6 +48,7 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
     final Card tinHerald = card("Zither Tin Herald");
     final Card tinPage = card("Zither Tin Page");
     // The shapes of the real-card gate's reads (2026-10-15), on fictional cards and sets.
+    final Card quillfeather = card("Quillfeather Mage");
     final Card brinemoss = card("Brinemoss Warden");
     final Card coralWisp = card("Coral Lantern Wisp");
     final Card coilglass = card("Coilglass Shrine");
@@ -136,6 +137,9 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
         // German ZT1-DE001 with its D read as 0: the catalog knows both sets.
         printing(tinHerald, "ZT10", "Fictional Tins Ten", za01, "ZT10-EN001", "Common", "en");
         printing(tinPage, "ZT1", "Fictional Tins", zob, "ZT1-EN001", "Common", "en");
+        // A code cut short after its region (ZR04-EN): Quillfeather Mage's one printing in ZR04.
+        printing(quillfeather, "ZR04", "Fictional Quills", za01, "ZR04-EN015", "Ultra Rare", "en");
+        printing(quillfeather, "ZQ11", "Fictional Quills Two", zob, "ZQ11-EN042", "Common", "en");
         // A code with a character lost (ZBM1-EN13): Brinemoss Warden's ZBM1-EN137; the code
         // ZBM1-EN139 one character from it is Coral Lantern Wisp's.
         printing(brinemoss, "ZBM1", "Fictional Moss", za01, "ZBM1-EN137", "Ultra Rare", "en");

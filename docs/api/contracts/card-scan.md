@@ -64,12 +64,12 @@ five grouped queries whatever the number of variants (a sixth for a code read in
      exactly one is; when no code read is a catalog code as read, its printing one character lost,
      added or misread from a code read or one of its look-alike variants (rule 2) when exactly one
      is (`ZBM1-EN13`, its last digit lost, is `ZBM1-EN137`; `AGV-EN056`, its first letter lost,
-     `ZAGV-EN056`; `ZRAO-ENO1S`, through its look-alike `ZRA0-EN015`, `ZRA0-EN013`); otherwise
-     its printing is unknown (PICK_PRINTING), **even when the card has a single printing**: the
-     code read is not that printing's (a printing the catalog lacks, a garbled read, another card's
-     code reached through a look-alike), so the collector picks it; the code's card goes to
-     `otherMatches`. With no code read, the name alone finds the card: FOUND when it has one
-     printing;
+     `ZAGV-EN056`; `ZRAO-ENO1S`, through its look-alike `ZRA0-EN015`, `ZRA0-EN013`); for a code
+     cut short after its region, its printing in that set (rule 7); otherwise its printing is
+     unknown (PICK_PRINTING), **even when the card has a single printing**: the code read is not
+     that printing's (a printing the catalog lacks, a garbled read, another card's code reached
+     through a look-alike), so the collector picks it; the code's card goes to `otherMatches`. With
+     no code read, the name alone finds the card: FOUND when it has one printing;
    - but the name does not win over a code read that is another card's printing as read when the
      named card has no printing at that code or one look-alike character from it: NOT_FOUND
      (`AMBIGUOUS`), the named card first in `otherMatches`, then the code's card. The name may be a
@@ -112,6 +112,16 @@ five grouped queries whatever the number of variants (a sixth for a code read in
    characters, dashes left out (7 to 10 when it has a dash: `DL1-001` has six), all digits but at
    most two letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like `9955812I` or
    `9955-8127`, is ignored: it is never looked up and counts as no code.
+7. **A code cut short after its region** (`ZR04-EN`, `ZRO2-ENOT`): a set part of 2 to 5 characters
+   with a letter and a digit, a dash, `E` or `EN` and at most two more characters, that is no code
+   (not English, not even with look-alike digits, and not another language's). The phone sends one
+   only when none of its reads of the photo held a whole code. It never finds a card by itself
+   (NO_MATCH without a name). When the name wins, the card's printing in that set is its printing
+   when exactly one of its English printings fits: the same set and an `EN` code whose number
+   starts with the characters read after the region when those are digits, the look-alikes O and
+   D 0, I and L 1, S 5, B 8, Z 2, G 6 folded on both sides (`ZRO4-ENO` fits `ZR04-EN015`), FOUND
+   or PICK_RARITY; none (a set without a printing of the card) or several: PICK_PRINTING, as for
+   a code that is none of its printings. No query more.
 
 ### Answer `CardScanMatch` (200)
 

@@ -264,6 +264,20 @@ class CardScanMatchIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aCodeCutShortAfterItsRegionTakesTheNamedCardsPrintingInThatSet() {
+        JsonNode match = scan(List.of("ZAO1-EN"), List.of(ScanTestCatalog.INTERFERENCE));
+
+        assertThat(match.path("status").asString()).isEqualTo("PICK_RARITY");
+        assertThat(match.path("card").path("name").asString())
+                .isEqualTo(ScanTestCatalog.INTERFERENCE);
+        assertThat(values(match.path("rarities"), "printingCode"))
+                .hasSize(7)
+                .containsOnly("ZA01-EN075");
+        assertThat(match.path("read").path("codes").size()).isEqualTo(1);
+        assertThat(match.path("read").path("codes").get(0).asString()).isEqualTo("ZAO1-EN");
+    }
+
+    @Test
     void nothingReadIsNotFound() {
         JsonNode nothing = scan(List.of(), List.of());
         assertThat(nothing.path("status").asString()).isEqualTo("NOT_FOUND");

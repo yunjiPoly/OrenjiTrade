@@ -374,6 +374,42 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void aCodeCutShortAfterItsRegionTakesTheNamedCardsOnlyPrintingInThatSet() {
+        // The real-card gate (2026-10-15): the code read cut after its region, the name clearly.
+        catalog.calls.clear();
+        ScanMatch cut = match(List.of("ZR04-EN"), List.of("Quillfeather Mage"));
+        assertThat(cut.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(cut.card().id()).isEqualTo(catalog.quillfeather.id());
+        assertThat(cut.printing().printingCode()).isEqualTo("ZR04-EN015");
+        assertThat(cut.read().codes()).containsExactly("ZR04-EN");
+        assertThat(catalog.calls)
+                .containsEntry("printingsByCodes", 1)
+                .containsEntry("cardsByNames", 1)
+                .containsEntry("printingsOfCards", 1)
+                .containsEntry("cards", 1)
+                .hasSize(4);
+        // Look-alikes in its set part and the start of its number count.
+        assertThat(match(List.of("ZRO4-ENO"), List.of("Quillfeather Mage")).printing())
+                .extracting(ScanMatch.Printing::printingCode)
+                .isEqualTo("ZR04-EN015");
+
+        // Its number begun otherwise, a set without a printing of the card (the owner-reviewed
+        // rule for a code none of the card's printings), or two of them in the set: to pick.
+        for (List<String> codes : List.of(List.of("ZR04-EN1"), List.of("ZQ99-EN"))) {
+            ScanMatch pick = match(codes, List.of("Quillfeather Mage"));
+            assertThat(pick.status()).as("%s", codes).isEqualTo(ScanStatus.PICK_PRINTING);
+            assertThat(pick.card().id()).isEqualTo(catalog.quillfeather.id());
+        }
+        assertThat(match(List.of("ZBM1-EN"), List.of("Brinemoss Warden")).status())
+                .isEqualTo(ScanStatus.PICK_PRINTING);
+
+        // Without a name it finds nothing.
+        ScanMatch alone = match(List.of("ZR04-EN"), List.of());
+        assertThat(alone.status()).isEqualTo(ScanStatus.NOT_FOUND);
+        assertThat(alone.reason()).isEqualTo(ScanNotFoundReason.NO_MATCH);
+    }
+
+    @Test
     void aNameCloseToNoCardCountsAsNoName() {
         ScanMatch match = match(List.of("ZACR-EN038"), List.of("xqzv wvvt"));
         assertThat(match.status()).isEqualTo(ScanStatus.FOUND);

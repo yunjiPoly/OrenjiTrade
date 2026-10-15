@@ -29,10 +29,12 @@ import org.jspecify.annotations.Nullable;
  *       wins when it clearly points to another card, which then takes its printing one look-alike
  *       character from the read code when exactly one is; when no code read is a catalog code as
  *       read, its only printing one character lost, added or misread from a code read or its
- *       look-alikes; and otherwise has an unknown printing (PICK_PRINTING, even with a single
- *       printing). The name does not win over a code read that is another card's printing as read
- *       when the named card has no printing at that code or one look-alike character from it: not
- *       found, both cards the candidates. Several candidates and nothing to choose: not found.
+ *       look-alikes; for a code cut short after its region ({@link ScanCodes#isFragment}), its only
+ *       English printing in that set; and otherwise has an unknown printing (PICK_PRINTING, even
+ *       with a single printing). The name does not win over a code read that is another card's
+ *       printing as read when the named card has no printing at that code or one look-alike
+ *       character from it: not found, both cards the candidates. Several candidates and nothing to
+ *       choose: not found.
  *   <li>English cards only: a code with another language's region, as printed or read with
  *       look-alike characters ({@code MACR-0E036}), is NOT_FOUND whatever the name says, and
  *       printings of another language are never matched, not even as look-alikes. A read without
@@ -563,10 +565,12 @@ public final class ScanRules {
          * The name wins: its card, with its printing whose code is the one read or one look-alike
          * character from it when exactly one is; when no code read is a catalog code as read, its
          * only printing one character lost, added or misread from a code read or one of its strict
-         * look-alikes ({@link #oneEditApart}). Otherwise its printing is unknown (PICK_PRINTING,
-         * even for a card with a single printing: the code read is not that printing's, so it may
-         * be a printing the catalog lacks, a garbled read or another card's code reached through a
-         * look-alike). With no code read, the card alone decides ({@link #withoutCode}).
+         * look-alikes ({@link #oneEditApart}); when every code read is cut short after its region
+         * ({@link ScanCodes#isFragment}), its only English printing in that set. Otherwise its
+         * printing is unknown (PICK_PRINTING, even for a card with a single printing: the code read
+         * is not that printing's, so it may be a printing the catalog lacks, a garbled read or
+         * another card's code reached through a look-alike). With no code read, the card alone
+         * decides ({@link #withoutCode}).
          */
         private Outcome nameWins(UUID card) {
             if (forms.isEmpty()) {
@@ -574,6 +578,21 @@ public final class ScanRules {
             }
             Set<String> codesOfCard = new LinkedHashSet<>();
             catalog.printingsOf(card).forEach(ref -> codesOfCard.add(ref.printingCode()));
+            if (forms.stream().allMatch(ScanCodes::isFragment)) {
+                List<String> inSet =
+                        codesOfCard.stream()
+                                .filter(
+                                        code ->
+                                                forms.stream()
+                                                        .anyMatch(
+                                                                fragment ->
+                                                                        ScanCodes.fragmentFits(
+                                                                                fragment, code)))
+                                .toList();
+                return inSet.size() == 1
+                        ? withCode(card, inSet.get(0))
+                        : new Outcome(ScanStatus.PICK_PRINTING, null, card, null, null, List.of());
+            }
             List<String> same = codesOfCard.stream().filter(forms::contains).toList();
             if (same.size() == 1) {
                 return withCode(card, same.get(0));

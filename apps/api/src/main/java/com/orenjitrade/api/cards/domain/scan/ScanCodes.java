@@ -42,6 +42,9 @@ import org.jspecify.annotations.Nullable;
  *       misread when the catalog knows {@code CT1}, though it has {@code CT10-EN001}).
  *   <li>{@link #isPasscode}: the card's 8-digit passcode (or a stat) is never looked up, not even
  *       read with a stray dash or two look-alike letters.
+ *   <li>{@link #isFragment}: a code cut short after its English region ({@code ZR04-EN}), which the
+ *       phone sends only when it read no whole code; {@link #fragmentFits} says which printing
+ *       codes it may be the start of.
  * </ul>
  */
 public final class ScanCodes {
@@ -92,6 +95,13 @@ public final class ScanCodes {
     /** An English part after the dash, read with look-alike letters for some digits. */
     private static final Pattern MISREAD_ENGLISH =
             Pattern.compile("^(?:(?:EN|E)[A-Z]?[0-9ODILSBZG]{2,3}|[0-9ODILSBZG]{2,3})$");
+
+    /**
+     * A code cut short after its English region: a set part of 2 to 5 letters and digits, a dash, E
+     * or EN, then at most two more characters ({@code ZR04-EN}, {@code ZRO2-ENOT}).
+     */
+    private static final Pattern FRAGMENT =
+            Pattern.compile("^([A-Z0-9]{2,5})-E(N?)([A-Z0-9]{0,2})$");
 
     private static final Pattern OLD_NUMBER = Pattern.compile("^[0-9]{2,3}$");
     private static final Pattern ANY_DIGIT = Pattern.compile("[0-9]");
@@ -373,6 +383,58 @@ public final class ScanCodes {
             }
         }
         return true;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // A code cut short
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether a cleaned read is a code cut short after its English region ({@code ZR04-EN}, {@code
+     * ZRO2-ENOT}): a set part of 2 to 5 characters with at least one letter and one digit, a dash,
+     * E or EN and at most two more characters (two at least after the dash), and no code: not
+     * English, not even with look-alike digits, and not another language's. The phone sends one
+     * only when it read no whole code.
+     */
+    public static boolean isFragment(String cleaned) {
+        Matcher parts = FRAGMENT.matcher(cleaned);
+        if (!parts.matches() || cleaned.length() - cleaned.indexOf('-') - 1 < 2) {
+            return false;
+        }
+        String set = parts.group(1);
+        return set.chars().anyMatch(Character::isLetter)
+                && set.chars().anyMatch(Character::isDigit)
+                && !mayBeEnglish(cleaned)
+                && !isOtherLanguage(cleaned);
+    }
+
+    /**
+     * Whether the printing code {@code code} may be the whole of the code cut short {@code
+     * fragment} ({@link #isFragment}): an EN code of the same set, the strict look-alikes (O and D
+     * 0, I and L 1, S 5, B 8, Z 2, G 6) folded on both sides, whose number starts with the
+     * fragment's characters after the region when they are digits once folded ({@code ZR04-ENO}
+     * fits {@code ZR04-EN015}, {@code ZRO4-EN} fits every EN code of {@code ZR04}).
+     */
+    public static boolean fragmentFits(String fragment, String code) {
+        Matcher parts = FRAGMENT.matcher(fragment);
+        int dash = code.indexOf('-');
+        if (!parts.matches() || dash < 0 || !code.startsWith("EN", dash + 1)) {
+            return false;
+        }
+        if (!folded(parts.group(1)).equals(folded(code.substring(0, dash)))) {
+            return false;
+        }
+        String start = folded(parts.group(3));
+        return !start.chars().allMatch(Character::isDigit) || code.startsWith(start, dash + 3);
+    }
+
+    /** A code's characters with their strict look-alike letters read as digits. */
+    private static String folded(String part) {
+        StringBuilder folded = new StringBuilder(part.length());
+        for (char c : part.toCharArray()) {
+            folded.append(LETTER_TO_DIGIT.getOrDefault(c, String.valueOf(c)));
+        }
+        return folded.toString();
     }
 
     /** The one-dash codes of a cleaned read (a missing dash or extra dashes tried). */

@@ -217,6 +217,44 @@ class ScanCodesTest {
     }
 
     @Test
+    void aCodeCutShortAfterItsEnglishRegionIsAFragment() {
+        for (String fragment : List.of("ZR04-EN", "ZRO2-ENOT", "ZR04-ENO", "ZR04-E0", "2R0A-EN1")) {
+            assertThat(ScanCodes.isFragment(fragment)).as(fragment).isTrue();
+        }
+        // A code (as printed or with look-alikes), another region, no digit or no letter in the
+        // set part, nothing after E, more than two characters after the region: no fragment.
+        for (String other :
+                List.of(
+                        "ZR04-EN015",
+                        "ZR04-ENO1",
+                        "ZR04-E001",
+                        "ZR04-DE",
+                        "ZR04-E",
+                        "ZRAB-EN",
+                        "1234-EN",
+                        "ZR04-EXYZ",
+                        "ZR04-ENO15",
+                        "ZR04EN",
+                        "ZR0400-EN")) {
+            assertThat(ScanCodes.isFragment(other)).as(other).isFalse();
+        }
+    }
+
+    @Test
+    void aFragmentFitsTheEnglishCodesOfItsSetWhoseNumberStartsAsRead() {
+        assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-EN015")).isTrue();
+        assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-EN217")).isTrue();
+        // The strict look-alikes are folded in the set part and the number begun.
+        assertThat(ScanCodes.fragmentFits("ZRO4-EN", "ZR04-EN015")).isTrue();
+        assertThat(ScanCodes.fragmentFits("ZR04-ENO", "ZR04-EN015")).isTrue();
+        assertThat(ScanCodes.fragmentFits("ZRO2-ENOT", "ZR02-EN013")).isTrue();
+        assertThat(ScanCodes.fragmentFits("ZR04-EN1", "ZR04-EN015")).isFalse();
+        assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR05-EN015")).isFalse();
+        assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-DE015")).isFalse();
+        assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-015")).isFalse();
+    }
+
+    @Test
     void lookAlikesSwapLettersToDigitsInTheNumberAndBothWaysInTheSetPartFewestFirst() {
         List<String> variants =
                 ScanCodes.lookAlikes(ScanCodes.exactForms("ZAO1-ENO75")).stream()
