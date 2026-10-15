@@ -84,7 +84,7 @@ export interface SearchServiceInterface {
 
     /**
      * Public deck cores of a region holding a card (auth optional)
-     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a public copy of &#x60;cardId&#x60;, any printing, most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a copy of &#x60;cardId&#x60; among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
      * @endpoint get /api/v1/search/deck-cores
 * @param requestParameters
      */

@@ -2749,7 +2749,7 @@ export interface paths {
         };
         /**
          * Public deck cores of a region holding a card (auth optional)
-         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a public copy of `cardId`, any printing, most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a copy of `cardId` among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
          */
         get: operations["searchDeckCores"];
         put?: never;
@@ -8268,9 +8268,9 @@ export interface components {
             askingPriceText?: string | null;
             /** @description A deck core's photos in order; empty for other binders */
             photos?: components["schemas"]["BinderImage"][];
-            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first public items */
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the catalog pictures of its first public cards (every card of a deck core counts) */
             previewImages?: string[];
-            /** @description A deck core's public cards with their copies, most copies first (at most 30); empty for other binders */
+            /** @description A deck core's key cards with their copies, most copies first (at most 30): every live card filed in it, whatever the card's own visibility, as its cards sell only together; empty for other binders */
             keyCards?: components["schemas"]["BinderKeyCard"][];
         };
         /** @description Printing and/or card the query resolved to (both null when ambiguous) */
@@ -8476,9 +8476,9 @@ export interface components {
             askingPriceText?: string | null;
             /** @description A deck core's photos in order; empty for other binders */
             photos?: components["schemas"]["BinderImage"][];
-            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first public items */
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the catalog pictures of its first public cards (every card of a deck core counts) */
             previewImages?: string[];
-            /** @description A deck core's public cards with their copies, most copies first (at most 30); empty for other binders */
+            /** @description A deck core's key cards with their copies, most copies first (at most 30): every live card filed in it, whatever the card's own visibility, as its cards sell only together; empty for other binders */
             keyCards?: components["schemas"]["BinderKeyCard"][];
             /**
              * Format: int32
