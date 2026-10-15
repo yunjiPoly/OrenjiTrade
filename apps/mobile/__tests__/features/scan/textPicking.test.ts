@@ -123,6 +123,8 @@ describe('code candidates', () => {
 
   it('joins a code the reader cut with spaces', () => {
     expect(codes('ZACR - EN 036')).toEqual(['ZACR-EN036']);
+    // Its dash lost too: sent as read, the server tries each place of the dash.
+    expect(codes('ZA 01EN075')).toEqual(['ZA01EN075']);
     expect(codeCandidates([at('ZACR-', 0.1, 0.4, 0.3), at('EN036', 0.45, 0.4, 0.3)])).toEqual([
       'ZACR-EN036',
     ]);
@@ -145,6 +147,12 @@ describe('code candidates', () => {
     expect(codes('57241194', 'ATK/2300 LINK-3', '1st Edition', 'LIMITED EDITION')).toEqual([]);
     expect(codes('1960B153')).toEqual([]);
     expect(codes('1st Edition ZOB-EN001')).toEqual(['ZOB-EN001']);
+    // The passcode misread, cut, or next to the code: never a code itself.
+    for (const passcode of ['5724II94', '5724-1194', '5724 1194', '5724.1194', 'I9608I53']) {
+      expect(codes(passcode)).toEqual([]);
+    }
+    expect(codes('57241194 ZOB-EN001')).toEqual(['ZOB-EN001']);
+    expect(codes('ZOB-EN001 57241194')).toEqual(['ZOB-EN001']);
   });
 
   it('passes two codes on, best first: as printed, more confident, higher', () => {
@@ -215,6 +223,19 @@ describe('name candidates', () => {
     for (const name of names) {
       expect(name).not.toMatch(/★|ZUEA|Dragon\/|ATK|50248865|Edition|KONAMI|TAKAHASHI/);
     }
+  });
+
+  it('never takes the row of the passcode, even when the copyright beside it lost its ©', () => {
+    // A whole-photo read that joined the passcode to the copyright line, its © misread and its
+    // end cut by the frame: the passcode alone says it is no name.
+    expect(
+      nameCandidatesFromPhoto(
+        linesOf(['Pale-Moon Frost Dragon', '57241194 Studio Dice/SHUEISHA, TV'])
+      )
+    ).toEqual(['Pale-Moon Frost Dragon']);
+    expect(areaNames('57241194 Studio Dice', 'Yew Flowers & Velvet Breeze')).toEqual([
+      'Yew Flowers & Velvet Breeze',
+    ]);
   });
 
   it('never takes a spell or trap line, an attribute word, stars or stats', () => {

@@ -130,6 +130,10 @@ export interface CodeMatch {
  * RA01, MP22, L5DD), a dash, then the tail (`parseTail`). A code read without its dash counts when
  * a dash at one place gives a code as printed; it is sent as read (the API tries each place).
  * Returns the cleaned code, or null.
+ *
+ * The passcode never passes as a code: with a dash, its set part has no letter; without one, a
+ * code needs at least three letters (two in its set part, a region as printed) and the passcode
+ * has at most two misread ones (`isPasscode`).
  */
 export function parseCode(raw: string): CodeMatch | null {
   const cleaned = cleanCode(raw);
@@ -159,7 +163,7 @@ export function parseCode(raw: string): CodeMatch | null {
 }
 
 function parseDashless(cleaned: string): CodeMatch | null {
-  if (cleaned.length < 5 || cleaned.length > 11 || isPasscode(cleaned)) {
+  if (cleaned.length < 5 || cleaned.length > 11) {
     return null;
   }
   for (let dash = 2; dash <= 5; dash++) {
@@ -177,7 +181,8 @@ function parseDashless(cleaned: string): CodeMatch | null {
 
 /**
  * The 8-digit passcode at the bottom left (never used), or a stat: a run of 6 to 10 characters
- * without a dash, all digits but at most two misread ones.
+ * without a dash, all digits but at most two misread ones. A row holding one is no name; no code
+ * has its shape (`parseCode`).
  */
 function isPasscode(token: string): boolean {
   if (token.includes('-')) {
@@ -200,7 +205,8 @@ interface FoundCode extends CodeMatch {
 
 /**
  * The codes of one row of text, each token at most once. A code may be spread over up to 4 tokens
- * ("MACR - EN 036"); the longest span that makes a code is taken.
+ * ("MACR - EN 036", or "RA 01EN075" with its dash lost); the longest span that makes a code is
+ * taken.
  */
 function codesOfRow(text: string): CodeMatch[] {
   const tokens = text
@@ -213,11 +219,7 @@ function codesOfRow(text: string): CodeMatch[] {
   for (let start = 0; start < tokens.length;) {
     let taken = 0;
     for (let length = Math.min(4, tokens.length - start); length >= 1 && taken === 0; length--) {
-      const span = tokens.slice(start, start + length);
-      if (span.some((token) => isPasscode(token))) {
-        continue;
-      }
-      const match = parseCode(span.join(''));
+      const match = parseCode(tokens.slice(start, start + length).join(''));
       if (match) {
         found.push(match);
         taken = length;
