@@ -10,7 +10,14 @@ import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Button } from '@/src/components/ui/Button';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { orderBinders } from './binderForm';
 
@@ -35,7 +42,9 @@ function listed(binders: readonly BinderResponse[]): BinderResponse[] {
  * no keyboard on a phone): up / down arrows per binder, saved with `PUT /binders/reorder` when
  * "Save order" is pressed. The order is the one collectors see. As in Inventory › Binders, the deck
  * cores come first ("Deck cores", then "Binders" when there are both), and a binder moves inside
- * its group.
+ * its group. The description scrolls with the binders and the two buttons wrap onto two lines, so
+ * the binders, Cancel and "Save order" stay within reach at the largest text size (review fix 2 of
+ * stage R3: the description filled the sheet and Cancel was pushed off the screen).
  */
 export function ReorderBindersSheet({
   visible,
@@ -81,10 +90,10 @@ export function ReorderBindersSheet({
       title="Reorder binders"
       testID="reorder-binders"
     >
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-        Move binders up or down. The order is the one collectors see.
-      </Text>
-      <ScrollView style={styles.list} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.list} contentContainerStyle={styles.content} testID="reorder-list">
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+          Move binders up or down. The order is the one collectors see.
+        </Text>
         {order.map((binder, index) => {
           const core = isCore(binder);
           // Its place inside its group (deck cores, then the other binders).
@@ -147,10 +156,18 @@ export function ReorderBindersSheet({
           );
         })}
       </ScrollView>
-      <View style={styles.actions}>
-        <Button label="Cancel" variant="ghost" onPress={onClose} disabled={reorder.isPending} />
+      <View style={styles.actions} testID="reorder-actions">
+        <Button
+          label="Cancel"
+          variant="ghost"
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          onPress={onClose}
+          disabled={reorder.isPending}
+          testID="reorder-cancel"
+        />
         <Button
           label="Save order"
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           loading={reorder.isPending}
           loadingLabel="Saving…"
           disabled={!changed}
@@ -163,7 +180,7 @@ export function ReorderBindersSheet({
 }
 
 const styles = StyleSheet.create({
-  list: { flexGrow: 0 },
+  list: { flexGrow: 0, flexShrink: 1 },
   content: { gap: spacing[2] },
   entry: { gap: spacing[2] },
   group: { fontWeight: fontWeight.semibold, marginTop: spacing[1] },
@@ -179,5 +196,5 @@ const styles = StyleSheet.create({
   name: { flex: 1, fontWeight: fontWeight.semibold },
   arrow: { padding: spacing[1] },
   disabled: { opacity: 0.3 },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2] },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: spacing[2] },
 });

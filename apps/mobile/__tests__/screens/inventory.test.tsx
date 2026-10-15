@@ -1,8 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
-import { lightPalette } from '@/src/theme';
+import { lightPalette, PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -490,6 +491,55 @@ describe('Inventory › Binders (screen 17)', () => {
     expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
       binderIds: [core.id, 'b-2', BINDER_ID],
     });
+  });
+
+  it('keeps the binders, Cancel and Save order within reach at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([binderFixture(), deckCoreFixture()]) }));
+      mockParams.current = { view: 'binders' };
+      render();
+      fireEvent.press(await screen.findByTestId('binders-reorder'));
+      const sheet = await screen.findByTestId('reorder-binders');
+      // The description scrolls with the binders (above them it filled the sheet: no binder was
+      // left on screen), and the title grows no more than a screen's title.
+      const list = within(sheet).getByTestId('reorder-list');
+      expect(
+        within(list).getByText('Move binders up or down. The order is the one collectors see.')
+      ).toBeOnTheScreen();
+      expect(within(list).getByTestId(`reorder-${BINDER_ID}`)).toBeOnTheScreen();
+      expect(within(sheet).getByTestId('reorder-binders-title')).toHaveTextContent(
+        'Reorder binders'
+      );
+      expect(within(sheet).getByTestId('reorder-binders-title')).toHaveProp(
+        'maxFontSizeMultiplier',
+        2
+      );
+      // The two buttons stay under the list, wrapping rather than pushing Cancel off the screen.
+      const actions = within(sheet).getByTestId('reorder-actions');
+      expect(actions).toHaveStyle({ flexWrap: 'wrap' });
+      expect(within(list).queryByTestId('reorder-cancel')).toBeNull();
+      expect(within(actions).getByText('Cancel')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      expect(within(actions).getByText('Save order')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      fireEvent.press(within(actions).getByTestId('reorder-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('reorder-binders')).toBeNull());
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('lists the deck cores first, then the binders, with the summary and the tip', async () => {

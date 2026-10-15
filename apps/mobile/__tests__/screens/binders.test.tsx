@@ -1,12 +1,13 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { View } from 'react-native';
+import { Dimensions, View } from 'react-native';
 
 import BinderScreen from '@/app/binders/[id]';
 import type { BinderResponse, UpdateBinderRequest } from '@/src/api/types';
 import EditBinderScreen from '@/app/binders/edit';
 import NewBinderScreen from '@/app/binders/new';
 import { useBinderUiStore } from '@/src/features/binders/binderUiStore';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -298,6 +299,58 @@ describe('Edit binder (screen 18)', () => {
     expect(api.callsTo('POST /api/v1/inventory/items/bulk').map((call) => call.body)).toEqual([
       { action: 'MOVE_TO_BINDER', binderId: CORE_ID, itemIds: ['item-2'] },
     ]);
+  });
+
+  it('keeps the picker’s cards and its button within reach at the largest text size', async () => {
+    mockParams.current = { id: CORE_ID };
+    mockApi(
+      editRoutes(deckCoreFixture(), {
+        'GET /api/v1/inventory/items': ok(inventoryPage([FILED, OTHER])),
+      })
+    );
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    textSize(3.1);
+    try {
+      renderWithProviders(<EditBinderScreen />, { port: port() });
+      fireEvent.press(await screen.findByTestId('binder-add-cards'));
+      const sheet = await screen.findByTestId('card-picker-sheet');
+      // The field and the hint scroll with the cards (above them they filled the sheet: no card
+      // and no button was left on screen); the button stays under the list.
+      const list = within(sheet).getByTestId('card-picker-list');
+      expect(within(list).getByTestId('card-picker-search')).toBeOnTheScreen();
+      expect(
+        within(list).getByText(
+          'Cards in another binder move here. Buyers see them when the deck core is public.'
+        )
+      ).toBeOnTheScreen();
+      expect(await within(list).findByTestId('card-picker-item-2')).toBeOnTheScreen();
+      expect(within(list).queryByTestId('card-picker-submit')).toBeNull();
+      const submit = within(sheet).getByTestId('card-picker-submit');
+      expect(within(submit).getByText('Add cards')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      expect(within(sheet).getByTestId('card-picker-sheet-title')).toHaveProp(
+        'maxFontSizeMultiplier',
+        2
+      );
+      fireEvent.press(within(list).getByTestId('card-picker-item-2'));
+      expect(within(submit).getByText('Add 1 card')).toBeOnTheScreen();
+
+      // At the default size the field stays above the list, as in the mockup.
+      textSize(1);
+      expect(within(list).queryByTestId('card-picker-search')).toBeNull();
+      expect(within(sheet).getByTestId('card-picker-search')).toBeOnTheScreen();
+    } finally {
+      textSize(1);
+    }
   });
 
   it('takes a card out of a deck core with a move only: it keeps its own visibility', async () => {

@@ -12,7 +12,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/src/components/ui/Text';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
-import { elevation, fontWeight, motion, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  elevation,
+  fontWeight,
+  motion,
+  radius,
+  spacing,
+  textStyle,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { InsideModal, useModalOnScreen, useModalTurn } from './modalTurns';
 
@@ -92,7 +101,13 @@ export function BottomSheet({
         >
           <View style={[styles.handle, { backgroundColor: palette.borderStrong }]} />
           {title ? (
-            <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>
+            // A title follows the text size as far as a screen's title does (twice its size), so
+            // at the largest sizes it leaves the sheet room for its rows and its buttons.
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}
+              testID={`${testID}-title`}
+            >
               {title}
             </Text>
           ) : null}

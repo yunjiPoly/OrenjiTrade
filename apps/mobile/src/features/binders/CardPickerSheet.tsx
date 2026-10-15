@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useInventoryItems } from '@/src/api/hooks/inventory';
@@ -12,7 +12,7 @@ import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { boundedQuery, printingCode, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import { DEFAULT_INVENTORY_FILTERS } from '@/src/lib/inventoryFilters';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { EDIT_BINDER_COPY } from './binderCopy';
 
@@ -32,6 +32,10 @@ export interface CardPickerSheetProps {
  * "Add cards" of Edit binder and New binder (spec 2026-10-14, section 7: "pick from your
  * inventory"): the collector's other cards (unfiled or in another binder) with checkboxes. Nothing
  * moves here: the picked cards join the binder's section and move with "Save changes".
+ *
+ * At large text sizes the search field and the hint scroll with the cards: kept above them, they
+ * filled the sheet at the largest size and pushed the cards and "Add {n} cards" off the screen
+ * (review fix 2 of stage R3). The button stays under the list at every size.
  */
 export function CardPickerSheet({
   visible,
@@ -42,6 +46,7 @@ export function CardPickerSheet({
   onClose,
 }: CardPickerSheetProps) {
   const { palette } = useTheme();
+  const large = useWindowDimensions().fontScale > 1.3;
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<ReadonlyMap<string, InventoryItemResponse>>(new Map());
@@ -122,13 +127,8 @@ export function CardPickerSheet({
     });
   }
 
-  return (
-    <BottomSheet
-      visible={visible}
-      onClose={close}
-      title={EDIT_BINDER_COPY.pickerTitle}
-      testID="card-picker-sheet"
-    >
+  const search = (
+    <View style={styles.search} testID="card-picker-search-area">
       <TextField
         label={EDIT_BINDER_COPY.pickerSearch}
         value={text}
@@ -140,11 +140,24 @@ export function CardPickerSheet({
       <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
         {deckCore ? EDIT_BINDER_COPY.pickerCoreHint : EDIT_BINDER_COPY.pickerHint}
       </Text>
+    </View>
+  );
+
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={close}
+      title={EDIT_BINDER_COPY.pickerTitle}
+      testID="card-picker-sheet"
+    >
+      {large ? null : search}
       <ScrollView
-        style={styles.scroll}
+        style={large ? styles.scrollLarge : styles.scroll}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
+        testID="card-picker-list"
       >
+        {large ? search : null}
         {list}
         {items.hasNextPage ? (
           <Button
@@ -158,6 +171,7 @@ export function CardPickerSheet({
       </ScrollView>
       <Button
         label={EDIT_BINDER_COPY.pickerAdd(selected.size)}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         disabled={selected.size === 0}
         onPress={() => {
           onPick([...selected.values()]);
@@ -170,7 +184,10 @@ export function CardPickerSheet({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 0, maxHeight: 320 },
+  search: { gap: spacing[3] },
+  scroll: { flexGrow: 0, flexShrink: 1, maxHeight: 320 },
+  // Large text: the list takes what the sheet has left under its title, above the button.
+  scrollLarge: { flexGrow: 0, flexShrink: 1 },
   list: { gap: spacing[1] },
   status: { gap: spacing[2], alignItems: 'flex-start' },
 });
