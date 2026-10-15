@@ -202,6 +202,41 @@ function parseDashless(cleaned: string, joined: boolean): CodeMatch | null {
   return null;
 }
 
+/** A set part, a dash, then E or EN and at most two more characters (`codeFragment`). */
+const FRAGMENT = /^([A-Z0-9]{2,5})-(EN?[A-Z0-9]{0,2})$/;
+
+/**
+ * A code the reader cut short after its English region, alone on its row ("ZR04-EN", "ZRO2-ENOT"):
+ * one word, a set part of 2 to 5 letters and digits with at least one of each, a dash, E or EN and
+ * at most two more characters (two at least after the dash), and no code (`parseCode`). It is no
+ * name; the scan sends it as a code only when no read of the photo holds a code (`readCardText`),
+ * and the API takes the named card's printing in that set. Returns it cleaned, or null.
+ */
+export function codeFragment(text: string): string | null {
+  const word = text.trim();
+  if (word.length === 0 || /\s/.test(word)) {
+    return null;
+  }
+  const cleaned = cleanCode(word);
+  const match = FRAGMENT.exec(cleaned);
+  const setPart = match?.[1] ?? '';
+  const tail = match?.[2] ?? '';
+  if (!match || tail.length < 2 || !/[A-Z]/.test(setPart) || !/[0-9]/.test(setPart)) {
+    return null;
+  }
+  return parseCode(cleaned) ? null : cleaned;
+}
+
+/** The code fragment of a read (`codeFragment`), the highest one; none when no row holds one. */
+export function codeFragments(lines: readonly OcrLine[]): string[] {
+  return firstDistinct(
+    rowsOf(lines)
+      .map((row) => codeFragment(row.text))
+      .filter((fragment): fragment is string => fragment !== null),
+    1
+  );
+}
+
 /** Whether a line of text holds a printing code (`parseCode`), alone or among other words. */
 export function holdsCode(text: string): boolean {
   return codesOfRow(text).length > 0;
@@ -405,6 +440,7 @@ function isNotAName(row: string, name: string): boolean {
     /EDITION/.test(upper) ||
     /©|\bKONAMI\b|\bTAKAHASHI\b/.test(upper) ||
     codesOfRow(row).some((match) => match.shape !== 'dashless') ||
+    codeFragment(row) !== null ||
     holdsPasscode(row)
   );
 }

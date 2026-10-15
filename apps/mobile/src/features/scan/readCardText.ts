@@ -1,7 +1,12 @@
 import type { CardCrops } from './frameMapping';
 import type { OcrLine, OcrPhoto, OcrProvider, OcrRotation } from './ocr/types';
 import { sizeAfterTurn, turnLines, uprightTurn } from './orientation';
-import { codeCandidates, nameCandidatesFromArea, nameCandidatesFromPhoto } from './textPicking';
+import {
+  codeCandidates,
+  codeFragments,
+  nameCandidatesFromArea,
+  nameCandidatesFromPhoto,
+} from './textPicking';
 import type { ScanRead } from './types';
 
 /**
@@ -18,7 +23,10 @@ import type { ScanRead } from './types';
  *   again turned: first the way its lines say, then 90°, 180° and 270°; the first turned read that
  *   holds both and stands upright is kept; otherwise the first read holding both, or the code of
  *   the first read holding one with the names of the first read holding some (camera photos are
- *   aligned by the frame: never turned).
+ *   aligned by the frame: never turned);
+ * - a whole-photo read that ends without a code sends the code cut short after its region one of
+ *   its reads held (`codeFragment`, "ZR04-EN"), decided after the turns so that a turned read can
+ *   still find the whole code.
  *
  * A failure of the reader is passed on (the tile then says "Couldn't read").
  */
@@ -34,16 +42,23 @@ export interface ReadCardInput {
 
 const TURNS: readonly Exclude<OcrRotation, 0>[] = [90, 180, 270];
 
-/** One whole-photo read: what it gave, and the turn its lines ask for (null: upright or unknown). */
+/**
+ * One whole-photo read: what it gave, the turn its lines ask for (null: upright or unknown), and
+ * its code fragment, sent only when no read holds a code.
+ */
 interface WholeRead {
   read: ScanRead;
   turn: OcrRotation | null;
+  fragments: string[];
 }
 
-/** Codes and names of lines picked as if the card stood upright (`turn` applied to the boxes). */
-function pickLines(lines: readonly OcrLine[], turn: OcrRotation | null): ScanRead {
+/** What lines give picked as if the card stood upright (`turn` applied to the boxes). */
+function pickLines(lines: readonly OcrLine[], turn: OcrRotation | null): Omit<WholeRead, 'turn'> {
   const upright = turn === null ? lines : turnLines(lines, turn);
-  return { codes: codeCandidates(upright), names: nameCandidatesFromPhoto(upright) };
+  return {
+    read: { codes: codeCandidates(upright), names: nameCandidatesFromPhoto(upright) },
+    fragments: codeFragments(upright),
+  };
 }
 
 async function readTurned(
@@ -56,11 +71,20 @@ async function readTurned(
       ? await provider.recognizeLines(photo)
       : await provider.recognizeLines(photo, { rotation });
   const turn = uprightTurn(lines, sizeAfterTurn(photo, rotation));
-  return { read: pickLines(lines, turn), turn: turn === 0 ? null : turn };
+  return { ...pickLines(lines, turn), turn: turn === 0 ? null : turn };
 }
 
 function complete(read: ScanRead): boolean {
   return read.codes.length > 0 && read.names.length > 0;
+}
+
+/** A read without a code takes the first code fragment of the reads made, if any. */
+function withFragment(read: ScanRead, reads: readonly WholeRead[]): ScanRead {
+  if (read.codes.length > 0) {
+    return read;
+  }
+  const fragments = reads.find((made) => made.fragments.length > 0)?.fragments ?? [];
+  return fragments.length > 0 ? { codes: fragments, names: read.names } : read;
 }
 
 async function readWholePhoto(
@@ -70,7 +94,7 @@ async function readWholePhoto(
 ): Promise<ScanRead> {
   const first = await readTurned(provider, photo, 0);
   if (source !== 'LIBRARY' || (complete(first.read) && first.turn === null)) {
-    return first.read;
+    return withFragment(first.read, [first]);
   }
   const reads = [first];
   const asked = first.turn;
@@ -90,10 +114,13 @@ async function readWholePhoto(
   if (both) {
     return both.read;
   }
-  return {
-    codes: reads.find((read) => read.read.codes.length > 0)?.read.codes ?? [],
-    names: reads.find((read) => read.read.names.length > 0)?.read.names ?? [],
-  };
+  return withFragment(
+    {
+      codes: reads.find((read) => read.read.codes.length > 0)?.read.codes ?? [],
+      names: reads.find((read) => read.read.names.length > 0)?.read.names ?? [],
+    },
+    reads
+  );
 }
 
 /** What the phone read on one card: its code and name candidates, best first (`ScanRead`). */

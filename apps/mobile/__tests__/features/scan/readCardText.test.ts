@@ -1,6 +1,7 @@
 import { cropsUnderFrame } from '@/src/features/scan/frameMapping';
 import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fakeOcrProvider';
 import { turnLines } from '@/src/features/scan/orientation';
+import type { OcrLine } from '@/src/features/scan/ocr/types';
 import { readCardText } from '@/src/features/scan/readCardText';
 import {
   PENDULUM_NO_PASSCODE_PHOTO,
@@ -20,6 +21,27 @@ const CROPS = cropsUnderFrame(
   { width: 300, height: 800 },
   PHOTO
 );
+
+/** A line where the reader saw it, in fractions of the image read. */
+function at(
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  height = 0.025,
+  confidence: number | null = 0.9
+): OcrLine {
+  return { text, confidence, box: { x, y, width, height } };
+}
+
+/** A fictional card read upright, its code cut short after the region ("ZR04-EN"). */
+const CODE_CUT_SHORT: OcrLine[] = [
+  at('QUILLFEATHER MAGE', 0.21, 0.197, 0.41, 0.045),
+  at('ZR04-EN', 0.72, 0.75, 0.09, 0.013),
+  at('[Spellcaster/Normal]', 0.198, 0.782, 0.385, 0.022),
+  at('A quiet scholar who writes the winds into old books.', 0.2, 0.804, 0.56, 0.019),
+  at('12345678 1st Edition', 0.178, 0.955, 0.236, 0.02),
+];
 
 function reader(card: FakeCardText) {
   return new FakeOcrProvider({ [PHOTO.uri]: card });
@@ -290,6 +312,45 @@ describe('reading a library photo', () => {
       'arces unice moothr at opponent command:; shroud ls',
     ]);
     expect(methods(fake)).toEqual(['recognizeLines@0']);
+  });
+
+  it('sends a code cut short after its region when no read holds a code', async () => {
+    const fake = new FakeOcrProvider({ [PHOTO.uri]: { whole: CODE_CUT_SHORT } });
+    const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
+    expect(read).toEqual({
+      codes: ['ZR04-EN'],
+      names: ['QUILLFEATHER MAGE', 'A quiet scholar who writes the winds into old books'],
+    });
+    expect(methods(fake)).toEqual([
+      'recognizeLines@0',
+      'recognizeLines@90',
+      'recognizeLines@180',
+      'recognizeLines@270',
+    ]);
+  });
+
+  it('keeps the whole code a turned read found over a code cut short', async () => {
+    const fake = new FakeOcrProvider({
+      [PHOTO.uri]: {
+        whole: CODE_CUT_SHORT,
+        turned: { 90: [], 180: ['Quillfeather Mage', 'ZR04-EN015'] },
+      },
+    });
+    const read = await readCardText(fake, { photo: PHOTO, source: 'LIBRARY' });
+    expect(read.codes).toEqual(['ZR04-EN015']);
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@90', 'recognizeLines@180']);
+  });
+
+  it("sends a camera photo's code cut short when neither the areas nor the whole photo hold a code", async () => {
+    const fake = reader({
+      name: ['Quillfeather Mage'],
+      setCode: [],
+      pendulum: [],
+      whole: CODE_CUT_SHORT,
+    });
+    await expect(
+      readCardText(fake, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
+    ).resolves.toEqual({ codes: ['ZR04-EN'], names: ['Quillfeather Mage'] });
   });
 
   it('reads nothing from a photo without text', async () => {

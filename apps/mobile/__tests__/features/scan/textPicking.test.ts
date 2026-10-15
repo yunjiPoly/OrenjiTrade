@@ -4,6 +4,8 @@ import {
   cleanCode,
   cleanName,
   codeCandidates,
+  codeFragment,
+  codeFragments,
   firstDistinct,
   nameCandidatesFromArea,
   nameCandidatesFromPhoto,
@@ -59,6 +61,21 @@ const NORMAL_MONSTER: OcrLine[] = [
   at('57241194', 0.04, 0.945, 0.15, 0.02),
   at('1st Edition', 0.25, 0.945, 0.15, 0.02),
   at('©1996 KAZUKI TAKAHASHI', 0.55, 0.945, 0.4, 0.02),
+];
+
+/**
+ * A whole-photo read of a fictional card on a table with another card behind it: the other card's
+ * name at the photo's top edge, far right of this card's text column; this card's own name above
+ * the artwork; its code cut short after the region ("ZR04-EN").
+ */
+const CARD_BEFORE_ANOTHER: OcrLine[] = [
+  at('GLIMMERWING HERALD', 0.36, 0.0, 0.53, 0.037),
+  at('QUILLFEATHER MAGE', 0.21, 0.197, 0.41, 0.045),
+  at('ZR04-EN', 0.72, 0.75, 0.09, 0.013),
+  at('[Spellcaster/Normal]', 0.198, 0.782, 0.385, 0.022),
+  at('A quiet scholar who writes the winds into old books.', 0.2, 0.804, 0.56, 0.019),
+  at('ATK/2500 DEF/2100', 0.56, 0.917, 0.31, 0.027),
+  at('12345678 1st Edition', 0.178, 0.955, 0.236, 0.02),
 ];
 
 describe('cleaning a code', () => {
@@ -129,6 +146,43 @@ describe('the shape of a code', () => {
     });
     // With its dash, a code joined from several words is the same code.
     expect(parseCode('ZOB-E001', { joined: true })).toEqual({ code: 'ZOB-E001', shape: 'printed' });
+  });
+});
+
+describe('a code cut short', () => {
+  it('is one word: a set part with a letter and a digit, a dash, E or EN and at most two more', () => {
+    expect(codeFragment('ZR04-EN')).toBe('ZR04-EN');
+    expect(codeFragment(' zr04-en ')).toBe('ZR04-EN');
+    expect(codeFragment('ZR04-ENO')).toBe('ZR04-ENO');
+    expect(codeFragment('ZRO2-ENOT')).toBe('ZRO2-ENOT');
+    expect(codeFragment('ZR04–E0')).toBe('ZR04-E0');
+  });
+
+  it('is no code, no other shape and never several words', () => {
+    for (const text of [
+      'ZR04-EN015',
+      'ZR04-ENO1',
+      'ZR04-E',
+      'ZRAB-EN',
+      '1234-EN',
+      'ZR04-DE',
+      'ZR04-EXYZ',
+      'ZR04-ENO15X',
+      'ZR04 -EN',
+      'ZR04-EN 015',
+      'ELM-KNIGHT',
+      '',
+    ]) {
+      expect(codeFragment(text)).toBeNull();
+    }
+  });
+
+  it('is found on its row of a read, the highest one only', () => {
+    expect(codeFragments(CARD_BEFORE_ANOTHER)).toEqual(['ZR04-EN']);
+    expect(codeFragments(linesOf(['ZQ11-EN', 'Quillfeather Mage', 'ZR04-EN']))).toEqual([
+      'ZQ11-EN',
+    ]);
+    expect(codeFragments(linesOf(['Quillfeather Mage', 'ZR04-EN015']))).toEqual([]);
   });
 });
 
@@ -340,6 +394,13 @@ describe('name candidates', () => {
       )
     ).toEqual(['Gate Keeper of the Vault']);
     expect(areaNames('Machine/Effect', 'Iron Sentry')).toEqual(['Iron Sentry']);
+  });
+
+  it('never takes a code cut short after its region for a name', () => {
+    expect(nameCandidatesFromPhoto(linesOf(['Quillfeather Mage', 'ZR04-EN', 'ZRO2-ENOT']))).toEqual(
+      ['Quillfeather Mage']
+    );
+    expect(areaNames('ZR04-EN', 'Quillfeather Mage')).toEqual(['Quillfeather Mage']);
   });
 
   it('keeps a name with a "/" that is no type line', () => {
