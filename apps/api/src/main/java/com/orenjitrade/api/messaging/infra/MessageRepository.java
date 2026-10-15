@@ -94,6 +94,26 @@ public class MessageRepository {
                 .optional();
     }
 
+    /**
+     * Withdraws the SYSTEM sale message posted with {@code systemKey} (the undo of a sale, stage
+     * R4): {@code deleted_at} (pages and the conversation's last message skip it) and {@code
+     * payload.sale.undone}, so the copy pushed to the phones tells them to drop it.
+     *
+     * @return the message as it is now, empty when no live message has the key
+     */
+    public Optional<MessageRow> withdrawSaleMessage(String systemKey, Instant now) {
+        return jdbc.sql(
+                        "UPDATE message SET deleted_at = :now, payload = jsonb_set(payload,"
+                                + " '{sale,undone}', 'true'::jsonb, false) WHERE (payload ->>"
+                                + " 'systemKey') = :key AND kind = 'SYSTEM' AND deleted_at IS NULL"
+                                + " RETURNING "
+                                + COLUMNS)
+                .param("key", systemKey)
+                .param("now", Timestamp.from(now))
+                .query(MessageRepository::map)
+                .optional();
+    }
+
     /** Newest first, strictly older than the cursor, at most {@code limit} rows. */
     public List<MessageRow> page(UUID conversationId, @Nullable TimeCursor cursor, int limit) {
         Map<String, Object> params = new LinkedHashMap<>();

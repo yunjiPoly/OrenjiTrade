@@ -10,7 +10,12 @@ public enum InteractionKind {
     /** An offer was accepted (Phase 8 records it). */
     OFFER_ACCEPTED,
     /** A private conversation has at least 3 messages from each side. */
-    CONVERSATION_QUALIFIED;
+    CONVERSATION_QUALIFIED,
+    /**
+     * A card or deck core was marked sold from the chat (stage R4, the deals module records it; an
+     * undo removes it while nobody has rated it).
+     */
+    SALE;
 
     /** The subject type an interaction of this kind points at. */
     public InteractionSubjectType subjectType() {
@@ -18,6 +23,7 @@ public enum InteractionKind {
             case TRADE -> InteractionSubjectType.TRADE;
             case OFFER_ACCEPTED -> InteractionSubjectType.OFFER;
             case CONVERSATION_QUALIFIED -> InteractionSubjectType.CONVERSATION;
+            case SALE -> InteractionSubjectType.SALE;
         };
     }
 }

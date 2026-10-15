@@ -4,5 +4,7 @@ package com.orenjitrade.api.ratings.domain;
 public enum InteractionSubjectType {
     TRADE,
     OFFER,
-    CONVERSATION
+    CONVERSATION,
+    /** A sale of the deals module (stage R4). */
+    SALE
 }

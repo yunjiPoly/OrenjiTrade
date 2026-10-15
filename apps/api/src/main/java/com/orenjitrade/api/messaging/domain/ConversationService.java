@@ -1,6 +1,8 @@
 package com.orenjitrade.api.messaging.domain;
 
 import com.orenjitrade.api.binders.domain.BinderLink;
+import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.binders.domain.ChatDeckCore;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.cards.domain.CardLink;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -10,11 +12,16 @@ import com.orenjitrade.api.common.ErrorCode;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.inventory.domain.ChatCard;
+import com.orenjitrade.api.inventory.domain.InventorySales;
+import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.messaging.domain.RealtimeNotices.ReadReceipt;
 import com.orenjitrade.api.messaging.events.MessageRead;
 import com.orenjitrade.api.messaging.events.MessageSent;
 import com.orenjitrade.api.messaging.infra.ConversationRepository;
 import com.orenjitrade.api.messaging.infra.ConversationRepository.ParticipantRow;
+import com.orenjitrade.api.messaging.infra.ConversationRepository.SubjectRef;
 import com.orenjitrade.api.messaging.infra.ConversationRepository.SummaryRow;
 import com.orenjitrade.api.messaging.infra.ImageUploadRepository.UploadRow;
 import com.orenjitrade.api.messaging.infra.MessageRepository;
@@ -38,6 +45,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +81,16 @@ import tools.jackson.databind.node.ObjectNode;
  * <p>Phase 8: OFFER_LINK messages link an offer between the two participants, and the offers and
  * trades modules post SYSTEM messages ({@link #postSystemMessage}) into the pair conversation; the
  * linked offer's current state comes from the offers module's {@link OfferLinkResolver}.
+ *
+ * <p>Stage R4 (owner spec 2026-10-14, sections 10 and 12 "Messaging and sales"): a chat has a
+ * subject, the card or deck core it is about ({@link ConversationSubject}): {@code POST
+ * /conversations} pins the one a buyer opened from a listing (public, or the caller's own), and a
+ * CARD_LINK of the sender's own card ({@code inventoryItemId}) pins that card; the latest pin wins.
+ * When it stops being on offer the buyer still sees its name and picture, without a price. The
+ * deals module posts the SYSTEM message of each sale (with its {@link SaleNotice}) and withdraws it
+ * on an undo ({@link #withdrawSystemMessage}); whether a chat sold its subject comes from its
+ * {@link ChatSaleStatus}. The other participant's place is their state or province and country
+ * while they are discoverable, never a city (ADR 0017).
  */
 @Service
 public class ConversationService {
@@ -98,8 +116,12 @@ public class ConversationService {
     private final CatalogService catalog;
     private final PublicBinderService publicBinders;
     private final ImageUploadService uploads;
+    private final InventorySales inventorySales;
+    private final BinderService binderService;
+    private final LocationService locations;
     private final RealtimePublisher realtime;
     private final ObjectProvider<OfferLinkResolver> offerLinks;
+    private final ObjectProvider<ChatSaleStatus> saleStatus;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
     private final JsonMapper jsonMapper;
@@ -117,8 +139,12 @@ public class ConversationService {
             CatalogService catalog,
             PublicBinderService publicBinders,
             ImageUploadService uploads,
+            InventorySales inventorySales,
+            BinderService binderService,
+            LocationService locations,
             RealtimePublisher realtime,
             ObjectProvider<OfferLinkResolver> offerLinks,
+            ObjectProvider<ChatSaleStatus> saleStatus,
             ApplicationEventPublisher events,
             TimeProvider timeProvider,
             JsonMapper jsonMapper) {
@@ -134,8 +160,12 @@ public class ConversationService {
         this.catalog = catalog;
         this.publicBinders = publicBinders;
         this.uploads = uploads;
+        this.inventorySales = inventorySales;
+        this.binderService = binderService;
+        this.locations = locations;
         this.realtime = realtime;
         this.offerLinks = offerLinks;
+        this.saleStatus = saleStatus;
         this.events = events;
         this.timeProvider = timeProvider;
         this.jsonMapper = jsonMapper;
@@ -153,15 +183,7 @@ public class ConversationService {
                 conversations.summaries(me, archived, TimeCursor.decode(cursor), limit + 1);
         boolean hasMore = rows.size() > limit;
         List<SummaryRow> slice = hasMore ? rows.subList(0, limit) : rows;
-        Map<UUID, MemberCard> cards =
-                members.cards(slice.stream().map(SummaryRow::otherId).distinct().toList());
-        List<ConversationSummary> items = new ArrayList<>();
-        for (SummaryRow row : slice) {
-            MemberCard other = cards.get(row.otherId());
-            if (other != null) {
-                items.add(summary(me, row, other));
-            }
-        }
+        List<ConversationSummary> items = summaries(me, slice);
         if (!hasMore) {
             return CursorPage.last(items);
         }
@@ -178,10 +200,29 @@ public class ConversationService {
      */
     @Transactional
     public Started start(UUID me, UUID recipientId) {
+        return start(me, recipientId, null, null);
+    }
+
+    /**
+     * {@code POST /conversations} with an optional subject (stage R4): the card ({@code
+     * subjectItemId}) or deck core ({@code subjectBinderId}) the chat is about becomes its subject,
+     * the latest wins. It must be the recipient's and public (a buyer opening it from a listing),
+     * or the caller's own and still there: {@code 404} otherwise (private, deleted, sold), {@code
+     * 400} for both at once, for someone else's card and for a binder that is not a deck core.
+     */
+    @Transactional
+    public Started start(
+            UUID me,
+            UUID recipientId,
+            @Nullable UUID subjectItemId,
+            @Nullable UUID subjectBinderId) {
         if (me.equals(recipientId)) {
             throw ApiException.validation(
                     "Validation failed",
                     List.of(new ProblemFieldError("recipientId", "You cannot message yourself")));
+        }
+        if (subjectItemId != null && subjectBinderId != null) {
+            throw invalid("subjectBinderId", "Pin a card or a deck core, not both");
         }
         consents.requireAgeConfirmed(me);
         Instant now = timeProvider.now();
@@ -192,8 +233,17 @@ public class ConversationService {
         if (blocks.isBlockedEitherWay(me, recipientId)) {
             throw messagingBlocked("You cannot message this collector");
         }
+        // The subject first: held FOR KEY SHARE before the conversation row is written.
+        boolean pinning = subjectItemId != null || subjectBinderId != null;
+        if (pinning) {
+            requirePinnable(me, recipientId, subjectItemId, subjectBinderId);
+        }
         Optional<UUID> existing = conversations.findByPair(me, recipientId);
         if (existing.isPresent()) {
+            if (pinning) {
+                conversations.setSubject(
+                        existing.get(), subjectItemId, subjectBinderId, me, subjectTime());
+            }
             return new Started(requireSummary(existing.get(), me), false);
         }
         ViewerContext viewer = new ViewerContext(me, profiles.isComplete(me), false);
@@ -209,7 +259,36 @@ public class ConversationService {
         if (created.created()) {
             log.info("Conversation {} started by {}", created.conversationId(), me);
         }
+        if (pinning) {
+            conversations.setSubject(
+                    created.conversationId(), subjectItemId, subjectBinderId, me, subjectTime());
+        }
         return new Started(requireSummary(created.conversationId(), me), created.created());
+    }
+
+    /**
+     * {@code GET /conversations/{id}} (stage R4): one conversation of the caller with its subject;
+     * {@code 404} for non-participants and conversations hidden by a block.
+     */
+    @Transactional(readOnly = true)
+    public ConversationSummary get(UUID me, UUID conversationId) {
+        requireVisible(me, conversationId);
+        return requireSummary(conversationId, me);
+    }
+
+    /**
+     * What the deals module needs to mark a chat's subject sold (stage R4): the other participant
+     * and the stored subject. {@code 404} for non-participants and conversations hidden by a block.
+     */
+    @Transactional(readOnly = true)
+    public ChatForSale chatForSale(UUID me, UUID conversationId) {
+        Visible visible = requireVisible(me, conversationId);
+        SubjectRef subject =
+                conversations
+                        .subjectOf(conversationId)
+                        .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
+        return new ChatForSale(
+                conversationId, visible.other().userId(), subject.itemId(), subject.binderId());
     }
 
     /** {@code PATCH /conversations/{id}}: the caller's mute/archive switches. */
@@ -267,8 +346,33 @@ public class ConversationService {
         ObjectNode payload = jsonMapper.createObjectNode();
         @Nullable String linkName = null;
         @Nullable UploadRow upload = null;
+        @Nullable UUID pinItem = null;
         switch (input.kind()) {
             case CARD_LINK -> {
+                if (input.inventoryItemId() != null) {
+                    // Stage R4: the sender's own card, held FOR KEY SHARE before the
+                    // conversation row is written (it becomes the chat's subject).
+                    ChatCard own = requireOwnCard(me, input.inventoryItemId());
+                    ObjectNode node = payload.putObject("card");
+                    node.put("printingId", own.printingId().toString());
+                    node.put("cardId", own.cardId().toString());
+                    node.put("name", own.name());
+                    if (own.printingCode() != null) {
+                        node.put("printingCode", own.printingCode());
+                    }
+                    ObjectNode item = payload.putObject("item");
+                    item.put("itemId", own.itemId().toString());
+                    item.put("ownerId", me.toString());
+                    if (own.askingPriceText() != null) {
+                        item.put("askingPriceText", own.askingPriceText());
+                    }
+                    if (own.rarity() != null) {
+                        item.put("rarity", own.rarity());
+                    }
+                    linkName = own.name();
+                    pinItem = own.itemId();
+                    break;
+                }
                 UUID printingId = requireNonNull(input.cardPrintingId());
                 CardLink card =
                         catalog.cardLink(printingId)
@@ -363,6 +467,9 @@ public class ConversationService {
                 me);
         conversations.unarchive(conversationId);
         conversations.markRead(conversationId, me, now, messageId);
+        if (pinItem != null) {
+            conversations.setSubject(conversationId, pinItem, null, me, now);
+        }
         if (decision.flagged()) {
             moderation.recordFlags(decision, FlagSubjectType.MESSAGE, messageId, me);
         }
@@ -457,6 +564,9 @@ public class ConversationService {
         if (notice.offer() != null) {
             putOffer(payload, notice.offer());
         }
+        if (notice.sale() != null) {
+            putSale(payload, notice.sale());
+        }
         payload.put("systemKey", notice.dedupKey());
         UUID messageId = UUID.randomUUID();
         if (!messages.insertSystemIfAbsent(
@@ -471,6 +581,10 @@ public class ConversationService {
                 MessageKind.SYSTEM.name(),
                 null);
         conversations.unarchive(conversationId);
+        if (notice.readByInitiator()) {
+            // A sale: the seller marked it from the chat they read, so it is new to the buyer only.
+            conversations.markRead(conversationId, initiator, now, messageId);
+        }
         MessageRow stored =
                 messages.find(conversationId, messageId)
                         .orElseThrow(() -> new IllegalStateException("Message not stored"));
@@ -483,6 +597,34 @@ public class ConversationService {
         }
         log.debug("System message {} posted in conversation {}", messageId, conversationId);
         return Optional.of(messageId);
+    }
+
+    /**
+     * Withdraws the SYSTEM sale message posted with {@code dedupKey} (the undo of a sale, stage
+     * R4): it leaves the conversation for both collectors (pages skip it, the conversation's last
+     * message goes back to the newest one left), and its copy, marked undone, is pushed to both so
+     * their phones drop it. Nothing happens when no live message has the key.
+     */
+    @Transactional
+    public void withdrawSystemMessage(String dedupKey) {
+        Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);
+        Optional<MessageRow> withdrawn = messages.withdrawSaleMessage(dedupKey, now);
+        if (withdrawn.isEmpty()) {
+            return;
+        }
+        UUID conversationId = withdrawn.get().conversationId();
+        refreshLastMessage(conversationId);
+        for (ParticipantRow participant : conversations.participants(conversationId)) {
+            UUID recipient = participant.userId();
+            Participants participants = requireParticipants(recipient, conversationId);
+            MessageView view =
+                    views(
+                                    List.of(withdrawn.get()),
+                                    new Visible(participants.mine(), participants.other()))
+                            .get(0);
+            afterCommit(() -> realtime.publish(recipient, RealtimeDestinations.MESSAGES, view));
+        }
+        log.debug("System message withdrawn in conversation {}", conversationId);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -603,10 +745,17 @@ public class ConversationService {
                 }
             }
             case CARD_LINK -> {
-                if (input.cardPrintingId() == null) {
+                if (input.cardPrintingId() == null && input.inventoryItemId() == null) {
                     errors.add(
                             new ProblemFieldError(
-                                    "cardPrintingId", "is required for CARD_LINK messages"));
+                                    "cardPrintingId",
+                                    "is required for CARD_LINK messages (or inventoryItemId)"));
+                }
+                if (input.cardPrintingId() != null && input.inventoryItemId() != null) {
+                    errors.add(
+                            new ProblemFieldError(
+                                    "inventoryItemId",
+                                    "share a printing or one of your cards, not both"));
                 }
             }
             case BINDER_LINK -> {
@@ -740,10 +889,53 @@ public class ConversationService {
                             attachment.width(),
                             attachment.height());
         }
-        if (card == null && binder == null && offer == null && image == null) {
+        @Nullable SharedItem item = sharedItem(payload.path("item"));
+        @Nullable SaleNotice sale = saleNotice(payload.path("sale"));
+        if (card == null
+                && binder == null
+                && offer == null
+                && image == null
+                && item == null
+                && sale == null) {
             return MessagePayload.EMPTY;
         }
-        return new MessagePayload(card, binder, offer, image);
+        return new MessagePayload(card, binder, offer, image, item, sale);
+    }
+
+    private static @Nullable SharedItem sharedItem(JsonNode node) {
+        @Nullable UUID itemId = uuid(node.path("itemId"));
+        @Nullable UUID ownerId = uuid(node.path("ownerId"));
+        if (itemId == null || ownerId == null) {
+            return null;
+        }
+        return new SharedItem(itemId, ownerId, text(node, "askingPriceText"), text(node, "rarity"));
+    }
+
+    private static @Nullable SaleNotice saleNotice(JsonNode node) {
+        @Nullable UUID saleId = uuid(node.path("saleId"));
+        @Nullable UUID sellerId = uuid(node.path("sellerId"));
+        @Nullable UUID buyerId = uuid(node.path("buyerId"));
+        if (saleId == null || sellerId == null || buyerId == null) {
+            return null;
+        }
+        SubjectKind kind =
+                "DECK_CORE".equals(node.path("kind").asString(""))
+                        ? SubjectKind.DECK_CORE
+                        : SubjectKind.CARD;
+        return new SaleNotice(
+                saleId,
+                sellerId,
+                buyerId,
+                kind,
+                node.path("name").asString(""),
+                node.path("quantity").asInt(1),
+                text(node, "trackingNumber"),
+                node.path("undone").asBoolean(false));
+    }
+
+    private static @Nullable String text(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        return value.isMissingNode() || value.isNull() ? null : value.asString();
     }
 
     private static boolean readByOther(MessageRow row, Visible visible) {
@@ -762,23 +954,100 @@ public class ConversationService {
                 conversations
                         .summary(conversationId, me)
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
-        MemberCard other =
-                members.card(row.otherId()).orElseThrow(() -> ApiException.notFound(NOT_FOUND));
-        return summary(me, row, other);
+        List<ConversationSummary> found = summaries(me, List.of(row));
+        if (found.isEmpty()) {
+            throw ApiException.notFound(NOT_FOUND);
+        }
+        return found.get(0);
     }
 
-    private ConversationSummary summary(UUID me, SummaryRow row, MemberCard other) {
+    /**
+     * Summaries of conversation rows for {@code me}, in order (rows whose other participant is
+     * unknown are dropped): the other participants, their places, the subjects and their sales are
+     * read for the whole list at once.
+     */
+    private List<ConversationSummary> summaries(UUID me, List<SummaryRow> rows) {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, MemberCard> others =
+                members.cards(rows.stream().map(SummaryRow::otherId).distinct().toList());
+        List<UUID> discoverable =
+                others.values().stream()
+                        .filter(card -> card.privacy().discoverable())
+                        .map(MemberCard::id)
+                        .toList();
+        Map<UUID, PublicPlace> places =
+                discoverable.isEmpty() ? Map.of() : locations.publicPlacesOf(discoverable);
+        Set<UUID> itemIds = new HashSet<>();
+        Set<UUID> binderIds = new HashSet<>();
+        List<ChatSaleStatus.Subject> subjects = new ArrayList<>();
+        for (SummaryRow row : rows) {
+            SubjectRef ref = row.subject();
+            if (ref.itemId() != null) {
+                itemIds.add(ref.itemId());
+            }
+            if (ref.binderId() != null) {
+                binderIds.add(ref.binderId());
+            }
+            if (!ref.isEmpty()) {
+                subjects.add(
+                        new ChatSaleStatus.Subject(
+                                row.id(), ref.itemId(), ref.binderId(), ref.setAt()));
+            }
+        }
+        Map<UUID, ChatCard> cards = inventorySales.chatCards(itemIds);
+        Map<UUID, ChatDeckCore> cores = binderService.chatDeckCores(binderIds);
+        @Nullable ChatSaleStatus status = saleStatus.getIfAvailable();
+        Set<UUID> sold =
+                status == null || subjects.isEmpty() ? Set.of() : status.soldSubjects(subjects);
+        List<ConversationSummary> result = new ArrayList<>();
+        for (SummaryRow row : rows) {
+            @Nullable MemberCard other = others.get(row.otherId());
+            if (other == null) {
+                continue;
+            }
+            result.add(
+                    summary(
+                            me,
+                            row,
+                            other,
+                            places.get(other.id()),
+                            subject(me, row, cards, cores, sold.contains(row.id()))));
+        }
+        return result;
+    }
+
+    private ConversationSummary summary(
+            UUID me,
+            SummaryRow row,
+            MemberCard other,
+            @Nullable PublicPlace place,
+            @Nullable ConversationSubject subject) {
         @Nullable LastMessage last = null;
         if (row.lastMessageId() != null
                 && row.lastMessageAt() != null
                 && row.lastMessageKind() != null) {
+            @Nullable SystemMessageTopic topic = null;
+            @Nullable SaleNotice sale = null;
+            if (row.lastSystemJson() != null) {
+                JsonNode system = jsonMapper.readTree(row.lastSystemJson());
+                sale = saleNotice(system.path("sale"));
+                if (sale != null) {
+                    topic = SystemMessageTopic.SALE;
+                } else if (system.path("offer").asBoolean(false)) {
+                    topic = SystemMessageTopic.OFFER;
+                }
+            }
             last =
                     new LastMessage(
                             row.lastMessageId(),
                             row.lastMessagePreview() == null ? "" : row.lastMessagePreview(),
                             MessageKind.valueOf(row.lastMessageKind()),
                             row.lastMessageAt(),
-                            row.lastMessageSenderId());
+                            row.lastMessageSenderId(),
+                            topic,
+                            sale);
         }
         return new ConversationSummary(
                 row.id(),
@@ -787,12 +1056,164 @@ public class ConversationService {
                         other.handle(),
                         other.displayName(),
                         other.avatarUrl(),
-                        onlineStatus(me, other)),
+                        onlineStatus(me, other),
+                        place),
                 last,
                 row.unreadCount(),
                 row.muted(),
                 row.archived(),
-                row.createdAt());
+                row.createdAt(),
+                subject);
+    }
+
+    /**
+     * The chat's subject as {@code me} sees it: its owner sees everything; the other collector sees
+     * its price only while it is on offer (in the inventory, not sold as a deck core, and public or
+     * shared by its owner in this chat). A subject purged with its account, or a binder deleted for
+     * good, is none.
+     */
+    private static @Nullable ConversationSubject subject(
+            UUID me,
+            SummaryRow row,
+            Map<UUID, ChatCard> cards,
+            Map<UUID, ChatDeckCore> cores,
+            boolean sold) {
+        SubjectRef ref = row.subject();
+        if (ref.itemId() != null) {
+            @Nullable ChatCard card = cards.get(ref.itemId());
+            if (card == null) {
+                return null;
+            }
+            boolean owner = card.ownerId().equals(me);
+            boolean sharedByOwner = card.ownerId().equals(ref.setBy());
+            boolean listed = card.live() && (card.listed() || sharedByOwner);
+            return new ConversationSubject(
+                    SubjectKind.CARD,
+                    card.itemId(),
+                    card.ownerId(),
+                    card.name(),
+                    card.printingCode(),
+                    card.rarity(),
+                    card.cardId(),
+                    card.printingId(),
+                    card.imageUrl(),
+                    owner || listed ? card.askingPriceText() : null,
+                    sold,
+                    listed,
+                    owner && card.live() ? card.quantity() : null);
+        }
+        if (ref.binderId() != null) {
+            @Nullable ChatDeckCore core = cores.get(ref.binderId());
+            if (core == null) {
+                return null;
+            }
+            boolean owner = core.ownerId().equals(me);
+            boolean sharedByOwner = core.ownerId().equals(ref.setBy());
+            boolean listed =
+                    core.sellsAsCore()
+                            && core.soldAt() == null
+                            && (core.effectivePublic() || sharedByOwner);
+            return new ConversationSubject(
+                    SubjectKind.DECK_CORE,
+                    core.id(),
+                    core.ownerId(),
+                    core.name(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    core.imageUrl(),
+                    owner || listed ? core.askingPriceText() : null,
+                    sold,
+                    listed,
+                    null);
+        }
+        return null;
+    }
+
+    /**
+     * Checks a subject {@link #start} is asked to pin and holds it {@code FOR KEY SHARE} until the
+     * transaction ends (before the conversation row is written).
+     */
+    private void requirePinnable(
+            UUID me, UUID recipientId, @Nullable UUID itemId, @Nullable UUID binderId) {
+        if (itemId != null) {
+            if (!inventorySales.lockForReference(itemId)) {
+                throw ApiException.notFound("Card not found");
+            }
+            @Nullable ChatCard card = inventorySales.chatCards(List.of(itemId)).get(itemId);
+            if (card == null) {
+                throw ApiException.notFound("Card not found");
+            }
+            boolean mine = card.ownerId().equals(me);
+            if (!mine && !card.ownerId().equals(recipientId)) {
+                throw invalid("subjectItemId", "This card belongs to neither of you");
+            }
+            if (mine ? !card.live() : !card.listed()) {
+                throw ApiException.notFound("Card not found");
+            }
+            return;
+        }
+        UUID id = requireNonNull(binderId);
+        if (!binderService.lockForReference(id)) {
+            throw ApiException.notFound("Deck core not found");
+        }
+        @Nullable ChatDeckCore core = binderService.chatDeckCores(List.of(id)).get(id);
+        if (core == null) {
+            throw ApiException.notFound("Deck core not found");
+        }
+        boolean mine = core.ownerId().equals(me);
+        if (!mine && !core.ownerId().equals(recipientId)) {
+            throw invalid("subjectBinderId", "This deck core belongs to neither of you");
+        }
+        if (!core.sellsAsCore()) {
+            throw invalid("subjectBinderId", "Only a deck core can be what a chat is about");
+        }
+        if (core.soldAt() != null || (!mine && !core.effectivePublic())) {
+            throw ApiException.notFound("Deck core not found");
+        }
+    }
+
+    /** The sender's own live card for a CARD_LINK (stage R4), held {@code FOR KEY SHARE}. */
+    private ChatCard requireOwnCard(UUID me, UUID itemId) {
+        if (!inventorySales.lockForReference(itemId)) {
+            throw invalid("inventoryItemId", "Only your own cards can be shared this way");
+        }
+        @Nullable ChatCard card = inventorySales.chatCards(List.of(itemId)).get(itemId);
+        if (card == null || !card.ownerId().equals(me) || !card.live()) {
+            throw invalid("inventoryItemId", "Only your own cards can be shared this way");
+        }
+        return card;
+    }
+
+    /** When a subject pinned now counts from (microseconds, as message times). */
+    private Instant subjectTime() {
+        return timeProvider.now().truncatedTo(ChronoUnit.MICROS);
+    }
+
+    /** The newest message left becomes the conversation's last message again. */
+    private void refreshLastMessage(UUID conversationId) {
+        List<MessageRow> newest = messages.page(conversationId, null, 1);
+        if (newest.isEmpty()) {
+            conversations.clearLastMessage(conversationId);
+            return;
+        }
+        MessageRow row = newest.get(0);
+        MessageKind kind = MessageKind.valueOf(row.kind());
+        JsonNode payload = jsonMapper.readTree(row.payloadJson());
+        @Nullable String linkName =
+                switch (kind) {
+                    case CARD_LINK -> text(payload.path("card"), "name");
+                    case BINDER_LINK -> text(payload.path("binder"), "name");
+                    default -> null;
+                };
+        conversations.updateLastMessage(
+                conversationId,
+                row.id(),
+                row.createdAt(),
+                MessagePreviews.of(kind, row.body(), linkName),
+                kind.name(),
+                row.senderId());
     }
 
     /** Presence of a member for {@code viewerId}: HIDDEN unless they show their online status. */
@@ -829,6 +1250,20 @@ public class ConversationService {
             throw ApiException.notFound(NOT_FOUND);
         }
         return new Visible(participants.mine(), participants.other());
+    }
+
+    private static void putSale(ObjectNode payload, SaleNotice sale) {
+        ObjectNode node = payload.putObject("sale");
+        node.put("saleId", sale.saleId().toString());
+        node.put("sellerId", sale.sellerId().toString());
+        node.put("buyerId", sale.buyerId().toString());
+        node.put("kind", sale.kind().name());
+        node.put("name", sale.name());
+        node.put("quantity", sale.quantity());
+        if (sale.trackingNumber() != null) {
+            node.put("trackingNumber", sale.trackingNumber());
+        }
+        node.put("undone", sale.undone());
     }
 
     private void putOffer(ObjectNode payload, OfferLink offer) {
@@ -904,6 +1339,20 @@ public class ConversationService {
      * @param created whether this call created it (201) or it existed (200)
      */
     public record Started(ConversationSummary conversation, boolean created) {}
+
+    /**
+     * A chat whose subject the caller may mark sold (stage R4, {@link #chatForSale}).
+     *
+     * @param conversationId the conversation
+     * @param otherId the other participant (the buyer when the caller sells)
+     * @param subjectItemId the card it is about, if any
+     * @param subjectBinderId the deck core it is about, if any
+     */
+    public record ChatForSale(
+            UUID conversationId,
+            UUID otherId,
+            @Nullable UUID subjectItemId,
+            @Nullable UUID subjectBinderId) {}
 
     /**
      * A message as shown to a moderator reviewing a report.
