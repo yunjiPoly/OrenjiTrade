@@ -13,6 +13,13 @@
 //   a public deck core "Maestro Moth core" at "$95" with one card of QUERY; Ada (the app user,
 //   Quebec) will open its page and message Ben. Outputs: output.ada, output.ben,
 //   output.core.{id, name}
+// ACTION=buyer-card-setup (the walks of stage R4 and, with stage R5, flow 3): Ben (Ontario,
+//   discoverable) lists one copy of QUERY at "$32" in a public binder; Ada (the app user, Quebec)
+//   opens the chat about it through the API, as "Message" on a holder row will (stage R5), and the
+//   two exchange a few lines. Outputs: output.ada, output.ben, output.conversation.id,
+//   output.card.{itemId, name}
+// ACTION=mark-sold marks, as Ben (EMAIL / PASSWORD), the subject of CONVERSATION sold, with
+//   TRACKING when given (the other side of the buyer's walk).
 // ACTION=expect-body checks, as Ben (EMAIL / PASSWORD), that CONVERSATION holds a message whose
 //   body is EXPECT_BODY (what Ada sent from the app).
 // ACTION=expect-sales checks, as Ben, that CONVERSATION shows EXPECT_SALES sale messages (0 after
@@ -20,7 +27,7 @@
 //   notifications (the undo withdraws it).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, QUERY, and per action EMAIL,
-// PASSWORD, CONVERSATION, EXPECT_BODY, EXPECT_SALES, EXPECT_TRACKING.
+// PASSWORD, CONVERSATION, TRACKING, EXPECT_BODY, EXPECT_SALES, EXPECT_TRACKING.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -241,6 +248,66 @@ if (action === 'seller-setup') {
   output.ada = account(buyer);
   output.ben = account(seller);
   output.core = { id: core.id, name: 'Maestro Moth core' };
+} else if (action === 'buyer-card-setup') {
+  var cardBuyer = createCollector('dbuy4', 'Ada Buyer', 'CA', 'CA-QC');
+  var cardSeller = createCollector('dsell4', 'Ben Seller', 'CA', 'CA-ON');
+  var cardPrinting = printingOf(cardSeller.token, query);
+  var sellerBinder = check(
+    http.post(api + '/api/v1/binders', {
+      headers: headers(cardSeller.token),
+      body: JSON.stringify({ name: 'Trades', visibility: 'PUBLIC' }),
+    }),
+    'POST /binders'
+  );
+  var sellerItem = check(
+    http.post(api + '/api/v1/inventory/items', {
+      headers: headers(cardSeller.token),
+      body: JSON.stringify({
+        printingId: cardPrinting.printingId,
+        binderId: sellerBinder.id,
+        visibility: 'PUBLIC',
+        quantity: 1,
+        askingPriceText: '$32',
+      }),
+    }),
+    'POST /inventory/items'
+  );
+  var cardChat = check(
+    http.post(api + '/api/v1/conversations', {
+      headers: headers(cardBuyer.token),
+      body: JSON.stringify({ recipientId: cardSeller.id, subjectItemId: sellerItem.id }),
+    }),
+    'POST /conversations (about the card)'
+  );
+  var lines = [
+    [cardBuyer, 'Hi! Is your ' + cardPrinting.name + ' still available?'],
+    [cardSeller, 'Yes! Near mint, English. $32 + $4 tracked shipping.'],
+  ];
+  for (var l = 0; l < lines.length; l++) {
+    check(
+      http.post(api + '/api/v1/conversations/' + cardChat.id + '/messages', {
+        headers: headers(lines[l][0].token),
+        body: JSON.stringify({ kind: 'TEXT', body: lines[l][1] }),
+      }),
+      'POST message'
+    );
+  }
+  output.ada = account(cardBuyer);
+  output.ben = account(cardSeller);
+  output.conversation = { id: cardChat.id };
+  output.card = { itemId: sellerItem.id, name: cardPrinting.name };
+} else if (action === 'mark-sold') {
+  var sale = {};
+  if (typeof TRACKING !== 'undefined' && TRACKING) {
+    sale.trackingNumber = TRACKING;
+  }
+  check(
+    http.post(api + '/api/v1/conversations/' + CONVERSATION + '/sales', {
+      headers: headers(signIn(EMAIL, PASSWORD)),
+      body: JSON.stringify(sale),
+    }),
+    'POST /conversations/{id}/sales'
+  );
 } else if (action === 'expect-body') {
   var bodies = check(
     http.get(api + '/api/v1/conversations/' + CONVERSATION + '/messages?limit=30', {
