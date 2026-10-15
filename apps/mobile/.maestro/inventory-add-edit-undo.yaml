@@ -7,7 +7,9 @@
 # The photo is a fictional picture of a card (media/fictional-card-photo.jpg), put in the
 # simulator's photo library by `addMedia` (`xcrun simctl addmedia`): each run adds one more copy
 # there, nothing else of the device is touched. The system photo picker lives outside the app's
-# accessibility tree, so subflows/pick-newest-photo.yaml taps the newest photo by its place.
+# accessibility tree, so subflows/pick-newest-photo.yaml taps the newest photo by its place: the
+# harness dates the picture now before every run (`freshenFlowMedia`), so this run's copy is the
+# newest photo of the library, and the flow checks the upload worked before it goes on.
 appId: ${APP_ID}
 name: Add a card with a text price and a photo, see Saved, edit it, delete it and undo
 tags:
@@ -107,10 +109,14 @@ tags:
 - tapOn:
     id: 'add-item-submit'
 
-# Saved (screen 8): the toast, the row as the API holds it.
+# Saved (screen 8): the toast, the row as the API holds it. A photo that failed (the picker took
+# another photo of the library, refused by the API) reads "Saved · 1 photo wasn't saved" and opens
+# Edit card: the flow stops here and says so.
 - extendedWaitUntil:
-    visible: 'Saved, Tidal Otterling'
+    visible: 'Saved.*, Tidal Otterling'
     timeout: 60000
+- assertNotVisible: ".*photo wasn't saved.*"
+- assertVisible: 'Saved, Tidal Otterling'
 - assertVisible:
     id: 'snackbar-view'
 - takeScreenshot: r2-inventory-saved
