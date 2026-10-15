@@ -383,6 +383,9 @@ export default function AddCardsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false, title: ADD_CARDS_COPY.title }} />
       <InventoryFormScreen
+        // Each step opens at its top: a long list of printings scrolled down left Add to
+        // inventory scrolled past its header.
+        key={step}
         header={header}
         footer={footer}
         testID={step === 'details' ? 'screen-add-item' : `screen-add-cards-${step}`}
