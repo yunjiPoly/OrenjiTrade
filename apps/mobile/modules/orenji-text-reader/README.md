@@ -18,6 +18,10 @@ phone.
   the owner tests on Android, watch the phone's traffic during a scan and check again whether they
   can be turned off. Apple Vision reads on the iPhone itself. The Android side could not be
   verified on this machine (no Android SDK).
+- **Memory (Android).** Android 9 and later decode only the part read, already smaller when it is
+  read smaller than the photo (`ImageDecoder` target size and crop), so a 50 to 200 megapixel
+  photo is never decoded whole; Android 7 and 8 decode the photo by a power of two smaller when
+  they can (`inSampleSize`), then cut the part read.
 
 - The contract (`recognize(uri, options)`) is written in
   `apps/mobile/src/features/scan/ocr/nativeTextReader.ts`; the app loads the module lazily by its
