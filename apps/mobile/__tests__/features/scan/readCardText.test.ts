@@ -132,6 +132,32 @@ describe('reading a library photo', () => {
     expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@90', 'recognizeLines@180']);
   });
 
+  it('turns a photo whose upright read holds a code but no name, and keeps the turn with both', async () => {
+    // Vision reads a sideways card's lines without turning it: tall boxes side by side make one
+    // row that holds the code, so no name comes out of the upright read.
+    const fake = reader({
+      whole: ['Crimson Lantern Dragon ZRA1-EN075 [Dragon/Effect]'],
+      turned: { 90: ['Crimson Lantern Dragon', 'ZRA1-EN075'], 180: [], 270: [] },
+    });
+    await expect(readCardText(fake, { photo: PHOTO, source: 'LIBRARY' })).resolves.toEqual({
+      codes: ['ZRA1-EN075'],
+      names: ['Crimson Lantern Dragon'],
+    });
+    expect(methods(fake)).toEqual(['recognizeLines@0', 'recognizeLines@90']);
+  });
+
+  it('keeps the first code with the first names when no turn holds both', async () => {
+    const fake = reader({
+      whole: ['ZRA1-EN075'],
+      turned: { 90: [], 180: ['Crimson Lantern Dragon'], 270: ['ZOB-EN001'] },
+    });
+    await expect(readCardText(fake, { photo: PHOTO, source: 'LIBRARY' })).resolves.toEqual({
+      codes: ['ZRA1-EN075'],
+      names: ['Crimson Lantern Dragon'],
+    });
+    expect(methods(fake)).toHaveLength(4);
+  });
+
   it('keeps the upright names when no turn holds a code', async () => {
     const fake = reader({
       whole: ['Yew Flowers & Velvet Breeze'],
