@@ -100,7 +100,10 @@ export function useCreateBinder() {
   });
 }
 
-/** Writes answering the updated binder: it replaces the cached one, then everything refreshes. */
+/**
+ * Writes answering the updated binder: it replaces the cached one, then everything refreshes, its
+ * public page too (the deck core page an owner opened from Edit binder shows the new price).
+ */
 function useBinderWrite<TInput>(
   request: (input: TInput) => Promise<BinderResponse>,
   refreshItems: boolean
@@ -114,12 +117,13 @@ function useBinderWrite<TInput>(
       queryClient.setQueryData<BinderResponse[]>(meKeys.binderList(uid), (binders) =>
         binders?.map((candidate) => (candidate.id === binder.id ? binder : candidate))
       );
-      if (refreshItems) {
+      await Promise.all([
         // Publishing confirms the binder and its items; visibility changes their effective state.
-        await refreshInventory(queryClient, uid);
-      } else {
-        await queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) });
-      }
+        refreshItems
+          ? refreshInventory(queryClient, uid)
+          : queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) }),
+        queryClient.invalidateQueries({ queryKey: publicKeys.publicBinderAll(binder.id) }),
+      ]);
     },
   });
 }
@@ -198,6 +202,8 @@ export function useDeleteBinder() {
       queryClient.setQueryData<BinderResponse[]>(meKeys.binderList(uid), (binders) =>
         binders?.filter((binder) => binder.id !== id)
       );
+      // Its public page is gone too: no screen shows it from the cache again.
+      queryClient.removeQueries({ queryKey: publicKeys.publicBinderAll(id) });
       // The deleted binder's own queries are not refetched (404 while its screen closes).
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: meKeys.inventory(uid) }),
@@ -323,7 +329,7 @@ export function useApplyBinderPhotoChanges() {
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) }),
-        queryClient.invalidateQueries({ queryKey: ['public', 'binders'] }),
+        queryClient.invalidateQueries({ queryKey: publicKeys.publicBinders }),
       ]);
     },
   });

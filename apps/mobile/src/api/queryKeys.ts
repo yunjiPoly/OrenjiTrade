@@ -138,6 +138,10 @@ export const publicKeys = {
   regionOutline: (region: string) => ['bundled', 'region-outline', region] as const,
   /** The reasons of the "Report collector" dialog (`GET /public/report-reasons`). */
   reportReasons: ['public', 'report-reasons'] as const,
+  /** Every public binder read (prefix): a write to binders or their cards refreshes them. */
+  publicBinders: ['public', 'binders'] as const,
+  /** Every read of one public binder, for every viewer (prefix): the binder and its cards. */
+  publicBinderAll: (id: string) => ['public', 'binders', id] as const,
   /** A public binder as one viewer sees it (blocks and the view limit depend on them). */
   publicBinder: (id: string, uid: Uid) => ['public', 'binders', id, uidKey(uid)] as const,
   publicBinderItems: (id: string, uid: Uid, filters: object) =>

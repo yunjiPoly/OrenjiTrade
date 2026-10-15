@@ -12,7 +12,7 @@ import { inventoryListQuery, type InventoryFilters } from '@/src/lib/inventoryFi
 import { ApiError, isApiError } from '../ApiError';
 import { api, required } from '../client';
 import { imageFormData, type PickedImage } from '../imageFormData';
-import { meKeys } from '../queryKeys';
+import { meKeys, publicKeys } from '../queryKeys';
 import type {
   BulkInventoryRequest,
   BulkInventoryResponse,
@@ -372,7 +372,13 @@ export function useBulkInventory() {
   return useMutation<BulkInventoryResponse, ApiError, BulkInventoryRequest>({
     mutationFn: async (body) =>
       required((await api.POST('/api/v1/inventory/items/bulk', { body })).data),
-    onSuccess: async () => refreshInventory(queryClient, uid),
+    onSuccess: async () => {
+      await Promise.all([
+        refreshInventory(queryClient, uid),
+        // Cards moved between binders change the cards (and key cards) their public pages show.
+        queryClient.invalidateQueries({ queryKey: publicKeys.publicBinders }),
+      ]);
+    },
   });
 }
 

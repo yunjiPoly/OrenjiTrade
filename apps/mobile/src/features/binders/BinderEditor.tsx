@@ -56,6 +56,8 @@ import {
   binderFormChanged,
   binderFormOf,
   hasBinderErrors,
+  rebaseBinderForm,
+  sameBinderForm,
   toBinderPatch,
   toCreateBinderBody,
   validateBinderForm,
@@ -91,6 +93,9 @@ export function BinderEditorScreen({ id }: BinderEditorScreenProps) {
       router.replace({ pathname: '/inventory', params: { view: 'binders' } });
     }
   };
+  // A deleted binder leaves every screen of it (its public page may be under this one).
+  const leaveDeleted = () =>
+    router.dismissTo({ pathname: '/inventory', params: { view: 'binders' } });
   const title = id === null ? EDIT_BINDER_COPY.titleNew : EDIT_BINDER_COPY.titleEdit;
   const header = (action?: ReactNode) => (
     <View style={styles.headerRow}>
@@ -115,6 +120,7 @@ export function BinderEditorScreen({ id }: BinderEditorScreenProps) {
           binder={binder.data ?? null}
           header={header}
           onLeave={leave}
+          onDeleted={leaveDeleted}
         />
       </>
     );
@@ -162,10 +168,12 @@ function BinderEditor({
   binder,
   header,
   onLeave,
+  onDeleted,
 }: {
   binder: BinderResponse | null;
   header: (action?: ReactNode) => ReactNode;
   onLeave: () => void;
+  onDeleted: () => void;
 }) {
   const { palette } = useTheme();
   const router = useRouter();
@@ -182,6 +190,15 @@ function BinderEditor({
   const items = useBinderItems(binder?.id ?? '', '', binder !== null);
 
   const [form, setForm] = useState<BinderFormValue>(() => binderFormOf(binder));
+  // The binder as saved when the form last caught up with it. When it changes elsewhere (another
+  // Edit binder saved it), the fields not touched here follow it (render-time, no effect), so this
+  // screen never shows old values with "Save changes" on, nor writes them back.
+  const [base, setBase] = useState<BinderFormValue>(() => binderFormOf(binder));
+  const saved = binder ? binderFormOf(binder) : null;
+  if (saved && !sameBinderForm(saved, base)) {
+    setBase(saved);
+    setForm((current) => rebaseBinderForm(current, base, saved));
+  }
   const [errors, setErrors] = useState<BinderFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   const [failure, setFailure] = useState<ApiError | null>(null);
@@ -214,19 +231,27 @@ function BinderEditor({
   const [showEnd, setShowEnd] = useState(0);
 
   const savedPhotos = (binder?.photos ?? []).filter((photo) => !removedPhotos.includes(photo.id));
-  const toRemove = removedPhotos.filter((photoId) =>
-    (binder?.photos ?? []).some((photo) => photo.id === photoId)
-  );
-  const pending = picked.filter((tile) => tile.state !== 'failed');
-  const unsaved = picked.filter((tile) => tile.state === 'failed' && !tile.photo.problem);
+  // The photos are a deck core's: picked or taken away while the switch is on, they are saved
+  // only while it is on (turned off, the binder keeps its photos for its owner; turned on again,
+  // the photos picked meanwhile come back).
+  const photosOn = form.sellsAsCore;
+  const toRemove = photosOn
+    ? removedPhotos.filter((photoId) =>
+        (binder?.photos ?? []).some((photo) => photo.id === photoId)
+      )
+    : [];
+  const pending = photosOn ? picked.filter((tile) => tile.state !== 'failed') : [];
+  const unsaved = photosOn
+    ? picked.filter((tile) => tile.state === 'failed' && !tile.photo.problem)
+    : [];
   const guard = useLeaveGuard(unsaved.length > 0 && !gone);
   const left = useRef(false);
   useEffect(() => {
     if (gone && !left.current) {
       left.current = true;
-      onLeave();
+      onDeleted();
     }
-  }, [gone, onLeave]);
+  }, [gone, onDeleted]);
 
   const cardsChanged = added.size > 0 || takenOut.size > 0;
   const photosChanged = pending.length > 0 || toRemove.length > 0;
@@ -316,20 +341,19 @@ function BinderEditor({
     return failed;
   };
 
-  /** Moves the picked cards in and the taken-out ones out (one bulk request each). */
+  /**
+   * Moves the picked cards in and the taken-out ones out (one bulk request each). The cards keep
+   * the visibility their collector gave them: a public deck core shows every card in it as a key
+   * card (the API's rule), and a card that leaves it, or stays when it is deleted, is as private or
+   * public as before.
+   */
   const moveCards = async (binderId: string) => {
     if (takenOut.size > 0) {
       // Without a binder id the cards become unfiled.
       await bulk.mutateAsync({ action: 'MOVE_TO_BINDER', itemIds: [...takenOut] });
     }
     if (added.size > 0) {
-      const ids = [...added.keys()];
-      await bulk.mutateAsync({ action: 'MOVE_TO_BINDER', binderId, itemIds: ids });
-      if (form.sellsAsCore) {
-        // A deck core's cards show to buyers with it: a card picked private becomes public, and
-        // the binder decides who sees it (decision of stage R3).
-        await bulk.mutateAsync({ action: 'SET_VISIBILITY', visibility: 'PUBLIC', itemIds: ids });
-      }
+      await bulk.mutateAsync({ action: 'MOVE_TO_BINDER', binderId, itemIds: [...added.keys()] });
     }
     setAdded(new Map());
     setTakenOut(new Set());
@@ -465,7 +489,11 @@ function BinderEditor({
         accessibilityRole="link"
         accessibilityLabel={EDIT_BINDER_COPY.publicPage}
         onPress={() =>
-          router.push({ pathname: '/binders/[id]', params: { id: binder.id, view: 'public' } })
+          // `from=edit`: the deck core page's "Edit binder" comes back here, not to a second one.
+          router.push({
+            pathname: '/binders/[id]',
+            params: { id: binder.id, view: 'public', from: 'edit' },
+          })
         }
         hitSlop={4}
         testID="edit-binder-public-page"
@@ -817,8 +845,10 @@ function Field({
   const { palette } = useTheme();
   return (
     <View style={styles.field}>
-      <View style={styles.labelRow}>
-        <Text style={[textStyle('sm'), styles.label, styles.grow, { color: palette.ink }]}>
+      {/* The counter goes under the label when both do not fit (large text): never a label
+          broken mid-word. */}
+      <View style={styles.labelRow} testID={`field-label-row-${label}`}>
+        <Text style={[textStyle('sm'), styles.label, styles.labelText, { color: palette.ink }]}>
           {label}
         </Text>
         {counter ? (
@@ -846,7 +876,14 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1 },
   field: { gap: 6 },
-  labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  labelRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing[2],
+  },
+  labelText: { flexShrink: 1 },
   label: { fontWeight: fontWeight.semibold },
   input: {
     minHeight: 48,

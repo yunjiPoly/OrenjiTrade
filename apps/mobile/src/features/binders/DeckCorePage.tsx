@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,6 +53,16 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
   const price = binder.askingPriceText?.trim() || null;
   const keyCards = binder.keyCards ?? [];
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  // Opened from Edit binder (its eye button): "Edit binder" goes back to it rather than opening a
+  // second one over it, which would leave the first one with old values.
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const edit = () => {
+    if (from === 'edit' && router.canGoBack()) {
+      router.back();
+    } else {
+      router.push({ pathname: '/binders/edit', params: { id: binder.id } });
+    }
+  };
 
   return (
     <View testID="deck-core-page" style={[styles.fill, { backgroundColor: palette.background }]}>
@@ -203,7 +213,7 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
           <PillButton
             label={DECK_CORE_COPY.editOwn}
             icon="pencil-outline"
-            onPress={() => router.push({ pathname: '/binders/edit', params: { id: binder.id } })}
+            onPress={edit}
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             testID="deck-core-edit"
           />

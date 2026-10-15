@@ -86,6 +86,37 @@ export function binderFormChanged(
   );
 }
 
+/** Whether two forms hold the same values (as typed). */
+export function sameBinderForm(a: BinderFormValue, b: BinderFormValue): boolean {
+  return (
+    a.name === b.name &&
+    a.visibility === b.visibility &&
+    a.sellsAsCore === b.sellsAsCore &&
+    a.price === b.price &&
+    a.note === b.note
+  );
+}
+
+/**
+ * The form once the binder changed elsewhere (another Edit binder saved it, or a refresh came
+ * in): each field the collector has not touched since `before` takes the binder's new value
+ * (`after`), each field they changed keeps what they typed. An untouched form then shows the binder
+ * as saved and has no change to save, so it never writes an old value back.
+ */
+export function rebaseBinderForm(
+  form: BinderFormValue,
+  before: BinderFormValue,
+  after: BinderFormValue
+): BinderFormValue {
+  return {
+    name: form.name === before.name ? after.name : form.name,
+    visibility: form.visibility === before.visibility ? after.visibility : form.visibility,
+    sellsAsCore: form.sellsAsCore === before.sellsAsCore ? after.sellsAsCore : form.sellsAsCore,
+    price: form.price === before.price ? after.price : form.price,
+    note: form.note === before.note ? after.note : form.note,
+  };
+}
+
 /** Inline errors (the API's bounds: a name of 1–80, a price of 40, a note of 500 on the phone). */
 export function validateBinderForm(form: BinderFormValue): BinderFormErrors {
   const errors: BinderFormErrors = {};
@@ -185,7 +216,8 @@ export function binderTag(binder: Pick<BinderResponse, 'askingPriceText'>): stri
 
 /**
  * Inventory › Binders: deck cores first, then the other binders, each in the owner's order (the
- * list the API returns, `PUT /binders/reorder`). Sold deck cores (stage R4) are not listed.
+ * list the API returns, `PUT /binders/reorder`). Sold deck cores (stage R4) are not listed. The
+ * Reorder sheet shows the same two groups and moves a binder inside its group.
  */
 export function orderBinders(binders: readonly BinderResponse[]): {
   cores: BinderResponse[];

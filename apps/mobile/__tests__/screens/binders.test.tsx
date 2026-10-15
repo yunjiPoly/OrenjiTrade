@@ -1,7 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { View } from 'react-native';
 
 import BinderScreen from '@/app/binders/[id]';
+import type { BinderResponse, UpdateBinderRequest } from '@/src/api/types';
 import EditBinderScreen from '@/app/binders/edit';
 import NewBinderScreen from '@/app/binders/new';
 import { useBinderUiStore } from '@/src/features/binders/binderUiStore';
@@ -21,7 +23,7 @@ import {
   publicDeckCoreFixture,
   publicItemFixture,
 } from '../support/fixtures';
-import { mockApi, noContent, ok, problem } from '../support/mockApi';
+import { mockApi, noContent, ok, problem, type MockRequest } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -66,6 +68,39 @@ function libraryPick(...names: string[]) {
       fileSize: 120_000,
     })),
   } as never);
+}
+
+/**
+ * A binder the fake API keeps (GET answers what PATCH saved), with its public page, for the
+ * screens that must follow a save made elsewhere.
+ */
+function savedBinder(start: BinderResponse) {
+  let current = start;
+  const patch = ({ body }: MockRequest) => {
+    const changes = body as UpdateBinderRequest;
+    current = {
+      ...current,
+      ...(changes.name !== undefined ? { name: changes.name } : {}),
+      ...(changes.askingPriceText !== undefined
+        ? { askingPriceText: changes.askingPriceText }
+        : {}),
+      ...(changes.sellsAsCore !== undefined ? { sellsAsCore: changes.sellsAsCore } : {}),
+    };
+    return ok(current);
+  };
+  return {
+    'GET /api/v1/binders': () => ok([current]),
+    'GET /api/v1/binders/{id}': () => ok(current),
+    'PATCH /api/v1/binders/{id}': patch,
+    'GET /api/v1/public/binders/{id}': () =>
+      ok(
+        publicDeckCoreFixture({
+          id: current.id,
+          name: current.name,
+          askingPriceText: current.askingPriceText,
+        })
+      ),
+  };
 }
 
 function editRoutes(binder = binderFixture(), extra = {}) {
@@ -258,10 +293,123 @@ describe('Edit binder (screen 18)', () => {
     expect(screen.getByTestId('edit-binder-save')).toHaveTextContent('Save changes');
     fireEvent.press(screen.getByTestId('edit-binder-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    // Only a move: the card keeps the visibility its collector gave it (a public deck core shows
+    // its cards as key cards; a card that leaves it is as private as before).
     expect(api.callsTo('POST /api/v1/inventory/items/bulk').map((call) => call.body)).toEqual([
       { action: 'MOVE_TO_BINDER', binderId: CORE_ID, itemIds: ['item-2'] },
-      { action: 'SET_VISIBILITY', visibility: 'PUBLIC', itemIds: ['item-2'] },
     ]);
+  });
+
+  it('takes a card out of a deck core with a move only: it keeps its own visibility', async () => {
+    mockParams.current = { id: CORE_ID };
+    const inCore = itemFixture({
+      id: 'item-core',
+      binder: { id: CORE_ID, name: 'Snake-Eye core' },
+      visibility: 'PRIVATE',
+    });
+    const api = mockApi(
+      editRoutes(deckCoreFixture(), {
+        'GET /api/v1/binders/{id}/items': ok(inventoryPage([inCore])),
+        'PATCH /api/v1/binders/{id}': ok(deckCoreFixture()),
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+      })
+    );
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('binder-card-toggle-item-core'));
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/inventory/items/bulk').map((call) => call.body)).toEqual([
+      { action: 'MOVE_TO_BINDER', itemIds: ['item-core'] },
+    ]);
+  });
+
+  it('a binder saved elsewhere leaves this Edit binder up to date, with nothing to save', async () => {
+    mockParams.current = { id: CORE_ID };
+    const api = mockApi(editRoutes(deckCoreFixture(), savedBinder(deckCoreFixture())));
+    // Two Edit binders of one deck core, as when the deck core page opened a second one.
+    renderWithProviders(
+      <>
+        <View testID="first">
+          <EditBinderScreen />
+        </View>
+        <View testID="second">
+          <EditBinderScreen />
+        </View>
+      </>,
+      { port: port() }
+    );
+    const first = within(await screen.findByTestId('first'));
+    const second = within(screen.getByTestId('second'));
+    fireEvent.changeText(await second.findByTestId('binder-price'), '$150');
+    fireEvent.press(second.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(first.getByTestId('binder-price')).toHaveProp('value', '$150'));
+    expect(first.getByTestId('edit-binder-save')).toHaveTextContent('No changes yet');
+    expect(first.getByTestId('edit-binder-save')).toBeDisabled();
+    // A field changed here stays, the others follow: the save sends only the change made here.
+    fireEvent.changeText(first.getByTestId('binder-name'), 'Snake-Eye engine');
+    fireEvent.press(first.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(api.callsTo('PATCH /api/v1/binders/{id}')).toHaveLength(2));
+    expect(api.callsTo('PATCH /api/v1/binders/{id}')[1]?.body).toEqual({
+      confirm: true,
+      name: 'Snake-Eye engine',
+    });
+  });
+
+  it('Save changes refreshes the deck core page under it', async () => {
+    mockParams.current = { id: CORE_ID, view: 'public' };
+    mockApi(
+      editRoutes(deckCoreFixture(), {
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        ...savedBinder(deckCoreFixture()),
+      })
+    );
+    renderWithProviders(
+      <>
+        <BinderScreen />
+        <EditBinderScreen />
+      </>,
+      { port: port() }
+    );
+    expect(await screen.findByTestId('deck-core-price')).toHaveTextContent('$180');
+    fireEvent.changeText(await screen.findByTestId('binder-price'), '$150');
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(screen.getByTestId('deck-core-price')).toHaveTextContent('$150'));
+  });
+
+  it('photos picked, then the switch turned off, are not uploaded', async () => {
+    mockParams.current = { id: CORE_ID };
+    const api = mockApi(
+      editRoutes(deckCoreFixture(), {
+        'PATCH /api/v1/binders/{id}': ok(deckCoreFixture({ sellsAsCore: false })),
+        'POST /api/v1/binders/{id}/images': ok(deckCoreFixture(), 201),
+        'DELETE /api/v1/binders/{id}/images/{imageId}': noContent,
+      })
+    );
+    libraryPick('front.jpg');
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('card-photos-add'));
+    fireEvent.press(await screen.findByTestId('card-photos-library'));
+    expect(await screen.findByText('2 / 4')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('card-photo-1-remove'));
+    fireEvent(screen.getByTestId('binder-deck-core-switch'), 'valueChange', false);
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/binders/{id}')[0]?.body).toEqual({
+      confirm: true,
+      sellsAsCore: false,
+    });
+    expect(api.callsTo('POST /api/v1/binders/{id}/images')).toHaveLength(0);
+    expect(api.callsTo('DELETE /api/v1/binders/{id}/images/{imageId}')).toHaveLength(0);
+  });
+
+  it('the public note’s label keeps its words at large text: the counter goes under it', async () => {
+    mockParams.current = { id: CORE_ID };
+    mockApi(editRoutes(deckCoreFixture()));
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    const row = await screen.findByTestId('field-label-row-Public note');
+    expect(row).toHaveStyle({ flexWrap: 'wrap' });
+    expect(within(row).getByText('Public note')).not.toHaveStyle({ flex: 1 });
+    expect(within(row).getByText('Public note')).toHaveStyle({ flexShrink: 1 });
   });
 
   it('takes a card out of a plain binder with the save (it becomes unfiled)', async () => {
@@ -322,10 +470,33 @@ describe('Edit binder (screen 18)', () => {
       'Keep it'
     );
     fireEvent.press(within(sheet).getByTestId('edit-binder-delete-sheet-confirm'));
-    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    // Every screen of the deleted binder closes (its public page may be under this one).
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith({
+        pathname: '/inventory',
+        params: { view: 'binders' },
+      })
+    );
+    expect(mockRouter.back).not.toHaveBeenCalled();
     expect(api.callsTo('DELETE /api/v1/binders/{id}')).toHaveLength(1);
     expect(api.callsTo('DELETE /api/v1/binders/{id}')[0]?.query.get('deleteItems')).toBe('false');
+    // The cards are left as they were: no visibility change.
+    expect(api.callsTo('POST /api/v1/inventory/items/bulk')).toHaveLength(0);
     expect(await screen.findByText('Binder deleted')).toBeOnTheScreen();
+  });
+
+  it('a deleted binder’s public page leaves the cache', async () => {
+    mockParams.current = { id: CORE_ID };
+    mockApi(editRoutes(deckCoreFixture(), { 'DELETE /api/v1/binders/{id}': noContent }));
+    const { queryClient } = renderWithProviders(<EditBinderScreen />, { port: port() });
+    queryClient.setQueryData(
+      ['public', 'binders', CORE_ID, 'uid'],
+      publicDeckCoreFixture({ id: CORE_ID })
+    );
+    fireEvent.press(await screen.findByTestId('edit-binder-delete'));
+    fireEvent.press(await screen.findByTestId('edit-binder-delete-sheet-confirm'));
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalled());
+    expect(queryClient.getQueryData(['public', 'binders', CORE_ID, 'uid'])).toBeUndefined();
   });
 
   it('shows its public page to the owner once it is public', async () => {
@@ -335,7 +506,7 @@ describe('Edit binder (screen 18)', () => {
     fireEvent.press(await screen.findByTestId('edit-binder-public-page'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/binders/[id]',
-      params: { id: CORE_ID, view: 'public' },
+      params: { id: CORE_ID, view: 'public', from: 'edit' },
     });
   });
 
@@ -559,6 +730,19 @@ describe('Deck core page (screen 16)', () => {
     });
     expect(screen.queryByTestId('deck-core-message')).toBeNull();
     expect(screen.queryByTestId('deck-core-report')).toBeNull();
+  });
+
+  it('opened from Edit binder, “Edit binder” goes back to it instead of opening another', async () => {
+    mockParams.current = { id: 'core-1', view: 'public', from: 'edit' };
+    mockApi(
+      coreRoutes({
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+      })
+    );
+    renderWithProviders(<BinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('deck-core-edit'));
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it('without photos shows its card pictures, or says there are none', async () => {
