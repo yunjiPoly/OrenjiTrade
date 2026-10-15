@@ -119,6 +119,49 @@ describe('reading a camera photo', () => {
     });
   });
 
+  it("takes the whole photo's names when the Name area's text starts at its left edge", async () => {
+    // The card was not under the frame: the area holds the end of a name, cut at its left.
+    const fake = reader({
+      name: [at('THERWING MAGE', 0.0, 0.3, 0.7, 0.4, 1)],
+      setCode: ['ZR04-EN015'],
+      whole: ['Quillfeather Mage', 'ZR04-EN015'],
+    });
+    await expect(
+      readCardText(fake, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
+    ).resolves.toEqual({ codes: ['ZR04-EN015'], names: ['Quillfeather Mage'] });
+    expect(methods(fake)).toEqual(['recognizeName', 'recognizeSetCode', 'recognizeLines@0']);
+  });
+
+  it("takes the whole photo's names when the reader doubts every line of the Name area", async () => {
+    const fake = reader({
+      name: [
+        at('Quilfeathcr Magc', 0.1, 0.3, 0.7, 0.4, 0.3),
+        at('SPELL', 0.85, 0.3, 0.1, 0.4, 0.3),
+      ],
+      setCode: ['ZR04-EN015'],
+      whole: ['Quillfeather Mage', 'ZR04-EN015'],
+    });
+    await expect(
+      readCardText(fake, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
+    ).resolves.toEqual({ codes: ['ZR04-EN015'], names: ['Quillfeather Mage'] });
+    // A line at 0.5 or more, or lines without a confidence (ML Kit): the area's name is kept.
+    for (const confidences of [
+      [0.5, 0.3],
+      [null, null],
+    ]) {
+      const kept = reader({
+        name: [
+          at('Quillfeather Mage', 0.1, 0.3, 0.7, 0.4, confidences[0]),
+          at('SPELL', 0.85, 0.3, 0.1, 0.4, confidences[1]),
+        ],
+        setCode: ['ZR04-EN015'],
+      });
+      await expect(
+        readCardText(kept, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
+      ).resolves.toEqual({ codes: ['ZR04-EN015'], names: ['Quillfeather Mage'] });
+    }
+  });
+
   it('reads a photo the frame cannot be placed on whole, and not turned', async () => {
     const fake = reader({ whole: [] });
     await expect(

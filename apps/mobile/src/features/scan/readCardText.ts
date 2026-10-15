@@ -13,7 +13,10 @@ import type { ScanRead } from './types';
  * Reading one photo (owner spec 2026-10-15, section 3.3), through any `OcrProvider`:
  *
  * - a camera photo whose frame could be placed on it: the Name area and the set code area (read at
- *   twice its size by the provider); when the set code area holds no code, the Pendulum spot;
+ *   twice its size by the provider); when the set code area holds no code, the Pendulum spot; a
+ *   Name area whose text starts at the crop's left edge (a name cut short: the card was not under
+ *   the frame) or that the reader doubts (every line under `DOUBTFUL_NAME_CONFIDENCE`) gives no
+ *   name;
  * - then, when the areas gave no name or no code, or for a library photo: the whole photo, its
  *   lines picked by shape and position;
  * - a whole-photo read is picked the way up its line boxes say (`uprightTurn`): Apple Vision reads
@@ -41,6 +44,16 @@ export interface ReadCardInput {
 }
 
 const TURNS: readonly Exclude<OcrRotation, 0>[] = [90, 180, 270];
+
+/**
+ * Below this confidence on every line, a Name area's read is doubtful: the whole photo gives the
+ * names instead (on the owner's real photos, Apple Vision gave 1 to most lines, 0.5 or 0.3 to the
+ * ones it doubted).
+ */
+export const DOUBTFUL_NAME_CONFIDENCE = 0.5;
+
+/** How close to the crop's left edge (a fraction of its width) a Name area's line is cut there. */
+const AT_LEFT_EDGE = 0.01;
 
 /**
  * One whole-photo read: what it gave, the turn its lines ask for (null: upright or unknown), and
@@ -123,6 +136,18 @@ async function readWholePhoto(
   );
 }
 
+/**
+ * Whether a Name area holds a name cut short (a line starting at the crop's left edge: the card
+ * was not under the frame) or one the reader doubts (every line under
+ * `DOUBTFUL_NAME_CONFIDENCE`; a line without a confidence is not doubted).
+ */
+function cutOrDoubtful(lines: readonly OcrLine[]): boolean {
+  return (
+    lines.some((line) => line.box.x <= AT_LEFT_EDGE) ||
+    (lines.length > 0 && lines.every((line) => (line.confidence ?? 1) < DOUBTFUL_NAME_CONFIDENCE))
+  );
+}
+
 /** What the phone read on one card: its code and name candidates, best first (`ScanRead`). */
 export async function readCardText(provider: OcrProvider, input: ReadCardInput): Promise<ScanRead> {
   const { photo, source, crops } = input;
@@ -131,7 +156,7 @@ export async function readCardText(provider: OcrProvider, input: ReadCardInput):
       provider.recognizeName(photo, crops.name),
       provider.recognizeSetCode(photo, crops.setCode),
     ]);
-    const names = nameCandidatesFromArea(nameArea.lines);
+    const names = cutOrDoubtful(nameArea.lines) ? [] : nameCandidatesFromArea(nameArea.lines);
     let codes = codeCandidates(codeArea.lines);
     if (codes.length === 0) {
       codes = codeCandidates((await provider.recognizeSetCode(photo, crops.pendulumSetCode)).lines);
