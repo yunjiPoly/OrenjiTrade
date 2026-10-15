@@ -327,14 +327,21 @@ test.describe('mobile binders and deck cores', () => {
     await expect(snackbar(page)).toContainText('Mobile trades 2026', { timeout: 30_000 });
     expect((await item(request, collector.idToken, itemId)).binder ?? null).toBeNull();
 
-    await openInApp(page, `/binders/edit?id=${saved!.id}`);
-    const again = screen(page, 'edit-binder');
+    // The binder's own link (/binders/{id}: a profile row, a chat card, a deep link) opens Edit
+    // binder for its owner; "Delete binder" there lands on Inventory › Binders too, never on
+    // "This binder is not available" (review fix 2 of stage R3).
+    await openInApp(page, `/binders/${saved!.id}`);
+    const again = screen(page, 'binder');
     await again.getByRole('button', { name: 'Delete binder' }).click({ timeout: 30_000 });
     const confirm = page.getByTestId('edit-binder-delete-sheet');
     await expect(confirm.getByText('Delete Mobile trades 2026?')).toBeVisible();
     await expect(confirm.getByText('Your cards stay in your inventory.')).toBeVisible();
     await confirm.getByRole('button', { name: 'Delete binder' }).click();
     await expect(snackbar(page)).toContainText('Binder deleted', { timeout: 30_000 });
+    await expect(screen(page, 'inventory').getByText('No binders yet')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('public-binder-not-found')).toHaveCount(0);
     expect(await binders(request, collector.idToken)).toEqual([]);
   });
 

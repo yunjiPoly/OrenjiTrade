@@ -6,9 +6,13 @@
 # (screen 16) as buyers see it. scripts/check-binder.js checks on the host what the isolated API
 # holds, and the public page an anonymous buyer gets (the price, the photo, the key card, Quebec,
 # never a city). Then (R3 review fix 1) the page's "Edit binder" goes back to the Edit binder it
-# came from, a new price shows on Inventory › Binders and on the page, and "Delete binder" lands
-# on Inventory › Binders; scripts/check-card.js checks that the card kept the visibility its
-# collector gave it (private) in the deck core and after the delete.
+# came from, and a new price shows on Inventory › Binders and on the page; scripts/check-card.js
+# checks that the card kept the visibility its collector gave it (private) in the deck core and
+# after the delete. R3 review fix 2: at the largest text size, the "Add cards" picker shows the card
+# with "Add 1 card", and Reorder shows the binders with Cancel and "Save order"; the deck
+# core's row on the owner's profile (Profile › Public preview) shows a price saved from the Edit
+# binder that row opens (the binder's own link, /binders/[id]), and "Delete binder" there lands on
+# Inventory › Binders.
 #
 # Not in this flow yet: finding the deck core in Search › Binders › Deck cores and on the map's
 # state card ("{n} binders · {n} deck cores") comes with stage R5, which builds those screens on
@@ -170,6 +174,118 @@ tags:
       EXPECT_KEY_CARD: 'Lantern Fox Spirit'
       EXPECT_PUBLIC_PLACE: 'Quebec, Canada'
 
+# The largest text size (R3 review fix 2): the "Add cards" picker of New binder shows the card and
+# "Add 1 card", and Reorder (two binders: a plain one is made here, empty) shows both binders with
+# Cancel and "Save order". Before the fix the text above their lists filled both sheets: no card,
+# no binder, no Cancel and no button within reach (subflows/relaunch-large-text.yaml; Android keeps
+# the device's own size).
+- runFlow: subflows/relaunch-large-text.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-view-binders'
+    timeout: 60000
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-new-binder'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-new-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 30000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'Maestro plain'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-add-cards'
+- tapOn:
+    id: 'binder-add-cards'
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-submit'
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Lantern Fox Spirit, .*in Maestro core'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Lantern Fox Spirit, .*in Maestro core'
+- assertVisible:
+    id: 'card-picker-submit'
+    text: 'Add 1 card'
+- takeScreenshot: r3-large-picker
+# Unpicked again (the card stays in the deck core), and the sheet closed from above it.
+- tapOn: 'Lantern Fox Spirit, .*in Maestro core'
+- assertVisible:
+    id: 'card-picker-submit'
+    text: 'Add cards'
+- tapOn:
+    point: '50%,10%'
+- extendedWaitUntil:
+    notVisible:
+      id: 'card-picker-submit'
+    timeout: 15000
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro plain, .*'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binders-reorder'
+- tapOn:
+    id: 'binders-reorder'
+- extendedWaitUntil:
+    visible:
+      id: 'reorder-cancel'
+    timeout: 30000
+- assertVisible:
+    id: 'reorder-save'
+- scrollUntilVisible:
+    element: 'Maestro core, position 1 of 1'
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element: 'Maestro plain, position 1 of 1'
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: r3-large-reorder
+- tapOn:
+    id: 'reorder-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'reorder-cancel'
+    timeout: 15000
+# The app reopens at the device's own text size.
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-view-binders'
+    timeout: 60000
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$180'
+    timeout: 60000
+
 # Edit binder (screen 18): "No changes yet" until a change; its public page from the eye button.
 - tapOn: 'Maestro core, 1 photo · Public, Deck core · \$180'
 - extendedWaitUntil:
@@ -254,10 +370,56 @@ tags:
     timeout: 60000
 - takeScreenshot: r3-deck-core-page-edited
 
-# "Delete binder" closes every screen of it and lands on Inventory › Binders; the card stays in
-# the inventory, unfiled and still private.
+# The deck core's row on the owner's profile as collectors see it (Profile › Public preview), with
+# its price. The row opens Edit binder (the binder's own link, /binders/[id]); a price saved there
+# shows on the row at once (R3 review fix 2: the row kept the old price).
 - tapOn:
     id: 'deck-core-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-back'
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-preview'
+- tapOn:
+    id: 'profile-preview'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro core, Deck core · \$150'
+- tapOn: 'Maestro core, Deck core · \$150'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'binder-price'
+- eraseText: 12
+- inputText: '$120'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'Save changes'
+    timeout: 15000
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro core, Deck core · \$120'
+    timeout: 30000
+- takeScreenshot: r3-profile-row-after-save
+
+# "Delete binder" from that Edit binder closes every screen of the deck core and lands on
+# Inventory › Binders (R3 review fix 2: it showed "This binder is not available"); the card stays
+# in the inventory, unfiled and still private.
+- tapOn: 'Maestro core, Deck core · \$120'
 - extendedWaitUntil:
     visible:
       id: 'edit-binder-delete'
@@ -274,8 +436,13 @@ tags:
     id: 'edit-binder-delete-sheet-confirm'
 - extendedWaitUntil:
     visible:
-      id: 'binders-empty'
+      id: 'binders-summary'
+      text: '1 binder'
     timeout: 60000
+- assertVisible: 'Maestro plain, .*'
+- assertNotVisible: 'Maestro core.*'
+- assertNotVisible:
+    id: 'public-binder-not-found'
 - assertNotVisible:
     id: 'deck-core-name'
 - takeScreenshot: r3-after-delete
