@@ -87,6 +87,31 @@ describe('the shape of a code', () => {
     expect(parseCode('ZDK-001')?.shape).toBe('printed');
   });
 
+  it('knows a set part made only of digits before a region as printed (2087-EN001)', () => {
+    expect(parseCode('2087-EN001')).toEqual({ code: '2087-EN001', shape: 'printed' });
+    expect(parseCode('2081-EN001')?.shape).toBe('printed');
+    expect(parseCode('2087-EN0O1')).toEqual({ code: '2087-EN0O1', shape: 'misread' });
+    expect(parseCode('2087EN001')).toEqual({ code: '2087EN001', shape: 'dashless' });
+    expect(parseCode('2087 - EN 001')?.code).toBe('2087-EN001');
+    // Another language's region is passed on (the server refuses it).
+    expect(parseCode('2087-DE001')?.code).toBe('2087-DE001');
+    // Without a region as printed, digits alone are no code: the passcode with a stray dash, a
+    // misread region, an old one-letter region a misread digit could be, or no region at all.
+    for (const text of [
+      '2087-001',
+      '2087-0E001',
+      '2087-1T001',
+      '2087-I001',
+      '2087-S001',
+      '5724-1194',
+      '5724-II94',
+      '57-241194',
+      '5724.1I94',
+    ]) {
+      expect(parseCode(text)).toBeNull();
+    }
+  });
+
   it('refuses what is no code', () => {
     for (const text of ['ELM-KNIGHT', 'DIM-GLOW', 'LINK-3', 'X-5', '1-2', 'LP-1000', '57241194']) {
       expect(parseCode(text)).toBeNull();
@@ -153,6 +178,16 @@ describe('code candidates', () => {
     }
     expect(codes('57241194 ZOB-EN001')).toEqual(['ZOB-EN001']);
     expect(codes('ZOB-EN001 57241194')).toEqual(['ZOB-EN001']);
+  });
+
+  it('picks the code of a set named by its year, never the passcode beside it', () => {
+    expect(codes('2087-EN001')).toEqual(['2087-EN001']);
+    expect(codes('2087-EN001 57241194')).toEqual(['2087-EN001']);
+    expect(codes('57241194', '2088-EN002')).toEqual(['2088-EN002']);
+    expect(codes('2089EN003')).toEqual(['2089EN003']);
+    for (const passcode of ['57241194', '5724-1194', '5724 1194', '5724II94', '1960B153']) {
+      expect(codes(passcode)).toEqual([]);
+    }
   });
 
   it('passes two codes on, best first: as printed, more confident, higher', () => {

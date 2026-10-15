@@ -127,13 +127,16 @@ export interface CodeMatch {
 
 /**
  * Whether a piece of text is a printing code: a set part of 2 to 5 letters or digits (LOB, SDK,
- * RA01, MP22, L5DD), a dash, then the tail (`parseTail`). A code read without its dash counts when
- * a dash at one place gives a code as printed; it is sent as read (the API tries each place).
- * Returns the cleaned code, or null.
+ * RA01, MP22, L5DD, or the year of 2017-EN001), a dash, then the tail (`parseTail`). A code read
+ * without its dash counts when a dash at one place gives a code as printed; it is sent as read
+ * (the API tries each place). Returns the cleaned code, or null.
  *
- * The passcode never passes as a code: with a dash, its set part has no letter; without one, a
- * code needs at least three letters (two in its set part, a region as printed) and the passcode
- * has at most two misread ones (`isPasscode`).
+ * The passcode never passes as a code. A set part made only of digits needs a region as printed
+ * after it (2017-EN001; 2017-001 is no code), and the passcode has no region: its letters are at
+ * most two misread digits (O, D, I, L, S, B, Z, G), and every region has a letter that is none of
+ * them (E, N, F, R, T, P, J, K), except the old one-letter I, S and G, which a digit-only set part
+ * never takes. Without a dash, a code needs a region as printed and, with a set part of letters,
+ * two of them (`isPasscode`).
  */
 export function parseCode(raw: string): CodeMatch | null {
   const cleaned = cleanCode(raw);
@@ -149,11 +152,11 @@ export function parseCode(raw: string): CodeMatch | null {
   }
   const [setPart = '', ...tailParts] = parts;
   const tail = tailParts.join('');
-  if (!SET_PART.test(setPart) || letterCount(setPart) < 1) {
+  if (!SET_PART.test(setPart)) {
     return null;
   }
   const parsed = parseTail(tail, { dashless: false });
-  if (!parsed) {
+  if (!parsed || (letterCount(setPart) === 0 && !digitsOnlySetAllowed(tail))) {
     return null;
   }
   return {
@@ -162,16 +165,29 @@ export function parseCode(raw: string): CodeMatch | null {
   };
 }
 
+/**
+ * After a set part made only of digits (2017-EN001), the tail must start with a region as printed
+ * that the passcode cannot hold: EN, E or another language's two letters (each has a letter that is
+ * no misread digit). The old one-letter I, S, G (and F, P) are left out.
+ */
+const REGION_AFTER_DIGITS = new RegExp(`^(?:EN|E|FR|DE|IT|SP|PT|JP|KR)[A-Z]?${DIGITISH}{2,3}$`);
+
+function digitsOnlySetAllowed(tail: string): boolean {
+  return REGION_AFTER_DIGITS.test(tail);
+}
+
 function parseDashless(cleaned: string): CodeMatch | null {
   if (cleaned.length < 5 || cleaned.length > 11) {
     return null;
   }
   for (let dash = 2; dash <= 5; dash++) {
     const setPart = cleaned.slice(0, dash);
-    if (letterCount(setPart) < 2) {
+    const tail = cleaned.slice(dash);
+    const letters = letterCount(setPart);
+    if (letters === 1 || (letters === 0 && !digitsOnlySetAllowed(tail))) {
       continue;
     }
-    const parsed = parseTail(cleaned.slice(dash), { dashless: true });
+    const parsed = parseTail(tail, { dashless: true });
     if (parsed?.strict) {
       return { code: cleaned, shape: 'dashless' };
     }
