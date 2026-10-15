@@ -81,10 +81,13 @@ function regionOf(region: string): { verbatim: boolean } | null {
  * (LAVD-ENS08). A one-letter region (old prints, LOB-E001) is read as a letter and followed by 3
  * digits (a lone digit there is the number's: LP-1000 is no Italian code). At least one real digit:
  * a word of look-alike letters is not a number. Without its dash, a code needs a region read as
- * printed (EN036 alone is no code).
+ * printed (EN036 alone is no code), and a two-letter one when it was joined from several words: the
+ * old one-letter regions (E, F, G, I, S, P) only count within one word, or a card's text would give
+ * codes ("gains 500 ATK" would be GAINS500, an old Spanish code).
  */
-function parseTail(tail: string, { dashless }: { dashless: boolean }) {
-  for (const regionLength of dashless ? [2, 1] : [2, 1, 0]) {
+function parseTail(tail: string, { dashless, joined }: { dashless: boolean; joined: boolean }) {
+  const regionLengths = dashless ? (joined ? [2] : [2, 1]) : [2, 1, 0];
+  for (const regionLength of regionLengths) {
     if (tail.length <= regionLength) {
       continue;
     }
@@ -129,7 +132,8 @@ export interface CodeMatch {
  * Whether a piece of text is a printing code: a set part of 2 to 5 letters or digits (LOB, SDK,
  * RA01, MP22, L5DD, or the year of 2017-EN001), a dash, then the tail (`parseTail`). A code read
  * without its dash counts when a dash at one place gives a code as printed; it is sent as read
- * (the API tries each place). Returns the cleaned code, or null.
+ * (the API tries each place). `joined`: the text was joined from several words of a row (a code
+ * the reader cut with spaces). Returns the cleaned code, or null.
  *
  * The passcode never passes as a code. A set part made only of digits needs a region as printed
  * after it (2017-EN001; 2017-001 is no code), and the passcode has no region: its letters are at
@@ -138,14 +142,17 @@ export interface CodeMatch {
  * never takes. Without a dash, a code needs a region as printed and, with a set part of letters,
  * two of them (`isPasscode`).
  */
-export function parseCode(raw: string): CodeMatch | null {
+export function parseCode(
+  raw: string,
+  { joined = false }: { joined?: boolean } = {}
+): CodeMatch | null {
   const cleaned = cleanCode(raw);
   if (cleaned.length === 0 || cleaned.length > MAX_CODE_LENGTH) {
     return null;
   }
   const parts = cleaned.split('-');
   if (parts.length === 1) {
-    return parseDashless(cleaned);
+    return parseDashless(cleaned, joined);
   }
   if (parts.length > 3) {
     return null;
@@ -155,7 +162,7 @@ export function parseCode(raw: string): CodeMatch | null {
   if (!SET_PART.test(setPart)) {
     return null;
   }
-  const parsed = parseTail(tail, { dashless: false });
+  const parsed = parseTail(tail, { dashless: false, joined });
   if (!parsed || (letterCount(setPart) === 0 && !digitsOnlySetAllowed(tail))) {
     return null;
   }
@@ -176,7 +183,7 @@ function digitsOnlySetAllowed(tail: string): boolean {
   return REGION_AFTER_DIGITS.test(tail);
 }
 
-function parseDashless(cleaned: string): CodeMatch | null {
+function parseDashless(cleaned: string, joined: boolean): CodeMatch | null {
   if (cleaned.length < 5 || cleaned.length > 11) {
     return null;
   }
@@ -187,7 +194,7 @@ function parseDashless(cleaned: string): CodeMatch | null {
     if (letters === 1 || (letters === 0 && !digitsOnlySetAllowed(tail))) {
       continue;
     }
-    const parsed = parseTail(tail, { dashless: true });
+    const parsed = parseTail(tail, { dashless: true, joined });
     if (parsed?.strict) {
       return { code: cleaned, shape: 'dashless' };
     }
@@ -237,7 +244,7 @@ interface FoundCode extends CodeMatch {
 /**
  * The codes of one row of text, each token at most once. A code may be spread over up to 4 tokens
  * ("MACR - EN 036", or "RA 01EN075" with its dash lost); the longest span that makes a code is
- * taken.
+ * taken. Without a dash, a code spread over several tokens needs a two-letter region (`parseTail`).
  */
 function codesOfRow(text: string): CodeMatch[] {
   const tokens = text
@@ -250,7 +257,9 @@ function codesOfRow(text: string): CodeMatch[] {
   for (let start = 0; start < tokens.length;) {
     let taken = 0;
     for (let length = Math.min(4, tokens.length - start); length >= 1 && taken === 0; length--) {
-      const match = parseCode(tokens.slice(start, start + length).join(''));
+      const match = parseCode(tokens.slice(start, start + length).join(''), {
+        joined: length > 1,
+      });
       if (match) {
         found.push(match);
         taken = length;

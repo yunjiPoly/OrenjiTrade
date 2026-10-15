@@ -117,6 +117,19 @@ describe('the shape of a code', () => {
       expect(parseCode(text)).toBeNull();
     }
   });
+
+  it('takes an old one-letter region without a dash only within one word', () => {
+    expect(parseCode('ZOBE001')).toEqual({ code: 'ZOBE001', shape: 'dashless' });
+    expect(parseCode('ZOBE001', { joined: true })).toBeNull();
+    expect(parseCode('GAINS500', { joined: true })).toBeNull();
+    // A two-letter region still makes a code of several words.
+    expect(parseCode('ZR01EN075', { joined: true })).toEqual({
+      code: 'ZR01EN075',
+      shape: 'dashless',
+    });
+    // With its dash, a code joined from several words is the same code.
+    expect(parseCode('ZOB-E001', { joined: true })).toEqual({ code: 'ZOB-E001', shape: 'printed' });
+  });
 });
 
 describe('code candidates', () => {
@@ -153,6 +166,22 @@ describe('code candidates', () => {
     expect(codeCandidates([at('ZACR-', 0.1, 0.4, 0.3), at('EN036', 0.45, 0.4, 0.3)])).toEqual([
       'ZACR-EN036',
     ]);
+  });
+
+  it("never makes a code of a card's text without a dash and a two-letter region", () => {
+    // Effect text joined into an old one-letter region's code (S, E): GAINS500, LOSE100, ONCE800.
+    for (const text of [
+      'the lantern gains 500 ATK while it glows',
+      'your opponent loses 100 LP',
+      'The lantern may only glow once 800',
+      'ZOB E001',
+    ]) {
+      expect(codes(text)).toEqual([]);
+    }
+    expect(codes('ZR01-EN075', 'the lantern gains 500 ATK')).toEqual(['ZR01-EN075']);
+    // One word keeps its old region; a code cut by a space keeps its two-letter one.
+    expect(codes('ZOBE001')).toEqual(['ZOBE001']);
+    expect(codes('ZR 01EN075')).toEqual(['ZR01EN075']);
   });
 
   it('keeps a code read without its dash, after the codes with one (the server tries each place)', () => {
