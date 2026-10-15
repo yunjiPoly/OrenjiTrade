@@ -263,7 +263,8 @@ public final class ScanCodes {
      * printing code: it has no letter (every printing code has one), or, dashes left out, it has 6
      * to 10 characters (7 to 10 with a dash: {@code DL1-001} has six), all digits but at most two
      * letters a reader prints for a digit (O, D, I, L, S, B, Z, G), like {@code 9955812I}. The
-     * phone skips the same reads (a run of 6 to 10 characters, all digits but at most two).
+     * phone's own passcode rule is the same for a run without a dash (6 to 10 characters, all
+     * digits but at most two).
      */
     public static boolean isPasscode(String cleaned) {
         if (NO_LETTER.matcher(cleaned).matches()) {

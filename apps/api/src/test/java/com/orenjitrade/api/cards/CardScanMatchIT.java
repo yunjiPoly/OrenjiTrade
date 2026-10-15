@@ -293,7 +293,7 @@ class CardScanMatchIT extends AbstractIntegrationTest {
 
     @Test
     void aRejectedReadNeverReachesTheLogsEither(CapturedOutput output) {
-        // Too many codes, a name too long, a code of another type, a malformed body: the 400 is
+        // Too many codes, a name too long, names sent as an object, a malformed body: the 400 is
         // logged (DEBUG in tests) with its request id and path, never with the values sent.
         callJson(
                 HttpMethod.POST,

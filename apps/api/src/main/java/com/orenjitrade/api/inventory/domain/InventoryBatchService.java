@@ -326,8 +326,7 @@ public class InventoryBatchService {
             }
         }
         // The items count as confirmed: an insert confirms its item, an equal item the batch
-        // reached
-        // (raised, or full) is confirmed here (a hidden one comes back).
+        // reached (raised, or full) is confirmed here (a hidden one comes back).
         Set<UUID> touchedBinders = new HashSet<>();
         if (binderId != null && !created.isEmpty()) {
             touchedBinders.add(binderId);
