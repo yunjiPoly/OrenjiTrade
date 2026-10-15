@@ -485,6 +485,37 @@ describe('Edit binder (screen 18)', () => {
     expect(await screen.findByText('Binder deleted')).toBeOnTheScreen();
   });
 
+  it('deleted from its own link (/binders/[id]), it lands on Inventory › Binders', async () => {
+    // The owner opens their own binder's link (a profile row, a chat card, a deep link): Edit
+    // binder answers. The delete takes the binder out of their list; the screen keeps Edit binder
+    // until it has closed every screen of the binder (review fix 2 of stage R3: it showed "This
+    // binder is not available" and stayed).
+    mockParams.current = { id: CORE_ID };
+    let deleted = false;
+    const api = mockApi(
+      editRoutes(deckCoreFixture(), {
+        'GET /api/v1/binders': () => ok(deleted ? [] : [deckCoreFixture()]),
+        'DELETE /api/v1/binders/{id}': () => {
+          deleted = true;
+          return noContent;
+        },
+      })
+    );
+    renderWithProviders(<BinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('edit-binder-delete'));
+    fireEvent.press(await screen.findByTestId('edit-binder-delete-sheet-confirm'));
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith({
+        pathname: '/inventory',
+        params: { view: 'binders' },
+      })
+    );
+    expect(api.callsTo('DELETE /api/v1/binders/{id}')).toHaveLength(1);
+    expect(screen.queryByTestId('public-binder-not-found')).toBeNull();
+    expect(api.callsTo('GET /api/v1/public/binders/{id}')).toHaveLength(0);
+    expect(await screen.findByText('Binder deleted')).toBeOnTheScreen();
+  });
+
   it('a deleted binder’s public page leaves the cache', async () => {
     mockParams.current = { id: CORE_ID };
     mockApi(editRoutes(deckCoreFixture(), { 'DELETE /api/v1/binders/{id}': noContent }));

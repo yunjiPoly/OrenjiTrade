@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
@@ -27,6 +28,27 @@ import { refreshInventory } from './inventory';
 import { useIsAuthenticated, useUid } from './useUid';
 
 export const BINDER_ITEMS_PAGE_SIZE = 24;
+
+/** The mutation key of {@link useDeleteBinder}. */
+const DELETE_BINDER_KEY = ['binders', 'delete'] as const;
+
+/**
+ * Whether this app is deleting the binder `id`, or deleted it (a delete that did not fail): the
+ * binder's screen keeps Edit binder on screen, which then closes every screen of the binder, even
+ * once the binder has left the collector's list (review fix 2 of stage R3).
+ */
+export function useDeletingBinder(id: string | null | undefined): boolean {
+  return (
+    useMutationState({
+      filters: {
+        mutationKey: DELETE_BINDER_KEY,
+        predicate: (mutation) =>
+          !!id && mutation.state.variables === id && mutation.state.status !== 'error',
+      },
+      select: (mutation) => mutation.state.status,
+    }).length > 0
+  );
+}
 
 /** `GET /api/v1/binders`: the caller's binders in their order. */
 export function useMyBinders() {
@@ -193,6 +215,7 @@ export function useDeleteBinder() {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<void, ApiError, string>({
+    mutationKey: DELETE_BINDER_KEY,
     mutationFn: async (id) => {
       await api.DELETE('/api/v1/binders/{id}', {
         params: { path: { id }, query: { deleteItems: false } },
