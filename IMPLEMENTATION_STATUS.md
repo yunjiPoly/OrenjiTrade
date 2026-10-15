@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches — branch `feature/r3-binders-deck-cores`, builder done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
 **Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 (V125 since the merge with F1) — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
 **Last updated:** 2026-10-15 (stage F1, "free for all", merged with `main` after stage R1 of the phone redesign (#72): both stages' removals hold together — no offer, trade, payment, dispute, Premium, credits, donation or sponsored screen, row, route or checkout left on the phone; one removed-route mechanism for the links of both (`src/navigation/removedRoutes.ts`); R1's fonts, tokens, wording and safety tip with F1's limit messages; migrations V115, V116 (R1) and V120–V123 (F1); ADR 0018 and ADR 0019 — branch `feature/f1-free-for-all`, not pushed; see "Merged with R1 (2026-10-15)" in the F1 section)
@@ -5771,6 +5772,209 @@ Files storage, its photo library one fictional copy of the flow picture richer (
 run test:scripts` **135 / 135**; `npm run infra:validate` passed (nothing planned or applied); `npm
 run audit:gate` OK. Not verifiable here: the Android run (no Android SDK on this Mac).
 
+## Phone redesign R3: binders and deck cores (2026-10-15)
+
+Stage R3 of the phone redesign approved by the owner on 2026-10-14
+([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+sections 3, 7, 12 "Binders and deck cores", 13 to 17): mockup screens 16 (the deck core page), 17
+(Inventory › Binders) and 18 (Edit binder, also New binder), and the API that the deck core rows of
+Search › Binders (screen 14) and the map's state card need, so that stage R5 only builds screens.
+Branch `feature/r3-binders-deck-cores`, cut from the head of stage R2 (#74). One migration,
+**V126**; every API change is additive (the paused web builds and passes every check against the
+regenerated client, unchanged: no file of `apps/web-angular` changed). Free for all (stage F1): no
+sponsored row, upgrade offer or price for a feature; a reached `binders.max` keeps F1's plain
+message. The tab bar keeps today's six tabs until R5.
+
+**A deck core is a binder sold as one bundle.** It needs no cards: photos, one price and a note are
+enough; the cards its owner puts in it are its key cards.
+
+**What a collector can now do on the phone**
+
+- **See their binders** (Inventory › Binders, screen 17): "{n} binders · {n} deck cores" (the deck
+  cores part dropped at 0, and "1 deck core" alone when there are only deck cores) with "+ New
+  binder"; the deck cores first (their first photo, the name, "{n} photos · Public", the purple tag
+  "Deck core · {price}" in a purple frame), then the binders (a fan of three card pictures, the
+  name, "{n} cards · Public" or "· Private"); the tip "Selling a whole deck? Turn on “Sell as a deck
+  core” in a binder. Photos, a price and a note are enough."; "Reorder" (the binder order of M7)
+  under the tip. The listings-paused banner stays above. A row opens Edit binder.
+- **Make or edit a binder** (Edit binder and New binder, screen 18): Name; Who can see it (Private
+  | Public, with the card form's hints: "Only you see it until you make it public." or "Collectors
+  in {region} can find it.", or why nobody can); the card "Sell as a deck core" ("Photos, one price
+  and a note") with its purple switch: when it is on, Photos "{n} / 4" with "Add" (library or
+  camera, the item photo rules, location data removed), Asking price (40 characters, "$180 or Trade
+  only", exactly as typed), Public note (500, "What's in it, condition, language", with a counter);
+  a private deck core says "Buyers can only find a deck core when it is public." (amber in dark);
+  turning the switch on makes the binder public (as the mockup does; it can be set back to Private).
+  The dashed section "Key cards · optional" ("Helps buyers find it when they search a card.") or
+  "Cards inside" ("No cards in this binder yet."), with "+ Add cards" (pick from your inventory, a
+  sheet with checkboxes) and the cards listed with a × to take one out. Everything is saved with
+  "Save changes" (disabled, "No changes yet", until a change; "Create binder" on New binder until it
+  has a name): the fields, the cards moved in or out, then the photos; a save also confirms the
+  binder is still available. Back on Inventory › Binders: "Saved · {name}". A photo that failed
+  keeps its "Try again" (New binder then opens Edit binder on it). "Delete binder" asks in a sheet
+  ("Delete {name}?", "Its photos, price and note go away. Your cards stay in your inventory.", a red
+  "Delete binder", "Keep it"; a plain binder says only "Your cards stay in your inventory."); "Binder
+  deleted · {name}". A stale or hidden binder shows "Still available". An eye button opens the
+  binder's public page while it is public.
+- **See a deck core as buyers do** (the deck core page, screen 16): the photos full width (360 pt,
+  swipe or the page dots, "1 / 3"; the card pictures, or "No photos yet", without photos), the back
+  button over them; the purple tag "Deck core", the game in capitals, the name and the price in Sora
+  24; the seller row (avatar, handle, "{province} · {n} public binders", opens the profile); the
+  note; "Key cards" as chips "{card} ×{n}" (a chip opens today's card page; "Who has this card" is
+  R5's); "Report"; the fixed button "Message {handle}", which opens or reuses the chat with the
+  seller **without a pinned card** (the chat subject is R4's). The owner sees "Edit binder" instead.
+- **Open a plain public binder** in the new look: the back bar, the name in Sora, "{n} cards ·
+  {games} · Updated …", the same seller row, the note, "Search this binder", its public cards,
+  "Report" and a fixed "Message {handle}". The availability filter left with "Available for" (R2).
+
+**What the API does** (V126; contract [`docs/api/contracts/r3-binders-deck-cores.md`](docs/api/contracts/r3-binders-deck-cores.md))
+
+| Part | What |
+| --- | --- |
+| Binder columns | `sells_as_core` (default false), `asking_price_text` (≤ 40, trimmed, one line) with `asking_price` + `currency` (CAD) parsed by `common/AskingPriceText` as for cards, `sold_at` (a sold binder is never public, nor its cards: `PublicVisibilityRules.binderListed`); `description` is the deck core's note (the API keeps its 1 000) |
+| Owner writes | `POST` / `PATCH /binders` take `sellsAsCore` and `askingPriceText`; `PATCH … confirm: true` confirms like `POST …/confirm` |
+| Photos | `binder_image`; `POST /binders/{id}/images` (multipart, the item photo processor: JPEG / PNG / WebP by content, 8 MB, EXIF and GPS stripped, at most 4: 409) and `DELETE /binders/{id}/images/{imageId}`, owner only (404 otherwise); the files go with the photo, the binder and the account; rate-limited 60 an hour. The route lives in the inventory module (`BinderPhotoController`, the dependency points from inventory to binders); the write takes the owner lock, then the binder row |
+| Showcase | owner and public responses gain `sellsAsCore`, `askingPriceText`, `photos`, `previewImages` (a deck core's first photo, else up to 3 card pictures) and `keyCards [{cardId, name, quantity}]` (a deck core's cards, every printing together, most copies first, at most 30; public cards only in public views); `PublicBinderResponse.ownerPublicBinderCount`; owner responses also `askingPrice`, `currency`, `soldAt` |
+| Public lists | a public deck core shows without cards: a collector's binders, search, the map, the profile's binder count |
+| Search (for R5) | `excludeDeckCoreItems` on `/search/card-holders`; `GET /search/deck-cores?cardId=&region=&limit=3`; `deckCore` on `/search` (binders) and on the state binders, `q` there too; binder text matches the owner's handle and a deck core's card names; **new** `GET /regions/{region}/binders` (the whole region); `deckCoreCount` / `deckCoreTotal` on `/regions/{region}/binder-counts` (`binderCount` counts deck cores too) |
+| Seed | collector2's public deck core "Moth Queen core" ($95, three key cards, no photo) |
+| Privacy | `GeoPrivacyContractTest.deckCoresCarryThePlaceOnly`: the deck core page, its key cards, the deck cores of a card, binder search and the lists filtered to deck cores, the map's counts — a state and a country, never a city or a private note |
+
+**Decisions, and why**
+
+1. **Photos, price and note are kept when the switch goes off** (turning it on again brings them
+   back); public views show them for a deck core only. Deleting the binder removes them ("Its
+   photos, price and note go away").
+2. **Turning "Sell as a deck core" on makes the binder Public**, as the mockup's switch does; the
+   collector can choose Private again and the hint then says buyers cannot find it.
+3. **Everything of Edit binder is saved with "Save changes"**, cards and photos included (screen 18:
+   "Save changes (disabled until a change)"), as Edit card saves its photos (R2 decision 11):
+   nothing moves until the button, and a mistake can be left unsaved.
+4. **The cards added to a deck core become public** (one bulk `SET_VISIBILITY`): its key cards are
+   for buyers, and a card added on the phone starts private (R2), so it would otherwise never show
+   on the core's page or in its search. The binder decides who sees them. A plain binder leaves its
+   cards' visibility alone. Said in the picker: "Buyers see them when the deck core is public."
+5. **A public deck core counts as a public binder** everywhere (lists, map, profile count); the map
+   keeps `binderCount` as every public binder and adds `deckCoreCount`, so the web's map stays as it
+   was and R5's state card says "{binderCount − deckCoreCount} binders · {deckCoreCount} deck cores".
+6. **A region-wide binder list** (`GET /regions/{region}/binders`, not in the spec's list): Search ›
+   Binders without a state (the chip's ×, "back to the whole region") needs it, and `/search`
+   requires a text.
+7. **Binder text search also matches handles** (spec section 8: "It matches binder names, handles
+   and, for deck cores, their key cards") on `/search` and the lists: the paused web's binder search
+   finds a collector's binders by their handle too (additive).
+8. **Key cards are capped at 30** in responses, most copies first (the chips of a page; a core of
+   60 cards rarely holds more than 20 different ones).
+9. **`excludeDeckCoreItems` is not passed by the phone yet**: today's card holders screen has no
+   "Also in a deck core" banner, and leaving the core's cards out without it would hide the core
+   from a buyer who searches its card. R5 passes it with the banner.
+10. **The owner opens a binder on Edit binder** (`binders/[id]` and the rows), and its public page
+    from the eye button; the publications "1 hour / 24 hours" of the paused web are not offered on
+    the phone any more (Private | Public, as R2 did for cards); a running temporary publication
+    reads Public, an ended one Private.
+11. **The plain public binder gets the fixed "Message {handle}"** of the deck core page (restyled
+    "to this look"), and loses the availability filter (R2 removed "Available for" from the phone).
+12. **The deck core page's back button and the public binder's carry the header back button's id**
+    (`BackButton`), so the native flows go back the same way on every screen.
+13. **New tokens** `deckCore.surface` (#1A1720 dark, #FAF7FF light) and `deckCore.border` (#4C3D74
+    dark, #C4B5FD light): the mockup's card and row colours, mobile-only like the deckCore family.
+14. **"Delete binder" of a plain binder** says only "Your cards stay in your inventory." (the spec's
+    sentence names photos, a price and a note, which a plain binder does not show).
+15. **The light theme's amber hint** ("Buyers can only find a deck core when it is public.") is
+    drawn in ink with an amber icon: the amber reads under 4.5 : 1 on the light background.
+16. **Avatar initials no longer grow with the text size** (they overflowed their circle at the
+    largest size; a fix of the shared `Avatar`).
+
+**The defaults of section 16 this stage applies:** 6 (a sold deck core is hidden: `sold_at` makes
+a binder and its cards not public; selling it is R4's). Default 1 (dark on a new install) is R1's
+and every R3 screen follows it.
+
+**The API that R5 will use:** `GET /search/deck-cores` ("Also in a deck core", at most 3),
+`excludeDeckCoreItems=true` on the card holders, `GET /search?types=binders&deckCore=` with `q`,
+`GET /regions/{region}/subdivisions/{code}/binders` and `GET /regions/{region}/binders` with
+`deckCore` and `q`, `deckCoreCount` on the binder counts; every binder row carries `sellsAsCore`,
+`askingPriceText`, `previewImages` (the 56 pt photo or the fan) and the owner's handle and province.
+
+**What changed on the phone**
+
+| Part | What |
+| --- | --- |
+| Inventory › Binders (17) | `src/features/binders/InventoryBinders.tsx`, `BinderRows.tsx` (`OwnBinderRow`, `CardFan`, `CoreThumb`, `DeckCoreTag`); the Binders side of `app/(tabs)/inventory.tsx` |
+| Edit binder / New binder (18) | `BinderEditor.tsx`, `BinderCardsSection.tsx`, `CardPickerSheet.tsx` (replaces `AddItemsSheet`), `binderForm.ts`, `binderUiStore.ts`; `app/binders/edit.tsx`, `new.tsx`, `[id].tsx`; `VisibilityToggle` exported from `CardFormFields`, `CardPhotos` with an optional hint and test id |
+| Deck core page (16) | `DeckCorePage.tsx`, `PhotoPager.tsx`, `SellerRow.tsx` |
+| Public binder | `PublicBinderView.tsx` restyled |
+| Copy | `binderCopy.ts` (one object per screen) |
+| Hooks | `useApplyBinderPhotoChanges` in `src/api/hooks/binders.ts` |
+| Tokens | `deckCore.surface`, `deckCore.border` (`packages/design-tokens`, synced) |
+| Removed | `OwnBinderView`, `BinderForm`, `BinderRow`, `AddItemsSheet` |
+| Tests | jest `screens/binders` (rewritten, 26), `features/binderForm` (13), `screens/inventory` (Binders), `theme/tokens`; Playwright `binders.spec.ts` (rewritten: a deck core with a photo, a price and a key card; a buyer's page and Message; a plain binder; the limit; a public binder), `search-segments.spec.ts` (the seller row); Maestro native flow 2 `deck-core.yaml` (new), `binder-create-add-item.yaml` and `limit-reached.yaml` on the new screens, `scripts/check-binder.js` (new), `scripts/create-collector.js` (`PLACE`, `DISCOVERABLE`) |
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-15, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 26 s: **166 classes / 1013 tests** (+4 classes, +17 tests: `DeckCoreIT` 6, `DeckCoreSearchIT` 3, `DeckCoreRulesTest` 3, `PublicPriceTest` 1, `InventoryLockOrderIT` +3 cases, `GeoPrivacyContractTest` +1, `SeedDataRunnerIT` counts) + 12 catalog tests in 2 classes, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed (`2af38a33`), git clean afterwards (again at the end) |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed: `git diff 3cb9c930 -- apps/web-angular` is empty) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests** against the regenerated client; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint: 0 warnings) |
+| `npm run test:mobile` | passed: jest **91 suites / 949 tests** + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **56 / 56** (57 s) on the final tree. The first full run was 54 / 56: two mistakes of the new `binders.spec.ts` ("New binder" is also the empty state's button; "azure" matches two cards of the seed binder), fixed in the spec |
+| `npm run test:mobile:maestro -- --platform ios` | MAESTRO_RESULT |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+Mutations run by hand, each caught: the card holders without the deck core exclusion
+(`DeckCoreSearchIT`), a photo upload that skips the owner lock (`InventoryLockOrderIT`,
+`BINDER_PHOTO_ADD`), no `sold_at` rule (`DeckCoreIT`, `DeckCoreSearchIT`).
+
+**The walk on the simulator** (scratch Maestro flows and a scratch setup on the isolated stack:
+a fictional seller in Quebec with a deck core "Snake-Eye core" — two photos, "$180", a note, four key
+cards — and three plain binders, and a buyer in Ontario; screenshots kept outside the repository,
+compared with the mockup's screens 16, 17 and 18): in dark and in light at the default text size,
+then in dark at the largest accessibility size (the launch argument of
+`subflows/relaunch-large-text.yaml`): Inventory › Binders, Edit binder of the deck core (top and
+bottom), the delete sheet, the deck core private (the amber hint), the switch off ("Cards inside"),
+Edit binder of a plain binder, New binder, the deck core page (photo 1 and 2) and the plain public
+binder as the buyer. The screens match the mockup in order, wording, colours and sizes; the
+differences are the decisions above (Reorder under the tip, the eye button of Edit binder, Report on
+the deck core page, the cards listed in the dashed section). Found during the walk and fixed:
+"0 binders · 1 deck core", the avatar initials overflowing their circle and the seller's handle cut
+to one line at the largest size, the amber hint in light. Native flow 2 passed on its own before
+the suite (1 min 59 s), and so did the three changed flows (binder, limit, map). The walk's two
+accounts were deleted from the Auth emulator afterwards; the owner's text size (Large) and
+appearance (light) were put back and are as they were.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the flows keep their
+Android steps, `subflows/pick-newest-photo.yaml`'s Android branch was never run); the camera ("Take a
+photo" of a deck core: the simulator has none, jest only); VoiceOver on a real iPhone (the page
+dots' names and the adjustable photo pager are covered by jest and the accessibility tree only);
+the deck core sold (`sold_at` is set by stage R4; R3 covers it with SQL updates in the tests).
+
+**Known gaps, by design or for a later stage**
+
+- Finding a deck core in Search › Binders › Deck cores and on the map's state card is stage R5's
+  (native flow 2 says so); so is "Also in a deck core" on the one card page with
+  `excludeDeckCoreItems`. Marking a deck core sold, and the chat pinned to it, are R4's.
+- The collectors section of search counts in a marker's `publicBinderCount` only the binders that
+  hold a public card (a deck core without cards is not counted there until R6 reworks profiles).
+- The anonymous map counts (cached 60 s, cleared by a binder's publication events) follow the
+  switch of a binder that is already public within those 60 s: turning "Sell as a deck core" on or
+  off publishes no event (signed-in counts are live).
+- Each run of native flow 2 adds one more copy of the fictional photo to the simulator's photo
+  library (`xcrun simctl addmedia` has no undo), as native flow 1 does.
+- In light, the app's orange under white text or as text reads under 4.5 : 1 (R2's known gap,
+  unchanged).
+
+**Owner follow-ups:** confirm decisions 2 (the switch makes the binder Public), 4 (the cards added
+to a deck core become public), 6 (the region-wide binder list) and 9 (`excludeDeckCoreItems` waits
+for R5's banner); whether a deck core with no cards should still say "{n} photos" on Inventory ›
+Binders when it has no photo either ("0 photos · Public").
+
 ## NEXT TASK
 
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
@@ -5820,8 +6024,9 @@ run audit:gate` OK. Not verifiable here: the Android run (no Android SDK on this
 > backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14);
 > stage R1 of the phone redesign (#72, 2026-10-14); stage F1, free for all (#73, 2026-10-15);
 > stage R2 of the phone redesign (its pull request, after this merge). Migrations V001 to V114
-> are applied and frozen; R1's V115 and V116, F1's V120–V123 and R2's V125 freeze as each lands on
-> `main` (V117–V119 are unused; V124 is kept for another branch); the next one is **V126**. R2
+> are applied and frozen; R1's V115 and V116, F1's V120–V123, R2's V125 and R3's V126 freeze as
+> each lands on `main` (V117–V119 are unused; V124 is kept for another branch); the next one is
+> **V127**. R2
 > wrote its migration as V117 and renumbered it to V125 when it merged F1: Flyway runs without
 > `outOfOrder`, and a database already at V123 would refuse a V117 it has not applied. The owner's
 > local database migrates on the next `npm run dev` and loses its trading areas by design (S1).
@@ -5838,27 +6043,37 @@ run audit:gate` OK. Not verifiable here: the Android run (no Android SDK on this
 > UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
 > ("the Android run could not be verified").
 >
-> **Exact next task: stage R3 of the phone redesign, "Binders and deck cores"**
-> (mockup screens 16 to 18, and Inventory › Binders), on a new branch from the `main` that holds
-> R2, as [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
-> says in sections 7 (the screens), 12 ("Binders and deck cores": `sells_as_core`,
-> `asking_price_text` parsed with `common/AskingPriceText` as for cards, `asking_price` with its
-> currency, `sold_at`; the description as the core's public note, 500 on the phone; a
-> `binder_image` table with `POST` / `DELETE /binders/{id}/images`, at most 4; `previewImages` on
-> the summaries; `sellsAsCore`, `askingPriceText`, photos and `keyCards` in the public responses;
-> `excludeDeckCoreItems` on the card holders; `GET /search/deck-cores`; `deckCore` and `q` on the
-> binder searches; `deckCoreCount` on the map counts), 14 and 15. Inventory › Binders (17)
-> replaces the binder list R2 left on the Binders side; Edit binder (18) also serves "New binder"
-> (a reached `binders.max` keeps F1's plain message); the deck core page (16) has a Message button
-> that opens the chat without a pinned card until R4. Its migration is **V126** (the first free
-> number after R2's V125; V124 is kept for another branch). Then R4 to R8 in order, one branch and
-> one PR each, each with its builder, at least two independent reviewers and at most two fix rounds (the spec's section 15);
-> none of them builds a paid feature (ADR 0019). Read first: `CLAUDE.md`;
-> `docs/development/claude-handoff.md` (where things stand, the working agreements, the check
-> list, the simulator rules and lock); this section; the spec (the owner's prompt, verbatim;
-> sections 0 to 3, 7, 12 to 17); ADR 0018 and ADR 0019; R1's, F1's and R2's sections of this file;
-> `docs/api/contracts/r2-inventory-phone.md`; then the delivery report's sections (f) and (h) for
-> the decisions and defects that the redesign meets.
+> **Stage R3 of the phone redesign is built** ("Binders and deck cores", mockup screens 16 to 18
+> and Inventory › Binders; section "Phone redesign R3: binders and deck cores (2026-10-15)" above;
+> branch `feature/r3-binders-deck-cores`, builder done, not pushed): V126 (`sells_as_core`, the
+> price as typed, `sold_at`, `binder_image`), binder photos, key cards and preview pictures, deck
+> cores in the public lists, and the search API of R5 (`excludeDeckCoreItems`, `GET
+> /search/deck-cores`, `deckCore` and `q`, `GET /regions/{region}/binders`, `deckCoreCount`); on the
+> phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core
+> page and the public binder restyled. Its review (a functional verifier and a product and UX
+> reviewer as a collector, at most two fix rounds) and its pull request come first.
+>
+> **Exact next task: stage R4 of the phone redesign, "Messages and Mark as sold"** (mockup screens
+> 22 to 25), on a new branch from the `main` that holds R3, as
+> [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
+> says in sections 10 (the inbox, the chat with its pinned bar, tips and quick replies, the + sheet
+> with Settings › Shipping details, Mark as sold and its undo), 12 ("Messaging and sales": the chat
+> subject `subject_item_id` / `subject_binder_id` with `POST /conversations` pinning a card or a
+> deck core, `inventoryItemId` on `CARD_LINK`, the `sale` table with `POST
+> /conversations/{id}/sales` and `POST /sales/{id}/undo`, the sale message, the SALE interaction,
+> the buyer's notification, a deals module), 13, 14 (native flow 4) and 15; spec section 16
+> defaults 3, 4, 6, 8 and 10. R3 leaves for R4: the deck core page's "Message {handle}" opens the
+> chat **without** a pinned card (R4 pins the deck core), and `binder.sold_at` exists but nothing
+> sets it (R4's Mark as sold of a deck core sets it and soft-deletes its cards; a sold binder is
+> already hidden by the visibility rule). Its migration is **V127** (V124 is kept for another
+> branch). Then R5 to R8 in order, one branch and one PR each, each with its builder, at least two
+> independent reviewers and at most two fix rounds (the spec's section 15); none of them builds a
+> paid feature (ADR 0019). Read first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where
+> things stand, the working agreements, the check list, the simulator rules and lock); this
+> section; the spec (the owner's prompt, verbatim; sections 0 to 3, 10 to 17); ADR 0018 and ADR
+> 0019; R1's, F1's, R2's and R3's sections of this file; `docs/api/contracts/r2-inventory-phone.md`
+> and `r3-binders-deck-cores.md`; then the delivery report's sections (f) and (h) for the decisions
+> and defects that the redesign meets.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
