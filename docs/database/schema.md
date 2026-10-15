@@ -156,7 +156,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V120 | `V120__remove_advertising.sql` | Stage F1 ("free for all", ADR 0019): the `ad_*` tables and `advertiser` dropped, the `advertising` flag deleted |
 | V121 | `V121__remove_donations.sql` | Stage F1: `donation` and `donation_webhook_event` dropped, `donations.*` settings and the `donations` flag deleted, incomplete outbox rows of `DonationWebhookReceived` completed |
 | V122 | `V122__remove_credits.sql` | Stage F1: `credit_ledger_entry` (with its append-only trigger function), view `credit_balance`, `credit_product`, `referral_code`, `referral_redemption` dropped; `credits.*` settings, the `credits` flag, the entitlements bought with credits and the `credits-reconcile` job runs deleted |
-| V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten and links to removed pages dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
+| V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -572,7 +572,9 @@ check it (the import for all the items it would add, every chunk, before the fir
 Since V123 (stage F1) the table holds one row per key with the FREE value of before (an admin edit
 of a FREE row is kept; a key only another plan defined would have become unlimited — none did):
 `binder.views.per_day` 30, `wishlist.alerts.per_day` 5, `wishlist.items.max` 20,
-`binders.max` 5, `saved_searches.max` 0, `offers.per_day` 20, `inventory.items.max` unlimited.
+`binders.max` 5, `offers.per_day` 20, `inventory.items.max` unlimited. `saved_searches.max` (0 /
+50) was deleted by V123 with its counters: it limited a feature that was never built and only
+existed as a Premium perk (as `map.radius.max_km` went with the map radius in V109).
 `Limits` (module `limits`) caches the rows in Redis (`orenji:cache:usage-limits:v1`, 60 s, evicted
 after every admin write); `GET /me/limits` returns them with the caller's usage.
 
@@ -2253,15 +2255,17 @@ dropped here (V011, V090–V093 are the original definitions).
   history of the removed `credits-reconcile` job.
 - **V123 — Premium:** drops `billing_webhook_event`, `subscription_event`, `subscription`,
   `entitlement`, `plan_feature`, `user_account.plan_code` and `plan`; `usage_limit` keeps one row
-  per key (the FREE plan's value, with any admin edit; `plan_id` dropped, `UNIQUE (limit_key)`);
+  per key (the FREE plan's value, with any admin edit; `plan_id` dropped, `UNIQUE (limit_key)`)
+  and loses `saved_searches.max` (a Premium perk of a feature never built) with its counters;
   the `PREMIUM_USER` role leaves `user_role` (rows deleted, check constraint rebuilt as
   `ck_user_role_role`); deletes the `premiumPlans` flag and the run history of
   `subscriptions-period`.
 
 **Old data (V123):** the daily "limit reached" notices lose `planCode`, `upgradeUrl`, their link to
-`/premium` and the "Upgrade to Premium" sentence (rewritten as the API writes them now); any other
-notification linking to `/premium`, `/credits`, `/support` or their fake checkouts keeps its text
-and loses the link; outbox rows of the removed billing events are completed. Audit rows of the old
+`/premium` and the "Upgrade to Premium" sentence (rewritten as the API writes them now); admin
+broadcasts (`data.kind` `BROADCAST`) that linked to `/premium`, `/credits`, `/support` or their fake
+checkouts promoted those features and are deleted (no table references a notification); any other
+notification linking there keeps its text and loses the link (the API writes none); outbox rows of the removed billing events are completed. Audit rows of the old
 actions stay as history. Covered by `PaidFeaturesRemovalMigrationIT` (a scratch database migrated
-to V119, filled with plans, subscriptions, entitlements, credits, ads, donations, old notices and
-outbox rows, then migrated to the latest version) and `FlywayMigrationIT`.
+to V119, filled with plans, subscriptions, entitlements, credits, ads, donations, old notices,
+promotional broadcasts and outbox rows, then migrated to the latest version) and `FlywayMigrationIT`.

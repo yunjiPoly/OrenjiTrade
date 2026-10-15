@@ -15,18 +15,18 @@ import {
  * Platform rules in the admin console (Phase 2) against the real local stack: a super admin edits
  * a usage limit inline (one limit per key, the same for every collector since stage F1); it
  * persists after a reload and reaches every collector at once. Admins see the rules read-only.
- * The limit (`saved_searches.max`, consumed by nothing yet) is restored afterwards. Switching a
- * feature flag changes shared state: it runs alone, after every other spec
- * (`admin-flags.spec.ts`). Each test uses a fresh account promoted by the seed super admin (and
- * demoted at the end).
+ * The limit (`binder.views.per_day`, only ever raised here, so a spec running at the same time is
+ * never refused because of it) is restored afterwards. Switching a feature flag changes shared
+ * state: it runs alone, after every other spec (`admin-flags.spec.ts`). Each test uses a fresh
+ * account promoted by the seed super admin (and demoted at the end).
  */
 
 const SUPER_ADMIN = 'superadmin@orenjitrade.test';
 /** A flag the read-only check looks at (never changed here). */
 const FLAG = 'publicChat';
-const LIMIT_KEY = 'saved_searches.max';
+const LIMIT_KEY = 'binder.views.per_day';
 /** Its description in `usage_limit`, the name the admin console gives it. */
-const LIMIT_NAME = 'Saved searches';
+const LIMIT_NAME = 'Public binder views per day';
 
 interface UsageLimit {
   id: string;

@@ -91,7 +91,7 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
                 .isZero();
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) = count(DISTINCT limit_key) AND count(*) = 7 FROM"
+                                "SELECT count(*) = count(DISTINCT limit_key) AND count(*) = 6 FROM"
                                         + " usage_limit WHERE limit_key NOT LIKE 'test.%'",
                                 Boolean.class))
                 .as("one usage limit per key")

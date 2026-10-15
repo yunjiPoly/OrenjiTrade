@@ -88,7 +88,8 @@ entries. Nothing happens while the real catalog is absent.
 - Notifications: a few read/unread for collector1.
 - Usage limits (migrations, not the seed): the same for every collector since stage F1 (ADR
   0019): 5 binders, 30 public binder views a day, 20 wishes, 5 wishlist alerts a day, 20 offers a
-  day, `saved_searches.max` 0 (no feature uses it), an unlimited inventory. No plans, subscriptions,
+  day, an unlimited inventory (`saved_searches.max`, a Premium perk of a feature never built,
+  left with Premium in V123). No plans, subscriptions,
   credits, campaigns or donations are seeded any more (stage F1 removed them).
 - Delist policy: ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days.
 - Feature flags (migration state, V010 + V105 launch configuration; the `premiumPlans`,

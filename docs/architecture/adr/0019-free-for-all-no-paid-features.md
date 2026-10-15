@@ -36,7 +36,9 @@ keep protected payments.
    (Premium) drop their tables, columns, rows and flags.
 2. **Usage limits stay, the same for every collector.** A new `limits` module holds what the
    billing module had for them: `Limits`, one `usage_limit` row per key (plan_id dropped, the
-   FREE row kept with any admin edit), `usage_counter`, the 429 `LIMIT_REACHED` problem without
+   FREE row kept with any admin edit; `saved_searches.max`, which limited a feature never built
+   and only existed as a Premium perk, goes, as `map.radius.max_km` went with the map radius in
+   V109), `usage_counter`, the 429 `LIMIT_REACHED` problem without
    `planCode` or `upgradeUrl`, `GET /api/v1/me/limits` (replaces `GET /me/plan`) and
    `GET`/`PUT /api/v1/admin/usage-limits` (one row per key). A collector who reaches a limit is
    told which limit, how much is used and when it resets; nothing offers a plan.
@@ -60,8 +62,8 @@ keep protected payments.
 - Limits are a single table edited live; a different cap for some collectors would need a new
   decision (and new code: there is no per-account override any more).
 - Old data the apps can still meet: the daily "limit reached" notices lose their plan, upgrade
-  link and Premium sentence (V123 rewrites them); any other notification linking to a removed
-  page loses the link; outbox rows of the removed events are completed; the run history of the two
+  link and Premium sentence (V123 rewrites them); admin broadcasts that linked to a removed page
+  promoted it and are deleted; any other notification linking to one loses the link; outbox rows of the removed events are completed; the run history of the two
   removed jobs is deleted so System Health does not show them as stopped; admin audit rows of the
   old actions (`plan.update`, `credits.grant`, `ads.campaign.create`, `donation.refund`,
   `subscription.cancel`, `entitlement.grant`, ...) stay as history and render as text. The phone

@@ -48,7 +48,6 @@ const LIMIT_NAMES: Record<string, string> = {
   'binder.views.per_day': 'public binder views today',
   'wishlist.items.max': 'wishlist items',
   'offers.per_day': 'offers today',
-  'saved_searches.max': 'saved searches',
   'inventory.items.max': 'inventory cards',
 };
 

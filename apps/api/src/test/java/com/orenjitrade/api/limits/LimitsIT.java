@@ -45,7 +45,6 @@ class LimitsIT extends AbstractIntegrationTest {
         LIMITS.put("binders.max", 5);
         LIMITS.put("inventory.items.max", null);
         LIMITS.put("offers.per_day", 20);
-        LIMITS.put("saved_searches.max", 0);
         LIMITS.put("wishlist.alerts.per_day", 5);
         LIMITS.put("wishlist.items.max", 20);
     }

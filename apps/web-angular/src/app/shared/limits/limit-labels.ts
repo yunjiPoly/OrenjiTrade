@@ -10,7 +10,6 @@ const LIMIT_LABELS: Record<string, string> = {
   'wishlist.alerts.per_day': 'Wishlist alerts per day',
   'wishlist.items.max': 'Wishlist items',
   'binders.max': 'Binders',
-  'saved_searches.max': 'Saved searches',
   'offers.per_day': 'Offers sent per day',
   'inventory.items.max': 'Inventory items',
 };

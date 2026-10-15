@@ -23,8 +23,9 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
  * the local seeds: Flyway builds a scratch database up to V119, fictional subscriptions, billing
  * webhooks, entitlements, a credit ledger with referrals, ad campaigns with impressions, clicks and
  * conversions, donations, a PREMIUM account with its role, usage limits with an admin edit, usage
- * counters, old notifications, outbox rows, job runs and audit rows are inserted, then the rest of
- * the migrations run. A database migrated from scratch is covered by {@link FlywayMigrationIT}.
+ * counters (one of saved_searches.max), old notifications and promotional broadcasts, outbox rows,
+ * job runs and audit rows are inserted, then the rest of the migrations run. A database migrated
+ * from scratch is covered by {@link FlywayMigrationIT}.
  *
  * <p>The scratch database lives in the shared Testcontainers PostGIS server (never a developer
  * database) and is dropped afterwards. No Spring context is needed.
@@ -49,6 +50,10 @@ class PaidFeaturesRemovalMigrationIT {
     private static final UUID SUPPORT_BROADCAST = id("ab40", 3);
     private static final UUID WISHLIST_BROADCAST = id("ab40", 4);
     private static final UUID CHECKOUT_BROADCAST = id("ab40", 5);
+    private static final UUID PREMIUM_BROADCAST = id("ab40", 6);
+    private static final UUID CREDITS_BROADCAST = id("ab40", 7);
+    private static final UUID LOOKALIKE_BROADCAST = id("ab40", 8);
+    private static final UUID OTHER_LINKED_NOTICE = id("ab40", 9);
 
     private static final UUID BILLING_WEBHOOK_PUBLICATION = id("ab50", 1);
     private static final UUID SUBSCRIPTION_PUBLICATION = id("ab50", 2);
@@ -137,7 +142,6 @@ class PaidFeaturesRemovalMigrationIT {
         expected.put("binders.max", 7);
         expected.put("inventory.items.max", null);
         expected.put("offers.per_day", 20);
-        expected.put("saved_searches.max", 0);
         expected.put("wishlist.alerts.per_day", 5);
         expected.put("wishlist.items.max", 20);
         assertThat(limits)
@@ -165,6 +169,13 @@ class PaidFeaturesRemovalMigrationIT {
                                 PREMIUM_USER))
                 .as("counters are untouched")
                 .isEqualTo(12);
+        assertThat(
+                        db.queryForObject(
+                                "SELECT count(*) FROM usage_counter WHERE limit_key ="
+                                        + " 'saved_searches.max'",
+                                Integer.class))
+                .as("saved_searches.max, a Premium perk of a feature never built, is gone")
+                .isZero();
     }
 
     @Test
@@ -223,14 +234,27 @@ class PaidFeaturesRemovalMigrationIT {
                                 + " resets tomorrow.");
         assertThat((String) plain.get("data")).doesNotContain("planCode");
 
-        Map<String, Object> support = notification(SUPPORT_BROADCAST);
-        assertThat(support.get("title")).isEqualTo("Thank you");
-        assertThat((String) support.get("data")).doesNotContain("deepLink");
-        assertThat((String) notification(CHECKOUT_BROADCAST).get("data"))
-                .doesNotContain("deepLink");
+        // Broadcasts that promoted a removed feature (they linked to its screen) are deleted.
+        for (UUID promotion :
+                List.of(
+                        SUPPORT_BROADCAST,
+                        CHECKOUT_BROADCAST,
+                        PREMIUM_BROADCAST,
+                        CREDITS_BROADCAST)) {
+            assertThat(exists(promotion)).as("promotion %s", promotion).isFalse();
+        }
         assertThat((String) notification(WISHLIST_BROADCAST).get("data"))
                 .as("links to screens that stay are kept")
                 .contains("\"deepLink\": \"/wishlist\"");
+        assertThat((String) notification(LOOKALIKE_BROADCAST).get("data"))
+                .as("a path that only starts like a removed one")
+                .contains("\"deepLink\": \"/premiumcards\"");
+        Map<String, Object> other = notification(OTHER_LINKED_NOTICE);
+        assertThat(other.get("body")).isEqualTo("Your support request was answered.");
+        assertThat((String) other.get("data"))
+                .as("any other notice keeps its text and loses the link")
+                .contains("\"kind\": \"NOTICE\"")
+                .doesNotContain("deepLink");
     }
 
     @Test
@@ -312,6 +336,10 @@ class PaidFeaturesRemovalMigrationIT {
         db.update(
                 "INSERT INTO usage_counter (user_id, limit_key, window_start, count) VALUES (?,"
                         + " 'binder.views.per_day', date_trunc('day', now()), 12)",
+                PREMIUM_USER);
+        db.update(
+                "INSERT INTO usage_counter (user_id, limit_key, window_start, count) VALUES (?,"
+                        + " 'saved_searches.max', to_timestamp(0), 3)",
                 PREMIUM_USER);
 
         // Credits: a grant, a referral and its redemption.
@@ -421,6 +449,26 @@ class PaidFeaturesRemovalMigrationIT {
                 "Your wishlist",
                 "Add the cards you are looking for.",
                 "{\"kind\": \"BROADCAST\", \"deepLink\": \"/wishlist\"}");
+        notification(
+                PREMIUM_BROADCAST,
+                "Go Premium",
+                "Try Premium.",
+                "{\"kind\": \"BROADCAST\", \"deepLink\": \"/premium#plans\"}");
+        notification(
+                CREDITS_BROADCAST,
+                "Earn credits",
+                "Invite a friend and earn credits.",
+                "{\"kind\": \"BROADCAST\", \"deepLink\": \"/credits?tab=referrals\"}");
+        notification(
+                LOOKALIKE_BROADCAST,
+                "Premium cards",
+                "See the most traded cards.",
+                "{\"kind\": \"BROADCAST\", \"deepLink\": \"/premiumcards\"}");
+        notification(
+                OTHER_LINKED_NOTICE,
+                "Support",
+                "Your support request was answered.",
+                "{\"kind\": \"NOTICE\", \"deepLink\": \"/support\"}");
 
         // Incomplete outbox rows, job runs and audit rows.
         publication(
@@ -482,6 +530,14 @@ class PaidFeaturesRemovalMigrationIT {
     private static Map<String, Object> notification(UUID id) {
         return db.queryForMap(
                 "SELECT title, body, data::text AS data FROM notification WHERE id = ?", id);
+    }
+
+    private static boolean exists(UUID notification) {
+        return Boolean.TRUE.equals(
+                db.queryForObject(
+                        "SELECT count(*) > 0 FROM notification WHERE id = ?",
+                        Boolean.class,
+                        notification));
     }
 
     private static boolean completed(UUID publication) {

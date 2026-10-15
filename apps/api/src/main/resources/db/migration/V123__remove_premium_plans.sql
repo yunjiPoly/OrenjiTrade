@@ -2,8 +2,9 @@
 -- collector (stage F1 "free for all", owner decision of 2026-10-14; ADR 0019). Removed: the plans
 -- and their feature switches (V011), the per-account overrides (entitlements, V011), the
 -- subscriptions, their history and the billing provider webhooks (V090), user_account.plan_code,
--- the PREMIUM_USER role and the premiumPlans feature flag. Kept: usage_limit and usage_counter,
--- one limit per key with today's FREE numbers, edited in /admin/usage-limits as before.
+-- the PREMIUM_USER role, the premiumPlans feature flag and saved_searches.max (a Premium perk of a
+-- feature never built). Kept: usage_limit and usage_counter, one limit per key with today's FREE
+-- numbers, edited in /admin/usage-limits as before.
 --
 -- The code is kept on the branch archive/paid-features; bringing Premium back means that code plus
 -- a new migration recreating these objects (V011 and V090 are their definitions) and giving
@@ -43,6 +44,13 @@ SELECT DISTINCT ON (l.limit_key) f.id, l.limit_key, l.kind, l.limit_window, NULL
 
 DELETE FROM usage_limit
  WHERE plan_id <> (SELECT id FROM plan WHERE code = 'FREE');
+
+-- saved_searches.max (V011: 0 on FREE, 50 on PREMIUM) limited a feature that was never built: it
+-- only existed as a Premium perk, so it goes with Premium, as map.radius.max_km went with the map
+-- radius (V109). Nothing consumed it; any counter of it goes too. A saved-searches feature would
+-- bring its own limit in its own migration.
+DELETE FROM usage_limit WHERE limit_key = 'saved_searches.max';
+DELETE FROM usage_counter WHERE limit_key = 'saved_searches.max';
 
 ALTER TABLE usage_limit
     DROP CONSTRAINT uq_usage_limit_plan_key,
@@ -93,8 +101,20 @@ UPDATE notification
  WHERE type = 'SYSTEM'
    AND data ->> 'kind' = 'LIMIT_REACHED';
 
--- Any other notification (an admin broadcast, for example) linking to a screen removed by stage F1
--- (Premium, credits, "Support OrenjiTrade" and their checkouts) keeps its text and loses the link.
+-- Admin broadcasts (SYSTEM, data.kind = BROADCAST) that linked to a screen removed by stage F1
+-- (Premium, credits, "Support OrenjiTrade" and their checkouts) promoted those features ("Go
+-- Premium", "Invite a friend and earn credits", "Keep OrenjiTrade running with a donation"): a
+-- broadcast is a mass announcement, not a collector's own history, so they are deleted. No table
+-- references a notification. (A broadcast that talked about them without a link cannot be told
+-- apart from any other and stays as written.)
+DELETE FROM notification
+ WHERE type = 'SYSTEM'
+   AND data ->> 'kind' = 'BROADCAST'
+   AND (data ->> 'deepLink' ~ '^/(premium|credits|support)([/?#]|$)'
+        OR data ->> 'deepLink' ~ '^/checkout/fake-(billing|donation)(/|$)');
+
+-- Any other notification linking to one of these screens (none is written by the API; this is
+-- defensive) keeps its text and loses the link.
 UPDATE notification
    SET data = data - 'deepLink'
  WHERE data ->> 'deepLink' ~ '^/(premium|credits|support)([/?#]|$)'

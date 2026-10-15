@@ -815,7 +815,7 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     cancel, admin suspend/unsuspend and the audit log, moderator/collector restrictions.
   - `e2e/catalog.spec.ts` (autocomplete to card detail with keyboard, printings and set page,
     filters in the URL, printing-code search, not-found) and `e2e/admin-rules.spec.ts` (super
-    admin edits a usage limit inline (`saved_searches.max`, one row for everyone), it persists
+    admin raises a usage limit inline (`binder.views.per_day`, one row for everyone), it persists
     after a reload and `GET /me/limits` follows, then it is restored; admins read-only; game schema
     validation; mock catalog
     sync).
