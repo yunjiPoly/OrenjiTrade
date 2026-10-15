@@ -9,7 +9,7 @@ import {
 
 import { inventoryListQuery, type InventoryFilters } from '@/src/lib/inventoryFilters';
 
-import type { ApiError } from '../ApiError';
+import { ApiError, isApiError } from '../ApiError';
 import { api, required } from '../client';
 import { imageFormData, type PickedImage } from '../imageFormData';
 import { meKeys } from '../queryKeys';
@@ -284,6 +284,11 @@ export interface PhotoChangesInput {
 export interface PhotoChangesResult {
   /** The keys of the photos that could not be uploaded (the card is kept: "Try again"). */
   failed: string[];
+  /**
+   * Why each of them failed, by key: the API's refusal of the photo itself (400, 409, 413, 415:
+   * trying again cannot work) or a network or server error.
+   */
+  errors: Record<string, ApiError>;
   /** The photos that could not be deleted. */
   notRemoved: string[];
 }
@@ -313,6 +318,7 @@ export function useApplyPhotoChanges() {
         }
       }
       const failed: string[] = [];
+      const errors: Record<string, ApiError> = {};
       for (const photo of add) {
         try {
           const body = await imageFormData(photo, 'card');
@@ -321,11 +327,13 @@ export function useApplyPhotoChanges() {
             body: body as unknown as { file: string },
             bodySerializer: () => body,
           });
-        } catch {
+        } catch (error) {
           failed.push(photo.key);
+          // A photo the phone could not even read is no answer of the server: as a network error.
+          errors[photo.key] = isApiError(error) ? error : ApiError.network(error);
         }
       }
-      return { failed, notRemoved };
+      return { failed, errors, notRemoved };
     },
     onSettled: async () => refreshInventory(queryClient, uid),
   });

@@ -141,6 +141,15 @@ describe('Inventory (screen 1)', () => {
       borderColor: lightPalette.primary,
     });
     expect(screen.getByTestId(`item-${ITEM_ID}`)).toHaveStyle({ borderColor: lightPalette.border });
+
+    // In Select mode the orange ring means "selected": the saved card is not ringed there.
+    fireEvent.press(screen.getByTestId('inventory-select'));
+    expect(screen.getByTestId('item-text-1')).toHaveStyle({ borderColor: lightPalette.border });
+    fireEvent.press(screen.getByTestId(`item-${ITEM_ID}`));
+    expect(screen.getByTestId(`item-${ITEM_ID}`)).toHaveStyle({
+      borderColor: lightPalette.primary,
+    });
+    expect(screen.getByTestId('item-text-1')).toHaveStyle({ borderColor: lightPalette.border });
   });
 
   it('filters and sorts in the sheet, counting the cards before they are shown (screen 2)', async () => {
@@ -202,7 +211,7 @@ describe('Inventory (screen 1)', () => {
       expect(lists().at(-1)).toEqual({
         game: 'yugioh',
         unfiled: 'true',
-        visibility: 'PUBLIC',
+        markedPublic: 'true',
         sort: 'price',
         page: '0',
         size: '24',

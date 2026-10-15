@@ -1,12 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
-import { useAccount } from '@/src/account/AccountProvider';
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBinders } from '@/src/api/hooks/binders';
+import { useCard } from '@/src/api/hooks/catalog';
 import {
   useApplyPhotoChanges,
   useConfirmInventoryItem,
@@ -43,11 +43,11 @@ import { showCardDeleted } from '@/src/features/inventory/deleteToasts';
 import { CARD_FORM_COPY, EDIT_CARD_COPY, TOAST_COPY } from '@/src/features/inventory/inventoryCopy';
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
 import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
-import { ITEM_PHOTO_MAX_COUNT } from '@/src/features/inventory/itemPhotoRules';
-import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
+import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
+import { ITEM_PHOTO_MAX_COUNT, photoRefusal } from '@/src/features/inventory/itemPhotoRules';
+import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { needsConfirmation } from '@/src/lib/inventory';
-import { isLimitReached } from '@/src/lib/limits';
-import { isRegionCode, regionName } from '@/src/lib/place';
+import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import {
   fontWeight,
   PINNED_MAX_FONT_SCALE,
@@ -62,7 +62,9 @@ import {
  * filled in; "Save changes", disabled and reading "No changes yet" until something changes (a
  * save also confirms the card is still available); the photos, saved with the button; and "Delete
  * this card", asked in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
- * hidden card keeps "Still available" (the freshness rules).
+ * hidden card keeps "Still available" (the freshness rules). Photos that were not saved (here, or
+ * when the card was added: the screen then opens on them) keep "Try again", and leaving asks
+ * first; a photo the API refused says why and can only be removed.
  */
 export default function EditCardScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -145,8 +147,9 @@ function CardEditor({
   const snackbar = useSnackbar();
   const queryClient = useQueryClient();
   const uid = useUid();
-  const me = useAccount().me;
   const binders = useMyBinders();
+  // The card's printings, to name the edition, language or finish of a code several share.
+  const card = useCard(item.card.id);
   const update = useUpdateInventoryItem();
   const confirm = useConfirmInventoryItem();
   const remove = useDeleteInventoryItem();
@@ -155,15 +158,22 @@ function CardEditor({
   const takeFailedPhotos = useInventoryUiStore((state) => state.takeFailedPhotos);
   const [form, setForm] = useState<CardFormValue>(() => cardFormOf(item));
   const [errors, setErrors] = useState<CardFormErrors>({});
-  const [failure, setFailure] = useState<ApiError | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   // Photos picked here (or not saved when the card was added), and the saved ones taken away.
-  const [picked, setPicked] = useState<LocalTile[]>(() =>
-    (useInventoryUiStore.getState().failedPhotos[item.id] ?? []).map((photo) => ({
-      photo,
-      state: 'failed' as const,
-    }))
+  const [initialFailed] = useState(
+    () => useInventoryUiStore.getState().failedPhotos[item.id] ?? []
   );
+  const [picked, setPicked] = useState<LocalTile[]>(() =>
+    initialFailed.map((photo) => ({ photo, state: 'failed' as const }))
+  );
+  // Opened on photos the add could not save: say it to a screen reader too (the screen opens on
+  // them, at the end of the form).
+  useEffect(() => {
+    const count = initialFailed.filter((photo) => !photo.problem).length;
+    if (count > 0) {
+      AccessibilityInfo.announceForAccessibility?.(CARD_FORM_COPY.photoFailed(count));
+    }
+  }, [initialFailed]);
   // Taken over: the store forgets them once this screen holds them.
   useEffect(() => {
     takeFailedPhotos(item.id);
@@ -171,12 +181,22 @@ function CardEditor({
   const [removed, setRemoved] = useState<readonly string[]>([]);
   const [saving, setSaving] = useState(false);
   const [asking, setAsking] = useState(false);
+  // Deleted: leaving no longer asks about the photos that were not saved.
+  const [gone, setGone] = useState(false);
 
-  const home = isRegionCode(me?.homeRegion) ? regionName(me.homeRegion) : null;
+  const findability = useCardFindability();
   const savedPhotos = item.images.filter((image) => !removed.includes(image.id));
   // A photo taken away and already deleted on the server no longer counts as a change.
   const toRemove = removed.filter((id) => item.images.some((image) => image.id === id));
   const pending = picked.filter((tile) => tile.state !== 'failed');
+  // Not saved, and "Try again" may still save them: leaving would lose them.
+  const unsaved = picked.filter((tile) => tile.state === 'failed' && !tile.photo.problem);
+  const guard = useLeaveGuard(unsaved.length > 0 && !gone);
+  useEffect(() => {
+    if (gone) {
+      onLeave();
+    }
+  }, [gone, onLeave]);
   const dirty = formChanged(form, item) || pending.length > 0 || toRemove.length > 0;
   const busy = saving || remove.isPending || confirm.isPending;
 
@@ -192,6 +212,7 @@ function CardEditor({
       key: tile.photo.key,
       photo: tile.photo,
       state: tile.state,
+      problem: tile.state === 'failed' ? tile.photo.problem : null,
     })),
   ];
 
@@ -204,10 +225,14 @@ function CardEditor({
     );
     let failedKeys: string[] = keys;
     let kept: readonly string[] = drop;
+    let problems: Record<string, string | null> = {};
     try {
       const result = await applyPhotos.mutateAsync({ id: item.id, add: photos, remove: drop });
       failedKeys = result.failed;
       kept = result.notRemoved;
+      problems = Object.fromEntries(
+        result.failed.map((key) => [key, photoRefusal(result.errors[key])])
+      );
     } catch {
       // Every one of them is kept for "Try again".
     }
@@ -217,7 +242,12 @@ function CardEditor({
       current
         .filter((tile) => !keys.includes(tile.photo.key) || failedKeys.includes(tile.photo.key))
         .map((tile) =>
-          failedKeys.includes(tile.photo.key) ? { ...tile, state: 'failed' as const } : tile
+          failedKeys.includes(tile.photo.key)
+            ? {
+                photo: { ...tile.photo, problem: problems[tile.photo.key] ?? null },
+                state: 'failed' as const,
+              }
+            : tile
         )
     );
     return failedKeys.length;
@@ -226,7 +256,6 @@ function CardEditor({
   const save = async () => {
     const found = validateCardForm(form);
     setErrors(found);
-    setFailure(null);
     if (hasErrors(found)) {
       setMessage(CARD_FORM_COPY.checkFields);
       return;
@@ -239,8 +268,12 @@ function CardEditor({
     } catch (error) {
       const apiError = error as ApiError;
       setErrors(serverCardErrors(apiError));
-      setFailure(apiError);
-      setMessage(isLimitReached(apiError) ? null : friendlyMessage(apiError));
+      // A reached limit is a plain cap for everyone (free for all): no plan, no upgrade.
+      setMessage(
+        isLimitReached(apiError)
+          ? CARD_FORM_COPY.inventoryFull(limitReachedInfo(apiError).limit)
+          : friendlyMessage(apiError)
+      );
       setSaving(false);
       return;
     }
@@ -270,7 +303,8 @@ function CardEditor({
   };
 
   const retry = async () => {
-    const failed = picked.filter((tile) => tile.state === 'failed').map((tile) => tile.photo);
+    // The photos the API refused stay as they are: trying them again cannot work.
+    const failed = unsaved.map((tile) => tile.photo);
     if (failed.length > 0) {
       setSaving(true);
       await upload(failed, []);
@@ -298,7 +332,8 @@ function CardEditor({
     setAsking(false);
     markSaved(null);
     showCardDeleted({ snackbar, queryClient, uid, markSaved }, item.id, item.card.name);
-    onLeave();
+    // Leaves once the guard of the photos not saved is off (the card is gone with them).
+    setGone(true);
   };
 
   const footer = (
@@ -331,11 +366,17 @@ function CardEditor({
   );
 
   return (
-    <InventoryFormScreen header={header} footer={footer} testID="screen-edit-item">
+    <InventoryFormScreen
+      header={header}
+      footer={footer}
+      startAtEnd={initialFailed.length > 0}
+      testID="screen-edit-item"
+    >
       <CardHeader
         name={item.card.name}
         game={item.card.game}
         printing={item.printing}
+        printings={card.data?.printings}
         variant="edit"
       />
       {needsConfirmation(item.freshness.state) ? (
@@ -379,7 +420,7 @@ function CardEditor({
         }}
         errors={errors}
         binders={binders.data ?? []}
-        regionName={home}
+        findability={findability}
         disabled={busy}
         photos={{
           tiles,
@@ -401,7 +442,6 @@ function CardEditor({
           onRetry: () => void retry(),
         }}
       />
-      {failure && isLimitReached(failure) ? <LimitReachedNotice error={failure} /> : null}
       {message ? <FormMessage testID="edit-item-error">{message}</FormMessage> : null}
       <ConfirmSheet
         visible={asking}
@@ -413,6 +453,16 @@ function CardEditor({
         onConfirm={() => void destroy()}
         onCancel={() => setAsking(false)}
         testID="edit-item-delete-sheet"
+      />
+      <ConfirmSheet
+        visible={guard.asking}
+        title={CARD_FORM_COPY.leaveTitle(unsaved.length)}
+        message={CARD_FORM_COPY.leaveBody(unsaved.length)}
+        confirmLabel={CARD_FORM_COPY.leave}
+        cancelLabel={CARD_FORM_COPY.stay}
+        onConfirm={guard.leave}
+        onCancel={guard.stay}
+        testID="edit-item-leave-sheet"
       />
     </InventoryFormScreen>
   );

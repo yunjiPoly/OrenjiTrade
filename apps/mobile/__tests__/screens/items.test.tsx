@@ -13,15 +13,32 @@ import {
   CARD_ID,
   ITEM_ID,
   itemFixture,
+  listingStatusFixture,
+  meFixture,
+  NOT_ONBOARDED,
   PRINTING_A,
   PRINTING_B,
+  printingFixture,
+  privacyFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, problem } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
-import { mockParams, mockRouter, resetRouterMock } from '../support/router';
+import { mockDispatch, mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
+
+/** What Edit card asked of the navigation: whether leaving is held back, and a way to try to leave. */
+const mockLeave: { held: boolean; tryToLeave: () => void } = {
+  held: false,
+  tryToLeave: () => undefined,
+};
+jest.mock('expo-router/react-navigation', () => ({
+  usePreventRemove: (held: boolean, callback: (options: { data: { action: unknown } }) => void) => {
+    mockLeave.held = held;
+    mockLeave.tryToLeave = () => callback({ data: { action: { type: 'GO_BACK' } } });
+  },
+}));
 jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn(),
   launchImageLibraryAsync: jest.fn(),
@@ -167,6 +184,58 @@ describe('Add cards (screens 3 and 4)', () => {
     expect(await screen.findByText('Cards could not load')).toBeOnTheScreen();
     expect(screen.getByTestId('add-search-retry')).toBeOnTheScreen();
   });
+
+  it('lists the printings that share a code apart, says what tells them apart, adds the one tapped', async () => {
+    const twin = (printingId: string, edition: string) => ({
+      kind: 'PRINTING',
+      id: CARD_ID,
+      printingId,
+      name: 'Emberfang Fox VMAX',
+      game: 'pokemon',
+      printingCode: 'SVX-001',
+      setCode: 'SVX',
+      setName: 'Stellar Vortex',
+      rarity: 'Ultra Rare',
+      edition,
+      language: 'en',
+      finish: 'HOLO',
+    });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/cards/suggest': ok([
+          twin(PRINTING_A, 'FIRST_EDITION'),
+          twin(PRINTING_B, 'UNLIMITED'),
+        ]),
+        'GET /api/v1/cards/{id}': ok(
+          cardDetailFixture({
+            printings: [
+              printingFixture({ edition: 'FIRST_EDITION' }),
+              printingFixture({ id: PRINTING_B, edition: 'UNLIMITED' }),
+            ],
+          })
+        ),
+        'POST /api/v1/inventory/items': ok(itemFixture(), 201),
+      })
+    );
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    fireEvent.press(screen.getByTestId('add-cards-search'));
+    fireEvent.changeText(await screen.findByTestId('add-search-input'), 'SVX-001');
+    // Two rows, not one: each names its edition next to the code.
+    const first = await screen.findByTestId(`add-printing-SVX-001-${PRINTING_A}`);
+    const unlimited = screen.getByTestId(`add-printing-SVX-001-${PRINTING_B}`);
+    expect(first).toHaveTextContent(/^SVX-0011st EditionStellar VortexUltra Rare$/);
+    expect(unlimited).toHaveTextContent(/^SVX-001UnlimitedStellar VortexUltra Rare$/);
+    expect(unlimited.props.accessibilityLabel).toMatch(/^SVX-001, Unlimited, /);
+
+    fireEvent.press(unlimited);
+    expect(await screen.findByTestId('card-header-variant')).toHaveTextContent('Unlimited');
+    fireEvent.press(screen.getByTestId('add-item-submit'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/inventory/items')[0]?.body).toMatchObject({
+        printingId: PRINTING_B,
+      })
+    );
+  });
 });
 
 describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
@@ -175,9 +244,14 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     let created = false;
     const api = mockApi(
       signedInRoutes({
+        // On the map, in a region, with a public binder: collectors can find the card.
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
         'GET /api/v1/cards/suggest': ok(SUGGESTIONS),
         'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
-        'GET /api/v1/binders': ok([binderFixture()]),
+        'GET /api/v1/binders': ok([
+          binderFixture({ visibility: 'PUBLIC', effectivePublic: true, publicItemCount: 1 }),
+        ]),
         'POST /api/v1/inventory/items': () => {
           created = true;
           return ok(itemFixture({ askingPriceText: '85% TCG' }), 201);
@@ -202,9 +276,10 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     expect(french).toHaveTextContent(/Stellar Vortex · French · Reverse Holo/i);
     fireEvent.press(french);
 
-    // Screen 6, in the order of the spec.
+    // Screen 6, in the order of the spec; the printing shares its code, so the header says which.
     expect(await screen.findByTestId('card-header-name')).toHaveTextContent('Emberfang Fox VMAX');
     expect(screen.getByTestId('card-header-code')).toHaveTextContent('SVX-001 · Stellar Vortex');
+    expect(screen.getByTestId('card-header-variant')).toHaveTextContent('French · Reverse holo');
     expect(screen.getByTestId('card-quantity').props.value).toBe('1');
     expect(screen.getByTestId('card-price').props.placeholder).toBe('85% TCG or 12.50');
     expect(screen.getByRole('radio', { name: 'Private' })).toBeChecked();
@@ -241,10 +316,15 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     fireEvent.changeText(screen.getByTestId('card-price'), '85% TCG');
     fireEvent.press(screen.getByRole('radio', { name: 'Public' }));
     expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
-      'Collectors in your region can find it.'
+      'Collectors in Americas (North) can find it.'
     );
     fireEvent.press(screen.getByTestId('card-binder'));
+    expect(await screen.findByRole('radio', { name: 'Trade binder' })).toBeOnTheScreen();
+    expect(screen.queryByTestId(`card-binder-private-${BINDER_ID}`)).toBeNull();
     fireEvent.press(await screen.findByTestId(`card-binder-option-${BINDER_ID}`));
+    expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
+      'Collectors in Americas (North) can find it.'
+    );
     fireEvent.changeText(screen.getByTestId('card-note'), 'NM, English, 1st');
     expect(screen.getByText('16 / 500')).toBeOnTheScreen();
     await addFromLibrary();
@@ -306,10 +386,108 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
       })
     );
     expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(2);
-    // The photo that failed waits for Edit card.
+    // The photo that failed waits for Edit card ("Try again": a server error may pass).
     const failed = useInventoryUiStore.getState().failedPhotos[ITEM_ID] ?? [];
     expect(failed.map((photo) => photo.fileName)).toEqual(['back.jpg']);
+    expect(failed[0]?.problem).toBeNull();
     expect(mockRouter.back).not.toHaveBeenCalled();
+    // The toast says it, not a plain "Saved".
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      /^Saved · 1 photo wasn't saved.*Emberfang Fox VMAX$/
+    );
+    expect(screen.queryByTestId('snackbar-view')).toBeNull();
+  });
+
+  it('keeps why the API refused a photo while adding, for Edit card', async () => {
+    libraryPick('panorama.jpg');
+    mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'POST /api/v1/inventory/items': ok(itemFixture(), 201),
+        'POST /api/v1/inventory/items/{id}/images': problem(
+          400,
+          'VALIDATION_FAILED',
+          'Validation failed',
+          {
+            errors: [
+              {
+                field: 'file',
+                message: 'The image dimensions are not acceptable (at most 8192 pixels per side)',
+              },
+            ],
+          }
+        ),
+      })
+    );
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    await addFromLibrary();
+    await waitFor(() => expect(screen.getByTestId('card-photos-count')).toHaveTextContent('1 / 4'));
+    fireEvent.press(screen.getByTestId('add-item-submit'));
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalled());
+    expect(useInventoryUiStore.getState().failedPhotos[ITEM_ID]?.[0]?.problem).toBe(
+      'This photo is too large: at most 8192 pixels on each side. Choose another one.'
+    );
+  });
+
+  it('says why nobody can find a public card: a private binder (marked in the picker)', async () => {
+    mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': ok(meFixture({ homeRegion: 'americas-north' })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        // Private, as binders start.
+        'GET /api/v1/binders': ok([binderFixture({ name: 'Personal collection' })]),
+      })
+    );
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    fireEvent.press(screen.getByRole('radio', { name: 'Public' }));
+    const hint = () => screen.getByTestId('card-visibility-hint');
+    await waitFor(() =>
+      expect(hint()).toHaveTextContent('Collectors in Americas (North) can find it.')
+    );
+    fireEvent.press(screen.getByTestId('card-binder'));
+    expect(await screen.findByTestId(`card-binder-private-${BINDER_ID}`)).toHaveTextContent(
+      /Private$/
+    );
+    expect(
+      screen.getByRole('radio', {
+        name: "Personal collection, private binder: its cards don't show",
+      })
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId(`card-binder-option-${BINDER_ID}`));
+    expect(hint()).toHaveTextContent(
+      'Its binder “Personal collection” is private, so nobody can find it yet. Publish the binder to show it.'
+    );
+    // Private again: the usual hint.
+    fireEvent.press(screen.getByRole('radio', { name: 'Private' }));
+    expect(hint()).toHaveTextContent('Only you see it until you make it public.');
+  });
+
+  it('says why nobody can find a public card: no location', async () => {
+    mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me': ok(
+          meFixture({
+            homeRegion: null,
+            onboarding: { ...NOT_ONBOARDED, profileComplete: true, interestsSet: true },
+          })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+      })
+    );
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    fireEvent.press(screen.getByRole('radio', { name: 'Public' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
+        'Nobody can find it yet: add your state or province in Settings › Location, then turn on “Show me on the map”.'
+      )
+    );
   });
 
   it('goes straight to the details from an exact printing, and back to the search', async () => {
@@ -364,6 +542,8 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
     mockApi(
       signedInRoutes({
+        // Free for all (owner, 2026-10-14): no upgrade, even while a Premium flag is still on.
+        'GET /api/v1/public/feature-flags': ok({ premiumPlans: true }),
         'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
         'POST /api/v1/inventory/items': problem(429, 'LIMIT_REACHED', 'Limit reached', {
           limitKey: 'inventory.items.max',
@@ -375,9 +555,11 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     );
     renderWithProviders(<AddCardsScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId('add-item-submit'));
-    expect(await screen.findByTestId('limit-reached-message')).toHaveTextContent(
-      /You have used 100 of 100/
+    expect(await screen.findByTestId('add-item-error')).toHaveTextContent(
+      /Your inventory is full: it holds at most 100 cards\. Delete a card you no longer have to add another\.$/
     );
+    expect(screen.queryByText(/Premium|plan/)).toBeNull();
+    expect(screen.queryByTestId('limit-reached')).toBeNull();
   });
 
   it('filters the printings by set and rarity, and shows an error when the card cannot load', async () => {
@@ -439,12 +621,19 @@ describe('Edit card (screen 7)', () => {
         'GET /api/v1/inventory/items/{id}': ok(
           itemFixture({ askingPriceText: '85% TCG', askingPrice: null, visibility: 'PUBLIC' })
         ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
         'PATCH /api/v1/inventory/items/{id}': ok(itemFixture({ quantity: 3 })),
       })
     );
     renderWithProviders(<EditCardScreen />, { port: port() });
     expect(await screen.findByTestId('card-header-name')).toHaveTextContent('Emberfang Fox VMAX');
     expect(screen.getByTestId('card-header-code')).toHaveTextContent(/^SVX-001$/);
+    // Its code is shared by a French reverse holo: the header says which one this is.
+    expect(await screen.findByTestId('card-header-variant')).toHaveTextContent('English · Holo');
+    // Public, but hidden from the map (the privacy settings of the fixture): nobody can find it.
+    expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
+      'You are hidden from the map, so nobody can find it yet. Turn on “Show me on the map” in Settings › Location.'
+    );
     expect(screen.getByTestId('card-quantity').props.value).toBe('2');
     expect(screen.getByTestId('card-price').props.value).toBe('85% TCG');
     expect(screen.getByRole('radio', { name: 'Public' })).toBeChecked();
@@ -535,6 +724,97 @@ describe('Edit card (screen 7)', () => {
     expect(useInventoryUiStore.getState().failedPhotos[ITEM_ID]).toBeUndefined();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.queryByTestId('card-photos-failed')).toBeNull());
+  });
+
+  it('says why the API refused a photo, and offers only to remove it', async () => {
+    libraryPick('panorama.jpg');
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'POST /api/v1/inventory/items/{id}/images': problem(
+          400,
+          'VALIDATION_FAILED',
+          'Validation failed',
+          {
+            errors: [
+              {
+                field: 'file',
+                message: 'The image dimensions are not acceptable (at most 8192 pixels per side)',
+              },
+            ],
+          }
+        ),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-photos-count');
+    await addFromLibrary();
+    await waitFor(() => expect(screen.getByTestId('card-photos-count')).toHaveTextContent('1 / 4'));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    expect(await screen.findByTestId('card-photos-refused')).toHaveTextContent(
+      /^Photo 1 wasn't saved\. This photo is too large: at most 8192 pixels on each side\. Choose another one\.Remove it$/
+    );
+    // "Try again" could never work: it is not offered, and leaving does not ask for this photo.
+    expect(screen.queryByTestId('card-photos-failed')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(mockLeave.held).toBe(false);
+    fireEvent.press(screen.getByRole('button', { name: 'Remove it' }));
+    expect(screen.queryByTestId('card-photos-refused')).toBeNull();
+    expect(screen.getByTestId('card-photos-count')).toHaveTextContent('0 / 4');
+    expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(1);
+  });
+
+  it('asks before leaving photos that were not saved', async () => {
+    useInventoryUiStore.setState({
+      failedPhotos: {
+        [ITEM_ID]: [
+          { key: 'local-7', uri: 'file:///back.jpg', mimeType: 'image/jpeg', fileName: 'back.jpg' },
+        ],
+      },
+    });
+    mockApi(signedInRoutes({ 'GET /api/v1/inventory/items/{id}': ok(itemFixture()) }));
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    expect(await screen.findByTestId('card-photos-failed')).toBeOnTheScreen();
+    expect(mockLeave.held).toBe(true);
+
+    act(() => mockLeave.tryToLeave());
+    const sheet = await screen.findByTestId('edit-item-leave-sheet');
+    expect(within(sheet).getByText('Leave without this photo?')).toBeOnTheScreen();
+    expect(
+      within(sheet).getByText(
+        "It wasn't saved, and it is lost when you leave. Try again to save it."
+      )
+    ).toBeOnTheScreen();
+    fireEvent.press(within(sheet).getByRole('button', { name: 'Stay' }));
+    expect(mockDispatch).not.toHaveBeenCalled();
+    act(() => mockLeave.tryToLeave());
+    fireEvent.press(await screen.findByTestId('edit-item-leave-sheet-confirm'));
+    await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith({ type: 'GO_BACK' }));
+  });
+
+  it('leaves after a delete without asking about the photos that were not saved', async () => {
+    useInventoryUiStore.setState({
+      failedPhotos: {
+        [ITEM_ID]: [
+          { key: 'local-8', uri: 'file:///back.jpg', mimeType: 'image/jpeg', fileName: 'back.jpg' },
+        ],
+      },
+    });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'DELETE /api/v1/inventory/items/{id}': noContent,
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-photos-failed');
+    expect(mockLeave.held).toBe(true);
+    fireEvent.press(screen.getByTestId('edit-item-delete'));
+    fireEvent.press(await screen.findByTestId('edit-item-delete-sheet-confirm'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(mockLeave.held).toBe(false);
+    expect(screen.queryByTestId('edit-item-leave-sheet-confirm')).toBeNull();
   });
 
   it('refuses the wrong type before uploading, and a denied permission', async () => {

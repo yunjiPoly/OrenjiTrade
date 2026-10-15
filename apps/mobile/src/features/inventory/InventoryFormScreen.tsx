@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,7 +11,11 @@ export interface InventoryFormScreenProps {
   children: ReactNode;
   /** The bar at the bottom (the main button and its line), above the keyboard. */
   footer?: ReactNode;
-  scrollRef?: Ref<ScrollView>;
+  /**
+   * Opens on the end of the content once it is laid out (Edit card opened on the photos an add
+   * could not save, which are at the end of the form).
+   */
+  startAtEnd?: boolean;
   /** The whole screen, header and bottom bar included (`screen-<id>` in the specs); its scroll
    * view is `<testID>-scroll`. */
   testID?: string;
@@ -28,13 +32,15 @@ export function InventoryFormScreen({
   header,
   children,
   footer,
-  scrollRef,
+  startAtEnd = false,
   testID,
 }: InventoryFormScreenProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
   const [footerHeight, setFooterHeight] = useState(0);
+  const ownScroll = useRef<ScrollView>(null);
+  const atEnd = useRef(!startAtEnd);
   // A toast on this screen sits above its bottom bar, not over its main button.
   useEffect(() => {
     if (!footer || footerHeight === 0) {
@@ -53,7 +59,13 @@ export function InventoryFormScreen({
         behavior={Platform.OS === 'web' ? undefined : 'padding'}
       >
         <ScrollView
-          ref={scrollRef}
+          ref={ownScroll}
+          onContentSizeChange={() => {
+            if (!atEnd.current) {
+              atEnd.current = true;
+              ownScroll.current?.scrollToEnd({ animated: false });
+            }
+          }}
           testID={testID ? `${testID}-scroll` : undefined}
           style={styles.fill}
           contentContainerStyle={[

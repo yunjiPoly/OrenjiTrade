@@ -2,7 +2,6 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { useCallback, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 
-import { useAccount } from '@/src/account/AccountProvider';
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBinders } from '@/src/api/hooks/binders';
@@ -39,10 +38,10 @@ import {
 } from '@/src/features/inventory/inventoryCopy';
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
 import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
+import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
-import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
-import { isLimitReached } from '@/src/lib/limits';
-import { isRegionCode, regionName } from '@/src/lib/place';
+import { useCardFindability } from '@/src/features/inventory/useCardFindability';
+import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 type Step = 'start' | 'typing' | 'printing' | 'details';
@@ -63,7 +62,6 @@ export default function AddCardsScreen() {
   const router = useRouter();
   const snackbar = useSnackbar();
   const { palette } = useTheme();
-  const me = useAccount().me;
   const [step, setStep] = useState<Step>(
     params.cardId ? (params.printingId ? 'details' : 'printing') : 'start'
   );
@@ -77,7 +75,6 @@ export default function AddCardsScreen() {
   const [form, setForm] = useState<CardFormValue>(() => newCardForm(params.binderId || null));
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [errors, setErrors] = useState<CardFormErrors>({});
-  const [failure, setFailure] = useState<ApiError | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -91,7 +88,7 @@ export default function AddCardsScreen() {
   const printing: PrintingSummary | null =
     printings.find((candidate) => candidate.id === printingId) ??
     (printings.length === 1 ? (printings[0] ?? null) : null);
-  const home = isRegionCode(me?.homeRegion) ? regionName(me.homeRegion) : null;
+  const findability = useCardFindability();
 
   const leave = useCallback(() => {
     if (router.canGoBack()) {
@@ -103,7 +100,6 @@ export default function AddCardsScreen() {
 
   const back = useCallback(() => {
     setMessage(null);
-    setFailure(null);
     if (step === 'details') {
       if (detailsFrom === 'link') {
         leave();
@@ -144,7 +140,6 @@ export default function AddCardsScreen() {
     setDetailsFrom(from);
     setErrors({});
     setMessage(null);
-    setFailure(null);
     setStep('details');
   };
 
@@ -183,7 +178,6 @@ export default function AddCardsScreen() {
     }
     const found = validateCardForm(form);
     setErrors(found);
-    setFailure(null);
     if (hasErrors(found)) {
       setMessage(CARD_FORM_COPY.checkFields);
       return;
@@ -196,8 +190,12 @@ export default function AddCardsScreen() {
     } catch (error) {
       const apiError = error as ApiError;
       setErrors(serverCardErrors(apiError));
-      setFailure(apiError);
-      setMessage(isLimitReached(apiError) ? null : friendlyMessage(apiError));
+      // A reached limit is a plain cap for everyone (free for all): no plan, no upgrade.
+      setMessage(
+        isLimitReached(apiError)
+          ? CARD_FORM_COPY.inventoryFull(limitReachedInfo(apiError).limit)
+          : friendlyMessage(apiError)
+      );
       setSaving(false);
       return;
     }
@@ -205,7 +203,10 @@ export default function AddCardsScreen() {
     if (photos.length > 0) {
       try {
         const result = await applyPhotos.mutateAsync({ id: created.id, add: photos, remove: [] });
-        failed = photos.filter((photo) => result.failed.includes(photo.key));
+        // A photo the API refused says why on Edit card, where it can only be removed.
+        failed = photos
+          .filter((photo) => result.failed.includes(photo.key))
+          .map((photo) => ({ ...photo, problem: photoRefusal(result.errors[photo.key]) }));
       } catch {
         failed = photos;
       }
@@ -214,9 +215,10 @@ export default function AddCardsScreen() {
     markSaved(created.id);
     const name = created.card.name;
     if (failed.length > 0) {
-      // The card is kept; its Edit card shows the photos that were not saved, with "Try again".
+      // The card is kept; its Edit card opens on the photos that were not saved, with "Try
+      // again", and the toast says it too (not a plain "Saved").
       keepFailedPhotos(created.id, failed);
-      snackbar.show(name, { title: TOAST_COPY.saved, icon: 'success' });
+      snackbar.show(name, { title: TOAST_COPY.savedPhotosFailed(failed.length) });
       router.replace({ pathname: '/items/[id]', params: { id: created.id } });
       return;
     }
@@ -305,6 +307,7 @@ export default function AddCardsScreen() {
             name={card.data.name ?? ''}
             game={card.data.game}
             printing={printing}
+            printings={printings}
             fallbackImage={card.data.primaryImageUrl}
             variant="add"
           />
@@ -324,7 +327,7 @@ export default function AddCardsScreen() {
             }}
             errors={errors}
             binders={binders.data ?? []}
-            regionName={home}
+            findability={findability}
             disabled={saving}
             photos={{
               tiles,
@@ -332,7 +335,6 @@ export default function AddCardsScreen() {
               onRemove: (key) => setPhotos((current) => current.filter((p) => p.key !== key)),
             }}
           />
-          {failure && isLimitReached(failure) ? <LimitReachedNotice error={failure} /> : null}
           {message ? <FormMessage testID="add-item-error">{message}</FormMessage> : null}
         </View>
       );

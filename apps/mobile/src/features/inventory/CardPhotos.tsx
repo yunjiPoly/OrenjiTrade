@@ -1,13 +1,20 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
 import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { CARD_FORM_COPY } from './inventoryCopy';
 import type { LocalPhoto } from './inventoryUiStore';
@@ -17,13 +24,23 @@ import { pickFromLibrary, takeWithCamera, type PickResult } from './pickCardPhot
 /** A photo of the form: one on the server, or one picked on the phone and not uploaded yet. */
 export type PhotoTile =
   | { kind: 'saved'; key: string; id: string; url: string }
-  | { kind: 'local'; key: string; photo: LocalPhoto; state: 'waiting' | 'uploading' | 'failed' };
+  | {
+      kind: 'local';
+      key: string;
+      photo: LocalPhoto;
+      state: 'waiting' | 'uploading' | 'failed';
+      /** Set on a failed photo the API refused (it can only be removed); none for "Try again". */
+      problem?: string | null;
+    };
 
 export interface CardPhotosProps {
   tiles: readonly PhotoTile[];
   onAdd: (photos: LocalPhoto[]) => void;
   onRemove: (key: string) => void;
-  /** "{n} photos weren't saved. Try again.": the failed photos are uploaded again. */
+  /**
+   * "{n} photos weren't saved. Try again.": the failed photos are uploaded again (not the ones the
+   * API refused: those say why, with "Remove it").
+   */
   onRetry?: () => void;
   disabled?: boolean;
   /** The label of the add tile: "Add photos" while adding, "Add" on Edit card (the mockup). */
@@ -32,8 +49,9 @@ export interface CardPhotosProps {
 
 /**
  * Photos of a card (owner spec 2026-10-14, section 6): "{n} / 4", up to four tiles, the add tile
- * (library or camera), the hint, and the photos that could not be saved with "Try again". The
- * screen decides when they are uploaded (after the card is created, or with "Save changes").
+ * (library or camera), the hint, the photos that could not be saved with "Try again", and the
+ * ones the API refused with the reason and "Remove it" (trying again cannot work). The screen
+ * decides when they are uploaded (after the card is created, or with "Save changes").
  */
 export function CardPhotos({
   tiles,
@@ -44,10 +62,19 @@ export function CardPhotos({
   addLabel = CARD_FORM_COPY.addPhotos,
 }: CardPhotosProps) {
   const { palette } = useTheme();
+  // At large text sizes the add tile grows with its label instead of clipping it.
+  const large = useWindowDimensions().fontScale > 1.3;
   const [choosing, setChoosing] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const room = ITEM_PHOTO_MAX_COUNT - tiles.length;
-  const failed = tiles.filter((tile) => tile.kind === 'local' && tile.state === 'failed').length;
+  const failed = tiles.filter(
+    (tile) => tile.kind === 'local' && tile.state === 'failed' && !tile.problem
+  ).length;
+  const refused = tiles.flatMap((tile, index) =>
+    tile.kind === 'local' && tile.state === 'failed' && tile.problem
+      ? [{ key: tile.key, index: index + 1, problem: tile.problem }]
+      : []
+  );
 
   const take = async (pick: (room: number) => Promise<PickResult>) => {
     setChoosing(false);
@@ -100,15 +127,20 @@ export function CardPhotos({
             onPress={add}
             testID="card-photos-add"
             style={({ pressed }) => [
-              styles.tile,
               styles.addTile,
+              large ? styles.addTileLarge : styles.tileSize,
               { borderColor: palette.primary },
               pressed && styles.pressed,
               disabled && styles.disabled,
             ]}
           >
             <MaterialCommunityIcons name="image-plus" size={22} color={palette.primary} />
-            <Text style={[styles.addLabel, { color: palette.primary }]}>{addLabel}</Text>
+            <Text
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.addLabel, { color: palette.primary }]}
+            >
+              {addLabel}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -141,6 +173,37 @@ export function CardPhotos({
               </Text>
             </Pressable>
           ) : null}
+        </View>
+      ) : null}
+      {refused.length > 0 ? (
+        <View
+          testID="card-photos-refused"
+          style={[styles.failed, { borderColor: palette.danger }]}
+          accessibilityLiveRegion="polite"
+        >
+          <View style={styles.grow}>
+            {refused.map((entry) => (
+              <Text
+                key={entry.key}
+                accessibilityRole="alert"
+                style={[textStyle('sm'), { color: palette.ink }]}
+              >
+                {CARD_FORM_COPY.photoRefused(entry.index, entry.problem)}
+              </Text>
+            ))}
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={CARD_FORM_COPY.removeRefused(refused.length)}
+            disabled={disabled}
+            onPress={() => refused.forEach((entry) => onRemove(entry.key))}
+            testID="card-photos-remove-refused"
+            style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+          >
+            <Text style={[textStyle('sm'), styles.retryLabel, { color: palette.primary }]}>
+              {CARD_FORM_COPY.removeRefused(refused.length)}
+            </Text>
+          </Pressable>
         </View>
       ) : null}
       {problem ? (
@@ -263,7 +326,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addTile: { borderWidth: 1.5, borderStyle: 'dashed', gap: 4 },
+  // Grows with the text size (the label is capped, the tile is not clipped).
+  addTile: {
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  tileSize: { width: 72, height: 72 },
+  addTileLarge: { minWidth: 72, minHeight: 72, padding: 8 },
   addLabel: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold, textAlign: 'center' },
   remove: {
     position: 'absolute',

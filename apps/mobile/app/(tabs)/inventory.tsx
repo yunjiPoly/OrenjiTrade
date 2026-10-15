@@ -2,7 +2,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -92,9 +99,14 @@ export default function InventoryScreen() {
   }
   const summary = useInventorySummary();
   const binders = useMyBinders();
+  // A text size changed while the app is open: React Native keeps the old measurements of the
+  // header and of the list's header (clipped title, summary behind the header) until they mount
+  // again, so the screen's content mounts again for each text size.
+  const { fontScale } = useWindowDimensions();
 
   return (
     <View
+      key={`text-size-${fontScale}`}
       testID="screen-inventory"
       style={[styles.screen, { backgroundColor: palette.background, paddingTop: insets.top }]}
     >

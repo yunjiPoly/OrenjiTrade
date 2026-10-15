@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 're
 import type { BinderResponse } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Text, TextInput } from '@/src/components/ui/Text';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {
   PUBLIC_NOTE_MAX,
@@ -20,14 +20,18 @@ import {
 import { CardPhotos, type CardPhotosProps } from './CardPhotos';
 import { CARD_FORM_COPY } from './inventoryCopy';
 import { ASKING_PRICE_MAX } from './itemPrice';
+import { publicCardHint, type CardFindability } from './visibilityStatus';
 
 export interface CardFormFieldsProps {
   value: CardFormValue;
   onChange: (patch: Partial<CardFormValue>) => void;
   errors: CardFormErrors;
   binders: readonly BinderResponse[];
-  /** The collector's region ("Americas (North)"), for the Public hint; null without a location. */
-  regionName: string | null;
+  /**
+   * What decides whether collectors can find a public card (the region, "Show me on the map", the
+   * profile, a pause): the Public hint says they can only when they really can.
+   */
+  findability: CardFindability;
   photos: CardPhotosProps;
   disabled?: boolean;
 }
@@ -42,7 +46,7 @@ export function CardFormFields({
   onChange,
   errors,
   binders,
-  regionName,
+  findability,
   photos,
   disabled = false,
 }: CardFormFieldsProps) {
@@ -50,9 +54,14 @@ export function CardFormFields({
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale > 1.3;
   const [choosingBinder, setChoosingBinder] = useState(false);
-  const binderName = value.binderId
-    ? (binders.find((binder) => binder.id === value.binderId)?.name ?? CARD_FORM_COPY.noBinder)
-    : CARD_FORM_COPY.noBinder;
+  const chosenBinder = value.binderId
+    ? (binders.find((binder) => binder.id === value.binderId) ?? null)
+    : null;
+  const binderName = chosenBinder?.name ?? CARD_FORM_COPY.noBinder;
+  const hint =
+    value.visibility === 'PRIVATE'
+      ? { findable: true, text: CARD_FORM_COPY.privateHint }
+      : publicCardHint(findability, chosenBinder);
   const quantity = parseQuantity(value.quantity);
   const inputStyle = [
     textStyle('md'),
@@ -127,13 +136,26 @@ export function CardFormFields({
           onChange={(visibility) => onChange({ visibility })}
           disabled={disabled}
         />
-        <Text testID="card-visibility-hint" style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {value.visibility === 'PRIVATE'
-            ? CARD_FORM_COPY.privateHint
-            : regionName
-              ? CARD_FORM_COPY.publicHint(regionName)
-              : CARD_FORM_COPY.publicHintNoRegion}
-        </Text>
+        <View style={styles.hintRow}>
+          {hint.findable ? null : (
+            <MaterialCommunityIcons
+              name="eye-off-outline"
+              size={16}
+              color={palette.status.stale}
+              style={styles.hintIcon}
+            />
+          )}
+          <Text
+            testID="card-visibility-hint"
+            style={[
+              textStyle('xs'),
+              styles.grow,
+              { color: hint.findable ? palette.textMuted : palette.ink },
+            ]}
+          >
+            {hint.text}
+          </Text>
+        </View>
       </View>
 
       <Field label={CARD_FORM_COPY.binder}>
@@ -187,11 +209,14 @@ export function CardFormFields({
         <ScrollView style={styles.list} keyboardShouldPersistTaps="handled">
           {[{ id: null, name: CARD_FORM_COPY.noBinder }, ...binders].map((binder) => {
             const on = binder.id === value.binderId;
+            const isPrivate = 'visibility' in binder && binder.visibility === 'PRIVATE';
             return (
               <Pressable
                 key={binder.id ?? 'none'}
                 accessibilityRole="radio"
-                accessibilityLabel={binder.name}
+                accessibilityLabel={
+                  isPrivate ? CARD_FORM_COPY.privateBinderLabel(binder.name) : binder.name
+                }
                 aria-checked={on}
                 onPress={() => {
                   setChoosingBinder(false);
@@ -203,6 +228,21 @@ export function CardFormFields({
                 <Text style={[textStyle('md'), styles.grow, { color: palette.ink }]}>
                   {binder.name}
                 </Text>
+                {isPrivate ? (
+                  <View
+                    testID={`card-binder-private-${binder.id}`}
+                    style={[styles.privateTag, { backgroundColor: palette.surfaceVariant }]}
+                  >
+                    <MaterialCommunityIcons
+                      name="lock-outline"
+                      size={13}
+                      color={palette.textMuted}
+                    />
+                    <Text style={[styles.privateTagLabel, { color: palette.textMuted }]}>
+                      {CARD_FORM_COPY.privateBinder}
+                    </Text>
+                  </View>
+                ) : null}
                 {on ? (
                   <MaterialCommunityIcons name="check" size={20} color={palette.primary} />
                 ) : null}
@@ -322,6 +362,8 @@ function VisibilityToggle({
             ]}
           >
             <Text
+              // Two words side by side: past this size "Private" broke in the middle.
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
               style={[
                 styles.toggleLabel,
                 {
@@ -404,6 +446,17 @@ const styles = StyleSheet.create({
   },
   toggleLabel: { fontSize: 15, lineHeight: 20 },
   list: { flexGrow: 0 },
+  hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  hintIcon: { marginTop: 1 },
+  privateTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  privateTagLabel: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
   option: {
     minHeight: 48,
     flexDirection: 'row',

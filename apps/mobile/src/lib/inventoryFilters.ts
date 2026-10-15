@@ -16,7 +16,11 @@ export const INVENTORY_SORTS: readonly InventorySort[] = ['created', 'name', 'pr
 
 export const INVENTORY_PAGE_SIZE = 24;
 
-/** "Who can see it" of the sheet: everything, the public cards or the private ones. */
+/**
+ * "Who can see it" of the sheet: everything, the public cards or the private ones. Public is every
+ * card set to public, a temporary publication of the paused web included (`markedPublic=true`):
+ * the cards that "{n} public" of the summary counts.
+ */
 export type VisibilityFilter = 'PUBLIC' | 'PRIVATE';
 
 /** The Inventory tab's view of `GET /inventory/items`. */
@@ -51,7 +55,8 @@ export function inventoryListQuery(
     game?: string;
     binderId?: string;
     unfiled?: boolean;
-    visibility?: VisibilityFilter;
+    visibility?: 'PRIVATE';
+    markedPublic?: boolean;
     freshness?: FreshnessState;
     sort: InventorySort;
     page: number;
@@ -64,8 +69,10 @@ export function inventoryListQuery(
   if (filters.game) {
     query.game = filters.game;
   }
-  if (filters.visibility) {
-    query.visibility = filters.visibility;
+  if (filters.visibility === 'PUBLIC') {
+    query.markedPublic = true;
+  } else if (filters.visibility === 'PRIVATE') {
+    query.visibility = 'PRIVATE';
   }
   if (filters.freshness) {
     query.freshness = filters.freshness;

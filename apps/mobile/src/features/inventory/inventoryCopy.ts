@@ -116,6 +116,20 @@ export const CARD_FORM_COPY = {
   privateHint: 'Only you see it until you make it public.',
   publicHint: (region: string) => `Collectors in ${region} can find it.`,
   publicHintNoRegion: 'Collectors in your region can find it.',
+  // Public, but nobody can find it (review fix 1 of stage R2): the reason instead of the claim.
+  notFoundNoLocation:
+    'Nobody can find it yet: add your state or province in Settings › Location, then turn on “Show me on the map”.',
+  notFoundHidden:
+    'You are hidden from the map, so nobody can find it yet. Turn on “Show me on the map” in Settings › Location.',
+  notFoundPrivateProfile:
+    'Your profile is private, so nobody can find it yet. Change who sees your profile in Settings › Privacy.',
+  notFoundPaused: 'Your public cards are paused, so nobody can find it right now.',
+  notFoundBinderPrivate: (binder: string) =>
+    `Its binder “${binder}” is private, so nobody can find it yet. Publish the binder to show it.`,
+  notFoundBinderOff: (binder: string) =>
+    `Its binder “${binder}” is not public right now, so nobody can find it.`,
+  privateBinder: 'Private',
+  privateBinderLabel: (binder: string) => `${binder}, private binder: its cards don't show`,
   binder: 'Binder',
   noBinder: 'No binder (unfiled)',
   publicNote: 'Public note',
@@ -138,8 +152,26 @@ export const CARD_FORM_COPY = {
   photoNotSaved: 'Not saved',
   photoFailed: (count: number) =>
     count === 1 ? "1 photo wasn't saved. Try again." : `${count} photos weren't saved. Try again.`,
+  photoRefused: (index: number, problem: string) => `Photo ${index} wasn't saved. ${problem}`,
+  removeRefused: (count: number) => (count === 1 ? 'Remove it' : 'Remove them'),
+  leaveTitle: (count: number) =>
+    count === 1 ? 'Leave without this photo?' : `Leave without these ${count} photos?`,
+  leaveBody: (count: number) =>
+    count === 1
+      ? "It wasn't saved, and it is lost when you leave. Try again to save it."
+      : "They weren't saved, and they are lost when you leave. Try again to save them.",
+  leave: 'Leave',
+  stay: 'Stay',
   tryAgain: 'Try again',
   checkFields: 'Check the highlighted fields.',
+  /**
+   * A reached size limit of the inventory, the same for everyone (free for all, owner 2026-10-14:
+   * no plan, no upgrade).
+   */
+  inventoryFull: (limit: number | null) =>
+    limit !== null
+      ? `Your inventory is full: it holds at most ${limit} cards. Delete a card you no longer have to add another.`
+      : 'Your inventory is full. Delete a card you no longer have to add another.',
   priceTooLong: 'At most 40 characters.',
   noteTooLong: 'At most 500 characters.',
 } as const;
@@ -180,6 +212,9 @@ export const EDIT_CARD_COPY = {
 /** The toasts of the inventory (screens 8 and 9) and of the bulk actions. */
 export const TOAST_COPY = {
   saved: 'Saved',
+  /** Added, but a photo failed (review fix 1): said on the toast, not only on Edit card. */
+  savedPhotosFailed: (count: number) =>
+    count === 1 ? "Saved · 1 photo wasn't saved" : `Saved · ${count} photos weren't saved`,
   view: 'View',
   deleted: 'Card deleted',
   deletedMany: (count: number) => `${plural(count, 'card', 'cards')} deleted`,

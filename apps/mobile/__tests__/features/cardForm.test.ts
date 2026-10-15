@@ -17,10 +17,14 @@ import {
   priceTextOf,
   statedCondition,
 } from '@/src/features/inventory/itemPrice';
+import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import {
   binderVisibilityStatus,
   itemVisibilityStatus,
   ownerIsVisible,
+  publicCardHint,
+  UNKNOWN_FINDABILITY,
+  type CardFindability,
 } from '@/src/features/inventory/visibilityStatus';
 import { withCurrent } from '@/src/lib/inventory';
 
@@ -269,5 +273,105 @@ describe('visibility status', () => {
     expect(
       ownerIsVisible(privacyFixture({ profileVisibility: 'PRIVATE', discoverable: true }))
     ).toBe(false);
+  });
+});
+
+describe('the Public hint of the card form (review fix 1 of stage R2)', () => {
+  const findable: CardFindability = {
+    regionName: 'Americas (North)',
+    located: true,
+    discoverable: true,
+    privateProfile: false,
+    paused: false,
+  };
+  const binder = (overrides: Parameters<typeof binderFixture>[0] = {}) =>
+    binderFixture({ name: 'Personal collection', ...overrides });
+
+  it('says collectors can find the card only when they can', () => {
+    expect(publicCardHint(findable, null, NOW)).toEqual({
+      findable: true,
+      text: 'Collectors in Americas (North) can find it.',
+    });
+    expect(
+      publicCardHint(findable, binder({ visibility: 'PUBLIC', effectivePublic: true }), NOW)
+        .findable
+    ).toBe(true);
+    // Unknown while the settings load: the spec's hint, no reason invented.
+    expect(publicCardHint(UNKNOWN_FINDABILITY, null, NOW)).toEqual({
+      findable: true,
+      text: 'Collectors in your region can find it.',
+    });
+  });
+
+  it('says why nobody can find it otherwise', () => {
+    const reason = (
+      owner: Partial<CardFindability>,
+      chosen = null as ReturnType<typeof binder> | null
+    ) => publicCardHint({ ...findable, ...owner }, chosen, NOW);
+    expect(reason({ located: false, regionName: null, discoverable: false })).toEqual({
+      findable: false,
+      text: 'Nobody can find it yet: add your state or province in Settings › Location, then turn on “Show me on the map”.',
+    });
+    expect(reason({ discoverable: false }).text).toBe(
+      'You are hidden from the map, so nobody can find it yet. Turn on “Show me on the map” in Settings › Location.'
+    );
+    expect(reason({ privateProfile: true }).text).toBe(
+      'Your profile is private, so nobody can find it yet. Change who sees your profile in Settings › Privacy.'
+    );
+    expect(reason({ paused: true }).text).toBe(
+      'Your public cards are paused, so nobody can find it right now.'
+    );
+    expect(reason({}, binder()).text).toBe(
+      'Its binder “Personal collection” is private, so nobody can find it yet. Publish the binder to show it.'
+    );
+    // A temporary publication that ended, a binder hidden until confirmed.
+    expect(
+      reason({}, binder({ visibility: 'TEMPORARILY_PUBLIC', publicUntil: '2026-10-01T00:00:00Z' }))
+        .text
+    ).toBe('Its binder “Personal collection” is not public right now, so nobody can find it.');
+    expect(
+      reason(
+        {},
+        binder({
+          visibility: 'PUBLIC',
+          freshness: { ...binderFixture().freshness, state: 'HIDDEN' },
+        })
+      ).findable
+    ).toBe(false);
+    expect(
+      reason({}, binder({ visibility: 'TEMPORARILY_PUBLIC', publicUntil: '2026-10-20T00:00:00Z' }))
+        .findable
+    ).toBe(true);
+  });
+});
+
+describe('a photo the API refused (review fix 1 of stage R2)', () => {
+  const refusal = (status: number, file?: string) =>
+    photoRefusal(
+      new ApiError({
+        status,
+        errorCode: status === 400 ? 'VALIDATION_FAILED' : 'X',
+        message: 'm',
+        fieldErrors: file ? { file } : {},
+      })
+    );
+
+  it('says why, and trying again cannot work', () => {
+    expect(
+      refusal(400, 'The image dimensions are not acceptable (at most 8192 pixels per side)')
+    ).toBe('This photo is too large: at most 8192 pixels on each side. Choose another one.');
+    expect(refusal(400, 'The image could not be read; upload a valid image file')).toBe(
+      'That photo could not be read. Try another one.'
+    );
+    expect(refusal(409)).toBe('A card can have at most 4 photos.');
+    expect(refusal(413)).toBe('Choose a photo smaller than 8 MB.');
+    expect(refusal(415)).toBe('Use a JPEG, PNG or WebP photo.');
+  });
+
+  it('leaves a network or server error to "Try again"', () => {
+    expect(refusal(0)).toBeNull();
+    expect(refusal(500)).toBeNull();
+    expect(refusal(503)).toBeNull();
+    expect(photoRefusal(null)).toBeNull();
   });
 });

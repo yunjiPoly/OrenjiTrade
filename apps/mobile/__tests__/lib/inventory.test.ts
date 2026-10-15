@@ -84,7 +84,9 @@ describe('inventory filters (Filter and sort, stage R2)', () => {
     ).toEqual({
       query: 'fox',
       game: 'pokemon',
-      visibility: 'PUBLIC',
+      // Public is every card set to public, a temporary publication included: the cards that
+      // "{n} public" counts.
+      markedPublic: true,
       freshness: 'STALE',
       binderId: 'b-1',
       sort: 'price',
@@ -96,6 +98,12 @@ describe('inventory filters (Filter and sort, stage R2)', () => {
       unfiled: true,
       page: 0,
       size: 1,
+    });
+    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, visibility: 'PRIVATE' }, 0)).toEqual({
+      sort: 'created',
+      visibility: 'PRIVATE',
+      page: 0,
+      size: 24,
     });
   });
 

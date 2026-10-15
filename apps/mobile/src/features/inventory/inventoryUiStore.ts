@@ -8,6 +8,11 @@ export interface LocalPhoto extends PickedImage {
   key: string;
   /** Bytes, when the picker told them (checked against the 8 MB rule before the upload). */
   size?: number | null;
+  /**
+   * Why the API refused it, once an upload was refused for the photo itself (too large in pixels,
+   * unreadable, wrong type): "Try again" cannot work, the collector removes it.
+   */
+  problem?: string | null;
 }
 
 interface InventoryUiState {

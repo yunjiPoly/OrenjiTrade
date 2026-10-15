@@ -56,8 +56,11 @@ test.describe('mobile inventory (stage R2)', () => {
     request,
   }) => {
     test.setTimeout(240_000);
+    // On the map, so that collectors of the region can really find a public card (the form's hint
+    // says so only then).
     const collector = await createOnboardedCollector(request, 'inv', 'Mobile Inventory', {
       location: PLACES.quebec,
+      discoverable: true,
     });
     await signInThroughUi(page, collector.email, collector.password);
 

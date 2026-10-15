@@ -19,7 +19,10 @@ export interface InventoryCardRowProps {
   selectable?: boolean;
   selected?: boolean;
   onToggle?: (item: InventoryItemResponse) => void;
-  /** The card saved last stands out with an orange ring (screen 8). */
+  /**
+   * The card saved last stands out with an orange ring (screen 8); not in Select mode, where the
+   * orange ring means "selected".
+   */
   highlighted?: boolean;
 }
 
@@ -47,7 +50,8 @@ export const InventoryCardRow = memo(function InventoryCardRow({
   const spoken = [item.card.name, code, price, INVENTORY_COPY.copiesSpoken(item.quantity)]
     .filter(Boolean)
     .join(', ');
-  const ring = selected || highlighted ? palette.primary : palette.border;
+  const ring =
+    (selectable && selected) || (!selectable && highlighted) ? palette.primary : palette.border;
   const end = (
     <View style={large ? styles.endBelow : styles.end}>
       {price ? (
