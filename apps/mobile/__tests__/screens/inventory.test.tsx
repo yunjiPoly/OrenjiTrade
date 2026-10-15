@@ -508,7 +508,7 @@ describe('Inventory › Binders (kept until stage R3)', () => {
   });
 });
 
-describe('Undo of a bulk delete that came too late', () => {
+describe('Undo of a bulk delete that fails', () => {
   it('says the card can no longer be restored', async () => {
     mockApi(
       signedInRoutes({
@@ -531,5 +531,31 @@ describe('Undo of a bulk delete that came too late', () => {
       fireEvent.press(await screen.findByTestId('snackbar-undo'));
     });
     expect(await screen.findByText('This card can no longer be restored.')).toBeOnTheScreen();
+  });
+
+  it('says a full inventory as the plain limit of stage F1, with nothing to buy', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture()])),
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+        [`POST /api/v1/inventory/items/${ITEM_ID}/restore`]: problem(
+          429,
+          'LIMIT_REACHED',
+          'Limit reached',
+          { limitKey: 'inventory.items.max', limit: 100, used: 100 }
+        ),
+      })
+    );
+    render();
+    await screen.findByTestId(`item-${ITEM_ID}`);
+    fireEvent.press(screen.getByTestId('inventory-select'));
+    fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX/ }));
+    fireEvent.press(await screen.findByTestId('bulk-delete'));
+    fireEvent.press(await screen.findByTestId('bulk-delete-sheet-confirm'));
+    await act(async () => {
+      fireEvent.press(await screen.findByTestId('snackbar-undo'));
+    });
+    expect(await screen.findByText('You have used 100 of 100 inventory cards.')).toBeOnTheScreen();
+    expect(screen.queryByText(/Premium|plan|upgrade/i)).toBeNull();
   });
 });

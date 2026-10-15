@@ -4,6 +4,7 @@ import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { restoreInventoryItem, restoreInventoryItems } from '@/src/api/hooks/inventory';
 import type { Snackbar } from '@/src/components/ui/Snackbar';
+import { isLimitReached, limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
 
 import { TOAST_COPY } from './inventoryCopy';
 
@@ -15,10 +16,18 @@ interface Context {
   markSaved: (id: string | null) => void;
 }
 
+/**
+ * Why "Undo" did not bring the cards back: too late, a reached inventory limit (said as stage F1's
+ * plain limit message: which limit and how much of it is used, never a plan), or the usual error.
+ */
 function undoFailed(snackbar: Snackbar, error: unknown) {
   const apiError = error as ApiError;
   snackbar.show(
-    apiError.errorCode === 'RESTORE_WINDOW_CLOSED' ? TOAST_COPY.tooLate : friendlyMessage(apiError),
+    apiError.errorCode === 'RESTORE_WINDOW_CLOSED'
+      ? TOAST_COPY.tooLate
+      : isLimitReached(apiError)
+        ? limitReachedMessage(limitReachedInfo(apiError))
+        : friendlyMessage(apiError),
     { tone: 'error' }
   );
 }
