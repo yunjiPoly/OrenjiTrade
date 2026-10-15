@@ -101,7 +101,10 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    merge notes in IMPLEMENTATION_STATUS.md, "Free for all", say how the conflicts resolve), the
    check list below, the pull request, merge on green CI.
 4. **Then stage R2** of the phone redesign, from the new `main`; R3 to R8 follow in order, one
-   branch and one PR each. None of them brings back a paid feature (ADR 0019).
+   branch and one PR each. None of them brings back a paid feature (ADR 0019). R2's branch
+   (`feature/r2-inventory-adding-cards`) adds `V117`: if it merges after F1 (V120–V123), renumber
+   it to V124 or later first, because Flyway (no `outOfOrder`) refuses a migration older than the
+   database's newest one (merge notes in IMPLEMENTATION_STATUS.md, "Free for all").
 5. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 

@@ -4755,12 +4755,14 @@ its `plan_id` back). V120–V123 are never edited.
   append-only trigger function, products, referrals, settings, flag, the entitlements bought with
   credits, the `credits-reconcile` run history), V123 (Premium: subscriptions and their events and
   webhooks, entitlements, plan features, `user_account.plan_code`, plans; `usage_limit` keeps the
-  FREE row of each key with any admin edit, `plan_id` dropped, `UNIQUE (limit_key)`; the
+  FREE row of each key with any admin edit, `plan_id` dropped, `UNIQUE (limit_key)`;
+  `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters; the
   `PREMIUM_USER` rows and CHECK value; the flag; the `subscriptions-period` run history). Each
   drops dependants first, without `CASCADE`. **Old data:** the daily limit notices are rewritten
-  (no plan, no upgrade link, no "upgrade to Premium" sentence, no link to `/premium`); any other
-  notification linking to `/premium`, `/credits`, `/support` or their fake checkouts keeps its
-  text and loses the link; incomplete outbox rows of the removed events are completed; audit rows
+  (no plan, no upgrade link, no "upgrade to Premium" sentence, no link to `/premium`); admin
+  broadcasts that linked to `/premium`, `/credits`, `/support` or their fake checkouts promoted
+  those features and are deleted; any other notification linking there keeps its text and loses
+  the link; incomplete outbox rows of the removed events are completed; audit rows
   of the old actions stay as history (the admin audit page renders them as text). R1 owns V115–V119.
 - [x] **Phone** (`apps/mobile`) — `premium`, `credits`, `support` and the two fake checkouts of
   Premium and donations, `src/features/billing`, `src/features/ads` (every `SponsoredSlot`: search,
@@ -4806,12 +4808,17 @@ its `plan_id` back). V120–V123 are never edited.
    subscription are gone.
 5. **One migration per feature, each in the commit that removes the feature's code**, so a revert
    of one feature's removal (or a bisect) stays coherent.
-6. **Old notifications are rewritten or lose their link** rather than being deleted: they are the
-   collector's history; only the parts that sell or lead nowhere go. The text of an old broadcast
-   that talked about credits stays as it was written (seen in the walk: "Share your referral code
-   and both of you earn credits." now opens nothing).
-7. **`saved_searches.max` stays** (0 for everyone, no feature uses it; it was a Premium perk):
-   removing a limit row is the owner's call (follow-up below).
+6. **Old limit notices are rewritten, promotional broadcasts deleted** (changed in review fix 1):
+   a limit notice is the collector's own history, so only its plan, upgrade sentence and link go;
+   an admin broadcast that linked to `/premium`, `/credits`, `/support` or their checkouts was a
+   promotion ("Go Premium", "earn credits", "keep OrenjiTrade running with a donation") and is
+   deleted, as the owner asked for no upgrade offer anywhere. A broadcast that talked about them
+   without a link cannot be told apart and stays as written (none is seeded).
+7. **`saved_searches.max` is deleted** (changed in review fix 1; first kept for the owner): it
+   limited a feature that was never built (0 for FREE, 50 for PREMIUM), so it only existed as a
+   Premium perk and showed "Saved searches 0" to the admin and `allowed: false` to every
+   collector. V109 set the precedent (`map.radius.max_km` went with the map radius). A
+   saved-searches feature would bring its own limit in its own migration.
 8. **The phone and the web also ignore old payloads** (an `upgradeUrl`, a deep link to a removed
    page) so an older API or an old cached notification never leads to a missing screen.
 9. **The web E2E flag test** moved from the removed `credits` flag to `publicChat`, in the serial
@@ -4870,6 +4877,13 @@ R1 should ship first (its migrations V115–V119 come before V120). When F1 then
   imports and F1's wording when resolving; `npm run lint -w apps/mobile` finds any left.
 - Legal: merge both sources, then `npm run sync:legal -w apps/mobile` (R1 changed "Trading
   safely", F1 the privacy, community, marketplace and acceptable-use drafts).
+- **Migration numbers with stage R2** (`feature/r2-inventory-adding-cards`, built on R1 at the
+  same time): it adds `V117__inventory_price_text_restore.sql`. Flyway runs without `outOfOrder`
+  (`application.yml`), so a database already at V123 (the owner's dev database once F1 is on
+  `main`, any deployed environment) refuses to start with a V117 it has not applied ("detected
+  resolved migration not applied"); fresh CI databases would not notice. **If F1 ships before
+  R2, R2 renumbers V117 to the first free number after F1 (V124 or later) before it merges**;
+  if R2 ships first, nothing changes (V117 comes before V120). The lead tells the R2 builder.
 - ADR numbers: 0018 is R1's, 0019 is F1's. Expect text conflicts in CLAUDE.md, the READMEs,
   `schema.md`, the handoff, this file and the generated OpenAPI and clients (regenerate after the
   merge: `./gradlew exportOpenApi`, `npm run generate:api`).
@@ -4940,11 +4954,13 @@ as found (light appearance, large text) and the lock released.
 
 - Keep or drop the CLAUDE.md commit `e4ee954` (the handoff says CLAUDE.md is the owner's; the task
   asked for these lines).
-- `saved_searches.max` (0, unused): keep or delete the row.
+- `saved_searches.max` was deleted in review fix 1 (a Premium perk of a feature never built):
+  say so if it should come back as a cap of 0.
 - `premium_user`: keep the handle, or rename the seed account in a later change.
 - A different cap for some collectors would need a new decision (no per-account override exists).
 - The lawyer's review of the four changed drafts (list above).
-- Old broadcasts that talked about removed features keep their words (only their links go).
+- Admin broadcasts that linked to a removed page are deleted by V123 (review fix 1); a broadcast
+  that talked about Premium, credits or donations without a link stays as written.
 
 ## NEXT TASK
 
@@ -4969,7 +4985,9 @@ as found (light appearance, large text) and the lock released.
 > S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
 > backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14).
 > Migrations V001 to V114 are applied and frozen; stage R1 uses V115–V119 and stage F1 V120–V123
-> (both on their branches); the next one after them is V124. The owner's local database migrates
+> (both on their branches); the next one after them is V124 (stage R2's V117 is renumbered to
+> V124 or later if R2 merges after F1: Flyway refuses an out-of-order migration, see "Merging with
+> stage R1" in the F1 section). The owner's local database migrates
 > on the next `npm run dev` and loses its trading areas by design (S1).
 >
 > **Owner orders in force:** free for all (2026-10-14, ADR 0019: no Premium, ads, credits or
