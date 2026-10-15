@@ -12,6 +12,8 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
+import { orderBinders } from './binderForm';
+
 /** The list with the binder at `from` moved to `to` (the web's `moveItemInArray`). */
 export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   const next = [...list];
@@ -22,10 +24,18 @@ export function moved<T>(list: readonly T[], from: number, to: number): T[] {
   return next;
 }
 
+/** The binders as Inventory › Binders lists them: the deck cores first, then the others. */
+function listed(binders: readonly BinderResponse[]): BinderResponse[] {
+  const { cores, binders: plain } = orderBinders(binders);
+  return [...cores, ...plain];
+}
+
 /**
  * Reorder the collector's binders (the web's binder manager: the move buttons; drag and drop has
  * no keyboard on a phone): up / down arrows per binder, saved with `PUT /binders/reorder` when
- * "Save order" is pressed. The order is the one collectors see.
+ * "Save order" is pressed. The order is the one collectors see. As in Inventory › Binders, the deck
+ * cores come first ("Deck cores", then "Binders" when there are both), and a binder moves inside
+ * its group.
  */
 export function ReorderBindersSheet({
   visible,
@@ -39,16 +49,20 @@ export function ReorderBindersSheet({
   const { palette } = useTheme();
   const snackbar = useSnackbar();
   const reorder = useReorderBinders();
-  const [order, setOrder] = useState<BinderResponse[]>([...binders]);
+  const [order, setOrder] = useState<BinderResponse[]>(() => listed(binders));
   // Opening the sheet starts from the saved order again (render-time reset, no effect).
   const [wasVisible, setWasVisible] = useState(visible);
   if (visible !== wasVisible) {
     setWasVisible(visible);
     if (visible) {
-      setOrder([...binders]);
+      setOrder(listed(binders));
     }
   }
-  const changed = order.some((binder, index) => binder.id !== binders[index]?.id);
+  const initial = listed(binders);
+  const changed = order.some((binder, index) => binder.id !== initial[index]?.id);
+  const isCore = (binder: BinderResponse | undefined) => binder?.sellsAsCore ?? false;
+  const coreCount = order.filter(isCore).length;
+  const grouped = coreCount > 0 && coreCount < order.length;
 
   const save = async () => {
     try {
@@ -71,43 +85,67 @@ export function ReorderBindersSheet({
         Move binders up or down. The order is the one collectors see.
       </Text>
       <ScrollView style={styles.list} contentContainerStyle={styles.content}>
-        {order.map((binder, index) => (
-          <View
-            key={binder.id}
-            testID={`reorder-${binder.id}`}
-            accessibilityLabel={`${binder.name}, position ${index + 1} of ${order.length}`}
-            style={[styles.row, { borderColor: palette.border, backgroundColor: palette.surface }]}
-          >
-            <Text style={[textStyle('sm'), styles.position, { color: palette.textMuted }]}>
-              {index + 1}
-            </Text>
-            <Text style={[textStyle('md'), styles.name, { color: palette.ink }]} numberOfLines={1}>
-              {binder.name}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Move ${binder.name} up`}
-              disabled={index === 0 || reorder.isPending}
-              onPress={() => setOrder((current) => moved(current, index, index - 1))}
-              hitSlop={6}
-              testID={`reorder-${binder.id}-up`}
-              style={[styles.arrow, index === 0 && styles.disabled]}
-            >
-              <MaterialCommunityIcons name="arrow-up" size={22} color={palette.ink} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Move ${binder.name} down`}
-              disabled={index === order.length - 1 || reorder.isPending}
-              onPress={() => setOrder((current) => moved(current, index, index + 1))}
-              hitSlop={6}
-              testID={`reorder-${binder.id}-down`}
-              style={[styles.arrow, index === order.length - 1 && styles.disabled]}
-            >
-              <MaterialCommunityIcons name="arrow-down" size={22} color={palette.ink} />
-            </Pressable>
-          </View>
-        ))}
+        {order.map((binder, index) => {
+          const core = isCore(binder);
+          // Its place inside its group (deck cores, then the other binders).
+          const position = core ? index + 1 : index - coreCount + 1;
+          const groupSize = core ? coreCount : order.length - coreCount;
+          const first = index === 0 || isCore(order[index - 1]) !== core;
+          const last = index === order.length - 1 || isCore(order[index + 1]) !== core;
+          return (
+            <View key={binder.id} style={styles.entry}>
+              {grouped && first ? (
+                <Text
+                  accessibilityRole="header"
+                  testID={core ? 'reorder-group-cores' : 'reorder-group-binders'}
+                  style={[textStyle('sm'), styles.group, { color: palette.textMuted }]}
+                >
+                  {core ? 'Deck cores' : 'Binders'}
+                </Text>
+              ) : null}
+              <View
+                testID={`reorder-${binder.id}`}
+                accessibilityLabel={`${binder.name}, position ${position} of ${groupSize}`}
+                style={[
+                  styles.row,
+                  { borderColor: palette.border, backgroundColor: palette.surface },
+                ]}
+              >
+                <Text style={[textStyle('sm'), styles.position, { color: palette.textMuted }]}>
+                  {position}
+                </Text>
+                <Text
+                  style={[textStyle('md'), styles.name, { color: palette.ink }]}
+                  numberOfLines={1}
+                >
+                  {binder.name}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Move ${binder.name} up`}
+                  disabled={first || reorder.isPending}
+                  onPress={() => setOrder((current) => moved(current, index, index - 1))}
+                  hitSlop={6}
+                  testID={`reorder-${binder.id}-up`}
+                  style={[styles.arrow, first && styles.disabled]}
+                >
+                  <MaterialCommunityIcons name="arrow-up" size={22} color={palette.ink} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Move ${binder.name} down`}
+                  disabled={last || reorder.isPending}
+                  onPress={() => setOrder((current) => moved(current, index, index + 1))}
+                  hitSlop={6}
+                  testID={`reorder-${binder.id}-down`}
+                  style={[styles.arrow, last && styles.disabled]}
+                >
+                  <MaterialCommunityIcons name="arrow-down" size={22} color={palette.ink} />
+                </Pressable>
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
       <View style={styles.actions}>
         <Button label="Cancel" variant="ghost" onPress={onClose} disabled={reorder.isPending} />
@@ -127,6 +165,8 @@ export function ReorderBindersSheet({
 const styles = StyleSheet.create({
   list: { flexGrow: 0 },
   content: { gap: spacing[2] },
+  entry: { gap: spacing[2] },
+  group: { fontWeight: fontWeight.semibold, marginTop: spacing[1] },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

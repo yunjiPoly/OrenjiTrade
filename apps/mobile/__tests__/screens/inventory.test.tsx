@@ -459,6 +459,39 @@ describe('Inventory › Binders (screen 17)', () => {
     });
   });
 
+  it('reorders inside each group, the deck cores first as in the list', async () => {
+    const sale = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 2 });
+    const core = deckCoreFixture({ sortOrder: 1 });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/binders': ok([binderFixture(), core, sale]),
+        'PUT /api/v1/binders/reorder': ok([core, sale, binderFixture()]),
+      })
+    );
+    mockParams.current = { view: 'binders' };
+    render();
+    fireEvent.press(await screen.findByTestId('binders-reorder'));
+    const sheet = await screen.findByTestId('reorder-binders');
+    // The order of the list: "Deck cores" first, then "Binders", each counted on its own.
+    expect(within(sheet).getByTestId('reorder-group-cores')).toHaveTextContent('Deck cores');
+    expect(within(sheet).getByTestId('reorder-group-binders')).toHaveTextContent('Binders');
+    expect(within(sheet).getByTestId(`reorder-${core.id}`).props.accessibilityLabel).toBe(
+      'Snake-Eye core, position 1 of 1'
+    );
+    expect(within(sheet).getByTestId(`reorder-${BINDER_ID}`).props.accessibilityLabel).toBe(
+      'Trade binder, position 1 of 2'
+    );
+    // A binder never moves into the deck cores, nor a deck core among the binders.
+    expect(within(sheet).getByTestId(`reorder-${core.id}-down`)).toBeDisabled();
+    expect(within(sheet).getByTestId(`reorder-${BINDER_ID}-up`)).toBeDisabled();
+    fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
+    fireEvent.press(within(sheet).getByTestId('reorder-save'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Binder order saved.');
+    expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
+      binderIds: [core.id, 'b-2', BINDER_ID],
+    });
+  });
+
   it('lists the deck cores first, then the binders, with the summary and the tip', async () => {
     mockApi(
       signedInRoutes({
