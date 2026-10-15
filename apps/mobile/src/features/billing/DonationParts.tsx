@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { Donation, Supporter } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
@@ -7,8 +7,9 @@ import { Button } from '@/src/components/ui/Button';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { Checkbox } from '@/src/components/ui/FormControls';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
-import { StatusChip } from '@/src/features/offers/StatusChip';
+import { StatusChip } from '@/src/components/ui/StatusChip';
 import { formatLongDate } from '@/src/lib/dates';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

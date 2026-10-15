@@ -1,6 +1,7 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { Checkbox } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {

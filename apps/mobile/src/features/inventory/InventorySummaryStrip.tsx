@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useConfirmAllStale, useInventorySummary } from '@/src/api/hooks/inventory';
 import { Button } from '@/src/components/ui/Button';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { cardCount, endsLabel } from '@/src/lib/inventory';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

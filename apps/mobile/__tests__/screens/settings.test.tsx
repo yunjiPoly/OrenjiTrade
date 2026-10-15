@@ -42,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('Settings home', () => {
-  it('lists the sections (Phase 1, offers, my reports) and signs out', async () => {
+  it('lists the sections (Phase 1, blocked users, my reports) and signs out', async () => {
     const port = new FakeAuthPort(testUser());
     mockApi(signedInRoutes());
     renderWithProviders(<SettingsScreen />, { port });
@@ -52,7 +52,7 @@ describe('Settings home', () => {
       'Location and discoverability',
       'Privacy',
       'Notifications',
-      'Offers',
+      'Blocked users',
       'My reports',
       'Account',
       'Appearance',
@@ -60,6 +60,9 @@ describe('Settings home', () => {
     ]) {
       expect(screen.getByRole('link', { name: label })).toBeOnTheScreen();
     }
+    // Offer settings and payouts left the phone with offers and trades (ADR 0018).
+    expect(screen.queryByRole('link', { name: 'Offers' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Payouts' })).toBeNull();
     fireEvent.press(screen.getByRole('link', { name: 'Notifications' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
     fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
@@ -274,6 +277,17 @@ describe('Settings → Notifications', () => {
   it('saves channel and topic preferences', async () => {
     const api = mockApi(
       signedInRoutes({
+        // The API still lists the offer and trade categories (kept for the paused web).
+        'GET /api/v1/me/settings/notifications': ok(
+          notificationsFixture({
+            categories: {
+              MESSAGE: { inApp: true, push: true, email: false },
+              OFFER: { inApp: true, push: false, email: true },
+              TRADE: { inApp: false, push: true, email: false },
+              RATING: { inApp: true, push: true, email: true },
+            },
+          })
+        ),
         'PUT /api/v1/me/settings/notifications': ({ body }: MockRequest) => ok(body),
       })
     );
@@ -291,6 +305,13 @@ describe('Settings → Notifications', () => {
     >;
     expect(body.emailEnabled).toBe(false);
     expect(body.categories.MESSAGE).toEqual({ inApp: true, push: true, email: true });
+    // Offers and trades left the phone (ADR 0018): no row under any label, and the stored
+    // values go back unchanged.
+    expect(screen.getByRole('checkbox', { name: 'Ratings by Push' })).toBeOnTheScreen();
+    expect(screen.queryAllByRole('checkbox', { name: /offer|trade/i })).toHaveLength(0);
+    expect(screen.queryByText(/offer|trade/i)).toBeNull();
+    expect(body.categories.OFFER).toEqual({ inApp: true, push: false, email: true });
+    expect(body.categories.TRADE).toEqual({ inApp: false, push: true, email: false });
   });
 
   it('validates quiet hours', async () => {
@@ -491,6 +512,12 @@ describe('Settings → Appearance', () => {
       })
     );
     renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    // A new install starts in dark (redesign default); System and Light stay one tap away.
+    expect(screen.getByRole('button', { name: 'Dark' })).toBeSelected();
+    fireEvent.press(screen.getByRole('button', { name: 'Light' }));
+    expect(useAppStore.getState().themeOverride).toBe('light');
+    fireEvent.press(screen.getByRole('button', { name: 'System' }));
+    expect(useAppStore.getState().themeOverride).toBe('system');
     fireEvent.press(screen.getByRole('button', { name: 'Dark' }));
     expect(useAppStore.getState().themeOverride).toBe('dark');
     expect(await screen.findByTestId('api-version')).toHaveTextContent('0.1.0');

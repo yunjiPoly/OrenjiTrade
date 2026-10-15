@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
+import { Text } from '@/src/components/ui/Text';
 import { limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

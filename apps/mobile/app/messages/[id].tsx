@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
@@ -27,6 +27,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { rateableInteractions } from '@/src/features/collectors/ratingLabels';
 import { threadMessages } from '@/src/features/messages/conversationCache';
 import { MessageComposer } from '@/src/features/messages/MessageComposer';
@@ -48,7 +49,8 @@ import {
 import { ThreadMessageList } from '@/src/features/messages/ThreadMessageList';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
 import { reportParams } from '@/src/features/reports/reportLabels';
-import { TradingSafetyNotice } from '@/src/features/safety/TradingSafetyNotice';
+import { ChatSafetyTip } from '@/src/features/safety/ChatSafetyTip';
+import { dealSideOf } from '@/src/features/safety/chatSafetyTips';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -63,13 +65,13 @@ const UNKNOWN_PARTICIPANT: ConversationParticipant = {
 /**
  * One conversation (the web's `/messages/:id` thread view): the header with the conversation
  * options (mute, archive, rate the collector when an interaction can still be rated, block /
- * unblock with confirmation, report the collector), the history (day separators, links to cards,
- * binders and offers, photos, "Sent" / "Seen", "… is typing", older pages on scroll) and the
- * composer (text, card, binder or offer link, photo). Live over realtime; the newest message is
- * marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
- * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer. The dismissible trading safety
- * notice sits under the header until dismissed (never over the composer; hidden once the thread
- * is blocked).
+ * unblock with confirmation, report the collector), the history (day separators, links to cards
+ * and binders, photos, old offers as a grey line, "Sent" / "Seen", "… is typing", older pages on
+ * scroll) and the composer (text, card or binder link, photo). Live over realtime; the newest
+ * message is marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
+ * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer. The safety tip of the deal's side
+ * sits at the start of the conversation (ADR 0018: deals ship by mail, payment stays outside the
+ * app; hidden once the thread is blocked).
  */
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -245,6 +247,8 @@ export default function ConversationScreen() {
 
   const cannotSend = blockedByMe || messagingBlocked || unavailable;
   const name = other?.displayName ?? 'this collector';
+  // Chats have no pinned card until stage R4: every chat reads the "without a card" tip.
+  const tip = blockedByMe ? null : <ChatSafetyTip side={dealSideOf(null, selfId)} />;
 
   let body;
   if (!messages.data) {
@@ -285,12 +289,15 @@ export default function ConversationScreen() {
     }
   } else if (all.length === 0) {
     body = (
-      <EmptyState
-        testID="conversation-empty"
-        icon="hand-wave-outline"
-        title={`Say hello to ${name}`}
-        description="Ask about a card, share one from the catalog or one of your public binders. Meetup details always stay private between the two of you."
-      />
+      <View style={styles.fill}>
+        {tip}
+        <EmptyState
+          testID="conversation-empty"
+          icon="hand-wave-outline"
+          title={`Say hello to ${name}`}
+          description="Ask about a card, share one from the catalog or one of your public binders."
+        />
+      </View>
     );
   } else {
     body = (
@@ -303,6 +310,7 @@ export default function ConversationScreen() {
         olderFailed={messages.isFetchNextPageError}
         typing={typing}
         onLoadOlder={() => void messages.fetchNextPage()}
+        start={tip}
       />
     );
   }
@@ -335,16 +343,6 @@ export default function ConversationScreen() {
           }
           onAction={(action) => void onAction(action)}
         />
-      ) : null}
-      {summary && !blockedByMe ? (
-        <View style={styles.notice}>
-          <TradingSafetyNotice
-            context="conversation"
-            otherName={summary.other.displayName}
-            onReport={() => void onAction('report')}
-            onBlock={() => setConfirmBlock(true)}
-          />
-        </View>
       ) : null}
       {blockedByMe ? (
         <View
@@ -396,8 +394,6 @@ export default function ConversationScreen() {
           onSend={onSend}
           onTyping={sendTyping}
           onDismissError={() => setSendError(null)}
-          otherId={other?.id ?? null}
-          otherName={name}
         />
       </View>
       <ConfirmDialog
@@ -427,7 +423,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
   },
-  notice: { paddingHorizontal: spacing[3], paddingTop: spacing[2] },
   composer: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing[3],

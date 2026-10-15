@@ -1,15 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { CardHolderResult } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
-import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
-import { offerTargetFromItem, sellerFromMarker } from '@/src/features/offers/offerTarget';
+import { Text } from '@/src/components/ui/Text';
 import {
   editionLabel,
   formatMoney,
@@ -29,8 +28,9 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 /**
  * One "who has this card in my region" result (the web's `app-holder-row`): the listed copy
  * (picture, printing, set, language, edition, copies, condition, availability, offers, public
- * note, price, freshness) and its holder (name and state or province only, ADR 0017), with "Make
- * an offer" when the copy accepts one and "View binder" when it sits in a public binder.
+ * note, price, freshness) and its holder (name and state or province only, ADR 0017), with "View
+ * binder" when it sits in a public binder. Deals happen in the chat (ADR 0018): the holder's
+ * profile has "Message".
  */
 export const HolderRow = memo(function HolderRow({ result }: { result: CardHolderResult }) {
   const { palette } = useTheme();
@@ -39,7 +39,7 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
   const code = printingCode(item.printing);
   const price =
     formatMoney(item.askingPrice ?? null, item.currency) ??
-    (item.acceptsOffers ? 'Make an offer' : 'No price');
+    (item.acceptsOffers ? 'Open to offers' : 'No price');
   const place = placeLabel(collector.place) ?? GENERIC_PLACE_LABEL;
   const meta = [item.printing.setName, languageName(item.language), editionLabel(item.edition)]
     .filter((part) => part && part !== '—')
@@ -110,12 +110,8 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
         </View>
         <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
       </Pressable>
-      <View style={styles.actions}>
-        <MakeOfferButton
-          target={offerTargetFromItem(item, sellerFromMarker(collector))}
-          style={styles.action}
-        />
-        {item.binder ? (
+      {item.binder ? (
+        <View style={styles.actions}>
           <Button
             label="View binder"
             icon="book-open-variant"
@@ -129,8 +125,8 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
             style={styles.action}
             testID={`holder-${item.id}-binder`}
           />
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 });

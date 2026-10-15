@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14 after stage R1): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -38,6 +38,7 @@ modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 
 | What | Where | State |
 | --- | --- | --- |
 | Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (rounds 1 and 2). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
+| Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`), cut from the head of S6 | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): offers, trades, protected payments and disputes off the phone, the chat safety tip, ratings without meetups, V115 and V116, the seeds, "Trading safely" in English and French, ADR 0018, the deckCore tokens, the three typefaces, the dark default; every suite of the check list green (numbers in that section). Its two independent reviewers ran; review fixes 1 and 2 are done (that section, "Review fix 1" and "Review fix 2"; two fix rounds is the most allowed). Next: its ship step (after S6 is on `main`). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -50,8 +51,9 @@ card scanning), the full French UI translation and every cloud deployment stay o
 
 **Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
-verbatim). Nothing of it is built. Until a stage lands, every document describes the phone as it
-is today (six tabs, offers on the phone).
+verbatim). **R1 is built** on its branch and waits for review (table above); R2 to R8 are not
+built. The documents describe the phone as R1 leaves it: six tabs until R5, no offers, trades,
+protected payments or disputes on the phone (ADR 0018), deals in the chat by mail.
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
 migrates to the newest level (V114) at the first `npm run dev`, and loses its trading areas by
@@ -88,24 +90,30 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    expected in `IMPLEMENTATION_STATUS.md` "NEXT TASK" and in section 6 of this file: keep this
    branch's text, which already counts #70 as merged), run the check list below, open the pull
    request, merge on green CI.
-2. **Then the phone redesign, stage R1** ("Offers out, shipping wording, look"), from a new `main`,
-   as its spec says in section 0 (what to read and inspect first) and section 15 (the stages and
-   how each is reviewed). R1 to R8 follow in order, one branch and one PR each.
-3. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
+2. **Stage R1 of the phone redesign** ("Offers out, shipping wording, look"): built on
+   `feature/r1-offers-out-shipping-look`, reviewed by a functional verifier and a second lens, and
+   review fixes 1 and 2 are done (two fix rounds, the most the spec's section 15 allows); next its
+   ship step: merge `main` (with S6), the check list below, the pull
+   request, merge on green CI. Its report lists the decisions for the owner (IMPLEMENTATION_STATUS.md,
+   "Phone redesign R1"), among them the two web spec files the legal exception reached, the
+   lawyer's list of meetup, offer and protection wording, and the phone's legal index.
+3. **Then stage R2** (inventory and adding cards, mockup screens 1 to 9) from the new `main`, as
+   the spec's sections 6, 12 and 15 say; R3 to R8 follow in order, one branch and one PR each.
+4. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
-`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
-`npm run build -w apps/web-angular` (initial bundle under the 900 kB warning budget: 899.93 kB
-today, 0.07 kB of room); `npm run test:e2e -- --retries=0` (every spec green on the first
-attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform android` and
-`--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
-`npm run test:scripts`; exactly what GitHub CI runs: `npm run lint -w apps/web-angular`,
-`npm run format:check -w apps/web-angular`, `npm run typecheck -w apps/mobile`,
-`npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`; and, when `apps/mobile`
-changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`, 30 flows, about
-48 minutes) on the owner's simulator (section 4). While the web is paused its checks are
-regression checks: a web failure is recorded, not fixed.
+`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
+apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1, 0.69 kB
+of room: the English legal texts sit in the main bundle, and the deckCore tokens are kept out of
+`tokens.css`); `npm run test:e2e -- --retries=0` (every spec green on the first attempt); `npm run
+test:mobile`; `npx expo export --platform ios`, `--platform android` and `--platform web`; `npm run
+test:mobile:e2e -- --retries=0`; `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub
+CI runs: `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`, `npm run
+typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`;
+and, when `apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform
+ios`, 30 flows since stage R1, about 50 minutes) on the owner's simulator (section 4). While the web
+is paused its checks are regression checks: a web failure is recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
 `apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;
@@ -233,7 +241,20 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
 ## 6. Open owner decisions
 
 - In-app purchases for Premium/credits in store builds (IAP, link-out to the web, or web-only) — ADR
-  0011 open question; nothing is sold at launch.
+  0011 open question, narrowed by ADR 0018 to Premium and donations; nothing is sold at launch.
+- Stage R1 of the phone redesign (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): confirm that the
+  web exception for the "Trading safely" text also covered the two web spec files that pinned the
+  old text (one assertion of `legal-page.component.spec.ts`, three strings of
+  `e2e/launch-safety.spec.ts`; the guard of the new text reads the phone's copy, so the web's
+  `legal-content.spec.ts` is as S6 left it); the lawyer's list of the meetup, offer and protection wording
+  left in the Terms, the Privacy Policy, the Community Guidelines, the Marketplace, Payment
+  Protection, Refund and Dispute and Acceptable Use policies; whether the phone's legal index
+  keeps the Payment Protection and Refund and Dispute policies (ADR 0018: no claim of protection
+  on the phone); the defaults R1 chose (old offer and trade notifications open nothing, a removed
+  link lands on Messages, the chat tip opens "Trading safely", a holder row without a price reads
+  "Open to offers" until R2, the keyboard and the iOS system views follow the app's theme, the
+  splash is dark); the owner's database keeps its earlier seed texts (meetup, café) until a reset
+  (`seed-data.md`).
 - An arm64 PostGIS image: `postgis/postgis:17-3.5` is amd64-only and runs under Rosetta on Apple
   Silicon; decide before macOS 28 (Rosetta's end).
 - `security/npm-audit-allowlist.json`: the node-forge and braces entries expire on 2026-11-30;

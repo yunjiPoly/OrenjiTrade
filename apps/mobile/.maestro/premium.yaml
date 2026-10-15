@@ -1,5 +1,5 @@
 # Premium (mobile Phase 10) with the local fake billing provider (no card, no money): Pat (fresh,
-# fictional, FREE) already has the five binders the free plan allows (scripts/payments.js). "New
+# fictional, FREE) already has the five binders the free plan allows (scripts/billing.js). "New
 # binder" explains the limit and "See Premium" leads to the plans; "Upgrade to Premium" opens the
 # app's fake billing checkout, which declines once ("Try again") and then succeeds: Pat is welcomed
 # on Premium (the API holds the plan) and the sixth binder can be created. "Cancel now" brings
@@ -11,7 +11,7 @@ tags:
   - premium
 ---
 - runScript:
-    file: scripts/payments.js
+    file: scripts/billing.js
     env:
       ACTION: premium
 - runFlow: subflows/launch-fresh.yaml
@@ -82,7 +82,7 @@ tags:
     timeout: 90000
 - takeScreenshot: premium-welcome
 - runScript:
-    file: scripts/payments.js
+    file: scripts/billing.js
     env:
       ACTION: expect-plan
       EMAIL: ${output.pat.email}
@@ -132,7 +132,7 @@ tags:
     timeout: 60000
 - takeScreenshot: premium-cancelled
 - runScript:
-    file: scripts/payments.js
+    file: scripts/billing.js
     env:
       ACTION: expect-plan
       EMAIL: ${output.pat.email}

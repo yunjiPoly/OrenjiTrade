@@ -63,20 +63,22 @@ describe('launch configuration: every money flag off', () => {
   it('shows no pay, subscribe, credits or donate entry point on the Profile tab', async () => {
     mockApi(routes());
     renderWithProviders(<ProfileScreen />, { port: port() });
-    expect(await screen.findByTestId('profile-trades')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-settings')).toBeOnTheScreen();
+    expect(screen.queryByTestId('profile-money')).toBeNull();
     expect(screen.queryByTestId('profile-premium')).toBeNull();
     expect(screen.queryByTestId('profile-credits')).toBeNull();
     expect(screen.queryByTestId('profile-support')).toBeNull();
     expect(screen.queryByText(MONEY_WORDS)).toBeNull();
   });
 
-  it('lists no Payouts section in Settings', async () => {
+  it('lists no Payouts or Offers section in Settings', async () => {
     const api = mockApi(routes());
     renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-sign-out')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/public/feature-flags').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('settings-link-payouts')).toBeNull();
     expect(screen.queryByText(/payout/i)).toBeNull();
+    expect(screen.queryByTestId('settings-link-offers')).toBeNull();
   });
 
   it('explains a reached plan limit without naming Premium', async () => {

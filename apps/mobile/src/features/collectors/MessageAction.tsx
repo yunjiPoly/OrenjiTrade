@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Button } from '@/src/components/ui/Button';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface MessageActionProps {

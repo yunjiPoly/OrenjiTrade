@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -23,6 +23,7 @@ import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { checkoutProblem, humanizeKey, usageRows } from '@/src/features/billing/billingLabels';
 import {
   ActiveBoosts,
@@ -30,8 +31,8 @@ import {
   SubscriptionCard,
   UsageMeters,
 } from '@/src/features/billing/PlanCards';
-import { isEntitling } from '@/src/features/checkout/useProviderCheckout';
-import { checkoutTarget } from '@/src/features/payments/checkoutTargets';
+import { isEntitling } from '@/src/features/billing/useProviderCheckout';
+import { checkoutTarget } from '@/src/features/billing/checkoutTargets';
 import { formatLongDate } from '@/src/lib/dates';
 import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 

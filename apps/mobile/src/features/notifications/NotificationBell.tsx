@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useUnreadNotificationCount } from '@/src/api/hooks/notificationCentre';
+import { Text } from '@/src/components/ui/Text';
 import { badgeCount } from '@/src/features/messages/messageText';
 import { fontWeight, radius, spacing, useTheme } from '@/src/theme';
 

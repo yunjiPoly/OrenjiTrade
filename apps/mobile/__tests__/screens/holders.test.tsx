@@ -1,7 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import HoldersScreen from '@/app/holders';
-import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -85,7 +84,8 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     expect(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-binder`)).toBeOnTheScreen();
     const second = screen.getByTestId(`holder-${OTHER_ITEM}`);
     expect(within(second).getByTestId(`holder-${OTHER_ITEM}-price`)).toHaveTextContent('No price');
-    expect(within(second).queryByRole('button', { name: /Make an offer/ })).toBeNull();
+    // Offers left the phone (ADR 0018): no "Make an offer" on any row.
+    expect(screen.queryByRole('button', { name: /Make an offer/ })).toBeNull();
     // The home region (ADR 0017): no position; the card id, the default sort and page.
     const query = api.callsTo('GET /api/v1/search/card-holders')[0]?.query;
     expect(Object.fromEntries(query ?? [])).toEqual({
@@ -97,7 +97,7 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     });
   });
 
-  it('opens the holder profile, the binder, the card and an offer', async () => {
+  it('opens the holder profile, the binder and the card', async () => {
     mockApi(routes());
     render();
     const first = await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`);
@@ -111,12 +111,6 @@ describe('Card holders ("who has this in my region" as a list)', () => {
       pathname: '/binders/[id]',
       params: { id: BINDER_ID, view: 'public' },
     });
-    fireEvent.press(within(first).getByRole('button', { name: /Make an offer/ }));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: HOLDER_ITEM_ID },
-    });
-    expect(offerTargetFor(HOLDER_ITEM_ID)?.seller.displayName).toBe('Noé Verdun');
     expect(screen.queryByTestId('holders-map')).toBeNull();
     fireEvent.press(screen.getByTestId('holders-card'));
     expect(mockRouter.push).toHaveBeenCalledWith({

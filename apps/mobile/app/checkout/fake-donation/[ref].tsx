@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text } from 'react-native';
 
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { confirmFakeDonationCheckout, readFakeDonationCheckout } from '@/src/api/hooks/billing';
@@ -10,17 +9,18 @@ import type { FakeDonationCheckout } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import {
   DONATION_NOTE,
   amountLabel,
   donationStatusInfo,
 } from '@/src/features/billing/billingLabels';
-import { FakeProviderCheckout } from '@/src/features/checkout/FakeProviderCheckout';
+import { FakeProviderCheckout } from '@/src/features/billing/FakeProviderCheckout';
 import {
   donationOutcome,
   useProviderCheckout,
   type CheckoutOutcome,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 import { textStyle, useTheme } from '@/src/theme';
 
 function doneText(outcome: CheckoutOutcome | null): string {

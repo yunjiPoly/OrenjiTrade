@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useRegionOptions } from '@/src/api/hooks/regions';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { Text } from '@/src/components/ui/Text';
 import { regionName } from '@/src/lib/place';
 import { PINNED_MAX_FONT_SCALE, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 

@@ -14,6 +14,7 @@ import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
+import { useAppFonts } from '@/src/theme/useAppFonts';
 
 export {
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -32,6 +33,13 @@ export default function RootLayout() {
   // server HTML and the first client render draw the same glyphs (no hydration mismatch), and
   // native screens do not flash empty icons.
   useFonts(MaterialCommunityIcons.font);
+  // Sora, Inter and JetBrains Mono (spec 2026-10-14, section 3): the first screen waits for them
+  // on a phone (the splash screen stays up meanwhile), so no screen draws in the system font
+  // first.
+  const fontsReady = useAppFonts();
+  if (!fontsReady) {
+    return null;
+  }
 
   return (
     <SafeAreaProvider>

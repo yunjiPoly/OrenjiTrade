@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { newRequestId } from '@/src/api/client';
@@ -21,6 +21,7 @@ import { ScreenHeader } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import {
   creditsLabel,
   idempotencyKeyFrom,

@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter, useScrollToTop } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -11,6 +11,7 @@ import { useRegions } from '@/src/api/hooks/regions';
 import { Button } from '@/src/components/ui/Button';
 import { Screen } from '@/src/components/ui/Screen';
 import { Segmented } from '@/src/components/ui/Segmented';
+import { Text } from '@/src/components/ui/Text';
 import { MapLegend } from '@/src/features/map/MapLegend';
 import { mapFrameHeight } from '@/src/features/map/mapWindow';
 import { PlaceList } from '@/src/features/map/PlaceList';

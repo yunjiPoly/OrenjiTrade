@@ -5,6 +5,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.admin.AbstractPhase7IT;
 import com.orenjitrade.api.auth.domain.Role;
+import com.orenjitrade.api.common.seed.SeedWordingTest;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,6 +44,16 @@ class ReportFlowIT extends AbstractPhase7IT {
                         "OTHER");
         assertThat(reasons.get(0).path("label").asString()).isNotBlank();
         assertThat(reasons.get(0).path("description").asString()).isNotBlank();
+        // Deals ship by mail (ADR 0018): no reason speaks of meetups any more.
+        assertThat(reasons.get(4).path("description").asString())
+                .isEqualTo("Behaviour that breaks the Community Guidelines.");
+        List<String> wording = new ArrayList<>();
+        reasons.forEach(
+                reason -> {
+                    wording.addAll(SeedWordingTest.findings(reason.path("label").asString()));
+                    wording.addAll(SeedWordingTest.findings(reason.path("description").asString()));
+                });
+        assertThat(wording).isEmpty();
     }
 
     @Test

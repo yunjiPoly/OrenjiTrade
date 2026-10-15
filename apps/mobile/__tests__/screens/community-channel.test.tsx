@@ -50,7 +50,7 @@ describe('Community channel', () => {
   });
 
   it('publishes a post, counts it, and clears the composer', async () => {
-    const created = ownPostFixture({ id: 'new-post', body: 'Trading tonight at the café' });
+    const created = ownPostFixture({ id: 'new-post', body: 'Shipping a few trades tonight' });
     const api = mockApi(
       routes({
         'GET /api/v1/community/channels/{slug}/posts': ok(postPage([])),
@@ -62,11 +62,11 @@ describe('Community channel', () => {
     // An empty post is refused inline.
     fireEvent.press(screen.getByTestId('post-submit'));
     expect(api.callsTo('POST /api/v1/community/channels/{slug}/posts')).toHaveLength(0);
-    fireEvent.changeText(screen.getByTestId('post-text'), '  Trading tonight at the café ');
+    fireEvent.changeText(screen.getByTestId('post-text'), '  Shipping a few trades tonight ');
     fireEvent.press(screen.getByTestId('post-submit'));
-    expect(await screen.findByText('Trading tonight at the café')).toBeOnTheScreen();
+    expect(await screen.findByText('Shipping a few trades tonight')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/community/channels/{slug}/posts')[0]?.body).toEqual({
-      body: 'Trading tonight at the café',
+      body: 'Shipping a few trades tonight',
     });
     expect(screen.getByTestId('channel-activity')).toHaveTextContent(/4 posts today$/);
     expect(screen.getByTestId('post-text').props.value).toBe('');

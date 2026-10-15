@@ -51,7 +51,7 @@ public class DonationSeedContributor implements SeedContributor {
                 FakeDonationProvider.ID,
                 "fake_dn_seedcollector20001",
                 DonationStatus.SUCCEEDED,
-                "Keep the local trade nights going!",
+                "Keep the trades going!",
                 true,
                 now.minus(12, ChronoUnit.DAYS));
         repository.insertSeed(

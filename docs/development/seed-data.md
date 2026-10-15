@@ -12,13 +12,13 @@ Stable ids use the pattern `00000000-0000-4000-8000-0000000000NN`.
 
 | NN | Handle | Display name | Declared place (`locations.json`) | Region | Tags | Games | Inventory profile |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 01 | collector1 | Maïka Tremblay | CA / CA-QC, city Montréal | americas-north | Collector, Trader, Local Meetups, French, English | Yu-Gi-Oh!, Pokémon | 2 public binders (fresh), 1 private binder |
+| 01 | collector1 | Maïka Tremblay | CA / CA-QC, city Montréal | americas-north | Collector, Trader, Shipping, French, English | Yu-Gi-Oh!, Pokémon | 2 public binders (fresh), 1 private binder |
 | 02 | collector2 | Devon Okafor | CA / CA-ON, city Toronto | americas-north | Player, Competitive, Shipping | Magic | 1 public binder (fresh), wishlist (visible) alerted about collector1's Azure-Eyes listing |
 | 03 | collector3 | Priya Raman | AR / AR-C, city Buenos Aires (hidden) | americas-south | Collector, Vintage, High-End | Yu-Gi-Oh! | public binder last confirmed 40 days ago (STALE) |
 | 04 | collector4 | Lucas Bergeron | ES / ES-MD, city Madrid | europe | Player, Casual | Riftbound | binder temporarily public (24 h) |
 | 05 | collector5 | Sofia Nguyen | US / US-CA, city Los Angeles | americas-north | Collector, Sealed, Shipping | Pokémon, Magic | public binder, accepts offers on several cards |
 | 06 | collector6 | Ethan Walsh | CL / CL-RM, city Santiago | americas-south | Trader, High-End | Magic, Yu-Gi-Oh! | public binder 50 days old (HIDDEN until confirmed) |
-| 07 | collector7 | Amara Diallo | US / US-NY, city Brooklyn | americas-north | Player, Competitive, Local Meetups | Pokémon | private only (not discoverable) |
+| 07 | collector7 | Amara Diallo | US / US-NY, city Brooklyn | americas-north | Player, Competitive, Shipping | Pokémon | private only (not discoverable) |
 | 08 | collector8 | Noah Kim | FR / FR-IDF, city Paris | europe | Collector, Casual | Riftbound, Pokémon | public binder, low quantity items |
 | 09 | premium_user | Camille Roy | BR / BR-SP, city São Paulo | americas-south | Collector, Trader | all four | premium plan, saved searches |
 | 10 | moderator | Jordan Lavoie | DE / DE-BE, city Berlin | europe | — | — | MODERATOR |
@@ -67,9 +67,14 @@ entries. Nothing happens while the real catalog is absent.
 
 ## Interactions
 
-- Conversation between collector1 and collector2 (6 messages, one card link, one binder link).
-- One OPEN offer from collector5 to collector1 (cash), one COUNTERED offer between 2 and 6.
-- Ratings: collector1 ↔ collector2 (completed trade), collector5 → collector1.
+- Conversation between collector1 and collector2 (6 messages, one card link, one binder link):
+  a deal shipped by mail, paid by e-Transfer (stage R1 of the phone redesign, ADR 0018: the seeds
+  hold no meetup, game store or café line, and no address: `GeoPrivacyContractTest` would flag a
+  city).
+- One OPEN offer from collector5 to collector1 (cash), one COUNTERED offer between 2 and 6 (the
+  API keeps offers for the paused web; the phone no longer shows them).
+- Ratings: collector1 ↔ collector2 (completed trade), collector5 → collector1; shipping scores, no
+  meetup score.
 - One OPEN collector report from collector4 against collector6 (reason SPAM) for admin review.
 - Wishlist (stage S2): collector2 wants a printing that collector1 publishes (both in Americas
   North; public note, Near Mint only, "90% TCG"), the Pokémon printing `pkm-p002a` that collector1
@@ -93,4 +98,23 @@ entries. Nothing happens while the real catalog is absent.
   start with the migration state (see `docs/deployment/runbooks.md`, "Launch configuration").
 - Community channels: one per platform region (Americas (North), Americas (South), Europe, V110),
   Looking For, New Listings, Trades, General; the former Montréal city channels are archived
-  (kept for their posts, not listed to members).
+  (kept for their posts, not listed to members). Their descriptions say "trades and sales by
+  mail" since V116 (stage R1), no longer "trades, meetups, locals".
+- Profile tags: the curated "Local Meetups" tag is hidden since V115 (stage R1); seed profiles 01
+  and 07 carry "Shipping" instead.
+
+### A database seeded before stage R1
+
+The rows whose texts stage R1 rewrote (profiles, the seed conversation, binders and cards,
+community posts and replies, offers, ratings, the donation, the sponsored campaign) are inserted
+once and never rewritten. A database seeded before stage R1 (2026-10-14) and migrated since keeps
+their earlier texts: collector1's bio ("always up for a meetup"), the seed conversation ending "see
+you Saturday at the café!", the binder descriptions, community posts and replies, the open offer's
+message ("I can meet at Berri-UQAM after work."), the rating comments, the donation message and the
+sponsored headline, with their meetup, game store, café and "trade nights" lines; collector1 and
+collector7 keep the hidden "Local Meetups" tag (no longer shown,
+V115) and do not gain "Shipping". Only what the migrations change follows: V115 hides the tag and
+V116 rewrites the untouched region channel descriptions. The shipping texts above appear on a
+fresh database: `npm run infra:reset` (it **deletes all local data**, see
+[local-setup.md](local-setup.md#reset-and-reseed)), then `npm run dev`. The owner's database
+`orenjitrade` (V114 when R1 was built) is in this case.

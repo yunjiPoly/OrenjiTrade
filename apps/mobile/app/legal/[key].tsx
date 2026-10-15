@@ -1,10 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useLegalDocuments } from '@/src/api/hooks/legal';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { LegalDraftBanner } from '@/src/features/legal/LegalDraftBanner';
 import { isLegalKey, legalKeyOf } from '@/src/features/legal/legalDocs';
 import { LegalLanguageSwitch } from '@/src/features/legal/LegalLanguageSwitch';

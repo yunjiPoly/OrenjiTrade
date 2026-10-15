@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
+import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';

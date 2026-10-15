@@ -1,10 +1,11 @@
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import type { ImportRowFilter } from '@/src/api/hooks/inventoryImport';
 import type { InventoryImport, UpdateImportRequest } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { Checkbox, FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SectionCard } from '@/src/components/ui/Layout';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import {

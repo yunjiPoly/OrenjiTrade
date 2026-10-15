@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { useMemo, type ReactNode } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 import type { ConversationParticipant, MessageResponse } from '@/src/api/types';
 import { ListFooter } from '@/src/components/ui/ListFooter';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { MessageBubble } from './MessageBubble';
@@ -18,12 +19,15 @@ export interface ThreadMessageListProps {
   olderFailed: boolean;
   typing: boolean;
   onLoadOlder: () => void;
+  /** Shown at the very start of the conversation, once its first page is loaded (the safety tip). */
+  start?: ReactNode;
 }
 
 /**
  * The message history (the web's `app-message-list`): day separators, sender groups, "Sent" /
  * "Seen" under the caller's newest message and the typing indicator, newest at the bottom
- * (inverted list); scrolling up loads older pages. Announced politely to screen readers.
+ * (inverted list); scrolling up loads older pages. `start` (the safety tip) sits at the very
+ * beginning of the conversation. Announced politely to screen readers.
  */
 export function ThreadMessageList({
   messages,
@@ -34,6 +38,7 @@ export function ThreadMessageList({
   olderFailed,
   typing,
   onLoadOlder,
+  start,
 }: ThreadMessageListProps) {
   const { palette } = useTheme();
   // Inverted list: the newest item first.
@@ -101,12 +106,15 @@ export function ThreadMessageList({
             testID="conversation-older"
           />
         ) : (
-          <Text
-            testID="conversation-start"
-            style={[textStyle('xs'), styles.start, { color: palette.textMuted }]}
-          >
-            This is the beginning of your conversation with {other.displayName}.
-          </Text>
+          <View style={styles.startBlock}>
+            <Text
+              testID="conversation-start"
+              style={[textStyle('xs'), styles.start, { color: palette.textMuted }]}
+            >
+              This is the beginning of your conversation with {other.displayName}.
+            </Text>
+            {start}
+          </View>
         )
       }
     />
@@ -120,5 +128,6 @@ const styles = StyleSheet.create({
   dayText: { fontWeight: fontWeight.semibold },
   receipt: { alignSelf: 'flex-end', marginTop: 2 },
   typing: { fontStyle: 'italic', marginTop: spacing[1] },
-  start: { textAlign: 'center', marginBottom: spacing[3] },
+  startBlock: { marginBottom: spacing[2] },
+  start: { textAlign: 'center' },
 });

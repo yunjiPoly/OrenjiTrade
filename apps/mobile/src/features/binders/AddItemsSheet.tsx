@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Checkbox } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { boundedQuery, printingCode, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import { cardCount } from '@/src/lib/inventory';

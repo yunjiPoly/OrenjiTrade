@@ -4,12 +4,12 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface ChoiceOption<T extends string> {

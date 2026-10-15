@@ -7,9 +7,12 @@ changing code. Keep this file concise; put detail in `docs/`.
 ## What OrenjiTrade is
 
 A regional discovery network for trading cards. The product answers one question:
-**"Who in my region owns, trades, sells, wants, or accepts offers for this card?"**
+**"Who in my region owns, trades, sells or wants this card?"**
 Collectors publish binders; other collectors find them per platform region and per state or
-province (ADR 0017: no positions, no distances).
+province (ADR 0017: no positions, no distances). Deals happen in the chat and cards ship by mail:
+the buyer pays the seller outside the app (Interac e-Transfer), the seller ships with tracking,
+OrenjiTrade never handles the money and claims no protection; there are no meetups and no offers
+on the phone (ADR 0018; the API keeps offers, trades, payments and disputes for the paused web).
 Brand name is always written `OrenjiTrade`. Domain `orenjitrade.com`
 (`www.orenjitrade.com` web + `/admin`, `api.orenjitrade.com` API). Text wordmark only until
 branding assets are supplied.
@@ -30,7 +33,7 @@ branding assets are supplied.
 | Architecture | Modular monolith (one Spring Boot app, package-per-module). REST `/api/v1/...`, OpenAPI generated from code |
 | Identity | Firebase Authentication / Identity Platform; backend verifies ID tokens; roles live in our DB (RBAC) |
 | Events | Domain events via Spring Modulith event registry (transactional outbox); Pub/Sub adapter for cloud + analytics |
-| Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged |
+| Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged; web only: the phone has no protected payments (ADR 0018) |
 | Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The mobile Map tab draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 

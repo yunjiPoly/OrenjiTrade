@@ -54,4 +54,5 @@ export { SelectSheet, type SelectOption, type SelectSheetProps } from './SelectS
 export { Skeleton, SkeletonList, type SkeletonListProps, type SkeletonProps } from './Skeleton';
 export { SnackbarProvider, useSnackbar, type Snackbar, type SnackbarOptions } from './Snackbar';
 export { Stepper, type StepperProps } from './Stepper';
+export { Text, TextInput } from './Text';
 export { TextField, type TextFieldProps } from './TextField';

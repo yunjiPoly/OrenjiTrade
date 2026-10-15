@@ -49,6 +49,14 @@ import { colorsFor, spacing, fonts } from '@orenji/design-tokens';
 const c = colorsFor('dark');
 ```
 
+## Platform-only groups
+
+A group marked `"$platforms": ["mobile"]` (or `["web"]`) reaches only that platform: `build.mjs`
+leaves a mobile-only group out of `tokens.css`, and the phone's `npm run sync:tokens` leaves a
+web-only group out of `src/theme/tokens.ts`. `dist/tokens.ts` keeps every group. `$`-prefixed
+keys are metadata and never become tokens. Today only `color.*.deckCore` is mobile-only (the deck
+core tag and switch of the phone redesign; the paused web has no deck cores).
+
 ## CSS variable naming
 
 `--<group>-<path>`, kebab-cased. Colour tokens omit the theme key:

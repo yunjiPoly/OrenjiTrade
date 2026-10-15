@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -24,6 +24,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { ItemDetailsFields } from '@/src/features/inventory/ItemDetailsFields';
 import { ItemPhotos } from '@/src/features/inventory/ItemPhotos';
 import {

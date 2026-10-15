@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { CreatePostRequest } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { BinderLinkPicker, CardLinkPicker } from '@/src/features/messages/LinkPickers';
 import type { BinderLinkChoice, CardLinkChoice } from '@/src/features/messages/messageDraft';

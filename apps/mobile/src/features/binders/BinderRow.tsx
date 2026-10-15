@@ -1,8 +1,9 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { BinderResponse } from '@/src/api/types';
 import { Badge } from '@/src/components/ui/Badge';
+import { Text } from '@/src/components/ui/Text';
 import { binderVisibilityStatus } from '@/src/features/inventory/visibilityStatus';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { gameLabel } from '@/src/lib/profile';

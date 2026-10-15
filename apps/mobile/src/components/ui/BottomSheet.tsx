@@ -5,12 +5,12 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/src/components/ui/Text';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
 import { elevation, fontWeight, motion, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

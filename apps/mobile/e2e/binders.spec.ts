@@ -193,7 +193,7 @@ test.describe('mobile binders', () => {
     await expect(binder.getByText('Azure-Eyes Sky Dragon', { exact: true })).toBeVisible();
     // Private notes never reach other collectors; public notes do.
     await expect(binder.getByText('“Pack fresh, sleeved since opening.”')).toBeVisible();
-    await expect(binder.getByText('Pulled at the spring locals.')).toHaveCount(0);
+    await expect(binder.getByText('Pulled from a booster box in the spring.')).toHaveCount(0);
     // No owner actions.
     await expect(binder.getByRole('button', { name: 'Publish' })).toHaveCount(0);
 

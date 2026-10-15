@@ -3,10 +3,10 @@ import type { ReactNode } from 'react';
 
 import { ApiError } from '@/src/api/ApiError';
 import {
-  paymentOutcome,
+  donationOutcome,
   useProviderCheckout,
   type ProviderCheckoutSource,
-} from '@/src/features/checkout/useProviderCheckout';
+} from '@/src/features/billing/useProviderCheckout';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { mockApi, ok } from '../support/mockApi';
@@ -24,12 +24,12 @@ function source(
   let index = 0;
   return {
     read: jest.fn(async () => {
-      const value = reads[Math.min(index, reads.length - 1)] ?? { status: 'REQUIRES_ACTION' };
+      const value = reads[Math.min(index, reads.length - 1)] ?? { status: 'PENDING' };
       index++;
       return value;
     }),
     send,
-    outcomeOf: (value) => paymentOutcome(value),
+    outcomeOf: (value) => donationOutcome(value),
   };
 }
 
@@ -40,9 +40,9 @@ beforeEach(() => {
 
 describe('useProviderCheckout', () => {
   it('gives up after the polls with "pending" when the provider never answers', async () => {
-    const checkout = source([{ status: 'REQUIRES_ACTION' }]);
+    const checkout = source([{ status: 'PENDING' }]);
     const { result } = renderHook(
-      () => useProviderCheckout('payment', 'ref-1', checkout, { pollDelayMs: 1, maxPolls: 3 }),
+      () => useProviderCheckout('donation', 'ref-1', checkout, { pollDelayMs: 1, maxPolls: 3 }),
       { wrapper }
     );
     await waitFor(() => expect(result.current.status).toBe('ready'));
@@ -59,12 +59,12 @@ describe('useProviderCheckout', () => {
   it('reads how it ended after a 409 and keeps the pay buttons after another refusal', async () => {
     const conflict = new ApiError({ status: 409, errorCode: 'CONFLICT', message: 'Not waiting' });
     const checkout = source(
-      [{ status: 'REQUIRES_ACTION' }, { status: 'SECURED' }],
+      [{ status: 'PENDING' }, { status: 'SUCCEEDED' }],
       jest.fn(async () => {
         throw conflict;
       })
     );
-    const { result } = renderHook(() => useProviderCheckout('payment', 'ref-2', checkout), {
+    const { result } = renderHook(() => useProviderCheckout('donation', 'ref-2', checkout), {
       wrapper,
     });
     await waitFor(() => expect(result.current.status).toBe('ready'));
@@ -79,12 +79,12 @@ describe('useProviderCheckout', () => {
       message: 'Down',
     });
     const failing = source(
-      [{ status: 'REQUIRES_ACTION' }],
+      [{ status: 'PENDING' }],
       jest.fn(async () => {
         throw refused;
       })
     );
-    const second = renderHook(() => useProviderCheckout('payment', 'ref-3', failing), { wrapper });
+    const second = renderHook(() => useProviderCheckout('donation', 'ref-3', failing), { wrapper });
     await waitFor(() => expect(second.result.current.status).toBe('ready'));
     await act(async () => {
       expect(await second.result.current.confirm('SUCCEEDED')).toBeNull();

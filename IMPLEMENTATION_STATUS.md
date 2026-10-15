@@ -7,6 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-14 (stage R1 of the phone redesign, "Offers out, shipping wording, look": offers, trades, protected payments and disputes off the phone (ADR 0018, "Deals happen in the chat"), the chat safety tip per side, ratings without meetup reliability, V115 (the meetup tag hidden) and V116 (region channels by mail), shipping seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono through the theme, a new install in dark — branch `feature/r1-offers-out-shipping-look`, builder done, review fix 1 done (the bio placeholder, the last seeded meetup line, the inbox line of old offers, the keyboard and system views in the dark default, the switch thumb, the lint rule for the fonts, tests for the hidden notification categories, the report reasons and the seeds), not pushed; see "Phone redesign R1: offers out, shipping wording, look (2026-10-14)")
 **Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, rounds 1 and 2; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: stage S2 (#60), the first run on Apple Silicon (#59), the iOS path of the native suite (#61), mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
@@ -4713,8 +4714,344 @@ them); two database comments of V112 that still name "Who wants it" (a new migra
 them; this stage adds none, the redesign numbers its migrations from V115); two stale lines of
 the paused web README; the proposed CLAUDE.md sentences (the end of the delivery report).
 
+## Phone redesign R1: offers out, shipping wording, look (2026-10-14)
+
+Stage R1 of the phone redesign approved by the owner on 2026-10-14
+([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+section 15): everything of its section 11 ("Offers leave the phone, and the wording becomes
+shipping-first"), with [ADR 0018](docs/architecture/adr/0018-deals-happen-in-the-chat.md) "Deals
+happen in the chat", plus the look of its section 3 as a foundation (the deckCore tokens, the dark
+theme of a new install, the three typefaces). Branch `feature/r1-offers-out-shipping-look`, cut
+from the head of stage S6. The tab bar keeps today's six tabs until R5; no screen of R2 to R8 is
+reshaped. Migrations V115 and V116; every API change is additive and the offers, trades, payments
+and disputes modules are untouched.
+
+**What a collector notices**
+
+- There is no "Make an offer" any more: not on the holders of a card, not on a public binder, not
+  on a profile. The Profile tab has no Offers or Trades rows, Settings has no Offers or Payouts
+  page, the composer's attach sheet has no "Share an offer", and the notification settings no
+  longer list offers and trades. Premium, credits and donations stay where they were, behind their
+  flags (off at launch).
+- A chat opens with a small tip with a shield: "Agree on the price and shipping here. Check ratings
+  before you send an e-Transfer." (chats have no pinned card before stage R4, so every chat reads
+  this one; the buying and selling wordings exist and are tested). Tapping it opens "Trading
+  safely". The old "Trade safely" notice and its "Meet in a busy public place" advice are gone, and
+  so is "Meetup details always stay private between the two of you".
+- An old offer in a conversation reads as one grey line, "Offer (no longer available)" (a text sent
+  with an offer link stays); an old offer, trade, payment or dispute notification opens nothing and
+  says "Offers and trades are no longer in the app. Deals happen in the chat, in Messages."; an old
+  link to an offer, a trade, a dispute, the payment checkout or the offer and payout settings lands
+  on Messages or Settings with that note, never on a blank or not-found screen.
+- The rating form asks Overall, Communication, Card condition and Shipping, never "Meetup
+  reliability", and says one can rate "after a deal with them or a conversation".
+- "Trading safely" (English and French) explains deals by mail: payment outside the app (for
+  example Interac e-Transfer), OrenjiTrade never handles the money, check ratings and references
+  and ask for photos of the real card before paying, sellers ship once paid with tracking and add
+  the number when they mark the card sold, share an address only in the chat with the person you
+  deal with, the warning signs, and how to report and block. Still a draft (0.2-draft), no legal
+  compliance claimed.
+- A new install opens in the dark theme (System / Light / Dark stay in Settings → Appearance and
+  a stored choice wins); text is drawn in Inter, headings and screen titles in Sora, codes in
+  JetBrains Mono.
+- The region chat channels describe "trades and sales by mail"; the "Local Meetups" tag is no
+  longer offered or shown; reporting "Inappropriate behaviour" no longer mentions meetups; the
+  seed data (local and dev) holds shipping and e-Transfer lines.
+
+**What changed** (commits on the branch, in order)
+
+| Part | What |
+| --- | --- |
+| Refactor | `StatusChip` to `components/ui`; the fake provider checkout (`FakeProviderCheckout`, `useProviderCheckout`, `checkoutTargets`) to `features/billing`, so Premium and donations keep it |
+| Offers, trades, payments, disputes off the phone | deleted with their tests: `app/offers/*`, `app/trades/*`, `app/disputes/*`, `app/checkout/fake/[ref]`, `app/settings/{offers,payouts}`, `features/{offers,trades,payments,disputes,checkout}`, `api/hooks/{offers,trades,payments}`, the composer's offer picker and attachment, "Make an offer" on holder rows, public binders and profiles, the Profile tab's rows, the settings links, the navigator's screens, the gate's roots, the query keys and the realtime invalidations; e2e `offers.spec.ts`, `payments.spec.ts`; Maestro `offer-trade-rating.yaml`, `payment-protection.yaml` with `scripts/offers.js`, `scripts/payments.js` (their Premium and report actions moved, unchanged, to `scripts/billing.js` and `scripts/reports.js`) |
+| Old offers | `OfferUnavailableLine` for OFFER_LINK and SYSTEM messages carrying an offer; notification targets `{ kind: 'note' }` for offers, trades, disputes, offer settings and payouts; `removedRouteTarget` and the not-found screen; the OFFER and TRADE notification categories hidden (their stored values sent back); e2e `old-offers.spec.ts` (an offer made and declined through the API: two grey lines, the notification's note, an old link to Messages, no call to the offer routes) |
+| Chat tip | `features/safety/chatSafetyTips.ts` (the three wordings, `dealSideOf`) and `ChatSafetyTip`, at the start of the thread and in an empty chat; `TradingSafetyNotice` and its dismissal store deleted |
+| Ratings | `RATING_CRITERIA` without meetup reliability; an edit sends an old meetup score back; the eligibility wording; new e2e `ratings.spec.ts` and Maestro `conversation-rating.yaml` (the rating coverage that left with offers) |
+| API texts | V115 hides `local-meetups`; V116 rewrites the region channel descriptions of V041 and V110 where untouched; `ReportReason`; the `TagResponse` example; the own profile lists active tags only (an edit form no longer sends the hidden tag back, which would be a 400) |
+| Seeds | the conversation, binder descriptions, community posts and replies, the offer message, the ratings (shipping scores, no meetup score), the donation message, a sponsored headline and a private note; profiles 01 and 07 tagged Shipping |
+| Legal | the trading-safely section of `legal-content.ts` and `legal-content.fr.ts` (the owner's exception to the web pause) and the phone's copies (`npm run sync:legal`) |
+| ADR | ADR 0018; ADR 0011 amended both ways; the ADR index; the Phase 8 contract |
+| Tokens | `color.{light,dark}.deckCore` in `packages/design-tokens` (mobile only: `"$platforms": ["mobile"]` keeps it out of `tokens.css`); `font.mono.mobile` is JetBrains Mono; `npm run sync:tokens` |
+| Fonts | `@expo-google-fonts/sora` 0.4.2, `inter` 0.4.2, `jetbrains-mono` 0.4.1 (pinned, `npx expo install`); `theme/fonts.ts`, `theme/useAppFonts.ts`, `components/ui/Text.tsx`; 135 files import `Text` / `TextInput` from there |
+| Dark default | `DEFAULT_THEME = 'dark'` in `useAppStore` |
+| Fixes after the checks | the kept text of an old offer link shows its time; the 18+ step and its refusal no longer mention offers; `sign-out.yaml` scrolls the row clear of the tab bar; the deep-link step of `old-offers.spec.ts` |
+| Docs | this section, NEXT TASK, the handoff, the product overview, `CLAUDE.md` (product summary, payments row), the mobile README, `seed-data.md`, `design-system.md`, the tokens README |
+
+**Decisions, and why**
+
+1. **Old offer and trade notifications open nothing, with a note.** The spec allows "the chat with
+   that collector, or nothing": their payloads carry the offer, trade, payment or dispute id and
+   never the other collector, and the phone no longer calls the offer routes to find out, so it
+   cannot open the right chat. A tap marks the notification read and says where deals happen.
+2. **A removed link lands on Messages (Settings for the offer and payout settings)** through the
+   not-found screen, with the same note; no stub route files.
+3. **An OFFER_LINK keeps the text it was sent with.** The grey line replaces the offer card; the
+   sender's words stay in their bubble. A SYSTEM message about an offer or a trade shows only the
+   grey line (its sentence named the trade page).
+4. **The chat tip is not dismissed and opens "Trading safely".** It sits at the start of the
+   history (it scrolls away in a long chat, as in the mockup) and the page stays one tap away
+   (said to screen readers as a hint) now that the notice's link is gone.
+5. **The offer and trade notification categories leave the phone's settings**; their stored values
+   are sent back unchanged.
+6. **The holder row of a card without a price reads "Open to offers"** (was "Make an offer") while
+   the item form still has "Accepts offers" (stage R2 removes it).
+7. **Hidden tags leave the owner's own profile view** (`GET /me/profile`), as they already were
+   for others: otherwise every collector who carried "Local Meetups" would get a 400 when saving
+   tags. Selecting a hidden tag stays a 400.
+8. **Seeds:** besides the four places section 11 names, the rating, donation and sponsored seeds
+   lost their café, Mont-Royal and "trade nights" lines; the seeded completed trade keeps its
+   `meetup` flag (structural data of the trades module, which stays as it is).
+9. **deckCore light values** `#EDE9FE`, `#5B21B6`, `#7C3AED` (7.6 : 1 for the tag text; dark
+   7.7 : 1). The family is kept out of the web's CSS: the web's initial bundle had 0.07 kB left.
+10. **Fonts through a themed `Text`**, not a global patch: React Native has no weights for a custom
+    family, so the face follows the family and weight a style asks for; nested text inherits as
+    native text does. Headings (`textStyle(…, 'heading')`) and header titles are Sora; Sora is
+    bundled in 600 and 700, Inter in 400, 400 italic, 500, 600 and 700, JetBrains Mono in 500. On a
+    phone the first screen waits for them under the splash screen; a font that fails leaves the
+    system font.
+11. **The web's legal exception reached two more spec files.** `legal-page.component.spec.ts` (one
+    assertion) and `apps/web-angular/e2e/launch-safety.spec.ts` (three `getByText` strings)
+    pinned sentences of the old page; they now read sentences of the new one, so every web check
+    stays green. No web app code changed. **The owner should confirm this.** (Since review fix 2
+    the guard of the new text lives in the phone's `__tests__/screens/legal.test.tsx`, which reads
+    the synced copy; the web's `legal-content.spec.ts` is as S6 left it.)
+12. **Sample chat lines in the phone's own tests** ("Saturday at the café") were reworded to
+    shipping; the API's integration tests keep their fictional lines (not app wording).
+
+**The defaults of section 16 this stage touches:** 1, new installs start in dark (built; Settings
+→ Appearance keeps System / Light / Dark). The others belong to stages R2 to R7.
+
+**Checks** (retries off, the real numbers)
+
+All on this Mac (2026-10-14), retries off, the owner's iPhone 18 Pro simulator under the lock:
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 978 tests in 171 classes + 12 catalog tests in 2 classes, 0 failures, 0 skipped (3 min 30 s) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed (the `TagResponse` example), git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **899.31 kB** (was 899.93 kB; `main` 338,946 bytes, the styles unchanged at 33,368 bytes: `tokens.css` holds no deckCore) |
+| `npm run test:web` | passed: lint clean, 142 files / 681 tests |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | clean |
+| `npm run test:e2e -- --retries=0` | **74 / 74** on the first attempt (1 min 36 s), `launch-safety.spec.ts` included |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint: 0 warnings) |
+| `npm run test:mobile` | passed: jest 89 suites / 895 tests (offer, trade and payment tests deleted; new: chat tip, old offers, removed routes, tokens, fonts, dark default, ratings) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder); the 8 bundled faces are the only app fonts; the web's static HTML declares them (9 `@font-face` with the icon font) |
+| `npm run test:mobile:e2e -- --retries=0` | **57 / 57** (first run 56 + 1: the deep-link step of the new `old-offers.spec.ts` waited for the URL it opened, which the not-found screen moves on at once; the spec fixed, then 57 / 57 twice, the last on the final code) |
+| `npm run test:mobile:maestro -- --platform ios` | **29 / 30** in 47 min 44 s on the code of `2a0e13d`; the failure, `sign-out.yaml`, tapped the tab bar once the Profile tab lost its two rows (a plain `scrollUntilVisible`): the flow now uses the scroll subflow and passed alone; `age-step-existing-account`, `sign-up-onboarding`, `messages-inbox-thread` and `safety-notice` re-run on the final code after the last two app fixes: 4 / 4. New flow `conversation-rating.yaml` passed |
+| `npm run test:scripts` | 133 / 133 |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**The walk on the simulator** (screenshots kept outside the repository): a new install signed in as
+collector1 opens in dark (the device in light); the seed chat with collector2 reads the shipping
+lines, starts with the tip and holds "Offer (no longer available)" for an offer made through the
+API; the offer's notification opens nothing and shows the note; the rating form has no meetup
+criterion; the Profile tab and Settings have no Offers, Trades or Payouts rows; "Trading safely" in
+English and French; Settings → Appearance shows Dark selected on a new install, Light switches
+every screen seen (chat, inventory); at the largest text size the tip and the chat stay readable.
+The type matches the mockup (Sora titles and names, Inter text, JetBrains Mono codes; colours of
+the existing dark palette). Found during the walk and fixed: the 18+ onboarding step and its
+refusal still said "or make offers". Seen and left (not R1): at the largest text size a long word
+of a list row ("discoverability") breaks inside the word, as before.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the flows keep their
+Android steps); VoiceOver on a real iPhone; a real collector's old offer notification (nothing was
+ever deployed: the e2e spec makes one through the API).
+
+**Meetup wording left for the lawyer** (not changed; the French texts carry the same clauses at
+the same places):
+
+- Terms, "What OrenjiTrade is and is not", clauses 2 ("not a party to any trade, sale or meeting")
+  and 3 ("where and how they meet … before you meet or pay"); "Disclaimers and limitation of
+  liability", clause 2 ("including trades, sales and in-person meetings").
+- Community Guidelines, "Meet and trade safely" (heading) and clause 1 ("Meet in busy public places
+  in daylight for in-person trades … Never feel pressured to share your home address"), which also
+  contradicts sharing an address in the chat for a shipment.
+- Payment Protection Policy, "What is covered", clause 2 ("Not covered: in-person trades …").
+- The Terms and the Payment Protection Policy still describe offers and payment protection, which
+  the phone no longer has (ADR 0018); the web keeps them while it is paused.
+- Offer and protection wording in the other texts the phone's legal index shows (found by the R1
+  review, not changed): Terms, "What OrenjiTrade is and is not", clause 1 ("accepts offers for a
+  card"); Privacy Policy, "Communications: … offers"; Community Guidelines, "Meet and trade
+  safely", clause 2 ("Use the in-app offer and messaging tools"); Marketplace Policy, the "Offer"
+  definition, "Offers and commitments" and, under "Fees and plans", the fees "where protected
+  payments are enabled"; Refund and Dispute Policy, the "Dispute" definition and "Opening a
+  dispute" ("opened from the trade screen"); Acceptable Use Policy ("Automated messaging or
+  offers to other Collectors is not"). The phone's legal index still lists the Payment Protection
+  Policy ("How protected transactions work when payments are enabled") and the Refund and Dispute
+  Policy, which sits uneasily with ADR 0018 point 4 (no claim of protection on the phone): **an
+  owner question** (hide them on the phone, mark them as web-only, or leave them for the lawyer).
+
+**Known gaps, by design or for a later stage**
+
+- (Fixed in review fix 1: the inbox line of a conversation whose last message is an old offer or
+  trade update now reads "Offer (no longer available)"; stage R4 narrows the SYSTEM case when the
+  sale messages of Mark as sold arrive.)
+- The item form's "Accepts offers" switch and the "Offers" tag on rows stay until stage R2.
+- The paused web keeps offers, trades, payment protection, disputes and its meetup notice.
+
+**Review fix 1** (2026-10-14; two independent reviewers, a functional verifier (F1 to F9) and a
+second lens on the product (U1 to U8); every fix with a test that fails on the old code):
+
+- **U1 / F2, the bio placeholder asked "Where do you like to meet?"** (onboarding step 1 and
+  Settings → Edit profile): it reads "What do you collect? Do you trade, sell or ship?". A source
+  guard (`__tests__/privacy/shippingWording.test.ts`) now fails on "meet", "meetup", "in person",
+  "game store", "café" or "the locals" anywhere in `app/` and `src/` (comments, identifiers such as
+  `meetupReliability` and Firebase's "does not meet the requirements" excepted), and the
+  onboarding test pins the placeholder. The paused web's `profile-fields.component.ts` carries the
+  same placeholder (recorded, not changed).
+- **F1, a seeded meetup line was left** in `OfferSeedContributor` ("I can meet at Berri-UQAM
+  after work.", the open offer from collector5 and its history), although the Seeds row above
+  listed the offer message as done (only its "game store" line was): it now pays "by
+  e-Transfer, shipped with tracking". **F4 (c):** `SeedWordingTest` reads the seed's JSON files
+  and the text of every seed contributor (SQL column names and parameter names are not text), and
+  `SeedIT.seedsShippingWordingOnly` reads the rows seeded for the seed accounts (bios, binders,
+  card notes, messages and inbox previews, posts and replies, offers and their history, ratings,
+  donations).
+- **F4 (a), the hidden notification categories had no working test** (the screen test looked for
+  a label the phone no longer has): the settings test now lists OFFER and TRADE from the API and
+  finds no row or text about offers or trades, and a `categoriesOf` unit test feeds both.
+  **F4 (b):** `ReportFlowIT` pins "Behaviour that breaks the Community Guidelines." and no meetup
+  word in any report reason.
+- **U4 / F5, the inbox line of an old offer or trade:** an OFFER_LINK or SYSTEM last message
+  (only the offers and trades modules post SYSTEM messages today) reads "Offer (no longer
+  available)" in the row and its accessible name, and a realtime update words it the same.
+- **U7 / F9, the dark default stopped at the app:** the themed `TextInput` opens the keyboard in
+  the app's scheme (a field may choose its own); on iOS the theme provider tells the system the
+  chosen scheme (`Appearance.setColorScheme`, "unspecified" for System), so alerts, the photo and
+  document pickers and the share sheet follow; the splash is dark on every phone. Android is left
+  to the system (its keyboard ignores the app, and its night mode recreates the activity) and
+  could not be verified; the splash only shows in a device build, not in Expo Go.
+- **U8, a switch that is off was nearly invisible in dark:** its thumb is white in both schemes
+  as in the mockup (10 : 1 against the off track in dark). The light switch is unchanged (a white
+  thumb on #D6D3D1, the iOS look).
+- **F7, nothing kept the fonts on a new screen:** lint (`no-restricted-imports`) refuses React
+  Native's `Text` and `TextInput` in `app/` and `src/` outside `components/ui/Text.tsx`.
+- **U5, two French sentences of "Trading safely":** "La conversation en garde une trace." and
+  "Ne communiquez votre adresse que dans la conversation privée avec l’autre collectionneur,
+  jamais dans une publication, un cartable ou votre profil." (the trading-safely section only,
+  synced to the phone; the phone's test reads both).
+- **U2 / F3, the documents:** the mobile README (conventions, notifications, deep links, "Not yet
+  wired") and `local-setup.md` no longer describe offers, trades, payment protection, disputes or
+  payouts on the phone; removed links are listed with where they land.
+- **F6, a database seeded before R1** keeps its earlier seed texts (the seed inserts those rows
+  once and never rewrites them): `seed-data.md` says so and how to get the new ones (a reset).
+  Rewriting old seed rows in place would have touched eight seed contributors in eight modules
+  for local data; not done. **The owner's database `orenjitrade` is in this case.**
+- **U3 / F8, the two web spec files outside the legal exception:** no change; both reviewers
+  recommend accepting it. **The owner should confirm** (decision 11).
+- **U6:** the offer and protection wording of the other legal texts is added to the lawyer's list
+  above, with the owner question about the phone's legal index; no text changed.
+
+**Checks of review fix 1** (2026-10-14, this Mac, retries off, the owner's iPhone 18 Pro
+simulator under the lock; on the code of `f086eba` unless said):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 982 tests in 172 classes (+ `SeedWordingTest`, `SeedIT.seedsShippingWordingOnly`) + 12 catalog tests in 2 classes, 0 failures, 0 skipped (3 min 34 s) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | no change (no API surface changed), git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **899.31 kB** (unchanged: only the lazy French legal text changed) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 142 files / 681 tests; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **74 / 74** (1 min 39 s) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint now also refuses React Native's `Text` / `TextInput` in `app/` and `src/`) |
+| `npm run test:mobile` | passed: jest 91 suites / 905 tests + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **57 / 57** (`old-offers.spec.ts` now also reads the inbox line) |
+| `npm run test:mobile:maestro -- --platform ios` | **30 / 30** in 47 min 19 s (on the code of `90c3e88`; the only later change is the inbox assertion `f086eba` added to the phone's Playwright spec) |
+| `npm run test:scripts` | 133 / 133 |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+| Mutations (one at a time, the old code back) | the old placeholder fails the source guard and the onboarding test; an empty `HIDDEN_CATEGORIES` fails 2 tests; the old offer seed line fails `SeedWordingTest` and `SeedIT`; the old report reason fails `ReportFlowIT`; React Native's `Text` in `app/messages/[id].tsx` is a lint error; no `keyboardAppearance` or no `Appearance` sync fails the theme test |
+
+**Walk** (the owner's simulator in light, a new install in dark): Edit profile opens a dark
+keyboard and the bio reads "What do you collect? Do you trade, sell or ship?"; the off switches of
+Settings → Privacy and Notifications show a white thumb on the dark track. The simulator was left
+as found (light, text size large), Expo Go stopped, nothing in its Files storage. **Could not be
+verified:** the Android run (no Android SDK on this Mac); the dark splash (Expo Go shows its own;
+only a device build shows the app's); native alerts and pickers in the app's theme beyond the
+keyboard (none opened in the walk).
+
+**Review fix 2** (2026-10-14; the second round, one finding, R1-1, minor): the web's legal
+exception reached two spec files outside the files the owner named, and `legal-content.spec.ts`
+gained a new `describe` block rather than only updated expectations.
+
+- **The new block is gone from the web.** It was not needed by any web check: its three tests
+  (deals by mail, the same in French, still a draft; no meetup advice, no claim of compliance)
+  now live, unchanged, in the phone's `__tests__/screens/legal.test.tsx`, which reads the phone's
+  copy of the same text, kept identical to the web files by the test beside it (`npm run
+  sync:legal`). The web's `legal-content.spec.ts` is again exactly as S6 left it. A meetup
+  sentence put into the phone's copy in both languages fails two of the three tests.
+- **The two other spec files stay changed, for the owner to confirm** (decision 11): they pinned
+  sentences the R1 text removes ("safe exchange zones", "zones d’échange sécuritaires", "Bring
+  someone along when the cards are valuable"); keeping them would keep meetup advice or fail the
+  web checks the same order requires. Since S6 the web differs only in the trading-safely section
+  of `legal-content.ts` and `legal-content.fr.ts`, one assertion of `legal-page.component.spec.ts`
+  and three strings of `e2e/launch-safety.spec.ts`. No test can hold an order about a diff; the
+  evidence is `git diff --stat ad97d0d -- apps/web-angular`.
+
+**Checks of review fix 2** (2026-10-14, this Mac, retries off; on the code of `05f2c50`, later
+commits are documents):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 982 tests in 172 classes + 12 catalog tests in 2 classes, 0 failures, 0 skipped (4 min 13 s) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | no change, git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **899.31 kB** (unchanged) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 142 files / 678 tests (the three moved tests left); lint and format clean |
+| `npm run test:e2e -- --retries=0` | **74 / 74** (1 min 30 s) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean (lint: 0 warnings) |
+| `npm run test:mobile` | passed: jest 91 suites / 908 tests (the three moved tests added) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **57 / 57** (53 s) |
+| `npm run test:mobile:maestro -- --platform ios` | **30 / 30** in 46 min 55 s on the owner's iPhone 18 Pro simulator, under the lock; the simulator left as found (light, text size large), nothing in its Files storage |
+| `npm run test:scripts` | 133 / 133 |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**What R4 completes:** the chats' pinned card (subject), which feeds `dealSideOf` and so the buying
+and selling tips; quick replies; the "+" sheet with Settings → Shipping details; Mark as sold
+(the `deals` module, the `SALE` interaction, the buyer's notification, the 10-minute undo); the
+inbox thumbnails and previews.
+
 ## NEXT TASK
 
+> **Stage R1 of the phone redesign is built** ("Offers out, shipping wording, look"; branch
+> `feature/r1-offers-out-shipping-look`, cut from the head of S6; section "Phone redesign R1:
+> offers out, shipping wording, look (2026-10-14)" above): offers, trades, protected payments and
+> disputes off the phone ([ADR 0018](docs/architecture/adr/0018-deals-happen-in-the-chat.md), "Deals
+> happen in the chat"; the API keeps them for the paused web), the chat safety tip, ratings without
+> meetup reliability, V115 (the meetup tag hidden) and V116 (the region channels "by mail"), the
+> seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono
+> and the dark theme of a new install. Its two independent reviewers ran and **review fixes 1 and
+> 2 are done** (the R1 section, "Review fix 1" and "Review fix 2"; two fix rounds is the most the
+> spec's section 15 allows). **Next for this branch:** its ship step (merge
+> `main` once it holds S6; the check list of `docs/development/claude-handoff.md`; the pull
+> request; merge when CI is green). Migrations V001 to V116 exist on this branch (V115 and V116 are
+> R1's); the next one is V117. Owner points from R1: the web exception reached two web spec files
+> that pinned the old "Trading safely" text, one assertion and three strings (both reviewers
+> recommend accepting it; nothing else of the web changed outside the exception); the lawyer's
+> list of the meetup, offer and protection wording left in the other legal texts, with the
+> question whether the phone's legal index should keep the Payment Protection and Refund and
+> Dispute policies; the owner's database keeps its earlier seed texts until a reset (all in the
+> R1 section).
+>
+> **Exact next task after R1 ships: stage R2 of the phone redesign, "Inventory and adding cards"**
+> (mockup screens 1 to 9), on a new branch from the `main` that holds R1, as
+> [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
+> says in sections 6 (the screens), 12 ("Inventory": `asking_price_text` varchar(40) with the plain
+> amounts parsed into `asking_price` and the currency, photos while adding through the existing
+> image route, `POST /inventory/items/{id}/restore` within 10 minutes of a delete, saving confirms
+> freshness, the sorts and the "No binder" filter), 14 and 15. The phone's card forms lose
+> condition, language, edition, finish, "Available for", "Accepts offers", currency, "Temporarily
+> public" and private notes (the API keeps the columns; condition becomes "not stated" where the
+> paused web still compiles, and Near Mint only alerts treat it as a possible match). Defaults of
+> section 16 it builds: 4 (a deleted card can be restored for 10 minutes) and 5 (no stated
+> condition). Read first: `CLAUDE.md`, the handoff, the spec (sections 0 to 3, 6, 12 to 17), ADR
+> 0018, the R1 section above, `docs/api/contracts/s5-inventory-import.md`. Then R3 to R8 in order,
+> one branch and one PR each (the spec's section 15).
+>
+> **Stage S6 (before R1)** — the end of the owner's change of 2026-10-08:
+>
 > **The owner's change of 2026-10-08 ends with stage S6** (branch `feature/s6-final-docs`: the
 > small fixes, the final documents, the definition-of-done walkthrough and the delivery report
 > `docs/product/2026-10-08-change-delivery-report.md`; section "Final documents and the
@@ -4741,9 +5078,9 @@ the paused web README; the proposed CLAUDE.md sentences (the end of the delivery
 > UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
 > ("the Android run could not be verified").
 >
-> **Exact next task (decided by the owner on 2026-10-14): the phone redesign of 2026-10-14,
-> stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`** (the owner's prompt,
-> verbatim). Start with **R1** ("Offers out, shipping wording, look") on a new branch from a
+> **Next task as S6 left it (decided by the owner on 2026-10-14; R1 is now built, see above): the
+> phone redesign of 2026-10-14, stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`**
+> (the owner's prompt, verbatim). Start with **R1** ("Offers out, shipping wording, look") on a new branch from a
 > `main` that holds S6, then R2 to R8 in order, one branch and one PR each, each with its builder,
 > at least two independent reviewers and at most two fix rounds (the spec's section 15). Read
 > first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where things stand, the working
@@ -4752,7 +5089,7 @@ the paused web README; the proposed CLAUDE.md sentences (the end of the delivery
 > `docs/api/contracts/s5-inventory-import.md`, `docs/product/specs/2026-10-08-have-want-regions.md`,
 > and the code it lists); then the delivery report's sections (f) and (h) for the decisions and
 > defects that the redesign meets. Until a stage lands, documents describe the phone as it is
-> today (six tabs, offers on the phone).
+> today (six tabs, offers on the phone; since R1: six tabs, no offers on the phone).
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants

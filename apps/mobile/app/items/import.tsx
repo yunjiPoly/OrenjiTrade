@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -17,6 +17,7 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { ImportFileStep } from '@/src/features/inventory/import/ImportFileStep';
 import {
   clockTime,

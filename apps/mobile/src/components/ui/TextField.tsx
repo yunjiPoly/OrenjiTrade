@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import {
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type TextInputProps,
@@ -10,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { Text, TextInput } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {

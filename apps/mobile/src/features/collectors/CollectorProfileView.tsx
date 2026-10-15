@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, type ComponentProps } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useCollectorBinders, useCollectorPublicItems } from '@/src/api/hooks/collectors';
 import type { CollectorProfileResponse } from '@/src/api/types';
@@ -9,6 +9,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { ChipList, SectionCard } from '@/src/components/ui/Layout';
+import { Text } from '@/src/components/ui/Text';
 import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
@@ -47,8 +48,8 @@ export function profilePlaceLabel(
  * ratings section): header with the place (state or province, and the city when its owner shows
  * it), member since and last activity; actions (own profile: edit and privacy; others: the first
  * public binder, Message when allowed, Report and Block / Unblock); about, games and tags; the
- * location card; ratings and references (rate, write a reference); public binders and cards
- * ("Make an offer"); the public wishlist ("Looking for") when the collector shows it.
+ * location card; ratings and references (rate, write a reference); public binders and cards; the
+ * public wishlist ("Looking for") when the collector shows it.
  */
 export function CollectorProfileView({
   profile,

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useCreateReference } from '@/src/api/hooks/ratings';
@@ -9,6 +9,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { REFERENCE_MAX, ratingProblem } from '@/src/features/collectors/ratingLabels';
 import { parseRatingParams } from '@/src/features/ratings/ratingRoutes';

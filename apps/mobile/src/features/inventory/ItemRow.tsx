@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { InventoryItemResponse, PublicInventoryItem } from '@/src/api/types';
 import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { Text } from '@/src/components/ui/Text';
 import { formatMoney, printingCode, printingImageUrl } from '@/src/lib/catalog';
 import {
   availabilityLabel,
@@ -27,9 +28,6 @@ export interface ItemRowProps {
   onPress?: (item: Item) => void;
   /** A trailing action (e.g. "Remove from binder"). */
   action?: ReactNode;
-  /** A full-width action under the card (e.g. "Make an offer" on public cards; it sets its own
-   * margins, so a footer that renders nothing leaves no gap). */
-  footer?: ReactNode;
   /** Selection mode (bulk actions): a checkbox, and the row toggles it instead of opening. */
   selectable?: boolean;
   selected?: boolean;
@@ -46,7 +44,6 @@ export const ItemRow = memo(function ItemRow({
   item,
   onPress,
   action,
-  footer,
   selectable = false,
   selected = false,
   onToggle,
@@ -173,7 +170,6 @@ export const ItemRow = memo(function ItemRow({
         )}
         {action}
       </View>
-      {footer}
     </View>
   );
 });

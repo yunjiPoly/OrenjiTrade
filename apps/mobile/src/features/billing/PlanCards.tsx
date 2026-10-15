@@ -1,10 +1,11 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { MyEntitlement, MySubscription, Plan } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import { StatusChip } from '@/src/features/offers/StatusChip';
-import { isEntitling } from '@/src/features/checkout/useProviderCheckout';
+import { StatusChip } from '@/src/components/ui/StatusChip';
+import { Text } from '@/src/components/ui/Text';
+import { isEntitling } from '@/src/features/billing/useProviderCheckout';
 import { formatLongDate } from '@/src/lib/dates';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

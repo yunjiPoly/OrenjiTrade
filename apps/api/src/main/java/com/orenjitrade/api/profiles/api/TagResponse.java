@@ -10,8 +10,8 @@ import java.util.UUID;
 @Schema(name = "TagResponse", description = "Profile tag")
 public record TagResponse(
         @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "local-meetups") String slug,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "Local Meetups") String label,
+        @Schema(requiredMode = RequiredMode.REQUIRED, example = "shipping") String slug,
+        @Schema(requiredMode = RequiredMode.REQUIRED, example = "Shipping") String label,
         @Schema(requiredMode = RequiredMode.REQUIRED) TagCategory category,
         @Schema(
                         requiredMode = RequiredMode.REQUIRED,

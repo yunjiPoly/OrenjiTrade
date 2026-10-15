@@ -8,7 +8,7 @@ export const tokens = {
     display: {
       web: "\"Sora\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
       mobile: "Sora",
-      use: "wordmark, page titles",
+      use: "wordmark, screen titles, big numbers",
     },
     body: {
       web: "\"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
@@ -17,8 +17,8 @@ export const tokens = {
     },
     mono: {
       web: "\"JetBrains Mono\", ui-monospace, SFMono-Regular, Menlo, monospace",
-      mobile: "monospace",
-      use: "set codes, collector numbers",
+      mobile: "JetBrains Mono",
+      use: "card codes, set codes, collector numbers, tracking numbers",
     },
   },
   fontSize: {
@@ -126,6 +126,11 @@ export const tokens = {
         recent: "#F59E0B",
         offline: "transparent",
       },
+      deckCore: {
+        tagBackground: "#EDE9FE",
+        tagText: "#5B21B6",
+        switch: "#7C3AED",
+      },
     },
     dark: {
       primary: "#FF8F3D",
@@ -169,6 +174,11 @@ export const tokens = {
         online: "#4ADE80",
         recent: "#FBBF24",
         offline: "transparent",
+      },
+      deckCore: {
+        tagBackground: "#2E2547",
+        tagText: "#C4B5FD",
+        switch: "#8B5CF6",
       },
     },
   },

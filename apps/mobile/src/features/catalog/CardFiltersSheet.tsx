@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { CardSearchQuery } from '@/src/api/hooks/catalog';
 import { useSets } from '@/src/api/hooks/catalog';
@@ -6,6 +6,7 @@ import type { GameResponse } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Button } from '@/src/components/ui/Button';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
+import { Text } from '@/src/components/ui/Text';
 import { editionLabel, languageName } from '@/src/lib/catalog';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 

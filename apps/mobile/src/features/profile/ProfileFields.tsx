@@ -52,7 +52,7 @@ export function ProfileFields({ value, onChange, errors, disabled }: ProfileFiel
         onChangeText={(bio) => onChange({ ...value, bio })}
         error={errors?.bio}
         hint={`${value.bio.length} / ${BIO_MAX}`}
-        placeholder="What do you collect? Where do you like to meet?"
+        placeholder="What do you collect? Do you trade, sell or ship?"
         multiline
         numberOfLines={3}
         maxLength={BIO_MAX}

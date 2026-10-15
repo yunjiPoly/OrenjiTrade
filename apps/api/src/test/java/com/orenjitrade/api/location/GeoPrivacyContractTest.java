@@ -670,7 +670,7 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(document.toString())
                 .as("private item notes in %s", context)
                 .doesNotContain("Grading candidate")
-                .doesNotContain("Pulled at the spring locals");
+                .doesNotContain("Pulled from a booster box in the spring");
     }
 
     /**

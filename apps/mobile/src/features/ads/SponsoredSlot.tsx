@@ -2,20 +2,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useRef } from 'react';
-import {
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Linking, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { recordAdImpression, useAds } from '@/src/api/hooks/billing';
 import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import type { Ad, AdPlacement } from '@/src/api/types';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { adClickUrl, adImageUrl } from './adLinks';

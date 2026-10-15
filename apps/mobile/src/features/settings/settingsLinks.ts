@@ -38,19 +38,6 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     icon: 'bell-outline',
   },
   {
-    href: '/settings/offers',
-    label: 'Offers',
-    detail: 'Which offers collectors can make on your cards',
-    icon: 'tag-outline',
-  },
-  {
-    href: '/settings/payouts',
-    label: 'Payouts',
-    detail: 'Where the money of your protected sales goes',
-    icon: 'bank-outline',
-    feature: 'protectedPayments',
-  },
-  {
     href: '/settings/blocked',
     label: 'Blocked users',
     detail: 'Collectors you blocked, and how to unblock them',

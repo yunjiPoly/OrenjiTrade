@@ -58,24 +58,20 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['regions', '[region]', '[code]'])).toBeNull();
     expect(redirectFor('guest', ['regions', '[region]', '[code]'])).toBe('/sign-in');
     expect(redirectFor('app', ['onboarding'])).toBeNull();
-    // Phases 7 and 8: reports, ratings, offers and trades.
+    // Phase 7: reports and ratings (offers, trades and disputes left the phone, ADR 0018: their
+    // old links are unmatched routes, which the not-found screen moves on to Messages).
     expect(redirectFor('app', ['report'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'rate'])).toBeNull();
     expect(redirectFor('app', ['ratings', 'reference'])).toBeNull();
-    expect(redirectFor('app', ['offers'])).toBeNull();
-    expect(redirectFor('app', ['offers', '[id]'])).toBeNull();
-    expect(redirectFor('app', ['offers', 'new'])).toBeNull();
-    expect(redirectFor('app', ['trades', '[id]'])).toBeNull();
-    expect(redirectFor('guest', ['offers', '[id]'])).toBe('/sign-in');
-    // Phases 9 and 10: checkouts, disputes, Premium, credits and donations.
-    expect(redirectFor('app', ['checkout', 'fake', '[ref]'])).toBeNull();
+    expect(redirectFor('app', ['+not-found'])).toBeNull();
+    expect(redirectFor('guest', ['+not-found'])).toBeNull();
+    // Phase 10: the Premium and donation checkouts, Premium, credits and donations.
     expect(redirectFor('app', ['checkout', 'fake-billing', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['disputes', '[id]'])).toBeNull();
+    expect(redirectFor('app', ['checkout', 'fake-donation', '[ref]'])).toBeNull();
     expect(redirectFor('app', ['premium'])).toBeNull();
     expect(redirectFor('app', ['credits'])).toBeNull();
     expect(redirectFor('app', ['support'])).toBeNull();
-    expect(redirectFor('app', ['settings', 'payouts'])).toBeNull();
-    expect(redirectFor('guest', ['disputes', '[id]'])).toBe('/sign-in');
+    expect(redirectFor('guest', ['checkout', 'fake-billing', '[ref]'])).toBe('/sign-in');
     expect(redirectFor('onboarding', ['premium'])).toBe('/onboarding');
     expect(redirectFor('guest', ['report'])).toBe('/sign-in');
     // Signed out: the inventory screens, profiles and conversations send the visitor to sign in.

@@ -1,5 +1,5 @@
 # Collector reports (mobile Phase 7): Ada (fresh, fictional) opens the profile of Bo (fresh,
-# fictional; scripts/offers.js) and reports him: the reasons of the API, details, Confirm, the
+# fictional; scripts/reports.js) and reports him: the reasons of the API, details, Confirm, the
 # confirmation; My reports shows the open report and the API holds it (status only).
 appId: ${APP_ID}
 name: Report a collector and follow it in My reports
@@ -8,7 +8,7 @@ tags:
   - reports
 ---
 - runScript:
-    file: scripts/offers.js
+    file: scripts/reports.js
     env:
       ACTION: reporting
 - runFlow: subflows/launch-fresh.yaml
@@ -68,7 +68,7 @@ tags:
     timeout: 60000
 - takeScreenshot: report-sent
 - runScript:
-    file: scripts/offers.js
+    file: scripts/reports.js
     env:
       ACTION: expect-report
       EMAIL: ${output.ada.email}

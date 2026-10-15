@@ -1,12 +1,13 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useMarkNotificationRead } from '@/src/api/hooks/notificationCentre';
 import type { NotificationResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, spacing, textStyle, useTheme, type Palette } from '@/src/theme';
 
@@ -82,7 +83,7 @@ export function NotificationEntry({ notification }: { notification: Notification
 
 /**
  * Opening a notification: it is marked read, then its screen opens (the deep link mapped to the
- * app), or a snackbar explains where to follow it when that screen arrives in a later stage.
+ * app), or a snackbar says why it opens nothing (a website-only setting, an old offer or trade).
  */
 export function useOpenNotification() {
   const router = useRouter();

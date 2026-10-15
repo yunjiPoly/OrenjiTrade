@@ -146,7 +146,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     // The link lands on the Trading safely page (English browser: English text).
     await page.goto('/legal/trading-safely');
     await expect(page.getByRole('heading', { level: 1, name: 'Trading safely' })).toBeVisible();
-    await expect(page.getByText('safe exchange zones')).toBeVisible();
+    await expect(page.getByText('the cards ship by mail')).toBeVisible();
 
     // --- Block and unblock from the collector profile ----------------------------------------
     await page.goto(`/collectors/${other.handle}`);
@@ -200,7 +200,9 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
     await expect(
       french.getByRole('heading', { level: 1, name: 'Échanger en toute sécurité' }),
     ).toBeVisible();
-    await expect(french.getByText('zones d’échange sécuritaires')).toBeVisible();
+    await expect(
+      french.getByText('Vous concluez la transaction dans la conversation'),
+    ).toBeVisible();
     await expect(french.getByText('Signaler et bloquer').first()).toBeVisible();
     await french.goto('/legal');
     await expect(french.getByRole('heading', { level: 1, name: 'Mentions légales' })).toBeVisible();
@@ -234,7 +236,7 @@ test.describe('launch readiness: trading safety and French legal pages', () => {
       .click();
     await expect(page).toHaveURL(/\/legal\/trading-safely$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Trading safely' })).toBeVisible();
-    await expect(page.getByText('Bring someone along when the cards are valuable')).toBeVisible();
+    await expect(page.getByText('Share your address only in the chat')).toBeVisible();
     await expect(page.getByText('Report and block').first()).toBeVisible();
   });
 });

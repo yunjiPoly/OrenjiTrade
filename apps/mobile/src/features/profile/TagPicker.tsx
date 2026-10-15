@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTagSearch } from '@/src/api/hooks/profile';
 import type { TagResponse } from '@/src/api/types';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Skeleton } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { MAX_PROFILE_TAGS, customTagCandidate } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -93,7 +94,7 @@ export function TagPicker({
         label="Search tags"
         value={query}
         onChangeText={setQuery}
-        placeholder="Trader, cube drafter, local meetups…"
+        placeholder="Trader, cube drafter, shipping…"
         autoCapitalize="none"
         editable={!disabled && !full}
         hint={full ? `You reached the limit of ${MAX_PROFILE_TAGS} tags.` : undefined}

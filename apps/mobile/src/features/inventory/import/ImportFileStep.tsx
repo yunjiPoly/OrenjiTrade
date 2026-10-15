@@ -5,7 +5,6 @@ import {
   Keyboard,
   Platform,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -18,6 +17,7 @@ import { Button } from '@/src/components/ui/Button';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { gamesFrom } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';

@@ -1,6 +1,6 @@
 import { Link, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
@@ -22,6 +22,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
 import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
