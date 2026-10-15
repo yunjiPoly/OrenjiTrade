@@ -1,5 +1,10 @@
 # Phase 5 contract — private messaging, realtime, public community chat, blocking
 
+> **Stage R4 (2026-10-15):** a conversation has a subject (the card or deck core it is about),
+> `GET /conversations/{id}`, `POST /conversations` with `subjectItemId` / `subjectBinderId`, a
+> `CARD_LINK` of one's own card (`inventoryItemId`), the participant's place, and the SYSTEM sale
+> messages of Mark as sold: see [r4-messages-sales.md](r4-messages-sales.md).
+
 All under `/api/v1`, authenticated. Trading-focused messaging only.
 
 ## Tables

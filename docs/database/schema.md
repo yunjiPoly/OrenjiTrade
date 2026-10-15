@@ -161,6 +161,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
 | V125 | `V125__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards; written as V117 and renumbered after F1's V120–V123 when R2 merged `main`, V124 being kept for another branch): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
 | V126 | `V126__binder_deck_cores.sql` | Stage R3 of the phone redesign (binders and deck cores; V124 is kept for another branch): `binder.sells_as_core` ("Sell as a deck core", default false), `binder.asking_price_text` (≤ 40, trimmed, `ck_binder_asking_price_text`; a plain amount also fills `binder.asking_price` in `binder.currency`, default `CAD`), `binder.sold_at` (a sold binder is never public; stage R4 sets it), `binder_image` (the photos of a deck core: at most 4, the rules of `inventory_item_image`), partial index `ix_binder_deck_core`; `binder.description` is the deck core's public note |
+| V127 | `V127__chat_subject_and_sales.sql` | Stage R4 of the phone redesign (messages and Mark as sold; ADR 0018, part 2): `conversation.subject_item_id` / `subject_binder_id` (FKs `ON DELETE SET NULL`, at most one: `ck_conversation_one_subject`), `subject_set_at`, `subject_set_by` (the chat's pinned card or deck core) with two partial indexes; `sale` (a card or deck core marked sold from the chat: seller, buyer, item or binder, copies, the optional tracking number, the cards a deck core took with it, `undone_at`); `interaction` kind and subject type `SALE` (`ck_interaction_kind`, `ck_interaction_subject_type` replace the unnamed checks of V060) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -867,7 +868,7 @@ only (a binder whose switch was turned off keeps them for its owner).
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
 | `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id` (until that binder is deleted), `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
-| `restorable_until` | `timestamptz` | V125: set by an owner's own delete (one card or a bulk delete) to `deleted_at` + 10 minutes; until then `POST /inventory/items/{id}/restore` brings the row back and its photos are kept. The job `inventory-photo-purge` (after each hourly `freshness` run) deletes the photos of the rows whose time has passed and sets it back to `NULL`; deleting the binder of such a row does the same at once. `NULL` for live rows and every other delete (a trade, a binder deleted with its cards), whose photos are deleted at once |
+| `restorable_until` | `timestamptz` | V125: set by an owner's own delete (one card or a bulk delete) to `deleted_at` + 10 minutes; until then `POST /inventory/items/{id}/restore` brings the row back and its photos are kept. The job `inventory-photo-purge` (after each hourly `freshness` run) deletes the photos of the rows whose time has passed and sets it back to `NULL`; deleting the binder of such a row does the same at once. `NULL` for live rows and every other delete (a trade, a binder deleted with its cards), whose photos are deleted at once. Stage R4: a sale that takes the card's last copy (or a deck core's cards) sets it the same way, so the sale's undo restores the card with its photos |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS
@@ -903,8 +904,11 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   deletion request), the account purge (the items first, which take the lock, then the import
   previews: the order of a commit), the photos of a binder (`BinderService.addPhoto` /
   `deletePhoto`, V126, stage R3: the owner lock, then the binder row; the file is written before
-  the transaction and deleted again when the binder refuses it) and the two seed contributors of
-  the `local`/`dev` profiles. The writes of one collector therefore run one after the other: none reads the binder
+  the transaction and deleted again when the binder refuses it), Mark as sold and its undo
+  (`InventorySales`, V127, stage R4: the seller's owner lock, then the binder of the card or the
+  deck core, then the card or every live card of the deck core, ascending; the undo takes the
+  owner lock before the `sale` row and the `interaction` it deletes) and the two seed contributors
+  of the `local`/`dev` profiles. The writes of one collector therefore run one after the other: none reads the binder
   of an item while another one moves it, and none waits in the middle of its work for a row that
   another write of the same collector holds. **A new write path starts with
   `BinderService.lockOwners`.**
@@ -967,6 +971,16 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   `ORDER BY id FOR NO KEY UPDATE SKIP LOCKED`, writes only those and deletes their photo rows. An
   item that a restore or a binder delete holds is left to the next hour (the restore checks its own
   window; the binder delete ends the window and deletes the photos itself).
+- **References from chats (stage R4).** A chat's subject (`conversation.subject_item_id` /
+  `subject_binder_id`) and a sale (`sale.inventory_item_id` / `binder_id`) reference items and
+  binders. Pinning a subject (`POST /conversations` with a subject, a `CARD_LINK` of one's own card)
+  first holds the item or binder `FOR KEY SHARE` (`InventorySales.lockForReference`,
+  `BinderService.lockForReference`), then writes the conversation row: the key-share lock of the
+  foreign key check, taken before the row that needs it, so a binder delete or an account purge
+  that holds the item or binder (and then sets the references to `NULL`) never waits for a
+  conversation row whose transaction waits for that item or binder in turn. The lock conflicts with
+  no write of the owner (`FOR NO KEY UPDATE`). A sale inserts its row while it holds the item or
+  binder itself.
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else. (The photos of a binder,
   stage R3, are binder writes and take the owner lock: see above.)
@@ -990,7 +1004,9 @@ collector) follows every part of the above. The rule of the final review (2026-1
    no `REQUIRES_NEW`. Parse and validate before the transaction starts.
 7. The chunks of one collector run one after the other, never in parallel.
 
-The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`.
+The new entry point gets its case in `InventoryLockOrderIT.everyWriteStartsWithTheOwnerLock`
+(stage R4 added `SALE`, `SALE_UNDO`, `DECK_CORE_SALE` and `DECK_CORE_SALE_UNDO`, each through the
+chat's endpoints).
 
 The first write built on this rule is the commit of an inventory import (V113, stage S5), described
 under "V113" below: its case is `IMPORT_COMMIT`, and `anImportCommitNextToTheOtherWritesNeverDeadlocks`
@@ -1235,6 +1251,8 @@ applied by id lists from the messaging module.
 | `created_at`, `updated_at` | `timestamptz` | |
 | `last_message_id`, `last_message_at`, `last_message_kind`, `last_message_sender_id` | | denormalised last message (updated in the message transaction); `ck_conversation_last_kind` |
 | `last_message_preview` | `text` | **PRIVATE**; ≤ 200 (API writes ≤ 140): text, or "Card: …" / "Binder: …" / "Photo" labels |
+| `subject_item_id`, `subject_binder_id` | `uuid` | V127: the chat's subject (its pinned card or deck core, stage R4): FK `inventory_item` / `binder` (`ON DELETE SET NULL`), at most one (`ck_conversation_one_subject`); the latest pin wins; partial indexes `ix_conversation_subject_item`, `ix_conversation_subject_binder` |
+| `subject_set_at`, `subject_set_by` | `timestamptz`, `uuid` | V127: when and by whom it was pinned (FK `user_account`, `SET NULL`): its owner (shared it: the other collector sees it while it is private) or the buyer (it was public then); a sale counts for the subject pinned at or before it |
 
 #### `conversation_participant`
 
@@ -1264,9 +1282,9 @@ idempotent even under concurrent calls (`ON CONFLICT DO NOTHING`, then the exist
 | `sender_id` | `uuid` | FK → `user_account.id` (`SET NULL`); `NULL` for SYSTEM messages |
 | `kind` | `text` | `TEXT`, `CARD_LINK`, `BINDER_LINK`, `OFFER_LINK` (reserved, Phase 8), `IMAGE`, `SYSTEM` |
 | `body` | `text` | **PRIVATE**, ≤ 4 000 |
-| `payload` | `jsonb` | **PRIVATE** object: `card {printingId, cardId, name, printingCode}`, `binder {binderId, name, ownerHandle}` (snapshots at send time), `image {attachmentId}`; URLs are derived at read time |
+| `payload` | `jsonb` | **PRIVATE** object: `card {printingId, cardId, name, printingCode}`, `binder {binderId, name, ownerHandle}` (snapshots at send time), `image {attachmentId}`; stage R4: `item {itemId, ownerId, askingPriceText, rarity}` (a `CARD_LINK` of the sender's own card, as it was when shared) and, in a SYSTEM sale message, `sale {saleId, sellerId, buyerId, kind, name, quantity, trackingNumber, undone}` with `systemKey` `sale:<id>:SOLD`; URLs are derived at read time |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
-| `edited_at`, `deleted_at` | `timestamptz` | no edit route yet; `deleted_at` set when the sender's account is purged |
+| `edited_at`, `deleted_at` | `timestamptz` | no edit route yet; `deleted_at` set when the sender's account is purged, and on a SYSTEM sale message when its sale is undone (stage R4) |
 | `moderation_state` | `text` | `OK`, `FLAGGED` (served normally), `REMOVED` (served with empty body and payload) |
 
 Indexes: `ix_message_conversation_created (conversation_id, created_at DESC, id DESC)` (contract),
@@ -1459,7 +1477,7 @@ and the wishlist's deletion participant).
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `user_id` | `uuid` | FK → `user_account.id` (cascade); the recipient |
-| `type` | `text` | `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
+| `type` | `text` | `SALE_RECORDED` (stage R4: the buyer's "{seller} marked {card} as sold to you", in-app only, dedup key `sale:<id>:SOLD`, withdrawn by the undo), `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
 | `title` | `text` | 1-200 |
 | `body` | `text` | ≤ 1000; never message text, notes or coordinates |
 | `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>`, `?rarity=<rarity>` or `?printing=any` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`; the upgrade URL of a limit notice until stage F1, ADR 0019); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
@@ -1507,14 +1525,16 @@ and threshold are `moderation_rule` rows, the unanswered window and the strikes 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK |
-| `kind` | `text` | `TRADE`, `OFFER_ACCEPTED`, `CONVERSATION_QUALIFIED` |
+| `kind` | `text` | `TRADE`, `OFFER_ACCEPTED`, `CONVERSATION_QUALIFIED`, `SALE` (V127, stage R4: a sale marked from the chat; its undo deletes it while nobody rated it); `ck_interaction_kind` |
 | `user_a`, `user_b` | `uuid` | FK → `user_account.id` (cascade); `ck_interaction_pair_order`: `user_a < user_b` in PostgreSQL uuid order (the API inserts with `LEAST`/`GREATEST`) |
-| `subject_type` | `text` | `TRADE`, `OFFER`, `CONVERSATION` (follows the kind) |
-| `subject_id` | `uuid` | the trade, offer or conversation; no FK (other modules / later phases) |
+| `subject_type` | `text` | `TRADE`, `OFFER`, `CONVERSATION`, `SALE` (follows the kind); `ck_interaction_subject_type` |
+| `subject_id` | `uuid` | the trade, offer, conversation or sale; no FK (other modules / later phases) |
 | `occurred_at` | `timestamptz` | when the interaction happened |
 
 Constraint `uq_interaction_kind_subject (kind, subject_id)`: `InteractionService.record` is
-idempotent. Indexes: `ix_interaction_pair (user_a, user_b, occurred_at DESC)` (eligibility),
+idempotent. A rating holds its interaction `FOR KEY SHARE` until it is stored; the undo of a sale
+takes the interaction `FOR UPDATE`, then deletes it only when no rating exists
+(`InteractionService.removeIfUnrated`). Indexes: `ix_interaction_pair (user_a, user_b, occurred_at DESC)` (eligibility),
 `ix_interaction_user_b (user_b, occurred_at DESC)` (export).
 
 #### `rating`
@@ -1660,6 +1680,43 @@ Local aggregate of the analytics publisher (one upsert per event on the async ex
 
 Redis keys of this phase: `idem:report:<reporterId>:<Idempotency-Key>` (report id, 24 h) and the
 Phase 5 moderation windows `mod:rate:REPORT:<ruleId>:<reporterId>` (reports per day).
+
+### V127 — `sale` (the deals module, stage R4)
+
+Mark as sold (owner spec 2026-10-14, sections 10 and 12; ADR 0018, part 2): the seller of a
+chat's card or deck core marks it sold to the other collector. Payment happens outside OrenjiTrade
+(Interac e-Transfer); a sale records the agreement only. Contract:
+[`r4-messages-sales.md`](../api/contracts/r4-messages-sales.md).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK (the undo's `POST /sales/{id}/undo`) |
+| `conversation_id` | `uuid` | FK → `conversation.id` (cascade): the chat it was marked in |
+| `seller_id`, `buyer_id` | `uuid` | FK → `user_account.id` (cascade); `ck_sale_parties` (different) |
+| `kind` | `text` | `CARD` or `DECK_CORE` (`ck_sale_kind`) |
+| `inventory_item_id`, `binder_id` | `uuid` | FK → `inventory_item.id` / `binder.id` (`ON DELETE SET NULL`); at most one (`ck_sale_subject`) |
+| `name` | `text` | the card or deck core at the time of the sale (1-200) |
+| `quantity` | `integer` | copies sold (1-9 999; 1 for a deck core) |
+| `tracking_number` | `varchar(64)` | **PRIVATE to the two collectors**: optional, trimmed (`ck_sale_tracking_number`); never in logs or analytics |
+| `item_removed` | `boolean` | the sale took the card's last copy (the card left the inventory, restorable for the undo window) |
+| `removed_item_ids` | `uuid[]` | a deck core's cards that left the inventory with it (restored by the undo) |
+| `created_at` | `timestamptz` | when it was marked; the undo window is 10 minutes from it |
+| `undone_at` | `timestamptz` | when the seller undid it (before anyone rated it); the copies came back |
+
+Indexes: `ix_sale_conversation (conversation_id, created_at DESC)` (the pinned bar's "Sold"),
+`ix_sale_seller`, `ix_sale_buyer` (export, purge), partial `ix_sale_item` and `ix_sale_binder` (the
+foreign keys' `SET NULL`).
+
+What a sale writes, in one transaction: the copies leave the inventory (`InventorySales`: at 0 the
+card is soft-deleted with `restorable_until` = now + 10 minutes, its photos kept; a deck core gets
+`binder.sold_at` and its live cards are soft-deleted the same way), the `sale` row, an
+`interaction` `SALE`, a SYSTEM `message` with the key `sale:<id>:SOLD` and a `SALE_RECORDED`
+notification for the buyer. The undo puts it all back: the copies (a card that left is restored
+with its binder, visibility and photos; a deck core loses `sold_at` and its cards come back), then
+deletes the interaction (while unrated), marks the message deleted (`payload.sale.undone`) and
+deletes the notification. An inventory restore of a sold card (`POST /inventory/items/{id}/restore`,
+the same window) is allowed and the sale's undo then has nothing left to put back. The account
+purge deletes the account's sales (`DeletionParticipant` `deals`).
 
 ### Phase 8 — offers and trades (V070–V071)
 

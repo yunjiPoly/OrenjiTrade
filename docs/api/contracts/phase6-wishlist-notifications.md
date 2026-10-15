@@ -56,7 +56,8 @@ row + realtime `/user/queue/notifications`, push via `PushProvider` (FCM adapter
 multicast + invalid-token cleanup; `LogPushProvider` locally), email via `EmailProvider`
 (log locally). Body example: "Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km away".
 
-Notification types: WISHLIST_MATCH, MESSAGE, OFFER_RECEIVED, OFFER_ACCEPTED, OFFER_COUNTERED,
+Notification types (stage R4 adds SALE_RECORDED, in-app only: "{seller} marked {card} as sold to
+you", opening the chat; [r4-messages-sales.md](r4-messages-sales.md)): WISHLIST_MATCH, MESSAGE, OFFER_RECEIVED, OFFER_ACCEPTED, OFFER_COUNTERED,
 OFFER_DECLINED, BINDER_EXPIRING, BINDER_STALE_WARNING, BINDER_HIDDEN, RATING_RECEIVED,
 TRADE_UPDATE, SHIPMENT_STATUS, PAYMENT_UPDATE, REPORT_DECISION, SYSTEM.
 
