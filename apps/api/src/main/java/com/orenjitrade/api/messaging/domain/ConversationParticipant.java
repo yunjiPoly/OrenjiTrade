@@ -1,7 +1,7 @@
 package com.orenjitrade.api.messaging.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.orenjitrade.api.location.domain.PublicPlace;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.profiles.domain.CollectorProfileView.OnlineStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -29,4 +29,4 @@ public record ConversationParticipant(
         @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable String avatarUrl,
         @Schema(requiredMode = RequiredMode.REQUIRED) OnlineStatus onlineStatus,
-        @Schema(nullable = true) @Nullable PublicPlace place) {}
+        @Schema(nullable = true) @Nullable PlaceResponse place) {}

@@ -14,6 +14,7 @@ import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.inventory.domain.ChatCard;
 import com.orenjitrade.api.inventory.domain.InventorySales;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.messaging.domain.RealtimeNotices.ReadReceipt;
@@ -1057,7 +1058,7 @@ public class ConversationService {
                         other.displayName(),
                         other.avatarUrl(),
                         onlineStatus(me, other),
-                        place),
+                        place == null ? null : PlaceResponse.from(place)),
                 last,
                 row.unreadCount(),
                 row.muted(),
