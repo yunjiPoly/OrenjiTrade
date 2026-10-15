@@ -19,6 +19,7 @@ export const FEATURE = {
   donations: 'donations',
   credits: 'credits',
   mlScanning: 'mlScanning',
+  cardTextScan: 'cardTextScan',
 } as const;
 
 export type KnownFeature = (typeof FEATURE)[keyof typeof FEATURE];
