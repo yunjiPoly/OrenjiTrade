@@ -19,6 +19,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | S1 | [Platform regions and the self-declared location (ADR 0017; supersedes the geography of 1, 3, 4, 6, 10)](s1-regions-location.md) |
 | S2 | [A simpler wishlist, wishlist alerts, no matches (supersedes the wishlist of 6)](s2-wishlist.md) |
 | S5 | [Inventory import: YDK deck files and Collectr CSV exports](s5-inventory-import.md) |
+| Scan | [Card scan: match the text read on a card, add the scanned cards](card-scan.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
