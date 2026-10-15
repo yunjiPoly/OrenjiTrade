@@ -1,7 +1,8 @@
-# A dialog after a sheet on a stack screen, in the app's Dark theme: in the card editor the binder
-# sheet is opened and closed, then "Delete card" asks its question, and the buttons of the question
-# are found by id, which is what a screen reader has to find too. Then the other order (the sheet
-# after the dialog), and the deletion itself, checked on the host by scripts/check-inventory.js.
+# A modal after a sheet on a stack screen, in the app's Dark theme: on Edit card the binder sheet is
+# opened and closed, then "Delete this card" asks its question (a sheet since stage R2 of the phone
+# redesign, as a dialog before it), and the buttons of the question are found by id, which is what
+# a screen reader has to find too. Then the other order (the binder sheet after the question), and
+# the deletion itself, checked on the host by scripts/check-inventory.js.
 #
 # Why Dark (a new install's theme since stage R1 of the phone redesign; chosen again in Settings >
 # Appearance so the flow never depends on that default; the device stays as it is): its scrim is
@@ -10,7 +11,7 @@
 # React Native reuses it, and the dialog that followed a sheet was on screen with an empty
 # accessibility tree (src/theme/scrim.ts). A scrim that is black again fails here.
 appId: ${APP_ID}
-name: A dialog after a sheet on a stack screen
+name: A question after a sheet on a stack screen
 tags:
   - mobile-m2
   - inventory
@@ -70,7 +71,7 @@ tags:
     timeout: 30000
 - runFlow: subflows/go-back.yaml
 
-# The card editor, a screen of the stack.
+# Edit card, a screen of the stack.
 - extendedWaitUntil:
     visible:
       id: 'tab-inventory'
@@ -83,7 +84,7 @@ tags:
 - tapOn: 'Lantern Fox Spirit, .*'
 - extendedWaitUntil:
     visible:
-      id: 'edit-item-name'
+      id: 'card-header-name'
       text: 'Lantern Fox Spirit'
     timeout: 60000
 
@@ -91,74 +92,67 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'item-binder'
+      ID: 'card-binder'
 - tapOn:
-    id: 'item-binder'
+    id: 'card-binder'
 - extendedWaitUntil:
     visible:
-      id: 'item-binder-option-__unfiled__'
+      id: 'card-binder-option-none'
     timeout: 30000
 - tapOn:
-    id: 'item-binder-option-__unfiled__'
+    id: 'card-binder-option-none'
 - extendedWaitUntil:
     notVisible:
-      id: 'item-binder-sheet'
+      id: 'card-binder-sheet'
     timeout: 30000
 
-# Then a dialog: its title and both buttons are in the accessibility tree.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'edit-item-delete'
+# Then the question ("Delete this card" sits in the bar at the bottom, always on screen): its
+# title and both buttons are in the accessibility tree.
 - tapOn:
     id: 'edit-item-delete'
 - extendedWaitUntil:
     visible:
-      id: 'edit-item-delete-dialog-cancel'
+      id: 'edit-item-delete-sheet-cancel'
     timeout: 30000
 - assertVisible:
-    id: 'edit-item-delete-dialog-confirm'
+    id: 'edit-item-delete-sheet-confirm'
 - assertVisible: 'Delete Lantern Fox Spirit\?'
 - takeScreenshot: dialog-after-sheet
 - tapOn:
-    id: 'edit-item-delete-dialog-cancel'
+    id: 'edit-item-delete-sheet-cancel'
 - extendedWaitUntil:
     notVisible:
-      id: 'edit-item-delete-dialog'
+      id: 'edit-item-delete-sheet'
     timeout: 30000
 
-# The other order: the sheet after the dialog.
+# The other order: the binder sheet after the question.
 - runFlow:
     file: subflows/scroll-up-to.yaml
     env:
-      ID: 'item-binder'
+      ID: 'card-binder'
 - tapOn:
-    id: 'item-binder'
+    id: 'card-binder'
 - extendedWaitUntil:
     visible:
-      id: 'item-binder-option-__unfiled__'
+      id: 'card-binder-option-none'
     timeout: 30000
 - takeScreenshot: sheet-after-dialog
 - tapOn:
-    id: 'item-binder-option-__unfiled__'
+    id: 'card-binder-option-none'
 - extendedWaitUntil:
     notVisible:
-      id: 'item-binder-sheet'
+      id: 'card-binder-sheet'
     timeout: 30000
 
-# And the dialog once more, answered by its button: the card is gone.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'edit-item-delete'
+# And the question once more, answered by its button: the card is gone.
 - tapOn:
     id: 'edit-item-delete'
 - extendedWaitUntil:
     visible:
-      id: 'edit-item-delete-dialog-confirm'
+      id: 'edit-item-delete-sheet-confirm'
     timeout: 30000
 - tapOn:
-    id: 'edit-item-delete-dialog-confirm'
+    id: 'edit-item-delete-sheet-confirm'
 - extendedWaitUntil:
     visible:
       id: 'inventory-empty'

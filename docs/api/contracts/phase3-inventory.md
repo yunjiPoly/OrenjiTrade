@@ -3,6 +3,11 @@
 > **ADR 0017 (2026-10-08):** binder owners carry a `place` (state or province and country)
 > instead of `location: {publicLabel, distanceBucket}`; see
 > [s1-regions-location.md](s1-regions-location.md).
+>
+> **Stage R2 of the phone redesign (2026-10-14):** `asking_price_text`, a `condition` that may
+> be not stated (`conditionStated`), `sort=created`, `PATCH … confirm`, and the undo of a delete
+> (`POST /inventory/items/{id}/restore` within 10 minutes; photos kept until then); see
+> [r2-inventory-phone.md](r2-inventory-phone.md).
 
 All under `/api/v1`. Owner-only unless stated. Effective public visibility is computed server
 side: item visible ⇔ item.visibility ∈ {PUBLIC, TEMPORARILY_PUBLIC(not expired)} ∧ binder

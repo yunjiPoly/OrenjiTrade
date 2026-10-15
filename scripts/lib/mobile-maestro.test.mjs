@@ -3,8 +3,11 @@
 // Metro, a device or Maestro.
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
-import { expoStartArgs, metroEnv, targetFor } from './mobile-maestro.mjs';
+import { expoStartArgs, freshenFlowMedia, metroEnv, targetFor } from './mobile-maestro.mjs';
 
 describe('Metro of the native suite', () => {
   it('Android: `expo start --android` opens Expo Go on the emulator, as it always did', () => {
@@ -44,5 +47,46 @@ describe('Metro of the native suite', () => {
     assert.equal(targetFor('android').appUrl, 'exp://10.0.2.2:8082');
     assert.equal(targetFor('ios').appId, 'host.exp.Exponent');
     assert.equal(targetFor('ios').appUrl, 'exp://127.0.0.1:8082');
+  });
+});
+
+describe('the fictional pictures of the flows', () => {
+  it('are dated now before a run, so the picker subflow takes the copy the flow just added', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'maestro-media-'));
+    try {
+      const photo = path.join(dir, 'fictional-card-photo.jpg');
+      fs.writeFileSync(photo, 'jpeg');
+      fs.chmodSync(photo, 0o640);
+      fs.writeFileSync(path.join(dir, '.DS_Store'), '');
+      const checkout = new Date('2026-10-14T16:58:00Z');
+      fs.utimesSync(photo, checkout, checkout);
+      const before = fs.statSync(photo);
+      // The clock moves on between the checkout and the run.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 30);
+      const started = Date.now();
+
+      assert.deepEqual(freshenFlowMedia(dir), [photo]);
+      const after = fs.statSync(photo);
+      assert.ok(after.mtimeMs >= started - 5, `modified ${after.mtime.toISOString()}`);
+      // `simctl addmedia` dates the photo by the file's creation date: the picture is a new file
+      // (a new modification date alone left the photo at the checkout's date).
+      assert.notEqual(after.ino, before.ino);
+      if (before.birthtimeMs > 0 && after.birthtimeMs > 0) {
+        assert.ok(
+          after.birthtimeMs >= started - 5,
+          `created ${after.birthtime.toISOString()}, before the run started`
+        );
+      }
+      assert.equal(fs.readFileSync(photo, 'utf8'), 'jpeg');
+      assert.equal(after.mode & 0o777, 0o640);
+      // Nothing else is left in the folder.
+      assert.deepEqual(fs.readdirSync(dir).sort(), ['.DS_Store', 'fictional-card-photo.jpg']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does nothing without a media folder', () => {
+    assert.deepEqual(freshenFlowMedia(path.join(os.tmpdir(), 'no-such-maestro-media')), []);
   });
 });

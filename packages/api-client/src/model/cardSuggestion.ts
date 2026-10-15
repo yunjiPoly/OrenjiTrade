@@ -21,6 +21,12 @@ export interface CardSuggestion {
     setCode?: string;
     printingCode?: string;
     imageUrl?: string;
+    setName?: string | null;
+    rarity?: string | null;
+    printingCount?: number | null;
+    edition?: string | null;
+    language?: string | null;
+    finish?: string | null;
 }
 export enum CardSuggestionKindEnum {
     Card = 'CARD',

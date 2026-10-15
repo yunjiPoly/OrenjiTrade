@@ -1,6 +1,8 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
+import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
+import { lightPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -22,6 +24,7 @@ jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 beforeEach(() => {
   resetRouterMock();
   resetAppState();
+  useInventoryUiStore.setState({ lastSavedId: null, failedPhotos: {} });
 });
 
 function render() {
@@ -40,22 +43,70 @@ const STALE = itemFixture({
   },
 });
 
-describe('Inventory tab', () => {
-  it('shows a skeleton, then the cards with totals, and opens a card', async () => {
-    mockApi(signedInRoutes());
+const TEXT_PRICE = itemFixture({
+  id: 'text-1',
+  card: { id: 'c3', name: 'Ash Blossom & Joyous Spring', game: 'yugioh' },
+  askingPrice: null,
+  askingPriceText: '85% TCG',
+  condition: '',
+  conditionStated: false,
+  quantity: 1,
+});
+
+const NO_PRICE = itemFixture({
+  id: 'none-1',
+  card: { id: 'c4', name: 'Called by the Grave', game: 'yugioh' },
+  askingPrice: null,
+  askingPriceText: null,
+  quantity: 4,
+});
+
+describe('Inventory (screen 1)', () => {
+  it('shows a skeleton, then only the picture, name, code, price and copies of each card', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture(), TEXT_PRICE, NO_PRICE])),
+        'GET /api/v1/inventory/summary': ok(
+          summaryFixture({
+            totalItems: 20,
+            totalQuantity: 31,
+            byVisibility: { PRIVATE: 3, PUBLIC: 16, TEMPORARILY_PUBLIC: 1 },
+          })
+        ),
+      })
+    );
     render();
     expect(screen.getByTestId('inventory-loading')).toBeOnTheScreen();
     const row = await screen.findByTestId(`item-${ITEM_ID}`);
-    expect(within(row).getByText('Emberfang Fox VMAX')).toBeOnTheScreen();
-    expect(within(row).getByText('×2')).toBeOnTheScreen();
-    expect(within(row).getByText('Trade or sale')).toBeOnTheScreen();
-    expect(within(row).getByText('Offers')).toBeOnTheScreen();
-    expect(within(row).getByText('Private')).toBeOnTheScreen();
+    expect(row).toHaveTextContent(/Emberfang Fox VMAX/);
+    expect(row).toHaveTextContent(/SVX-001/);
+    // A card priced before R2 shows its amount; the copies after a ×.
+    expect(within(row).getByTestId(`item-${ITEM_ID}-price`)).toHaveTextContent('$40.00');
+    expect(row).toHaveTextContent(/×2$/);
+    // Nothing else: no set name, condition, intent, offers or visibility.
+    expect(row).not.toHaveTextContent(/Stellar Vortex|Near Mint|NM|Trade or sale|Offers|Private/);
+
+    // The price exactly as typed; nothing at all without one.
+    expect(screen.getByTestId('item-text-1-price')).toHaveTextContent('85% TCG');
+    expect(screen.queryByTestId('item-none-1-price')).toBeNull();
+    expect(screen.getByTestId('item-none-1')).toHaveTextContent(/×4$/);
+
+    expect(
+      screen.getByRole('button', {
+        name: /^Ash Blossom & Joyous Spring, SVX-001, 85% TCG, 1 copy$/,
+      })
+    ).toBeOnTheScreen();
     expect(await screen.findByTestId('inventory-summary-totals')).toHaveTextContent(
-      '1 card · 2 copies · 0 public now'
+      '20 cards · 31 copies · 17 public'
     );
+    // The header and the switch.
+    expect(screen.getByRole('header', { name: 'Inventory' })).toBeOnTheScreen();
+    expect(screen.getByTestId('notification-bell-inventory')).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: 'Cards, 20' })).toBeSelected();
+    expect(screen.getByRole('tab', { name: 'Binders, 1' })).toBeOnTheScreen();
     // No sponsored row in the inventory (stage F1: no ads).
     expect(screen.queryByText(/Sponsored/i)).toBeNull();
+
     fireEvent.press(screen.getByRole('button', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/items/[id]',
@@ -63,14 +114,7 @@ describe('Inventory tab', () => {
     });
   });
 
-  it('starts the add flow', async () => {
-    mockApi(signedInRoutes());
-    render();
-    fireEvent.press(screen.getByTestId('inventory-add-card'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
-  });
-
-  it('opens the import of a deck file or a CSV export, also from an empty inventory', async () => {
+  it('opens Add cards from the header and from an empty inventory', async () => {
     mockApi(
       signedInRoutes({
         'GET /api/v1/inventory/items': ok(inventoryPage([])),
@@ -78,76 +122,136 @@ describe('Inventory tab', () => {
       })
     );
     render();
+    fireEvent.press(screen.getByRole('button', { name: 'Add cards' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
     expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
-    // Nothing to select yet, but a file can be imported.
+    // Nothing to select yet.
     expect(screen.queryByTestId('inventory-select')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Import cards from a file' }));
-    expect(mockRouter.push).toHaveBeenCalledWith('/items/import');
+    fireEvent.press(screen.getByTestId('inventory-empty-action'));
+    expect(mockRouter.push).toHaveBeenCalledTimes(2);
   });
 
-  it('filters by binder, game and intent, sorts and searches', async () => {
-    const api = mockApi(signedInRoutes());
+  it('rings the card saved last while the tab is on screen (screen 8)', async () => {
+    useInventoryUiStore.setState({ lastSavedId: 'text-1' });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture(), TEXT_PRICE])),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('item-text-1')).toHaveStyle({
+      borderColor: lightPalette.primary,
+    });
+    expect(screen.getByTestId(`item-${ITEM_ID}`)).toHaveStyle({ borderColor: lightPalette.border });
+
+    // In Select mode the orange ring means "selected": the saved card is not ringed there.
+    fireEvent.press(screen.getByTestId('inventory-select'));
+    expect(screen.getByTestId('item-text-1')).toHaveStyle({ borderColor: lightPalette.border });
+    fireEvent.press(screen.getByTestId(`item-${ITEM_ID}`));
+    expect(screen.getByTestId(`item-${ITEM_ID}`)).toHaveStyle({
+      borderColor: lightPalette.primary,
+    });
+    expect(screen.getByTestId('item-text-1')).toHaveStyle({ borderColor: lightPalette.border });
+  });
+
+  it('filters and sorts in the sheet, counting the cards before they are shown (screen 2)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': (request) =>
+          ok(
+            request.query.get('size') === '1'
+              ? inventoryPage([itemFixture()], 0, 9, request.query.get('game') ? 9 : 20)
+              : inventoryPage([itemFixture()])
+          ),
+        'GET /api/v1/inventory/summary': ok(
+          summaryFixture({ totalItems: 20, byGame: { yugioh: 12, pokemon: 8 } })
+        ),
+        'GET /api/v1/binders': ok([
+          binderFixture({ id: 'b-z', name: 'Staples' }),
+          binderFixture({ id: 'b-a', name: 'For trade' }),
+        ]),
+      })
+    );
     render();
     await screen.findByTestId(`item-${ITEM_ID}`);
-    const last = () =>
-      Object.fromEntries(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query ?? []);
+    const lists = () =>
+      api
+        .callsTo('GET /api/v1/inventory/items')
+        .filter((call) => call.query.get('size') !== '1')
+        .map((call) => Object.fromEntries(call.query));
+    // Recently added by default.
+    expect(lists()[0]).toEqual({ sort: 'created', page: '0', size: '24' });
+    expect(screen.getByRole('button', { name: 'Filter and sort' })).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('inventory-filter-binder'));
-    fireEvent.press(await screen.findByTestId(`inventory-filter-binder-option-${BINDER_ID}`));
-    await waitFor(() => expect(last().binderId).toBe(BINDER_ID));
-    expect(screen.getByTestId('inventory-open-binder')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('inventory-filters-open'));
+    const sheet = await screen.findByTestId('inventory-filters');
+    expect(within(sheet).getByText('Filter and sort')).toBeOnTheScreen();
+    // The games the collector owns, in the catalogue's order; the binders by name.
+    const games = within(sheet).getByTestId('filter-game-group');
+    expect(
+      within(games)
+        .getAllByRole('radio')
+        .map((chip) => chip.props.accessibilityLabel)
+    ).toEqual(['All games', 'Pokémon', 'Yu-Gi-Oh!']);
+    const binders = within(sheet).getByTestId('filter-binder-group');
+    expect(
+      within(binders)
+        .getAllByRole('radio')
+        .map((chip) => chip.props.accessibilityLabel)
+    ).toEqual(['All cards', 'No binder', 'For trade', 'Staples']);
+    expect(await within(sheet).findByText('Show 20 cards')).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('inventory-filter-game'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-game-option-pokemon'));
-    fireEvent.press(screen.getByTestId('inventory-filter-intent'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-intent-option-SALE'));
-    fireEvent.press(screen.getByTestId('inventory-filter-visibility'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-visibility-option-PUBLIC'));
-    fireEvent.press(screen.getByTestId('inventory-sort'));
-    fireEvent.press(await screen.findByTestId('inventory-sort-option-price-asc'));
-    fireEvent.changeText(screen.getByTestId('inventory-search'), 'fox');
+    fireEvent.press(within(sheet).getByTestId('filter-game-yugioh'));
+    expect(await within(sheet).findByText('Show 9 cards')).toBeOnTheScreen();
+    fireEvent.press(within(sheet).getByTestId('filter-sort-price'));
+    fireEvent.press(within(sheet).getByTestId('filter-binder-unfiled'));
+    fireEvent.press(within(sheet).getByTestId('filter-visibility-PUBLIC'));
+    // Nothing applies before "Show".
+    expect(lists()).toHaveLength(1);
+    fireEvent.press(within(sheet).getByTestId('inventory-filters-show'));
     await waitFor(() =>
-      expect(last()).toEqual({
-        query: 'fox',
-        game: 'pokemon',
-        availability: 'SALE',
-        visibility: 'PUBLIC',
-        binderId: BINDER_ID,
+      expect(lists().at(-1)).toEqual({
+        game: 'yugioh',
+        unfiled: 'true',
+        markedPublic: 'true',
         sort: 'price',
-        direction: 'asc',
         page: '0',
         size: '24',
       })
     );
+    expect(screen.getByTestId('inventory-filters-count')).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: 'Filter and sort, 3 filters on' })).toBeOnTheScreen();
 
-    fireEvent.press(screen.getByTestId('inventory-filter-binder'));
-    fireEvent.press(await screen.findByTestId('inventory-filter-binder-option-unfiled'));
-    await waitFor(() => expect(last().unfiled).toBe('true'));
-    expect(screen.getByRole('button', { name: 'Binder: Unfiled' })).toBeOnTheScreen();
+    // The search stays when the filters are cleared.
+    fireEvent.changeText(screen.getByTestId('inventory-search'), 'fox');
+    await waitFor(() => expect(lists().at(-1)?.query).toBe('fox'));
+    fireEvent.press(screen.getByTestId('inventory-filters-open'));
+    fireEvent.press(await screen.findByTestId('inventory-filters-clear'));
+    fireEvent.press(screen.getByTestId('inventory-filters-show'));
+    await waitFor(() =>
+      expect(lists().at(-1)).toEqual({ query: 'fox', sort: 'created', page: '0', size: '24' })
+    );
+    expect(screen.queryByTestId('inventory-filters-count')).toBeNull();
   });
 
-  it('explains an empty inventory and an empty filter', async () => {
+  it('explains an empty search and clears it', async () => {
     const api = mockApi(
       signedInRoutes({
-        'GET /api/v1/inventory/items': ok(inventoryPage([])),
-        'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 0, totalQuantity: 0 })),
+        'GET /api/v1/inventory/items': (request) =>
+          ok(inventoryPage(request.query.get('query') ? [] : [itemFixture()])),
       })
     );
     render();
-    expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('inventory-empty-action'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
-
+    await screen.findByTestId(`item-${ITEM_ID}`);
     fireEvent.changeText(screen.getByTestId('inventory-search'), 'nothing');
     expect(await screen.findByText('No cards match')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query.get('query')).toBe('nothing');
     fireEvent.press(screen.getByTestId('inventory-empty-filtered-action'));
-    // Back to the unfiltered list (from the cache), with an empty search field.
-    expect(await screen.findByText('Your inventory is empty')).toBeOnTheScreen();
+    expect(await screen.findByTestId(`item-${ITEM_ID}`)).toBeOnTheScreen();
     expect(screen.getByTestId('inventory-search').props.value).toBe('');
   });
 
-  it('selects cards and runs bulk actions (visibility, availability, move, delete)', async () => {
+  it('runs the bulk actions of Select mode, and undoes a bulk delete', async () => {
     const api = mockApi(
       signedInRoutes({
         'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture(), STALE])),
@@ -157,92 +261,81 @@ describe('Inventory tab', () => {
             updated: (body as { itemIds: string[] }).itemIds.length,
             skipped: [],
           }),
+        [`POST /api/v1/inventory/items/${ITEM_ID}/restore`]: ok(itemFixture()),
+        'POST /api/v1/inventory/items/stale-1/restore': ok(STALE),
       })
     );
     render();
     await screen.findByTestId(`item-${ITEM_ID}`);
     expect(screen.queryByTestId('bulk-bar')).toBeNull();
     fireEvent.press(screen.getByTestId('inventory-select'));
-    // Rows toggle their selection instead of opening the editor.
+    // Rows toggle their selection instead of opening Edit card.
     fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(await screen.findByTestId('bulk-count')).toHaveTextContent('1 selected');
     fireEvent.press(screen.getByTestId('bulk-select-all'));
     expect(screen.getByTestId('bulk-count')).toHaveTextContent('2 selected');
+    // The actions that still make sense; availability and a temporary publication are gone.
+    const bar = screen.getByTestId('bulk-bar');
+    expect(
+      within(bar)
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+    ).toEqual([
+      'Clear selection',
+      'Move to binder',
+      'Make public',
+      'Make private',
+      'Still available',
+      'Delete',
+    ]);
 
-    fireEvent.press(screen.getByTestId('bulk-visibility'));
-    fireEvent.press(await screen.findByTestId('bulk-visibility-TEMPORARILY_PUBLIC'));
-    fireEvent.press(await screen.findByTestId('bulk-duration-24h'));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      '2 cards are now public for 24 hours.'
-    );
-    const first = api.callsTo('POST /api/v1/inventory/items/bulk')[0]?.body as {
-      action: string;
-      itemIds: string[];
-      visibility: string;
-      publicUntil: string;
-    };
-    expect(first.action).toBe('SET_VISIBILITY');
-    expect(first.visibility).toBe('TEMPORARILY_PUBLIC');
-    expect(first.itemIds).toEqual([ITEM_ID, 'stale-1']);
-    expect(first.publicUntil).toMatch(/^\d{4}-/);
-
-    fireEvent.press(screen.getByTestId('bulk-availability'));
-    fireEvent.press(await screen.findByTestId('bulk-availability-SALE'));
+    const bulk = () => api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body;
+    fireEvent.press(screen.getByTestId('bulk-visibility-PUBLIC'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent('2 cards are now public.');
+    expect(bulk()).toEqual({
+      action: 'SET_VISIBILITY',
+      visibility: 'PUBLIC',
+      itemIds: [ITEM_ID, 'stale-1'],
+    });
+    fireEvent.press(screen.getByTestId('bulk-visibility-PRIVATE'));
     await waitFor(() =>
-      expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
-        action: 'SET_AVAILABILITY',
-        availability: 'SALE',
+      expect(bulk()).toEqual({
+        action: 'SET_VISIBILITY',
+        visibility: 'PRIVATE',
         itemIds: [ITEM_ID, 'stale-1'],
       })
+    );
+    fireEvent.press(screen.getByTestId('bulk-confirm'));
+    await waitFor(() =>
+      expect(bulk()).toEqual({ action: 'CONFIRM', itemIds: [ITEM_ID, 'stale-1'] })
     );
     fireEvent.press(screen.getByTestId('bulk-move'));
     fireEvent.press(await screen.findByTestId(`bulk-binder-${BINDER_ID}`));
     await waitFor(() =>
-      expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
+      expect(bulk()).toEqual({
         action: 'MOVE_TO_BINDER',
         binderId: BINDER_ID,
         itemIds: [ITEM_ID, 'stale-1'],
       })
     );
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      '2 cards moved to “Trade binder”.'
-    );
 
-    // Delete asks first, then clears the selection.
+    // Delete asks in a sheet, then offers Undo.
     fireEvent.press(screen.getByTestId('bulk-delete'));
     expect(await screen.findByText('Delete 2 cards?')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('bulk-delete-dialog-confirm'));
+    expect(
+      screen.getByText('They leave your inventory and any binder. Their photos are deleted too.')
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('bulk-delete-sheet-confirm'));
     await waitFor(() =>
-      expect(api.callsTo('POST /api/v1/inventory/items/bulk').at(-1)?.body).toEqual({
-        action: 'DELETE',
-        itemIds: [ITEM_ID, 'stale-1'],
-      })
+      expect(bulk()).toEqual({ action: 'DELETE', itemIds: [ITEM_ID, 'stale-1'] })
     );
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/2 cards deleted/);
     await waitFor(() => expect(screen.queryByTestId('bulk-bar')).toBeNull());
-    fireEvent.press(screen.getByTestId('inventory-select'));
-    expect(screen.queryByTestId('item-stale-1-checkbox')).toBeNull();
-  });
-
-  it('reorders the binders with the arrows and saves the order', async () => {
-    const second = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 1 });
-    const api = mockApi(
-      signedInRoutes({
-        'GET /api/v1/binders': ok([binderFixture(), second]),
-        'PUT /api/v1/binders/reorder': ok([second, binderFixture()]),
-      })
-    );
-    mockParams.current = { view: 'binders' };
-    render();
-    fireEvent.press(await screen.findByTestId('binders-reorder'));
-    const sheet = await screen.findByTestId('reorder-binders');
-    expect(within(sheet).getByTestId('reorder-save')).toBeDisabled();
-    fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
-    fireEvent.press(within(sheet).getByTestId('reorder-save'));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Binder order saved.');
-    expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
-      binderIds: ['b-2', BINDER_ID],
-    });
+    fireEvent.press(screen.getByTestId('snackbar-undo'));
+    expect(await screen.findByText('2 cards restored')).toBeOnTheScreen();
+    expect(api.callsTo(`POST /api/v1/inventory/items/${ITEM_ID}/restore`)).toHaveLength(1);
+    expect(api.callsTo('POST /api/v1/inventory/items/stale-1/restore')).toHaveLength(1);
   });
 
   it('shows stale cards and confirms them all', async () => {
@@ -261,8 +354,6 @@ describe('Inventory tab', () => {
       })
     );
     render();
-    const row = await screen.findByTestId('item-stale-1');
-    expect(within(row).getByLabelText('Freshness: Stale')).toBeOnTheScreen();
     expect(await screen.findByTestId('inventory-needs-confirmation')).toHaveTextContent(
       /1 card needs a confirmation/
     );
@@ -342,6 +433,29 @@ describe('Inventory tab', () => {
     fireEvent.press(screen.getByTestId('inventory-error-retry'));
     expect(await screen.findByTestId(`item-${ITEM_ID}`)).toBeOnTheScreen();
   });
+});
+
+describe('Inventory › Binders (kept until stage R3)', () => {
+  it('reorders the binders with the arrows and saves the order', async () => {
+    const second = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 1 });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/binders': ok([binderFixture(), second]),
+        'PUT /api/v1/binders/reorder': ok([second, binderFixture()]),
+      })
+    );
+    mockParams.current = { view: 'binders' };
+    render();
+    fireEvent.press(await screen.findByTestId('binders-reorder'));
+    const sheet = await screen.findByTestId('reorder-binders');
+    expect(within(sheet).getByTestId('reorder-save')).toBeDisabled();
+    fireEvent.press(within(sheet).getByTestId('reorder-b-2-up'));
+    fireEvent.press(within(sheet).getByTestId('reorder-save'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Binder order saved.');
+    expect(api.callsTo('PUT /api/v1/binders/reorder')[0]?.body).toEqual({
+      binderIds: ['b-2', BINDER_ID],
+    });
+  });
 
   it('lists binders, opens one, creates one and explains an empty list', async () => {
     mockApi(
@@ -391,5 +505,57 @@ describe('Inventory tab', () => {
     expect(await screen.findByText('Your binders could not load')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('binders-error-retry'));
     expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
+  });
+});
+
+describe('Undo of a bulk delete that fails', () => {
+  it('says the card can no longer be restored', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture()])),
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+        [`POST /api/v1/inventory/items/${ITEM_ID}/restore`]: problem(
+          409,
+          'RESTORE_WINDOW_CLOSED',
+          'This card can no longer be restored'
+        ),
+      })
+    );
+    render();
+    await screen.findByTestId(`item-${ITEM_ID}`);
+    fireEvent.press(screen.getByTestId('inventory-select'));
+    fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX/ }));
+    fireEvent.press(await screen.findByTestId('bulk-delete'));
+    fireEvent.press(await screen.findByTestId('bulk-delete-sheet-confirm'));
+    await act(async () => {
+      fireEvent.press(await screen.findByTestId('snackbar-undo'));
+    });
+    expect(await screen.findByText('This card can no longer be restored.')).toBeOnTheScreen();
+  });
+
+  it('says a full inventory as the plain limit of stage F1, with nothing to buy', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture()])),
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+        [`POST /api/v1/inventory/items/${ITEM_ID}/restore`]: problem(
+          429,
+          'LIMIT_REACHED',
+          'Limit reached',
+          { limitKey: 'inventory.items.max', limit: 100, used: 100 }
+        ),
+      })
+    );
+    render();
+    await screen.findByTestId(`item-${ITEM_ID}`);
+    fireEvent.press(screen.getByTestId('inventory-select'));
+    fireEvent.press(screen.getByRole('checkbox', { name: /^Emberfang Fox VMAX/ }));
+    fireEvent.press(await screen.findByTestId('bulk-delete'));
+    fireEvent.press(await screen.findByTestId('bulk-delete-sheet-confirm'));
+    await act(async () => {
+      fireEvent.press(await screen.findByTestId('snackbar-undo'));
+    });
+    expect(await screen.findByText('You have used 100 of 100 inventory cards.')).toBeOnTheScreen();
+    expect(screen.queryByText(/Premium|plan|upgrade/i)).toBeNull();
   });
 });

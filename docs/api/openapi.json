@@ -6980,7 +6980,7 @@
           "inventory"
         ],
         "summary": "The caller's items (filters, sort, pages)",
-        "description": "`query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), name (A-Z) or price (highest first); `direction` overrides the order.",
+        "description": "`query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.",
         "operationId": "listInventoryItems",
         "parameters": [
           {
@@ -7039,6 +7039,16 @@
             }
           },
           {
+            "name": "markedPublic",
+            "in": "query",
+            "description": "Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC (the phone's \"Public\" filter; whether others see them also depends on the binder and the owner)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "availability",
             "in": "query",
             "required": false,
@@ -7082,13 +7092,14 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "updated | name | price",
+            "description": "updated | created | name | price",
             "required": false,
             "schema": {
               "type": "string",
               "default": "updated",
               "enum": [
                 "updated",
+                "created",
                 "name",
                 "price"
               ]
@@ -7097,7 +7108,7 @@
           {
             "name": "direction",
             "in": "query",
-            "description": "asc | desc (default: desc for updated and price, asc for name)",
+            "description": "asc | desc (default: desc for updated, created and price, asc for name)",
             "required": false,
             "schema": {
               "type": "string",
@@ -7210,7 +7221,7 @@
           "inventory"
         ],
         "summary": "Add an item",
-        "description": "Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.",
+        "description": "Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions), or none with `conditionStated: false` (the response then has `condition` empty and `conditionStated` false); currency to CAD. `askingPriceText` keeps the price as typed and fills `askingPrice` when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.",
         "operationId": "createInventoryItem",
         "requestBody": {
           "content": {
@@ -7285,6 +7296,109 @@
           },
           "428": {
             "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inventory/items/{id}/restore": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Undo the delete of an item",
+        "description": "Within 10 minutes of the caller's own delete (one item or a bulk delete), brings the item back exactly as it was: copies, prices, notes, photos, binder and visibility. A live item is answered as it is (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes, or for an item that left otherwise (a trade, its binder deleted with it); 429 LIMIT_REACHED when `inventory.items.max` was reached meanwhile.",
+        "operationId": "restoreInventoryItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The restored item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryItemResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or not the caller's item",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RESTORE_WINDOW_CLOSED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7536,7 +7650,7 @@
           "inventory"
         ],
         "summary": "Bulk operation on the caller's items",
-        "description": "One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.",
+        "description": "One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.",
         "operationId": "bulkUpdateInventoryItems",
         "requestBody": {
           "content": {
@@ -13326,7 +13440,7 @@
           "inventory"
         ],
         "summary": "Delete an item",
-        "description": "Soft delete: the item disappears everywhere; its photos are removed.",
+        "description": "Soft delete: the item disappears everywhere. For 10 minutes `POST .../restore` brings it back with its photos; the photos are deleted after that.",
         "operationId": "deleteInventoryItem",
         "parameters": [
           {
@@ -13410,7 +13524,7 @@
           "inventory"
         ],
         "summary": "Update an item (any subset of the fields)",
-        "description": "Absent fields are unchanged. `askingPrice`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it.",
+        "description": "Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. `askingPriceText` sets the price as typed (and `askingPrice` when it is a plain amount); `askingPrice` without it clears the text. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it, and so does `confirm: true` (the phone's Edit card: a save counts as still available).",
         "operationId": "updateInventoryItem",
         "parameters": [
           {
@@ -24779,6 +24893,14 @@
           },
           "marketPrice": {
             "$ref": "#/components/schemas/MarketPrice"
+          },
+          "setReleaseDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "example": "2002-03-08"
           }
         }
       },
@@ -27054,7 +27176,12 @@
           },
           "condition": {
             "type": "string",
+            "description": "Condition code; empty when the owner stated none (conditionStated false)",
             "example": "NEAR_MINT"
+          },
+          "conditionStated": {
+            "type": "boolean",
+            "description": "false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling."
           },
           "language": {
             "type": "string",
@@ -27074,6 +27201,14 @@
               "null"
             ],
             "example": 45.0
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)",
+            "example": "85% TCG"
           },
           "currency": {
             "type": "string",
@@ -28712,6 +28847,17 @@
           "binderId": {
             "type": "string",
             "format": "uuid"
+          },
+          "askingPriceText": {
+            "type": "string",
+            "description": "The asking price as typed (at most 40 characters once trimmed), shown exactly as typed. A plain amount (12.50, $12.50, 12,50 $) also fills askingPrice in the item's currency; other text leaves it empty. Do not send askingPrice with it.",
+            "example": "85% TCG",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "conditionStated": {
+            "type": "boolean",
+            "description": "false: the card's condition is not stated (cards added on the phone; send no condition). Default true."
           }
         },
         "required": [
@@ -28744,7 +28890,12 @@
           },
           "condition": {
             "type": "string",
+            "description": "Condition code; empty when the owner stated none (conditionStated false)",
             "example": "NEAR_MINT"
+          },
+          "conditionStated": {
+            "type": "boolean",
+            "description": "false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling."
           },
           "language": {
             "type": "string",
@@ -28764,6 +28915,14 @@
               "null"
             ],
             "example": 45.0
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)",
+            "example": "85% TCG"
           },
           "currency": {
             "type": "string",
@@ -31983,7 +32142,7 @@
       },
       "UpdateInventoryItemRequest": {
         "type": "object",
-        "description": "Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it.",
+        "description": "Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it, and so does confirm: true.",
         "properties": {
           "printingId": {
             "type": "string",
@@ -32077,6 +32236,18 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The asking price as typed (at most 40 characters); null clears the price. A plain amount also sets askingPrice; sending askingPrice without it clears the text. Not both.",
+            "example": "85% TCG"
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "true: the save also confirms the item is still available, as POST .../confirm does (the phone's Edit card)."
           }
         }
       },
@@ -35015,6 +35186,49 @@
           },
           "imageUrl": {
             "type": "string"
+          },
+          "setName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Azure Dawn"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Ultra Rare"
+          },
+          "printingCount": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "example": 3
+          },
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "FIRST_EDITION"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "en"
+          },
+          "finish": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "NORMAL"
           }
         }
       },
@@ -36450,6 +36664,7 @@
               "RATING_NOT_ELIGIBLE",
               "ALREADY_RATED",
               "RATING_EDIT_WINDOW_CLOSED",
+              "RESTORE_WINDOW_CLOSED",
               "REPORT_ALREADY_OPEN",
               "CANNOT_REPORT_SELF",
               "OFFERS_NOT_ACCEPTED",

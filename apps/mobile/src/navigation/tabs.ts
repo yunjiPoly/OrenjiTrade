@@ -9,6 +9,11 @@ export interface TabDefinition {
   title: string;
   icon: TabIconName;
   iconFocused: TabIconName;
+  /**
+   * The screen draws its own header (a large title, the bell and its main button: the Inventory
+   * of the 2026-10-14 redesign); the tab bar shows no navigation header over it.
+   */
+  ownHeader?: boolean;
 }
 
 /** Tab order is a product decision (CLAUDE.md): Map | Inventory | Search | Messages | Wishlist | Profile. */
@@ -19,7 +24,13 @@ export const TABS: readonly TabDefinition[] = [
     icon: 'map-marker-radius-outline',
     iconFocused: 'map-marker-radius',
   },
-  { name: 'inventory', title: 'Inventory', icon: 'cards-outline', iconFocused: 'cards' },
+  {
+    name: 'inventory',
+    title: 'Inventory',
+    icon: 'cards-outline',
+    iconFocused: 'cards',
+    ownHeader: true,
+  },
   { name: 'search', title: 'Search', icon: 'magnify', iconFocused: 'magnify' },
   {
     name: 'messages',

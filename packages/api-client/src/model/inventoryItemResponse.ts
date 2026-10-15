@@ -26,11 +26,22 @@ export interface InventoryItemResponse {
      */
     binder?: InventoryBinderRef;
     quantity: number;
+    /**
+     * Condition code; empty when the owner stated none (conditionStated false)
+     */
     condition: string;
+    /**
+     * false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling.
+     */
+    conditionStated?: boolean;
     language: string;
     edition: string;
     finish: string;
     askingPrice?: number | null;
+    /**
+     * The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)
+     */
+    askingPriceText?: string | null;
     currency: string;
     availability: InventoryItemResponseAvailabilityEnum;
     acceptsOffers: boolean;

@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1 and F1): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after stages R1, F1 and R2): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -36,14 +36,17 @@ of the phone redesign (offers, trades, protected payments and disputes off the p
 the chat safety tip, shipping wording, the deckCore tokens, the fonts, the dark default; #72,
 2026-10-14) and **stage F1**, free for all (Premium, ads, credits and donations removed from the
 API, the phone and the web, ADR 0019; the same usage limits for everyone; merged with R1 on
-2026-10-15, then its own pull request). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48
-#49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67 #68 #69 #70 #71 #72.
+2026-10-15, then its own pull request, #73), then **stage R2** of the phone redesign (the
+Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory with photos, Edit
+card, the toasts with "View" and "Undo"; the asking price as typed, a condition not stated, the
+undo of a delete for 10 minutes; merged with F1 on 2026-10-15, then its own pull request). Merged
+PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67
+#68 #69 #70 #71 #72 #73.
 
 **Not on `main`:**
 
 | What | Where | State |
 | --- | --- | --- |
-| Phone redesign, stage R2 ("Inventory and adding cards", mockup screens 1 to 9) | branch `feature/r2-inventory-adding-cards`, built on R1 at the same time as F1 | Being finished elsewhere. Before its ship step it merges `main` (R1 and F1), renumbers its `V117__inventory_price_text_restore.sql` to V124 or later (Flyway refuses an out-of-order migration; IMPLEMENTATION_STATUS.md, "Free for all", "Merging with stage R1") and keeps every paid feature out (ADR 0019). |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -56,20 +59,23 @@ card scanning), the full French UI translation and every cloud deployment stay o
 
 **Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
-verbatim). **R1 is on `main`** (#72); R2 is being finished on its branch (table above); R3 to R8
-are not built. The documents describe the phone as R1 and F1 leave it: six tabs until R5, no
-offers, trades, protected payments or disputes on the phone (ADR 0018), deals in the chat by mail,
-and nothing to buy (ADR 0019).
+verbatim). **R1 and R2 are on `main`** (#72; R2, mockup screens 1 to 9, by its own pull request
+after it merged F1 on 2026-10-15); R3 to R8 are not built. The documents
+describe the phone as R1, F1 and R2 leave it: six tabs until R5, no offers, trades, protected
+payments or disputes on the phone (ADR 0018), deals in the chat by mail, nothing to buy (ADR 0019),
+and the Inventory and the adding of cards of the redesign.
 
 **Free for all (owner, 2026-10-14, after the redesign spec):** *"can you remove the implementation
 of premium subscription and ads? Just save pay service feature in a new branch for later. I am
 trying to make this app free for all first."* Stage F1 did it (ADR 0019; merged with R1 on
 2026-10-15). Where the redesign spec
 says Premium, credits, donations or ads "keep their flags" or "move into Settings", this later
-decision wins: they are gone, and R2 to R8 build no screen for them.
+decision wins: they are gone, and R2 to R8 build no screen for them (R2 has no sponsored row,
+upgrade offer or paid entry point; its limit messages are F1's plain caps).
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
-migrates to the newest level (V123: R1's V115 and V116, F1's V120–V123; V117–V119 unused) at the
+migrates to the newest level (V125: R1's V115 and V116, F1's V120–V123, R2's V125; V117–V119
+unused, V124 kept for another branch) at the
 first `npm run dev`, and
 loses its trading areas by design (S1).
 
@@ -100,33 +106,35 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-1. **Stage R2 of the phone redesign** (inventory and adding cards, mockup screens 1 to 9), as the
-   spec's sections 6, 12 and 15 say: its branch (`feature/r2-inventory-adding-cards`, built on R1)
-   is being finished elsewhere. Before its ship step it merges `main` (which holds R1 and F1),
-   renumbers its `V117` to V124 or later, because Flyway (no `outOfOrder`) refuses a migration older
-   than the database's newest one (V123; merge notes in IMPLEMENTATION_STATUS.md, "Free for all"),
-   and builds no paid feature (ADR 0019); then the check list below, the pull request, merge on
-   green CI. R3 to R8 follow in order, one branch and one PR each, none of them bringing back a paid
-   feature.
-2. R1 (#72) and F1 are on `main`, merged together on 2026-10-15 (IMPLEMENTATION_STATUS.md, "Free
-   for all", "Merged with R1 (2026-10-15)"); S6 is on `main` (#71); nothing is left of the
-   2026-10-08 change except what the owner skipped.
+1. **Stage R3 of the phone redesign** (binders and deck cores, mockup screens 16 to 18), from the
+   `main` that holds R2, as the spec's sections 7, 12, 14 and 15 say; R4 to R8 follow in order,
+   one branch and one PR each, none of them bringing back a paid feature (ADR 0019). Migrations:
+   the newest is R2's V125 (written as V117, renumbered after F1's V120–V123 when R2 merged
+   `main`), and V124 is kept for another branch, so R3 starts at **V126** (Flyway, without
+   `outOfOrder`, refuses a version older than the database's newest one).
+2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
+   (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
+   `main` (IMPLEMENTATION_STATUS.md, "Phone redesign R2", "Merged with free for all
+   (2026-10-15)"); S6 is on `main` (#71); nothing is left of the 2026-10-08 change except what
+   the owner skipped.
 3. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
    (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
 `npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
 apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1,
-896.09 kB with R1 and F1; the English legal texts sit in the main bundle, and the
-deckCore tokens are kept out of `tokens.css`); `npm run test:e2e -- --retries=0` (every spec green
-on the first attempt); `npm run test:mobile`; `npx expo export --platform ios`, `--platform
-android` and `--platform web`; `npm run test:mobile:e2e -- --retries=0`; `npm run audit:gate`;
-`npm run test:scripts`; exactly what GitHub CI runs: `npm run lint -w apps/web-angular`, `npm run
-format:check -w apps/web-angular`, `npm run typecheck -w apps/mobile`, `npm run lint -w
-apps/mobile`, `npm run format:check -w apps/mobile`; and, when `apps/mobile` changed, the full
-Maestro set (`npm run test:mobile:maestro -- --platform ios`, 30 flows since R1 and F1, about 50
-minutes) on the owner's simulator (section 4). While the web is paused its checks are regression
-checks: a web failure is recorded, not fixed.
+896.09 kB with R1 and F1, the same with R2, which changes no web file; the English legal texts
+sit in the main bundle, and the deckCore tokens are kept out of `tokens.css`); `npm run test:e2e
+-- --retries=0` (every spec green on the first attempt); `npm run test:mobile`; `npx expo export
+--platform ios`, `--platform android` and `--platform web`; `npm run test:mobile:e2e --
+--retries=0`; `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs: `npm run
+lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`, `npm run typecheck -w
+apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`; and, when
+`apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`,
+30 flows since R1 and F1 (R2 renamed `inventory-add-edit-delete.yaml` to
+`inventory-add-edit-undo.yaml`, native flow 1 of the redesign), about 50 minutes) on the owner's
+simulator (section 4). While the web is paused its checks are regression checks: a web failure is
+recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
 `apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;

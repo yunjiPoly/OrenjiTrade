@@ -516,7 +516,7 @@ export function rowSourceText(row: ImportRow): string {
 }
 
 /** Where a card is added one at a time: the button of the Inventory tab. */
-const BY_HAND = 'find the card by its name with “Add card” in your inventory';
+const BY_HAND = 'find the card by its name with “Add cards” in your inventory';
 
 const UNMATCHED_REASONS: Record<ImportUnmatchedReason, { why: string; next: string }> = {
   UNKNOWN_PASSCODE: {

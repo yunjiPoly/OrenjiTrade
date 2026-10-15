@@ -41,7 +41,13 @@ export function itemPhotoProblem(photo: {
   return null;
 }
 
-/** What the API's refusal of a photo means (409 full, 413 too big, 415 wrong type, 400 unreadable). */
+/** The longest side of a photo the API takes, in pixels (`ItemImageProcessor.MAX_EDGE_IN`). */
+export const ITEM_PHOTO_MAX_EDGE = 8192;
+
+/**
+ * What the API's refusal of a photo means (409 full, 413 too big, 415 wrong type, 400 too large in
+ * pixels or unreadable).
+ */
 export function itemPhotoErrorMessage(error: ApiError): string {
   switch (error.status) {
     case 409:
@@ -51,8 +57,22 @@ export function itemPhotoErrorMessage(error: ApiError): string {
     case 415:
       return ITEM_PHOTO_TYPE_MESSAGE;
     case 400:
-      return 'That photo could not be read. Try another one.';
+      return /pixel|dimension/i.test(error.fieldErrors.file ?? '')
+        ? `This photo is too large: at most ${ITEM_PHOTO_MAX_EDGE} pixels on each side. Choose another one.`
+        : 'That photo could not be read. Try another one.';
     default:
       return friendlyMessage(error);
   }
+}
+
+/**
+ * Why trying the same photo again cannot work: the API refused the photo itself (400, 409, 413,
+ * 415), and the collector can only remove it. `null` for a network or server error, which "Try
+ * again" may get past.
+ */
+export function photoRefusal(error: ApiError | null | undefined): string | null {
+  if (!error || ![400, 409, 413, 415].includes(error.status)) {
+    return null;
+  }
+  return itemPhotoErrorMessage(error);
 }

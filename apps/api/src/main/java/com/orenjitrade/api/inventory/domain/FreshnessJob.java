@@ -13,9 +13,10 @@ import org.springframework.stereotype.Component;
  * profile, by {@code FreshnessScheduler}.
  *
  * <p>The same hourly trigger then runs the inventory module's other housekeeping, the {@code
- * inventory-import-purge} job (stage S5), as a job run of its own: expired import previews are
- * refused when they are read, so removing them within the hour is enough, and the cloud needs no
- * tenth Cloud Scheduler job for it (ADR 0016). A purge that fails never fails the freshness run.
+ * inventory-import-purge} job (stage S5) and the {@code inventory-photo-purge} job (stage R2), each
+ * as a job run of its own: expired import previews are refused when they are read and a restore
+ * checks its own window, so removing them within the hour is enough, and the cloud needs no extra
+ * Cloud Scheduler job for them (ADR 0016). A purge that fails never fails the freshness run.
  */
 @Component
 public class FreshnessJob {
@@ -27,14 +28,17 @@ public class FreshnessJob {
     private final FreshnessService freshnessService;
     private final JobRunService jobRunService;
     private final InventoryImportPurgeJob importPurge;
+    private final InventoryPhotoPurgeJob photoPurge;
 
     public FreshnessJob(
             FreshnessService freshnessService,
             JobRunService jobRunService,
-            InventoryImportPurgeJob importPurge) {
+            InventoryImportPurgeJob importPurge,
+            InventoryPhotoPurgeJob photoPurge) {
         this.freshnessService = freshnessService;
         this.jobRunService = jobRunService;
         this.importPurge = importPurge;
+        this.photoPurge = photoPurge;
     }
 
     public FreshnessService.Result run() {
@@ -51,6 +55,11 @@ public class FreshnessJob {
         } catch (RuntimeException e) {
             // Recorded as a failed job run of its own; the next hour tries again.
             log.warn("Import preview purge failed after the freshness run: {}", e.toString());
+        }
+        try {
+            photoPurge.run();
+        } catch (RuntimeException e) {
+            log.warn("Photo purge failed after the freshness run: {}", e.toString());
         }
         return result.get();
     }

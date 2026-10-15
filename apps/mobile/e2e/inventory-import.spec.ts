@@ -94,12 +94,30 @@ async function printingOf(
   return printing!.id;
 }
 
-async function openImport(page: Page, collector: OnboardedCollector): Promise<Locator> {
+/** Add cards → "Import a deck" or "Import from Collectr" (stage R2). */
+async function pickSource(page: Page, source: 'deck' | 'collectr'): Promise<void> {
+  await screen(page, 'add-cards-start')
+    .getByRole('button', { name: source === 'deck' ? 'Import a deck' : 'Import from Collectr' })
+    .click();
+}
+
+/** Inventory → Add cards → the source. */
+async function chooseImport(page: Page, source: 'deck' | 'collectr'): Promise<void> {
+  await screen(page, 'inventory').getByRole('button', { name: 'Add cards' }).first().click();
+  await pickSource(page, source);
+}
+
+/** Signs in and opens the file step of an import from Add cards (nothing is left open yet). */
+async function openImport(
+  page: Page,
+  collector: OnboardedCollector,
+  source: 'deck' | 'collectr'
+): Promise<Locator> {
   await signInThroughUi(page, collector.email, collector.password);
   await openTab(page, 'Inventory');
-  await screen(page, 'inventory').getByRole('button', { name: 'Import cards from a file' }).click();
+  await chooseImport(page, source);
   const flow = screen(page, 'import');
-  await expect(flow.getByText('Where do your cards come from?')).toBeVisible({ timeout: 30_000 });
+  await expect(flow.getByTestId('import-limits')).toBeVisible({ timeout: 30_000 });
   return flow;
 }
 
@@ -117,9 +135,8 @@ test.describe('mobile inventory import', () => {
   }) => {
     test.setTimeout(240_000);
     const collector = await createOnboardedCollector(request, 'ydk', 'Mobile Deck Importer');
-    const flow = await openImport(page, collector);
+    const flow = await openImport(page, collector, 'deck');
 
-    await flow.getByRole('button', { name: 'Yu-Gi-Oh! deck file (.ydk)' }).click();
     await expect(flow.getByTestId('import-limits')).toHaveText('Up to 100 kB and 500 lines.');
 
     // A picture is not a deck file: refused in words, nothing kept.
@@ -240,7 +257,7 @@ test.describe('mobile inventory import', () => {
     );
     await expect(unknown).toContainText('Side 1');
     await expect(flow.getByTestId('import-row-3-next')).toHaveText(
-      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     await expect(unknown.getByRole('button')).toHaveCount(0);
     await flow.getByRole('radio', { name: 'All (4)' }).click();
@@ -322,7 +339,7 @@ test.describe('mobile inventory import', () => {
     await expect(lost.getByTestId('import-row-3')).toContainText('Passcode 919999999', {
       timeout: 30_000,
     });
-    await expect(lost.getByTestId('import-row-3')).toContainText('“Add card” in your inventory');
+    await expect(lost.getByTestId('import-row-3')).toContainText('“Add cards” in your inventory');
 
     // What the API holds: three private, unfiled cards.
     const held = await items(request, collector.idToken);
@@ -355,9 +372,8 @@ test.describe('mobile inventory import', () => {
     const row = inventory.getByRole('button', { name: /^Fixture Lantern Wisp, YDKF-EN001/ });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText('×3');
-    await expect(row).toContainText('Private');
     await expect(inventory.getByTestId('inventory-summary-totals')).toHaveText(
-      '3 cards · 5 copies · 0 public now'
+      '3 cards · 5 copies · 0 public'
     );
   });
 
@@ -380,9 +396,8 @@ test.describe('mobile inventory import', () => {
       ),
       { quantity: 2 }
     );
-    const flow = await openImport(page, collector);
+    const flow = await openImport(page, collector, 'collectr');
 
-    await flow.getByRole('button', { name: 'Collectr CSV export' }).click();
     await expect(flow.getByTestId('import-limits')).toHaveText('Up to 2 MB and 5,000 rows.');
     await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
 
@@ -481,12 +496,11 @@ test.describe('mobile inventory import', () => {
   }) => {
     test.setTimeout(240_000);
     const collector = await createOnboardedCollector(request, 'plain', 'Mobile Plain Copies');
-    const flow = await openImport(page, collector);
+    const flow = await openImport(page, collector, 'collectr');
 
     // Two cards named without a set: each has a 1st Edition and an Unlimited copy in its one set
     // (the sample catalog), so the release date decides nothing between them. The dragon's line
     // says its printing and its edition.
-    await flow.getByRole('button', { name: 'Collectr CSV export' }).click();
     await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
     await flow
       .getByLabel('Text of the CSV export')
@@ -588,8 +602,7 @@ test.describe('mobile inventory import', () => {
   }) => {
     test.setTimeout(180_000);
     const collector = await createOnboardedCollector(request, 'resume', 'Mobile Resumer');
-    const flow = await openImport(page, collector);
-    await flow.getByRole('button', { name: 'Yu-Gi-Oh! deck file (.ydk)' }).click();
+    const flow = await openImport(page, collector, 'deck');
     await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
     await flow.getByLabel('Text of the deck file').fill(DECK);
     await flow.getByRole('button', { name: 'Use this text' }).click();
@@ -613,10 +626,8 @@ test.describe('mobile inventory import', () => {
     await back.click();
     await page.getByTestId('import-leave-dialog').getByRole('button', { name: 'Leave' }).click();
 
-    // Opened again later: the import is offered, with the choices made in it.
-    await screen(page, 'inventory')
-      .getByRole('button', { name: 'Import cards from a file' })
-      .click();
+    // Opened again later (back on Add cards): the import is offered first, with its choices.
+    await pickSource(page, 'deck');
     const again = screen(page, 'import');
     const open = again.getByTestId('import-open');
     await expect(open).toContainText('Continue your import', { timeout: 30_000 });

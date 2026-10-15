@@ -43,6 +43,11 @@ public enum ErrorCode {
     ALREADY_RATED(HttpStatus.CONFLICT, "Already rated"),
     /** A rating can only be edited within 14 days of its creation (Phase 7). */
     RATING_EDIT_WINDOW_CLOSED(HttpStatus.CONFLICT, "Rating edit window closed"),
+    /**
+     * A deleted inventory item can only be restored within 10 minutes of its delete, and only after
+     * its owner's own delete (stage R2 of the phone redesign).
+     */
+    RESTORE_WINDOW_CLOSED(HttpStatus.CONFLICT, "Restore window closed"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */

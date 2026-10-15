@@ -141,12 +141,12 @@ describe('a line of an import preview', () => {
     const row = screen.getByTestId('import-row-3');
     expect(row.props.accessible).toBe(true);
     expect(row.props.accessibilityLabel).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     // On screen: the section of the deck that holds it, why, and what can be done next.
     expect(screen.getByText('Side 1')).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-3-next')).toHaveTextContent(
-      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();

@@ -501,11 +501,11 @@ describe('one line of a preview', () => {
       'No card of the catalog has this passcode (the number printed in the lower left corner of a card).'
     );
     expect(unmatchedNextStep('UNKNOWN_PASSCODE')).toBe(
-      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     // A deck line says in which sections the file holds it.
     expect(rowSummary(passcode)).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     const sheet = unmatchedRow({
       unmatchedReason: 'UNKNOWN_CARD',
@@ -541,7 +541,7 @@ describe('one line of a preview', () => {
       'The number of copies in the file is not a whole number from 1 to 9,999.'
     );
     expect(rowSummary(sheet)).toBe(
-      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add cards” in your inventory.'
     );
     for (const reason of [
       'AMBIGUOUS_CARD',
@@ -559,7 +559,7 @@ describe('one line of a preview', () => {
       'The number of copies in the file is not a whole number from 1 to 9,999.'
     );
     expect(unmatchedReasonText(null)).toBe('Nothing in the catalog fits.');
-    expect(unmatchedNextStep(null)).toMatch(/“Add card” in your inventory/);
+    expect(unmatchedNextStep(null)).toMatch(/“Add cards” in your inventory/);
   });
 
   it('lists the printings that fit the file first', () => {

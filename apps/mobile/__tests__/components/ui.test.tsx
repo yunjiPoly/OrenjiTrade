@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { KeyboardAvoidingView, ScrollView, Switch, Text } from 'react-native';
+import { useEffect } from 'react';
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Switch, Text } from 'react-native';
 
 import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
@@ -355,8 +356,77 @@ describe('Snackbar', () => {
       });
       expect(screen.queryByTestId('snackbar')).toBeNull();
       fireEvent.press(screen.getByText('show'));
-      fireEvent.press(screen.getByTestId('snackbar'));
+      fireEvent.press(screen.getByTestId('snackbar-message'));
       expect(screen.queryByTestId('snackbar')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  function FormScreenTrigger() {
+    const snackbar = useSnackbar();
+    useEffect(() => snackbar.keepClear(120), [snackbar]);
+    return <Text onPress={() => snackbar.show('Card saved.')}>save</Text>;
+  }
+
+  it('sits above the bottom bar of a form screen while it is mounted (stage R2)', () => {
+    const { unmount } = renderWithProviders(<FormScreenTrigger />);
+    fireEvent.press(screen.getByText('save'));
+    let node = screen.getByTestId('snackbar').parent;
+    while (node && StyleSheet.flatten(node.props.style)?.bottom === undefined) {
+      node = node.parent;
+    }
+    // The tab bar's place (the bottom inset + 64) is lower than the bar's 120 + 8.
+    expect(StyleSheet.flatten(node?.props.style).bottom).toBe(128);
+    unmount();
+  });
+
+  function ActionTrigger({ onUndo }: { onUndo: () => void }) {
+    const snackbar = useSnackbar();
+    return (
+      <Text
+        onPress={() =>
+          snackbar.show('Ash Blossom & Joyous Spring', {
+            title: 'Card deleted',
+            icon: 'deleted',
+            action: { label: 'Undo', onPress: onUndo, testID: 'snackbar-undo' },
+          })
+        }
+      >
+        delete
+      </Text>
+    );
+  }
+
+  it('stays about five seconds with a title, the card and one action (stage R2)', () => {
+    jest.useFakeTimers();
+    const onUndo = jest.fn();
+    try {
+      renderWithProviders(<ActionTrigger onUndo={onUndo} />);
+      fireEvent.press(screen.getByText('delete'));
+      expect(screen.getByTestId('snackbar')).toHaveTextContent(
+        /Card deletedAsh Blossom & Joyous SpringUndo$/
+      );
+      expect(screen.getByTestId('snackbar-message').props.accessibilityLabel).toBe(
+        'Card deleted, Ash Blossom & Joyous Spring'
+      );
+      expect(screen.getByTestId('snackbar-undo').props.accessibilityLabel).toBe(
+        'Undo, Card deleted, Ash Blossom & Joyous Spring'
+      );
+      act(() => {
+        jest.advanceTimersByTime(4900);
+      });
+      expect(screen.getByTestId('snackbar')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('snackbar-undo'));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+
+      fireEvent.press(screen.getByText('delete'));
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+      expect(onUndo).toHaveBeenCalledTimes(1);
     } finally {
       jest.useRealTimers();
     }

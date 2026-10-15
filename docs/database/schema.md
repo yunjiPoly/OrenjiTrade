@@ -159,6 +159,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V121 | `V121__remove_donations.sql` | Stage F1: `donation` and `donation_webhook_event` dropped, `donations.*` settings and the `donations` flag deleted, incomplete outbox rows of `DonationWebhookReceived` completed |
 | V122 | `V122__remove_credits.sql` | Stage F1: `credit_ledger_entry` (with its append-only trigger function), view `credit_balance`, `credit_product`, `referral_code`, `referral_redemption` dropped; `credits.*` settings, the `credits` flag, the entitlements bought with credits and the `credits-reconcile` job runs deleted |
 | V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
+| V125 | `V125__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards; written as V117 and renumbered after F1's V120–V123 when R2 merged `main`, V124 being kept for another branch): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -817,9 +818,10 @@ with `?deleteItems=true`.
 | `binder_id` | `uuid` | FK → `binder.id` (`ON DELETE SET NULL`); `NULL` = unfiled |
 | `printing_id` | `uuid` | FK → `card_printing.id` (`RESTRICT`) |
 | `quantity` | `integer` | 1-9 999 |
-| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`) |
+| `condition` | `text` | upper-case code from the game's `GameSchema.conditions` (checked by the API; default `NEAR_MINT`); nullable since V125: `NULL` = not stated (cards added on the phone; responses send `""` and `conditionStated: false`; a Near Mint only wish treats it as a possible match) |
 | `language`, `edition`, `finish` | `text` | default to the printing's values; ISO 639-1 / upper-case codes |
-| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price |
+| `asking_price` | `numeric(12,2)` | ≥ 0, `NULL` = no price (or a text price that is not a plain amount) |
+| `asking_price_text` | `varchar(40)` | V125: the asking price as the owner typed it ("85% TCG", "$12.50"), trimmed, one line; a plain amount also fills `asking_price`; a web edit of `asking_price` clears it |
 | `currency` | `char(3)` | ISO 4217, default `CAD` |
 | `availability` | `text` | `COLLECTION_ONLY` (default), `TRADE`, `SALE`, `TRADE_OR_SALE`, `NOT_AVAILABLE` |
 | `accepts_offers` | `boolean` | |
@@ -836,6 +838,7 @@ with `?deleteItems=true`.
 | `confirmed_at` | `timestamptz` | last owner confirmation (create, confirm, bulk CONFIRM, making the item public, publishing or confirming its binder) |
 | `last_owner_activity_at` | `timestamptz` | last owner write |
 | `deleted_at` | `timestamptz` | soft delete (invisible to everyone; purged with the account). The row keeps its `binder_id` (until that binder is deleted), `visibility` and `public_until`: no read uses them, and the freshness job leaves the expired publication of a deleted item alone (see the locks below) |
+| `restorable_until` | `timestamptz` | V125: set by an owner's own delete (one card or a bulk delete) to `deleted_at` + 10 minutes; until then `POST /inventory/items/{id}/restore` brings the row back and its photos are kept. The job `inventory-photo-purge` (after each hourly `freshness` run) deletes the photos of the rows whose time has passed and sets it back to `NULL`; deleting the binder of such a row does the same at once. `NULL` for live rows and every other delete (a trade, a binder deleted with its cards), whose photos are deleted at once |
 
 Indexes (contract): `ix_inventory_item_owner_binder (owner_id, binder_id)`,
 `ix_inventory_item_printing_public (printing_id) WHERE visibility <> 'PRIVATE' AND deleted_at IS
@@ -859,7 +862,10 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 - **Owner lock** (`BinderRepository.lockOwners`: `pg_advisory_xact_lock` on
   `hashtextextended('inventory-owner:' || owner_id, 0)`, held until the transaction ends). It is the
   first step of every write to a collector's binders or inventory items, before any row is locked:
-  item create, update, move, delete, confirm, bulk actions, every chunk of an import commit
+  item create, update, move, delete, restore (`POST /inventory/items/{id}/restore`, the owner's
+  undo of a delete, stage R2: the owner lock, then the binder the deleted item still names, then
+  the item, through `InventoryItemRepository.lockDeleteState`), confirm, bulk actions, every chunk
+  of an import commit
   (`InventoryImportService` takes it before the import row, `InventoryService.importLines` again
   before the items, V113), admin restore, admin hide, trade
   transfer (the locks of both collectors, in ascending key order), every `BinderService` write
@@ -890,8 +896,11 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
     binder. The freshness job does that when it hides an item and then unlists it.
 
   Only the two writes that delete rows take the full lock, as their last step on those rows: a
-  binder delete (its `DELETE`, after the binder's items were released: all of them unfiled, or
-  the live ones soft-deleted when the items go with the binder) and the account purge
+  binder delete (its `DELETE`, after the binder's items were released: first the deleted items of
+  the binder that can still be restored, whose undo ends with the binder
+  (`InventoryItemRepository.endRestoreWindowsInBinder`, `ORDER BY id FOR NO KEY UPDATE`, owner
+  lock and binder held), then all of them unfiled, or the live ones soft-deleted when the items go
+  with the binder) and the account purge
   (`InventoryItemRepository.lockAllOf`, then the deletes).
 - **The freshness job takes no lock in front of the writes** (`FreshnessService.run`, hourly, one
   transaction). It writes binders and items of every collector in several statements, so no row
@@ -920,6 +929,13 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 
   A transaction that waits for nothing a write holds cannot be part of a lock cycle with one. The
   statements of the collectors' writes do not skip: they wait for a held row.
+
+  The photo purge that the same hourly trigger runs after the job (`inventory-photo-purge`, stage
+  R2: `InventoryItemRepository.closeRestoreWindows`) follows the same rule in its own
+  transaction: one statement that takes the deleted items whose restore window has passed through
+  `ORDER BY id FOR NO KEY UPDATE SKIP LOCKED`, writes only those and deletes their photo rows. An
+  item that a restore or a binder delete holds is left to the next hour (the restore checks its own
+  window; the binder delete ends the window and deletes the photos itself).
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else.
 

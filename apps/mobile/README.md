@@ -9,8 +9,19 @@ R1 is built** ("Offers out, shipping wording, look"; ADR 0018 "Deals happen in t
 offer, trade, protected-payment, payout and dispute screens are gone (the API keeps them for the
 paused web), every chat opens with a shipping safety tip, ratings no longer ask about meetups, the
 app opens in the dark theme on a new install and draws its text in Sora, Inter and JetBrains Mono.
-Stages R2 to R8 are not built: the rest of this README describes the app as it is (six tabs until
-R5).
+**Stage R2 is built** ("Inventory and adding cards", mockup screens 1 to 9, contract
+`docs/api/contracts/r2-inventory-phone.md`): the Inventory draws its own header (title, bell, "Add
+cards"), "Cards {n} | Binders {n}", "Search your cards" with the filter sheet (Recently added /
+Name / Price, game, binder, who can see it, "Show {n} cards"), rows of only the picture, name,
+code, the asking price as typed and the copies; "Add cards" opens the search first (cards and
+exact printings while typing), the deck and Collectr imports and the camera "Coming later";
+"Choose the printing"; the card form (copies, asking price as text, Private | Public, binder,
+public note, up to 4 photos uploaded after the card); Edit card ("No changes yet" until a change,
+a save confirms the card, photos saved with the button, "1 photo wasn't saved. Try again.");
+deleting asks in a sheet and "Undo" restores the card within 10 minutes. Condition, language,
+edition, finish, "Available for", "Accepts offers", currency, "Temporarily public" and private
+notes are gone from the phone's forms. Stages R3 to R8 are not built: the rest of this README
+describes the app as it is (six tabs until R5).
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
@@ -36,9 +47,10 @@ Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Sear
 catalog across games, live typo-tolerant search, game / set / rarity / language / edition filters,
 infinite results, recent searches), the **card detail** (`cards/[id]`: picture with the provider
 credit, attributes, printings and market prices, "Add to inventory", "Who has this in my region"
-opens the card holders), the **Inventory** tab (cards with search, binder / game / intent filters and sorting,
-totals, stale or hidden cards with "Confirm all", paused listings with "Resume"; binders), adding a
-card (`items/new`: catalog search → printing → details), editing and deleting one (`items/[id]`),
+opens the card holders), the **Inventory** tab (stage R2: cards with search, the filter sheet,
+totals, stale or hidden cards with "Confirm all", paused listings with "Resume"; binders), adding
+cards (`items/new`: Add cards → search → printing → details), Edit card and deleting one with
+"Undo" (`items/[id]`),
 and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
 24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
 anyone's public binder). Usage limits (`binders.max`, binder views per day; the same for every
@@ -138,8 +150,8 @@ in R4; it opens the "Trading safely" page; Report and Block stay in the conversa
 notification never opens a removed screen). Nothing here claims legal compliance:
 the legal texts stay drafts (banner kept).
 
-Stage S5 (2026-10-13) adds the **inventory import** (`items/import`, "Import" on the Inventory
-tab; the phone is its only client, a web screen is a recorded follow-up): a Yu-Gi-Oh! **deck file
+Stage S5 (2026-10-13) adds the **inventory import** (`items/import`, "Import a deck" and "Import
+from Collectr" on Add cards since stage R2, which open it on that source; the phone is its only client, a web screen is a recorded follow-up): a Yu-Gi-Oh! **deck file
 (.ydk)** or a **Collectr CSV export**, chosen with the system file picker or pasted as text, is
 uploaded and becomes a **preview** the API keeps for an hour. Nothing reaches the inventory before
 the collector confirms. The preview says on top how many new cards the import adds, how many go
@@ -597,9 +609,11 @@ city; what is missing; the `PUT /me/location` body; map opt-in; the city on the 
 removal), `account.spec.ts` (export, deletion request and cancel, privacy and notification
 settings), `catalog.spec.ts` (the field back on screen when the Search tab is pressed again down
 the list; search -> game and language filters -> card detail -> printings, every
-picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (add a card through
-search -> printing -> details, edit it (only the changed fields are sent), delete it with a
-confirmation; add from a card detail, intent / game filters and sorting), `binders.spec.ts`
+picture an API URL; printing-code match, an unknown card), `inventory.spec.ts` (stage R2: add a
+card with a text price and a photo through Add cards -> typing -> Choose the printing -> Add to
+inventory, "Saved", Edit card ("No changes yet", a save sends only the change and `confirm`),
+delete after the sheet and Undo; add from a card page, the filter sheet's price sort, game and
+"Show {n} cards", Clear all), `binders.spec.ts`
 (create a binder -> add a card -> publish for 24 hours -> make private -> remove the card -> rename
 -> delete; the `binders.max` limit; another collector's public binder: public cards and notes
 only; the owner's state, never their city), `map.spec.ts` (the Map tab draws the home
@@ -645,9 +659,9 @@ a profile with the condition only, never the price; nothing for a collector who 
 404), `blocked.spec.ts` (block from a conversation -> the blocked profile's Message reason links to
 Blocked users -> Unblock, checked on the API and on what the other collector can send),
 `item-photos.spec.ts` (a text file refused before any upload, a PNG uploaded and served through the
-API's media route, removed), `bulk-actions.spec.ts` (select two cards -> public, select all ->
-private with the skipped one explained, temporarily public for 24 hours, an availability, delete
-after a confirmation), `inventory-import.spec.ts` (stage S5: a fictional deck file through the
+API's media route, removed; saved with "Save changes" since stage R2), `bulk-actions.spec.ts`
+(select two cards -> Make public, select all -> Make private with the skipped one explained, Still
+available, Move to binder, delete after the sheet and Undo), `inventory-import.spec.ts` (stage S5: a fictional deck file through the
 file chooser, after a picture that is refused as "not a text file": the counts, the sections, a
 printing chosen in "Which copy", the most recent printing for the other card, one condition for
 all, a section switched off, the condition and copies of a line, a line left out and put back,
@@ -769,10 +783,13 @@ Flows: `sign-in.yaml`,
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a
 relaunch, then sign-out), `search-card-detail.yaml` (down the catalog the field has scrolled
 away and the Search tab pressed again brings it back; search, a schema language filter, card
-detail, the French printing), `inventory-add-edit-delete.yaml` (add through search -> printing ->
-details, edit, delete; `scripts/check-inventory.js` checks the API after each step),
+detail, the French printing), `inventory-add-edit-undo.yaml` (native flow 1 of the redesign,
+stage R2: add a card with a text price and a photo (a fictional picture put in the simulator's
+library by `addMedia`, picked in the system picker by `subflows/pick-newest-photo.yaml`), see
+"Saved", edit it, delete it and Undo; `scripts/check-inventory.js` checks the API after each
+step),
 `dialog-after-sheet.yaml` (in the app's Dark theme, chosen again in Settings > Appearance (a new
-install's default since stage R1) with the device left as it is: in the card editor the binder sheet, then "Delete card" with its
+install's default since stage R1) with the device left as it is: on Edit card the binder sheet, then "Delete this card" (a sheet since R2) with its
 title and both buttons found by id, the sheet again, the dialog again, and the card gone on the
 API; it holds the scrim that iOS must not take for a modal, see `src/theme/scrim.ts`),
 `inventory-import-deck.yaml` (stage S5: the text of a fictional deck file pasted, the preview
