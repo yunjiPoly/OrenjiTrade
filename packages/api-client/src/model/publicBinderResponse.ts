@@ -7,7 +7,9 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { BinderKeyCard } from './binderKeyCard';
 import { PublicBinderOwner } from './publicBinderOwner';
+import { BinderImage } from './binderImage';
 import { Freshness } from './freshness';
 
 
@@ -31,6 +33,30 @@ export interface PublicBinderResponse {
     itemCount: number;
     games: Array<string>;
     coverImageUrl?: string | null;
+    /**
+     * A deck core (\"Sell as a deck core\", stage R3): one bundle with photos, one price and the description as its note. Always sent
+     */
+    sellsAsCore?: boolean;
+    /**
+     * A deck core\'s asking price as the owner typed it; null for other binders and a core without a price
+     */
+    askingPriceText?: string | null;
+    /**
+     * A deck core\'s photos in order; empty for other binders
+     */
+    photos?: Array<BinderImage>;
+    /**
+     * Up to 3 pictures for lists: a deck core\'s first photo, otherwise the card pictures of its first public items
+     */
+    previewImages?: Array<string>;
+    /**
+     * A deck core\'s public cards with their copies, most copies first (at most 30); empty for other binders
+     */
+    keyCards?: Array<BinderKeyCard>;
+    /**
+     * The owner\'s public binders, deck cores included (the seller row of a deck core page)
+     */
+    ownerPublicBinderCount?: number;
 }
 export enum PublicBinderResponseKindEnum {
     Collection = 'COLLECTION',

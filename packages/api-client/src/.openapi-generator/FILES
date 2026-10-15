@@ -140,6 +140,8 @@ model/assignReportRequest.ts
 model/auditActor.ts
 model/auditLogEntry.ts
 model/avatarResponse.ts
+model/binderImage.ts
+model/binderKeyCard.ts
 model/binderLink.ts
 model/binderResponse.ts
 model/blockUserRequest.ts

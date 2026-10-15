@@ -22,6 +22,18 @@ export interface UpdateBinderRequest {
     visibility?: UpdateBinderRequestVisibilityEnum;
     publicUntil?: string | null;
     coverPrintingId?: string | null;
+    /**
+     * Sell as a deck core (not null)
+     */
+    sellsAsCore?: boolean;
+    /**
+     * The deck core\'s asking price as typed (at most 40 characters once trimmed); null or blank clears it and its amount
+     */
+    askingPriceText?: string | null;
+    /**
+     * true also confirms the binder and its cards are still available, as POST /binders/{id}/confirm (the phone\'s Save changes)
+     */
+    confirm?: boolean;
 }
 export enum UpdateBinderRequestKindEnum {
     Collection = 'COLLECTION',

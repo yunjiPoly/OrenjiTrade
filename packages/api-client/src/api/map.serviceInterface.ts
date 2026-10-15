@@ -23,9 +23,19 @@ export interface GetRegionBinderCountsRequestParams {
     region: string;
 }
 
+export interface ListRegionBindersRequestParams {
+    region: string;
+    deckCore?: boolean;
+    q?: string;
+    cursor?: string;
+    limit?: number;
+}
+
 export interface ListSubdivisionBindersRequestParams {
     region: string;
     code: string;
+    deckCore?: boolean;
+    q?: string;
     cursor?: string;
     limit?: number;
 }
@@ -37,15 +47,23 @@ export interface MapServiceInterface {
 
     /**
      * Public binders per state/province of a region (auth optional)
-     * Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+     * Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; &#x60;deckCoreCount&#x60; says how many of them are deck cores (other binders &#x3D; binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
      * @endpoint get /api/v1/regions/{region}/binder-counts
 * @param requestParameters
      */
     getRegionBinderCounts(requestParameters: GetRegionBinderCountsRequestParams, extraHttpRequestParams?: any): Observable<RegionBinderCounts>;
 
     /**
+     * Public binders of a whole region (auth optional)
+     * As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same &#x60;deckCore&#x60; and &#x60;q&#x60; filters. 404 for an unknown region.
+     * @endpoint get /api/v1/regions/{region}/binders
+* @param requestParameters
+     */
+    listRegionBinders(requestParameters: ListRegionBindersRequestParams, extraHttpRequestParams?: any): Observable<CursorPagePublicBinderSummary>;
+
+    /**
      * Public binders of a state/province (auth optional)
-     * Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.
+     * Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. &#x60;deckCore&#x60; keeps the deck cores (true) or the other binders (false); &#x60;q&#x60; matches a binder\&#39;s name or description, its owner\&#39;s handle and a deck core\&#39;s card names. 404 when the region is unknown or the subdivision is not one of its own.
      * @endpoint get /api/v1/regions/{region}/subdivisions/{code}/binders
 * @param requestParameters
      */

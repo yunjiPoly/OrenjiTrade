@@ -1674,6 +1674,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/binders/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to one of the caller's binders (a deck core)
+         * @description Multipart part `file`: JPEG, PNG or WebP up to 8 MB (type sniffed from the content). Re-encoded as JPEG, at most 1600 px on the long side, without any metadata (EXIF/GPS stripped). At most 4 photos per binder (409). 404 for another collector's binder, 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (60 per hour). Public views show the photos of a deck core only.
+         */
+        post: operations["uploadBinderImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/binders/{id}/confirm": {
         parameters: {
             query?: never;
@@ -2501,7 +2521,7 @@ export interface paths {
         head?: never;
         /**
          * Update a binder (any subset of the fields)
-         * @description Absent fields are unchanged; `publicUntil` and `coverPrintingId` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish).
+         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`.
          */
         patch: operations["updateBinder"];
         trace?: never;
@@ -2689,7 +2709,7 @@ export interface paths {
         };
         /**
          * Unified search (auth optional)
-         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
+         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders match their name or description, their owner's handle and, for a deck core, its card names; deck cores show without cards, `deckCore` keeps only them (true) or only the other binders (false). Binders carry their owner block and, for a deck core, its price, photos and key cards. Emits the analytics events search_performed / search_no_results.
          */
         get: operations["search"];
         put?: never;
@@ -2712,6 +2732,26 @@ export interface paths {
          * @description Printing codes and cards, discoverable collectors of `region` who allow name search, sets, public binders of the region and tags, interleaved one per kind until `limit`. COLLECTOR entries carry the handle in `slug`, TAG entries the tag slug, PRINTING entries their `cardId`.
          */
         get: operations["suggestSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/deck-cores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public deck cores of a region holding a card (auth optional)
+         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a public copy of `cardId`, any printing, most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+         */
+        get: operations["searchDeckCores"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2769,9 +2809,29 @@ export interface paths {
         };
         /**
          * Public binders of a state/province (auth optional)
-         * @description Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.
+         * @description Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. `deckCore` keeps the deck cores (true) or the other binders (false); `q` matches a binder's name or description, its owner's handle and a deck core's card names. 404 when the region is unknown or the subdivision is not one of its own.
          */
         get: operations["listSubdivisionBinders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions/{region}/binders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public binders of a whole region (auth optional)
+         * @description As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same `deckCore` and `q` filters. 404 for an unknown region.
+         */
+        get: operations["listRegionBinders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2789,7 +2849,7 @@ export interface paths {
         };
         /**
          * Public binders per state/province of a region (auth optional)
-         * @description Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+         * @description Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; `deckCoreCount` says how many of them are deck cores (other binders = binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
          */
         get: operations["getRegionBinderCounts"];
         put?: never;
@@ -4367,6 +4427,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/binders/{id}/images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a photo of one of the caller's binders */
+        delete: operations["deleteBinderImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/card-images/{imageId}/cache": {
         parameters: {
             query?: never;
@@ -4646,6 +4723,31 @@ export interface components {
         ReorderBindersRequest: {
             binderIds: string[];
         };
+        /** @description A photo of a binder (a deck core) */
+        BinderImage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uri */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        /** @description A card of a deck core and its copies */
+        BinderKeyCard: {
+            /** Format: uuid */
+            cardId: string;
+            /** @example Tidecaller Mermaid */
+            name: string;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            quantity: number;
+        };
         /** @description A binder of the caller */
         BinderResponse: {
             /** Format: uuid */
@@ -4700,6 +4802,31 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description "Sell as a deck core" (stage R3): the binder is offered as one bundle with its photos, one price and its description as the public note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed; null without one. Kept when the switch is turned off (public views show it only for a deck core)
+             * @example $180
+             */
+            askingPriceText?: string | null;
+            /** @description The amount of a plain-amount price text ("$180", "180,00 $"), in `currency`; null for a text price or none */
+            askingPrice?: number | null;
+            /**
+             * @description ISO 4217 currency of `askingPrice`
+             * @example CAD
+             */
+            currency?: string;
+            /**
+             * Format: date-time
+             * @description When the deck core was sold (stage R4); a sold binder is not public
+             */
+            soldAt?: string | null;
+            /** @description The binder's photos in order (at most 4). Always sent */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first items. Always sent */
+            previewImages?: string[];
+            /** @description A deck core's cards with their copies, most copies first (at most 30); empty for other binders. Always sent */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
         };
         /** @description Freshness of a listing */
         Freshness: {
@@ -6987,6 +7114,7 @@ export interface components {
         CreateBinderRequest: {
             /** @example Trade binder */
             name: string;
+            /** @description At most 1 000 characters; a deck core's public note (the phone caps it at 500) */
             description?: string;
             /** @enum {string} */
             kind?: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
@@ -6999,6 +7127,13 @@ export interface components {
             publicUntil?: string;
             /** Format: uuid */
             coverPrintingId?: string;
+            /** @description Sell as a deck core: one bundle with photos, one price and the description as its note (false when omitted) */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed (at most 40 characters once trimmed, one line): "$180", "Trade only". A plain amount also sets askingPrice
+             * @example $180
+             */
+            askingPriceText?: string;
         };
         /** @description How to publish a binder */
         PublishBinderRequest: {
@@ -7838,6 +7973,15 @@ export interface components {
             publicUntil?: string | null;
             /** Format: uuid */
             coverPrintingId?: string | null;
+            /** @description Sell as a deck core (not null) */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed (at most 40 characters once trimmed); null or blank clears it and its amount
+             * @example $180
+             */
+            askingPriceText?: string | null;
+            /** @description true also confirms the binder and its cards are still available, as POST /binders/{id}/confirm (the phone's Save changes) */
+            confirm?: boolean;
         };
         UpdateCommunityChannelRequest: {
             name?: string;
@@ -8115,6 +8259,19 @@ export interface components {
             freshness: components["schemas"]["Freshness"];
             /** @description Owner block; present in search results (`GET /search`), absent in a collector's own binder list */
             owner?: components["schemas"]["PublicBinderOwner"];
+            /** @description A deck core ("Sell as a deck core", stage R3): one bundle with photos, one price and the description as its note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description A deck core's asking price as the owner typed it; null for other binders and a core without a price
+             * @example $95
+             */
+            askingPriceText?: string | null;
+            /** @description A deck core's photos in order; empty for other binders */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first public items */
+            previewImages?: string[];
+            /** @description A deck core's public cards with their copies, most copies first (at most 30); empty for other binders */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
         };
         /** @description Printing and/or card the query resolved to (both null when ambiguous) */
         SearchResolution: {
@@ -8224,20 +8381,33 @@ export interface components {
             region: string;
             /**
              * Format: int64
-             * @description Public binders in all
+             * @description Public binders in all (deck cores included)
              */
             total: number;
             /** @description Subdivisions holding at least one public binder */
             subdivisions: components["schemas"]["SubdivisionBinderCount"][];
+            /**
+             * Format: int64
+             * @description The public deck cores among `total` (stage R3). Always sent
+             * @example 1
+             */
+            deckCoreTotal?: number;
         };
         SubdivisionBinderCount: {
             /** @example CA-QC */
             code: string;
             /**
              * Format: int64
+             * @description Public binders, deck cores included
              * @example 3
              */
             binderCount: number;
+            /**
+             * Format: int64
+             * @description The public deck cores among them (stage R3): the map's state card says "{n} binders · {n} deck cores" with binderCount - deckCoreCount binders. Always sent
+             * @example 1
+             */
+            deckCoreCount?: number;
         };
         RatingEligibility: {
             /** @description At least one interaction is not rated yet */
@@ -8297,6 +8467,25 @@ export interface components {
             games: string[];
             /** Format: uri */
             coverImageUrl?: string | null;
+            /** @description A deck core ("Sell as a deck core", stage R3): one bundle with photos, one price and the description as its note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description A deck core's asking price as the owner typed it; null for other binders and a core without a price
+             * @example $95
+             */
+            askingPriceText?: string | null;
+            /** @description A deck core's photos in order; empty for other binders */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first public items */
+            previewImages?: string[];
+            /** @description A deck core's public cards with their copies, most copies first (at most 30); empty for other binders */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
+            /**
+             * Format: int32
+             * @description The owner's public binders, deck cores included (the seller row of a deck core page)
+             * @example 2
+             */
+            ownerPublicBinderCount?: number;
         };
         /** @description Offset-paginated list */
         PageResponsePublicInventoryItem: {
@@ -17219,6 +17408,116 @@ export interface operations {
             };
         };
     };
+    uploadBinderImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The binder with its photos */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description CONFLICT: the binder already has 4 photos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     confirmBinder: {
         parameters: {
             query?: never;
@@ -21688,6 +21987,8 @@ export interface operations {
                 /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
                 region?: string;
                 limit?: number;
+                /** @description Binders section: deck cores only (true) or other binders only (false); both when omitted */
+                deckCore?: boolean;
             };
             header?: never;
             path?: never;
@@ -21788,6 +22089,58 @@ export interface operations {
             };
         };
     };
+    searchDeckCores: {
+        parameters: {
+            query: {
+                cardId: string;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deck cores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBinderSummary"][];
+                };
+            };
+            /** @description Invalid card id, limit or region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     searchCardHolders: {
         parameters: {
             query?: {
@@ -21811,6 +22164,8 @@ export interface operations {
                 sort?: "freshness" | "price";
                 page?: number;
                 size?: number;
+                /** @description Leave out the cards filed in a deck core: they sell only with it (GET /search/deck-cores lists the cores) */
+                excludeDeckCoreItems?: boolean;
             };
             header?: never;
             path?: never;
@@ -21897,6 +22252,10 @@ export interface operations {
     listSubdivisionBinders: {
         parameters: {
             query?: {
+                /** @description Deck cores only (true) or other binders only (false) */
+                deckCore?: boolean;
+                /** @description Binder name or description, owner handle, or a card of a deck core */
+                q?: string;
                 /** @description Opaque cursor of the previous page */
                 cursor?: string;
                 limit?: number;
@@ -21920,6 +22279,63 @@ export interface operations {
                 };
             };
             /** @description Unknown region or subdivision */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listRegionBinders: {
+        parameters: {
+            query?: {
+                /** @description Deck cores only (true) or other binders only (false) */
+                deckCore?: boolean;
+                /** @description Binder name or description, owner handle, or a card of a deck core */
+                q?: string;
+                /** @description Opaque cursor of the previous page */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                region: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of binders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CursorPagePublicBinderSummary"];
+                };
+            };
+            /** @description Unknown region */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -27174,6 +27590,81 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteBinderImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder (or not the caller's) or photo */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
