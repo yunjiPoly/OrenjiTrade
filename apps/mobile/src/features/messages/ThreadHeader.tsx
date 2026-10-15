@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { ConversationSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
@@ -133,72 +133,76 @@ export function ThreadHeader({
         <MaterialCommunityIcons name="dots-horizontal" size={24} color={palette.ink} />
       </Pressable>
       <BottomSheet visible={menuOpen} onClose={onCloseMenu} testID="conversation-menu-sheet">
-        {canRate ? (
+        {/* The actions scroll at the largest text sizes (Block stays in reach). */}
+        <ScrollView style={styles.menuScroll} bounces={false}>
+          {canRate ? (
+            <ListRow
+              icon="star-outline"
+              label={CHAT_COPY.rate(other.handle)}
+              kind="button"
+              onPress={() => onAction('rate')}
+              testID="conversation-rate"
+            />
+          ) : null}
+          {conversation.muted ? (
+            <ListRow
+              icon="bell-ring-outline"
+              label={CHAT_COPY.unmute}
+              kind="button"
+              onPress={() => onAction('unmute')}
+              testID="conversation-unmute"
+            />
+          ) : (
+            <ListRow
+              icon="bell-off-outline"
+              label={CHAT_COPY.mute}
+              detail={CHAT_COPY.muteDetail}
+              kind="button"
+              onPress={() => onAction('mute')}
+              testID="conversation-mute"
+            />
+          )}
           <ListRow
-            icon="star-outline"
-            label={CHAT_COPY.rate(other.handle)}
+            icon="archive-outline"
+            label={CHAT_COPY.archive}
+            detail={CHAT_COPY.archiveDetail}
             kind="button"
-            onPress={() => onAction('rate')}
-            testID="conversation-rate"
+            onPress={() => onAction('archive')}
+            testID="conversation-archive"
           />
-        ) : null}
-        {conversation.muted ? (
           <ListRow
-            icon="bell-ring-outline"
-            label={CHAT_COPY.unmute}
+            icon="flag-outline"
+            label={CHAT_COPY.report(other.handle)}
             kind="button"
-            onPress={() => onAction('unmute')}
-            testID="conversation-unmute"
+            onPress={() => onAction('report')}
+            testID="conversation-report"
           />
-        ) : (
-          <ListRow
-            icon="bell-off-outline"
-            label={CHAT_COPY.mute}
-            detail={CHAT_COPY.muteDetail}
-            kind="button"
-            onPress={() => onAction('mute')}
-            testID="conversation-mute"
-          />
-        )}
-        <ListRow
-          icon="archive-outline"
-          label={CHAT_COPY.archive}
-          detail={CHAT_COPY.archiveDetail}
-          kind="button"
-          onPress={() => onAction('archive')}
-          testID="conversation-archive"
-        />
-        <ListRow
-          icon="flag-outline"
-          label={CHAT_COPY.report(other.handle)}
-          kind="button"
-          onPress={() => onAction('report')}
-          testID="conversation-report"
-        />
-        {blocked ? (
-          <ListRow
-            icon="lock-open-variant-outline"
-            label={CHAT_COPY.unblock(other.handle)}
-            kind="button"
-            onPress={() => onAction('unblock')}
-            testID="conversation-unblock"
-          />
-        ) : (
-          <ListRow
-            icon="cancel"
-            label={CHAT_COPY.block(other.handle)}
-            kind="button"
-            tone="danger"
-            onPress={() => onAction('block')}
-            testID="conversation-block"
-          />
-        )}
+          {blocked ? (
+            <ListRow
+              icon="lock-open-variant-outline"
+              label={CHAT_COPY.unblock(other.handle)}
+              kind="button"
+              onPress={() => onAction('unblock')}
+              testID="conversation-unblock"
+            />
+          ) : (
+            <ListRow
+              icon="cancel"
+              label={CHAT_COPY.block(other.handle)}
+              kind="button"
+              tone="danger"
+              onPress={() => onAction('block')}
+              testID="conversation-block"
+            />
+          )}
+        </ScrollView>
       </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  menuScroll: { flexGrow: 0, flexShrink: 1 },
   bar: {
     flexDirection: 'row',
     alignItems: 'center',

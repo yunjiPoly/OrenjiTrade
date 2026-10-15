@@ -1,7 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useConversations } from '@/src/api/hooks/messaging';
@@ -12,7 +19,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, useTheme } from '@/src/theme';
+import { fontWeight, spacing, useTheme } from '@/src/theme';
 
 import { INBOX_COPY } from './chatCopy';
 import { inboxConversations } from './conversationCache';
@@ -53,6 +60,10 @@ function ConversationRow({
   const { palette } = useTheme();
   const unread = conversation.unreadCount > 0;
   const handle = conversation.other.handle;
+  // One line each as in the mockup. At large text sizes the time goes under the handle, which
+  // gives the handle the width of the row and up to three lines, and the last message two lines
+  // (side by side, the handle was cut after a few letters).
+  const large = useWindowDimensions().fontScale > 1.3;
   return (
     <Pressable
       accessibilityRole="button"
@@ -81,17 +92,15 @@ function ConversationRow({
         ) : null}
       </View>
       <View style={styles.main}>
-        <View style={styles.top}>
+        <View style={large ? styles.topLarge : styles.top}>
           <Text
-            numberOfLines={1}
-            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={[styles.handle, { color: palette.ink }]}
+            numberOfLines={large ? 3 : 1}
+            style={[styles.handle, large && styles.handleLarge, { color: palette.ink }]}
           >
             {handle}
           </Text>
           <Text
             testID={`conversation-time-${handle}`}
-            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             style={[styles.time, { color: unread ? palette.primary : palette.textMuted }]}
           >
             {inboxTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
@@ -99,7 +108,7 @@ function ConversationRow({
         </View>
         <View style={styles.bottom}>
           <Text
-            numberOfLines={1}
+            numberOfLines={large ? 2 : 1}
             testID={`conversation-preview-${handle}`}
             style={[
               styles.preview,
@@ -234,7 +243,9 @@ const styles = StyleSheet.create({
   },
   main: { flex: 1, minWidth: 0, gap: 3 },
   top: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  topLarge: { gap: 2 },
   handle: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  handleLarge: { flex: 0 },
   time: { fontSize: 12, lineHeight: 16 },
   bottom: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   preview: { flex: 1, fontSize: 13, lineHeight: 18 },

@@ -1,7 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Dimensions, ScrollView } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
+import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -1020,6 +1022,54 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
         body: 'Ship to:\nSam Tremblay\n123 Rue Exemple\nMontréal QC H0H 0H0',
       })
     );
+  });
+
+  it('keeps every sheet’s last button in reach at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 1 })));
+      render();
+      await screen.findByTestId('pinned-bar');
+      // The message box grows up to twice its size, so the thread keeps room above it.
+      expect(screen.getByLabelText('Message')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      // "+": the rows scroll; Cancel stays under them (it went off the screen).
+      fireEvent.press(screen.getByTestId('composer-attach'));
+      const sheet = await screen.findByTestId('composer-attach-sheet');
+      const rows = within(sheet).getByTestId('composer-attach-rows');
+      expect(within(rows).getByTestId('composer-send-etransfer')).toBeOnTheScreen();
+      expect(within(rows).queryByTestId('composer-attach-cancel')).toBeNull();
+      expect(within(sheet).getByText('Cancel')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      // The saved detail: the hint and the field scroll, Save and Cancel stay.
+      fireEvent.press(within(rows).getByTestId('composer-send-etransfer'));
+      const ask = await screen.findByTestId('saved-detail-sheet');
+      expect(within(ask).getByText('Save and use')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      fireEvent.press(within(ask).getByTestId('saved-detail-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('saved-detail-sheet')).toBeNull());
+      // "⋯": the actions scroll, so Block stays in reach.
+      fireEvent.press(screen.getByTestId('conversation-menu'));
+      const menu = await screen.findByTestId('conversation-menu-sheet');
+      expect(within(menu).getByTestId('conversation-block')).toBeOnTheScreen();
+      expect(within(menu).UNSAFE_getByType(ScrollView)).toBeTruthy();
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('selling: "Send my e-Transfer email" only', async () => {

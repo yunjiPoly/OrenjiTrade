@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { Button } from '@/src/components/ui/Button';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { SAVED_DETAIL_COPY } from '@/src/features/messages/chatCopy';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { SAVED_DETAIL_MAX, type SavedDetailKind } from './savedDetails';
 
@@ -67,38 +67,50 @@ export function SavedDetailSheet({
       testID="saved-detail-sheet"
       avoidKeyboard
     >
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{SAVED_DETAIL_COPY.hint}</Text>
-      <TextField
-        label={address ? SAVED_DETAIL_COPY.addressLabel : SAVED_DETAIL_COPY.etransferLabel}
-        value={value}
-        onChangeText={(next) => {
-          setValue(next);
-          setProblem(null);
-        }}
-        placeholder={
-          address ? SAVED_DETAIL_COPY.addressPlaceholder : SAVED_DETAIL_COPY.etransferPlaceholder
-        }
-        multiline={address}
-        autoCapitalize={address ? 'words' : 'none'}
-        autoCorrect={false}
-        autoComplete={address ? 'street-address' : 'email'}
-        keyboardType={address ? 'default' : 'email-address'}
-        maxLength={max}
-        error={problem}
-        inputStyle={address ? styles.address : undefined}
-        testID="saved-detail-input"
-      />
+      {/* The hint and the field scroll at the largest text sizes; the buttons stay in reach. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+          {SAVED_DETAIL_COPY.hint}
+        </Text>
+        <TextField
+          label={address ? SAVED_DETAIL_COPY.addressLabel : SAVED_DETAIL_COPY.etransferLabel}
+          value={value}
+          onChangeText={(next) => {
+            setValue(next);
+            setProblem(null);
+          }}
+          placeholder={
+            address ? SAVED_DETAIL_COPY.addressPlaceholder : SAVED_DETAIL_COPY.etransferPlaceholder
+          }
+          multiline={address}
+          autoCapitalize={address ? 'words' : 'none'}
+          autoCorrect={false}
+          autoComplete={address ? 'street-address' : 'email'}
+          keyboardType={address ? 'default' : 'email-address'}
+          maxLength={max}
+          error={problem}
+          inputStyle={address ? styles.address : undefined}
+          testID="saved-detail-input"
+        />
+      </ScrollView>
       <View style={styles.buttons}>
         <Button
           label={SAVED_DETAIL_COPY.save}
           onPress={() => void submit()}
           loading={saving}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="saved-detail-save"
         />
         <Button
           label={SAVED_DETAIL_COPY.cancel}
           variant="secondary"
           onPress={onClose}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="saved-detail-cancel"
         />
       </View>
@@ -107,6 +119,8 @@ export function SavedDetailSheet({
 }
 
 const styles = StyleSheet.create({
+  scroll: { flexGrow: 0, flexShrink: 1 },
+  scrollContent: { gap: spacing[3] },
   address: { minHeight: 96, textAlignVertical: 'top' },
   buttons: { gap: spacing[2] },
 });

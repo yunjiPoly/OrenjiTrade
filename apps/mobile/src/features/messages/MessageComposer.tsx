@@ -11,7 +11,14 @@ import { afterModals } from '@/src/components/ui/modalTurns';
 import { SavedDetailSheet } from '@/src/features/shipping/SavedDetailSheet';
 import { useSavedDetails, type SavedDetailKind } from '@/src/features/shipping/savedDetails';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
-import { fontWeight, PINNED_MAX_FONT_SCALE, radius, spacing, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { COMPOSER_COPY, QUICK_REPLIES, SAVED_DETAIL_COPY } from './chatCopy';
 import { attachRows, type AttachRow, type DealSide } from './dealRules';
@@ -326,6 +333,9 @@ export function MessageComposer({
           multiline
           maxLength={MESSAGE_MAX_LENGTH}
           testID="conversation-input"
+          // The box stays on screen with the keyboard: it follows the text size up to twice its
+          // size, so the thread above it keeps room at the largest sizes.
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[
             styles.input,
             {
@@ -368,46 +378,49 @@ export function MessageComposer({
         onClose={() => setMenuOpen(false)}
         testID="composer-attach-sheet"
       >
-        {attachRows(side).map((row) => {
-          const savedOnPhone = row === 'address' || row === 'etransfer';
-          return (
-            <Pressable
-              key={row}
-              accessibilityRole="button"
-              accessibilityLabel={ROW_LABELS[row]}
-              accessibilityHint={
-                savedOnPhone
-                  ? COMPOSER_COPY.savedOnPhone
-                  : row === 'photo'
-                    ? COMPOSER_COPY.photoDetail
-                    : undefined
-              }
-              onPress={() => void pick(row)}
-              testID={ROW_IDS[row]}
-              style={({ pressed }) => [
-                styles.sheetRow,
-                savedOnPhone && styles.sheetRowTall,
-                pressed && styles.pressed,
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={ROW_ICONS[row]}
-                size={22}
-                color={palette.ink}
-                accessibilityElementsHidden
-                importantForAccessibility="no"
-              />
-              <View style={styles.sheetText}>
-                <Text style={[styles.sheetLabel, { color: palette.ink }]}>{ROW_LABELS[row]}</Text>
-                {savedOnPhone ? (
-                  <Text style={[styles.sheetDetail, { color: palette.textMuted }]}>
-                    {COMPOSER_COPY.savedOnPhone}
-                  </Text>
-                ) : null}
-              </View>
-            </Pressable>
-          );
-        })}
+        {/* The rows scroll at the largest text sizes; Cancel stays on screen under them. */}
+        <ScrollView style={styles.sheetScroll} bounces={false} testID="composer-attach-rows">
+          {attachRows(side).map((row) => {
+            const savedOnPhone = row === 'address' || row === 'etransfer';
+            return (
+              <Pressable
+                key={row}
+                accessibilityRole="button"
+                accessibilityLabel={ROW_LABELS[row]}
+                accessibilityHint={
+                  savedOnPhone
+                    ? COMPOSER_COPY.savedOnPhone
+                    : row === 'photo'
+                      ? COMPOSER_COPY.photoDetail
+                      : undefined
+                }
+                onPress={() => void pick(row)}
+                testID={ROW_IDS[row]}
+                style={({ pressed }) => [
+                  styles.sheetRow,
+                  savedOnPhone && styles.sheetRowTall,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={ROW_ICONS[row]}
+                  size={22}
+                  color={palette.ink}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+                <View style={styles.sheetText}>
+                  <Text style={[styles.sheetLabel, { color: palette.ink }]}>{ROW_LABELS[row]}</Text>
+                  {savedOnPhone ? (
+                    <Text style={[styles.sheetDetail, { color: palette.textMuted }]}>
+                      {COMPOSER_COPY.savedOnPhone}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={COMPOSER_COPY.cancel}
@@ -419,7 +432,12 @@ export function MessageComposer({
             pressed && styles.pressed,
           ]}
         >
-          <Text style={[styles.cancelLabel, { color: palette.ink }]}>{COMPOSER_COPY.cancel}</Text>
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.cancelLabel, { color: palette.ink }]}
+          >
+            {COMPOSER_COPY.cancel}
+          </Text>
         </Pressable>
       </BottomSheet>
 
@@ -556,6 +574,7 @@ const styles = StyleSheet.create({
   grow: { flex: 1 },
   eyebrow: { fontSize: 12, lineHeight: 16 },
   previewName: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  sheetScroll: { flexGrow: 0, flexShrink: 1 },
   sheetRow: {
     flexDirection: 'row',
     alignItems: 'center',

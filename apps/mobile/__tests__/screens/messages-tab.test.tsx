@@ -1,7 +1,9 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import MessagesScreen from '@/app/(tabs)/messages';
 import { toLastMessage } from '@/src/features/messages/messageText';
+import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -167,6 +169,36 @@ describe('Messages tab: inbox', () => {
     expect(screen.getByTestId('conversation-row-collector3').props.accessibilityLabel).toMatch(
       /, about Snake-Eye core$/
     );
+  });
+
+  it('keeps the header small and gives the handle and the last message room at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(routes({ 'GET /api/v1/notifications/unread-count': ok({ count: 3 }) }));
+      render();
+      const handle = await screen.findByText('collector3');
+      // The handle follows the text size (it was held at 1.35 beside an uncapped last message) and
+      // takes the row's width, up to three lines, the time under it.
+      expect(handle.props.maxFontSizeMultiplier).toBeUndefined();
+      expect(handle).toHaveProp('numberOfLines', 3);
+      expect(screen.getByTestId('conversation-preview-collector3')).toHaveProp('numberOfLines', 2);
+      // The title, "Live" and the bell's count stay within the header.
+      expect(screen.getByText('Messages')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      expect(await screen.findByText('3')).toHaveProp('maxFontSizeMultiplier', 1);
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('shows the empty inbox, and an error with retry', async () => {
