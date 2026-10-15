@@ -1,6 +1,8 @@
--- V117 (stage R2 of the phone redesign, "Inventory and adding cards"; owner spec 2026-10-14,
+-- V125 (stage R2 of the phone redesign, "Inventory and adding cards"; owner spec 2026-10-14,
 -- section 12 "Inventory"): the asking price as the collector typed it, a condition that is not
 -- stated, and the undo of a delete. Additive only: the paused web keeps every column it reads.
+-- Written as V117 and renumbered after stage F1's V120-V123 (Flyway refuses an out-of-order
+-- version; V124 is kept for another branch).
 
 -- The asking price as typed on the phone ("85% TCG", "Trade only", "$12.50"), at most 40
 -- characters, trimmed by the API. A plain amount ("12.50", "$12.50", "12,50 $") also fills

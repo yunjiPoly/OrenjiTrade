@@ -3,7 +3,8 @@
 > Owner spec 2026-10-14 ([`docs/product/specs/2026-10-14-phone-redesign.md`](../../product/specs/2026-10-14-phone-redesign.md)),
 > sections 6 (mockup screens 1 to 9), 12 ("Inventory") and 16 (defaults 4 and 5). Extends
 > [phase3-inventory.md](phase3-inventory.md); every change is additive (the paused web keeps
-> every field it reads). Field-level truth: `../openapi.json`. Migration: V117.
+> every field it reads). Field-level truth: `../openapi.json`. Migration: V125 (written as V117, renumbered after
+> stage F1's V120–V123 when R2 merged `main`).
 
 All under `/api/v1`, owner only unless stated.
 

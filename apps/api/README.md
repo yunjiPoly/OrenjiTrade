@@ -1333,8 +1333,11 @@ S5, the inventory import (V113, V114). Stage R1 of the phone redesign (ADR 0018,
 the chat) adds V115 (the curated "Local Meetups" tag hidden) and V116 (the region channel
 descriptions say "trades and sales by mail"); stage F1 ("free for all", ADR 0019) adds V120–V123,
 which drop the Phase 10 tables (V011's plans and entitlements, V090–V093) and give `usage_limit` one
-row per key. V001 to V114 are applied and frozen; V115, V116 and V120–V123 freeze as they land on
-`main` (V117–V119 are unused). The next migration is V124.
+row per key; stage R2 (inventory and adding cards) adds V125 (the asking price as typed, a
+condition not stated, the undo of a delete; written as V117 and renumbered after V123, as Flyway
+refuses an out-of-order version). V001 to V114 are applied and frozen; V115, V116, V120–V123 and
+V125 freeze as they land on `main` (V117–V119 are unused; V124 is kept for another branch). The
+next migration is V126.
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout

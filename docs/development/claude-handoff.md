@@ -74,8 +74,8 @@ decision wins: they are gone, and R2 to R8 build no screen for them (R2 has no s
 upgrade offer or paid entry point; its limit messages are F1's plain caps).
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
-migrates to the newest level (V123: R1's V115 and V116, R2's V117, F1's V120–V123; V118 and
-V119 unused) at the
+migrates to the newest level (V125: R1's V115 and V116, F1's V120–V123, R2's V125; V117–V119
+unused, V124 kept for another branch) at the
 first `npm run dev`, and
 loses its trading areas by design (S1).
 
@@ -107,10 +107,11 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 ## 3. Exact next steps
 
 1. **Stage R3 of the phone redesign** (binders and deck cores, mockup screens 16 to 18), from the
-   `main` that holds R2, as the spec's sections 6 and 15 say; R4 to R8 follow in order, one branch
-   and one PR each, none of them bringing back a paid feature (ADR 0019). Migrations: the newest
-   is R2's V117; F1 holds V120–V123, so a new migration takes the first free number after the
-   newest one (Flyway, without `outOfOrder`, refuses an older one).
+   `main` that holds R2, as the spec's sections 7, 12, 14 and 15 say; R4 to R8 follow in order,
+   one branch and one PR each, none of them bringing back a paid feature (ADR 0019). Migrations:
+   the newest is R2's V125 (written as V117, renumbered after F1's V120–V123 when R2 merged
+   `main`), and V124 is kept for another branch, so R3 starts at **V126** (Flyway, without
+   `outOfOrder`, refuses a version older than the database's newest one).
 2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
    (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
    `main` (IMPLEMENTATION_STATUS.md, "Phone redesign R2", "Merged with free for all

@@ -8,7 +8,7 @@ applicable, authorization works, validation works, error handling works, tests p
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
-**Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
+**Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 (V125 since the merge with F1) — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
 **Last updated:** 2026-10-15 (stage F1, "free for all", merged with `main` after stage R1 of the phone redesign (#72): both stages' removals hold together — no offer, trade, payment, dispute, Premium, credits, donation or sponsored screen, row, route or checkout left on the phone; one removed-route mechanism for the links of both (`src/navigation/removedRoutes.ts`); R1's fonts, tokens, wording and safety tip with F1's limit messages; migrations V115, V116 (R1) and V120–V123 (F1); ADR 0018 and ADR 0019 — branch `feature/f1-free-for-all`, not pushed; see "Merged with R1 (2026-10-15)" in the F1 section)
 **Last updated:** 2026-10-14 (stage F1, "free for all": Premium, sponsored placements, credits and donations removed from the API, the phone and the paused web app; the usage limits the same for every collector; protected payments kept on the API; migrations V120–V123; ADR 0019; the code saved on `archive/paid-features` — branch `feature/f1-free-for-all`; see "Free for all: Premium, ads, credits and donations removed (stage F1, 2026-10-14)")
 **Last updated:** 2026-10-14 (stage R1 of the phone redesign, "Offers out, shipping wording, look": offers, trades, protected payments and disputes off the phone (ADR 0018, "Deals happen in the chat"), the chat safety tip per side, ratings without meetup reliability, V115 (the meetup tag hidden) and V116 (region channels by mail), shipping seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono through the theme, a new install in dark — branch `feature/r1-offers-out-shipping-look`, merged as #72; see "Phone redesign R1: offers out, shipping wording, look (2026-10-14)")
@@ -5438,7 +5438,8 @@ Stage R2 of the phone redesign approved by the owner on 2026-10-14
 sections 6, 12 "Inventory", 14, 15 and 16): mockup screens 1 to 9 (the Inventory, Filter and
 sort, Add cards, typing, Choose the printing, Add to inventory, Edit card, "Saved", "Card
 deleted"). Branch `feature/r2-inventory-adding-cards`, cut from the head of stage R1 (#72). One
-migration, V117; every API change is additive (the paused web builds and passes every check
+migration, V125 (written as V117; renumbered after F1's V120–V123 when R2 merged `main`, see
+"Merged with free for all (2026-10-15)"); every API change is additive (the paused web builds and passes every check
 against the regenerated client, unchanged). The Binders side of the Inventory keeps today's binder
 list until R3; the tab bar keeps today's six tabs until R5. Free for all (stage F1, another
 worktree): no sponsored row in the list, no upgrade offer, a reached limit reads as a plain cap.
@@ -5481,7 +5482,7 @@ worktree): no sponsored row in the list, no upgrade offer, a reached limit reads
   offers" left the phone's other card rows too (binder pages, collector pages, card holders); a
   condition that is not stated shows nothing there.
 
-**What the API does** (V117; commits `4e1b541`, `f7cb8ef`, `4b234c3`; contract
+**What the API does** (V125, written as V117; commits `4e1b541`, `f7cb8ef`, `4b234c3`; contract
 [`docs/api/contracts/r2-inventory-phone.md`](docs/api/contracts/r2-inventory-phone.md))
 
 | Part | What |
@@ -5577,7 +5578,7 @@ fire for them). Default 1 (dark on a new install) is R1's and every R2 screen fo
 | Imports | opened from Add cards on the chosen source (`app/items/import.tsx`, `ImportStart`); "Add cards" in their texts |
 | Removed | `ItemDetailsFields`, `InventoryFiltersBar`, `ItemPhotos`, `itemForm.ts` and its test |
 | Tests | jest: `inventory`, `items`, `cardForm`, `addCards` rewritten or new, the snackbar, filters, holders and import tests updated; Playwright: `inventory.spec.ts`, `bulk-actions.spec.ts`, `item-photos.spec.ts` rewritten, `holders`, `inventory-import` updated; Maestro: native flow 1 `inventory-add-edit-undo.yaml` (was `inventory-add-edit-delete.yaml`), `subflows/pick-newest-photo.yaml`, `media/fictional-card-photo.jpg` (generated, 32 KB, put on the simulator with `addMedia`), `dialog-after-sheet.yaml` and the three import flows updated, `scripts/check-inventory.js` checks the price text, the amount, the stated condition, the photos and the visibility |
-| Docs | this section, NEXT TASK, the R2 contract, `phase3-inventory.md`, `docs/database/schema.md` (V117), the mobile README, the handoff |
+| Docs | this section, NEXT TASK, the R2 contract, `phase3-inventory.md`, `docs/database/schema.md` (V117, now V125), the mobile README, the handoff |
 
 **Checks** (retries off, the real numbers; this Mac, 2026-10-14, the owner's iPhone 18 Pro
 simulator under the lock)
@@ -5730,7 +5731,7 @@ fictional 9000 × 1200 picture). Not verifiable here: the Android run (no Androi
 > same for everyone, with plain limit messages and nothing to buy; V120–V123; the removed code on
 > `archive/paid-features`. Stage R2 of the phone redesign ("Inventory and adding cards", mockup
 > screens 1 to 9; section "Phone redesign R2: inventory and adding cards (2026-10-14)" above, with
-> its review fixes and "Merged with free for all (2026-10-15)"): V117 (the asking price as
+> its review fixes and "Merged with free for all (2026-10-15)"): V125 (the asking price as
 > typed, a condition not stated, the undo of a delete), `POST /inventory/items/{id}/restore`, the
 > `inventory-photo-purge` job, `PATCH … confirm`, `sort=created`, the catalog suggestions with set,
 > rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add
@@ -5760,10 +5761,11 @@ fictional 9000 × 1200 picture). Not verifiable here: the Android run (no Androi
 > S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
 > backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14);
 > stage R1 of the phone redesign (#72, 2026-10-14); stage F1, free for all (#73, 2026-10-15);
-> stage R2 of the phone redesign (its pull request, after this merge). Migrations V001 to V114 are applied and frozen; R1's V115 and V116, F1's V120–V123 and R2's
-> migration freeze as each lands on `main`; R2's `V117__inventory_price_text_restore.sql` is
-> renumbered after V123 before its pull request merges (Flyway runs without `outOfOrder`, and a
-> database already at V123 refuses a V117 it has not applied). The owner's
+> stage R2 of the phone redesign (its pull request, after this merge). Migrations V001 to V114
+> are applied and frozen; R1's V115 and V116, F1's V120–V123 and R2's V125 freeze as each lands on
+> `main` (V117–V119 are unused; V124 is kept for another branch); the next one is **V126**. R2
+> wrote its migration as V117 and renumbered it to V125 when it merged F1: Flyway runs without
+> `outOfOrder`, and a database already at V123 would refuse a V117 it has not applied. The owner's
 > local database migrates on the next `npm run dev` and loses its trading areas by design (S1).
 >
 > **Owner orders in force:** free for all (2026-10-14, ADR 0019: no Premium, ads, credits or
@@ -5790,9 +5792,9 @@ fictional 9000 × 1200 picture). Not verifiable here: the Android run (no Androi
 > binder searches; `deckCoreCount` on the map counts), 14 and 15. Inventory › Binders (17)
 > replaces the binder list R2 left on the Binders side; Edit binder (18) also serves "New binder"
 > (a reached `binders.max` keeps F1's plain message); the deck core page (16) has a Message button
-> that opens the chat without a pinned card until R4. Its migration takes the first free number
-> after the newest one (V124 is kept for another branch). Then R4 to R8 in order, one branch and one PR each, each with its
-> builder, at least two independent reviewers and at most two fix rounds (the spec's section 15);
+> that opens the chat without a pinned card until R4. Its migration is **V126** (the first free
+> number after R2's V125; V124 is kept for another branch). Then R4 to R8 in order, one branch and
+> one PR each, each with its builder, at least two independent reviewers and at most two fix rounds (the spec's section 15);
 > none of them builds a paid feature (ADR 0019). Read first: `CLAUDE.md`;
 > `docs/development/claude-handoff.md` (where things stand, the working agreements, the check
 > list, the simulator rules and lock); this section; the spec (the owner's prompt, verbatim;
