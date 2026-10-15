@@ -37,7 +37,8 @@ import kotlin.math.roundToInt
  *   image read (after crop, scale and rotation), origin at its top left.
  *
  * Privacy: the image is decoded into memory and never written; no metadata of the file is read or
- * returned. Android 9 and later decode it upright themselves (ImageDecoder); Android 7 and 8 decode
+ * returned. This module makes no network call; ML Kit itself sends Google diagnostics and usage
+ * metrics, no image content and no text (the module's README, "ML Kit's own metrics"). Android 9 and later decode it upright themselves (ImageDecoder); Android 7 and 8 decode
  * it as stored (BitmapFactory), and the scan's whole-photo turns cover a library photo stored
  * sideways.
  */
