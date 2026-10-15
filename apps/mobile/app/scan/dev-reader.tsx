@@ -9,13 +9,18 @@
  *   code), placed with the mockup's camera frame (a 258 × 376 frame at 66, 80 of a 390 × 844
  *   preview, screen 27) and the preview's cover scaling (`cropsUnderFrame`); the whole photo
  *   after it when an area gave nothing;
- * - "library path": the whole photo, then turned 90°, 180° and 270° while no code is found.
+ * - "library path": the whole photo, picked the way up its lines say; read again turned when it
+ *   lacks a code or a name or lies sideways or upside down, first the way its lines ask, then 90°,
+ *   180° and 270° (`readCardText`).
  *
- * For each: the lines every reader call returned and its time, the code and name candidates of the
- * text picking, and the answer of `POST /cards/scan-match` with its time. Nothing of the photo
- * leaves the phone; the picker's copies are deleted once read. A summary of the reads (text only)
- * is written to the app's documents as `dev-reader-results.json` for the batch's report.
- * Reachable only in development builds (`__DEV__`), by its route: `orenjitrade://scan/dev-reader`.
+ * For each: the lines every reader call returned (with their boxes) and its time, the code and
+ * name candidates of the text picking, and the answer of `POST /cards/scan-match` with its time.
+ * Nothing of the photo leaves the phone; the picker's copies are deleted once read. A summary of
+ * the last reads (text and boxes only) is written to the app's cache as `dev-reader-results.json`
+ * for the batch's report: never backed up, cleared by the system, replaced by the next reading.
+ * Reachable only in development builds (`__DEV__`), by its route: `orenjitrade://scan/dev-reader`;
+ * a release build still bundles the route and shows "Development builds only" (the screen goes
+ * before the PR).
  */
 import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
@@ -29,7 +34,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { Text } from '@/src/components/ui/Text';
 import { cropsUnderFrame, type CardCrops } from '@/src/features/scan/frameMapping';
 import { getDeviceOcrProvider } from '@/src/features/scan/ocr/deviceOcr';
-import type { OcrPhoto, OcrProvider, PixelRect } from '@/src/features/scan/ocr/types';
+import type { OcrLine, OcrPhoto, OcrProvider, PixelRect } from '@/src/features/scan/ocr/types';
 import { readCardText, type PhotoSource } from '@/src/features/scan/readCardText';
 import type { CardScanMatch, ScanRead } from '@/src/features/scan/types';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
@@ -42,7 +47,7 @@ const MOCKUP_FRAME = { x: 66, y: 80, width: 258, height: 376 };
 interface ReaderCall {
   step: string;
   ms: number;
-  lines: { text: string; confidence: number | null }[];
+  lines: OcrLine[];
 }
 
 interface PathResult {
@@ -179,7 +184,7 @@ function deletePickedCopy(uri: string) {
 
 function saveSummary(results: PhotoResult[]) {
   try {
-    const file = new File(Paths.document, 'dev-reader-results.json');
+    const file = new File(Paths.cache, 'dev-reader-results.json');
     if (file.exists) {
       file.delete();
     }
