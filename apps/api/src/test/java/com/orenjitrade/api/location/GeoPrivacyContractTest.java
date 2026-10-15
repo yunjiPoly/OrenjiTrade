@@ -576,8 +576,12 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
         JsonNode mine = fetch("/api/v1/me/limits", formerPremium);
         JsonNode theirs = fetch("/api/v1/me/limits", collector1);
+        JsonNode staff = fetch("/api/v1/me/limits", SEED_ADMIN);
         fetch("/api/v1/admin/usage-limits", SEED_ADMIN);
-        assertThat(mine.path("limits").size()).isEqualTo(theirs.path("limits").size()).isPositive();
+        // The same numbers for the former Premium account, a collector and a staff member.
+        assertThat(limitNumbers(theirs)).isNotEmpty().containsKey("binders.max");
+        assertThat(limitNumbers(mine)).isEqualTo(limitNumbers(theirs));
+        assertThat(limitNumbers(staff)).isEqualTo(limitNumbers(theirs));
         for (Fetched document : fetched) {
             assertThat(document.body().toString())
                     .as("no plan, perk or provider reference")
@@ -587,6 +591,16 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     .doesNotContain("map.radius");
         }
         assertContract(output);
+    }
+
+    /** Key to number ({@code null}: unlimited) of a {@code GET /me/limits} answer. */
+    private static Map<String, @Nullable Integer> limitNumbers(JsonNode myLimits) {
+        Map<String, @Nullable Integer> numbers = new LinkedHashMap<>();
+        for (JsonNode limit : myLimits.path("limits")) {
+            JsonNode max = limit.path("limit");
+            numbers.put(limit.path("key").asString(), max.isNumber() ? max.asInt() : null);
+        }
+        return numbers;
     }
 
     /** No private notes of the seeded items in a document. */
