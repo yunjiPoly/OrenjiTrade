@@ -11,9 +11,9 @@ import java.util.UUID;
  * (never fetched from YGOPRODeck): Yew Flowers & Velvet Breeze (ZACR-EN036, two ZA01-EN008 rarities
  * and a French ZACR-FR036), Fable Tide - Lyra (ZACR-EN038), Inkshade Interference (ZA01-EN075 in
  * seven rarities and ZLOD-EN077), the old Dark Moonseer (ZOB-EN005), and Tenfold Iron Sentry
- * (ZIRO-EN001: read without its dash, ZIROEN0O1 could be a German ZIR-DEN0O1 misread; the only set
- * ZIR is a Pokemon one). Stable ids and {@code ON CONFLICT DO NOTHING}: the suite shares one
- * database, so it is written once.
+ * (ZIRO-EN001: read without its dash, ZIROEN0O1 could be a German ZIR-DEN0O1 misread; the set ZIR
+ * with a printing is a Pokemon one, the Yu-Gi-Oh! set ZIR holds none). Stable ids and {@code ON
+ * CONFLICT DO NOTHING}: the suite shares one database, so it is written once.
  */
 final class ScanTestCatalog {
 
@@ -65,6 +65,8 @@ final class ScanTestCatalog {
         set(testUsers, "ZLOD", "Lights of Silverfalls", LocalDate.of(2018, 11, 9));
         set(testUsers, "ZOB", "Legend of Pale Moon Frost Dragon", LocalDate.of(2002, 3, 8));
         set(testUsers, "ZIRO", "Fictional Sentries", LocalDate.of(2020, 2, 7));
+        // A set of the game without any printing (announced, not imported yet): no known set.
+        set(testUsers, "ZIR", "Fictional Zircon Previews", LocalDate.of(2027, 1, 15));
         for (String name : new String[] {YEW, LYRA, INTERFERENCE, DARK_MOONSEER, SENTRY}) {
             testUsers.update(
                     "INSERT INTO card (id, game_id, name, slug, card_type)"

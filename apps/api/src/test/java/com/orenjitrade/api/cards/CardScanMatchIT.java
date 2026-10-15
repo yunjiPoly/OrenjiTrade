@@ -196,8 +196,9 @@ class CardScanMatchIT extends AbstractIntegrationTest {
     @Test
     void aReadInDoubtIsEnglishWhenTheCatalogKnowsOnlyTheSetOfItsEnglishPlace() {
         // W1: ZIROEN0O1 is ZIRO-EN0O1 or a German ZIR-DEN0O1 misread. The Yu-Gi-Oh! catalog has
-        // the set ZIRO and no set ZIR (the Pokemon set ZIR never counts): English, look-alike
-        // ZIRO-EN001 found, with the name or without.
+        // the set ZIRO and no set ZIR with a printing (the Pokemon set ZIR never counts, nor the
+        // Yu-Gi-Oh! set ZIR that holds none): English, look-alike ZIRO-EN001 found, with the name
+        // or without.
         for (List<String> names : List.of(List.of(ScanTestCatalog.SENTRY), List.<String>of())) {
             JsonNode match = scan(List.of("ZIROEN0O1"), names);
             assertThat(match.path("status").asString()).as("%s", names).isEqualTo("FOUND");
