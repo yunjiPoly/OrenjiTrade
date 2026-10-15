@@ -5,7 +5,10 @@
 # inventory), sees it first on Inventory › Binders with its purple tag, then on its own page
 # (screen 16) as buyers see it. scripts/check-binder.js checks on the host what the isolated API
 # holds, and the public page an anonymous buyer gets (the price, the photo, the key card, Quebec,
-# never a city).
+# never a city). Then (R3 review fix 1) the page's "Edit binder" goes back to the Edit binder it
+# came from, a new price shows on Inventory › Binders and on the page, and "Delete binder" lands
+# on Inventory › Binders; scripts/check-card.js checks that the card kept the visibility its
+# collector gave it (private) in the deck core and after the delete.
 #
 # Not in this flow yet: finding the deck core in Search › Binders › Deck cores and on the map's
 # state card ("{n} binders · {n} deck cores") comes with stage R5, which builds those screens on
@@ -196,3 +199,92 @@ tags:
 - assertVisible:
     id: 'deck-core-edit'
 - takeScreenshot: r3-deck-core-page
+
+# The card picked into the deck core is still private: buyers see it as the core's key card
+# (checked above on the public page), never on its own.
+- runScript:
+    file: scripts/check-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      ITEM_ID: ${output.item.id}
+      EXPECT_BINDER: 'Maestro core'
+      EXPECT_VISIBILITY: 'PRIVATE'
+
+# "Edit binder" goes back to the Edit binder the page was opened from (never a second one over
+# it, which kept old values with "Save changes" on).
+- tapOn:
+    id: 'deck-core-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- assertNotVisible:
+    id: 'deck-core-name'
+
+# A new price: Inventory › Binders shows it, and so does the page buyers see.
+- tapOn:
+    id: 'binder-price'
+- eraseText: 12
+- inputText: '$150'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'Save changes'
+    timeout: 15000
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$150'
+    timeout: 60000
+- tapOn: 'Maestro core, 1 photo · Public, Deck core · \$150'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-public-page'
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-price'
+      text: '\$150'
+    timeout: 60000
+- takeScreenshot: r3-deck-core-page-edited
+
+# "Delete binder" closes every screen of it and lands on Inventory › Binders; the card stays in
+# the inventory, unfiled and still private.
+- tapOn:
+    id: 'deck-core-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-delete'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-delete-sheet-confirm'
+    timeout: 15000
+- assertVisible: 'Delete Maestro core\?'
+- assertVisible: 'Its photos, price and note go away. Your cards stay in your inventory.'
+- tapOn:
+    id: 'edit-binder-delete-sheet-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-empty'
+    timeout: 60000
+- assertNotVisible:
+    id: 'deck-core-name'
+- takeScreenshot: r3-after-delete
+- runScript:
+    file: scripts/check-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      ITEM_ID: ${output.item.id}
+      EXPECT_BINDER: 'none'
+      EXPECT_VISIBILITY: 'PRIVATE'
+      GONE_BINDER: 'Maestro core'
