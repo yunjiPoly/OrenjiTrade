@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-14 after stage R2): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-15 after review fix 2 of stage R2): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -39,7 +39,7 @@ modal, #70, 2026-10-14). Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 
 | --- | --- | --- |
 | Stage S6 — the final documents of the 2026-10-08 change: small fixes (the card holders count after a block, places never cut in search rows, the import's small points, the map dot, a jest timer guard), the documents brought to today, the delivery report (`docs/product/2026-10-08-change-delivery-report.md`), the redesign spec saved | branch `feature/s6-final-docs` (worktree `OrenjiTrade-s2-ux`), cut from the head of S5 | Built; walked independently against the definition of done on 2026-10-14 (every suite green, 30 of 30 native flows); its findings on the documents answered by the documents agent; the documents fact-checked independently and corrected (rounds 1 and 2). Waits for its ship step: merge `main` (#70), the check list, the pull request, merge on green CI. |
 | Phone redesign, stage R1 ("Offers out, shipping wording, look"; ADR 0018) | branch `feature/r1-offers-out-shipping-look` (worktree `OrenjiTrade-regions`), cut from the head of S6 | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): offers, trades, protected payments and disputes off the phone, the chat safety tip, ratings without meetups, V115 and V116, the seeds, "Trading safely" in English and French, ADR 0018, the deckCore tokens, the three typefaces, the dark default; every suite of the check list green (numbers in that section). Its two independent reviewers ran; review fixes 1 and 2 are done (that section, "Review fix 1" and "Review fix 2"; two fix rounds is the most allowed). Next: its ship step (after S6 is on `main`). |
-| Phone redesign, stage R2 ("Inventory and adding cards", mockup screens 1 to 9) | branch `feature/r2-inventory-adding-cards` (worktree `OrenjiTrade-r2`), cut from the head of R1 (#72) | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R2"): V117 (the asking price as typed, a condition not stated, the undo of a delete), `POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job, `PATCH … confirm`, `sort=created`; the Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory, Edit card, the toasts with "View" and "Undo". Next: its two independent reviewers (a functional verifier and a product / UX lens as a collector), at most two fix rounds, then its ship step after R1 is on `main`. |
+| Phone redesign, stage R2 ("Inventory and adding cards", mockup screens 1 to 9) | branch `feature/r2-inventory-adding-cards` (worktree `OrenjiTrade-r2`), cut from the head of R1 (#72) | Built by its builder on 2026-10-14 (IMPLEMENTATION_STATUS.md, "Phone redesign R2"): V117 (the asking price as typed, a condition not stated, the undo of a delete), `POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job, `PATCH … confirm`, `sort=created`; the Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory, Edit card, the toasts with "View" and "Undo". Its two independent reviewers (a functional verifier and a product / UX lens as a collector) ran and review fixes 1 and 2 are done (the most section 15 allows; "Review fix 1" and "Review fix 2" in the R2 section). Next: its ship step after R1 is on `main`. |
 | Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 
@@ -102,8 +102,8 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    lawyer's list of meetup, offer and protection wording, and the phone's legal index.
 3. **Stage R2** (inventory and adding cards, mockup screens 1 to 9): built on
    `feature/r2-inventory-adding-cards` (cut from R1, so it ships after R1: merge `main` once it
-   holds R1); next its two reviewers (a functional verifier, and a product / UX lens as a
-   collector), at most two fix rounds, the check list below, the pull request. Then **R3**
+   holds R1); its two reviewers ran and both fix rounds are done; next the check list below and
+   the pull request. Then **R3**
    (binders and deck cores, screens 16 to 18) from the `main` that holds R2; R4 to R8 follow in
    order, one branch and one PR each. Migrations: V117 is R2's; stage F1 (free for all, another
    worktree) uses V120 and up, so R3 starts at V118 unless F1 lands first.
