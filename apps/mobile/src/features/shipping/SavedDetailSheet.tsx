@@ -65,6 +65,7 @@ export function SavedDetailSheet({
       onClose={onClose}
       title={address ? SAVED_DETAIL_COPY.addressTitle : SAVED_DETAIL_COPY.etransferTitle}
       testID="saved-detail-sheet"
+      avoidKeyboard
     >
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{SAVED_DETAIL_COPY.hint}</Text>
       <TextField

@@ -2,7 +2,9 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -31,6 +33,11 @@ export interface BottomSheetProps {
   title?: string;
   children: ReactNode;
   testID?: string;
+  /**
+   * The sheet holds a text field: on iOS it rises above the keyboard so its buttons stay in reach
+   * (Android resizes the window itself). Stage R4: Mark as sold, the saved address or email.
+   */
+  avoidKeyboard?: boolean;
 }
 
 /**
@@ -43,6 +50,7 @@ export function BottomSheet({
   title,
   children,
   testID = 'bottom-sheet',
+  avoidKeyboard = false,
 }: BottomSheetProps) {
   // iOS: a sheet asked for while another modal is on screen waits for its turn (modalTurns.tsx).
   const turn = useModalTurn(wanted);
@@ -80,7 +88,12 @@ export function BottomSheet({
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.root} testID={testID}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior="padding"
+        enabled={avoidKeyboard && Platform.OS === 'ios'}
+        testID={testID}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
@@ -113,7 +126,7 @@ export function BottomSheet({
           ) : null}
           <InsideModal>{children}</InsideModal>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

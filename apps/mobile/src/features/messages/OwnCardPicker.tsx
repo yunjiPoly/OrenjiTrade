@@ -113,7 +113,13 @@ export function OwnCardPicker({
   }
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={COPY.title} testID="own-card-picker">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title={COPY.title}
+      testID="own-card-picker"
+      avoidKeyboard
+    >
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{COPY.hint}</Text>
       <TextField
         label={COPY.search}

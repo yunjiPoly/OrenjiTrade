@@ -72,6 +72,7 @@ export function MarkSoldSheet({
       onClose={onClose}
       title={MARK_SOLD_COPY.title}
       testID="mark-sold-sheet"
+      avoidKeyboard
     >
       <ScrollView
         style={styles.scroll}

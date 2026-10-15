@@ -1,7 +1,8 @@
 # Trading safety (stage R1 of the phone redesign, ADR 0018: deals ship by mail, payment stays
 # outside the app): Ben (a fresh fictional collector driven from the host, scripts/messaging.js)
 # writes to Ada, who uses the app. Her chat opens with the small safety tip at its start, in the
-# wording of a chat without a card (chats have no pinned card until stage R4): tapping it opens
+# wording of a chat without a card (the chat has no pinned card; the buying and selling tips are
+# native flows 3 and 4, deal-deck-core-chat.yaml and deal-mark-sold.yaml): tapping it opens
 # the "Trading safely" page in-app, the composer keeps working with the tip on screen, and the tip
 # is still there after a relaunch (it is not dismissed; it replaced the meetup notice).
 appId: ${APP_ID}
