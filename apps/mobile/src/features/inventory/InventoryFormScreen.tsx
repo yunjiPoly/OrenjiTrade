@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { useSnackbar, useSnackbarCover } from '@/src/components/ui/Snackbar';
 import { spacing, useTheme } from '@/src/theme';
 
 export interface InventoryFormScreenProps {
@@ -16,6 +16,11 @@ export interface InventoryFormScreenProps {
    * could not save, which are at the end of the form).
    */
   startAtEnd?: boolean;
+  /**
+   * Each new value (a count) shows the end of the content again, as `startAtEnd` does on opening
+   * (Edit card after a save whose photos were not all saved: their message is at the end).
+   */
+  showEnd?: number;
   /** The whole screen, header and bottom bar included (`screen-<id>` in the specs); its scroll
    * view is `<testID>-scroll`. */
   testID?: string;
@@ -27,20 +32,31 @@ export interface InventoryFormScreenProps {
  * and an optional bottom bar with a hairline. The content scrolls above the on-screen keyboard;
  * the bottom bar stays under it (the form keeps the room it needs while one types, as in the
  * system's own forms), and comes back when the keyboard goes.
+ *
+ * A toast sits above the bottom bar, over the end of the content: the content keeps that much room
+ * at its end (review fix 2 of stage R2: the toast "Saved · 1 photo wasn't saved" covered the
+ * failure line and its "Try again" where Edit card opens), and the room stays once given, so
+ * nothing moves under a finger when the toast goes. Opened on the end (or asked to show it), the
+ * screen stays on the end while its content grows, until it is touched or scrolled.
  */
 export function InventoryFormScreen({
   header,
   children,
   footer,
   startAtEnd = false,
+  showEnd = 0,
   testID,
 }: InventoryFormScreenProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
+  const cover = useSnackbarCover();
   const [footerHeight, setFooterHeight] = useState(0);
+  const [toastRoom, setToastRoom] = useState(0);
   const ownScroll = useRef<ScrollView>(null);
   const atEnd = useRef(!startAtEnd);
+  // On the end by the screen's own doing (opened there, or asked to show it); a touch ends it.
+  const keepEnd = useRef(false);
   // A toast on this screen sits above its bottom bar, not over its main button.
   useEffect(() => {
     if (!footer || footerHeight === 0) {
@@ -48,6 +64,20 @@ export function InventoryFormScreen({
     }
     return snackbar.keepClear(footerHeight);
   }, [footer, footerHeight, snackbar]);
+  // The part of the content a toast covers (above the bottom bar, once that is laid out).
+  useEffect(() => {
+    if (cover === 0 || (footer && footerHeight === 0)) {
+      return;
+    }
+    const covered = cover - (footer ? footerHeight : 0);
+    setToastRoom((room) => Math.max(room, covered));
+  }, [cover, footer, footerHeight]);
+  useEffect(() => {
+    if (showEnd > 0) {
+      keepEnd.current = true;
+      ownScroll.current?.scrollToEnd({ animated: true });
+    }
+  }, [showEnd]);
   return (
     <View
       testID={testID}
@@ -63,14 +93,23 @@ export function InventoryFormScreen({
           onContentSizeChange={() => {
             if (!atEnd.current) {
               atEnd.current = true;
+              keepEnd.current = true;
+            }
+            if (keepEnd.current) {
               ownScroll.current?.scrollToEnd({ animated: false });
             }
+          }}
+          onTouchStart={() => {
+            keepEnd.current = false;
+          }}
+          onScrollBeginDrag={() => {
+            keepEnd.current = false;
           }}
           testID={testID ? `${testID}-scroll` : undefined}
           style={styles.fill}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: footer ? spacing[6] : insets.bottom + spacing[6] },
+            { paddingBottom: (footer ? spacing[6] : insets.bottom + spacing[6]) + toastRoom },
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -82,6 +121,7 @@ export function InventoryFormScreen({
       {footer ? (
         <View
           onLayout={(event) => setFooterHeight(Math.round(event.nativeEvent.layout.height))}
+          testID={testID ? `${testID}-footer` : undefined}
           style={[
             styles.footer,
             {

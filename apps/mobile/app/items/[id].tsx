@@ -183,6 +183,8 @@ function CardEditor({
   const [asking, setAsking] = useState(false);
   // Deleted: leaving no longer asks about the photos that were not saved.
   const [gone, setGone] = useState(false);
+  // Each save whose photos were not all saved shows the end of the form, where they say why.
+  const [showEnd, setShowEnd] = useState(0);
 
   const findability = useCardFindability();
   const savedPhotos = item.images.filter((image) => !removed.includes(image.id));
@@ -290,7 +292,11 @@ function CardEditor({
     setSaving(false);
     markSaved(item.id);
     if (failed > 0) {
-      // The card is saved; the photos that were not stay here with "Try again".
+      // The card is saved; the photos that were not stay here with "Try again" (or why the API
+      // refused them), at the end of the form: the screen shows them, and the toast says it, as
+      // after an add (review fix 2 of stage R2: the message stayed below the fold, unannounced).
+      setShowEnd((count) => count + 1);
+      snackbar.show(item.card.name, { title: TOAST_COPY.savedPhotosFailed(failed) });
       return;
     }
     snackbar.show(item.card.name, {
@@ -373,6 +379,7 @@ function CardEditor({
       header={header}
       footer={footer}
       startAtEnd={initialFailed.length > 0}
+      showEnd={showEnd}
       testID="screen-edit-item"
     >
       <CardHeader

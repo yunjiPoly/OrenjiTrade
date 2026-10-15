@@ -1,8 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useEffect } from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import EditCardScreen from '@/app/items/[id]';
 import AddCardsScreen from '@/app/items/new';
+import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -76,6 +79,34 @@ function libraryPick(...names: string[]) {
       fileSize: 120_000,
     })),
   } as never);
+}
+
+/** The toast an add whose photo failed shows before it opens Edit card. */
+function AddToast() {
+  const snackbar = useSnackbar();
+  useEffect(() => {
+    snackbar.show('Emberfang Fox VMAX', { title: "Saved · 1 photo wasn't saved" });
+  }, [snackbar]);
+  return null;
+}
+
+/** The scroll view's `scrollToEnd` (the jest mock of ScrollView shares one for every instance). */
+const scrollToEnd = ScrollView.prototype.scrollToEnd as jest.Mock;
+
+/** The room at the end of a form screen's content, under its last line. */
+function endRoom(testID: string): number {
+  const style = StyleSheet.flatten(screen.getByTestId(testID).props.contentContainerStyle);
+  return Number(style.paddingBottom);
+}
+
+/** Lays out a form screen's bottom bar and the toast, as a phone does. */
+function layOut(footer: number, toast: number) {
+  fireEvent(screen.getByTestId('screen-edit-item-footer'), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 390, height: footer } },
+  });
+  fireEvent(screen.getByTestId('snackbar-area'), 'layout', {
+    nativeEvent: { layout: { x: 0, y: 0, width: 390, height: toast } },
+  });
 }
 
 /** "Add photos" → "Choose from your photos" (the library), as on a phone. */
@@ -763,6 +794,97 @@ describe('Edit card (screen 7)', () => {
     expect(screen.queryByTestId('card-photos-refused')).toBeNull();
     expect(screen.getByTestId('card-photos-count')).toHaveTextContent('0 / 4');
     expect(api.callsTo('POST /api/v1/inventory/items/{id}/images')).toHaveLength(1);
+  });
+
+  it('keeps the photos not saved clear of the toast that says so, where it opens', async () => {
+    useInventoryUiStore.setState({
+      failedPhotos: {
+        [ITEM_ID]: [
+          { key: 'local-9', uri: 'file:///back.jpg', mimeType: 'image/jpeg', fileName: 'back.jpg' },
+        ],
+      },
+    });
+    mockApi(signedInRoutes({ 'GET /api/v1/inventory/items/{id}': ok(itemFixture()) }));
+    renderWithProviders(
+      <>
+        <AddToast />
+        <EditCardScreen />
+      </>,
+      { port: port() }
+    );
+    await screen.findByTestId('card-photos-failed');
+    expect(screen.getByTestId('snackbar')).toHaveTextContent(/^Saved · 1 photo wasn't saved/);
+    const scroll = screen.getByTestId('screen-edit-item-scroll');
+    // Opened on the end of the form, where the failure line and "Try again" are.
+    fireEvent(scroll, 'contentSizeChange', 390, 1400);
+    expect(scrollToEnd).toHaveBeenCalled();
+    const before = endRoom('screen-edit-item-scroll');
+
+    // The toast sits 8 points above the bottom bar (150) and is 64 tall: the end of the content
+    // gets that room, and stays on the end as it grows.
+    scrollToEnd.mockClear();
+    layOut(150, 64);
+    expect(endRoom('screen-edit-item-scroll')).toBeGreaterThanOrEqual(before + 64 + 8);
+    fireEvent(scroll, 'contentSizeChange', 390, 1472);
+    expect(scrollToEnd).toHaveBeenCalled();
+
+    // The room stays when the toast goes: "Try again" does not move under a finger.
+    const room = endRoom('screen-edit-item-scroll');
+    fireEvent.press(screen.getByTestId('snackbar-message'));
+    expect(screen.queryByTestId('snackbar')).toBeNull();
+    expect(endRoom('screen-edit-item-scroll')).toBe(room);
+
+    // Once touched, the screen is the collector's: it no longer goes back to the end by itself.
+    scrollToEnd.mockClear();
+    fireEvent(scroll, 'touchStart');
+    fireEvent(scroll, 'contentSizeChange', 390, 1500);
+    expect(scrollToEnd).not.toHaveBeenCalled();
+  });
+
+  it('after "Save changes", shows a photo that was not saved and says so in a toast', async () => {
+    libraryPick('panorama.jpg');
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+        'POST /api/v1/inventory/items/{id}/images': problem(
+          400,
+          'VALIDATION_FAILED',
+          'Validation failed',
+          {
+            errors: [
+              {
+                field: 'file',
+                message: 'The image dimensions are not acceptable (at most 8192 pixels per side)',
+              },
+            ],
+          }
+        ),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-photos-count');
+    await addFromLibrary();
+    await waitFor(() => expect(screen.getByTestId('card-photos-count')).toHaveTextContent('1 / 4'));
+    const scroll = screen.getByTestId('screen-edit-item-scroll');
+    // The collector scrolled to the photos and back up before saving.
+    fireEvent(scroll, 'scrollBeginDrag');
+    scrollToEnd.mockClear();
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    expect(await screen.findByTestId('card-photos-refused')).toBeOnTheScreen();
+    // The card is saved, the photo is not: the toast says both, and the form shows the end, where
+    // the photo says why and offers "Remove it".
+    expect(screen.getByTestId('snackbar')).toHaveTextContent(
+      /^Saved · 1 photo wasn't saved.*Emberfang Fox VMAX$/
+    );
+    expect(scrollToEnd).toHaveBeenCalled();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    // The message grows the content: the screen stays on the end, clear of the toast.
+    scrollToEnd.mockClear();
+    layOut(150, 64);
+    fireEvent(scroll, 'contentSizeChange', 390, 1600);
+    expect(scrollToEnd).toHaveBeenCalled();
+    expect(endRoom('screen-edit-item-scroll')).toBeGreaterThanOrEqual(24 + 64 + 8);
   });
 
   it('asks before leaving photos that were not saved', async () => {

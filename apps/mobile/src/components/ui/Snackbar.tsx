@@ -71,6 +71,8 @@ export interface Snackbar {
 }
 
 const SnackbarContext = createContext<Snackbar | null>(null);
+/** How far up from the bottom of the screen the toast showing now reaches; 0 without one. */
+const SnackbarCoverContext = createContext(0);
 
 /**
  * App-wide toast (the web's MatSnackBar; owner spec 2026-10-14, section 3): one message at a time
@@ -79,6 +81,8 @@ const SnackbarContext = createContext<Snackbar | null>(null);
  */
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<SnackbarMessage | null>(null);
+  // The toast's top, in points from the bottom of the screen, once laid out.
+  const [cover, setCover] = useState(0);
   const nextId = useRef(1);
   // The bottom bars that asked for room, the latest last (a screen on top of another).
   const [clearances, setClearances] = useState<readonly { id: number; height: number }[]>([]);
@@ -146,9 +150,17 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
 
   return (
     <SnackbarContext.Provider value={value}>
-      {children}
+      <SnackbarCoverContext.Provider value={message ? cover : 0}>
+        {children}
+      </SnackbarCoverContext.Provider>
       {message ? (
-        <SnackbarView key={message.id} message={message} clearance={clearance} onDismiss={hide} />
+        <SnackbarView
+          key={message.id}
+          message={message}
+          clearance={clearance}
+          onDismiss={hide}
+          onCover={setCover}
+        />
       ) : null}
     </SnackbarContext.Provider>
   );
@@ -158,10 +170,13 @@ function SnackbarView({
   message,
   clearance,
   onDismiss,
+  onCover,
 }: {
   message: SnackbarMessage;
   clearance: number;
   onDismiss: () => void;
+  /** Where the toast's top is, in points from the bottom of the screen. */
+  onCover: (cover: number) => void;
 }) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
@@ -170,12 +185,21 @@ function SnackbarView({
   const stacked = useWindowDimensions().fontScale > 1.3;
   // Above the tab bar, or above the bottom bar of a form screen.
   const bottom = Math.max(insets.bottom + spacing[16], clearance + spacing[2]);
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    onCover(height > 0 ? bottom + height : 0);
+  }, [bottom, height, onCover]);
   const error = message.tone === 'error';
   const ink = error ? palette.background : palette.ink;
   const muted = error ? palette.background : palette.textMuted;
   const spoken = [message.title, message.text].filter(Boolean).join(', ');
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom }]}>
+    <View
+      pointerEvents="box-none"
+      onLayout={(event) => setHeight(Math.ceil(event.nativeEvent.layout.height))}
+      testID="snackbar-area"
+      style={[styles.wrap, { bottom }]}
+    >
       <View
         testID="snackbar"
         style={[
@@ -264,6 +288,14 @@ function ToastIcon({ icon }: { icon: 'success' | 'deleted' }) {
       />
     </View>
   );
+}
+
+/**
+ * How far up from the bottom of the screen the toast showing now reaches, in points (0 without a
+ * toast, or before it is laid out): a screen keeps the end of its content clear of it.
+ */
+export function useSnackbarCover(): number {
+  return useContext(SnackbarCoverContext);
 }
 
 export function useSnackbar(): Snackbar {
