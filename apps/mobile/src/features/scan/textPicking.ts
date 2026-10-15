@@ -16,8 +16,8 @@ import {
 
 // --- Codes ----------------------------------------------------------------------------------------
 
-/** Read as "-" between the parts of a code: dashes and hyphens, minus, "_", "." and "~". */
-const SEPARATORS = /[‐-―−_.~]/g;
+/** Read as "-" between the parts of a code: hyphens and dashes (–, —), minus, "_", "." and "~". */
+const SEPARATORS = /[\u2010-\u2015\u2212_.~]/g;
 
 /**
  * Cleans a code as read: upper case, no spaces, the separators as "-", only A–Z, 0–9 and "-" kept
