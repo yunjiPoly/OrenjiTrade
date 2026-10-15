@@ -400,6 +400,62 @@ describe('reading a library photo', () => {
     expect(band?.box).toEqual({ x: 2036, y: 58, width: 468, height: 1620 });
   });
 
+  it('turns the code band the way the lines of the read it was placed on asked', async () => {
+    // A card lying on its side in a landscape photo, its top on the left: read in place, its
+    // lines are tall boxes that ask for a 90° turn. No read holds a code: the band is placed on
+    // that first read as if the card stood (the photo turned 90°), cut from the photo where the
+    // read saw it, and read turned 90°.
+    const sideways = { uri: 'file:///cache/scan/photo-2.jpg', width: 4000, height: 3000 };
+    const fake = new FakeOcrProvider({
+      [sideways.uri]: {
+        whole: turnLines(CODE_CUT_SHORT, 270),
+        turned: { 90: CODE_CUT_SHORT, 180: [], 270: [] },
+        setCode: ['ZR04-EN015'],
+      },
+    });
+    const read = await readCardText(fake, { photo: sideways, source: 'LIBRARY' });
+    expect(read).toEqual({
+      codes: ['ZR04-EN015'],
+      names: ['QUILLFEATHER MAGE', 'A quiet scholar who writes the winds into old books'],
+    });
+    expect(methods(fake)).toEqual([
+      'recognizeLines@0',
+      'recognizeLines@90',
+      'recognizeLines@180',
+      'recognizeLines@270',
+      'recognizeSetCode',
+    ]);
+    // The band of the upright card (0.5805, 0.6785, 0.405 × 0.156 of it) in the landscape photo.
+    const band = fake.calls[4];
+    expect(band?.rotation).toBe(90);
+    expect(band?.box).toEqual({ x: 2714, y: 44, width: 624, height: 1215 });
+  });
+
+  it('reads no code band when a read holds a code but no name, all turns read', async () => {
+    // The code band's marks are there (the type line on the column of the type line and the
+    // passcode), but the first read's code is kept: no band.
+    const fake = new FakeOcrProvider({
+      [PHOTO.uri]: {
+        whole: [
+          at('ZR04-EN015', 0.72, 0.75, 0.13, 0.013),
+          at('[Spellcaster/Normal]', 0.198, 0.782, 0.385, 0.022),
+          at('12345678 1st Edition', 0.178, 0.955, 0.236, 0.02),
+        ],
+        turned: { 90: [], 180: [], 270: [] },
+      },
+    });
+    await expect(readCardText(fake, { photo: PHOTO, source: 'LIBRARY' })).resolves.toEqual({
+      codes: ['ZR04-EN015'],
+      names: [],
+    });
+    expect(methods(fake)).toEqual([
+      'recognizeLines@0',
+      'recognizeLines@90',
+      'recognizeLines@180',
+      'recognizeLines@270',
+    ]);
+  });
+
   it('reads no code band when a read holds a code, or for a camera photo', async () => {
     const withCode = new FakeOcrProvider({
       [PHOTO.uri]: { whole: [...CODE_CUT_SHORT, at('ZR04-EN015', 0.72, 0.75, 0.13, 0.013)] },
