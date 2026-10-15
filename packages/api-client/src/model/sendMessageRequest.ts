@@ -19,7 +19,7 @@ export interface SendMessageRequest {
      */
     body?: string;
     /**
-     * CARD_LINK: the printing to share
+     * CARD_LINK: the printing to share (or inventoryItemId for one of your own cards)
      */
     cardPrintingId?: string;
     /**
@@ -34,6 +34,10 @@ export interface SendMessageRequest {
      * IMAGE: uploadId of POST /uploads/images (within 1 h)
      */
     imageUploadId?: string;
+    /**
+     * CARD_LINK (stage R4): one of your own cards, live in your inventory: shares its picture, code and price as typed (a private card is shown to this collector only) and pins it as the chat\'s subject
+     */
+    inventoryItemId?: string;
 }
 export enum SendMessageRequestKindEnum {
     Text = 'TEXT',

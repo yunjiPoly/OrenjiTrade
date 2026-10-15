@@ -146,6 +146,10 @@
       "description": "The caller's binders: create, publish, confirm, reorder"
     },
     {
+      "name": "deals",
+      "description": "Mark as sold: sales recorded from a chat, and their undo"
+    },
+    {
       "name": "offers",
       "description": "Cash, trade and mixed offers on public cards"
     },
@@ -5012,6 +5016,109 @@
         }
       }
     },
+    "/api/v1/sales/{id}/undo": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Undo a sale (the seller, within 10 minutes, before anyone rated it)",
+        "description": "Puts back exactly what the sale took (copies; the card with its binder, visibility, price, note and photos; a deck core with its cards), removes its SALE interaction, withdraws its message (pushed to both marked undone) and the buyer's notification. 403 for the buyer, 404 for anyone else; 409 SALE_UNDO_CLOSED after 10 minutes (extension undoableUntil) or when what it took cannot come back; 409 SALE_ALREADY_RATED once one of them rated it. A repeated undo answers the undone sale.",
+        "operationId": "undoSale",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The undone sale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (the buyer)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown sale",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SALE_UNDO_CLOSED or SALE_ALREADY_RATED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reports/collectors": {
       "post": {
         "tags": [
@@ -8574,7 +8681,7 @@
           "messaging"
         ],
         "summary": "Start (or reopen) a conversation with a collector",
-        "description": "Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself.",
+        "description": "Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what the chat is about, the latest wins; it must be the recipient's and public, or the caller's own (404 when private, deleted or sold; 400 for both at once, for someone else's, and for a binder that is not a deck core).",
         "operationId": "startConversation",
         "requestBody": {
           "content": {
@@ -8619,6 +8726,129 @@
           },
           "404": {
             "description": "Unknown recipient",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{id}/sales": {
+      "post": {
+        "tags": [
+          "deals"
+        ],
+        "summary": "Mark the chat's card or deck core as sold to the other collector",
+        "description": "The seller only: the chat's subject must be the caller's (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:<id>:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 400 for copies below 1 or above those held and a malformed tracking number; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.",
+        "operationId": "markSold",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkSoldRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The sale",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN (not the seller) or MESSAGING_BLOCKED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown conversation (or not a participant, or hidden by a block)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "NOTHING_LEFT_TO_SELL, or CONFLICT for a chat without a subject",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8886,7 +9116,7 @@
           "messaging"
         ],
         "summary": "Send a message",
-        "description": "TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.",
+        "description": "TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or `inventoryItemId` of one of the caller's own cards (stage R4: its picture, code and price as typed, and it becomes the chat's subject); BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.",
         "operationId": "sendMessage",
         "parameters": [
           {
@@ -14203,6 +14433,97 @@
       }
     },
     "/api/v1/conversations/{id}": {
+      "get": {
+        "tags": [
+          "messaging"
+        ],
+        "summary": "One conversation of the caller",
+        "description": "Stage R4: the conversation as in the list, with its subject (the card or deck core it is about). 404 for non-participants and conversations hidden by a block.",
+        "operationId": "getConversation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown conversation (or not a participant, or hidden by a block)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": [
           "messaging"
@@ -24073,7 +24394,8 @@
             "enum": [
               "TRADE",
               "OFFER_ACCEPTED",
-              "CONVERSATION_QUALIFIED"
+              "CONVERSATION_QUALIFIED",
+              "SALE"
             ]
           },
           "editableUntil": {
@@ -28592,6 +28914,101 @@
           "reason"
         ]
       },
+      "SaleResponse": {
+        "type": "object",
+        "description": "A card or deck core marked sold from a chat",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CARD",
+              "DECK_CORE"
+            ]
+          },
+          "itemId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "binderId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "sellerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "buyerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ash Blossom & Joyous Spring"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trackingNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "7023 2109 8876 5432"
+          },
+          "remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "removed": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "undoableUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "undoneAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "buyerId",
+          "conversationId",
+          "createdAt",
+          "id",
+          "kind",
+          "name",
+          "quantity",
+          "removed",
+          "sellerId",
+          "undoableUntil"
+        ]
+      },
       "ReportCollectorRequest": {
         "type": "object",
         "properties": {
@@ -28996,6 +29413,7 @@
               "PAYMENT_UPDATE",
               "DISPUTE_UPDATE",
               "REPORT_DECISION",
+              "SALE_RECORDED",
               "SYSTEM"
             ]
           },
@@ -30058,6 +30476,16 @@
             "type": "string",
             "format": "uuid",
             "description": "Account id of the recipient"
+          },
+          "subjectItemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stage R4: the card (inventory item) the chat is about, which becomes its subject (the latest wins). It must be public and the recipient's, or yours."
+          },
+          "subjectBinderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stage R4: the deck core (binder) the chat is about, which becomes its subject. It must be public and the recipient's, or yours. At most one of subjectItemId and subjectBinderId."
           }
         },
         "required": [
@@ -30093,6 +30521,10 @@
               "OFFLINE",
               "HIDDEN"
             ]
+          },
+          "place": {
+            "type": "null",
+            "$ref": "#/components/schemas/Place"
           }
         },
         "required": [
@@ -30100,6 +30532,94 @@
           "handle",
           "id",
           "onlineStatus"
+        ]
+      },
+      "ConversationSubject": {
+        "type": "object",
+        "description": "The card or deck core a chat is about",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CARD",
+              "DECK_CORE"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ash Blossom & Joyous Spring"
+          },
+          "printingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "RA01-EN008"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Secret Rare"
+          },
+          "cardId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "$32"
+          },
+          "sold": {
+            "type": "boolean"
+          },
+          "listed": {
+            "type": "boolean"
+          },
+          "copies": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The owner's copies (the owner's view of a card)"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "listed",
+          "name",
+          "ownerId",
+          "sold"
         ]
       },
       "ConversationSummary": {
@@ -30130,6 +30650,10 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "subject": {
+            "type": "null",
+            "$ref": "#/components/schemas/ConversationSubject"
           }
         },
         "required": [
@@ -30174,6 +30698,20 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "systemTopic": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "OFFER",
+              "SALE"
+            ]
+          },
+          "sale": {
+            "type": "null",
+            "$ref": "#/components/schemas/SaleNotice"
           }
         },
         "required": [
@@ -30182,6 +30720,76 @@
           "kind",
           "preview"
         ]
+      },
+      "SaleNotice": {
+        "type": "object",
+        "description": "The sale announced by a SYSTEM message",
+        "properties": {
+          "saleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sellerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "buyerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CARD",
+              "DECK_CORE"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "example": "Ash Blossom & Joyous Spring"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "trackingNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "7023 2109 8876 5432"
+          },
+          "undone": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "buyerId",
+          "kind",
+          "name",
+          "quantity",
+          "saleId",
+          "sellerId",
+          "undone"
+        ]
+      },
+      "MarkSoldRequest": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Copies sold (1 by default; a deck core sells as one); at most the copies the seller holds",
+            "maximum": 9999,
+            "minimum": 1
+          },
+          "trackingNumber": {
+            "type": "string",
+            "description": "Optional tracking number of the shipment (letters, digits, spaces, dots and dashes; trimmed); seen by the two collectors only",
+            "maxLength": 200,
+            "minLength": 0
+          }
+        }
       },
       "MarkConversationReadRequest": {
         "type": "object",
@@ -30220,7 +30828,7 @@
           "cardPrintingId": {
             "type": "string",
             "format": "uuid",
-            "description": "CARD_LINK: the printing to share"
+            "description": "CARD_LINK: the printing to share (or inventoryItemId for one of your own cards)"
           },
           "binderId": {
             "type": "string",
@@ -30236,6 +30844,11 @@
             "type": "string",
             "format": "uuid",
             "description": "IMAGE: uploadId of POST /uploads/images (within 1 h)"
+          },
+          "inventoryItemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CARD_LINK (stage R4): one of your own cards, live in your inventory: shares its picture, code and price as typed (a private card is shown to this collector only) and pins it as the chat's subject"
           }
         },
         "required": [
@@ -30339,6 +30952,12 @@
           },
           "image": {
             "$ref": "#/components/schemas/MessageImage"
+          },
+          "item": {
+            "$ref": "#/components/schemas/SharedItem"
+          },
+          "sale": {
+            "$ref": "#/components/schemas/SaleNotice"
           }
         }
       },
@@ -30439,6 +31058,38 @@
           "id",
           "status",
           "summary"
+        ]
+      },
+      "SharedItem": {
+        "type": "object",
+        "description": "The sender's own card shared from their inventory",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ownerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "85% TCG"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Secret Rare"
+          }
+        },
+        "required": [
+          "itemId",
+          "ownerId"
         ]
       },
       "CreateReplyRequest": {
@@ -34365,7 +35016,8 @@
             "enum": [
               "TRADE",
               "OFFER_ACCEPTED",
-              "CONVERSATION_QUALIFIED"
+              "CONVERSATION_QUALIFIED",
+              "SALE"
             ]
           },
           "occurredAt": {
@@ -37365,6 +38017,9 @@
               "ALREADY_RATED",
               "RATING_EDIT_WINDOW_CLOSED",
               "RESTORE_WINDOW_CLOSED",
+              "NOTHING_LEFT_TO_SELL",
+              "SALE_UNDO_CLOSED",
+              "SALE_ALREADY_RATED",
               "REPORT_ALREADY_OPEN",
               "CANNOT_REPORT_SELF",
               "OFFERS_NOT_ACCEPTED",

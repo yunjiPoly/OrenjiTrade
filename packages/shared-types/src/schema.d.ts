@@ -940,6 +940,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sales/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a sale (the seller, within 10 minutes, before anyone rated it)
+         * @description Puts back exactly what the sale took (copies; the card with its binder, visibility, price, note and photos; a deck core with its cards), removes its SALE interaction, withdraws its message (pushed to both marked undone) and the buyer's notification. 403 for the buyer, 404 for anyone else; 409 SALE_UNDO_CLOSED after 10 minutes (extension undoableUntil) or when what it took cannot come back; 409 SALE_ALREADY_RATED once one of them rated it. A repeated undo answers the undone sale.
+         */
+        post: operations["undoSale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/collectors": {
         parameters: {
             query?: never;
@@ -1509,9 +1529,29 @@ export interface paths {
         put?: never;
         /**
          * Start (or reopen) a conversation with a collector
-         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself.
+         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what the chat is about, the latest wins; it must be the recipient's and public, or the caller's own (404 when private, deleted or sold; 400 for both at once, for someone else's, and for a binder that is not a deck core).
          */
         post: operations["startConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the chat's card or deck core as sold to the other collector
+         * @description The seller only: the chat's subject must be the caller's (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:<id>:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 400 for copies below 1 or above those held and a malformed tracking number; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
+         */
+        post: operations["markSold"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1553,7 +1593,7 @@ export interface paths {
         put?: never;
         /**
          * Send a message
-         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or `inventoryItemId` of one of the caller's own cards (stage R4: its picture, code and price as typed, and it becomes the chat's subject); BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
          */
         post: operations["sendMessage"];
         delete?: never;
@@ -2464,7 +2504,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * One conversation of the caller
+         * @description Stage R4: the conversation as in the list, with its subject (the card or deck core it is about). 404 for non-participants and conversations hidden by a block.
+         */
+        get: operations["getConversation"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4513,7 +4557,7 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             /** @enum {string} */
-            interactionKind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED";
+            interactionKind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED" | "SALE";
             /**
              * Format: date-time
              * @description End of the author's 14-day edit window
@@ -6248,6 +6292,38 @@ export interface components {
             /** @description Reason shown to the other party */
             reason: string;
         };
+        /** @description A card or deck core marked sold from a chat */
+        SaleResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversationId: string;
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** Format: uuid */
+            itemId?: string | null;
+            /** Format: uuid */
+            binderId?: string | null;
+            /** Format: uuid */
+            sellerId: string;
+            /** Format: uuid */
+            buyerId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: int32 */
+            quantity: number;
+            /** @example 7023 2109 8876 5432 */
+            trackingNumber?: string | null;
+            /** Format: int32 */
+            remaining?: number | null;
+            removed: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            undoableUntil: string;
+            /** Format: date-time */
+            undoneAt?: string | null;
+        };
         ReportCollectorRequest: {
             /** Format: uuid */
             reportedUserId: string;
@@ -6405,7 +6481,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
+            type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM";
             /** @example Wishlist alert: Azure-Eyes */
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada. */
@@ -6899,6 +6975,16 @@ export interface components {
              * @description Account id of the recipient
              */
             recipientId: string;
+            /**
+             * Format: uuid
+             * @description Stage R4: the card (inventory item) the chat is about, which becomes its subject (the latest wins). It must be public and the recipient's, or yours.
+             */
+            subjectItemId?: string;
+            /**
+             * Format: uuid
+             * @description Stage R4: the deck core (binder) the chat is about, which becomes its subject. It must be public and the recipient's, or yours. At most one of subjectItemId and subjectBinderId.
+             */
+            subjectBinderId?: string;
         };
         /** @description The other participant of a conversation */
         ConversationParticipant: {
@@ -6911,6 +6997,36 @@ export interface components {
             avatarUrl?: string | null;
             /** @enum {string} */
             onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            place?: components["schemas"]["Place"];
+        };
+        /** @description The card or deck core a chat is about */
+        ConversationSubject: {
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            ownerId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** @example RA01-EN008 */
+            printingCode?: string | null;
+            /** @example Secret Rare */
+            rarity?: string | null;
+            /** Format: uuid */
+            cardId?: string | null;
+            /** Format: uuid */
+            printingId?: string | null;
+            imageUrl?: string | null;
+            /** @example $32 */
+            askingPriceText?: string | null;
+            sold: boolean;
+            listed: boolean;
+            /**
+             * Format: int32
+             * @description The owner's copies (the owner's view of a card)
+             */
+            copies?: number | null;
         };
         /** @description A private conversation of the caller */
         ConversationSummary: {
@@ -6924,6 +7040,7 @@ export interface components {
             archived: boolean;
             /** Format: date-time */
             createdAt: string;
+            subject?: components["schemas"]["ConversationSubject"];
         };
         /** @description Last message of a conversation */
         LastMessage: {
@@ -6937,6 +7054,36 @@ export interface components {
             createdAt: string;
             /** Format: uuid */
             senderId?: string | null;
+            /** @enum {string|null} */
+            systemTopic?: "OFFER" | "SALE" | null;
+            sale?: components["schemas"]["SaleNotice"];
+        };
+        /** @description The sale announced by a SYSTEM message */
+        SaleNotice: {
+            /** Format: uuid */
+            saleId: string;
+            /** Format: uuid */
+            sellerId: string;
+            /** Format: uuid */
+            buyerId: string;
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: int32 */
+            quantity: number;
+            /** @example 7023 2109 8876 5432 */
+            trackingNumber?: string | null;
+            undone: boolean;
+        };
+        MarkSoldRequest: {
+            /**
+             * Format: int32
+             * @description Copies sold (1 by default; a deck core sells as one); at most the copies the seller holds
+             */
+            quantity?: number;
+            /** @description Optional tracking number of the shipment (letters, digits, spaces, dots and dashes; trimmed); seen by the two collectors only */
+            trackingNumber?: string;
         };
         MarkConversationReadRequest: {
             /**
@@ -6955,7 +7102,7 @@ export interface components {
             body?: string;
             /**
              * Format: uuid
-             * @description CARD_LINK: the printing to share
+             * @description CARD_LINK: the printing to share (or inventoryItemId for one of your own cards)
              */
             cardPrintingId?: string;
             /**
@@ -6973,6 +7120,11 @@ export interface components {
              * @description IMAGE: uploadId of POST /uploads/images (within 1 h)
              */
             imageUploadId?: string;
+            /**
+             * Format: uuid
+             * @description CARD_LINK (stage R4): one of your own cards, live in your inventory: shares its picture, code and price as typed (a private card is shown to this collector only) and pins it as the chat's subject
+             */
+            inventoryItemId?: string;
         };
         /** @description A public binder shared in a message or post */
         BinderLink: {
@@ -7012,6 +7164,8 @@ export interface components {
             binder?: components["schemas"]["BinderLink"];
             offer?: components["schemas"]["OfferLink"];
             image?: components["schemas"]["MessageImage"];
+            item?: components["schemas"]["SharedItem"];
+            sale?: components["schemas"]["SaleNotice"];
         };
         /** @description A private message */
         MessageResponse: {
@@ -7042,6 +7196,17 @@ export interface components {
             summary: string;
             /** @description Picture of the offered card (OrenjiTrade's own card image or placeholder URL) */
             imageUrl?: string | null;
+        };
+        /** @description The sender's own card shared from their inventory */
+        SharedItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            ownerId: string;
+            /** @example 85% TCG */
+            askingPriceText?: string | null;
+            /** @example Secret Rare */
+            rarity?: string | null;
         };
         CreateReplyRequest: {
             body: string;
@@ -8418,7 +8583,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED";
+            kind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED" | "SALE";
             /** Format: date-time */
             occurredAt: string;
             alreadyRated: boolean;
@@ -9724,7 +9889,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -13686,6 +13851,91 @@ export interface operations {
             };
         };
     };
+    undoSale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The undone sale */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FORBIDDEN (the buyer) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown sale */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description SALE_UNDO_CLOSED or SALE_ALREADY_RATED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     reportCollector: {
         parameters: {
             query?: never;
@@ -16506,6 +16756,104 @@ export interface operations {
             };
             /** @description Unknown recipient */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    markSold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkSoldRequest"];
+            };
+        };
+        responses: {
+            /** @description The sale */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FORBIDDEN (not the seller) or MESSAGING_BLOCKED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown conversation (or not a participant, or hidden by a block) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOTHING_LEFT_TO_SELL, or CONFLICT for a chat without a subject */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20934,6 +21282,82 @@ export interface operations {
             };
             /** @description IMPORT_ALREADY_COMMITTED, or CONFLICT for a row that fits nothing */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummary"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown conversation (or not a participant, or hidden by a block) */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
