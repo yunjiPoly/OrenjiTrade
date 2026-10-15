@@ -36,8 +36,8 @@ export interface DeckCorePageProps {
  * core", the game, the name and the price in large type; the seller row ("{province} · {n} public
  * binders", opens the profile); the note; "Key cards" as chips "{card} ×{n}" (a chip opens the card
  * page; "Who has this card" comes with stage R5); and the fixed button "Message {handle}", which
- * opens the chat with the seller (pinning the deck core to it is stage R4's). The owner sees "Edit
- * binder" instead.
+ * opens the chat with the seller about this deck core (its pinned bar, stage R4). The owner sees
+ * "Edit binder" instead.
  */
 export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProps) {
   const { palette } = useTheme();
@@ -222,7 +222,8 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
             label={DECK_CORE_COPY.message(owner.handle)}
             icon="message-outline"
             loading={startingId === owner.id}
-            onPress={() => void message(owner.id)}
+            // The chat opens about this deck core (stage R4: the pinned bar and the buying tip).
+            onPress={() => void message(owner.id, { binderId: binder.id })}
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             testID="deck-core-message"
           />

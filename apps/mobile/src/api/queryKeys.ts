@@ -118,6 +118,8 @@ export const meKeys = {
   /** Ratings (Phase 7): what the caller may still rate about one collector. */
   ratingEligibility: (uid: Uid, userId: string) =>
     [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
+  /** Every rating eligibility of this viewer (prefix: a sale or its undo changes them). */
+  ratingEligibilities: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'rating-eligibility'] as const,
   /** The caller's collector reports (`GET /me/reports`). */
   reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
 };

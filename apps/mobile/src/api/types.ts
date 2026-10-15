@@ -136,6 +136,13 @@ export type CardLink = Schemas['CardLink'];
 export type BinderLink = Schemas['BinderLink'];
 export type OfferLink = Schemas['OfferLink'];
 export type MessageImage = Schemas['MessageImage'];
+// --- Chat subjects and Mark as sold (stage R4 of the phone redesign) ---------------------------
+export type ConversationSubject = Schemas['ConversationSubject'];
+export type SaleNotice = Schemas['SaleNotice'];
+export type SharedItem = Schemas['SharedItem'];
+export type SaleResponse = Schemas['SaleResponse'];
+export type MarkSoldRequest = Schemas['MarkSoldRequest'];
+export type StartConversationRequest = Schemas['StartConversationRequest'];
 export type ImageUploadResponse = Schemas['ImageUploadResponse'];
 export type BlockedUser = Schemas['BlockedUser'];
 

@@ -46,12 +46,14 @@ export const INTERACTION_KIND_LABELS: Record<string, string> = {
   TRADE: 'Completed trade',
   OFFER_ACCEPTED: 'Accepted offer',
   CONVERSATION_QUALIFIED: 'Conversation',
+  SALE: 'Sale',
 };
 
 export const INTERACTION_KIND_ICONS: Record<string, IconName> = {
   TRADE: 'handshake',
   OFFER_ACCEPTED: 'tag-outline',
   CONVERSATION_QUALIFIED: 'forum-outline',
+  SALE: 'package-variant-closed',
 };
 
 export function interactionKindLabel(kind: string | null | undefined): string {

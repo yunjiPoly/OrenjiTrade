@@ -12,15 +12,17 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
-import { relativeTime } from '@/src/lib/relativeTime';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, useTheme } from '@/src/theme';
 
+import { INBOX_COPY } from './chatCopy';
 import { inboxConversations } from './conversationCache';
-import { badgeCount, listPreview } from './messageText';
+import { inboxTime } from './dealRules';
+import { listPreview } from './messageText';
+import { SubjectThumb } from './SubjectThumb';
 
 /** Accessible name of an inbox row (web: `ConversationListComponent.rowLabel`). */
 export function rowLabel(conversation: ConversationSummary, selfId: string | null): string {
-  const parts = [conversation.other.displayName];
+  const parts = [conversation.other.handle];
   if (conversation.other.onlineStatus === 'ONLINE') {
     parts.push('online');
   }
@@ -33,6 +35,9 @@ export function rowLabel(conversation: ConversationSummary, selfId: string | nul
     parts.push('muted');
   }
   parts.push(listPreview(conversation, selfId));
+  if (conversation.subject) {
+    parts.push(INBOX_COPY.about(conversation.subject.name));
+  }
   return parts.join(', ');
 }
 
@@ -47,16 +52,16 @@ function ConversationRow({
 }) {
   const { palette } = useTheme();
   const unread = conversation.unreadCount > 0;
+  const handle = conversation.other.handle;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={rowLabel(conversation, selfId)}
       onPress={onPress}
-      testID={`conversation-row-${conversation.other.handle}`}
+      testID={`conversation-row-${handle}`}
       style={({ pressed }) => [
         styles.row,
         { borderBottomColor: palette.border },
-        unread && { backgroundColor: palette.surface },
         pressed && styles.pressed,
       ]}
     >
@@ -79,54 +84,60 @@ function ConversationRow({
         <View style={styles.top}>
           <Text
             numberOfLines={1}
-            style={[
-              textStyle('md'),
-              styles.name,
-              unread && styles.unreadName,
-              { color: palette.ink },
-            ]}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.handle, { color: palette.ink }]}
           >
-            {conversation.other.displayName}
+            {handle}
           </Text>
-          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-            {relativeTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
+          <Text
+            testID={`conversation-time-${handle}`}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.time, { color: unread ? palette.primary : palette.textMuted }]}
+          >
+            {inboxTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
           </Text>
         </View>
         <View style={styles.bottom}>
           <Text
             numberOfLines={1}
-            testID={`conversation-preview-${conversation.other.handle}`}
+            testID={`conversation-preview-${handle}`}
             style={[
-              textStyle('sm'),
               styles.preview,
+              unread && styles.previewUnread,
               { color: unread ? palette.ink : palette.textMuted },
             ]}
           >
             {listPreview(conversation, selfId)}
           </Text>
           {conversation.muted ? (
-            <MaterialCommunityIcons name="bell-off-outline" size={16} color={palette.textMuted} />
+            <MaterialCommunityIcons
+              name="bell-off-outline"
+              size={15}
+              color={palette.textMuted}
+              testID={`conversation-muted-${handle}`}
+            />
           ) : null}
           {unread ? (
             <View
-              testID={`unread-badge-${conversation.other.handle}`}
-              style={[styles.badge, { backgroundColor: palette.primary }]}
-            >
-              <Text style={[textStyle('xs'), styles.badgeText, { color: palette.onPrimary }]}>
-                {badgeCount(conversation.unreadCount)}
-              </Text>
-            </View>
+              testID={`unread-badge-${handle}`}
+              style={[styles.unreadDot, { backgroundColor: palette.primary }]}
+            />
           ) : null}
         </View>
       </View>
+      {conversation.subject ? (
+        <SubjectThumb subject={conversation.subject} testID={`conversation-subject-${handle}`} />
+      ) : null}
     </Pressable>
   );
 }
 
 /**
- * The inbox (the web's `app-conversation-list` in the messenger): avatar with online dot, name,
- * time of the last activity, preview ("You: …" for own messages), muted icon and unread badge;
- * older pages on scroll, pull to refresh; skeleton, empty and error-with-retry states.
+ * The inbox (owner spec 2026-10-14, section 10, mockup screen 22): avatar with the online dot, the
+ * handle, the time ("2 min", "1 h", "Yesterday", "Mon", "Sep 28"), the last message ("You: " before
+ * the caller's, a sale worded for the reader) and, on the right, the picture of the card or deck
+ * core the chat is about. Unread chats: bold text, an orange time and an orange dot; muted ones
+ * keep the muted icon. Older pages on scroll, pull to refresh; skeleton, empty and error states.
  */
 export function InboxView() {
   const router = useRouter();
@@ -140,7 +151,7 @@ export function InboxView() {
         <ErrorState
           testID="inbox-error"
           error={inbox.error}
-          title="Conversations could not load"
+          title={INBOX_COPY.loadError}
           onRetry={() => void inbox.refetch()}
         />
       );
@@ -189,9 +200,9 @@ export function InboxView() {
         <EmptyState
           testID="inbox-empty"
           icon="forum-outline"
-          title="No conversations yet"
-          description="Find a card or a binder in search, open the collector's profile and press Message to start trading."
-          actionLabel="Open search"
+          title={INBOX_COPY.emptyTitle}
+          description={INBOX_COPY.empty}
+          actionLabel={INBOX_COPY.emptyAction}
           onAction={() => router.navigate('/search')}
         />
       }
@@ -206,34 +217,28 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
+    gap: 12,
+    minHeight: 76,
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   online: {
     position: 'absolute',
     right: 0,
     bottom: 0,
-    width: 13,
-    height: 13,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 2,
   },
-  main: { flex: 1, gap: 2 },
-  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  name: { flexShrink: 1, fontWeight: fontWeight.medium },
-  unreadName: { fontWeight: fontWeight.bold },
+  main: { flex: 1, minWidth: 0, gap: 3 },
+  top: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  handle: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  time: { fontSize: 12, lineHeight: 16 },
   bottom: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  preview: { flex: 1 },
-  badge: {
-    minWidth: 22,
-    height: 22,
-    paddingHorizontal: 6,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { fontWeight: fontWeight.bold },
+  preview: { flex: 1, fontSize: 13, lineHeight: 18 },
+  previewUnread: { fontWeight: fontWeight.semibold },
+  unreadDot: { width: 9, height: 9, borderRadius: 5 },
   pressed: { opacity: 0.8 },
 });

@@ -6,53 +6,31 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { ListRow } from '@/src/components/ui/Layout';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+
+import { CHAT_COPY } from './chatCopy';
+import { chatStatusLine } from './dealRules';
 
 export type ThreadMenuAction =
   'mute' | 'unmute' | 'archive' | 'block' | 'unblock' | 'report' | 'rate';
 
-/** The status line under the other collector's name (web: `ThreadHeaderComponent.status`). */
+/**
+ * The status line under the other collector's handle (mockup screen 23): "Online · {province}" or
+ * "{province}", "typing…" while they type, "Blocked" once blocked; never a city (ADR 0017).
+ */
 export function threadStatus(
   conversation: ConversationSummary,
   typing: boolean,
   blocked: boolean
 ): string {
-  if (blocked) {
-    return 'Blocked';
-  }
-  if (typing) {
-    return 'typing…';
-  }
-  return conversation.other.onlineStatus === 'ONLINE'
-    ? 'Online now'
-    : `@${conversation.other.handle}`;
+  return chatStatusLine(conversation, typing, blocked);
 }
 
 /**
- * The conversation options button, shown in the navigation header (`headerRight`): the top-right
- * corner under the header is where Expo Go floats its tools button, so no control goes there.
- */
-export function ThreadMenuButton({ name, onPress }: { name: string; onPress: () => void }) {
-  const { palette } = useTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Conversation options for ${name}`}
-      onPress={onPress}
-      hitSlop={8}
-      testID="conversation-menu"
-      style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
-    >
-      <MaterialCommunityIcons name="dots-vertical" size={24} color={palette.ink} />
-    </Pressable>
-  );
-}
-
-/**
- * Thread header (the web's `app-thread-header`): the other collector (avatar, online dot,
- * "typing…", link to their profile) and the conversation options in a bottom sheet (opened by
- * {@link ThreadMenuButton}): mute, archive, rate them (when an interaction can still be rated),
- * block / unblock and report the collector.
+ * The chat's top bar (owner spec 2026-10-14, section 10, mockup screens 23 and 24): back; the other
+ * collector's avatar with the online dot, handle and status line, which open their profile; "⋯",
+ * whose sheet holds "Rate {handle}" (while an interaction can still be rated), Mute, Archive,
+ * "Report {handle}" and "Block {handle}" in red (or Unblock).
  */
 export function ThreadHeader({
   conversation,
@@ -60,6 +38,9 @@ export function ThreadHeader({
   blocked,
   canRate = false,
   menuOpen,
+  topInset,
+  onBack,
+  onOpenMenu,
   onCloseMenu,
   onProfile,
   onAction,
@@ -70,19 +51,42 @@ export function ThreadHeader({
   /** An interaction with the other collector can still be rated ("Rate …"). */
   canRate?: boolean;
   menuOpen: boolean;
+  /** The status bar's height: the bar draws below it. */
+  topInset: number;
+  onBack: () => void;
+  onOpenMenu: () => void;
   onCloseMenu: () => void;
   onProfile: () => void;
   onAction: (action: ThreadMenuAction) => void;
 }) {
   const { palette } = useTheme();
   const other = conversation.other;
+  const status = threadStatus(conversation, typing, blocked);
   return (
     <View
-      style={[styles.head, { borderBottomColor: palette.border, backgroundColor: palette.surface }]}
+      style={[
+        styles.bar,
+        {
+          paddingTop: topInset + 8,
+          borderBottomColor: palette.border,
+          backgroundColor: palette.background,
+        },
+      ]}
     >
       <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={CHAT_COPY.back}
+        onPress={onBack}
+        // The id of the navigation header's back button: the flows go back the same way.
+        testID="BackButton"
+        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
+      </Pressable>
+      <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`View the profile of ${other.displayName}`}
+        accessibilityLabel={CHAT_COPY.profile(other.handle)}
+        accessibilityHint={status || undefined}
         onPress={onProfile}
         testID="conversation-profile"
         style={({ pressed }) => [styles.who, pressed && styles.pressed]}
@@ -94,34 +98,54 @@ export function ThreadHeader({
               testID="conversation-online"
               style={[
                 styles.online,
-                { backgroundColor: palette.online.online, borderColor: palette.surface },
+                { backgroundColor: palette.online.online, borderColor: palette.background },
               ]}
             />
           ) : null}
         </View>
         <View style={styles.grow}>
-          <Text numberOfLines={1} style={[textStyle('md'), styles.strong, { color: palette.ink }]}>
-            {other.displayName}
-          </Text>
           <Text
-            testID="conversation-status"
-            style={[textStyle('xs'), { color: typing ? palette.primary : palette.textMuted }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.handle, { color: palette.ink }]}
           >
-            {threadStatus(conversation, typing, blocked)}
-            {conversation.muted ? ' · Muted' : ''}
+            {other.handle}
           </Text>
+          {status ? (
+            <Text
+              testID="conversation-status"
+              numberOfLines={1}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.status, { color: typing ? palette.primary : palette.textMuted }]}
+            >
+              {status}
+            </Text>
+          ) : null}
         </View>
       </Pressable>
-      <BottomSheet
-        visible={menuOpen}
-        onClose={onCloseMenu}
-        title={other.displayName}
-        testID="conversation-menu-sheet"
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={CHAT_COPY.more(other.handle)}
+        onPress={onOpenMenu}
+        testID="conversation-menu"
+        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
       >
+        <MaterialCommunityIcons name="dots-horizontal" size={24} color={palette.ink} />
+      </Pressable>
+      <BottomSheet visible={menuOpen} onClose={onCloseMenu} testID="conversation-menu-sheet">
+        {canRate ? (
+          <ListRow
+            icon="star-outline"
+            label={CHAT_COPY.rate(other.handle)}
+            kind="button"
+            onPress={() => onAction('rate')}
+            testID="conversation-rate"
+          />
+        ) : null}
         {conversation.muted ? (
           <ListRow
             icon="bell-ring-outline"
-            label="Unmute"
+            label={CHAT_COPY.unmute}
             kind="button"
             onPress={() => onAction('unmute')}
             testID="conversation-unmute"
@@ -129,8 +153,8 @@ export function ThreadHeader({
         ) : (
           <ListRow
             icon="bell-off-outline"
-            label="Mute"
-            detail="No notifications for this conversation"
+            label={CHAT_COPY.mute}
+            detail={CHAT_COPY.muteDetail}
             kind="button"
             onPress={() => onAction('mute')}
             testID="conversation-mute"
@@ -138,25 +162,23 @@ export function ThreadHeader({
         )}
         <ListRow
           icon="archive-outline"
-          label="Archive"
-          detail="A new message brings it back"
+          label={CHAT_COPY.archive}
+          detail={CHAT_COPY.archiveDetail}
           kind="button"
           onPress={() => onAction('archive')}
           testID="conversation-archive"
         />
-        {canRate ? (
-          <ListRow
-            icon="star-outline"
-            label={`Rate ${other.displayName}`}
-            kind="button"
-            onPress={() => onAction('rate')}
-            testID="conversation-rate"
-          />
-        ) : null}
+        <ListRow
+          icon="flag-outline"
+          label={CHAT_COPY.report(other.handle)}
+          kind="button"
+          onPress={() => onAction('report')}
+          testID="conversation-report"
+        />
         {blocked ? (
           <ListRow
             icon="lock-open-variant-outline"
-            label={`Unblock ${other.displayName}`}
+            label={CHAT_COPY.unblock(other.handle)}
             kind="button"
             onPress={() => onAction('unblock')}
             testID="conversation-unblock"
@@ -164,47 +186,47 @@ export function ThreadHeader({
         ) : (
           <ListRow
             icon="cancel"
-            label={`Block ${other.displayName}`}
+            label={CHAT_COPY.block(other.handle)}
             kind="button"
             tone="danger"
             onPress={() => onAction('block')}
             testID="conversation-block"
           />
         )}
-        <ListRow
-          icon="flag-outline"
-          label="Report collector"
-          kind="button"
-          tone="danger"
-          onPress={() => onAction('report')}
-          testID="conversation-report"
-        />
       </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  head: {
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
+    gap: 2,
+    paddingRight: 4,
+    paddingLeft: 8,
+    paddingBottom: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  who: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  who: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   online: {
     position: 'absolute',
     right: -1,
     bottom: -1,
-    width: 12,
-    height: 12,
+    width: 11,
+    height: 11,
     borderRadius: 6,
     borderWidth: 2,
   },
-  grow: { flex: 1 },
-  strong: { fontWeight: fontWeight.semibold },
-  menuButton: { paddingHorizontal: spacing[2], paddingVertical: spacing[1] },
-  pressed: { opacity: 0.8 },
+  grow: { flex: 1, minWidth: 0, gap: 1 },
+  handle: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.semibold },
+  status: { fontSize: 12, lineHeight: 16 },
+  pressed: { opacity: 0.7 },
 });

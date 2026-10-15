@@ -9,16 +9,18 @@ import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
-import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import {
   removeFromInbox,
   restoreToInbox,
   useConversation,
   useMarkConversationRead,
+  useMarkSold,
   useMessages,
   useSendMessage,
+  useUndoSale,
   useUpdateConversation,
 } from '@/src/api/hooks/messaging';
+import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import { useUid } from '@/src/api/hooks/useUid';
 import type { ConversationParticipant, ConversationSummary } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
@@ -29,18 +31,18 @@ import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { rateableInteractions } from '@/src/features/collectors/ratingLabels';
+import { CHAT_COPY, COMPOSER_COPY, MARK_SOLD_COPY } from '@/src/features/messages/chatCopy';
 import { threadMessages } from '@/src/features/messages/conversationCache';
+import { chatSide, quickReplies } from '@/src/features/messages/dealRules';
+import { MarkSoldSheet } from '@/src/features/messages/MarkSoldSheet';
 import { MessageComposer } from '@/src/features/messages/MessageComposer';
 import {
   draftProblem,
   sendErrorMessage,
   type MessageDraft,
 } from '@/src/features/messages/messageDraft';
-import {
-  ThreadHeader,
-  ThreadMenuButton,
-  type ThreadMenuAction,
-} from '@/src/features/messages/ThreadHeader';
+import { PinnedBar } from '@/src/features/messages/PinnedBar';
+import { ThreadHeader, type ThreadMenuAction } from '@/src/features/messages/ThreadHeader';
 import {
   useOtherTyping,
   useSendTyping,
@@ -50,28 +52,47 @@ import { ThreadMessageList } from '@/src/features/messages/ThreadMessageList';
 import { ratingParams } from '@/src/features/ratings/ratingRoutes';
 import { reportParams } from '@/src/features/reports/reportLabels';
 import { ChatSafetyTip } from '@/src/features/safety/ChatSafetyTip';
-import { dealSideOf } from '@/src/features/safety/chatSafetyTips';
 import { useKeyboardOverlap } from '@/src/hooks/useKeyboardOverlap';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { spacing, useTheme } from '@/src/theme';
 
 /** Header-less fallback while the conversation summary cannot be read. */
 const UNKNOWN_PARTICIPANT: ConversationParticipant = {
   id: '',
-  handle: '',
+  handle: 'this collector',
   displayName: 'this collector',
   onlineStatus: 'HIDDEN',
 };
 
+/** Why Mark as sold or its undo was refused, in the chat's words. */
+function saleErrorMessage(error: unknown): string {
+  if (!isApiError(error)) {
+    return 'Something went wrong. Please try again.';
+  }
+  switch (error.errorCode) {
+    case 'NOTHING_LEFT_TO_SELL':
+      return MARK_SOLD_COPY.nothingLeft;
+    case 'SALE_UNDO_CLOSED':
+      return MARK_SOLD_COPY.undoClosed;
+    case 'SALE_ALREADY_RATED':
+      return MARK_SOLD_COPY.undoRated;
+    case 'VALIDATION_FAILED':
+      return error.message || friendlyMessage(error);
+    default:
+      return friendlyMessage(error);
+  }
+}
+
 /**
- * One conversation (the web's `/messages/:id` thread view): the header with the conversation
- * options (mute, archive, rate the collector when an interaction can still be rated, block /
- * unblock with confirmation, report the collector), the history (day separators, links to cards
- * and binders, photos, old offers as a grey line, "Sent" / "Seen", "… is typing", older pages on
- * scroll) and the composer (text, card or binder link, photo). Live over realtime; the newest
- * message is marked read while the thread is on screen. Refusals (403 `MESSAGING_BLOCKED`, 413 / 415 photos,
- * 422 `MESSAGE_BLOCKED`, 429) are explained under the composer. The safety tip of the deal's side
- * sits at the start of the conversation (ADR 0018: deals ship by mail, payment stays outside the
- * app; hidden once the thread is blocked).
+ * A chat (owner spec 2026-10-14, section 10, mockup screens 23 and 24; deals ship by mail and
+ * payment stays outside the app, ADR 0018): the top bar (back, the other collector's handle and
+ * "Online · {province}", "⋯" with Rate, Mute, Archive, Report and Block); the pinned bar of the card
+ * or deck core the chat is about (buying: its price, it opens the card or deck core page; selling:
+ * "your card" and "Mark as sold"; "Sold" after a sale); the safety tip of the reader's side at the
+ * start; the bubbles (day separators, times, shared cards with their price, photos, the sale
+ * message worded per side, old offers as a grey line); the quick replies; the message box with
+ * its "+" sheet (the saved address or e-Transfer email, a photo, a card from the inventory, a
+ * binder). Mark as sold opens its sheet, then the toast "Marked as sold" with Undo. Live over
+ * realtime; the newest message is marked read while the chat is on screen.
  */
 export default function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -89,6 +110,8 @@ export default function ConversationScreen() {
   const send = useSendMessage(conversationId, selfId);
   const markRead = useMarkConversationRead(conversationId);
   const update = useUpdateConversation();
+  const markSold = useMarkSold(conversationId);
+  const undoSale = useUndoSale();
   const block = useBlockUser();
   const unblock = useUnblockUser();
   const visible = useThreadVisible(id ?? null);
@@ -99,12 +122,21 @@ export default function ConversationScreen() {
   const [blockedByMe, setBlockedByMe] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
+  const [selling, setSelling] = useState(false);
+  const [saleError, setSaleError] = useState<string | null>(null);
   const summary = conversation.data ?? null;
   const other = summary?.other ?? null;
+  const handle = other?.handle ?? UNKNOWN_PARTICIPANT.handle;
+  const subject = summary?.subject ?? null;
+  const side = chatSide(subject, selfId);
   // "Rate …" is offered silently: nothing without an answer (the API refuses anyway).
   const eligibility = useRatingEligibility(other?.id);
   const canRate = rateableInteractions(eligibility.data).length > 0;
   const all = useMemo(() => threadMessages(messages.data), [messages.data]);
+  const replies = useMemo(
+    () => quickReplies(side, all, selfId, other?.id ?? null),
+    [all, other?.id, selfId, side]
+  );
   const unavailable =
     !messages.data && (messages.error?.status === 404 || messages.error?.status === 403);
 
@@ -117,7 +149,7 @@ export default function ConversationScreen() {
     if (!visible || !newest || newest.id === lastMarked.current) {
       return;
     }
-    const fromOther = !!newest.senderId && newest.senderId !== selfId;
+    const fromOther = newest.senderId !== selfId;
     if (!fromOther && unreadCount === 0) {
       return;
     }
@@ -132,6 +164,14 @@ export default function ConversationScreen() {
     );
   }, [all, markReadMutate, selfId, unreadCount, visible]);
 
+  const back = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/messages');
+    }
+  };
+
   const onSend = async (draft: MessageDraft): Promise<boolean> => {
     const problem = draftProblem(draft);
     if (problem) {
@@ -141,6 +181,10 @@ export default function ConversationScreen() {
     setSendError(null);
     try {
       await send.mutateAsync(draft);
+      if (draft.attachment?.kind === 'item') {
+        // The card shared becomes what the chat is about.
+        void conversation.refetch();
+      }
       return true;
     } catch (error) {
       const apiError = isApiError(error) ? error : null;
@@ -167,34 +211,36 @@ export default function ConversationScreen() {
     }
   };
 
+  const rate = () => {
+    if (other) {
+      router.push({ pathname: '/ratings/rate', params: ratingParams(other) });
+    }
+  };
+
+  const rateSale = () => {
+    if (other) {
+      router.push({ pathname: '/ratings/rate', params: ratingParams(other, { kind: 'SALE' }) });
+    }
+  };
+
   const onAction = async (action: ThreadMenuAction) => {
     setMenuOpen(false);
     if (!summary) {
       return;
     }
-    const name = summary.other.displayName;
+    const name = summary.other.handle;
     switch (action) {
       case 'mute':
       case 'unmute':
         await changeConversation(
           summary,
           { muted: action === 'mute' },
-          action === 'mute' ? 'Conversation muted.' : 'Conversation unmuted.'
+          action === 'mute' ? CHAT_COPY.mutedToast : CHAT_COPY.unmutedToast
         );
         break;
       case 'archive':
-        if (
-          await changeConversation(
-            summary,
-            { archived: true },
-            'Conversation archived. A new message brings it back.'
-          )
-        ) {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace('/messages');
-          }
+        if (await changeConversation(summary, { archived: true }, CHAT_COPY.archivedToast)) {
+          back();
         }
         break;
       case 'block':
@@ -210,12 +256,12 @@ export default function ConversationScreen() {
         });
         break;
       case 'rate':
-        router.push({ pathname: '/ratings/rate', params: ratingParams(summary.other) });
+        rate();
         break;
       case 'unblock':
         try {
           await unblock.mutateAsync({ id: summary.other.id });
-          snackbar.show(`${name} is unblocked.`);
+          snackbar.show(CHAT_COPY.unblockedToast(name));
           setBlockedByMe(false);
           setMessagingBlocked(false);
           setSendError(null);
@@ -235,7 +281,7 @@ export default function ConversationScreen() {
     try {
       await block.mutateAsync({ id: summary.other.id });
       setConfirmBlock(false);
-      snackbar.show(`${summary.other.displayName} is blocked.`);
+      snackbar.show(CHAT_COPY.blockedToast(summary.other.handle));
       setBlockedByMe(true);
       setMessagingBlocked(true);
       removeFromInbox(queryClient, uid, summary.id);
@@ -245,10 +291,54 @@ export default function ConversationScreen() {
     }
   };
 
+  const undo = async (saleId: string) => {
+    try {
+      await undoSale.mutateAsync({ saleId, conversationId });
+      snackbar.show(MARK_SOLD_COPY.undone);
+    } catch (error) {
+      snackbar.show(saleErrorMessage(error), { tone: 'error', duration: 6000 });
+    }
+  };
+
+  const confirmSale = async (sale: { quantity: number; trackingNumber: string | null }) => {
+    setSaleError(null);
+    try {
+      const created = await markSold.mutateAsync({
+        quantity: sale.quantity,
+        ...(sale.trackingNumber ? { trackingNumber: sale.trackingNumber } : {}),
+      });
+      setSelling(false);
+      snackbar.show(MARK_SOLD_COPY.toast, {
+        icon: 'success',
+        action: {
+          label: MARK_SOLD_COPY.undo,
+          onPress: () => void undo(created.id),
+          testID: 'mark-sold-undo',
+        },
+      });
+    } catch (error) {
+      setSaleError(saleErrorMessage(error));
+    }
+  };
+
+  const openSubject = () => {
+    if (!subject) {
+      return;
+    }
+    if (subject.kind === 'DECK_CORE') {
+      router.push({ pathname: '/binders/[id]', params: { id: subject.id } });
+    } else if (subject.cardId) {
+      router.push({
+        pathname: '/cards/[id]',
+        params: subject.printingId
+          ? { id: subject.cardId, printing: subject.printingId }
+          : { id: subject.cardId },
+      });
+    }
+  };
+
   const cannotSend = blockedByMe || messagingBlocked || unavailable;
-  const name = other?.displayName ?? 'this collector';
-  // Chats have no pinned card until stage R4: every chat reads the "without a card" tip.
-  const tip = blockedByMe ? null : <ChatSafetyTip side={dealSideOf(null, selfId)} />;
+  const tip = blockedByMe ? null : <ChatSafetyTip side={side} />;
 
   let body;
   if (!messages.data) {
@@ -257,9 +347,9 @@ export default function ConversationScreen() {
         <EmptyState
           testID="conversation-not-found"
           icon="message-off-outline"
-          title="This conversation is not available"
-          description="It may be hidden because of a block, or the collector left OrenjiTrade."
-          actionLabel="Back to messages"
+          title={CHAT_COPY.notFoundTitle}
+          description={CHAT_COPY.notFoundBody}
+          actionLabel={CHAT_COPY.notFoundAction}
           onAction={() => router.navigate('/messages')}
         />
       );
@@ -268,7 +358,7 @@ export default function ConversationScreen() {
         <ErrorState
           testID="conversation-error"
           error={messages.error}
-          title="Messages could not load"
+          title={CHAT_COPY.loadError}
           onRetry={() => void messages.refetch()}
         />
       );
@@ -277,7 +367,7 @@ export default function ConversationScreen() {
         <View
           style={styles.skeleton}
           testID="conversation-loading"
-          accessibilityLabel="Loading messages"
+          accessibilityLabel={CHAT_COPY.loading}
           aria-busy
         >
           <Skeleton width="55%" height={40} />
@@ -294,8 +384,8 @@ export default function ConversationScreen() {
         <EmptyState
           testID="conversation-empty"
           icon="hand-wave-outline"
-          title={`Say hello to ${name}`}
-          description="Ask about a card, share one from the catalog or one of your public binders."
+          title={CHAT_COPY.emptyTitle(handle)}
+          description={CHAT_COPY.emptyBody}
         />
       </View>
     );
@@ -310,6 +400,7 @@ export default function ConversationScreen() {
         olderFailed={messages.isFetchNextPageError}
         typing={typing}
         onLoadOlder={() => void messages.fetchNextPage()}
+        onRate={rateSale}
         start={tip}
       />
     );
@@ -322,14 +413,7 @@ export default function ConversationScreen() {
       testID="screen-conversation"
       style={[styles.fill, { backgroundColor: palette.background }]}
     >
-      <Stack.Screen
-        options={{
-          title: other?.displayName ?? 'Conversation',
-          headerRight: other
-            ? () => <ThreadMenuButton name={other.displayName} onPress={() => setMenuOpen(true)} />
-            : undefined,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false, title: other?.handle ?? 'Conversation' }} />
       {summary ? (
         <ThreadHeader
           conversation={summary}
@@ -337,11 +421,27 @@ export default function ConversationScreen() {
           blocked={blockedByMe}
           canRate={canRate}
           menuOpen={menuOpen}
+          topInset={insets.top}
+          onBack={back}
+          onOpenMenu={() => setMenuOpen(true)}
           onCloseMenu={() => setMenuOpen(false)}
           onProfile={() =>
             router.push({ pathname: '/collectors/[id]', params: { id: summary.other.handle } })
           }
           onAction={(action) => void onAction(action)}
+        />
+      ) : (
+        <View style={[styles.placeholderBar, { paddingTop: insets.top }]} />
+      )}
+      {subject && !blockedByMe ? (
+        <PinnedBar
+          subject={subject}
+          side={side}
+          onOpen={openSubject}
+          onMarkSold={() => {
+            setSaleError(null);
+            setSelling(true);
+          }}
         />
       ) : null}
       {blockedByMe ? (
@@ -351,12 +451,11 @@ export default function ConversationScreen() {
           style={[styles.banner, { backgroundColor: palette.primaryContainer }]}
         >
           <MaterialCommunityIcons name="cancel" size={20} color={palette.onPrimaryContainer} />
-          <Text style={[textStyle('sm'), styles.grow, { color: palette.onPrimaryContainer }]}>
-            You blocked {name}. Neither of you can send messages and this conversation is hidden
-            from your inbox.
+          <Text style={[styles.bannerText, { color: palette.onPrimaryContainer }]}>
+            {CHAT_COPY.youBlocked(handle)}
           </Text>
           <Button
-            label="Unblock"
+            label={CHAT_COPY.unblockAction}
             variant="ghost"
             onPress={() => void onAction('unblock')}
             loading={unblock.isPending}
@@ -370,8 +469,8 @@ export default function ConversationScreen() {
           style={[styles.banner, { backgroundColor: palette.surfaceVariant }]}
         >
           <MaterialCommunityIcons name="message-off-outline" size={20} color={palette.textMuted} />
-          <Text style={[textStyle('sm'), styles.grow, { color: palette.ink }]}>
-            You can no longer message {name}.
+          <Text style={[styles.bannerText, { color: palette.ink }]}>
+            {CHAT_COPY.cannotMessage(handle)}
           </Text>
         </View>
       ) : null}
@@ -380,8 +479,7 @@ export default function ConversationScreen() {
         style={[
           styles.composer,
           {
-            borderTopColor: palette.border,
-            backgroundColor: palette.surface,
+            backgroundColor: palette.background,
             paddingBottom: (keyboardOverlap > 0 ? keyboardOverlap : insets.bottom) + spacing[2],
           },
         ]}
@@ -390,17 +488,30 @@ export default function ConversationScreen() {
           busy={send.isPending}
           disabled={cannotSend || !messages.data}
           error={sendError}
-          placeholder={cannotSend ? `You cannot message ${name}` : `Message ${name}`}
+          placeholder={cannotSend ? COMPOSER_COPY.cannotSend(handle) : COMPOSER_COPY.placeholder}
+          side={side}
+          quickReplies={replies}
           onSend={onSend}
           onTyping={sendTyping}
           onDismissError={() => setSendError(null)}
         />
       </View>
+      {subject && side === 'selling' ? (
+        <MarkSoldSheet
+          visible={selling}
+          subject={subject}
+          buyer={handle}
+          busy={markSold.isPending}
+          error={saleError}
+          onConfirm={(sale) => void confirmSale(sale)}
+          onClose={() => setSelling(false)}
+        />
+      ) : null}
       <ConfirmDialog
         visible={confirmBlock}
-        title={`Block ${name}?`}
-        message="You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this conversation or from Settings → Blocked users."
-        confirmLabel="Block"
+        title={CHAT_COPY.blockTitle(handle)}
+        message={CHAT_COPY.blockBody}
+        confirmLabel={CHAT_COPY.blockConfirm}
         tone="danger"
         busy={block.isPending}
         onConfirm={() => void confirmBlocking()}
@@ -413,9 +524,9 @@ export default function ConversationScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  grow: { flex: 1 },
   skeleton: { padding: spacing[4], gap: spacing[3] },
   ownSkeleton: { alignSelf: 'flex-end' },
+  placeholderBar: { minHeight: 60 },
   banner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -423,9 +534,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
   },
+  bannerText: { flex: 1, fontSize: 13, lineHeight: 18 },
   composer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing[3],
-    paddingTop: spacing[2],
+    paddingHorizontal: 12,
+    paddingTop: 6,
   },
 });
