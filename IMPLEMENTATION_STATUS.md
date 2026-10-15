@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-14 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
+**Last updated:** 2026-10-14 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fix 1 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
 **Last updated:** 2026-10-14 (stage R1 of the phone redesign, "Offers out, shipping wording, look": offers, trades, protected payments and disputes off the phone (ADR 0018, "Deals happen in the chat"), the chat safety tip per side, ratings without meetup reliability, V115 (the meetup tag hidden) and V116 (region channels by mail), shipping seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono through the theme, a new install in dark — branch `feature/r1-offers-out-shipping-look`, builder done, review fix 1 done (the bio placeholder, the last seeded meetup line, the inbox line of old offers, the keyboard and system views in the dark default, the switch thumb, the lint rule for the fonts, tests for the hidden notification categories, the report reasons and the seeds), not pushed; see "Phone redesign R1: offers out, shipping wording, look (2026-10-14)")
 **Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, rounds 1 and 2; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: stage S2 (#60), the first run on Apple Silicon (#59), the iOS path of the native suite (#61), mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
@@ -5219,6 +5219,53 @@ minutes back and runs the job itself).
   text of that size (the mockup is dark only, where the orange reads at 8.2 : 1). Not changed: an
   owner question for the look.
 
+**Review fix 1 (2026-10-14)** (commits `8ca102c` to `86f0081`, then this text; two reviewers, a functional
+verifier and product and UX as a collector; findings and what was done):
+
+| Finding | What was done |
+| --- | --- |
+| F1 (blocker) emptying a plain-amount price on Edit card kept `asking_price` ("$12.50" came back) | `InventoryService`: a typed price text, even an empty one, decides the amount (`PriceInput.Source.TYPED`); `askingPriceText: null` or blanks clear both, also for a card priced on the paused web. IT `emptyingThePriceOnEditCardClearsTheAmountItGave` |
+| F2 (blocker) native flow 1 picked the newest photo by date, not its own copy | the harness dates the flows' fictional picture now before each run (`freshenFlowMedia`, `simctl addmedia` keeps a file's date); the flow checks that the photo was saved ("Saved", not "Saved · 1 photo wasn't saved") before View. Node test of the harness |
+| U1 / F3 (major) a card code shared by several printings added the first one silently | `GET /cards/suggest` PRINTING entries gain `edition`, `language`, `finish` (additive); Add cards keeps one Exact printings row per printing with what tells it apart ("1st Edition", "Unlimited"); Add to inventory and Edit card name it under the code. CatalogSearchIT, jest |
+| U2 / F4 (major) "Collectors in {region} can find it." for public cards nobody can find | the hint is the spec's only when it is true; otherwise the reason: no location, hidden from the map, a private profile, paused public cards, a private binder or one not public right now (`publicCardHint`, `useCardFindability`); private binders carry a "Private" tag in the binder picker. "{n} public" counts the cards set to public, as the Public filter lists them (F7) |
+| U3 (minor) a photo that failed while adding: "Saved" and the message below the fold | the toast says "Saved · 1 photo wasn't saved"; Edit card opens at the end of the form, on the failure line (announced to VoiceOver); leaving while a photo can still be saved asks first ("Leave without this photo?", Stay / Leave); a delete leaves without asking |
+| U4 (minor) a photo the API refuses showed a "Try again" that can never work | each failed upload keeps its error; for 400, 409, 413 and 415 the photo says why ("This photo is too large: at most 8192 pixels on each side. Choose another one.") with "Remove it", and "Try again" is only for network and server errors |
+| U5 (minor) at the largest text the search field, the Private / Public labels and the add tile broke | "Cancel" and the two labels keep at most 1.35 times their size; the add tile grows with its label |
+| U6 (minor) a text size changed while the app is open left the Inventory header broken | the Inventory's content mounts again for each text size (keyed on `fontScale`) |
+| U7 (minor) in Select mode the saved card's orange ring looked selected | no saved ring in Select mode (jest `screens/inventory`) |
+| F5 (major) restore and the photo purge had no lock-order test, and the lock rules did not name them | `RESTORE` / `ITEM_RESTORE` in `InventoryLockOrderIT`'s item and owner writes; a binder delete holding its deleted cards next to the photo purge (`thePhotoPurgeNeverWaitsForTheDeletedCardsABinderDeleteHolds`); `docs/database/schema.md` names restore, `endRestoreWindowsInBinder` and the purge's `SKIP LOCKED` |
+| F6 (minor) nothing tested that the hourly freshness run starts the photo purge | IT `theHourlyFreshnessJobRunsThePhotoPurge` through `POST /internal/jobs/freshness` |
+| F7 (minor) "{n} public" counted temporary publications the Public filter left out | `GET /inventory/items?markedPublic=true` (optional, additive): the phone's Public filter lists PUBLIC and TEMPORARILY_PUBLIC, the cards the summary counts. IT `thePublicFilterListsTheCardsTheSummaryCountsAsPublic` |
+| F8 (minor) Add and Edit still wired "Premium raises the limit" and See Premium | a reached `inventory.items.max` reads as a plain cap for everyone ("Your inventory is full: it holds at most {n} cards. …"); `LimitReachedNotice` itself is left to stage F1 |
+| F9 (minor) Undo only while the 5-second toast shows, the server allows 10 minutes | not changed: the spec asks for the toast's Undo (about 5 seconds; 15 with a screen reader); an owner question (a longer toast for a delete, or a "Recently deleted · Undo" line) |
+
+Checks of review fix 1 (retries off): spotlessCheck passed; `npm run test:api` 174 classes / **1028 tests**
+(+8: `InventoryPhoneFormIT` 13, `InventoryLockOrderIT` +5 for restore and the purge) + 12 catalog
+tests, 0 failures (4 min 3 s); `exportOpenApi` + `generate:api` committed, git clean afterwards;
+web build **899.31 kB** initial (no web file changed), `test:web` 142 files / 678 tests, web lint
+and format clean; `npm run test:e2e` **74 / 74**; mobile typecheck, lint, format clean; `npm run
+test:mobile` jest 92 suites / **941 tests** + 28 guard tests; `expo export` iOS, Android and web
+passed; `npm run test:mobile:e2e` **57 / 57** (again on the final tree); `npm run
+test:mobile:maestro -- --platform ios` **30 / 30** in 46 min 44 s on the owner's iPhone 18 Pro
+(native flow 1 also alone, 2 min 3 s); `npm run test:scripts` 135 / 135; `npm run audit:gate`
+passed. Two mutations were run by hand and caught: the old price rule (an empty text keeps the
+amount) fails `emptyingThePriceOnEditCardClearsTheAmountItGave`, and the freshness job without
+the photo purge fails `theHourlyFreshnessJobRunsThePhotoPurge`.
+
+Walked on the simulator (scratch Maestro flows, screenshots outside the repository): "GLM-EN002"
+lists "1st Edition" and "Unlimited" apart and the Unlimited one opens with "Unlimited" in the
+header; a collector without a location sees why nobody can find a public card; at the largest
+text size "tidal" stays readable next to "Cancel", "Private" / "Public" stay whole and the add tile
+grows; the text size changed live to the largest and back keeps the Inventory's title, "Add
+cards", the counts and the totals in place; with the photo storage made read-only during an add,
+the toast reads "Saved · 1 photo wasn't saved", Edit card opens on the failure line, Back asks
+"Leave without this photo?", Stay, then "Try again" saves it (the API holds one photo) and Back
+leaves without asking. Found during the walk and fixed: Add to inventory opened scrolled past its
+header after a long list of printings had been scrolled (each step of the add now opens at its
+top, `86f0081`). The owner's text size (Large) and light appearance were put back; the photo
+library holds four more fictional copies of the flow picture (two runs of flow 1, two walks).
+Not verifiable here: the Android run (no Android SDK on this Mac).
+
 ## NEXT TASK
 
 > **Stage R2 of the phone redesign is built** ("Inventory and adding cards", mockup screens 1 to
@@ -5228,16 +5275,18 @@ minutes back and runs the job itself).
 > /inventory/items/{id}/restore`, the `inventory-photo-purge` job, `PATCH … confirm`,
 > `sort=created`, the catalog suggestions with set, rarity and printing count; on the phone the
 > Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory
-> with photos, Edit card, the toasts with "View" and "Undo". **Next for this branch:** its two
-> independent reviewers (a functional verifier, and product and UX as a collector), at most two
-> fix rounds, then its ship step once R1 is on `main` (merge `main`; the check list of
+> with photos, Edit card, the toasts with "View" and "Undo". Its two reviewers (a functional
+> verifier, and product and UX as a collector) ran; **review fix 1 is done** (the emptied price,
+> native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text,
+> the lock tests; see "Review fix 1" in the R2 section). **Next for this branch:** the reviewers
+> again, at most one more fix round, then its ship step once R1 is on `main` (merge `main`; the check list of
 > `docs/development/claude-handoff.md`; the pull request; merge when CI is green). Migrations V001
 > to V117 exist on this branch (V117 is R2's); stage F1 (free for all, another worktree) takes
 > V120 and after, so **R3 starts at V118** unless F1 lands first (then the next free number). Owner
 > points from R2 (all in the R2 section): the condition sent as `""` with `conditionStated: false`
 > (a nullable one breaks the paused web's build); the 10-minute undo is a constant, not an admin
 > setting; the fictional photos left in the simulator's photo library; the light theme's orange
-> under 4.5 : 1.
+> under 4.5 : 1; the undo only while the toast shows (F9 of review fix 1).
 >
 > **Exact next task after R2 ships: stage R3 of the phone redesign, "Binders and deck cores"**
 > (mockup screens 16 to 18, and Inventory › Binders), on a new branch from the `main` that holds
