@@ -55,6 +55,7 @@ export interface ListInventoryItemsRequestParams {
     binderId?: string;
     unfiled?: boolean;
     visibility?: 'PRIVATE' | 'PUBLIC' | 'TEMPORARILY_PUBLIC';
+    markedPublic?: boolean;
     availability?: 'COLLECTION_ONLY' | 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'NOT_AVAILABLE';
     condition?: string;
     freshness?: 'ACTIVE' | 'AGING' | 'STALE' | 'HIDDEN';

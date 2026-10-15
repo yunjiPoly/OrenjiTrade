@@ -329,6 +329,40 @@ class InventoryPhoneFormIT extends AbstractIntegrationTest {
         callJson(HttpMethod.GET, ITEMS + "?sort=oldest", uid, null, 400);
     }
 
+    /**
+     * The phone's "Public" filter and its "{n} public" count the same cards: the ones set to
+     * public, a temporary publication of the paused web included (Edit card shows it as Public).
+     */
+    @Test
+    void thePublicFilterListsTheCardsTheSummaryCountsAsPublic() {
+        String uid = uniqueUid("r2-public-filter");
+        provisionCompliant(uid);
+        String hidden = create(uid, phoneCard(azure, null)).path("id").asString();
+        Map<String, Object> shown = phoneCard(emberfang, null);
+        shown.put("visibility", "PUBLIC");
+        String open = create(uid, shown).path("id").asString();
+        Map<String, Object> temporary = phoneCard(tidebinder, null);
+        temporary.put("visibility", "TEMPORARILY_PUBLIC");
+        temporary.put("publicUntil", java.time.Instant.now().plusSeconds(86_400).toString());
+        String forAWhile = create(uid, temporary).path("id").asString();
+
+        JsonNode marked =
+                callJson(HttpMethod.GET, ITEMS + "?markedPublic=true&sort=name", uid, null, 200);
+        assertThat(ids(marked)).containsExactlyInAnyOrder(open, forAWhile);
+        assertThat(ids(callJson(HttpMethod.GET, ITEMS + "?visibility=PRIVATE", uid, null, 200)))
+                .containsExactly(hidden);
+        assertThat(ids(callJson(HttpMethod.GET, ITEMS, uid, null, 200))).hasSize(3);
+        JsonNode byVisibility =
+                callJson(HttpMethod.GET, "/api/v1/inventory/summary", uid, null, 200)
+                        .path("byVisibility");
+        assertThat(
+                        byVisibility.path("PUBLIC").asInt()
+                                + byVisibility.path("TEMPORARILY_PUBLIC").asInt())
+                .isEqualTo(marked.path("totalItems").asInt())
+                .isEqualTo(2);
+        callJson(HttpMethod.GET, ITEMS + "?markedPublic=maybe", uid, null, 400);
+    }
+
     @Test
     void anOwnersDeleteCanBeUndoneForTenMinutesWithEverythingItHad() {
         String uid = uniqueUid("r2-restore");

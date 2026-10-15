@@ -529,6 +529,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
         const binderId = requestParameters?.binderId;
         const unfiled = requestParameters?.unfiled;
         const visibility = requestParameters?.visibility;
+        const markedPublic = requestParameters?.markedPublic;
         const availability = requestParameters?.availability;
         const condition = requestParameters?.condition;
         const freshness = requestParameters?.freshness;
@@ -579,6 +580,15 @@ export class InventoryService extends BaseService implements InventoryServiceInt
             localVarQueryParameters,
             'visibility',
             <any>visibility,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'markedPublic',
+            <any>markedPublic,
             QueryParamStyle.Form,
             true,
         );

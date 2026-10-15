@@ -24,6 +24,9 @@ export interface CardSuggestion {
     setName?: string | null;
     rarity?: string | null;
     printingCount?: number | null;
+    edition?: string | null;
+    language?: string | null;
+    finish?: string | null;
 }
 export enum CardSuggestionKindEnum {
     Card = 'CARD',

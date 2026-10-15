@@ -291,6 +291,8 @@ public final class InventoryChanges {
      * @param binderId only this binder
      * @param unfiled only items without a binder
      * @param visibility only this visibility
+     * @param markedPublic only the items set to public: PUBLIC or TEMPORARILY_PUBLIC (the phone's
+     *     "Public" filter, review fix 1 of stage R2)
      * @param availability only this availability
      * @param condition only this condition
      * @param freshness only this freshness
@@ -305,6 +307,7 @@ public final class InventoryChanges {
             @Nullable UUID binderId,
             boolean unfiled,
             @Nullable ListingVisibility visibility,
+            boolean markedPublic,
             @Nullable Availability availability,
             @Nullable String condition,
             @Nullable FreshnessState freshness,

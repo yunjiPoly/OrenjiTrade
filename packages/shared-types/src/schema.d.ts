@@ -10763,6 +10763,12 @@ export interface components {
              * @example 3
              */
             printingCount?: number | null;
+            /** @example FIRST_EDITION */
+            edition?: string | null;
+            /** @example en */
+            language?: string | null;
+            /** @example NORMAL */
+            finish?: string | null;
         };
         /** @description A fake billing checkout (local only) */
         FakeBillingCheckout: {
@@ -18872,6 +18878,8 @@ export interface operations {
                 /** @description Only items without a binder */
                 unfiled?: boolean;
                 visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+                /** @description Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC (the phone's "Public" filter; whether others see them also depends on the binder and the owner) */
+                markedPublic?: boolean;
                 availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
                 /** @description Condition code, e.g. NEAR_MINT */
                 condition?: string;

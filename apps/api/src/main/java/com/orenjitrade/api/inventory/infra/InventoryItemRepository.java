@@ -232,6 +232,9 @@ public class InventoryItemRepository {
             where.append(" AND i.visibility = :visibility");
             params.put("visibility", query.visibility().name());
         }
+        if (query.markedPublic()) {
+            where.append(" AND i.visibility IN ('PUBLIC', 'TEMPORARILY_PUBLIC')");
+        }
         if (query.availability() != null) {
             where.append(" AND i.availability = :availability");
             params.put("availability", query.availability().name());

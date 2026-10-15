@@ -132,6 +132,14 @@ public class InventoryController {
                     @RequestParam(defaultValue = "false")
                     boolean unfiled,
             @RequestParam(required = false) @Nullable ListingVisibility visibility,
+            @Parameter(
+                            description =
+                                    "Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC"
+                                            + " (the phone's \"Public\" filter; whether others"
+                                            + " see them also depends on the binder and the"
+                                            + " owner)")
+                    @RequestParam(defaultValue = "false")
+                    boolean markedPublic,
             @RequestParam(required = false) @Nullable Availability availability,
             @Parameter(description = "Condition code, e.g. NEAR_MINT")
                     @RequestParam(required = false)
@@ -166,6 +174,7 @@ public class InventoryController {
                                 binderId,
                                 unfiled,
                                 visibility,
+                                markedPublic,
                                 availability,
                                 condition,
                                 freshness,
@@ -542,6 +551,7 @@ public class InventoryController {
             @Nullable UUID binderId,
             boolean unfiled,
             @Nullable ListingVisibility visibility,
+            boolean markedPublic,
             @Nullable Availability availability,
             @Nullable String condition,
             @Nullable FreshnessState freshness,
@@ -575,6 +585,7 @@ public class InventoryController {
                 binderId,
                 unfiled,
                 visibility,
+                markedPublic,
                 availability,
                 condition == null || condition.isBlank()
                         ? null

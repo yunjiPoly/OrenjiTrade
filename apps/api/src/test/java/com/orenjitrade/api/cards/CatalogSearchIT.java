@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -254,7 +258,26 @@ class CatalogSearchIT extends AbstractIntegrationTest {
                     assertThat(entry.path("setName").asString()).isEqualTo("Azure Dawn");
                     assertThat(entry.path("rarity").asString()).isNotEmpty();
                     assertThat(entry.has("printingCount")).isFalse();
+                    assertThat(entry.path("edition").asString()).isNotEmpty();
+                    assertThat(entry.path("language").asString()).isNotEmpty();
+                    assertThat(entry.path("finish").asString()).isNotEmpty();
                 });
+
+        // Review fix 1 of stage R2: printings that share a code are two entries, and each says
+        // what tells it apart (the phone shows "1st Edition" / "Unlimited" next to the code).
+        JsonNode twins = get("/api/v1/cards/suggest?q=GLM-EN002");
+        List<String> twinEditions = new ArrayList<>();
+        Set<String> twinIds = new HashSet<>();
+        twins.forEach(
+                entry -> {
+                    assertThat(entry.path("printingCode").asString()).isEqualTo("GLM-EN002");
+                    assertThat(entry.path("language").asString()).isEqualTo("en");
+                    assertThat(entry.path("finish").asString()).isEqualTo("NORMAL");
+                    twinEditions.add(entry.path("edition").asString());
+                    twinIds.add(entry.path("printingId").asString());
+                });
+        assertThat(twinEditions).containsExactly("FIRST_EDITION", "UNLIMITED");
+        assertThat(twinIds).hasSize(2);
 
         JsonNode azure = get("/api/v1/cards/suggest?q=azu&game=yugioh");
         assertThat(azure.get(0).path("kind").asString()).isEqualTo("CARD");
@@ -265,6 +288,7 @@ class CatalogSearchIT extends AbstractIntegrationTest {
         // Stage R2: a card says how many printings it has ("Yu-Gi-Oh! · 2 printings").
         assertThat(azure.get(0).path("printingCount").asInt()).isEqualTo(2);
         assertThat(azure.get(0).has("setName")).isFalse();
+        assertThat(azure.get(0).has("edition")).isFalse();
 
         assertThat(names(get("/api/v1/cards/suggest?q=emberf&game=pokemon")))
                 .contains("Emberfang Fox", "Emberfang Fox VMAX");

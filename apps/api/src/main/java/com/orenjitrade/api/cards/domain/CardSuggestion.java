@@ -19,6 +19,10 @@ import org.jspecify.annotations.Nullable;
  * @param setName name of the printing's set (PRINTING entries; stage R2)
  * @param rarity rarity of the printing (PRINTING entries; stage R2)
  * @param printingCount printings of the card (CARD entries; stage R2)
+ * @param edition edition code of the printing (PRINTING entries; review fix 1 of stage R2: the
+ *     printings that share a code differ by it, by the language or by the finish)
+ * @param language ISO 639-1 language of the printing (PRINTING entries)
+ * @param finish finish code of the printing (PRINTING entries)
  */
 @Schema(name = "CardSuggestion", description = "Autocomplete entry (card or printing)")
 public record CardSuggestion(
@@ -32,7 +36,10 @@ public record CardSuggestion(
         @Nullable String imageUrl,
         @Schema(example = "Azure Dawn", nullable = true) @Nullable String setName,
         @Schema(example = "Ultra Rare", nullable = true) @Nullable String rarity,
-        @Schema(example = "3", nullable = true) @Nullable Integer printingCount) {
+        @Schema(example = "3", nullable = true) @Nullable Integer printingCount,
+        @Schema(example = "FIRST_EDITION", nullable = true) @Nullable String edition,
+        @Schema(example = "en", nullable = true) @Nullable String language,
+        @Schema(example = "NORMAL", nullable = true) @Nullable String finish) {
 
     public static final String CARD = "CARD";
     public static final String PRINTING = "PRINTING";

@@ -546,7 +546,10 @@ public class CatalogQueryRepository {
                                             row.imageId(), refs, suggestion.game(), row.cardSlug()),
                                     suggestion.setName(),
                                     suggestion.rarity(),
-                                    suggestion.printingCount());
+                                    suggestion.printingCount(),
+                                    suggestion.edition(),
+                                    suggestion.language(),
+                                    suggestion.finish());
                         })
                 .toList();
     }
@@ -562,7 +565,7 @@ public class CatalogQueryRepository {
                         """
                         SELECT p.id AS printing_id, c.id AS card_id, c.name, c.slug AS card_slug,
                                g.slug AS game, s.code AS set_code, s.name AS set_name,
-                               p.printing_code, p.rarity,
+                               p.printing_code, p.rarity, p.edition, p.language, p.finish,
                                coalesce(p.image_id, c.image_id) AS image_id
                           FROM card_printing p
                           JOIN card c ON c.id = p.card_id
@@ -590,7 +593,10 @@ public class CatalogQueryRepository {
                                                 null,
                                                 rs.getString("set_name"),
                                                 rs.getString("rarity"),
-                                                null),
+                                                null,
+                                                rs.getString("edition"),
+                                                rs.getString("language"),
+                                                rs.getString("finish")),
                                         rs.getString("card_slug"),
                                         rs.getObject("image_id", UUID.class)))
                 .list()
@@ -652,7 +658,10 @@ public class CatalogQueryRepository {
                                                 null,
                                                 null,
                                                 null,
-                                                rs.getInt("printing_count")),
+                                                rs.getInt("printing_count"),
+                                                null,
+                                                null,
+                                                null),
                                         rs.getString("slug"),
                                         rs.getObject("image_id", UUID.class)))
                 .list()

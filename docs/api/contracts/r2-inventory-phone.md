@@ -18,7 +18,8 @@ All under `/api/v1`, owner only unless stated.
   other text (`85% TCG`, `Trade only`, `12.`, `1,200.00`, `$12$`, `12 CAD`) leaves `askingPrice`
   null. The parser: `common/AskingPriceText` (shared with the deck cores of stage R3).
 - Sending `askingPrice` and `askingPriceText` together is a 400 (`askingPriceText`). On a
-  `PATCH`, `askingPriceText: null` clears both; `askingPrice` without `askingPriceText` (the
+  `PATCH`, `askingPriceText: null` (or only blanks) clears both, whatever gave the amount (a
+  typed plain amount, or the paused web's amount; review fix 1); `askingPrice` without `askingPriceText` (the
   paused web) sets the amount and clears the text, which no longer says the same.
 - `InventoryItemResponse` and `PublicInventoryItem` gain `askingPriceText` (always present,
   nullable). The phone shows it exactly as typed; for a card priced before R2 (only an amount)
@@ -83,12 +84,22 @@ card counts as still available"); the paused web never does.
 
 - `GET /inventory/items?sort=created`: creation, newest first ("Recently added", the phone's
   default). `unfiled=true` ("No binder") and `visibility` exist since Phase 3.
+- `GET /inventory/items?markedPublic=true` (review fix 1, optional, default false): only the
+  items set to public, `PUBLIC` or `TEMPORARILY_PUBLIC`. The phone's "Who can see it: Public"
+  filter sends it (and "Private" sends `visibility=PRIVATE`), so it lists exactly the cards that
+  "{n} public" counts (`byVisibility.PUBLIC + byVisibility.TEMPORARILY_PUBLIC` of the summary): a
+  temporary publication of the paused web shows as Public on Edit card. Whether others can find
+  a public card also depends on its binder and on the owner (the form's hint says which).
 - "Show {n} cards" of the phone's filter sheet reads `totalItems` of the same query with `size=1`.
 
 ## Catalog (Add cards, Choose the printing)
 
 - `GET /cards/suggest` entries gain `setName` and `rarity` (PRINTING entries: "Exact printings")
   and `printingCount` (CARD entries: "Yu-Gi-Oh! · 14 printings"); null otherwise.
+- PRINTING entries also gain `edition`, `language` and `finish` (review fix 1): the printings
+  that share a code (`GLM-EN002` in 1st Edition and Unlimited) are separate entries, and the
+  phone shows what tells them apart ("1st Edition", "Unlimited", "French · Reverse holo") on the
+  Exact printings rows and in the header of Add to inventory and Edit card.
 - `PrintingSummary` gains `setReleaseDate` (the set's, nullable): "{set} · {year}".
 
 ## Errors

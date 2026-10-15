@@ -9088,6 +9088,16 @@
             }
           },
           {
+            "name": "markedPublic",
+            "in": "query",
+            "description": "Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC (the phone's \"Public\" filter; whether others see them also depends on the binder and the owner)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "availability",
             "in": "query",
             "required": false,
@@ -42473,6 +42483,27 @@
             ],
             "format": "int32",
             "example": 3
+          },
+          "edition": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "FIRST_EDITION"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "en"
+          },
+          "finish": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "NORMAL"
           }
         }
       },
