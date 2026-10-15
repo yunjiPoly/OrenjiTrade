@@ -20,7 +20,7 @@ import { DECK_CORE_COPY } from './binderCopy';
 /** The height of the deck core photo (mockup screen 16: about 360 pt). */
 export const PHOTO_PAGER_HEIGHT = 360;
 
-/** Which page a horizontal offset shows (the nearest one). */
+/** Which page a horizontal offset shows (the one most of the frame shows). */
 export function pageAt(offsetX: number, width: number, count: number): number {
   if (width <= 0 || count <= 0) {
     return 0;

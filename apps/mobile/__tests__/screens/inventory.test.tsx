@@ -8,6 +8,8 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   binderFixture,
   BINDER_ID,
+  BINDER_PHOTO,
+  deckCoreFixture,
   inventoryPage,
   ITEM_ID,
   itemFixture,
@@ -435,7 +437,7 @@ describe('Inventory (screen 1)', () => {
   });
 });
 
-describe('Inventory › Binders (kept until stage R3)', () => {
+describe('Inventory › Binders (screen 17)', () => {
   it('reorders the binders with the arrows and saves the order', async () => {
     const second = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 1 });
     const api = mockApi(
@@ -457,41 +459,63 @@ describe('Inventory › Binders (kept until stage R3)', () => {
     });
   });
 
-  it('lists binders, opens one, creates one and explains an empty list', async () => {
+  it('lists the deck cores first, then the binders, with the summary and the tip', async () => {
     mockApi(
       signedInRoutes({
         'GET /api/v1/binders': ok([
-          binderFixture(),
-          binderFixture({
-            id: 'b-2',
-            name: 'Holo binder',
-            kind: 'SALE',
-            visibility: 'PUBLIC',
-            effectivePublic: false,
-            itemCount: 4,
-            publicItemCount: 0,
+          binderFixture({ itemCount: 9, visibility: 'PUBLIC', effectivePublic: true }),
+          deckCoreFixture({
+            photos: [BINDER_PHOTO, { ...BINDER_PHOTO, id: 'photo-2', sortOrder: 1 }],
           }),
+          binderFixture({ id: 'b-3', name: 'Staples', itemCount: 1 }),
         ]),
       })
     );
     const { unmount } = render();
     fireEvent.press(screen.getByTestId('inventory-view-binders'));
-    expect(await screen.findByText('Trade binder')).toBeOnTheScreen();
-    expect(screen.getByText(/For sale · 4 cards · 0 public/)).toBeOnTheScreen();
-    expect(screen.getByText('Public · not visible')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('link', { name: /^Trade binder/ }));
+    expect(await screen.findByTestId('binders-summary')).toHaveTextContent(
+      '2 binders · 1 deck core'
+    );
+    const core = deckCoreFixture();
+    // Deck cores first: photo count and visibility, and the purple tag with the price.
+    const rows = screen.getAllByTestId(/^binder-row-name-/);
+    expect(rows.map((row) => row.props.children)).toEqual([
+      'Snake-Eye core',
+      'Trade binder',
+      'Staples',
+    ]);
+    expect(screen.getByTestId(`binder-row-line-${core.id}`)).toHaveTextContent('2 photos · Public');
+    expect(screen.getByTestId(`binder-row-tag-${core.id}`)).toHaveTextContent('Deck core · $180');
+    expect(screen.getByTestId(`binder-row-line-${BINDER_ID}`)).toHaveTextContent(
+      '9 cards · Public'
+    );
+    expect(screen.getByTestId('binder-row-line-b-3')).toHaveTextContent('1 card · Private');
+    expect(screen.getByTestId('binders-tip')).toHaveTextContent(
+      /Selling a whole deck\? Turn on “Sell as a deck core” in a binder\. Photos, a price and a note are enough\.$/
+    );
+    // A row opens Edit binder; "New binder" opens the same form, empty.
+    fireEvent.press(screen.getByRole('button', { name: /^Snake-Eye core, 2 photos · Public/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/binders/[id]',
-      params: { id: BINDER_ID },
+      pathname: '/binders/edit',
+      params: { id: core.id },
     });
     fireEvent.press(screen.getByTestId('inventory-new-binder'));
     expect(mockRouter.push).toHaveBeenCalledWith('/binders/new');
     unmount();
 
+    // Without deck cores the summary drops its second part.
+    mockParams.current = { view: 'binders' };
+    const plain = mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([binderFixture()]) }));
+    const second = render();
+    expect(await screen.findByTestId('binders-summary')).toHaveTextContent(/^1 binder$/);
+    expect(plain.callsTo('GET /api/v1/binders').length).toBeGreaterThan(0);
+    second.unmount();
+
     mockParams.current = { view: 'binders' };
     mockApi(signedInRoutes({ 'GET /api/v1/binders': ok([]) }));
     render();
     expect(await screen.findByText('No binders yet')).toBeOnTheScreen();
+    expect(screen.queryByTestId('binders-tip')).toBeNull();
   });
 
   it('shows a binder list error with retry', async () => {
