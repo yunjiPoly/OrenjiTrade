@@ -8,7 +8,7 @@ import { radius, spacing, textStyle, useTheme } from '@/src/theme';
 import { chatSafetyTip, type DealSide } from './chatSafetyTips';
 
 export interface ChatSafetyTipProps {
-  /** Which side of the deal the reader is on (`none` until chats have a pinned card, stage R4). */
+  /** Which side of the deal the reader is on (`none` in a chat without a pinned card). */
   side: DealSide;
   testID?: string;
 }

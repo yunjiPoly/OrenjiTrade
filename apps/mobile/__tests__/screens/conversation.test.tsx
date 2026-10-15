@@ -8,14 +8,20 @@ import {
   BINDER_ID,
   CARD_ID,
   CONVERSATION_ID,
+  ONTARIO,
   PRINTING_A,
   SELF_ID,
   binderFixture,
-  cardDetailFixture,
   conversationFixture,
   conversationPage,
+  deckCoreSubjectFixture,
+  inventoryPage,
+  ITEM_ID,
+  itemFixture,
   messageFixture,
   messagePage,
+  saleMessageFixture,
+  subjectFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, problem, type MockRoutes } from '../support/mockApi';
 import { fakeRealtime, type FakeRealtime } from '../support/realtime';
@@ -30,6 +36,15 @@ jest.mock('expo-image-picker', () => ({
 }));
 
 const OTHER_ID = '00000000-0000-4000-8000-0000000000b1';
+/** The other collector, in Ontario (the chat's status line says "Ontario", never a city). */
+const OTHER = {
+  id: OTHER_ID,
+  handle: 'collector2',
+  displayName: 'Noé Verdun',
+  avatarUrl: null,
+  onlineStatus: 'HIDDEN' as const,
+  place: ONTARIO,
+};
 const picker = ImagePicker as jest.Mocked<typeof ImagePicker>;
 
 beforeEach(() => {
@@ -41,6 +56,7 @@ beforeEach(() => {
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
     'GET /api/v1/conversations': ok(conversationPage()),
+    'GET /api/v1/conversations/{id}': ok(conversationFixture({ other: OTHER })),
     'GET /api/v1/conversations/{id}/messages': ok(messagePage()),
     'POST /api/v1/conversations/{id}/read': noContent,
     'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
@@ -71,10 +87,11 @@ describe('Conversation', () => {
     render();
     expect(screen.getByTestId('conversation-loading')).toBeOnTheScreen();
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
-    expect(await screen.findByTestId('conversation-profile')).toHaveTextContent(/Noé Verdun/);
-    expect(screen.getByTestId('conversation-status')).toHaveTextContent('@collector2');
+    expect(await screen.findByTestId('conversation-profile')).toHaveTextContent(/collector2/);
+    // The status line names the province, never a city (ADR 0017).
+    expect(screen.getByTestId('conversation-status')).toHaveTextContent(/^Ontario$/);
     expect(screen.getByTestId('conversation-start')).toHaveTextContent(
-      'This is the beginning of your conversation with Noé Verdun.'
+      'This is the beginning of your conversation with collector2.'
     );
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/conversations/{id}/read')[0]?.body).toEqual({
@@ -97,13 +114,13 @@ describe('Conversation', () => {
     );
     render();
     expect(await screen.findByTestId('conversation-empty')).toHaveTextContent(
-      /Say hello to Noé Verdun/
+      /Say hello to collector2/
     );
     expect(screen.getByTestId('conversation-send')).toBeDisabled();
     fireEvent.changeText(screen.getByLabelText('Message'), '  Yes! How much with shipping?  ');
     fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByText('Yes! How much with shipping?')).toBeOnTheScreen();
-    expect(screen.getByTestId('receipt-sent')).toHaveTextContent('Sent');
+    expect(screen.getByTestId('receipt-sent')).toHaveTextContent(/Sent$/);
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
       kind: 'TEXT',
       body: 'Yes! How much with shipping?',
@@ -113,34 +130,33 @@ describe('Conversation', () => {
     expect(api.callsTo('POST /api/v1/conversations/{id}/read')).toHaveLength(0);
   });
 
-  it('shares a card: the picker resolves the printing and sends a card link', async () => {
+  it('shares one of the caller’s own cards from the inventory; the chat is about it then', async () => {
+    const shared = {
+      card: {
+        id: PRINTING_A,
+        cardId: CARD_ID,
+        name: 'Emberfang Fox VMAX',
+        printingCode: 'SVX-001',
+        imageUrl: null,
+      },
+      item: { itemId: ITEM_ID, ownerId: SELF_ID, askingPriceText: '85% TCG', rarity: 'Ultra Rare' },
+    };
     const api = mockApi(
       routes({
-        'GET /api/v1/cards/suggest': ok([
-          {
-            kind: 'CARD',
-            id: CARD_ID,
-            name: 'Azure-Eyes Sky Dragon',
-            game: 'yugioh',
-            printingCode: 'AZR-EN001',
-            imageUrl: null,
-          },
-        ]),
-        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'GET /api/v1/inventory/items': ok(
+          inventoryPage([itemFixture({ askingPriceText: '85% TCG' })])
+        ),
+        'GET /api/v1/conversations/{id}': [
+          ok(conversationFixture({ other: OTHER })),
+          ok(
+            conversationFixture({
+              other: OTHER,
+              subject: subjectFixture({ ownerId: SELF_ID, copies: 2, askingPriceText: '85% TCG' }),
+            })
+          ),
+        ],
         'POST /api/v1/conversations/{id}/messages': ok(
-          sentMessage({
-            kind: 'CARD_LINK',
-            body: '',
-            payload: {
-              card: {
-                id: PRINTING_A,
-                cardId: CARD_ID,
-                name: 'Azure-Eyes Sky Dragon',
-                printingCode: 'AZR-EN001',
-                imageUrl: null,
-              },
-            },
-          }),
+          sentMessage({ kind: 'CARD_LINK', body: '', payload: shared }),
           201
         ),
       })
@@ -149,20 +165,22 @@ describe('Conversation', () => {
     await screen.findByText('Hi! Still have the Lantern Fox?');
     fireEvent.press(screen.getByTestId('composer-attach'));
     fireEvent.press(await screen.findByTestId('composer-share-card'));
-    fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'Azure');
-    fireEvent.press(await screen.findByTestId('suggestion-CARD-AZR-EN001'));
+    const picker = await screen.findByTestId('own-card-picker');
+    fireEvent.press(await within(picker).findByTestId(`item-${ITEM_ID}`));
     expect(await screen.findByTestId('composer-attachment')).toHaveTextContent(
-      /Azure-Eyes Sky Dragon/
+      /Your card.*Emberfang Fox VMAX.*SVX-001 · 85% TCG/
     );
     fireEvent.press(screen.getByTestId('conversation-send'));
-    expect(await screen.findByTestId('shared-card-link')).toBeOnTheScreen();
-    const body = api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body as Record<
-      string,
-      unknown
-    >;
-    expect(body.kind).toBe('CARD_LINK');
-    expect(typeof body.cardPrintingId).toBe('string');
+    expect(await screen.findByTestId('shared-card-link')).toHaveTextContent(
+      /Emberfang Fox VMAX.*SVX-001 · 85% TCG/
+    );
+    expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
+      kind: 'CARD_LINK',
+      inventoryItemId: ITEM_ID,
+    });
     expect(screen.queryByTestId('composer-attachment')).toBeNull();
+    // The card shared becomes what the chat is about: the seller's pinned bar.
+    expect(await screen.findByTestId('pinned-mark-sold')).toBeOnTheScreen();
     // The link opens the card with the shared printing.
     fireEvent.press(screen.getByTestId('shared-card-link'));
     expect(mockRouter.push).toHaveBeenCalledWith({
@@ -288,7 +306,7 @@ describe('Conversation', () => {
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: false } as never);
     fireEvent.press(screen.getByTestId('composer-attach'));
     fireEvent.press(await screen.findByTestId('composer-attach-photo'));
-    expect(await screen.findByText('Allow access to your photos to attach one.')).toBeOnTheScreen();
+    expect(await screen.findByText('Allow access to your photos to send one.')).toBeOnTheScreen();
 
     picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
     picker.launchImageLibraryAsync.mockResolvedValue({
@@ -344,7 +362,7 @@ describe('Conversation', () => {
     );
     fireEvent.press(screen.getByTestId('conversation-send'));
     expect(await screen.findByTestId('conversation-cannot-message')).toHaveTextContent(
-      /You can no longer message Noé Verdun\./
+      /You can no longer message collector2\./
     );
     expect(screen.getByLabelText('Message').props.editable).toBe(false);
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(3);
@@ -495,7 +513,7 @@ describe('Conversation', () => {
         session.push('/user/queue/typing', { conversationId: CONVERSATION_ID, userId: OTHER_ID })
       );
       expect(await screen.findByTestId('typing-indicator')).toHaveTextContent(
-        'Noé Verdun is typing…'
+        'collector2 is typing…'
       );
       expect(screen.getByTestId('conversation-status')).toHaveTextContent('typing…');
 
@@ -507,7 +525,7 @@ describe('Conversation', () => {
           readAt: '2026-10-05T12:01:00Z',
         })
       );
-      expect(await screen.findByTestId('receipt-seen')).toHaveTextContent('Seen');
+      expect(await screen.findByTestId('receipt-seen')).toHaveTextContent(/Seen$/);
 
       act(() =>
         session.push(
@@ -549,7 +567,7 @@ describe('Conversation', () => {
     await screen.findByText('Hi! Still have the Lantern Fox?');
     fireEvent.press(screen.getByTestId('conversation-menu'));
     fireEvent.press(await screen.findByTestId('conversation-mute'));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Conversation muted.');
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Chat muted.');
     expect(api.callsTo('PATCH /api/v1/conversations/{id}')[0]?.body).toEqual({ muted: true });
     expect(await screen.findByTestId('conversation-status')).toHaveTextContent(/Muted/);
 
@@ -612,12 +630,22 @@ describe('Conversation', () => {
     await screen.findByText('Hi! Still have the Lantern Fox?');
     fireEvent.press(screen.getByTestId('composer-attach'));
     const sheet = await screen.findByTestId('composer-attach-sheet');
-    expect(within(sheet).getByTestId('composer-share-card')).toBeOnTheScreen();
-    expect(within(sheet).getByTestId('composer-share-binder')).toBeOnTheScreen();
-    expect(within(sheet).getByTestId('composer-attach-photo')).toBeOnTheScreen();
+    // A chat without a card: both saved details, then a photo, a card and a binder.
+    expect(within(sheet).getByTestId('composer-send-address')).toHaveTextContent(
+      /Send my address.*Saved on this phone only/
+    );
+    expect(within(sheet).getByTestId('composer-send-etransfer')).toHaveTextContent(
+      /Send my e-Transfer email.*Saved on this phone only/
+    );
+    expect(within(sheet).getByTestId('composer-share-card')).toHaveTextContent(
+      /Share a card from your inventory$/
+    );
+    expect(within(sheet).getByTestId('composer-share-binder')).toHaveTextContent(/Share a binder$/);
+    expect(within(sheet).getByTestId('composer-attach-photo')).toHaveTextContent(/Send a photo$/);
+    expect(within(sheet).getByTestId('composer-attach-cancel')).toHaveTextContent('Cancel');
     expect(screen.queryByTestId('composer-share-offer')).toBeNull();
     expect(screen.queryByText(/Share an offer/)).toBeNull();
-    expect(screen.getByLabelText('Attach a card, binder or photo')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Share in this chat')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/offers')).toHaveLength(0);
   });
 
@@ -638,7 +666,7 @@ describe('Conversation', () => {
     fireEvent.press(screen.getByTestId('conversation-menu'));
     fireEvent.press(await screen.findByTestId('conversation-block'));
     const dialog = await screen.findByTestId('block-dialog');
-    expect(dialog).toHaveTextContent(/Block Noé Verdun\?/);
+    expect(dialog).toHaveTextContent(/Block collector2\?/);
     fireEvent.press(within(dialog).getByTestId('block-dialog-cancel'));
     expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(0);
 
@@ -646,7 +674,7 @@ describe('Conversation', () => {
     fireEvent.press(await screen.findByTestId('conversation-block'));
     fireEvent.press(await screen.findByTestId('block-dialog-confirm'));
     expect(await screen.findByTestId('conversation-blocked-banner')).toHaveTextContent(
-      /You blocked Noé Verdun/
+      /You blocked collector2/
     );
     expect(api.callsTo('POST /api/v1/users/{id}/block')[0]?.path).toBe(
       `/api/v1/users/${OTHER_ID}/block`
@@ -661,7 +689,7 @@ describe('Conversation', () => {
     expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1);
     // The snackbar of the block is replaced by the one of the unblock.
     await waitFor(() =>
-      expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.')
+      expect(screen.getByTestId('snackbar')).toHaveTextContent('collector2 is unblocked.')
     );
   });
 
@@ -692,5 +720,322 @@ describe('Conversation', () => {
     expect(await screen.findByTestId('conversation-error')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
+  });
+});
+
+describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mark as sold)', () => {
+  /** The chat as the API answers it for this test. */
+  function chatRoutes(
+    subject: ReturnType<typeof subjectFixture> | null,
+    extra: MockRoutes = {}
+  ): MockRoutes {
+    return routes({
+      'GET /api/v1/conversations/{id}': ok(
+        conversationFixture({ other: OTHER, ...(subject ? { subject } : {}) })
+      ),
+      ...extra,
+    });
+  }
+
+  it('buying: the other collector’s card is pinned with its price and opens its page', async () => {
+    const api = mockApi(
+      chatRoutes(subjectFixture(), {
+        'POST /api/v1/conversations/{id}/messages': ok(
+          sentMessage({ body: 'Is it still available?' }),
+          201
+        ),
+      })
+    );
+    render();
+    const bar = await screen.findByTestId('pinned-bar');
+    expect(within(bar).getByTestId('pinned-name')).toHaveTextContent('Emberfang Fox VMAX');
+    expect(within(bar).getByTestId('pinned-line')).toHaveTextContent('SVX-001 · Ultra Rare');
+    expect(within(bar).getByTestId('pinned-price')).toHaveTextContent('$32');
+    expect(within(bar).queryByTestId('pinned-mark-sold')).toBeNull();
+    // The buying tip at the start of the chat.
+    expect(await screen.findByTestId('chat-safety-tip-text')).toHaveTextContent(
+      'Check their rating before you send an e-Transfer, and ask for tracking.'
+    );
+    fireEvent.press(bar);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/cards/[id]',
+      params: { id: CARD_ID, printing: PRINTING_A },
+    });
+    // The seller wrote already ("Hi! Still have…" is theirs): the replies after their answer.
+    const replies = screen.getByTestId('quick-replies');
+    expect(
+      within(replies)
+        .getAllByRole('button')
+        .map((b) => b.props.accessibilityLabel)
+    ).toEqual(['Send “e-Transfer sent!”', 'Send “Tracking number?”', 'Send “Thanks!”']);
+    fireEvent.press(within(replies).getByTestId('quick-reply-Thanks!'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
+        kind: 'TEXT',
+        body: 'Thanks!',
+      })
+    );
+  });
+
+  it('buying, before the seller answered: the first replies; one sent is hidden', async () => {
+    mockApi(
+      chatRoutes(subjectFixture(), {
+        'GET /api/v1/conversations/{id}/messages': ok(
+          messagePage([sentMessage({ id: 'mine', body: 'Is it still available?' })])
+        ),
+      })
+    );
+    render();
+    const replies = await screen.findByTestId('quick-replies');
+    expect(within(replies).getAllByRole('button')).toHaveLength(1);
+    expect(within(replies).getByTestId('quick-reply-How much with shipping?')).toBeOnTheScreen();
+  });
+
+  it('a card no longer on offer keeps its name and picture, without a price', async () => {
+    mockApi(chatRoutes(subjectFixture({ listed: false, askingPriceText: null })));
+    render();
+    const bar = await screen.findByTestId('pinned-bar');
+    expect(within(bar).getByTestId('pinned-unlisted')).toHaveTextContent('No longer listed');
+    expect(within(bar).queryByTestId('pinned-price')).toBeNull();
+    expect(within(bar).getByTestId('pinned-name')).toHaveTextContent('Emberfang Fox VMAX');
+  });
+
+  it('a deck core: "Deck core", its price, and the bar opens the deck core page', async () => {
+    mockApi(chatRoutes(deckCoreSubjectFixture()));
+    render();
+    const bar = await screen.findByTestId('pinned-bar');
+    expect(within(bar).getByTestId('pinned-line')).toHaveTextContent(/^Deck core$/);
+    expect(within(bar).getByTestId('pinned-price')).toHaveTextContent('$95');
+    fireEvent.press(bar);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/binders/[id]',
+      params: { id: BINDER_ID },
+    });
+  });
+
+  it('selling: "your card", Mark as sold with copies and tracking, then the toast with Undo', async () => {
+    const api = mockApi(
+      chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 3, askingPriceText: '85% TCG' }), {
+        'GET /api/v1/conversations/{id}/messages': ok(messagePage([])),
+        'POST /api/v1/conversations/{id}/sales': ok(
+          {
+            id: 'sale-1',
+            conversationId: CONVERSATION_ID,
+            kind: 'CARD',
+            itemId: ITEM_ID,
+            binderId: null,
+            sellerId: SELF_ID,
+            buyerId: OTHER_ID,
+            name: 'Emberfang Fox VMAX',
+            quantity: 2,
+            trackingNumber: '7023 2109 8876 5432',
+            remaining: 1,
+            removed: false,
+            createdAt: '2026-10-15T12:00:00Z',
+            undoableUntil: '2026-10-15T12:10:00Z',
+            undoneAt: null,
+          },
+          201
+        ),
+        'POST /api/v1/sales/{id}/undo': ok({}),
+      })
+    );
+    render();
+    const bar = await screen.findByTestId('pinned-bar');
+    expect(within(bar).getByTestId('pinned-line')).toHaveTextContent(
+      'SVX-001 · 85% TCG · your card'
+    );
+    expect(await screen.findByTestId('chat-safety-tip-text')).toHaveTextContent(
+      'Ship after the e-Transfer arrives, and add the tracking number when you mark it sold.'
+    );
+    // Selling, before the seller wrote anything.
+    expect(screen.getByTestId('quick-reply-Yes, still available')).toBeOnTheScreen();
+    expect(screen.getByTestId('quick-reply-Send me your address')).toBeOnTheScreen();
+
+    fireEvent.press(within(bar).getByTestId('pinned-mark-sold'));
+    const sheet = await screen.findByTestId('mark-sold-sheet');
+    expect(within(sheet).getByTestId('mark-sold-sheet-title')).toHaveTextContent('Mark as sold?');
+    expect(within(sheet).getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 3 copies');
+    expect(within(sheet).getByTestId('mark-sold-sentence')).toHaveTextContent(
+      "Sold to collector2. You'll have 2 left. You can rate each other next."
+    );
+    expect(within(sheet).getByTestId('mark-sold-tracking').props.placeholder).toBe(
+      'So collector2 can follow the package'
+    );
+    fireEvent(within(sheet).getByTestId('mark-sold-quantity'), 'accessibilityAction', {
+      nativeEvent: { actionName: 'increment' },
+    });
+    expect(within(sheet).getByTestId('mark-sold-sentence')).toHaveTextContent(
+      /You'll have 1 left\./
+    );
+    // A tracking number is letters and digits only.
+    fireEvent.changeText(within(sheet).getByTestId('mark-sold-tracking'), 'see https://x.io');
+    fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+    expect(await within(sheet).findByText(/letters, digits, spaces/)).toBeOnTheScreen();
+    expect(api.callsTo('POST /api/v1/conversations/{id}/sales')).toHaveLength(0);
+    fireEvent.changeText(within(sheet).getByTestId('mark-sold-tracking'), ' 7023 2109  8876 5432 ');
+    fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/sales')[0]?.body).toEqual({
+        quantity: 2,
+        trackingNumber: '7023 2109 8876 5432',
+      })
+    );
+    const toast = await screen.findByTestId('snackbar');
+    expect(toast).toHaveTextContent(/Marked as sold/);
+    fireEvent.press(within(toast).getByTestId('mark-sold-undo'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/sales/{id}/undo')[0]?.path).toBe('/api/v1/sales/sale-1/undo')
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('snackbar')).toHaveTextContent(
+        'Sale undone. It is back in your inventory.'
+      )
+    );
+  });
+
+  it('the last copy: the card leaves the inventory; "nothing left" is explained', async () => {
+    mockApi(
+      chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 1 }), {
+        'POST /api/v1/conversations/{id}/sales': problem(
+          409,
+          'NOTHING_LEFT_TO_SELL',
+          'This card has no copy left to sell'
+        ),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId('pinned-mark-sold'));
+    const sheet = await screen.findByTestId('mark-sold-sheet');
+    expect(within(sheet).queryByTestId('mark-sold-quantity')).toBeNull();
+    expect(within(sheet).getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 1 copy');
+    expect(within(sheet).getByTestId('mark-sold-sentence')).toHaveTextContent(
+      'Sold to collector2. It was your last copy, so the card leaves your inventory. You can rate each other next.'
+    );
+    fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+    expect(await within(sheet).findByTestId('mark-sold-error')).toHaveTextContent(
+      'Nothing left to sell: this card is no longer in your inventory.'
+    );
+  });
+
+  it('the sale message reads for each side, with the tracking number and Rate', async () => {
+    // The first sale was undone: its message is dropped.
+    const undone = saleMessageFixture(
+      { saleId: 'sale-0', undone: true },
+      { id: 'm-sale-undone', createdAt: '2026-10-04T12:09:00Z' }
+    );
+    mockApi(
+      chatRoutes(subjectFixture({ sold: true }), {
+        'GET /api/v1/conversations/{id}/messages': ok(messagePage([saleMessageFixture(), undone])),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('pinned-sold')).toHaveTextContent('Sold');
+    const sale = await screen.findByTestId('message-m-sale');
+    expect(within(sale).getByTestId('sale-message-text')).toHaveTextContent(
+      'collector2 marked Emberfang Fox VMAX as sold to you.'
+    );
+    expect(within(sale).getByTestId('sale-message-tracking')).toHaveTextContent(
+      /Tracking.*7023 2109 8876 5432/
+    );
+    expect(screen.queryByTestId('message-m-sale-undone')).toBeNull();
+    fireEvent.press(within(sale).getByTestId('sale-message-rate'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/ratings/rate',
+      params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun', kind: 'SALE' },
+    });
+  });
+
+  it('the seller reads "You marked … as sold to {buyer}."', async () => {
+    mockApi(
+      chatRoutes(subjectFixture({ ownerId: SELF_ID, sold: true, copies: 1 }), {
+        'GET /api/v1/conversations/{id}/messages': ok(
+          messagePage([saleMessageFixture({ sellerId: SELF_ID, buyerId: OTHER_ID })])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('sale-message-text')).toHaveTextContent(
+      'You marked Emberfang Fox VMAX as sold to collector2.'
+    );
+    // After a sale the bar says "Sold", not "Mark as sold".
+    expect(screen.getByTestId('pinned-sold')).toBeOnTheScreen();
+    expect(screen.queryByTestId('pinned-mark-sold')).toBeNull();
+  });
+
+  it('"Send my address": asked once, saved on this phone only, then put into the message box', async () => {
+    const secureStore = require('expo-secure-store') as { mockStore: Map<string, string> };
+    const api = mockApi(
+      chatRoutes(subjectFixture(), {
+        'POST /api/v1/conversations/{id}/messages': ok(sentMessage({ body: 'Ship to:' }), 201),
+      })
+    );
+    render();
+    await screen.findByTestId('pinned-bar');
+    fireEvent.press(screen.getByTestId('composer-attach'));
+    const sheet = await screen.findByTestId('composer-attach-sheet');
+    // Buying: the address first, no e-Transfer email.
+    expect(within(sheet).getByTestId('composer-send-address')).toBeOnTheScreen();
+    expect(within(sheet).queryByTestId('composer-send-etransfer')).toBeNull();
+    fireEvent.press(within(sheet).getByTestId('composer-send-address'));
+    const ask = await screen.findByTestId('saved-detail-sheet');
+    expect(ask).toHaveTextContent(/Saved on this phone only, never on OrenjiTrade/);
+    fireEvent.press(within(ask).getByTestId('saved-detail-save'));
+    expect(await within(ask).findByText('Write it first.')).toBeOnTheScreen();
+    fireEvent.changeText(
+      within(ask).getByTestId('saved-detail-input'),
+      'Sam Tremblay\n  123 Rue Exemple\nMontréal QC H0H 0H0\n'
+    );
+    fireEvent.press(within(ask).getByTestId('saved-detail-save'));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Message').props.value).toBe(
+        'Ship to:\nSam Tremblay\n123 Rue Exemple\nMontréal QC H0H 0H0'
+      )
+    );
+    // Saved in the phone's secure storage, under this account, and sent nowhere yet.
+    expect([...secureStore.mockStore.values()]).toEqual([
+      'Sam Tremblay\n123 Rue Exemple\nMontréal QC H0H 0H0',
+    ]);
+    expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(0);
+    for (const call of api.calls) {
+      expect(JSON.stringify(call.body ?? null)).not.toContain('Rue Exemple');
+      expect(call.path).not.toContain('Exemple');
+    }
+
+    // The second time it goes straight into the message box.
+    fireEvent.changeText(screen.getByLabelText('Message'), '');
+    fireEvent.press(screen.getByTestId('composer-attach'));
+    fireEvent.press(await screen.findByTestId('composer-send-address'));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Message').props.value).toBe(
+        'Ship to:\nSam Tremblay\n123 Rue Exemple\nMontréal QC H0H 0H0'
+      )
+    );
+    expect(screen.queryByTestId('saved-detail-sheet')).toBeNull();
+    // Only the message the collector sends carries it.
+    fireEvent.press(screen.getByTestId('conversation-send'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
+        kind: 'TEXT',
+        body: 'Ship to:\nSam Tremblay\n123 Rue Exemple\nMontréal QC H0H 0H0',
+      })
+    );
+  });
+
+  it('selling: "Send my e-Transfer email" only', async () => {
+    mockApi(chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 1 })));
+    render();
+    await screen.findByTestId('pinned-bar');
+    fireEvent.press(screen.getByTestId('composer-attach'));
+    const sheet = await screen.findByTestId('composer-attach-sheet');
+    expect(within(sheet).getByTestId('composer-send-etransfer')).toBeOnTheScreen();
+    expect(within(sheet).queryByTestId('composer-send-address')).toBeNull();
+    fireEvent.press(within(sheet).getByTestId('composer-send-etransfer'));
+    const ask = await screen.findByTestId('saved-detail-sheet');
+    fireEvent.changeText(within(ask).getByTestId('saved-detail-input'), ' sam@example.com ');
+    fireEvent.press(within(ask).getByTestId('saved-detail-save'));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Message').props.value).toBe('e-Transfer to sam@example.com')
+    );
   });
 });

@@ -47,7 +47,13 @@ import {
   type MessageItem,
 } from '@/src/features/messages/threadItems';
 
-import { SELF_ID, binderFixture, conversationFixture, messageFixture } from '../support/fixtures';
+import {
+  ONTARIO,
+  SELF_ID,
+  binderFixture,
+  conversationFixture,
+  messageFixture,
+} from '../support/fixtures';
 
 const OTHER = '00000000-0000-4000-8000-0000000000b1';
 
@@ -112,7 +118,7 @@ describe('message text', () => {
     expect(long.endsWith('…')).toBe(true);
   });
 
-  it('builds inbox lines, badges and the unread total (muted conversations excluded)', () => {
+  it('builds inbox lines, badges and the unread chats (muted conversations excluded)', () => {
     const own = conversationFixture({
       lastMessage: { id: 'm', preview: 'Hello', kind: 'TEXT', createdAt: 'x', senderId: SELF_ID },
     });
@@ -125,8 +131,9 @@ describe('message text', () => {
         conversationFixture({ unreadCount: 2 }),
         conversationFixture({ id: 'b', unreadCount: 5, muted: true }),
         conversationFixture({ id: 'c', unreadCount: 1 }),
+        conversationFixture({ id: 'd', unreadCount: 0 }),
       ])
-    ).toBe(3);
+    ).toBe(2);
     const older = conversationFixture({ id: 'old', createdAt: '2026-09-01T00:00:00Z' });
     const newer = conversationFixture({ id: 'new', createdAt: '2026-10-01T00:00:00Z' });
     expect(sortByActivity([older, newer]).map((item) => item.id)).toEqual(['new', 'old']);
@@ -168,7 +175,7 @@ describe('message text', () => {
     ).toBe('Offer (no longer available)');
     expect(
       rowLabel(last('SYSTEM', 'Devon Okafor cancelled the trade: 18.00 CAD.', null), SELF_ID)
-    ).toBe('Noé Verdun, 1 unread message, Offer (no longer available)');
+    ).toBe('collector2, 1 unread message, Offer (no longer available)');
     // Any other message keeps the server's line.
     expect(listPreview(last('TEXT', 'Shipped with tracking', OTHER), SELF_ID)).toBe(
       'Shipped with tracking'
@@ -182,12 +189,27 @@ describe('message text', () => {
       other: { ...conversationFixture().other, onlineStatus: 'ONLINE' },
     });
     expect(rowLabel(conversation, SELF_ID)).toBe(
-      'Noé Verdun, online, 2 unread messages, muted, No messages yet. Say hello!'
+      'collector2, online, 2 unread messages, muted, No messages yet. Say hello!'
     );
-    expect(threadStatus(conversation, false, false)).toBe('Online now');
+    // "Online · {province}" or "{province}", never a city (stage R4, ADR 0017).
+    expect(threadStatus(conversation, false, false)).toBe('Online · Muted');
+    expect(
+      threadStatus(
+        { ...conversation, muted: false, other: { ...conversation.other, place: ONTARIO } },
+        false,
+        false
+      )
+    ).toBe('Online · Ontario');
+    expect(
+      threadStatus(
+        conversationFixture({ other: { ...conversationFixture().other, place: ONTARIO } }),
+        false,
+        false
+      )
+    ).toBe('Ontario');
     expect(threadStatus(conversation, true, false)).toBe('typing…');
     expect(threadStatus(conversation, true, true)).toBe('Blocked');
-    expect(threadStatus(conversationFixture(), false, false)).toBe('@collector2');
+    expect(threadStatus(conversationFixture(), false, false)).toBe('');
     expect(realtimeStatusLabel('connected')).toBe('Live');
     expect(realtimeStatusLabel('reconnecting')).toBe('Reconnecting…');
     expect(realtimeStatusLabel('disabled')).toBeNull();

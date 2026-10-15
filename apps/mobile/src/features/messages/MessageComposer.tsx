@@ -390,7 +390,13 @@ export function MessageComposer({
                 pressed && styles.pressed,
               ]}
             >
-              <MaterialCommunityIcons name={ROW_ICONS[row]} size={22} color={palette.ink} />
+              <MaterialCommunityIcons
+                name={ROW_ICONS[row]}
+                size={22}
+                color={palette.ink}
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+              />
               <View style={styles.sheetText}>
                 <Text style={[styles.sheetLabel, { color: palette.ink }]}>{ROW_LABELS[row]}</Text>
                 {savedOnPhone ? (

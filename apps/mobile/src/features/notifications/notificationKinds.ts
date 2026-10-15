@@ -35,6 +35,8 @@ const KINDS: Record<string, NotificationKind> = {
   PAYMENT_UPDATE: { icon: 'cash', tone: 'trade', label: 'Payment' },
   DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Dispute' },
   REPORT_DECISION: { icon: 'gavel', tone: 'system', label: 'Report decision' },
+  // Stage R4: the seller marked the chat's card sold to the reader; it opens the chat.
+  SALE_RECORDED: { icon: 'package-variant-closed', tone: 'trade', label: 'Sold to you' },
   SYSTEM: { icon: 'bullhorn-outline', tone: 'system', label: 'OrenjiTrade' },
 };
 
@@ -96,7 +98,8 @@ export function notificationLink(
       // Without a printing, "any" is said explicitly: the screen never picks one itself.
       return `/cards/${card}?printing=${printing ?? ANY_PRINTING_PARAM}`;
     }
-    case 'MESSAGE': {
+    case 'MESSAGE':
+    case 'SALE_RECORDED': {
       const conversation = idOf(data, 'conversationId');
       return conversation ? `/messages/${conversation}` : '/messages';
     }

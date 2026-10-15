@@ -51,6 +51,7 @@ describe('Settings home', () => {
       'Profile',
       'Location and discoverability',
       'Privacy',
+      'Shipping details',
       'Notifications',
       'Blocked users',
       'My reports',
@@ -67,6 +68,8 @@ describe('Settings home', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
     fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
+    fireEvent.press(screen.getByRole('link', { name: 'Shipping details' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/shipping');
     fireEvent.press(screen.getByTestId('settings-sign-out'));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });

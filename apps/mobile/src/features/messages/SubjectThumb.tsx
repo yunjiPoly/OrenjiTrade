@@ -33,8 +33,7 @@ export function SubjectThumb({
   return (
     <View
       testID={testID ?? 'subject-thumb'}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      accessible={false}
       style={[
         styles.core,
         {

@@ -780,7 +780,7 @@ describe('Deck core page (screen 16)', () => {
     });
   });
 
-  it('“Message {handle}” opens the chat with the seller', async () => {
+  it('“Message {handle}” opens the chat with the seller about the deck core', async () => {
     const api = mockApi(
       coreRoutes({ 'POST /api/v1/conversations': ok(conversationFixture({ id: 'conv-9' })) })
     );
@@ -794,9 +794,10 @@ describe('Deck core page (screen 16)', () => {
         params: { id: 'conv-9' },
       })
     );
-    // Stage R3 pins nothing yet (the chat subject is stage R4's).
+    // The chat opens about this deck core (stage R4: its pinned bar).
     expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({
       recipientId: publicDeckCoreFixture().owner.id,
+      subjectBinderId: publicDeckCoreFixture().id,
     });
   });
 

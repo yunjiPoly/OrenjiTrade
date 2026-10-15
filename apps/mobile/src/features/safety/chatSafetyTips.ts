@@ -16,9 +16,8 @@ export const CHAT_SAFETY_TIPS: Readonly<Record<DealSide, string>> = {
 };
 
 /**
- * The side from the owner of the card or deck core the chat is about: no card is `none`, the
- * caller's own card is `selling`, someone else's is `buying`. Chats have no pinned card until
- * stage R4, which feeds the subject's owner here.
+ * The side from the owner of the card or deck core the chat is about (its pinned subject, stage
+ * R4): no card is `none`, the caller's own card is `selling`, someone else's is `buying`.
  */
 export function dealSideOf(
   subjectOwnerId: string | null | undefined,

@@ -19,7 +19,7 @@ export const INBOX_COPY = {
   community: 'Community',
   loadError: 'Conversations could not load',
   emptyTitle: 'No messages yet',
-  empty: 'No messages yet. Find a card in Search and message its owner.',
+  empty: 'Find a card in Search and message its owner.',
   emptyAction: 'Open search',
   you: (preview: string) => `You: ${preview}`,
   noMessage: 'No messages yet. Say hello!',
