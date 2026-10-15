@@ -176,6 +176,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V114 | `V114__inventory_import_review_fixes.sql` | Stage S5, review fix 1: `inventory_import.chunk_new_items` (the new items each chunk of a commit will create: the room the commit reserves under `inventory.items.max` until the chunk is written) with `ix_inventory_import_committing`; `inventory_import_row.printing_choice` also takes `MOST_RECENT_ASSUMED` |
 | V115 | `V115__hide_local_meetups_tag.sql` | Stage R1 of the phone redesign (ADR 0018: deals happen in the chat, cards ship by mail): the curated `local-meetups` tag becomes `HIDDEN` (no longer offered, searched or shown; profiles keep the link until their owner next saves their tags; a tag an admin already hid or banned is left alone) |
 | V116 | `V116__region_channels_ship_by_mail.sql` | Stage R1: the descriptions of the REGION channels of V041 and V110 lose "trades, meetups, locals" for "trades and sales by mail", only where they still hold the migration's text (an admin's edit is kept) |
+| V124 | `V124__card_text_scan_flag.sql` | Camera card scan (owner spec 2026-10-15): `feature_flag` row `cardTextScan`, **on**; it guards `POST /cards/scan-match` and `POST /inventory/items/batch` (404 `FEATURE_DISABLED` when off). No table: the scan stores nothing of its own (the photos stay on the phone) |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -519,8 +520,9 @@ scratch has every money feature off and only `publicChat` on; a SUPER_ADMIN turn
 in `/admin > Feature flags` (`docs/deployment/runbooks.md`, "Launch configuration"). The local/dev
 `FeatureFlagSeedContributor` enables `protectedPayments`, `premiumPlans`, `credits`, `advertising`
 and `donations` (fake providers) unless an admin already edited them (`updated_by` set);
-`mlScanning` stays off everywhere. A disabled flag makes guarded routes answer
-`404 FEATURE_DISABLED` (extension `feature`).
+`mlScanning` stays off everywhere. **V124 adds `cardTextScan`, on** (the camera scan reads the text
+of a card on the phone; the owner lifted the ML hold for it only, `mlScanning` stays off). A disabled
+flag makes guarded routes answer `404 FEATURE_DISABLED` (extension `feature`).
 
 ### V011 — plans, plan features, usage limits, usage counters, entitlements (ADR 0014)
 
@@ -861,7 +863,9 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   first step of every write to a collector's binders or inventory items, before any row is locked:
   item create, update, move, delete, confirm, bulk actions, every chunk of an import commit
   (`InventoryImportService` takes it before the import row, `InventoryService.importLines` again
-  before the items, V113), admin restore, admin hide, trade
+  before the items, V113), the batch add of the camera scan (`InventoryBatchService`, one
+  transaction of at most 500 lines: the owner lock, the target binder and the binders of the items
+  it raises, then those items), admin restore, admin hide, trade
   transfer (the locks of both collectors, in ascending key order), every `BinderService` write
   (create, update, publish, unpublish, admin unpublish, confirm, delete, reorder), the listing
   reconciliation of an owner (`ListingReconciler.owner`: privacy, suspension, listing pause,
@@ -950,6 +954,14 @@ runs commits next to item writes, moves, privacy changes and two job workers. Th
 the collector's `inventory_import` rows while the commit waits for the owner lock (a commit that
 took the import row, read the limit or froze its rows first would hold it there), and
 `ACCOUNT_PURGE` does the same for the purge of the previews.
+
+The second is the batch add of the camera scan (`POST /inventory/items/batch`,
+`InventoryBatchService`, owner spec 2026-10-15): one bounded transaction (1 to 500 lines), the
+lines validated and the catalog read before it, the owner lock, the target binder and the binders of
+the equal items it raises, then those items through `lockAll`, `inventory.items.max` for the whole
+batch, the reconciliation in the same transaction. Its case is `BATCH_ADD`, and
+`aBatchAddNextToTheOtherWritesNeverDeadlocks` runs batches next to item writes, moves, privacy
+changes and two job workers.
 
 What the locks cost: a collector's own simultaneous writes wait for each other. A write waits for
 the freshness job only at a row the job has written in the run in progress, until that run
