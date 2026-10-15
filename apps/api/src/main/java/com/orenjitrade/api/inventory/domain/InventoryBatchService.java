@@ -53,8 +53,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * in ascending id ({@code FOR NO KEY UPDATE}), {@code inventory.items.max} checked for the whole
  * batch (429 LIMIT_REACHED, nothing written), one statement per row, and the reconciliation ({@link
  * ListingReconciler}) in the same transaction, so a public card publishes {@code
- * InventoryItemPublished}. The items count as confirmed: a new item is confirmed by its insert, a
- * raised one is confirmed (a hidden one comes back, RESTORED).
+ * InventoryItemPublished}. The items count as confirmed: a new item is confirmed by its insert, an
+ * equal item the batch reached is confirmed (a hidden one comes back, RESTORED), raised or already
+ * full.
  *
  * <p>It does not call {@link InventoryService#importLines} itself: an import writes private unfiled
  * items only and raises any private item of the printing, never confirms; the batch chooses the
@@ -127,7 +128,8 @@ public class InventoryBatchService {
      * What the batch did.
      *
      * @param created the new items, in the order of the lines
-     * @param raised the items that got extra copies, in the order of the lines
+     * @param raised the items that got extra copies, in the order of the lines (an equal item
+     *     already at 9999 copies gets none: it is not raised, its copies are not added)
      * @param copiesAdded copies written
      * @param copiesNotAdded copies an item could not take (at most 9999 per item)
      */
@@ -279,6 +281,8 @@ public class InventoryBatchService {
 
         List<UUID> created = new ArrayList<>();
         List<UUID> raised = new ArrayList<>();
+        // Every equal item a line reached, raised or already full: all of them count as confirmed.
+        List<UUID> reached = new ArrayList<>();
         int copies = 0;
         int notAdded = 0;
         for (Planned line : lines) {
@@ -288,11 +292,13 @@ public class InventoryBatchService {
                         Math.min(
                                 line.quantity(), InventoryService.QUANTITY_MAX - target.quantity());
                 if (added > 0) {
+                    // Raised: it got extra copies. A full item (9999) gets none and is not raised.
                     items.addQuantity(target.id(), added, now);
+                    raised.add(target.id());
                 }
                 copies += added;
                 notAdded += line.quantity() - added;
-                raised.add(target.id());
+                reached.add(target.id());
             } else {
                 UUID id = UUID.randomUUID();
                 items.insert(
@@ -319,14 +325,15 @@ public class InventoryBatchService {
                 created.add(id);
             }
         }
-        // The items count as confirmed: an insert confirms its item, a raised item is confirmed
-        // here (a hidden one comes back).
+        // The items count as confirmed: an insert confirms its item, an equal item the batch
+        // reached
+        // (raised, or full) is confirmed here (a hidden one comes back).
         Set<UUID> touchedBinders = new HashSet<>();
         if (binderId != null && !created.isEmpty()) {
             touchedBinders.add(binderId);
         }
         List<FreshnessEventLog.Entry> restored = new ArrayList<>();
-        for (Confirmed item : items.confirm(ownerId, raised, null, now)) {
+        for (Confirmed item : items.confirm(ownerId, reached, null, now)) {
             if (item.binderId() != null) {
                 touchedBinders.add(item.binderId());
             }
@@ -340,7 +347,7 @@ public class InventoryBatchService {
         binders.recordItemActivity(ownerId, touchedBinders, now);
         reconciler.binders(touchedBinders);
         List<UUID> written = new ArrayList<>(created);
-        written.addAll(raised);
+        written.addAll(reached);
         reconciler.items(written);
         log.info(
                 "Inventory batch add owner={} created={} raised={} copies={} visibility={}",

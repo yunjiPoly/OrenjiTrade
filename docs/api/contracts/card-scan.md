@@ -186,13 +186,15 @@ One transaction:
   price; no notes; the batch's visibility and binder. Stage R2 of the phone redesign changes the
   condition to "not stated" and keeps the rest; the batch follows once R2 is merged.
 - An item holds at most 9999 copies: what an equal item cannot take is counted in
-  `copiesNotAdded` (it is not written elsewhere).
+  `copiesNotAdded` (it is not written elsewhere). An equal item that is already full gets no copy
+  and is not raised.
 - `inventory.items.max` is checked **for the whole batch** before anything is written: when the new
   items would pass it, **429 `LIMIT_REACHED`** (extensions `limitKey`, `limit`, `used`, `requested`
   = the new items the batch needed, `planCode`, `upgradeUrl`) and nothing is written. Lines that
   only raise items need no room.
-- The items count as **confirmed** (freshness): a new item is confirmed by its creation, a raised
-  one is confirmed (a hidden one comes back, `RESTORED` freshness event).
+- The items count as **confirmed** (freshness): a new item is confirmed by its creation, an equal
+  item a line reached is confirmed, raised or full (a hidden one comes back, `RESTORED` freshness
+  event).
 - The listing is reconciled in the same transaction: a public card of a discoverable collector
   publishes `InventoryItemPublished` (wishlist alerts, the Home feed), once.
 - Locks: the owner lock first, then the target binder and the binders of the items it raises,
@@ -203,7 +205,7 @@ One transaction:
 | Field | Meaning |
 | --- | --- |
 | `itemsCreated` | new items |
-| `itemsRaised` | items that got extra copies |
+| `itemsRaised` | items that got extra copies (an equal item already at 9999 copies gets none: it is not counted here, its copies are in `copiesNotAdded`, and it is still confirmed) |
 | `copiesAdded` | copies written |
 | `copiesNotAdded` | copies an item could not take (at most 9999 per item) |
 | `createdItemIds` | the new items, in the order of the lines |

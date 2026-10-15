@@ -277,7 +277,24 @@ class InventoryBatchIT extends AbstractIntegrationTest {
         JsonNode raised = add(batch(null, null, List.of(line(card.printingId(), 5))));
         assertThat(raised.path("copiesAdded").asInt()).isEqualTo(1);
         assertThat(raised.path("copiesNotAdded").asInt()).isEqualTo(4);
+        assertThat(raised.path("itemsRaised").asInt()).isEqualTo(1);
+        assertThat(ids(raised.path("raisedItemIds"))).containsExactly(id);
         assertThat(row(id).get("quantity")).isEqualTo(9999);
+
+        // Full: no copy goes in, so the item is not raised; it still counts as confirmed.
+        testUsers.update(
+                "UPDATE inventory_item SET confirmed_at = now() - interval '200 days' WHERE id = ?",
+                UUID.fromString(id));
+        JsonNode full = add(batch(null, null, List.of(line(card.printingId(), 1))));
+        assertThat(full.path("itemsCreated").asInt()).isZero();
+        assertThat(full.path("itemsRaised").asInt()).isZero();
+        assertThat(full.path("raisedItemIds").size()).isZero();
+        assertThat(full.path("copiesAdded").asInt()).isZero();
+        assertThat(full.path("copiesNotAdded").asInt()).isEqualTo(1);
+        assertThat(row(id).get("quantity")).isEqualTo(9999);
+        assertThat(((Timestamp) row(id).get("confirmed_at")).toInstant())
+                .isAfter(Instant.now().minus(5, ChronoUnit.MINUTES));
+        assertThat(liveItems()).isEqualTo(1);
     }
 
     @Test
