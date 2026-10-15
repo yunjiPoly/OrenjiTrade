@@ -22,7 +22,6 @@ import { UnifiedResultsComponent } from './results/unified-results.component';
  *   holders in the browsed region);
  * - `?card=` / `?printing=` "who in my region has this card" with every filter and sort;
  * - no query: an invitation to search.
- * Results views carry the SEARCH_SPONSORED placement (labelled "Sponsored", hidden without ads).
  */
 @Component({
   selector: 'app-search-page',
