@@ -325,6 +325,80 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * Deck cores (stage R3): the deck core page, its key cards, the deck cores of a card, binder
+     * search and the state and region lists filtered to deck cores, and the map's deck core counts,
+     * anonymous and signed in. The seeded deck core of collector2 carries Ontario, Canada, never a
+     * city or a private note.
+     */
+    @Test
+    void deckCoresCarryThePlaceOnly(CapturedOutput output) {
+        String viewer = uniqueUid("geo-cores");
+        provisionCompliant(viewer);
+        UUID cardId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT card_id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'ygo-p012a'")
+                                .get(0)
+                                .get("card_id");
+        String seededCore = "00000000-0000-4000-8b00-000000000202";
+        for (String caller : Arrays.asList(null, viewer)) {
+            JsonNode page = fetch("/api/v1/public/binders/" + seededCore, caller);
+            assertThat(page.path("sellsAsCore").asBoolean()).isTrue();
+            assertThat(page.path("askingPriceText").asString()).isEqualTo("$95");
+            assertThat(page.path("keyCards").size()).isPositive();
+            assertThat(page.path("owner").path("place").path("label").asString())
+                    .isEqualTo(PLACES.get("collector2"));
+            JsonNode list = fetch("/api/v1/collectors/collector2/binders", caller);
+            assertThat(list.toString()).contains(seededCore);
+            JsonNode cores =
+                    fetch(
+                            "/api/v1/search/deck-cores?region=americas-north&limit=10&cardId="
+                                    + cardId,
+                            caller);
+            assertThat(cores.toString()).contains(seededCore);
+            for (JsonNode core : cores) {
+                assertPlaces(jsonMapper.createArrayNode().add(core.path("owner")));
+            }
+            JsonNode search =
+                    fetch(
+                            "/api/v1/search?q=Verdant&types=binders&deckCore=true"
+                                    + "&region=americas-north",
+                            caller);
+            assertThat(search.path("binders").toString()).contains(seededCore);
+            fetch("/api/v1/regions/americas-north/binders?deckCore=true", caller);
+            JsonNode ontario =
+                    fetch(
+                            "/api/v1/regions/americas-north/subdivisions/CA-ON/binders"
+                                    + "?deckCore=true&q=Moth",
+                            caller);
+            assertThat(ontario.toString()).contains(seededCore);
+            for (JsonNode binder : ontario.path("items")) {
+                assertThat(binder.path("owner").path("place").path("label").asString())
+                        .isEqualTo(PLACES.get("collector2"));
+            }
+            JsonNode counts = fetch("/api/v1/regions/americas-north/binder-counts", caller);
+            long ontarioCores = 0;
+            for (JsonNode entry : counts.path("subdivisions")) {
+                if ("CA-ON".equals(entry.path("code").asString())) {
+                    ontarioCores = entry.path("deckCoreCount").asLong();
+                }
+            }
+            assertThat(ontarioCores).isPositive();
+            fetch(
+                    "/api/v1/search/card-holders?region=americas-north&excludeDeckCoreItems=true"
+                            + "&cardId="
+                            + cardId,
+                    caller);
+        }
+        for (Fetched document : fetched) {
+            assertNoPrivateNotes(document.body(), document.path());
+        }
+        assertContract(output);
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {

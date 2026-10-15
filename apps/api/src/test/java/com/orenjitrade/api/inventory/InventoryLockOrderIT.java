@@ -68,6 +68,9 @@ import tools.jackson.databind.JsonNode;
  */
 class InventoryLockOrderIT extends AbstractIntegrationTest {
 
+    /** A tiny photo as the binder photo route stores it (re-encoded elsewhere). */
+    private static final byte[] JPEG = InventoryTestSupport.png(64, 64);
+
     private static final Duration STEP = Duration.ofSeconds(30);
     private static final String ITEMS = "/api/v1/inventory/items";
 
@@ -725,6 +728,9 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BINDER_CONFIRM,
         BINDER_DELETE,
         BINDER_REORDER,
+        BINDER_DECK_CORE,
+        BINDER_PHOTO_ADD,
+        BINDER_PHOTO_DELETE,
         OWNER_RECONCILIATION,
         ITEM_PURGE,
         BINDER_PURGE,
@@ -762,6 +768,16 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         if (write == OwnerWrite.ITEM_RESTORE) {
             callJson(HttpMethod.DELETE, ITEMS + "/" + filed, uid, null, 204);
         }
+        // The deck core photo a delete removes, added before the owner lock is held (stage R3).
+        @Nullable UUID photoId =
+                write == OwnerWrite.BINDER_PHOTO_DELETE
+                        ? binderService
+                                .addPhoto(ownerId, uuid(binderId), JPEG, 64, 64)
+                                .showcase()
+                                .photos()
+                                .get(0)
+                                .id()
+                        : null;
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -793,7 +809,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                                 otherBinderId,
                                                 filed,
                                                 unfiled,
-                                                importId));
+                                                importId,
+                                                photoId));
                 awaitWaiterOf(pid, writing);
                 assertThatCode(() -> lockEveryRowOf(ownerId))
                         .as("no row is held while the write waits for the owner lock")
@@ -834,7 +851,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             String otherBinderId,
             String filed,
             String unfiled,
-            @Nullable String importId) {
+            @Nullable String importId,
+            @Nullable UUID photoId) {
         String binder = "/api/v1/binders/" + binderId;
         switch (write) {
             case ITEM_CREATE -> createItem(uid, null, Map.of());
@@ -897,6 +915,26 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             uid,
                             Map.of("binderIds", List.of(otherBinderId, binderId)),
                             200);
+            // Stage R3: "Sell as a deck core" with a price is a binder update; a photo of the
+            // deck core is a binder write too (the owner lock, then the binder row).
+            case BINDER_DECK_CORE ->
+                    callJson(
+                            HttpMethod.PATCH,
+                            binder,
+                            uid,
+                            Map.of("sellsAsCore", true, "askingPriceText", "$95", "confirm", true),
+                            200);
+            case BINDER_PHOTO_ADD ->
+                    assertThat(
+                                    binderService
+                                            .addPhoto(ownerId, uuid(binderId), JPEG, 64, 64)
+                                            .showcase()
+                                            .photos())
+                            .hasSize(1);
+            case BINDER_PHOTO_DELETE -> {
+                assertThat(photoId).isNotNull();
+                binderService.deletePhoto(ownerId, uuid(binderId), photoId);
+            }
             case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
             case ITEM_PURGE -> inventoryService.purge(ownerId);
             case BINDER_PURGE -> binderService.purge(ownerId);

@@ -43,8 +43,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 testUsers.count(
                         "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
                                 + " '00000000-0000-4000-8c00-%'");
-        assertThat(binders).isEqualTo(11);
-        assertThat(items).isEqualTo(39);
+        // Stage R3 added collector2's deck core "Moth Queen core" and its three cards.
+        assertThat(binders).isEqualTo(12);
+        assertThat(items).isEqualTo(42);
         seedDataRunner.seedAll();
         assertThat(
                         testUsers.count(
@@ -77,6 +78,12 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " freshness_state = 'HIDDEN' AND hidden_reason ="
                                         + " 'STALE_UNCONFIRMED'"))
                 .isEqualTo(3);
+        Map<String, Object> core = binderRow("00000000-0000-4000-8b00-000000000202");
+        assertThat(core.get("sells_as_core")).isEqualTo(true);
+        assertThat(core.get("asking_price_text")).isEqualTo("$95");
+        assertThat(core.get("asking_price")).isEqualTo(new java.math.BigDecimal("95.00"));
+        assertThat(core.get("publicly_listed")).isEqualTo(true);
+        assertThat(core.get("item_count")).isEqualTo(3);
         Map<String, Object> temporary = binderRow("00000000-0000-4000-8b00-000000000401");
         assertThat(temporary.get("visibility")).isEqualTo("TEMPORARILY_PUBLIC");
         assertThat(temporary.get("public_until")).isNotNull();
@@ -319,7 +326,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         return testUsers
                 .query(
                         "SELECT visibility, public_until, freshness_state, item_count,"
-                                + " publicly_listed FROM binder WHERE id = ?",
+                                + " publicly_listed, sells_as_core, asking_price_text,"
+                                + " asking_price FROM binder WHERE id = ?",
                         UUID.fromString(id))
                 .get(0);
     }
