@@ -148,7 +148,7 @@ tags:
     timeout: 60000
 - assertVisible:
     id: 'binders-summary'
-    text: '0 binders · 1 deck core'
+    text: '1 deck core'
 - takeScreenshot: r3-inventory-binders
 - runScript:
     file: scripts/check-binder.js

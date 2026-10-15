@@ -39,6 +39,8 @@ describe('Inventory › Binders lines (screen 17)', () => {
       rest: ' · 2 deck cores',
     });
     expect(INVENTORY_BINDERS_COPY.summary(2, 0)).toEqual({ binders: '2 binders', rest: '' });
+    // Deck cores only: no "0 binders".
+    expect(INVENTORY_BINDERS_COPY.summary(0, 1)).toEqual({ binders: '1 deck core', rest: '' });
   });
 
   it('counts a deck core in photos and a binder in cards, with who can see it', () => {

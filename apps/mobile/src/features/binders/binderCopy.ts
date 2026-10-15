@@ -17,11 +17,17 @@ export function deckCoreTag(price: string | null | undefined): string {
 
 /** Inventory › Binders (screen 17). */
 export const INVENTORY_BINDERS_COPY = {
-  /** "3 binders · 1 deck core": the deck cores part is dropped at 0. */
-  summary: (binders: number, cores: number) => ({
-    binders: plural(binders, 'binder', 'binders'),
-    rest: cores > 0 ? ` · ${plural(cores, 'deck core', 'deck cores')}` : '',
-  }),
+  /**
+   * "3 binders · 1 deck core": the deck cores part is dropped at 0, and so is the binders part
+   * when the collector has deck cores only ("1 deck core", not "0 binders · 1 deck core").
+   */
+  summary: (binders: number, cores: number) =>
+    binders === 0 && cores > 0
+      ? { binders: plural(cores, 'deck core', 'deck cores'), rest: '' }
+      : {
+          binders: plural(binders, 'binder', 'binders'),
+          rest: cores > 0 ? ` · ${plural(cores, 'deck core', 'deck cores')}` : '',
+        },
   newBinder: 'New binder',
   reorder: 'Reorder',
   reorderLabel: 'Reorder your binders',

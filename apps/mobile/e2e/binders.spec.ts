@@ -153,7 +153,7 @@ test.describe('mobile binders and deck cores', () => {
 
     // Back on Inventory › Binders: the deck core with its tag.
     const list = screen(page, 'inventory');
-    await expect(list.getByTestId('binders-summary')).toHaveText('0 binders · 1 deck core', {
+    await expect(list.getByTestId('binders-summary')).toHaveText('1 deck core', {
       timeout: 30_000,
     });
     const row = list.getByRole('button', {
