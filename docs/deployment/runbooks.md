@@ -225,10 +225,13 @@ to restore; expect, right after a restart:
 | What | Effect | Lasts |
 | --- | --- | --- |
 | Rate-limit windows | each client gets one fresh window | one window (≤ 24 h for the daily policies) |
-| Rule / regions / discovery caches, usage mirror, credit balance cache | one database read per key, then warm | seconds to 10 minutes |
+| Rule / regions / discovery caches, usage mirror | one database read per key, then warm | seconds to 10 minutes |
 | Presence | everyone appears offline | ≤ 60 s (next heartbeat) |
 | Binder view de-duplication | a binder re-opened the same day counts again | until midnight UTC |
 | `Idempotency-Key` for `POST /offers`, `POST /reports` | a retried request after the restart can create a duplicate | 24 h; the only user-visible loss |
+
+The credit balance cache (`orenji:credits:balance:*`) went with credits in stage F1 (ADR 0019,
+`V122`); no Premium, credit or advertising key is left in Redis.
 
 Diagnosis when the instance is not ready: `curl -s https://api.orenjitrade.com/actuator/health/readiness`
 shows the `redis` component; `gcloud run revisions describe <rev> --region "$REGION" --format
