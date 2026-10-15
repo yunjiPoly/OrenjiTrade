@@ -133,7 +133,8 @@ public class RegionBinderRepository {
 
     /**
      * Up to {@code limit} public deck cores of discoverable collectors of {@code region} that hold
-     * a public card of {@code cardId} (any printing), most recently updated first: "Also in a deck
+     * a live card of {@code cardId} (any printing, whatever the card's own visibility: buyers see
+     * it as a key card, {@link DiscoverySql#SHOWN}), most recently updated first: "Also in a deck
      * core" on the card page (stage R5). The viewer's own and those of collectors blocked with them
      * are left out.
      */
@@ -152,7 +153,7 @@ public class RegionBinderRepository {
                         .append(" AND bn.sells_as_core AND EXISTS (SELECT 1")
                         .append(DiscoverySql.ITEM_JOINS)
                         .append(" WHERE i.binder_id = bn.id AND ")
-                        .append(DiscoverySql.LISTED)
+                        .append(DiscoverySql.SHOWN)
                         .append(" AND c.id = :cardId)");
         if (viewerId != null) {
             sql.append(" AND bn.owner_id <> :viewer").append(NOT_BLOCKED);

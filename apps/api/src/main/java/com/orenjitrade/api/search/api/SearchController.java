@@ -261,11 +261,13 @@ public class SearchController {
             description =
                     "Public deck cores (binders sold as one bundle, stage R3) of discoverable"
                         + " collectors of `region` (default: the caller's home region, else"
-                        + " americas-north) that hold a public copy of `cardId`, any printing, most"
-                        + " recently updated first, at most `limit` (\"Also in a deck core\" on the"
-                        + " card page). The caller's own and those of collectors blocked with them"
-                        + " are left out. Each carries its name, price as typed, photos, key cards"
-                        + " and owner block (state/province + country, never a city).")
+                        + " americas-north) that hold a copy of `cardId` among their key cards (any"
+                        + " printing; every live card of a public deck core is a key card, whatever"
+                        + " its own visibility), most recently updated first, at most `limit`"
+                        + " (\"Also in a deck core\" on the card page). The caller's own and those"
+                        + " of collectors blocked with them are left out. Each carries its name,"
+                        + " price as typed, photos, key cards and owner block (state/province +"
+                        + " country, never a city).")
     @ApiResponse(responseCode = "200", description = "Deck cores")
     @ApiResponse(
             responseCode = "400",

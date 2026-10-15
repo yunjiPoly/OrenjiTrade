@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -258,7 +259,7 @@ class DeckCoreIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void aPublicDeckCoreNeedsNoCardsAndShowsItsPhotosPriceAndPublicKeyCards() {
+    void aPublicDeckCoreNeedsNoCardsAndShowsItsPhotosPriceAndKeyCards() {
         String uid = collector("core-public");
         String handle = me(uid).path("handle").asString();
         String empty = create(uid, core("Empty core", "PUBLIC", "$40"));
@@ -320,8 +321,16 @@ class DeckCoreIT extends AbstractIntegrationTest {
                                                 + " x"
                                                 + card.path("quantity").asInt()));
         assertThat(keyCards)
-                .as("public cards only, copies of a card together, most copies first")
-                .containsExactly("Verdant Moth Queen x3", "Mirror Maze Trap x2");
+                .as(
+                        "every card of the core, the private one too (they sell only together),"
+                                + " copies of a card together, most copies first")
+                .containsExactly(
+                        "Cursed Hourglass Relic x4",
+                        "Verdant Moth Queen x3",
+                        "Mirror Maze Trap x2");
+        assertThat(page.path("itemCount").asLong())
+                .as("the cards listed on their own: the private one is not")
+                .isEqualTo(3);
         assertNoPrivateData(page);
 
         // The owner sees every card of it.
@@ -346,6 +355,147 @@ class DeckCoreIT extends AbstractIntegrationTest {
                                 .path("publicBinderCount")
                                 .asInt())
                 .isEqualTo(3);
+    }
+
+    @Test
+    void theCardsOfADeckCoreKeepTheVisibilityTheCollectorGaveThem() {
+        String uid = collector("core-cards");
+        String viewer = uniqueUid("core-cards-viewer");
+        provisionCompliant(viewer);
+        // A private binder of private cards (cards added on the phone start private, stage R2).
+        String id = create(uid, binder("Personal collection", "PRIVATE"));
+        IsolatedCard mothCard = InventoryTestSupport.isolatedCard(testUsers, "ygo-p012a");
+        IsolatedCard mazeCard = InventoryTestSupport.isolatedCard(testUsers, "ygo-p017a");
+        String moth = fileCopies(uid, id, mothCard, 2, "PRIVATE");
+        String maze = fileCopies(uid, id, mazeCard, 1, "PRIVATE");
+
+        // "Sell as a deck core" turned on, public: buyers see its cards as key cards and its game.
+        callJson(
+                HttpMethod.PATCH,
+                BINDERS + "/" + id,
+                uid,
+                Map.of("sellsAsCore", true, "visibility", "PUBLIC", "askingPriceText", "$60"),
+                200);
+        JsonNode page = callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
+        assertThat(keyCardNames(page)).containsExactly(mothCard.name(), mazeCard.name());
+        assertThat(page.path("games").get(0).asString()).isEqualTo("yugioh");
+        assertThat(deckCoresWith(mothCard, viewer)).contains(id);
+        assertNoPrivateData(page);
+        // Never listed alone: the cards stay private, absent from the card holders.
+        assertThat(visibility(uid, moth)).isEqualTo("PRIVATE");
+        assertThat(holders(mothCard, viewer)).doesNotContain(moth);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/public/binders/" + id + "/items",
+                                        viewer,
+                                        null,
+                                        200)
+                                .path("items"))
+                .as("the core's public item list holds the cards listed on their own only")
+                .isEmpty();
+
+        // Taken out of the core: still private, and no longer one of its key cards.
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/inventory/items/bulk",
+                uid,
+                Map.of("action", "MOVE_TO_BINDER", "itemIds", List.of(maze)),
+                200);
+        assertThat(visibility(uid, maze)).isEqualTo("PRIVATE");
+        assertThat(
+                        keyCardNames(
+                                callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/public/binders/" + id,
+                                        viewer,
+                                        null,
+                                        200)))
+                .containsExactly(mothCard.name());
+
+        // The switch off: a plain public binder shows its public cards only, so none.
+        callJson(HttpMethod.PATCH, BINDERS + "/" + id, uid, Map.of("sellsAsCore", false), 200);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200)
+                                .path("keyCards"))
+                .isEmpty();
+        assertThat(deckCoresWith(mothCard, viewer)).doesNotContain(id);
+
+        // Deleting the core keeps the cards in the inventory, unfiled and still private.
+        callJson(HttpMethod.PATCH, BINDERS + "/" + id, uid, Map.of("sellsAsCore", true), 200);
+        callJson(HttpMethod.DELETE, BINDERS + "/" + id + "?deleteItems=false", uid, null, 204);
+        JsonNode left = callJson(HttpMethod.GET, "/api/v1/inventory/items/" + moth, uid, null, 200);
+        assertThat(left.path("binder").isNull()).isTrue();
+        assertThat(left.path("visibility").asString()).isEqualTo("PRIVATE");
+        assertThat(left.path("effectivePublic").asBoolean()).isFalse();
+        assertThat(holders(mothCard, viewer)).doesNotContain(moth);
+        assertThat(holders(mazeCard, viewer)).doesNotContain(maze);
+    }
+
+    @Test
+    void theOwnersKeyCardsLeaveOutADeletedCardUntilItIsRestored() {
+        String uid = collector("core-deleted");
+        String id = create(uid, core("Druid core", "PRIVATE", "$70"));
+        fileItem(uid, id, "ygo-p012a", 2, "PRIVATE");
+        String relic = fileItem(uid, id, "ygo-p019a", 7, "PRIVATE");
+        assertThat(keyCardNames(callJson(HttpMethod.GET, BINDERS + "/" + id, uid, null, 200)))
+                .containsExactly("Cursed Hourglass Relic", "Verdant Moth Queen");
+        callJson(HttpMethod.DELETE, "/api/v1/inventory/items/" + relic, uid, null, 204);
+        assertThat(keyCardNames(callJson(HttpMethod.GET, BINDERS + "/" + id, uid, null, 200)))
+                .containsExactly("Verdant Moth Queen");
+        callJson(HttpMethod.POST, "/api/v1/inventory/items/" + relic + "/restore", uid, null, 200);
+        assertThat(keyCardNames(callJson(HttpMethod.GET, BINDERS + "/" + id, uid, null, 200)))
+                .containsExactly("Cursed Hourglass Relic", "Verdant Moth Queen");
+    }
+
+    private static List<String> keyCardNames(JsonNode binder) {
+        List<String> names = new ArrayList<>();
+        binder.path("keyCards").forEach(card -> names.add(card.path("name").asString()));
+        return names;
+    }
+
+    private String fileCopies(
+            String uid, String binderId, IsolatedCard card, int quantity, String visibility) {
+        Map<String, Object> body = item(card.printingId());
+        body.put("binderId", binderId);
+        body.put("quantity", quantity);
+        body.put("visibility", visibility);
+        body.put("notes", SECRET);
+        return callJson(HttpMethod.POST, "/api/v1/inventory/items", uid, body, 201)
+                .path("id")
+                .asString();
+    }
+
+    private String visibility(String uid, String itemId) {
+        return callJson(HttpMethod.GET, "/api/v1/inventory/items/" + itemId, uid, null, 200)
+                .path("visibility")
+                .asString();
+    }
+
+    /** The item ids of the card holders of {@code card} (all of them, deck cores included). */
+    private List<String> holders(IsolatedCard card, String viewer) {
+        List<String> ids = new ArrayList<>();
+        callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search/card-holders?region=americas-north&size=100&cardId="
+                                + card.cardId(),
+                        viewer,
+                        null,
+                        200)
+                .path("items")
+                .forEach(row -> ids.add(row.path("item").path("id").asString()));
+        return ids;
+    }
+
+    private List<String> deckCoresWith(IsolatedCard card, String viewer) {
+        return ids(
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/search/deck-cores?region=americas-north&limit=10&cardId="
+                                + card.cardId(),
+                        viewer,
+                        null,
+                        200));
     }
 
     @Test

@@ -732,7 +732,8 @@ public class BinderService {
     /**
      * Photos, preview pictures and key cards of the binders (three queries for the whole list). A
      * public view shows the photos only of a deck core (a binder whose switch was turned off keeps
-     * them for its owner) and key cards only of deck cores, built from public items.
+     * them for its owner) and key cards only of deck cores: in public views every live card of a
+     * public deck core, whatever the card's own visibility (they sell only together).
      */
     private Map<UUID, BinderShowcase> showcases(
             List<BinderView> binders, boolean publicOnly, @Nullable BinderContents binderContents) {

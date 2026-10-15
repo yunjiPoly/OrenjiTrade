@@ -248,6 +248,78 @@ class DeckCoreSearchIT extends AbstractSearchIT {
                         REGION,
                         "@" + owner.handle());
         assertThat(ids(byHandle.path("binders"))).contains(emptyCore, core, plain, plainWithCard);
+
+        // The card names of a deck core are those of its key cards: every live card filed in the
+        // public core, a private one too (buyers see it on the core's page, never listed alone).
+        IsolatedCard privateInCore = isolatedPrinting("ygo-p012a");
+        fileWith(owner, core, privateInCore.printingId(), "PRIVATE");
+        assertThat(textHits(privateInCore.name()))
+                .as("search, state list, region list")
+                .containsExactly(List.of(core), List.of(core), List.of(core));
+        // Never the private card of a plain binder (only a deck core's cards count, and a plain
+        // binder shows its public cards only), a deleted card, or a card hidden as stale.
+        IsolatedCard privateInPlain = isolatedPrinting("ygo-p012a");
+        fileWith(owner, plain, privateInPlain.printingId(), "PRIVATE");
+        assertThat(textHits(privateInPlain.name()))
+                .containsExactly(List.of(), List.of(), List.of());
+        IsolatedCard deleted = isolatedPrinting("ygo-p019a");
+        String deletedItem = fileWith(owner, core, deleted.printingId(), "PUBLIC");
+        callJson(
+                HttpMethod.DELETE,
+                "/api/v1/inventory/items/" + deletedItem,
+                owner.uid(),
+                null,
+                204);
+        assertThat(textHits(deleted.name())).containsExactly(List.of(), List.of(), List.of());
+        IsolatedCard stale = isolatedPrinting("ygo-p019a");
+        String staleItem = fileWith(owner, core, stale.printingId(), "PRIVATE");
+        testUsers.update(
+                "UPDATE inventory_item SET freshness_state = 'HIDDEN' WHERE id = ?::uuid",
+                staleItem);
+        assertThat(textHits(stale.name())).containsExactly(List.of(), List.of(), List.of());
+        // The switch off: a plain public binder, whose private card no longer finds it.
+        callJson(
+                HttpMethod.PATCH,
+                "/api/v1/binders/" + core,
+                owner.uid(),
+                Map.of("sellsAsCore", false),
+                200);
+        assertThat(textHits(privateInCore.name())).containsExactly(List.of(), List.of(), List.of());
+    }
+
+    /** Files a copy of {@code printingId} in the binder with a visibility; returns the item id. */
+    private String fileWith(
+            Collector owner, String binderId, java.util.UUID printingId, String visibility) {
+        Map<String, Object> body = item(printingId);
+        body.put("binderId", binderId);
+        body.put("visibility", visibility);
+        return callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), body, 201)
+                .path("id")
+                .asString();
+    }
+
+    /**
+     * The binders the text finds, anonymously: in binder search, in the Quebec list and in the
+     * region list.
+     */
+    private List<List<String>> textHits(String text) {
+        return List.of(
+                ids(
+                        get(
+                                        null,
+                                        200,
+                                        "/api/v1/search?types=binders&region={r}&q={q}",
+                                        REGION,
+                                        text)
+                                .path("binders")),
+                ids(
+                        get(
+                                null,
+                                200,
+                                "/api/v1/regions/{r}/subdivisions/CA-QC/binders?q={q}",
+                                REGION,
+                                text)),
+                ids(get(null, 200, "/api/v1/regions/{r}/binders?q={q}", REGION, text)));
     }
 
     @Test

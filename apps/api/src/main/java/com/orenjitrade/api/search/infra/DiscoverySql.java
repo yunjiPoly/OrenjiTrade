@@ -29,6 +29,13 @@ final class DiscoverySql {
     /** The item is effectively public right now (needs {@link #ITEM_JOINS} and the owner). */
     static final String LISTED = InventoryItemRepository.LISTED;
 
+    /**
+     * Buyers see the card: listed on its own, or as a key card of a public deck core whatever its
+     * own visibility ({@link InventoryItemRepository#SHOWN_PUBLICLY}; needs {@link #ITEM_JOINS} and
+     * the owner). For what a binder shows of its cards, never for the card's own listings.
+     */
+    static final String SHOWN = InventoryItemRepository.SHOWN_PUBLICLY;
+
     /** Freshness rank of an item: 0 ACTIVE, 1 AGING, 2 STALE. */
     static final String FRESHNESS_RANK =
             "CASE i.freshness_state WHEN 'ACTIVE' THEN 0 WHEN 'AGING' THEN 1 ELSE 2 END";
@@ -96,8 +103,9 @@ final class DiscoverySql {
      * The binder aliased {@code alias} (owner {@code u}) matches the text of a binder search (stage
      * R3, for Search › Binders): its name or description (full text {@code :q}, name substring
      * {@code :contains}), its owner's handle ({@code :handle}, a substring) and, for a deck core,
-     * the name of one of its public cards ({@code :contains}). {@link #binderTextParams} fills the
-     * parameters.
+     * the name of one of the cards buyers see as its key cards ({@link #SHOWN}: every live card of
+     * a public deck core; never a card of a plain binder that is not public, a deleted card, or the
+     * cards of a binder whose switch is off). {@link #binderTextParams} fills the parameters.
      */
     static String binderText(String alias) {
         return "("
@@ -114,7 +122,7 @@ final class DiscoverySql {
                 + " WHERE i.binder_id = "
                 + alias
                 + ".id AND "
-                + LISTED
+                + SHOWN
                 + " AND lower(unaccent_immutable(c.name)) LIKE :contains ESCAPE '\\')))";
     }
 

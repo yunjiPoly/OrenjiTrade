@@ -74,14 +74,16 @@ public final class PublicBinderResponses {
                             requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
                                     "Up to 3 pictures for lists: a deck core's first photo,"
-                                            + " otherwise the card pictures of its first public"
-                                            + " items")
+                                            + " otherwise the catalog pictures of its first public"
+                                            + " cards (every card of a deck core counts)")
                     List<String> previewImages,
             @Schema(
                             requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
-                                    "A deck core's public cards with their copies, most copies"
-                                            + " first (at most 30); empty for other binders")
+                                    "A deck core's key cards with their copies, most copies"
+                                            + " first (at most 30): every live card filed in it,"
+                                            + " whatever the card's own visibility, as its cards"
+                                            + " sell only together; empty for other binders")
                     List<KeyCard> keyCards) {
 
         static PublicBinderSummaryResponse from(PublicBinderSummary summary, Instant now) {
@@ -159,14 +161,16 @@ public final class PublicBinderResponses {
                             requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
                                     "Up to 3 pictures for lists: a deck core's first photo,"
-                                            + " otherwise the card pictures of its first public"
-                                            + " items")
+                                            + " otherwise the catalog pictures of its first public"
+                                            + " cards (every card of a deck core counts)")
                     List<String> previewImages,
             @Schema(
                             requiredMode = RequiredMode.NOT_REQUIRED,
                             description =
-                                    "A deck core's public cards with their copies, most copies"
-                                            + " first (at most 30); empty for other binders")
+                                    "A deck core's key cards with their copies, most copies"
+                                            + " first (at most 30): every live card filed in it,"
+                                            + " whatever the card's own visibility, as its cards"
+                                            + " sell only together; empty for other binders")
                     List<KeyCard> keyCards,
             @Schema(
                             requiredMode = RequiredMode.NOT_REQUIRED,

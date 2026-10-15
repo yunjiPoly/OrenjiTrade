@@ -396,9 +396,10 @@ public class SearchService {
     public static final int DECK_CORES_MAX = 10;
 
     /**
-     * {@code GET /search/deck-cores}: the public deck cores of the region holding a public card of
-     * {@code cardId} (any printing), most recently updated first ("Also in a deck core" on the card
-     * page, stage R5). The caller's own and those of collectors blocked with them are left out.
+     * {@code GET /search/deck-cores}: the public deck cores of the region holding a key card of
+     * {@code cardId} (any printing, whatever the card's own visibility), most recently updated
+     * first ("Also in a deck core" on the card page, stage R5). The caller's own and those of
+     * collectors blocked with them are left out.
      */
     @Transactional(readOnly = true)
     public List<PublicBinderHit> deckCoresWithCard(

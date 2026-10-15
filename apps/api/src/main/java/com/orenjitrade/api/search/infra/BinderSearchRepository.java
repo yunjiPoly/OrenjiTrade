@@ -70,7 +70,7 @@ public class BinderSearchRepository {
             sql.append(" AND EXISTS (SELECT 1")
                     .append(DiscoverySql.ITEM_JOINS)
                     .append(" WHERE i.binder_id = bn.id AND ")
-                    .append(DiscoverySql.LISTED)
+                    .append(DiscoverySql.SHOWN)
                     .append(" AND g.slug = :game)");
             params.put("game", game);
         } else {
