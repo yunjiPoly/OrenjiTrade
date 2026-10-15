@@ -36,6 +36,19 @@ export function ownerIsVisible(privacy: PrivacySettings | null | undefined): boo
   );
 }
 
+/**
+ * A deck core buyers see right now (public, unsold, its owner's listings public: the API's
+ * `effectivePublic` of a binder with "Sell as a deck core" on). Every live card filed in it is
+ * one of its key cards, whatever the card's own visibility (the API's `IN_PUBLIC_CORE`, stage R3).
+ */
+export function shownAsDeckCore(
+  binder: Partial<Pick<BinderResponse, 'sellsAsCore' | 'effectivePublic' | 'soldAt'>> | null
+): boolean {
+  return (
+    !!binder && binder.sellsAsCore === true && binder.effectivePublic === true && !binder.soldAt
+  );
+}
+
 const OWNER_HIDDEN_NOTE =
   'You are hidden from the map and your profile is not public, so nobody can see it yet.';
 
@@ -58,7 +71,14 @@ export function itemVisibilityStatus(
   const visibility = item.visibility;
   const now = context.now ?? Date.now();
   if (visibility === 'PRIVATE') {
-    return { visibility, pending: false, label: 'Private', note: 'Only you can see this card.' };
+    const binder = context.binder ?? null;
+    const keyCard = binder && shownAsDeckCore(binder) && item.freshness.state !== 'HIDDEN';
+    return {
+      visibility,
+      pending: false,
+      label: 'Private',
+      note: keyCard ? CARD_FORM_COPY.privateInCoreHint(binder.name) : 'Only you can see this card.',
+    };
   }
   const label = publicLabel(visibility, item.publicUntil, now);
   if (item.effectivePublic) {
@@ -191,15 +211,26 @@ export interface SavedCardState {
   changed: boolean;
 }
 
-/** The hint under "Who can see it" of Add to inventory and Edit card. */
+/**
+ * The hint under "Who can see it" of Add to inventory and Edit card. A private card filed in a
+ * deck core buyers see says that they see it as one of the core's key cards (review fix 2 of
+ * stage R3), unless it is hidden until confirmed and nothing changed.
+ */
 export function cardVisibilityHint(
   visibility: CardVisibility,
   owner: CardFindability,
-  binder: Pick<BinderResponse, 'name' | 'visibility' | 'publicUntil' | 'freshness'> | null,
+  binder:
+    | (Pick<BinderResponse, 'name' | 'visibility' | 'publicUntil' | 'freshness'> &
+        Partial<Pick<BinderResponse, 'sellsAsCore' | 'effectivePublic' | 'soldAt'>>)
+    | null,
   saved: SavedCardState | null = null,
   now = Date.now()
 ): { findable: boolean; text: string } {
   if (visibility === 'PRIVATE') {
+    const hidden = saved && !saved.changed && saved.item.freshness.state === 'HIDDEN';
+    if (binder && shownAsDeckCore(binder) && !hidden) {
+      return { findable: true, text: CARD_FORM_COPY.privateInCoreHint(binder.name) };
+    }
     const ended = saved && !saved.changed && temporaryPublicationEnded(saved.item, now);
     return {
       findable: true,

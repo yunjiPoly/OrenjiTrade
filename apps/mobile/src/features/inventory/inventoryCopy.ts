@@ -114,6 +114,10 @@ export const CARD_FORM_COPY = {
   private: 'Private',
   public: 'Public',
   privateHint: 'Only you see it until you make it public.',
+  // A private card filed in a public deck core (review fix 2 of stage R3): buyers see it as one of
+  // the core's key cards, never listed on its own.
+  privateInCoreHint: (core: string) =>
+    `Buyers see it as a key card of “${core}”. It is not listed on its own.`,
   // Edit card, a temporary publication (set on the paused web) that ended: the card reads Private.
   privateHintEnded:
     'Its temporary publication has ended: only you see it until you make it public again.',
