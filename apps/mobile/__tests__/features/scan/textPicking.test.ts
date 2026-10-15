@@ -320,6 +320,10 @@ describe('name candidates', () => {
     expect(nameCandidatesFromPhoto(linesOf(['Red Dragon Emberlord/Tempest Mode']))).toEqual([
       'Red Dragon Emberlord/Tempest Mode',
     ]);
+    // One part a type word, another several words that are none: a name, not a type line.
+    expect(nameCandidatesFromPhoto(linesOf(['Dragon/Knight of the Ember Gate']))).toEqual([
+      'Dragon/Knight of the Ember Gate',
+    ]);
   });
 
   it('keeps at most 3, the API length, each once', () => {
