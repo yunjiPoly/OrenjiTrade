@@ -68,8 +68,8 @@ five grouped queries whatever the number of variants:
    `LOB-F001`) makes the answer NOT_FOUND (`OTHER_LANGUAGE`) **whatever the name says**, with no other
    match. Printings whose language is not `en` or whose code has another language's region are
    never matched, listed or offered, not even as look-alikes. A read without a dash is another
-   language's only when no place of the dash gives an English code. The 8-digit passcode is never
-   used.
+   language's only when no place of the dash gives an English code.
+6. **Never the passcode**: a code read made only of digits (the 8-digit passcode, a stat) is ignored.
 
 ### Answer `CardScanMatch` (200)
 

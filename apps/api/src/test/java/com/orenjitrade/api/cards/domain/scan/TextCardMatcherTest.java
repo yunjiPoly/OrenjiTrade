@@ -347,6 +347,10 @@ class TextCardMatcherTest {
                 .isEqualTo(ScanNotFoundReason.NOTHING_READ);
         assertThat(match(List.of("ATK"), List.of()).reason())
                 .isEqualTo(ScanNotFoundReason.NOTHING_READ);
+        // The passcode is never used, not even sent as a code.
+        assertThat(match(List.of("19608153"), List.of()).reason())
+                .isEqualTo(ScanNotFoundReason.NOTHING_READ);
+        assertThat(catalog.totalCalls()).isZero();
 
         ScanMatch junk = match(List.of("ATK/2500"), List.of("@@ ##"));
         assertThat(junk.status()).isEqualTo(ScanStatus.NOT_FOUND);

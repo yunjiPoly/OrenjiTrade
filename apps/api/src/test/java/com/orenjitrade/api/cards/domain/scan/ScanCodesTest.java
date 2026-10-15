@@ -42,6 +42,10 @@ class ScanCodesTest {
         assertThat(ScanCodes.exactForms("ZACR-EN-036")).startsWith("ZACR-EN036");
         assertThat(ScanCodes.exactForms("ZAVD-ENS08")).containsExactly("ZAVD-ENS08");
         assertThat(ScanCodes.exactForms("ATK")).isEmpty();
+        // Only digits: the 8-digit passcode is never used, nor any other number.
+        assertThat(ScanCodes.exactForms("19608153")).isEmpty();
+        assertThat(ScanCodes.lookAlikes(ScanCodes.exactForms("19608153"))).isEmpty();
+        assertThat(ScanCodes.neighbours(ScanCodes.exactForms("19608153"))).isEmpty();
         assertThat(ScanCodes.exactForms("")).isEmpty();
         assertThat(ScanCodes.exactForms("X".repeat(30))).isEmpty();
     }

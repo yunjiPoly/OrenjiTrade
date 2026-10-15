@@ -62,6 +62,7 @@ public final class ScanCodes {
                     "^[A-Z0-9]{2,10}-(?:(?:FR|DE|IT|SP|PT|JP|KR)[A-Z0-9]{2,4}|[FGISP][0-9]{3})$");
 
     private static final Pattern OLD_NUMBER = Pattern.compile("^[0-9]{2,3}$");
+    private static final Pattern DIGITS = Pattern.compile("^[0-9]+$");
     private static final Pattern OLD_EUROPE = Pattern.compile("^E([0-9]{2,3})$");
     private static final Pattern OLD_ENGLISH = Pattern.compile("^EN([0-9]{2,3})$");
 
@@ -169,7 +170,10 @@ public final class ScanCodes {
 
     /** The one-dash codes of a cleaned read (a missing dash or extra dashes tried). */
     static List<String> bases(String cleaned) {
-        if (cleaned.isEmpty() || cleaned.length() > MAX_LENGTH) {
+        if (cleaned.isEmpty()
+                || cleaned.length() > MAX_LENGTH
+                || DIGITS.matcher(cleaned).matches()) {
+            // Only digits: the card's passcode (never used) or a stat, never a printing code.
             return List.of();
         }
         List<String> bases = new ArrayList<>();
