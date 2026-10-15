@@ -1060,6 +1060,15 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       );
       fireEvent.press(within(ask).getByTestId('saved-detail-cancel'));
       await waitFor(() => expect(screen.queryByTestId('saved-detail-sheet')).toBeNull());
+      // Mark as sold: the card row follows the size as far as the pinned bar does.
+      fireEvent.press(screen.getByTestId('pinned-mark-sold'));
+      const soldSheet = await screen.findByTestId('mark-sold-sheet');
+      expect(within(soldSheet).getByTestId('mark-sold-line')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      fireEvent.press(within(soldSheet).getByTestId('mark-sold-cancel'));
+      await waitFor(() => expect(screen.queryByTestId('mark-sold-sheet')).toBeNull());
       // "⋯": the actions scroll, so Block stays in reach.
       fireEvent.press(screen.getByTestId('conversation-menu'));
       const menu = await screen.findByTestId('conversation-menu-sheet');

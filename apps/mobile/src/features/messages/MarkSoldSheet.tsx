@@ -86,11 +86,21 @@ export function MarkSoldSheet({
           ]}
         >
           <SubjectThumb subject={subject} size="bar" testID="mark-sold-thumb" />
+          {/* The card the pinned bar already shows: it follows the text size as far as the bar
+              does, which leaves the tracking number in view at the largest sizes. */}
           <View style={styles.cardText}>
-            <Text numberOfLines={1} style={[styles.cardName, { color: palette.ink }]}>
+            <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.cardName, { color: palette.ink }]}
+            >
               {subject.name}
             </Text>
-            <Text testID="mark-sold-line" style={[styles.cardLine, { color: palette.textMuted }]}>
+            <Text
+              testID="mark-sold-line"
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.cardLine, { color: palette.textMuted }]}
+            >
               {line}
             </Text>
           </View>
