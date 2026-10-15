@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.infra;
 
 import com.orenjitrade.api.binders.domain.BinderContents;
+import com.orenjitrade.api.binders.domain.KeyCard;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.ItemImage;
@@ -13,6 +14,7 @@ import com.orenjitrade.api.users.domain.ExportContributor;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -57,6 +59,18 @@ public class InventoryExtensions {
             @Override
             public Map<UUID, Stats> statsOf(Collection<UUID> binderIds, boolean publicOnly) {
                 return inventoryService.binderStats(binderIds, publicOnly);
+            }
+
+            @Override
+            public Map<UUID, List<String>> previewImagesOf(
+                    Collection<UUID> binderIds, boolean publicOnly, int max) {
+                return inventoryService.binderPreviewImages(binderIds, publicOnly, max);
+            }
+
+            @Override
+            public Map<UUID, List<KeyCard>> keyCardsOf(
+                    Collection<UUID> binderIds, boolean publicOnly, int max) {
+                return inventoryService.binderKeyCards(binderIds, publicOnly, max);
             }
 
             @Override

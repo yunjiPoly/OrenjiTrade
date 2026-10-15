@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search.infra;
 
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
+import com.orenjitrade.api.cards.domain.CatalogText;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 
 /**
@@ -72,6 +73,63 @@ final class DiscoverySql {
                 + ") OR (ub.blocker_id = "
                 + ownerColumn
                 + " AND ub.blocked_id = :viewer))";
+    }
+
+    /**
+     * The effectively public binder aliased {@code alias} shows in public binder lists: it holds a
+     * public item, or it is a deck core, which needs no cards (owner spec 2026-10-14, section 7; a
+     * sold one is not effectively public). Needs no other alias.
+     */
+    static String binderShown(String alias) {
+        return "("
+                + alias
+                + ".sells_as_core OR EXISTS (SELECT 1"
+                + ITEM_JOINS
+                + " WHERE i.binder_id = "
+                + alias
+                + ".id AND "
+                + LISTED
+                + "))";
+    }
+
+    /**
+     * The binder aliased {@code alias} (owner {@code u}) matches the text of a binder search (stage
+     * R3, for Search › Binders): its name or description (full text {@code :q}, name substring
+     * {@code :contains}), its owner's handle ({@code :handle}, a substring) and, for a deck core,
+     * the name of one of its public cards ({@code :contains}). {@link #binderTextParams} fills the
+     * parameters.
+     */
+    static String binderText(String alias) {
+        return "("
+                + alias
+                + ".search_vector @@ websearch_to_tsquery('simple', unaccent_immutable(:q))"
+                + " OR lower(unaccent_immutable("
+                + alias
+                + ".name)) LIKE :contains ESCAPE '\\'"
+                + " OR u.handle LIKE :handle ESCAPE '\\'"
+                + " OR ("
+                + alias
+                + ".sells_as_core AND EXISTS (SELECT 1"
+                + ITEM_JOINS
+                + " WHERE i.binder_id = "
+                + alias
+                + ".id AND "
+                + LISTED
+                + " AND lower(unaccent_immutable(c.name)) LIKE :contains ESCAPE '\\')))";
+    }
+
+    /** The parameters of {@link #binderText}: {@code q}, {@code contains}, {@code handle}. */
+    static void binderTextParams(String text, java.util.Map<String, Object> params) {
+        String trimmed = text.trim();
+        String escaped = CatalogText.escapeLike(CatalogText.normalise(trimmed));
+        String handle = trimmed.startsWith("@") ? trimmed.substring(1) : trimmed;
+        params.put("q", trimmed);
+        params.put("contains", "%" + escaped + "%");
+        params.put(
+                "handle",
+                "%"
+                        + CatalogText.escapeLike(handle.trim().toLowerCase(java.util.Locale.ROOT))
+                        + "%");
     }
 
     private DiscoverySql() {}

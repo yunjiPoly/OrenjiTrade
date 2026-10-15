@@ -3,7 +3,10 @@ package com.orenjitrade.api.binders.api;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.binders.domain.BinderKind;
+import com.orenjitrade.api.binders.domain.BinderPhoto;
+import com.orenjitrade.api.binders.domain.BinderShowcase;
 import com.orenjitrade.api.binders.domain.BinderView;
+import com.orenjitrade.api.binders.domain.KeyCard;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinder;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderSummary;
@@ -45,7 +48,41 @@ public final class PublicBinderResponses {
                             description =
                                     "Owner block; present in search results (`GET /search`),"
                                             + " absent in a collector's own binder list")
-                    @Nullable PublicBinderOwner owner) {
+                    @Nullable PublicBinderOwner owner,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "A deck core (\"Sell as a deck core\", stage R3): one bundle"
+                                            + " with photos, one price and the description as its"
+                                            + " note. Always sent")
+                    boolean sellsAsCore,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            nullable = true,
+                            maxLength = 40,
+                            example = "$95",
+                            description =
+                                    "A deck core's asking price as the owner typed it; null for"
+                                            + " other binders and a core without a price")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String askingPriceText,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description = "A deck core's photos in order; empty for other binders")
+                    List<BinderPhoto> photos,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "Up to 3 pictures for lists: a deck core's first photo,"
+                                            + " otherwise the card pictures of its first public"
+                                            + " items")
+                    List<String> previewImages,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "A deck core's public cards with their copies, most copies"
+                                            + " first (at most 30); empty for other binders")
+                    List<KeyCard> keyCards) {
 
         static PublicBinderSummaryResponse from(PublicBinderSummary summary, Instant now) {
             return of(summary, null, now);
@@ -60,6 +97,7 @@ public final class PublicBinderResponses {
                 PublicBinderSummary summary, @Nullable PublicBinderOwner owner, Instant now) {
             BinderView binder = summary.binder();
             BinderContents.Stats stats = summary.stats();
+            BinderShowcase showcase = summary.showcase();
             return new PublicBinderSummaryResponse(
                     binder.id(),
                     binder.name(),
@@ -70,7 +108,12 @@ public final class PublicBinderResponses {
                     stats.games(),
                     summary.coverImageUrl(),
                     binderFreshness(binder, now),
-                    owner);
+                    owner,
+                    binder.sellsAsCore(),
+                    publicPrice(binder),
+                    showcase.photos(),
+                    showcase.previewImages(),
+                    showcase.keyCards());
         }
     }
 
@@ -90,10 +133,52 @@ public final class PublicBinderResponses {
                     long itemCount,
             @Schema(requiredMode = RequiredMode.REQUIRED) List<String> games,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String coverImageUrl) {
+                    @Nullable String coverImageUrl,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "A deck core (\"Sell as a deck core\", stage R3): one bundle"
+                                            + " with photos, one price and the description as its"
+                                            + " note. Always sent")
+                    boolean sellsAsCore,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            nullable = true,
+                            maxLength = 40,
+                            example = "$95",
+                            description =
+                                    "A deck core's asking price as the owner typed it; null for"
+                                            + " other binders and a core without a price")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String askingPriceText,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description = "A deck core's photos in order; empty for other binders")
+                    List<BinderPhoto> photos,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "Up to 3 pictures for lists: a deck core's first photo,"
+                                            + " otherwise the card pictures of its first public"
+                                            + " items")
+                    List<String> previewImages,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            description =
+                                    "A deck core's public cards with their copies, most copies"
+                                            + " first (at most 30); empty for other binders")
+                    List<KeyCard> keyCards,
+            @Schema(
+                            requiredMode = RequiredMode.NOT_REQUIRED,
+                            example = "2",
+                            description =
+                                    "The owner's public binders, deck cores included (the seller"
+                                            + " row of a deck core page)")
+                    int ownerPublicBinderCount) {
 
         static PublicBinderResponse from(PublicBinder publicBinder, Instant now) {
             BinderView binder = publicBinder.binder();
+            BinderShowcase showcase = publicBinder.showcase();
             return new PublicBinderResponse(
                     binder.id(),
                     binder.name(),
@@ -104,7 +189,13 @@ public final class PublicBinderResponses {
                     binderFreshness(binder, now),
                     publicBinder.stats().publicItemCount(),
                     publicBinder.stats().games(),
-                    publicBinder.coverImageUrl());
+                    publicBinder.coverImageUrl(),
+                    binder.sellsAsCore(),
+                    publicPrice(binder),
+                    showcase.photos(),
+                    showcase.previewImages(),
+                    showcase.keyCards(),
+                    publicBinder.ownerPublicBinderCount());
         }
     }
 
@@ -132,6 +223,11 @@ public final class PublicBinderResponses {
                     owner.avatarUrl(),
                     owner.place() == null ? null : PlaceResponse.from(owner.place()));
         }
+    }
+
+    /** The price buyers see: a deck core's text as typed; none for another binder. */
+    static @Nullable String publicPrice(BinderView binder) {
+        return binder.sellsAsCore() ? binder.askingPriceText() : null;
     }
 
     static FreshnessInfo binderFreshness(BinderView binder, Instant now) {

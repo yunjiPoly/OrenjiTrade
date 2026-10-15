@@ -488,6 +488,68 @@ public class InventoryItemRepository {
                 .list();
     }
 
+    /**
+     * The first {@code max} printings per binder, one row each, in the order the items were added
+     * (a binder's preview pictures, stage R3), optionally among public items only.
+     */
+    public List<PreviewRow> binderPreviews(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, printing_id FROM (SELECT i.binder_id, i.printing_id,"
+                                + " row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " min(i.created_at), i.printing_id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + LISTED : "")
+                                + " GROUP BY i.binder_id, i.printing_id) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * The cards of each binder with their copies (every printing of a card together), most copies
+     * first, then by name, at most {@code max} per binder (a deck core's key cards, stage R3),
+     * optionally among public items only.
+     */
+    public List<KeyCardRow> binderKeyCards(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, card_id, card_name, copies FROM (SELECT i.binder_id,"
+                                + " c.id AS card_id, c.name AS card_name, sum(i.quantity) AS"
+                                + " copies, row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " sum(i.quantity) DESC, c.name, c.id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + LISTED : "")
+                                + " GROUP BY i.binder_id, c.id, c.name) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new KeyCardRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("card_id", UUID.class),
+                                        rs.getString("card_name"),
+                                        rs.getLong("copies")))
+                .list();
+    }
+
     /** The owner's summary counters. */
     public SummaryRow summary(UUID ownerId, Instant now) {
         return jdbc.sql(
@@ -1338,6 +1400,12 @@ public class InventoryItemRepository {
 
     /** First item of a binder. */
     public record CoverRow(UUID binderId, UUID printingId, @Nullable String imageKey) {}
+
+    /** A printing among the first items of a binder (its preview pictures). */
+    public record PreviewRow(UUID binderId, UUID printingId) {}
+
+    /** A card of a binder with its copies (a deck core's key card). */
+    public record KeyCardRow(UUID binderId, UUID cardId, String cardName, long copies) {}
 
     /** Summary counters of an owner. */
     public record SummaryRow(

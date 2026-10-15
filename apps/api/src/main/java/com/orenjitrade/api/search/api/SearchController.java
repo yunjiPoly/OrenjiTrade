@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
+import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicBinderSummaryResponse;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
@@ -78,9 +79,12 @@ public class SearchController {
                         + " is set and `collectors` lists the holders of it with `matchingItems`;"
                         + " otherwise collectors matching the text. Collectors and binders belong"
                         + " to discoverable collectors of `region` (default: the caller's home"
-                        + " region, else americas-north; 400 for an unknown code). Binders carry"
-                        + " their owner block. Emits the analytics events search_performed /"
-                        + " search_no_results.")
+                        + " region, else americas-north; 400 for an unknown code). Binders match"
+                        + " their name or description, their owner's handle and, for a deck core,"
+                        + " its card names; deck cores show without cards, `deckCore` keeps only"
+                        + " them (true) or only the other binders (false). Binders carry their"
+                        + " owner block and, for a deck core, its price, photos and key cards."
+                        + " Emits the analytics events search_performed / search_no_results.")
     @ApiResponse(responseCode = "200", description = "Results per section")
     @ApiResponse(
             responseCode = "400",
@@ -119,7 +123,13 @@ public class SearchController {
                     @RequestParam(required = false)
                     @Size(max = 32)
                     @Nullable String region,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int limit) {
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int limit,
+            @Parameter(
+                            description =
+                                    "Binders section: deck cores only (true) or other binders only"
+                                            + " (false); both when omitted")
+                    @RequestParam(required = false)
+                    @Nullable Boolean deckCore) {
         return UnifiedSearchResponse.from(
                 searchService.search(
                         viewer(principal),
@@ -128,7 +138,8 @@ public class SearchController {
                                 SearchService.parseTypes(types == null ? List.of() : types),
                                 game,
                                 region,
-                                limit)),
+                                limit,
+                                deckCore)),
                 timeProvider.now());
     }
 
@@ -195,7 +206,13 @@ public class SearchController {
                     @RequestParam(defaultValue = "freshness")
                     String sort,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @Parameter(
+                            description =
+                                    "Leave out the cards filed in a deck core: they sell only with"
+                                            + " it (GET /search/deck-cores lists the cores)")
+                    @RequestParam(defaultValue = "false")
+                    boolean excludeDeckCoreItems) {
         HolderSort holderSort =
                 HolderSort.parse(sort)
                         .orElseThrow(
@@ -223,7 +240,8 @@ public class SearchController {
                                 acceptsOffers,
                                 holderSort,
                                 page,
-                                size));
+                                size,
+                                excludeDeckCoreItems));
         Instant now = timeProvider.now();
         return new PageResponse<>(
                 holders.items().stream()
@@ -233,6 +251,46 @@ public class SearchController {
                 holders.size(),
                 holders.totalItems(),
                 holders.totalPages());
+    }
+
+    @GetMapping(path = "/api/v1/search/deck-cores", produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirements
+    @Operation(
+            operationId = "searchDeckCores",
+            summary = "Public deck cores of a region holding a card (auth optional)",
+            description =
+                    "Public deck cores (binders sold as one bundle, stage R3) of discoverable"
+                        + " collectors of `region` (default: the caller's home region, else"
+                        + " americas-north) that hold a public copy of `cardId`, any printing, most"
+                        + " recently updated first, at most `limit` (\"Also in a deck core\" on the"
+                        + " card page). The caller's own and those of collectors blocked with them"
+                        + " are left out. Each carries its name, price as typed, photos, key cards"
+                        + " and owner block (state/province + country, never a city).")
+    @ApiResponse(responseCode = "200", description = "Deck cores")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Invalid card id, limit or region",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public List<PublicBinderSummaryResponse> deckCores(
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
+            @RequestParam UUID cardId,
+            @Parameter(
+                            description =
+                                    "Platform region code (GET /regions); default: the caller's"
+                                            + " home region, else americas-north. Scopes results"
+                                            + " only, never grants access")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String region,
+            @RequestParam(defaultValue = "3") @Min(1) @Max(SearchService.DECK_CORES_MAX)
+                    int limit) {
+        Instant now = timeProvider.now();
+        return searchService.deckCoresWithCard(viewer(principal), cardId, region, limit).stream()
+                .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                .toList();
     }
 
     @GetMapping(path = "/api/v1/search/suggest", produces = MediaType.APPLICATION_JSON_VALUE)

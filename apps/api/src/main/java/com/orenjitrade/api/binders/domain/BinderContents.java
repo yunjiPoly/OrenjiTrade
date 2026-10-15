@@ -20,6 +20,23 @@ public interface BinderContents {
      */
     Map<UUID, Stats> statsOf(Collection<UUID> binderIds, boolean publicOnly);
 
+    /**
+     * Up to {@code max} card pictures per binder (the printing images of its first items, one per
+     * printing, in the order the items were added); binders without items are absent.
+     *
+     * @param publicOnly effectively public items only (public views)
+     */
+    Map<UUID, List<String>> previewImagesOf(
+            Collection<UUID> binderIds, boolean publicOnly, int max);
+
+    /**
+     * The cards of each binder with their copies (every printing of a card together), most copies
+     * first, then by name; at most {@code max} per binder; binders without items are absent.
+     *
+     * @param publicOnly effectively public items only (public views)
+     */
+    Map<UUID, List<KeyCard>> keyCardsOf(Collection<UUID> binderIds, boolean publicOnly, int max);
+
     /** The owner confirmed (or published) the binder: confirm every item in it. */
     void confirmItems(UUID ownerId, UUID binderId, Instant now);
 

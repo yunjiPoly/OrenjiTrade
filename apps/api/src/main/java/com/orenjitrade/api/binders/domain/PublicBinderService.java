@@ -125,7 +125,8 @@ public class PublicBinderService {
 
     /**
      * {@code GET /collectors/{handle}/binders}: the collector's effectively public binders holding
-     * at least one effectively public item, in the owner's order.
+     * at least one effectively public item, and their public deck cores (which need no cards), in
+     * the owner's order.
      */
     @Transactional(readOnly = true)
     public List<PublicBinderSummary> bindersOf(@Nullable UUID viewerId, String handle) {
@@ -133,12 +134,17 @@ public class PublicBinderService {
         List<BinderView> binders =
                 repository.findEffectivelyPublicByOwner(owner.id(), timeProvider.now());
         return binderService.details(binders, true).stream()
-                .filter(details -> details.stats().publicItemCount() > 0)
-                .map(
-                        details ->
-                                new PublicBinderSummary(
-                                        details.binder(), details.stats(), details.coverImageUrl()))
+                .filter(PublicBinderService::shown)
+                .map(PublicBinderSummary::of)
                 .toList();
+    }
+
+    /**
+     * Whether an effectively public binder shows in public lists: it holds a public card, or it is
+     * a deck core (owner spec 2026-10-14, section 7: a deck core needs no cards).
+     */
+    static boolean shown(BinderDetails details) {
+        return details.stats().publicItemCount() > 0 || details.binder().listedWithoutCards();
     }
 
     /**
@@ -169,7 +175,13 @@ public class PublicBinderService {
                             now));
         }
         BinderDetails details = binderService.details(List.of(binder), true).get(0);
-        return new PublicBinder(binder, owner, details.stats(), details.coverImageUrl());
+        return new PublicBinder(
+                binder,
+                owner,
+                details.stats(),
+                details.coverImageUrl(),
+                details.showcase(),
+                publicBinderCount(binder.ownerId()));
     }
 
     /**
@@ -215,7 +227,8 @@ public class PublicBinderService {
     }
 
     /**
-     * Number of public binders shown on the collector profile (same rule as {@link #bindersOf}).
+     * Number of public binders shown on the collector profile (same rule as {@link #bindersOf}:
+     * deck cores included).
      */
     @Transactional(readOnly = true)
     public int publicBinderCount(UUID ownerId) {
@@ -226,14 +239,15 @@ public class PublicBinderService {
         }
         return (int)
                 binderService.details(binders, true).stream()
-                        .filter(details -> details.stats().publicItemCount() > 0)
+                        .filter(PublicBinderService::shown)
                         .count();
     }
 
     /**
      * Search results (Phase 4 unified search): the effectively public binders among {@code
-     * binderIds} that hold at least one public item and whose owner is visible to the viewer (no
-     * block), with their owner blocks, in the given order. Never counts a binder view.
+     * binderIds} that hold at least one public item or are deck cores, and whose owner is visible
+     * to the viewer (no block), with their owner blocks, in the given order. Never counts a binder
+     * view.
      */
     @Transactional(readOnly = true)
     public List<PublicBinderHit> publicBinders(@Nullable UUID viewerId, List<UUID> binderIds) {
@@ -262,7 +276,7 @@ public class PublicBinderService {
         Map<UUID, PublicOwner> owners = new LinkedHashMap<>();
         List<PublicBinderHit> hits = new ArrayList<>();
         for (BinderDetails details : binderService.details(ordered, true)) {
-            if (details.stats().publicItemCount() == 0) {
+            if (!shown(details)) {
                 continue;
             }
             UUID ownerId = details.binder().ownerId();
@@ -279,11 +293,7 @@ public class PublicBinderService {
                                 viewerId);
                 owners.put(ownerId, owner);
             }
-            hits.add(
-                    new PublicBinderHit(
-                            new PublicBinderSummary(
-                                    details.binder(), details.stats(), details.coverImageUrl()),
-                            owner));
+            hits.add(new PublicBinderHit(PublicBinderSummary.of(details), owner));
         }
         return hits;
     }
@@ -346,9 +356,19 @@ public class PublicBinderService {
      * @param binder the binder
      * @param stats public item statistics
      * @param coverImageUrl cover image
+     * @param showcase a deck core's photos and key cards, the preview pictures (stage R3)
      */
     public record PublicBinderSummary(
-            BinderView binder, BinderContents.Stats stats, @Nullable String coverImageUrl) {}
+            BinderView binder,
+            BinderContents.Stats stats,
+            @Nullable String coverImageUrl,
+            BinderShowcase showcase) {
+
+        static PublicBinderSummary of(BinderDetails details) {
+            return new PublicBinderSummary(
+                    details.binder(), details.stats(), details.coverImageUrl(), details.showcase());
+        }
+    }
 
     /**
      * A public binder found by search, with its owner.
@@ -365,10 +385,14 @@ public class PublicBinderService {
      * @param owner owner block
      * @param stats public item statistics
      * @param coverImageUrl cover image
+     * @param showcase a deck core's photos and key cards, the preview pictures (stage R3)
+     * @param ownerPublicBinderCount the owner's public binders (the seller row of a deck core)
      */
     public record PublicBinder(
             BinderView binder,
             PublicOwner owner,
             BinderContents.Stats stats,
-            @Nullable String coverImageUrl) {}
+            @Nullable String coverImageUrl,
+            BinderShowcase showcase,
+            int ownerPublicBinderCount) {}
 }

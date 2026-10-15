@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.infra;
 
 import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.common.AskingPriceText;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.seed.SeedContributor;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService;
@@ -111,9 +112,11 @@ public class InventorySeedContributor implements SeedContributor {
                                     """
                                     INSERT INTO binder (id, owner_id, name, description, kind,
                                         visibility, public_until, sort_order, freshness_state,
-                                        created_at, updated_at, confirmed_at, last_owner_activity_at)
+                                        created_at, updated_at, confirmed_at, last_owner_activity_at,
+                                        sells_as_core, asking_price_text, asking_price)
                                     VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
-                                        :publicUntil, :sortOrder, :state, :at, :at, :at, :at)
+                                        :publicUntil, :sortOrder, :state, :at, :at, :at, :at,
+                                        :sellsAsCore, :priceText, :price)
                                     ON CONFLICT (id) DO NOTHING
                                     """)
                             .param("id", UUID.fromString(binder.id()))
@@ -127,6 +130,12 @@ public class InventorySeedContributor implements SeedContributor {
                                     publicUntil == null ? null : Timestamp.from(publicUntil),
                                     Types.TIMESTAMP)
                             .param("sortOrder", binder.sortOrder())
+                            .param("sellsAsCore", Boolean.TRUE.equals(binder.sellsAsCore()))
+                            .param("priceText", binder.askingPriceText(), Types.VARCHAR)
+                            .param(
+                                    "price",
+                                    AskingPriceText.amountOf(binder.askingPriceText()).orElse(null),
+                                    Types.NUMERIC)
                             .param("state", policy.stateAt(confirmedAt, now).name())
                             .param("at", Timestamp.from(confirmedAt))
                             .update();
@@ -257,7 +266,9 @@ public class InventorySeedContributor implements SeedContributor {
             @Nullable Integer publicForHours,
             int confirmedDaysAgo,
             int sortOrder,
-            List<SeedItem> items) {}
+            List<SeedItem> items,
+            @Nullable Boolean sellsAsCore,
+            @Nullable String askingPriceText) {}
 
     /** A seeded item (owner only for unfiled items). */
     record SeedItem(

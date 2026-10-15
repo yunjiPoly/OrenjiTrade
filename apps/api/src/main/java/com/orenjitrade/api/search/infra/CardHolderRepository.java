@@ -33,13 +33,15 @@ public class CardHolderRepository {
      * One page of matching items (ids and owners in order) and the total count, as {@code viewerId}
      * sees them: without their own items and without the items of collectors in a block relation
      * with them, in either direction. Both are left out in SQL, of the count and of the page alike,
-     * so the total is the number of rows the pages hold.
+     * so the total is the number of rows the pages hold. With {@code excludeDeckCoreItems} the
+     * cards filed in a deck core are left out too (stage R3).
      */
     public HolderPage page(
             ItemFilter filter,
             String region,
             HolderSort sort,
             @Nullable UUID viewerId,
+            boolean excludeDeckCoreItems,
             int page,
             int size,
             Instant now) {
@@ -63,6 +65,12 @@ public class CardHolderRepository {
             params.put("viewer", viewerId);
         }
         from.append(filter.sql(params));
+        if (excludeDeckCoreItems) {
+            // The cards of a deck core sell only with it (owner spec 2026-10-14, section 7): the
+            // card page shows the core instead. Cards of a binder that is not public are not
+            // listed anyway, so every deck core's cards can be left out.
+            from.append(" AND (i.binder_id IS NULL OR NOT b.sells_as_core)");
+        }
 
         long total = statement("SELECT count(*)" + from, params).query(Long.class).single();
         if (total == 0) {
