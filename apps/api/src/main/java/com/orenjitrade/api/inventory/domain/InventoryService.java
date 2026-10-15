@@ -307,7 +307,9 @@ public class InventoryService {
                         input.edition(),
                         input.finish(),
                         input.askingPrice(),
-                        PriceInput.of(input.askingPriceText()),
+                        input.askingPriceText() != null
+                                ? PriceInput.typed(input.askingPriceText())
+                                : PriceInput.NONE,
                         input.currency(),
                         input.availability() != null
                                 ? input.availability()
@@ -402,7 +404,7 @@ public class InventoryService {
         }
         PriceInput priceText =
                 patch.has("askingPriceText")
-                        ? PriceInput.of(patch.askingPriceText())
+                        ? PriceInput.typed(patch.askingPriceText())
                         : patch.has("askingPrice")
                                 ? PriceInput.NONE
                                 : PriceInput.kept(current.askingPriceText());
@@ -1339,22 +1341,32 @@ public class InventoryService {
     }
 
     /**
-     * The asking price text of a write: {@link #NONE} (no text), a text as sent (normalised and
-     * parsed by {@link #values}), or the stored text kept as it is.
+     * The asking price text of a write: {@link #NONE} (no text, the amount as sent: the paused
+     * web), a text as typed (normalised and parsed by {@link #values}; it sets the amount too, and
+     * an empty one clears both), or the stored text kept as it is (with its amount).
      *
      * @param text the text, {@code null} for none
-     * @param kept whether it is the stored text, kept unchanged (its amount is kept too)
+     * @param source where the text comes from
      */
-    record PriceInput(@Nullable String text, boolean kept) {
+    record PriceInput(@Nullable String text, Source source) {
 
-        static final PriceInput NONE = new PriceInput(null, false);
+        enum Source {
+            /** No text: the amount is the one sent (or kept). */
+            AMOUNT,
+            /** A text the collector typed, possibly empty: it decides the amount. */
+            TYPED,
+            /** The stored text and amount, unchanged. */
+            KEPT
+        }
 
-        static PriceInput of(@Nullable String sent) {
-            return new PriceInput(AskingPriceText.normalise(sent), false);
+        static final PriceInput NONE = new PriceInput(null, Source.AMOUNT);
+
+        static PriceInput typed(@Nullable String sent) {
+            return new PriceInput(AskingPriceText.normalise(sent), Source.TYPED);
         }
 
         static PriceInput kept(@Nullable String stored) {
-            return new PriceInput(stored, true);
+            return new PriceInput(stored, Source.KEPT);
         }
     }
 
@@ -1424,13 +1436,13 @@ public class InventoryService {
             errors.add(new ProblemFieldError("finish", "must be a finish code"));
         }
         @Nullable String typedPrice = priceText.text();
-        if (typedPrice != null && !priceText.kept()) {
+        if (priceText.source() == PriceInput.Source.TYPED) {
             @Nullable String problem = AskingPriceText.problem(typedPrice);
             if (problem != null) {
                 errors.add(new ProblemFieldError("askingPriceText", problem));
             }
             // A plain amount ("12.50", "$12.50", "12,50 $") also gives the amount; any other text
-            // has none.
+            // has none, and an emptied price (no text) clears the amount it gave before.
             askingPrice = AskingPriceText.amountOf(typedPrice).orElse(null);
         }
         @Nullable BigDecimal price = null;

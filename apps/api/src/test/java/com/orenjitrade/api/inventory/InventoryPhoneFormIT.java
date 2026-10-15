@@ -8,6 +8,7 @@ import static com.orenjitrade.api.inventory.InventoryTestSupport.privacy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
+import com.orenjitrade.api.auth.web.ServiceAuthFilter;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.inventory.domain.InventoryPhotoPurgeJob;
 import java.net.URI;
@@ -224,6 +225,43 @@ class InventoryPhoneFormIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void emptyingThePriceOnEditCardClearsTheAmountItGave() {
+        String uid = uniqueUid("r2-price-empty");
+        provisionCompliant(uid);
+        String uri = ITEMS + "/" + create(uid, phoneCard(azure, "$12.50")).path("id").asString();
+        Map<String, Object> clear = new LinkedHashMap<>();
+        clear.put("askingPriceText", null);
+
+        // A plain amount typed on the phone, then the field emptied (Edit card sends null).
+        JsonNode cleared = callJson(HttpMethod.PATCH, uri, uid, clear, 200);
+        assertThat(cleared.path("askingPriceText").isNull()).isTrue();
+        assertThat(cleared.path("askingPrice").isNull()).isTrue();
+        assertThat(callJson(HttpMethod.GET, uri, uid, null, 200).path("askingPrice").isNull())
+                .isTrue();
+
+        // Only blanks typed: the same as an empty field.
+        callJson(HttpMethod.PATCH, uri, uid, Map.of("askingPriceText", "$9"), 200);
+        JsonNode blanks =
+                callJson(HttpMethod.PATCH, uri, uid, Map.of("askingPriceText", "   "), 200);
+        assertThat(blanks.path("askingPriceText").isNull()).isTrue();
+        assertThat(blanks.path("askingPrice").isNull()).isTrue();
+
+        // A card priced on the paused web (an amount, no text), emptied on the phone.
+        callJson(HttpMethod.PATCH, uri, uid, Map.of("askingPrice", 14.25), 200);
+        Map<String, Object> phone = new LinkedHashMap<>(clear);
+        phone.put("confirm", true);
+        JsonNode webPriced = callJson(HttpMethod.PATCH, uri, uid, phone, 200);
+        assertThat(webPriced.path("askingPriceText").isNull()).isTrue();
+        assertThat(webPriced.path("askingPrice").isNull()).isTrue();
+
+        // An edit that does not touch the price keeps it.
+        callJson(HttpMethod.PATCH, uri, uid, Map.of("askingPriceText", "$7"), 200);
+        JsonNode kept = callJson(HttpMethod.PATCH, uri, uid, Map.of("quantity", 2), 200);
+        assertThat(kept.path("askingPriceText").asString()).isEqualTo("$7");
+        assertThat(kept.path("askingPrice").decimalValue()).isEqualByComparingTo("7.00");
+    }
+
+    @Test
     void aSaveFromEditCardConfirmsTheCardLikeStillAvailable() {
         String uid = uniqueUid("r2-save-confirms");
         provisionCompliant(uid);
@@ -403,6 +441,53 @@ class InventoryPhoneFormIT extends AbstractIntegrationTest {
         assertThat(testUsers.jobRuns(InventoryPhotoPurgeJob.NAME))
                 .first()
                 .satisfies(row -> assertThat(row.get("status")).isEqualTo("SUCCEEDED"));
+    }
+
+    /**
+     * The photo purge has no schedule of its own: the hourly freshness job ({@code POST
+     * /internal/jobs/freshness}, Cloud Scheduler) runs it. Without that, the photos of deleted
+     * cards would stay (and stay reachable by their address) for ever.
+     */
+    @Test
+    void theHourlyFreshnessJobRunsThePhotoPurge() {
+        String uid = uniqueUid("r2-restore-hourly");
+        provisionCompliant(uid);
+        String id = create(uid, phoneCard(azure, "$3")).path("id").asString();
+        String uri = ITEMS + "/" + id;
+        String photoUrl =
+                upload(uid, uri + "/images", 201).path("images").get(0).path("url").asString();
+        callJson(HttpMethod.DELETE, uri, uid, null, 204);
+        UUID itemId = UUID.fromString(id);
+        testUsers.update(
+                "UPDATE inventory_item SET deleted_at = now() - interval '11 minutes',"
+                        + " restorable_until = now() - interval '1 minute' WHERE id = ?",
+                itemId);
+        int purgesBefore = testUsers.jobRuns(InventoryPhotoPurgeJob.NAME).size();
+
+        http.post()
+                .uri("/internal/jobs/freshness")
+                .header(ServiceAuthFilter.SERVICE_TOKEN_HEADER, InventoryTestSupport.SERVICE_TOKEN)
+                .exchange()
+                .expectStatus()
+                .isOk();
+
+        assertThat(testUsers.jobRuns(InventoryPhotoPurgeJob.NAME))
+                .as("the freshness run started a photo purge")
+                .hasSize(purgesBefore + 1)
+                .first()
+                .satisfies(row -> assertThat(row.get("status")).isEqualTo("SUCCEEDED"));
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item_image WHERE item_id = ?",
+                                itemId))
+                .isZero();
+        assertThat(photoStatus(photoUrl)).isEqualTo(404);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id = ? AND"
+                                        + " restorable_until IS NULL",
+                                itemId))
+                .isEqualTo(1);
     }
 
     @Test
