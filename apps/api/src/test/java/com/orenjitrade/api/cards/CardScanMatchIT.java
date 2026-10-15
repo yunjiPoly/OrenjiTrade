@@ -265,16 +265,21 @@ class CardScanMatchIT extends AbstractIntegrationTest {
 
     @Test
     void aCodeCutShortAfterItsRegionTakesTheNamedCardsPrintingInThatSet() {
-        JsonNode match = scan(List.of("ZAO1-EN"), List.of(ScanTestCatalog.INTERFERENCE));
+        JsonNode match = scan(List.of("ZRO4-EN"), List.of(ScanTestCatalog.QUILLFEATHER));
 
-        assertThat(match.path("status").asString()).isEqualTo("PICK_RARITY");
+        assertThat(match.path("status").asString()).isEqualTo("FOUND");
         assertThat(match.path("card").path("name").asString())
-                .isEqualTo(ScanTestCatalog.INTERFERENCE);
-        assertThat(values(match.path("rarities"), "printingCode"))
-                .hasSize(7)
-                .containsOnly("ZA01-EN075");
+                .isEqualTo(ScanTestCatalog.QUILLFEATHER);
+        assertThat(match.path("printing").path("printingCode").asString()).isEqualTo("ZR04-EN015");
+        assertThat(values(match.path("printings"), "printingCode"))
+                .containsExactly("ZR04-EN015", "ZQ11-EN042");
         assertThat(match.path("read").path("codes").size()).isEqualTo(1);
-        assertThat(match.path("read").path("codes").get(0).asString()).isEqualTo("ZAO1-EN");
+        assertThat(match.path("read").path("codes").get(0).asString()).isEqualTo("ZRO4-EN");
+
+        // Without the name, a code cut short finds nothing.
+        JsonNode alone = scan(List.of("ZRO4-EN"), List.of());
+        assertThat(alone.path("status").asString()).isEqualTo("NOT_FOUND");
+        assertThat(alone.path("reason").asString()).isEqualTo("NO_MATCH");
     }
 
     @Test

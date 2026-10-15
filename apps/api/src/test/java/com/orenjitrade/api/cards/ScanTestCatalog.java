@@ -10,10 +10,11 @@ import java.util.UUID;
  * The small fictional Yu-Gi-Oh! catalog of the camera scan's integration tests, written as SQL rows
  * (never fetched from YGOPRODeck): Yew Flowers & Velvet Breeze (ZACR-EN036, two ZA01-EN008 rarities
  * and a French ZACR-FR036), Fable Tide - Lyra (ZACR-EN038), Inkshade Interference (ZA01-EN075 in
- * seven rarities and ZLOD-EN077), the old Dark Moonseer (ZOB-EN005), and Tenfold Iron Sentry
+ * seven rarities and ZLOD-EN077), the old Dark Moonseer (ZOB-EN005), Tenfold Iron Sentry
  * (ZIRO-EN001: read without its dash, ZIROEN0O1 could be a German ZIR-DEN0O1 misread; the set ZIR
- * with a printing is a Pokemon one, the Yu-Gi-Oh! set ZIR holds none). Stable ids and {@code ON
- * CONFLICT DO NOTHING}: the suite shares one database, so it is written once.
+ * with a printing is a Pokemon one, the Yu-Gi-Oh! set ZIR holds none), and Quillfeather Mage
+ * (ZR04-EN015, for a code read cut short after its region). Stable ids and {@code ON CONFLICT DO
+ * NOTHING}: the suite shares one database, so it is written once.
  */
 final class ScanTestCatalog {
 
@@ -22,6 +23,7 @@ final class ScanTestCatalog {
     static final String INTERFERENCE = "Inkshade Interference";
     static final String DARK_MOONSEER = "Dark Moonseer";
     static final String SENTRY = "Tenfold Iron Sentry";
+    static final String QUILLFEATHER = "Quillfeather Mage";
 
     /** A card of another game whose set code ZIR is no Yu-Gi-Oh! set. */
     static final String OTHER_GAME_CARD = "Zircon Test Fox";
@@ -65,9 +67,12 @@ final class ScanTestCatalog {
         set(testUsers, "ZLOD", "Lights of Silverfalls", LocalDate.of(2018, 11, 9));
         set(testUsers, "ZOB", "Legend of Pale Moon Frost Dragon", LocalDate.of(2002, 3, 8));
         set(testUsers, "ZIRO", "Fictional Sentries", LocalDate.of(2020, 2, 7));
+        set(testUsers, "ZR04", "Fictional Quills", LocalDate.of(2024, 5, 2));
+        set(testUsers, "ZQ11", "Fictional Quills Two", LocalDate.of(2002, 3, 8));
         // A set of the game without any printing (announced, not imported yet): no known set.
         set(testUsers, "ZIR", "Fictional Zircon Previews", LocalDate.of(2027, 1, 15));
-        for (String name : new String[] {YEW, LYRA, INTERFERENCE, DARK_MOONSEER, SENTRY}) {
+        for (String name :
+                new String[] {YEW, LYRA, INTERFERENCE, DARK_MOONSEER, SENTRY, QUILLFEATHER}) {
             testUsers.update(
                     "INSERT INTO card (id, game_id, name, slug, card_type)"
                             + " SELECT ?, g.id, ?, ?, 'Monster' FROM game g WHERE g.slug = 'yugioh'"
@@ -87,6 +92,8 @@ final class ScanTestCatalog {
         printing(testUsers, INTERFERENCE, "ZLOD", "ZLOD-EN077", "Secret Rare", "en");
         printing(testUsers, DARK_MOONSEER, "ZOB", "ZOB-EN005", "Ultra Rare", "en");
         printing(testUsers, SENTRY, "ZIRO", "ZIRO-EN001", "Common", "en");
+        printing(testUsers, QUILLFEATHER, "ZR04", "ZR04-EN015", "Ultra Rare", "en");
+        printing(testUsers, QUILLFEATHER, "ZQ11", "ZQ11-EN042", "Common", "en");
         otherGame(testUsers);
         written = true;
     }
