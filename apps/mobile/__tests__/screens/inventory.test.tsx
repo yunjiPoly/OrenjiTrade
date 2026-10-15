@@ -617,6 +617,10 @@ describe('Inventory › Binders (screen 17)', () => {
     expect(screen.queryByText('Snake-Eye core')).toBeNull();
     // One binder left: nothing to reorder.
     expect(screen.queryByTestId('binders-reorder')).toBeNull();
+    // The tip reads its words only, never the icon's glyph (R3 leftover U8).
+    expect(screen.getByTestId('binders-tip').props.accessibilityLabel).toBe(
+      'Selling a whole deck? Turn on “Sell as a deck core” in a binder. Photos, a price and a note are enough.'
+    );
   });
 
   it('shows a binder list error with retry', async () => {
