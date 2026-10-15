@@ -32,7 +32,7 @@ public class ConversationRepository {
                    me.muted, me.archived, me.last_read_at, other.user_id AS other_id,
                    c.subject_item_id, c.subject_binder_id, c.subject_set_at, c.subject_set_by,
                    (SELECT jsonb_build_object('sale', lm.payload -> 'sale',
-                                              'offer', lm.payload ? 'offer')::text
+                                              'offer', (lm.payload -> 'offer') IS NOT NULL)::text
                       FROM message lm
                      WHERE lm.id = c.last_message_id AND lm.kind = 'SYSTEM') AS last_system,
                    (SELECT count(*) FROM message m
