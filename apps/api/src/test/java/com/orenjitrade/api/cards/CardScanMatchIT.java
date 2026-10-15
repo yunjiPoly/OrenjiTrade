@@ -243,15 +243,24 @@ class CardScanMatchIT extends AbstractIntegrationTest {
         assertThat(lyra.path("printingId").asString())
                 .isEqualTo(ScanTestCatalog.printing("ZACR-EN038", "Super Rare").toString());
 
-        // Lyra has one printing, but the code read is Inkshade Interference's: Lyra's printing is
-        // to pick, never found unchecked.
-        JsonNode single = scan(List.of("ZA01-EN075"), List.of(ScanTestCatalog.LYRA));
+        // Lyra has one printing, but the code read is Inkshade Interference's printing as read
+        // and none of Lyra's is at it or one look-alike character from it: the name does not win
+        // (it may be a card's lying behind the photographed one); both cards are the candidates.
+        JsonNode other = scan(List.of("ZA01-EN075"), List.of(ScanTestCatalog.LYRA));
+        assertThat(other.path("status").asString()).isEqualTo("NOT_FOUND");
+        assertThat(other.path("reason").asString()).isEqualTo("AMBIGUOUS");
+        assertThat(other.has("card")).isFalse();
+        assertThat(values(other.path("otherMatches"), "cardId"))
+                .startsWith(
+                        ScanTestCatalog.card(ScanTestCatalog.LYRA).toString(),
+                        ScanTestCatalog.card(ScanTestCatalog.INTERFERENCE).toString());
+
+        // A code the catalog does not know: Lyra's printing is to pick, never found unchecked.
+        JsonNode single = scan(List.of("ZZZZ-EN999"), List.of(ScanTestCatalog.LYRA));
         assertThat(single.path("status").asString()).isEqualTo("PICK_PRINTING");
         assertThat(single.path("card").path("name").asString()).isEqualTo(ScanTestCatalog.LYRA);
         assertThat(single.has("printing")).isFalse();
         assertThat(values(single.path("printings"), "printingCode")).containsExactly("ZACR-EN038");
-        assertThat(single.path("otherMatches").get(0).path("cardId").asString())
-                .isEqualTo(ScanTestCatalog.card(ScanTestCatalog.INTERFERENCE).toString());
     }
 
     @Test

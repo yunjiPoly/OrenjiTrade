@@ -66,9 +66,15 @@ five grouped queries whatever the number of variants (a sixth for a code read in
      is (`ZBM1-EN13`, its last digit lost, is `ZBM1-EN137`; `AGV-EN056`, its first letter lost,
      `ZAGV-EN056`; `ZRAO-ENO1S`, through its look-alike `ZRA0-EN015`, `ZRA0-EN013`); otherwise
      its printing is unknown (PICK_PRINTING), **even when the card has a single printing**: the
-     code read is not that printing's (another card's, a printing the catalog lacks, a garbled
-     read), so the collector picks it; the code's card goes to `otherMatches`. With no code read,
-     the name alone finds the card: FOUND when it has one printing;
+     code read is not that printing's (a printing the catalog lacks, a garbled read, another card's
+     code reached through a look-alike), so the collector picks it; the code's card goes to
+     `otherMatches`. With no code read, the name alone finds the card: FOUND when it has one
+     printing;
+   - but the name does not win over a code read that is another card's printing as read when the
+     named card has no printing at that code or one look-alike character from it: NOT_FOUND
+     (`AMBIGUOUS`), the named card first in `otherMatches`, then the code's card. The name may be a
+     card's lying behind the photographed one (real-card gate, 2026-10-15; before, the name won with
+     PICK_PRINTING);
    - several candidates and nothing to choose between them: NOT_FOUND (`AMBIGUOUS`), the candidates
      first in `otherMatches`.
 5. **English cards only**: a code carrying another language's region (`FR`, `DE`, `IT`, `SP`, `PT`,

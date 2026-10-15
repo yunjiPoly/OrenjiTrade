@@ -30,7 +30,9 @@ import org.jspecify.annotations.Nullable;
  *       character from the read code when exactly one is; when no code read is a catalog code as
  *       read, its only printing one character lost, added or misread from a code read or its
  *       look-alikes; and otherwise has an unknown printing (PICK_PRINTING, even with a single
- *       printing). Several candidates and nothing to choose: not found.
+ *       printing). The name does not win over a code read that is another card's printing as read
+ *       when the named card has no printing at that code or one look-alike character from it: not
+ *       found, both cards the candidates. Several candidates and nothing to choose: not found.
  *   <li>English cards only: a code with another language's region, as printed or read with
  *       look-alike characters ({@code MACR-0E036}), is NOT_FOUND whatever the name says, and
  *       printings of another language are never matched, not even as look-alikes. A read without
@@ -477,10 +479,22 @@ public final class ScanRules {
                             ? withHits(pick, hits.get(pick), exactCodes)
                             : ambiguous(close);
                 }
+                if (clearName == null) {
+                    return ambiguous(new ArrayList<>(hits.keySet()));
+                }
+                if (exactCodes && !hasPrintingAtOrNear(clearName)) {
+                    // The code read is another card's printing as read, and the named card has
+                    // none at it or one look-alike character from it: the name may be a card's
+                    // lying behind the photographed one. Both cards, the named one first.
+                    List<UUID> both = new ArrayList<>();
+                    both.add(clearName);
+                    hits.keySet().stream()
+                            .filter(card -> !card.equals(clearName))
+                            .forEach(both::add);
+                    return ambiguous(both);
+                }
                 // The name clearly points to another card: the name wins.
-                return clearName != null
-                        ? nameWins(clearName)
-                        : ambiguous(new ArrayList<>(hits.keySet()));
+                return nameWins(clearName);
             }
             if (exactCodes) {
                 // No name: the first code read (best first) the catalog knows decides.
@@ -530,13 +544,29 @@ public final class ScanRules {
         }
 
         /**
+         * Whether {@code card} has a printing at a code read or one look-alike character from it.
+         */
+        private boolean hasPrintingAtOrNear(UUID card) {
+            return catalog.printingsOf(card).stream()
+                    .map(CatalogPrintingRef::printingCode)
+                    .anyMatch(
+                            code ->
+                                    forms.contains(code)
+                                            || forms.stream()
+                                                    .anyMatch(
+                                                            form ->
+                                                                    ScanCodes.oneLookAlikeApart(
+                                                                            code, form)));
+        }
+
+        /**
          * The name wins: its card, with its printing whose code is the one read or one look-alike
          * character from it when exactly one is; when no code read is a catalog code as read, its
          * only printing one character lost, added or misread from a code read or one of its strict
          * look-alikes ({@link #oneEditApart}). Otherwise its printing is unknown (PICK_PRINTING,
          * even for a card with a single printing: the code read is not that printing's, so it may
-         * be another card's, another language's or a printing the catalog lacks). With no code
-         * read, the card alone decides ({@link #withoutCode}).
+         * be a printing the catalog lacks, a garbled read or another card's code reached through a
+         * look-alike). With no code read, the card alone decides ({@link #withoutCode}).
          */
         private Outcome nameWins(UUID card) {
             if (forms.isEmpty()) {

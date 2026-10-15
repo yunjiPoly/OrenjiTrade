@@ -260,32 +260,21 @@ class TextCardMatcherTest {
         assertThat(match.printing().printingCode()).isEqualTo("ZACR-EN036");
         assertThat(match.otherMatches().get(0).cardId()).isEqualTo(catalog.lyra.id());
         assertThat(match.otherMatches().get(0).kind()).isEqualTo(ScanOtherMatchKind.CODE);
-
-        // No printing of the named card is near the code: the card is known, not its printing.
-        ScanMatch far = match(List.of("ZOB-EN005"), List.of("Inkshade Interference"));
-        assertThat(far.status()).isEqualTo(ScanStatus.PICK_PRINTING);
-        assertThat(far.card().id()).isEqualTo(catalog.interference.id());
-        assertThat(otherCards(far)).contains(catalog.darkMoonseer.id());
     }
 
     @Test
     void whenTheNameWinsOverACodeNotItsOwnACardWithOnePrintingIsStillToPick() {
-        // Inkshade Interference's code with Lyra's name: Lyra has a single printing, but the code
-        // read is not it, so its printing is to pick (one tap), never "Found" unchecked.
-        ScanMatch other = match(List.of("ZA01-EN075"), List.of("Fable Tide - Lyra"));
-        assertThat(other.status()).isEqualTo(ScanStatus.PICK_PRINTING);
-        assertThat(other.card().id()).isEqualTo(catalog.lyra.id());
-        assertThat(other.printing()).isNull();
-        assertThat(other.rarities()).isEmpty();
-        assertThat(other.printings())
-                .extracting(ScanMatch.Printing::printingCode)
-                .containsExactly("ZACR-EN038");
-        assertThat(other.otherMatches().get(0).cardId()).isEqualTo(catalog.interference.id());
-
-        // A code the catalog does not know (a printing it lacks, a garbled read): the same.
+        // A code the catalog does not know (a printing it lacks, a garbled read) with Lyra's name:
+        // Lyra has a single printing, but the code read is not it, so its printing is to pick (one
+        // tap), never "Found" unchecked.
         ScanMatch unknown = match(List.of("ZZZZ-EN999"), List.of("Fable Tide - Lyra"));
         assertThat(unknown.status()).isEqualTo(ScanStatus.PICK_PRINTING);
         assertThat(unknown.card().id()).isEqualTo(catalog.lyra.id());
+        assertThat(unknown.printing()).isNull();
+        assertThat(unknown.rarities()).isEmpty();
+        assertThat(unknown.printings())
+                .extracting(ScanMatch.Printing::printingCode)
+                .containsExactly("ZACR-EN038");
 
         // Pale-Moon has one printing too, the code read is two look-alike cards' (no name close).
         assertThat(match(List.of("ZD5-EN001"), List.of("Pale-Moon Frost Dragon")).status())
@@ -298,6 +287,39 @@ class TextCardMatcherTest {
         ScanMatch near = match(List.of("ZACR-EN036"), List.of("Fable Tide - Lyra"));
         assertThat(near.status()).isEqualTo(ScanStatus.FOUND);
         assertThat(near.printing().printingCode()).isEqualTo("ZACR-EN038");
+    }
+
+    @Test
+    void aCodeReadThatIsAnotherCardsPrintingIsNotOverruledByANameWithNoPrintingAtOrNearIt() {
+        // The real-card gate (2026-10-15): the name of a card lying behind the photographed one
+        // won over the code read. Coral Lantern Wisp's code with Brinemoss Warden's name, whose
+        // printings are neither that code nor one look-alike character from it: not found, both
+        // cards the candidates, the named one first; never Brinemoss Warden's ZBM1-EN137, one
+        // (non look-alike) character from the code read.
+        ScanMatch wisp = match(List.of("ZBM1-EN139"), List.of("Brinemoss Warden"));
+        assertThat(wisp.status()).isEqualTo(ScanStatus.NOT_FOUND);
+        assertThat(wisp.reason()).isEqualTo(ScanNotFoundReason.AMBIGUOUS);
+        assertThat(wisp.card()).isNull();
+        assertThat(wisp.printings()).isEmpty();
+        assertThat(otherCards(wisp)).startsWith(catalog.brinemoss.id(), catalog.coralWisp.id());
+        assertThat(wisp.otherMatches().get(1).kind()).isEqualTo(ScanOtherMatchKind.CODE);
+        assertThat(wisp.otherMatches().get(1).printingCode()).isEqualTo("ZBM1-EN139");
+
+        // The same with the sample cards: Inkshade Interference's code with Lyra's name, Dark
+        // Moonseer's with Inkshade Interference's (before, the name won: Pick printing).
+        ScanMatch lyra = match(List.of("ZA01-EN075"), List.of("Fable Tide - Lyra"));
+        assertThat(lyra.status()).isEqualTo(ScanStatus.NOT_FOUND);
+        assertThat(lyra.reason()).isEqualTo(ScanNotFoundReason.AMBIGUOUS);
+        assertThat(otherCards(lyra)).startsWith(catalog.lyra.id(), catalog.interference.id());
+        ScanMatch far = match(List.of("ZOB-EN005"), List.of("Inkshade Interference"));
+        assertThat(far.reason()).isEqualTo(ScanNotFoundReason.AMBIGUOUS);
+        assertThat(otherCards(far))
+                .startsWith(catalog.interference.id(), catalog.darkMoonseer.id());
+
+        // A printing one look-alike character from the code read: the name still wins.
+        ScanMatch yew = match(List.of("ZACR-EN038"), List.of("Yew Flowers & Velvet Breeze"));
+        assertThat(yew.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(yew.printing().printingCode()).isEqualTo("ZACR-EN036");
     }
 
     @Test
