@@ -28,10 +28,10 @@ export function friendlyError(error: ApiError): FriendlyError {
       };
     }
     case 'LIMIT_REACHED':
-      // No Premium pitch here: the limit dialog names the upgrade only while the flag is on.
+      // The same limits for every collector, nothing to buy (stage F1): the dialog says more.
       return {
-        title: 'Plan limit reached',
-        message: 'You reached a limit of your plan. It resets soon.',
+        title: 'Limit reached',
+        message: 'You reached a usage limit for this action.',
       };
     case 'FEATURE_DISABLED':
       return {

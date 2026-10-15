@@ -6,15 +6,15 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Phase 8 {@code offers.per_day} (ADR 0014, {@code usage_limit} FREE 20): new offers consume the
- * buyer's daily counter through {@code Limits}; the 21st of a UTC day is 429 LIMIT_REACHED with the
- * limit extensions; answering offers (counter-offers) does not count and refused offers consume
- * nothing.
+ * Phase 8 {@code offers.per_day} (ADR 0014, {@code usage_limit} 20, the same for every collector
+ * since stage F1): new offers consume the buyer's daily counter through {@code Limits}; the 21st of
+ * a UTC day is 429 LIMIT_REACHED with the limit extensions; answering offers (counter-offers) does
+ * not count and refused offers consume nothing.
  */
 class OfferLimitIT extends AbstractOffersIT {
 
     @Test
-    void freeCollectorsMakeTwentyOffersPerDay() {
+    void collectorsMakeTwentyOffersPerDay() {
         Collector seller = member("ol-seller");
         Collector buyer = member("ol-buyer");
         String itemId = listing(seller, "SALE", 1);
@@ -35,7 +35,8 @@ class OfferLimitIT extends AbstractOffersIT {
         assertThat(limited.path("limitKey").asString()).isEqualTo("offers.per_day");
         assertThat(limited.path("limit").asInt()).isEqualTo(20);
         assertThat(limited.path("used").asInt()).isEqualTo(20);
-        assertThat(limited.path("upgradeUrl").asString()).isNotBlank();
+        assertThat(limited.has("upgradeUrl")).isFalse();
+        assertThat(limited.has("planCode")).isFalse();
 
         // The seller still answers offers of other buyers (counters are not offers of theirs).
         Collector other = member("ol-other");

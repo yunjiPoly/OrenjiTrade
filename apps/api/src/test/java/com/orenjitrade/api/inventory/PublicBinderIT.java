@@ -8,8 +8,8 @@ import static com.orenjitrade.api.inventory.InventoryTestSupport.privacy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
-import com.orenjitrade.api.billing.domain.PlanService;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.limits.domain.UsageLimitService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,7 +30,7 @@ class PublicBinderIT extends AbstractIntegrationTest {
     static final String SECRET = "secret-note-7f3a";
 
     @Autowired private CatalogImportService importService;
-    @Autowired private PlanService planService;
+    @Autowired private UsageLimitService usageLimits;
 
     private UUID printingId;
 
@@ -43,9 +43,8 @@ class PublicBinderIT extends AbstractIntegrationTest {
     @AfterEach
     void restoreViewLimit() {
         testUsers.update(
-                "UPDATE usage_limit l SET max_value = 30 FROM plan p WHERE p.id = l.plan_id AND"
-                        + " p.code = 'FREE' AND l.limit_key = 'binder.views.per_day'");
-        planService.invalidate();
+                "UPDATE usage_limit SET max_value = 30 WHERE limit_key = 'binder.views.per_day'");
+        usageLimits.invalidate();
     }
 
     /** A discoverable collector with a location and a public binder; returns ids. */
@@ -214,9 +213,8 @@ class PublicBinderIT extends AbstractIntegrationTest {
                         .path("id")
                         .asString();
         testUsers.update(
-                "UPDATE usage_limit l SET max_value = 1 FROM plan p WHERE p.id = l.plan_id AND"
-                        + " p.code = 'FREE' AND l.limit_key = 'binder.views.per_day'");
-        planService.invalidate();
+                "UPDATE usage_limit SET max_value = 1 WHERE limit_key = 'binder.views.per_day'");
+        usageLimits.invalidate();
 
         String viewer = uniqueUid("pub-views-viewer");
         provisionCompliant(viewer);

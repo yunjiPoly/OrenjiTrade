@@ -128,8 +128,8 @@ git-ignored.
 
 - **Seed data is applied automatically** every time the API starts with the `local` profile
   (`SeedDataRunner`, idempotent): the twelve fictional accounts (database rows + emulator users),
-  the four-game catalog, binders, conversations, offers, ratings, reports, wishlists, plans and
-  feature flags. Restarting the API re-applies it without duplicating anything.
+  the four-game catalog, binders, conversations, offers, ratings, reports, wishlists and feature
+  flags. Restarting the API re-applies it without duplicating anything.
 - **Clean slate:** `npm run infra:reset` (or `npm run infra:reset -- --yes`) runs
   `docker compose down -v` for this project only (volumes `orenjitrade_postgres-data`,
   `orenjitrade_redis-data`, `orenjitrade_firebase-data`, `orenjitrade_api-media`), deletes
@@ -272,16 +272,17 @@ conversations and the community channels, live over the realtime channel; the Wi
 (stage S2: which copy, a public note, Near Mint only, a price term, wishlist alerts from the
 region; no matches); the notification centre with a live bell) and Phases 7–8 (reporting a
 collector and My reports; rating a collector and writing a reference after a deal or a
-conversation) and Phase 10 (Premium through the fake billing checkout, credits with referrals and
-day unlocks, voluntary donations through the fake donation checkout, "Sponsored" placements) are
-implemented on the same API and the same local fake providers as the web; the admin consoles stay
-on the web. Offers and trades (Phase 8) and payment protection, disputes and Settings → Payouts
-(Phase 9) were on the phone from stages M5 and M6 until stage R1 of the phone redesign
-(2026-10-14) removed them: deals happen in the chat and cards ship by mail
+conversation) are implemented on the same API as the web; the admin consoles stay on the web.
+Offers and trades (Phase 8) and payment protection, disputes and Settings → Payouts (Phase 9)
+were on the phone from stages M5 and M6 until stage R1 of the phone redesign (2026-10-14) removed
+them: deals happen in the chat and cards ship by mail
 ([ADR 0018](../architecture/adr/0018-deals-happen-in-the-chat.md)). Since R1 they are web-only
 (the API keeps them for the paused web); on the phone an old offer reads "Offer (no longer
 available)" and an old offer, trade or dispute notification or link says that deals happen in
-the chat. Stage M7 (2026-10-06) closes the web parity gaps:
+the chat. Premium, credits, donations and the sponsored placements of Phase 10 (on the phone since
+stage M6) left the app, the API and the web with stage F1 on 2026-10-14
+([ADR 0019](../architecture/adr/0019-free-for-all-no-paid-features.md)): an old link to one opens
+the Profile tab and says that the app is free. Stage M7 (2026-10-06) closes the web parity gaps:
 Google sign-in and sign-up (against the Auth emulator a simulated Google account chosen in the
 app, no OAuth client needed; see `apps/mobile/README.md`), the Search tab's Collectors and Binders
 segments, the card holders list with the web's filters, "Looking for" on profiles, Settings →
@@ -291,13 +292,13 @@ first onboarding "Age" step for existing accounts: seed accounts see it once), t
 pages with an EN / FR switch (French by default on a French device, `npm run sync:legal` copies
 both web files), consents recorded with the language shown, the dismissible "Trade safely"
 notice in conversations and on offers / trades (since stage R1: a shipping-first safety tip at
-the start of every chat, which opens "Trading safely"), Block / Unblock
-on collector profiles, and no Premium pitch while the money flags are off. Locally the catalog is the fictional mock catalog of the seed (the real
+the start of every chat, which opens "Trading safely"), Block / Unblock on collector profiles.
+Locally the catalog is the fictional mock catalog of the seed (the real
 Yu-Gi-Oh! catalog only after an explicit `npm run catalog:import`, see below), and every card
 picture comes from the API (`/api/v1/public/card-images/{id}` or a placeholder), never from a
 provider. The location is declared like on the web (ADR 0017): region, country, state or
 province and an optional city, with pickers fed by `GET /api/v1/regions`; there is no map picker,
-no GPS and no location permission. Region-scoped calls (search, card holders, ads, the map) send
+no GPS and no location permission. Region-scoped calls (search, card holders, the map) send
 the browsed region: the region switcher on the Map and Search tabs and in the card holders' header,
 the collector's home region by default (`americas-north` without a location). The seed collectors
 are spread over the three platform regions (see [test-accounts.md](test-accounts.md)). Stage S5
@@ -317,11 +318,9 @@ Defaults need no `.env`: the Android emulator reaches the host at `10.0.2.2` (AP
 (`EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST`; see `.env.example`, public
 values only). Sign in with any seed account, e.g. `collector1@orenjitrade.test` / `LocalDev!2026`
 (collector1 and collector2 share a seed conversation; collector2 has seed wishes and a wishlist alert about collector1's listing;
-collector1 has 300 credits and the referral code `COLLECTOR1`; `premium_user` has a live fake
-Premium subscription; the seed's offers, trades, payouts and dispute show on the web only since
-stage R1). The app's checkouts (`checkout/fake-billing/…`, `checkout/fake-donation/…`) are the
-local fake providers: a "Local test payment" banner, no card, no money; whether a store build may sell Premium or take donations at all is an open owner
-question (in-app purchase rules, ADR 0011).
+the seed's offers, trades, payouts and dispute show on the web only since stage R1). The phone
+has no checkout and sells nothing (stages R1 and F1). A reached usage limit is explained plainly
+(the same limits for every collector, nothing to buy: the `limit-reached.yaml` flow).
 The realtime channel is the API's `/ws` (STOMP over a plain WebSocket): the app connects while a
 collector is signed in and shows "Live" on the Messages tab; on Android it reaches
 `ws://10.0.2.2:8080/ws` with the ID token in the handshake's `Authorization` header (the web build
@@ -387,7 +386,8 @@ for example `$HOME/tools/maestro/bin/maestro`). A kept Metro serves one platform
 inlined into the bundle): `-- --stop` before switching platforms. Flows that need data create it on the
 host through the isolated API (`.maestro/scripts/create-collector.js`, `add-card.js`; the
 second collector of the messaging, wishlist and report flows comes from `messaging.js`,
-`wishlist.js` and `reports.js`, the member of the Premium flow from `billing.js`)
+`wishlist.js` and `reports.js`, the collector at the binders limit of the usage-limit flow from
+`limits.js`)
 and check the result there (`check-location.js`, `check-inventory.js`, `community.js`; the collectors,
 listings and block checks of the stage M7 flows come from `parity.js`); they refuse the developer API on :8080
 and only touch the run's `@mobile-e2e.test` accounts. Edit nothing in the repository while flows
@@ -482,8 +482,6 @@ blocks the IP for an hour above it (OrenjiTrade paces at 5/s). Tests and CI neve
 | Area | Local implementation | Selected by | Where to see it |
 | --- | --- | --- | --- |
 | Protected payments | `FakePaymentProvider` (no money moves) | `PAYMENT_PROVIDER=fake` | the web shows the fake checkout page `/checkout/fake/<ref>` (approve / decline), the mobile app the same checkout as its screen `checkout/fake/[ref]`; synthetic webhooks are signed with a local HMAC key and logged at DEBUG (`Synthetic fake webhook`) |
-| Premium subscriptions | `FakeBillingProvider` | `BILLING_PROVIDER=fake` | fake checkout page `/checkout/fake-billing/<ref>` (mobile: `checkout/fake-billing/[ref]`); state in the admin console (Billing) |
-| Donations | `FakeDonationProvider` | `DONATION_PROVIDER=fake` | fake checkout page `/checkout/fake-donation/<ref>` (mobile: `checkout/fake-donation/[ref]`); admin console (Donations) |
 | Push notifications | `LogPushProvider` | `PUSH_PROVIDER=log` | API log lines from logger `orenji.push`: `push (log provider) notification=... type=... title="..."` |
 | E-mail | `LogEmailProvider` | `EMAIL_PROVIDER=log` | logger `orenji.email`: `email (log provider) ... to=c***@orenjitrade.test subject="..."` (recipient masked) |
 | Analytics events | `LogAnalyticsTransport` | `EVENTS_TRANSPORT=local` | logger `orenji.analytics`: `analytics {"name":...}` (pseudonymous actor hash, no amounts or text) |

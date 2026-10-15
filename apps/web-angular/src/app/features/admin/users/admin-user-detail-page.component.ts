@@ -37,7 +37,6 @@ import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { CONSENT_LABELS, auditActionLabel, summarizeDetails } from '../shared/admin-labels';
-import { UserEntitlementsPanelComponent } from '../billing/user-entitlements-panel.component';
 import { StatusChipComponent } from '../shared/status-chip.component';
 import { RolesEditorComponent } from './roles-editor.component';
 import { SuspendDialogComponent, SuspendDialogData } from './suspend-dialog.component';
@@ -45,8 +44,7 @@ import { UserModerationPanelComponent } from './user-moderation-panel.component'
 
 /**
  * `/admin/users/:id`: account detail with suspend/unsuspend, the roles editor, listing status
- * with pause/resume and the moderation history, entitlements (plan overrides: grant, revoke),
- * consents, deletion state and the latest audit entries. Every write is audited by the API.
+ * with pause/resume and the moderation history, consents, deletion state and the latest audit entries. Every write is audited by the API.
  */
 @Component({
   selector: 'app-admin-user-detail-page',
@@ -63,7 +61,6 @@ import { UserModerationPanelComponent } from './user-moderation-panel.component'
     SkeletonComponent,
     StatusChipComponent,
     RolesEditorComponent,
-    UserEntitlementsPanelComponent,
     UserModerationPanelComponent,
   ],
   templateUrl: './admin-user-detail-page.component.html',

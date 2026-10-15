@@ -259,6 +259,53 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(wishRow(magicWish)).containsEntry("price_term", "100% TCG+");
     }
 
+    /**
+     * A database seeded before stage F1 ("free for all", ADR 0019) and migrated since (the owner's
+     * own dev database): the former Premium account's bio still says "Premium member." on its
+     * public profile. One seed run gives it today's seed bio; a bio the collector wrote is left
+     * alone, even when it mentions Premium.
+     */
+    @Test
+    void anUpgradedDatabaseLosesTheOldPremiumMemberBio() {
+        UUID formerPremium = UUID.fromString("00000000-0000-4000-8000-000000000009");
+        String seedBio = "Collector and trader across all four games.";
+        assertThat(bioOf(formerPremium)).as("a fresh seed").isEqualTo(seedBio);
+        // What the seed of stage S6 and earlier wrote (db/seed/profiles.json before F1).
+        testUsers.update(
+                "UPDATE profile SET bio = ? WHERE user_id = ?",
+                "Collector and trader across all four games. Premium member.",
+                formerPremium);
+
+        seedDataRunner.seedAll();
+
+        assertThat(bioOf(formerPremium)).isEqualTo(seedBio);
+        JsonNode profile =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/premium_user",
+                        "seed-collector1:collector1@orenjitrade.test",
+                        null,
+                        200);
+        assertThat(profile.path("bio").asString()).isEqualTo(seedBio);
+        assertThat(profile.toString()).doesNotContain("Premium");
+
+        String own = "Trading binders since 2019. Premium member.";
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", own, formerPremium);
+        seedDataRunner.seedAll();
+        assertThat(bioOf(formerPremium)).as("the collector's own words").isEqualTo(own);
+
+        // Back to the seed state for the other tests of this class.
+        testUsers.update("UPDATE profile SET bio = ? WHERE user_id = ?", seedBio, formerPremium);
+    }
+
+    private String bioOf(UUID userId) {
+        return (String)
+                testUsers
+                        .query("SELECT bio FROM profile WHERE user_id = ?", userId)
+                        .get(0)
+                        .get("bio");
+    }
+
     private Map<String, Object> wishRow(String id) {
         return testUsers
                 .query(
@@ -450,56 +497,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void seedsASubscriptionCreditsCampaignsAndDonationsIdempotently() {
-        UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
-        UUID collector1 = UUID.fromString("00000000-0000-4000-8000-000000000001");
-        UUID collector8 = UUID.fromString("00000000-0000-4000-8000-000000000008");
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM subscription WHERE id ="
-                                        + " '00000000-0000-4000-a000-000000000001' AND user_id = ?"
-                                        + " AND status = 'ACTIVE' AND provider = 'fake'",
-                                premiumId))
-                .isEqualTo(1);
-        int entries = testUsers.count("SELECT count(*) FROM credit_ledger_entry");
-        seedDataRunner.seedAll();
-        assertThat(testUsers.count("SELECT count(*) FROM credit_ledger_entry"))
-                .as("idempotent")
-                .isEqualTo(entries);
-        assertThat(
-                        testUsers.count(
-                                "SELECT COALESCE(SUM(amount), 0) FROM credit_ledger_entry WHERE"
-                                        + " user_id = ?",
-                                collector1))
-                .isGreaterThanOrEqualTo(300);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM referral_redemption WHERE referee_id = ?",
-                                collector8))
-                .isEqualTo(1);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_campaign WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%'"))
-                .isEqualTo(3);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM ad_creative WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a200-%' AND status = 'ACTIVE'"))
-                .isEqualTo(6);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM donation WHERE id::text LIKE"
-                                        + " '00000000-0000-4000-a300-%' AND status = 'SUCCEEDED'"))
-                .isEqualTo(2);
-        assertThat(
-                        testUsers.count(
-                                "SELECT count(*) FROM advertiser WHERE contact_email LIKE"
-                                        + " '%.example'"))
-                .isPositive();
-    }
-
-    @Test
     void createsTwelveAccountsAndIsIdempotent() {
         assertThat(seedAccounts.all()).hasSize(12);
         assertThat(testUsers.countSeedAccounts()).isEqualTo(12);
@@ -525,11 +522,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "reports",
                         "offers",
                         "trades",
-                        "payments",
-                        "subscriptions",
-                        "credits",
-                        "ads",
-                        "donations");
+                        "payments");
         // The catalog seed imported the four fictional mock catalogs (idempotently).
         assertThat(
                         testUsers.count(
@@ -546,11 +539,12 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         assertThat(testUsers.rolesOf(adminId)).containsExactly("ADMIN", "USER");
         assertThat(testUsers.consentsOf(adminId)).hasSize(4);
 
+        // premium_user keeps its handle and sign-in; since stage F1 it is an ordinary collector.
         UUID premiumId = UUID.fromString("00000000-0000-4000-8000-000000000009");
         Map<String, Object> premium = testUsers.row(premiumId);
-        assertThat(premium.get("plan_code")).isEqualTo("PREMIUM");
+        assertThat(premium).doesNotContainKey("plan_code");
         assertThat(premium.get("provider_uid")).isEqualTo("seed-premium-user");
-        assertThat(testUsers.rolesOf(premiumId)).containsExactly("PREMIUM_USER", "USER");
+        assertThat(testUsers.rolesOf(premiumId)).containsExactly("USER");
 
         UUID superAdminId = UUID.fromString("00000000-0000-4000-8000-000000000012");
         assertThat(testUsers.rolesOf(superAdminId)).containsExactly("SUPER_ADMIN", "USER");
@@ -568,6 +562,6 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 .expectStatus()
                 .isOk();
         assertThat(me("seed-collector1").path("handle").asString()).isEqualTo("collector1");
-        assertThat(me("seed-collector1").path("plan").asString()).isEqualTo("FREE");
+        assertThat(me("seed-collector1").has("plan")).isFalse();
     }
 }

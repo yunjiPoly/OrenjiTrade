@@ -211,33 +211,6 @@ variable "stripe_secrets_enabled" {
   default     = false
 }
 
-variable "billing_provider" {
-  description = "BILLING_PROVIDER for subscriptions: fake or stripe (stripe needs stripe_secrets_enabled, a stripe-billing-webhook-secret version and stripe_price_premium)."
-  type        = string
-  default     = "fake"
-
-  validation {
-    condition     = contains(["fake", "stripe"], var.billing_provider)
-    error_message = "billing_provider must be fake or stripe."
-  }
-
-  validation {
-    condition     = var.billing_provider == "fake" || var.stripe_secrets_enabled
-    error_message = "billing_provider = stripe requires stripe_secrets_enabled = true."
-  }
-}
-
-variable "stripe_price_premium" {
-  description = "Stripe price id of the PREMIUM plan (not a secret; required when billing_provider = stripe)."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = var.billing_provider != "stripe" || can(regex("^price_[A-Za-z0-9]+$", var.stripe_price_premium))
-    error_message = "stripe_price_premium must be a Stripe price id (price_...) when billing_provider is stripe."
-  }
-}
-
 variable "firebase_service_account_secret_enabled" {
   description = "Create the optional firebase-service-account secret (only when ADC is not sufficient)."
   type        = bool

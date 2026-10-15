@@ -4,7 +4,6 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-nat
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { usePublicBinder, usePublicBinderItems } from '@/src/api/hooks/binders';
-import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import type { InventoryAvailability, PublicBinderResponse } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge } from '@/src/components/ui/Badge';
@@ -41,12 +40,12 @@ export interface PublicBinderViewProps {
  * A public binder (web: `/binders/:id`, `GET /public/binders/{id}` + its public cards): only what
  * the owner made public, never private notes, never coordinates (the owner block carries a region
  * state or province). Search and availability filters, "Report" the owner (BINDER context); 404
- * when it is not public, and the plan's daily binder views explained when they run out.
+ * when it is not public, and the daily binder views (the same limit for every collector) explained
+ * when they run out.
  */
 export function PublicBinderView({ id }: PublicBinderViewProps) {
   const { palette } = useTheme();
   const router = useRouter();
-  const premium = useFeature(FEATURE.premiumPlans);
   const binder = usePublicBinder(id);
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
@@ -84,8 +83,6 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
           icon="speedometer"
           title="You reached today's binder views"
           description={limitReachedMessage(limitReachedInfo(error))}
-          actionLabel={premium.enabled ? 'See Premium' : undefined}
-          onAction={premium.enabled ? () => router.push('/premium') : undefined}
         />
       );
     }

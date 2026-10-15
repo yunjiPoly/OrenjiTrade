@@ -1,0 +1,81 @@
+# A usage limit reached (stage F1, "free for all"): Lee (fresh, fictional) already has the five
+# binders every collector may have (scripts/limits.js). "New binder" explains the limit plainly,
+# with no plan and nothing to buy; the Profile tab offers no Premium, credits or donation; an old
+# link to the Premium screen lands on the Profile tab with a note that the app is free (the
+# removed-route handling it shares with stage R1's removed screens, src/navigation/removedRoutes.ts).
+appId: ${APP_ID}
+name: Usage limit - reached, explained plainly, nothing to buy
+tags:
+  - stage-f1
+  - limits
+---
+- runScript:
+    file: scripts/limits.js
+    env:
+      ACTION: binders-full
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.lee.email}
+      PASSWORD: ${output.lee.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+
+# The sixth binder: the limit, explained, and no way to buy more.
+- openLink: ${APP_URL}/--/binders/new
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 60000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'One too many'
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'binder-save'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-limit-message'
+      text: 'You have used 5 of 5 binders. Delete a binder you no longer need.'
+    timeout: 60000
+# The notice is one accessible element on iOS: its title is part of the element's text.
+- assertVisible: '.*You reached the number of binders you can have.*'
+- assertNotVisible:
+    id: 'binder-limit-premium'
+- assertNotVisible: '.*Premium.*'
+- takeScreenshot: limit-binders
+
+# The Profile tab: no Premium, credits or "Support OrenjiTrade". (Cancel leaves the form: a link
+# to the app's root does not close a pushed screen.)
+- tapOn:
+    id: 'binder-cancel'
+- runFlow: subflows/open-profile-tab.yaml
+- assertNotVisible:
+    id: 'profile-premium'
+- assertNotVisible:
+    id: 'profile-credits'
+- assertNotVisible:
+    id: 'profile-support'
+- takeScreenshot: limit-profile
+
+# An old link to the Premium screen: the page is gone; the link lands on the Profile tab with a
+# note that the app is free, never on the not-found screen. The note is a snackbar of 6 s, so it is
+# read at once, before the developer-menu checks (several seconds when nothing is there; the menu's
+# introduction was already dismissed after the first link of this flow).
+- openLink: ${APP_URL}/--/premium
+- extendedWaitUntil:
+    visible: 'OrenjiTrade is free for every collector now.*'
+    timeout: 30000
+- takeScreenshot: limit-premium-note
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'profile-name'
+    timeout: 30000
+- assertNotVisible:
+    id: 'screen-not-found'
+- takeScreenshot: limit-premium-gone

@@ -1,10 +1,10 @@
 package com.orenjitrade.api.binders.infra;
 
-import com.orenjitrade.api.billing.domain.LimitUsageSource;
 import com.orenjitrade.api.binders.domain.BinderDetails;
 import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.binders.domain.BinderView;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
+import com.orenjitrade.api.limits.domain.LimitUsageSource;
 import com.orenjitrade.api.profiles.domain.PublicBinderCountProvider;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;

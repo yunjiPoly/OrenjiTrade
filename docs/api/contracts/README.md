@@ -15,7 +15,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | 7 | [Ratings, reports, admin, auto-delist](phase7-ratings-reports-admin.md) |
 | 8 | [Offers and trades](phase8-offers-trades.md) |
 | 9 | [Payments and disputes](phase9-payments-disputes.md) |
-| 10 | [Freemium, credits, ads, donations](phase10-freemium-credits-ads-donations.md) |
+| 10 | [Freemium, credits, ads, donations](phase10-freemium-credits-ads-donations.md) (removed by stage F1, ADR 0019, except the usage limits) |
 | S1 | [Platform regions and the self-declared location (ADR 0017; supersedes the geography of 1, 3, 4, 6, 10)](s1-regions-location.md) |
 | S2 | [A simpler wishlist, wishlist alerts, no matches (supersedes the wishlist of 6)](s2-wishlist.md) |
 | S5 | [Inventory import: YDK deck files and Collectr CSV exports](s5-inventory-import.md) |

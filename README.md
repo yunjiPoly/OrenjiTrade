@@ -1,12 +1,16 @@
 # OrenjiTrade
 
 **A regional discovery network for trading cards.** OrenjiTrade answers one question:
-*Who in my region owns, trades, sells, wants, or accepts offers for this card?* Collectors say
+*Who in my region owns, trades, sells or wants this card?* Collectors say
 which country and state or province they are in (never a position: ADR 0017), publish binders,
 and other collectors of the same platform region (Americas North, Americas South, Europe) find
-them by state or province on a map of binder counts, then message, offer, trade and rate each
-other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
-Gathering, Riftbound, and future TCGs) with one generic catalog model.
+them by state or province on a map of binder counts, then message and rate each other. Deals
+happen in the chat and cards ship by mail: the buyer pays the seller outside the app and
+OrenjiTrade never handles the money (ADR 0018; the phone has no offers, trades or protected
+payments, which the API keeps for the paused web). OrenjiTrade is free for all (ADR 0019): no
+Premium, ads, credits or donations, and the same usage limits for every collector. Multi-game by
+design (Yu-Gi-Oh!, Pokémon, Magic: The Gathering, Riftbound, and future TCGs) with one generic
+catalog model.
 
 - Web: https://www.orenjitrade.com (admin at `/admin`)
 - API: https://api.orenjitrade.com (`/api/v1/...`)
@@ -14,8 +18,9 @@ Gathering, Riftbound, and future TCGs) with one generic catalog model.
 > Status: MVP under active construction, nothing deployed. See
 > [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for the phase checklist and the exact next
 > task, and [CLAUDE.md](CLAUDE.md) for engineering rules. Since 2026-10-12 the phone app is the
-> client of new work and the web app is paused (owner order); the next task is the phone redesign
-> of 2026-10-14 ([spec](docs/product/specs/2026-10-14-phone-redesign.md), stages R1 to R8). What
+> client of new work and the web app is paused (owner order); the work in progress is the phone
+> redesign of 2026-10-14 ([spec](docs/product/specs/2026-10-14-phone-redesign.md), stages R1 to
+> R8: R1 is done, R2 is next). What
 > the owner's change of 2026-10-08 delivered, and what it did not:
 > [delivery report](docs/product/2026-10-08-change-delivery-report.md).
 
@@ -162,8 +167,8 @@ All variables are listed with comments in [.env.example](.env.example). Copy it 
 when you need to change something: docker compose reads the port variables from it and the npm
 scripts pass its non-empty values to the API. Key groups: database, Redis, Firebase (project id +
 emulator host), Google Cloud (project, region, buckets), events transport (`local` | `pubsub`),
-storage provider (`local` | `gcs`), payments / billing (`fake` | `stripe`), donations
-(`fake`), push (`log` | `fcm`), email (`log`), ML URL, CORS origins. Production values would live
+storage provider (`local` | `gcs`), payments (`fake` | `stripe`), push (`log` | `fcm`), email
+(`log`), ML URL, CORS origins. Production values would live
 in Secret Manager and Cloud Run configuration, never in Git.
 
 ## Running tests

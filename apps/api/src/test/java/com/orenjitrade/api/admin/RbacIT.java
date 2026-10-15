@@ -99,17 +99,24 @@ class RbacIT extends AbstractIntegrationTest {
                 .uri("/api/v1/admin/users/{id}/roles", targetId)
                 .header(HttpHeaders.AUTHORIZATION, bearer(admin))
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(Map.of("roles", List.of("MODERATOR", "PREMIUM_USER")))
+                .body(Map.of("roles", List.of("MODERATOR")))
                 .exchange()
                 .expectStatus()
                 .isNoContent();
         assertThat(testUsers.rolesOf(targetId))
                 .as("USER is always kept")
-                .containsExactly("MODERATOR", "PREMIUM_USER", "USER");
-        assertThat(me(target).path("roles").toString())
-                .contains("MODERATOR")
-                .contains("PREMIUM_USER")
-                .contains("USER");
+                .containsExactly("MODERATOR", "USER");
+        assertThat(me(target).path("roles").toString()).contains("MODERATOR").contains("USER");
+        // The Premium role is gone with the Premium plans (stage F1).
+        http.put()
+                .uri("/api/v1/admin/users/{id}/roles", targetId)
+                .header(HttpHeaders.AUTHORIZATION, bearer(admin))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("roles", List.of("MODERATOR", "PREMIUM_USER")))
+                .exchange()
+                .expectStatus()
+                .isBadRequest();
+        assertThat(testUsers.rolesOf(targetId)).containsExactly("MODERATOR", "USER");
     }
 
     @Test

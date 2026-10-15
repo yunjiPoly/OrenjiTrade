@@ -18,7 +18,10 @@ import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { SectionCardComponent } from '../../../shared/ui/section-card/section-card.component';
 import { DeleteAccountDialogComponent } from './delete-account-dialog.component';
 
-/** Settings → Account: email and verification, plan, data export, account deletion. */
+/**
+ * Settings → Account: email and verification, staff roles, data export, account deletion. No plan:
+ * OrenjiTrade is free for every collector (stage F1).
+ */
 @Component({
   selector: 'app-account-settings',
   imports: [

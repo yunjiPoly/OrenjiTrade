@@ -69,7 +69,8 @@ Wishlist (which copy, public note, Near Mint only, % TCG term) → a collector o
 it → wishlist alert → card page · A deal in the chat: ask, agree on the price and the shipping,
 pay outside the app, ship with tracking (Mark as sold arrives with stage R4) · Rating after an
 eligible interaction (a real conversation; a sale from R4) ·
-Report collector (reason + confirm) → admin review → audit · Freemium limit → upgrade prompt ·
+Report collector (reason + confirm) → admin review → audit · Usage limit reached → a plain
+explanation (no plan, nothing to buy) ·
 Account deletion → public traces removed.
 
 ## Trust and safety principles
@@ -114,22 +115,27 @@ Account deletion → public traces removed.
 
 ## Business model
 
-Free tier is genuinely useful (profile, inventory, one public binder, map, messaging, limited
-alerts). Premium raises limits and adds power tools (unlimited alerts, advanced filters, saved
-searches, analytics, no ads). All limits are configurable by admins. Additional
-revenue: TCG-focused sponsored placements (clearly labelled, targeted by region, country or state only),
-voluntary donations, and non-cash OriEnji credits with an immutable ledger.
+**Free for all (owner decision, 2026-10-14, ADR 0019).** OrenjiTrade is free: no Premium plans,
+no sponsored placements, no credits and no donations. Every collector has the same usage limits
+(today: 5 binders, 30 public binder views a day, 20 wishes, 5 wishlist alerts a day, 20 offers a
+day, an unlimited inventory), which admins change in `/admin/usage-limits`; a collector who
+reaches one is told which limit, how much is used and when it resets, and nothing offers a plan.
+The paid features built in Phase 10 (Premium subscriptions with a billing provider, sponsored
+placements, non-cash credits with a ledger and referrals, voluntary donations) were removed from
+the API, the phone and the web on 2026-10-14; their code waits on the branch
+`archive/paid-features` until the owner brings one back (that code plus a new migration recreating
+its tables).
 
 **Launch without payments (owner decision, 2026-10-05).** OrenjiTrade launches as *discovery +
 messaging only*: collectors find each other's binders in their region (search and the region
-map's state lists) and chat, then trade on their own. Every money feature is built and
-feature-flagged but **switched off at launch**: `protectedPayments`
-(payment protection, payouts, disputes), `premiumPlans` (Premium checkout and every upgrade
-prompt), `credits`, `donations`, `advertising`; `mlScanning` stays off by the Phase 11 hold and
-`publicChat` stays on. With the flags off no screen offers to pay, subscribe, buy credits or
-donate, the related API routes answer `404 FEATURE_DISABLED`, and on the web offers are plain
-proposals and an accepted offer opens an in-person trade. The phone has no offers at all since
-stage R1: deals happen in the chat and ship by mail (ADR 0018). The flags live in the database (migrations V010 + V105)
+map's state lists) and chat, then trade on their own. The one money feature left, payment
+protection, is built and feature-flagged but **switched off at launch**: `protectedPayments`
+(payment protection, payouts, disputes); `mlScanning` stays off by the Phase 11 hold and
+`publicChat` stays on (the `premiumPlans`, `credits`, `donations` and `advertising` flags left
+with their features on 2026-10-14). With the flag off no screen offers to pay, the payment routes
+answer `404 FEATURE_DISABLED`, and on the web offers are plain proposals and an accepted offer
+opens an in-person trade. The phone has no offers or payments at all since stage R1: deals happen
+in the chat and ship by mail (ADR 0018). The flags live in the database (migrations V010 + V105)
 and a super admin turns a feature on in `/admin > Feature flags` once its provider, keys and
 policies are ready (`docs/deployment/runbooks.md`, "Launch configuration").
 

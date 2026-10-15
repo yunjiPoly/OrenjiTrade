@@ -11,9 +11,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Namespaced access to the shared {@code platform_settings} table (V080, ADR 0014) for the modules
- * that keep their configurable numbers there under their own key prefix ({@code credits.*}, {@code
- * donations.*}). Each module reads and writes only its prefix and validates types and bounds
- * itself; the payments module keeps its own repository for {@code payments.*}.
+ * that keep their configurable numbers there under their own key prefix (for example {@code
+ * wishlist.*} and {@code inventory.import.*}). Each module reads and writes only its prefix and
+ * validates types and bounds itself; the payments module keeps its own repository for {@code
+ * payments.*}.
  */
 @Component
 public class PlatformSettingsStore {

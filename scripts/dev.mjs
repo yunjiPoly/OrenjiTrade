@@ -173,7 +173,7 @@ function printUrls() {
   console.log(`\n${paint('1;32', 'OrenjiTrade is running')} (started in ${formatDuration(Date.now() - startedAt)})\n`);
   console.log(table(rows));
   console.log(
-    `\nSeed accounts: docs/development/test-accounts.md. Fake payments/billing/donations and log push/email/analytics ` +
+    `\nSeed accounts: docs/development/test-accounts.md. Fake payments and log push/email/analytics ` +
       `output appear in the [api] lines.\n${paint('1', 'Press Ctrl+C to stop')} the API and the web dev server ` +
       `(the Docker infrastructure keeps running; npm run infra:down stops it).\n`,
   );

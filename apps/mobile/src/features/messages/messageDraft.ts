@@ -139,7 +139,7 @@ export function sendErrorMessage(error: ApiError): string {
     case 'MESSAGE_BLOCKED':
       return 'This message breaks the community guidelines, so it was not sent. Please rephrase it.';
     case 'LIMIT_REACHED':
-      return 'You reached the photo limit of your plan for now. Try again later.';
+      return 'You reached the photo limit for now. Try again later.';
     case 'VALIDATION_FAILED':
       return error.message || 'This message cannot be sent.';
     default:

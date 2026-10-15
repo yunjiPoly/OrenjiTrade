@@ -1,6 +1,5 @@
 package com.orenjitrade.api.offers.domain;
 
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.binders.domain.PublicOwner;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -14,6 +13,7 @@ import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.InventoryService;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.messaging.domain.OfferLink;
 import com.orenjitrade.api.offers.domain.OfferStateMachine.Decision;
 import com.orenjitrade.api.offers.domain.OfferTerms.TradeLine;

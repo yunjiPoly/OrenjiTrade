@@ -45,7 +45,7 @@ async function item(request: APIRequestContext, token: string, id: string) {
 
 /**
  * Mobile Phase 3 (binders) against the real stack: create a binder, add a card to it, publish
- * it for 24 hours, remove the card and delete the binder; the plan's binder limit; a public
+ * it for 24 hours, remove the card and delete the binder; the binder limit; a public
  * binder of another collector (owner area only, public cards only).
  */
 test.describe('mobile binders', () => {
@@ -149,7 +149,10 @@ test.describe('mobile binders', () => {
     expect(await after.json()).toEqual([]);
   });
 
-  test('the plan’s binder limit is explained when creating one more', async ({ page, request }) => {
+  test('the binder limit, the same for everyone, is explained when creating one more', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(120_000);
     const collector = await createOnboardedCollector(request, 'blim', 'Mobile Limits');
     for (let i = 1; i <= 5; i++) {
@@ -165,12 +168,14 @@ test.describe('mobile binders', () => {
     await form.getByLabel('Binder name').fill('One too many', { timeout: 30_000 });
     await form.getByRole('button', { name: 'Create binder' }).click();
     await expect(form.getByTestId('binder-limit')).toContainText(
-      'You reached the number of binders your plan allows',
+      'You reached the number of binders you can have',
       { timeout: 30_000 }
     );
     await expect(form.getByTestId('binder-limit-message')).toHaveText(
-      /^You have used 5 of 5 binders on the Free plan\./
+      'You have used 5 of 5 binders. Delete a binder you no longer need.'
     );
+    // Stage F1: nothing to buy.
+    await expect(form.getByTestId('binder-limit')).not.toContainText(/premium|plan|upgrade/i);
   });
 
   test('another collector’s public binder shows public cards and a state only', async ({

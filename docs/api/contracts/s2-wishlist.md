@@ -25,7 +25,7 @@ column exists); `PATCH` reads only its documented members.
 
 One wish per selection and collector: the same card + printing (or any) + rarity (or any) twice is
 409 `CONFLICT` (also enforced by the unique index `uq_wishlist_item_selection`). The plan limit
-`wishlist.items.max` (FREE 20, PREMIUM 500) still applies (429 `LIMIT_REACHED`).
+`wishlist.items.max` (20, the same for every collector since stage F1) still applies (429 `LIMIT_REACHED`).
 
 ## Endpoints
 
@@ -108,7 +108,7 @@ of 2026-10-14 ([spec](../../product/specs/2026-10-14-phone-redesign.md), section
   switch never turns alerts back on. On: in-app and push, following the master switches
   and quiet hours; never email. The `WISHLIST_MATCH` category is gone from the channel matrix (an old
   client sending it gets 400 like any unknown category). The daily plan limit
-  `wishlist.alerts.per_day` (FREE 5, PREMIUM unlimited) still applies; beyond it one SYSTEM notice
+  `wishlist.alerts.per_day` (5 a day, the same for every collector since stage F1) still applies; beyond it one SYSTEM notice
   "More wishlist alerts are waiting" per day.
 - Analytics: `wishlist_item_created` carries `game`, `target` (card / rarity / printing),
   `near_mint_only`, `has_price_term` (never the note). `wishlist_matched` is gone; alerts are not an

@@ -12,7 +12,7 @@ import {
   WISH_ID,
   cardDetailFixture,
   locationFixture,
-  planFixture,
+  limitsFixture,
   printingFixture,
   privacyFixture,
   wishFixture,
@@ -29,10 +29,10 @@ beforeEach(() => {
   resetAppState();
 });
 
-const PLAN = {
-  ...planFixture(25),
+const LIMITS = {
+  ...limitsFixture(25),
   limits: [
-    ...(planFixture(25).limits ?? []),
+    ...(limitsFixture(25).limits ?? []),
     {
       key: 'wishlist.items.max',
       allowed: true,
@@ -58,7 +58,7 @@ function routes(extra: MockRoutes = {}): MockRoutes {
         priceTerm: { label: '100% TCG+', percent: 100, orMore: true },
       }),
     ]),
-    'GET /api/v1/me/plan': ok(PLAN),
+    'GET /api/v1/me/limits': ok(LIMITS),
     ...extra,
     // Last: `{id}` would also match `/cards/suggest`.
     'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
@@ -86,9 +86,7 @@ describe('Wishlist tab', () => {
     expect(screen.getByTestId('wish-chips-wish-rarity')).toHaveTextContent(/100% TCG\+$/);
     expect(screen.queryByTestId('wish-note-wish-rarity')).toBeNull();
     expect(screen.getByTestId('wishlist-count')).toHaveTextContent('2 wishes');
-    expect(await screen.findByTestId('wishlist-usage')).toHaveTextContent(
-      '2 of 20 wishes · Free plan'
-    );
+    expect(await screen.findByTestId('wishlist-usage')).toHaveTextContent('2 of 20 wishes');
     // A location is set: no prompt. No matches, filters or alert switches any more.
     expect(screen.queryByTestId('wishlist-location-prompt')).toBeNull();
     expect(screen.queryByText(/match/i)).toBeNull();
@@ -288,7 +286,7 @@ describe('Add and edit a wish', () => {
     ).toBe(PRINTING_A);
     fireEvent.press(screen.getByTestId('wish-save'));
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
-      /Your wishlist is full: your plan allows 20 wishes\. Remove one or upgrade to add more\.$/
+      /Your wishlist is full: it holds up to 20 wishes\. Remove one to add another\.$/
     );
     // Another card can be chosen.
     fireEvent.press(screen.getByTestId('wish-change-card'));

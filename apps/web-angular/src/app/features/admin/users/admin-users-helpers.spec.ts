@@ -10,9 +10,8 @@ describe('roleLockReason', () => {
     expect(roleLockReason('USER', { ...base, actorIsSuperAdmin: true })).toContain('USER');
   });
 
-  it('lets admins manage PREMIUM_USER and MODERATOR only', () => {
+  it('lets admins manage MODERATOR only', () => {
     expect(roleLockReason('MODERATOR', base)).toBeNull();
-    expect(roleLockReason('PREMIUM_USER', base)).toBeNull();
     expect(roleLockReason('ADMIN', base)).toBe('Only a super admin can grant or revoke this role.');
     expect(roleLockReason('SUPER_ADMIN', base)).not.toBeNull();
   });

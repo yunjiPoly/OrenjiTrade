@@ -66,10 +66,6 @@ match `docker compose`. The most relevant ones:
 | `PAYMENT_PROVIDER`, `PUSH_PROVIDER`, `EMAIL_PROVIDER` | `fake`, `log`, `log` | provider abstractions |
 | `FAKE_PAYMENTS_WEBHOOK_SECRET`, `FAKE_CHECKOUT_BASE_URL` | local value, empty | HMAC key of the fake provider's synthetic webhooks (not a secret of any service); origin prefixed to the fake checkout path `/checkout/fake/<ref>` (empty = relative) |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `WEB_BASE_URL` | empty, empty, `https://www.orenjitrade.com` | only with `PAYMENT_PROVIDER=stripe` (start-up fails without the two secrets); never needed locally |
-| `BILLING_PROVIDER`, `FAKE_BILLING_WEBHOOK_SECRET` | `fake`, local value | Phase 10 subscriptions: the fake billing provider (no credentials, no money; synthetic webhooks signed with the local value) or `stripe` |
-| `STRIPE_BILLING_WEBHOOK_SECRET`, `STRIPE_PRICE_PREMIUM` | empty | only with `BILLING_PROVIDER=stripe` (start-up fails without `STRIPE_SECRET_KEY` and the webhook secret; the price id maps the PREMIUM plan); never needed locally |
-| `DONATION_PROVIDER`, `FAKE_DONATIONS_WEBHOOK_SECRET` | `fake`, local value | Phase 10 donations: only `fake` exists (any other value fails the start-up) |
-| `ADS_TOKEN_SECRET`, `ADS_WEB_BASE_URL` | `local-ads-token-secret` (refused outside `local`/`test`/`dev`), `http://localhost:4200` | HMAC key of the ad serve tokens (impressions and clicks); origin of relative house-ad landing paths on click redirects |
 | `ML_SERVICE_URL`, `ML_SERVICE_TIMEOUT_MS` | `http://localhost:8000`, `1500` | optional ML service |
 | `RATE_LIMIT_DEFAULT_PER_MINUTE`, `RATE_LIMIT_ANONYMOUS_PER_MINUTE` | `120`, `60` | default rate limits (per user / per IP) |
 
@@ -140,8 +136,9 @@ profile except where a test opts in (`RateLimitIT`).
 `SeedDataRunner` (`orenji.seed.enabled=true`) runs every `SeedContributor` bean in order at start-up,
 idempotently. The users module contributes the 12 fictional accounts of
 `docs/development/seed-data.md` (`db/seed/users.json`: ids `00000000-0000-4000-8000-0000000000NN`,
-provider uid `seed-<handle>`, roles, `PREMIUM` plan for `premium_user`, consents to every required
-document) and, when `FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Auth-emulator users (verified
+provider uid `seed-<handle>`, roles, consents to every required document; `premium_user` kept its
+handle and e-mail but is an ordinary collector since stage F1) and, when
+`FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Auth-emulator users (verified
 email, password `SEED_EMULATOR_PASSWORD`, existing users left untouched). Later modules add profiles,
 locations and catalog data by registering their own `SeedContributor` with the ordering constants of
 that interface. Phase 1-B adds `profiles` (order 200: profile, bio, games, languages, tags and
@@ -152,7 +149,7 @@ insert missing rows, so local edits survive restarts.
 Phase 2 adds `feature flags` (order 50, local/dev only) and `catalog` (order 400, the four mock
 catalogs); see "Catalog and platform rules" below. Phase 3 adds `inventory` (order 500, binders and
 items of the fictional collectors); see "Inventory, binders, freshness" below.
-Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for the premium account)
+Sign in locally with `<handle>@orenjitrade.test` (`premium@orenjitrade.test` for `premium_user`)
 and `LocalDev!2026`; see `docs/development/test-accounts.md`.
 
 ### Profiles
@@ -252,8 +249,9 @@ instantiated locally). Keys are random (`avatars/<user>/<32 hex>.jpg`), so objec
 ## Catalog and platform rules (Phase 2)
 
 Contracts: `docs/api/contracts/phase2-catalog.md` (catalog) and
-`docs/api/contracts/phase10-freemium-credits-ads-donations.md` "Plans and limits" (foundation). Catalog
-and plan reads are public GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
+`docs/api/contracts/phase10-freemium-credits-ads-donations.md` "Plans and limits" (foundation; since
+stage F1 only the usage limits remain, the same for everyone, ADR 0019). Catalog reads are public
+GET routes (`SecurityConfig.PUBLIC_GET_PATTERNS`): no token needed, and a
 token of an account with pending consents or a suspension does not block them (same treatment as
 `/api/v1/public/**`). Other methods on those paths stay protected.
 
@@ -266,31 +264,31 @@ token of an account with pending consents or a suspension does not block them (s
 | `GET /api/v1/sets?game=&query=`, `GET /api/v1/sets/{id}?page=&size=` | cards | newest first; exact code first when querying; set detail pages its printings |
 | `GET /api/v1/public/placeholder-images/{game}/{slug}.svg` | cards | server-generated SVG with the card name (XML-escaped, no scripts or external references, `Content-Security-Policy: default-src 'none'`), `Cache-Control: public, max-age=86400` + ETag / 304; 404 for unknown cards |
 | `GET /api/v1/public/feature-flags` | featureflags | `{flag: boolean}`; anonymous callers see flags rolled out to 100 %, a bearer token evaluates partial rollouts for the caller |
-| `GET /api/v1/plans` | billing | active plans with features and limits (`limit` null = unlimited) |
-| `GET /api/v1/me/plan` | billing | the caller's plan, every limit with the effective value (entitlements applied), current usage, remaining and reset time (UTC day/month; none for totals and caps), effective features and active entitlements (without admin notes) |
+| `GET /api/v1/me/limits` | limits | `{limits: [LimitStatus]}`: every usage limit (the same for every collector) with the caller's usage, remaining and reset time (UTC day/month; none for totals and caps); `limit` null = unlimited |
 | `GET /api/v1/admin/feature-flags`, `PUT /api/v1/admin/feature-flags/{key}` | featureflags | read ADMIN+, write SUPER_ADMIN; audited `feature_flag.update`; cache evicted |
-| `GET /api/v1/admin/plans`, `PUT /api/v1/admin/plans/{code}` | billing | read ADMIN+, write SUPER_ADMIN (name, description, display price, active — FREE cannot be disabled —, order, feature upserts); audited `plan.update` |
-| `GET /api/v1/admin/usage-limits?plan=`, `PUT /api/v1/admin/usage-limits/{id}` | billing | read ADMIN+, write SUPER_ADMIN (`{unlimited, maxValue, window, description}`, caps keep `TOTAL`); live, audited `usage_limit.update` |
-| `GET/POST /api/v1/admin/users/{id}/entitlements`, `DELETE .../entitlements/{entitlementId}` | billing | ADMIN+; grant a limit override (`value` number or `unlimited`) or a feature (`true`/`false`), optional `expiresAt`/`note`; revocation keeps history; audited `entitlement.grant` / `entitlement.revoke` |
+| `GET /api/v1/admin/usage-limits`, `PUT /api/v1/admin/usage-limits/{id}` | limits | one row per key; read ADMIN+, write SUPER_ADMIN (`{unlimited, maxValue, window, description}`, caps keep `TOTAL`); live for everyone, audited `usage_limit.update` |
 | `GET /api/v1/admin/games`, `POST /api/v1/admin/games`, `PUT /api/v1/admin/games/{slug}` | games | ADMIN+; slug immutable; schema validated (types, unique keys, summary fields exist); HIDDEN removes a game from public endpoints and profile choices; audited |
 | `POST /api/v1/admin/sets`, `PUT /api/v1/admin/sets/{id}`, `POST /api/v1/admin/cards`, `PUT /api/v1/admin/cards/{id}`, `POST /api/v1/admin/cards/{id}/printings`, `PUT /api/v1/admin/printings/{id}` | cards | ADMIN+; values checked against the game's GameSchema (edition, language, finish, rarity vocabularies; declared metadata types); duplicate printing variant 409; audited `card_set.*`, `card.*`, `card_printing.*` |
 | `POST /api/v1/admin/catalog/sync`, `GET /api/v1/admin/catalog/sync-runs[/{id}]`, `GET /api/v1/admin/catalog/providers` | cards | ADMIN+; 202 with the QUEUED run; the import runs after commit through `CatalogSyncRequestedEvent` (`@ApplicationModuleListener`, idempotent: only QUEUED runs start); audited `catalog.sync.request` |
 
-### Feature flags, plans, limits (ADR 0014)
+### Feature flags and usage limits (ADR 0014, ADR 0019)
 
 - `FeatureFlags.isEnabled(key[, userId])`, `FeatureFlags.require(key, userId)` → `404
   FEATURE_DISABLED` (extension `feature`). `ErrorCode.FEATURE_DISABLED` now defaults to 404 (the
-  Phase 9 contract's "404 FEATURE_DISABLED").
-- `Limits.check(userId, key)` → `LimitDecision {key, allowed, kind, window, limit, used, remaining,
-  resetsAt, planCode, overridden, upgradeUrl}`; `Limits.consume(userId, key)` increments atomically in
-  `usage_counter` (conditional upsert, never passes the limit) and throws `LimitReachedException` →
-  `429 LIMIT_REACHED` with extensions `limitKey`, `limit`, `used`, `resetsAt`, `planCode`,
-  `upgradeUrl: "/premium"`; `Limits.checkValue(userId, key, requested)` for caps. The plan comes from `user_account.plan_code` (FREE when unknown or inactive);
-  active entitlements win (most generous). `Entitlements.has(userId, featureKey)` resolves features the
-  same way. `LimitUsageSource` beans let owning modules report TOTAL usage (Phase 3 binders).
-- Rules are cached in Redis through `common.cache.RedisJsonCache` (60 s TTL, explicit eviction after
-  every admin write and after commit, fail-open to the database). Usage counters are mirrored in
-  Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check` fast path.
+  Phase 9 contract's "404 FEATURE_DISABLED"). Flags since stage F1: `protectedPayments`,
+  `publicChat`, `mlScanning`.
+- The `limits` module (stage F1; it was part of `billing` before): `Limits.check(userId, key)` →
+  `LimitDecision` (schema `LimitStatus`: `key, allowed, kind, window, limit, used, remaining,
+  resetsAt`); `Limits.consume(userId, key)` increments atomically in `usage_counter` (conditional
+  upsert, never passes the limit) and throws `LimitReachedException` → `429 LIMIT_REACHED` with
+  extensions `limitKey`, `limit`, `used`, `resetsAt` (no plan, no upgrade link);
+  `Limits.checkValue(key, requested)` for caps. Every collector has the same limits: one
+  `usage_limit` row per key (V123 kept the FREE plan's values). `LimitUsageSource` beans let owning
+  modules report TOTAL usage (Phase 3 binders, inventory items).
+- Rules are cached in Redis through `common.cache.RedisJsonCache` (`usage-limits:v1`, 60 s TTL,
+  explicit eviction after every admin write and after commit, fail-open to the database). Usage
+  counters are mirrored in Redis after commit (`orenji:usage:*`, TTL ≤ 10 minutes) for the `check`
+  fast path.
 - Phase 3 consumes `binders.max` (binder creation) and `binder.views.per_day` (public binder views)
   (the Phase 4 radius cap `map.radius.max_km` was removed with the distances, ADR 0017). The
   integration tests also exercise the HTTP behaviour through
@@ -351,8 +349,8 @@ token of an account with pending consents or a suspension does not block them (s
 
 ### Seed (Phase 2)
 
-`feature flags` (order 50, `local`/`dev` only): enables `protectedPayments`, `advertising` and
-`donations` unless an admin changed them; `mlScanning` stays off. `catalog` (order 400): imports the
+`feature flags` (order 50, `local`/`dev` only): enables `protectedPayments` unless an admin changed
+it; `mlScanning` stays off. `catalog` (order 400): imports the
 four mock catalogs through `CatalogImportService` (idempotent; one sync run per game and start-up).
 
 ### Deviations from the Phase 2 / Phase 10 contracts
@@ -360,17 +358,16 @@ four mock catalogs through `CatalogImportService` (idempotent; one sync run per 
 - `usage_limit.window` is stored as `limit_window` (`WINDOW` is reserved in PostgreSQL); the API field
   is `window`. Additive column `usage_limit.kind` (`COUNTER` / `CAP`) distinguishes counted limits from
   caps.
-- Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/plans/{code}`,
-  `PUT /admin/usage-limits/{id}`, `DELETE /admin/users/{id}/entitlements/{entitlementId}` (the contract
-  names the collections `GET/PUT /admin/plans`, `/admin/usage-limits`, "grant/revoke").
-- `GET /me/plan` adds `features`, `upgradeUrl` and (since Phase 10) the live `subscription`; limit
-  entries add `kind`, `window`, `remaining`, `allowed`, `overridden`, `planCode`.
+- Admin writes are per resource: `PUT /admin/feature-flags/{key}`, `PUT /admin/usage-limits/{id}`
+  (the contract names the collection `GET/PUT /admin/usage-limits`).
+- Stage F1 removed plans, entitlements and `GET /me/plan`; `GET /me/limits` lists the limits with
+  `kind`, `window`, `remaining` and `allowed`.
 - `SetDetail` is `{set, metadata, printings: PageResponse}`; `PrintingDetail` is `{printing, card, set,
   metadata}`; `PrintingSummary.marketPrice` is `{amount, currency, updatedAt}`; `CardSuggestion` adds
   `kind` and `printingId`.
 - Additive columns `card_set.external_ref` and `card.external_ref` (idempotent imports), and additive
   admin routes `GET /admin/games`, `POST/PUT /admin/sets`, `GET /admin/catalog/sync-runs/{id}`,
-  `GET /admin/catalog/providers`, `GET /admin/users/{id}/entitlements`.
+  `GET /admin/catalog/providers`.
 - `INCREMENTAL` syncs pass the last successful run's start to the provider; the mock provider has no
   change tracking and returns everything (still idempotent).
 
@@ -398,7 +395,7 @@ routes are permitAll GETs (`/api/v1/public/**` plus `SecurityConfig.PUBLIC_GET_P
 | `POST /api/v1/binders/{id}/publish` `{mode}`, `.../unpublish`, `.../confirm`, `PUT /api/v1/binders/reorder` | binders | PUBLIC / UNTIL_DISABLED → PUBLIC; ONE_HOUR / ONE_DAY → TEMPORARILY_PUBLIC until now + 1 h / 24 h; publishing and confirming confirm the binder and its items |
 | `GET /api/v1/binders/{id}/items` | inventory | the caller's items of one binder (same filters) |
 | `GET /api/v1/collectors/{handle}/binders` | binders | public binders with ≥ 1 public item (`PublicBinderSummary`) |
-| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `place`: state or province and country, never a city or a distance); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the plan) |
+| `GET /api/v1/public/binders/{id}` | binders | `PublicBinderResponse` with an owner block (handle, display name, avatar, `place`: state or province and country, never a city or a distance); signed-in visitors other than the owner consume `binder.views.per_day` once per binder and UTC day (Redis de-duplication, 429 beyond the limit) |
 | `GET /api/v1/public/binders/{id}/items`, `GET /api/v1/collectors/{handle}/inventory` | inventory | `PublicInventoryItem` pages (no `notes`, no coordinates) |
 | `GET /api/v1/admin/delist-policies`, `PUT /api/v1/admin/delist-policies/{id}` | delisting | ADMIN+ (Phase 7 contract, built with the table); ordering validated, audited `delist_policy.update`, cache evicted |
 | `POST /internal/jobs/freshness` (hourly), `POST /internal/jobs/delist` (daily) | inventory, delisting | service auth; `@Scheduled` stand-ins under `local` (`FreshnessScheduler` every hour, `DelistScheduler` daily); both record a `job_run` |
@@ -420,7 +417,7 @@ collector edits and then commits; new items are PRIVATE and unfiled. The phone i
 | `GET /api/v1/inventory/imports/{id}/rows?status=&printingChoice=&page=&size=` | the lines in file order (`printingChoice=MOST_RECENT_ASSUMED`: the plain copies the bulk action assumed) |
 | `PATCH /api/v1/inventory/imports/{id}`, `PATCH .../rows/{rowId}` | which deck sections count; a line's printing, condition, copies, in or out |
 | `POST /api/v1/inventory/imports/{id}/bulk` | `USE_MOST_RECENT_PRINTING`, `SET_CONDITION` |
-| `POST /api/v1/inventory/imports/{id}/commit` | `{skipUnresolved?}`; idempotent; up to 500 items in one transaction, then chunks of 500, each its own; follows the rule "A new bulk write" of `docs/database/schema.md` (owner lock first); 409 `IMPORT_ROWS_UNRESOLVED`, 410 `IMPORT_EXPIRED`, 429 `LIMIT_REACHED` (`inventory.items.max`, no number for any plan today) |
+| `POST /api/v1/inventory/imports/{id}/commit` | `{skipUnresolved?}`; idempotent; up to 500 items in one transaction, then chunks of 500, each its own; follows the rule "A new bulk write" of `docs/database/schema.md` (owner lock first); 409 `IMPORT_ROWS_UNRESOLVED`, 410 `IMPORT_EXPIRED`, 429 `LIMIT_REACHED` (`inventory.items.max`, no number today) |
 | `DELETE /api/v1/inventory/imports/{id}` | discards a preview no commit has started |
 | `GET\|PUT /api/v1/admin/inventory/import-settings` | ADMIN; the `inventory.import.*` platform settings (no web page: the web is paused) |
 
@@ -561,9 +558,9 @@ address, a raw account id or (views) a handle.
 
 ### Binder views
 
-`binder.views.per_day` (Phase 3) is covered by `BinderViewLimitIT`: signed-in FREE visitors consume
-one unit per binder and UTC day; repeated, owner and signed-out views never count; PREMIUM and
-entitled visitors are not limited; a refused view consumes nothing.
+`binder.views.per_day` (Phase 3) is covered by `BinderViewLimitIT`: signed-in visitors consume one
+unit per binder and UTC day; repeated, owner and signed-out views never count; an unlimited setting
+lifts the limit for every visitor; a refused view consumes nothing.
 
 ### Deviations from the Phase 4 contract
 
@@ -727,7 +724,7 @@ V050–V051, V112. Every route needs a signed-in, compliant account.
 | Route | Notes |
 | --- | --- |
 | `GET /api/v1/wishlist` | the caller's items, newest first: `{id, game, card{id,name,imageUrl}, printing (PrintingSummary or null = any printing), rarity (null = any; only without a printing), note (public), nearMintOnly, priceTerm {label, percent, orMore} or null, createdAt, updatedAt}` |
-| `POST /api/v1/wishlist` | 201; `cardId` (any printing, optionally with a `rarity` of the card's printings) or `printingId` (its card is derived; a rarity equal to the printing's is dropped, another one is 400); `note` public, plain text, ≤ 280 code points, moderated (PROFILE scope); `nearMintOnly`; `priceTerm` one of `GET /wishlist/price-terms`; 409 `CONFLICT` for the same selection; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (FREE 20 / PREMIUM 500). Unknown members (the removed `maxPrice`, `currency`, `tradePreference`, `notes`, `active`, `conditionMin`, `edition`, `language`, `radiusKm`) are ignored and never stored |
+| `POST /api/v1/wishlist` | 201; `cardId` (any printing, optionally with a `rarity` of the card's printings) or `printingId` (its card is derived; a rarity equal to the printing's is dropped, another one is 400); `note` public, plain text, ≤ 280 code points, moderated (PROFILE scope); `nearMintOnly`; `priceTerm` one of `GET /wishlist/price-terms`; 409 `CONFLICT` for the same selection; 429 `LIMIT_REACHED` beyond `wishlist.items.max` (20, the same for everyone). Unknown members (the removed `maxPrice`, `currency`, `tradePreference`, `notes`, `active`, `conditionMin`, `edition`, `language`, `radiusKm`) are ignored and never stored |
 | `PATCH /api/v1/wishlist/{id}` | any subset of `printingId` (another printing of the same card, or null = any), `rarity`, `note`, `priceTerm` (null clears) and `nearMintOnly`; changing `printingId` without `rarity` clears the stored rarity |
 | `DELETE /api/v1/wishlist/{id}` | 204 |
 | `GET /api/v1/wishlist/price-terms` | `{terms: [{label, percent, orMore}]}`: the admin list (platform setting `wishlist.price_terms`, seeded `80% TCG, 85% TCG, 90% TCG, 100% TCG, 100% TCG+`), display terms relative to the TCG market price, never a filter |
@@ -769,10 +766,9 @@ deletion pending, deleted), applies the preferences of `GET/PUT /me/settings/not
 switch and category channels; `WISHLIST_ALERT` follows the one `wishlistAlerts` switch, in-app and
 push, never email; SYSTEM notices are in-app only; nothing is stored or counted when no channel is
 wanted), holds push back during quiet hours (in the collector's time zone; in-app and email
-unaffected), counts types with a daily limit through `Limits` (`wishlist.alerts.per_day`: FREE 5,
-PREMIUM unlimited; beyond it the alert is held back and one SYSTEM notice "More wishlist alerts are
-waiting" with `data.kind=LIMIT_REACHED` (and the upgrade link while `premiumPlans` is on) is created
-per UTC day), then
+unaffected), counts types with a daily limit through `Limits` (`wishlist.alerts.per_day`: 5 for
+everyone; beyond it the alert is held back and one SYSTEM notice "More wishlist alerts are waiting"
+with `data.kind=LIMIT_REACHED`, the limit and "The limit resets tomorrow." is created per UTC day), then
 stores the row with its channel plan and publishes `NotificationCreated`. `NotificationDispatcher`
 (`@ApplicationModuleListener`) delivers the channels still `PENDING` and writes the outcome into
 `channel_state`: the in-app payload (same shape as the REST response) on `/user/queue/notifications`
@@ -872,7 +868,7 @@ views), `notifications` (statistics, broadcast), `analytics` (local aggregate, s
 RBAC (`SecurityConfig.MODERATOR_PATTERNS`): MODERATOR reaches `/admin/community/**`,
 `/admin/moderation/**`, `/admin/reports/**`, `/admin/ratings/**` and `/admin/references/**`; every other
 admin route needs ADMIN or SUPER_ADMIN; the services add ADMIN for moderation-rule writes and for
-SUSPENDED/BANNED decisions, SUPER_ADMIN for feature flags, plans, usage limits and broadcasts
+SUSPENDED/BANNED decisions, SUPER_ADMIN for feature flags, usage limits and broadcasts
 (`AdminAuthorizationIT` checks the matrix over every admin route).
 
 ### Interactions and ratings
@@ -983,7 +979,7 @@ the two parties of an offer or a trade ever see it (404 for anybody else).
 
 | Route | Notes |
 | --- | --- |
-| `POST /api/v1/offers` | `{itemId, kind?, cashAmount?, currency?, tradeItemIds?: [{inventoryItemId, quantity?}], message? ≤ 500, expiresInHours? 1-168 (72), protectionRequested?}` → 201 `OfferResponse` (+ `Location`). The card must be effectively public and visible to the caller (404 otherwise, blocks in either direction included; 400 for one's own card); `kind` defaults from the parts; 422 `OFFERS_NOT_ACCEPTED` when `acceptsOffers` is false, for NOT_AVAILABLE / COLLECTION_ONLY cards, cash on TRADE-only and trades on SALE-only cards, MIXED unless the card is TRADE_OR_SALE and the seller's `acceptsMixed` is on; trade cards must be the buyer's own non-deleted items with enough copies (400, public visibility not required); 409 `OFFER_ALREADY_OPEN` (extension `offerId`) while the buyer negotiates that card; `protectionRequested` needs a cash part (400) and the `protectedPayments` flag (404 `FEATURE_DISABLED`); consumes `offers.per_day` (429 `LIMIT_REACHED`, FREE 20 / PREMIUM 100); `Idempotency-Key` repeats the original answer for 24 h (Redis, fail-open) |
+| `POST /api/v1/offers` | `{itemId, kind?, cashAmount?, currency?, tradeItemIds?: [{inventoryItemId, quantity?}], message? ≤ 500, expiresInHours? 1-168 (72), protectionRequested?}` → 201 `OfferResponse` (+ `Location`). The card must be effectively public and visible to the caller (404 otherwise, blocks in either direction included; 400 for one's own card); `kind` defaults from the parts; 422 `OFFERS_NOT_ACCEPTED` when `acceptsOffers` is false, for NOT_AVAILABLE / COLLECTION_ONLY cards, cash on TRADE-only and trades on SALE-only cards, MIXED unless the card is TRADE_OR_SALE and the seller's `acceptsMixed` is on; trade cards must be the buyer's own non-deleted items with enough copies (400, public visibility not required); 409 `OFFER_ALREADY_OPEN` (extension `offerId`) while the buyer negotiates that card; `protectionRequested` needs a cash part (400) and the `protectedPayments` flag (404 `FEATURE_DISABLED`); consumes `offers.per_day` (429 `LIMIT_REACHED`, 20 for everyone); `Idempotency-Key` repeats the original answer for 24 h (Redis, fail-open) |
 | `GET /api/v1/offers?role=buyer\|seller&status=&cursor=&limit=20` | `CursorPage<OfferSummary>`: the live proposal of each negotiation, most recent activity first; `status` repeatable or comma separated; `yourTurn`, `allowedActions`, `counterparty` (`OfferParty`), the public card |
 | `GET /api/v1/offers/{id}` | `OfferResponse {id, rootOfferId, counterOf, latestOfferId, item (PublicInventoryItem), seller, buyer (OfferParty), viewerRole, kind, cashAmount, currency, tradeItems [{inventoryItemId, quantity, item}], message, status, currentTurn, superseded, expiresAt, version, protectionRequested, allowedActions, tradeId, history [OfferEvent {event, actorRole, reason, terms}], createdAt, updatedAt, closedAt}`; the first view by the party who has to answer is recorded (VIEWED) |
 | `POST /api/v1/offers/{id}/counter` | `{kind?, cashAmount?, currency?, tradeItemIds?, message?, expiresInHours?, version?}`; the party whose turn it is; without `kind` absent parts keep the current values and the kind follows the parts; the deal must change (400); the buyer's counter-offers follow the card's availability (422); answers the new proposal (status COUNTERED, other party's turn, fresh expiry) |
@@ -1230,152 +1226,23 @@ retention of financial records.
 - Dispute evidence files are served by the API (`/disputes/{id}/evidence/{evidenceId}/file`), never by
   a signed URL (cloud storage work deferred).
 
-## Subscriptions, credits, ads, donations (Phase 10)
+## Subscriptions, credits, ads, donations (Phase 10): removed by stage F1
 
-Contract: `docs/api/contracts/phase10-freemium-credits-ads-donations.md` (ADR 0011 pattern for the
-providers, ADR 0014 for every number). Built on the Phase 2 plans/limits/entitlements foundation
-(V011). Modules: `billing` (subscriptions next to plans), `credits`, `ads`, `donations`. Migrations
-V090–V093. Every provider is a local fake by default; nothing needs cloud or payment credentials.
-Feature flags: `premiumPlans` (checkout and the fake billing checkout), `credits` (member credit and
-referral routes), `advertising` (`GET /ads` answers `[]` when off), `donations` (member routes, the
-donation webhook and the supporters list); member routes answer `404 FEATURE_DISABLED` (extension
-`feature`) when off, admin routes stay available. Live subscriptions (cancel, webhooks, the period
-job) work whatever `premiumPlans` says.
-
-| Route | Who | Notes |
-| --- | --- | --- |
-| `GET /api/v1/me/plan` | member | adds `subscription` (the live one: PENDING checkout, TRIAL, ACTIVE, PAST_DUE; absent otherwise) |
-| `POST /api/v1/me/subscription/checkout` | member | `{planCode, provider?}` → `{subscription, url, clientSecret, resumed}`; paid, active plans only (400 for FREE/unknown); `provider` must be the active one (apple/google → 400, use the mobile-receipt route); an open checkout of the same plan is answered again (`resumed`), one of another plan abandoned; 409 `ALREADY_SUBSCRIBED` (`subscriptionId`, `currentStatus`) while entitled |
-| `POST /api/v1/me/subscription/cancel` | member | optional `{atPeriodEnd}` (default true: `cancelAtPeriodEnd`, the plan stays until `currentPeriodEnd`; false: CANCELLED and FREE at once); an open checkout is abandoned; idempotent; 404 without a live subscription |
-| `POST /api/v1/me/subscription/mobile-receipt` | member | reserved for App Store / Google Play receipts: 501 `NOT_IMPLEMENTED` |
-| `GET /api/v1/billing/fake/{ref}`, `POST .../confirm` | member (own checkout) | fake provider only (404 otherwise): what `/checkout/fake-billing/<ref>` shows; `{outcome: SUCCEEDED\|FAILED}` emits a signed synthetic `checkout.completed` / `checkout.failed` through the webhook pipeline (202; poll `GET /me/plan`); 409 unless PENDING |
-| `POST /api/v1/webhooks/billing/{provider}` | provider (no token) | `X-Fake-Signature` / `Stripe-Signature` (Stripe format, 5-minute tolerance); bad signature → 400 `WEBHOOK_SIGNATURE_INVALID`, stored IGNORED; verified events stored in `billing_webhook_event`, deduplicated by provider event id (`duplicate: true`), applied after commit (`BillingWebhookReceived`); 404 for another provider; 413 above 256 KB; 600/min per IP |
-| `POST /internal/jobs/subscriptions-period` | service auth | hourly (`SubscriptionPeriodScheduler` under `local`): cancellations at the period end take effect (CANCELLED, FREE); fake subscriptions renew through a synthetic signed `subscription.renewed`; real-provider subscriptions without a renewal expire after `orenji.billing.renewal-grace` (3 days); `job_run` |
-| `GET /api/v1/admin/subscriptions?status=&plan=&userId=`, `/{id}`, `POST /{id}/cancel` | ADMIN | list (with handles), detail with history and linked webhooks (payload included), cancel `{immediately, reason}` (audited `subscription.cancel`, the reason is not stored) |
-| `GET /api/v1/me/credits?cursor=&limit=` | member | `{balance, entries: CursorPage, products, withdrawable: false, transferable: false}`; entries without admin notes |
-| `POST /api/v1/me/credits/spend` | member | `{featureKey (a credit product key), idempotencyKey}` → SPEND entry + `CREDIT_PURCHASE` entitlement for `duration_hours` (stacked after an active one); a retry answers the original (`duplicate: true`); the key reused for another product 409 `CONFLICT`; 409 `INSUFFICIENT_CREDITS` (`balance`, `cost`) |
-| `GET /api/v1/me/referrals`, `POST /api/v1/me/referrals/redeem` | member | the caller's code (created on first read), rewards and redemption window; redeem `{code}` (case, spaces and dashes ignored): both earn credits once; 404 unknown code; 409 `REFERRAL_NOT_ALLOWED` with `reason` SELF / ALREADY_REDEEMED / ACCOUNT_TOO_OLD / REFERRER_LIMIT |
-| `POST /api/v1/admin/credits/grant` | ADMIN | `{userId, amount (±, not 0, ≤ 100000), reason ADMIN\|PROMO\|REWARD\|CORRECTION, note}`: positive GRANT, negative ADJUST (never below 0); audited `credits.grant` |
-| `GET /api/v1/admin/credits/ledger?userId=`, `/products`, `/settings` | ADMIN | ledger pages (with notes and balance), products, referral settings |
-| `PUT /api/v1/admin/credits/products/{key}`, `PUT /api/v1/admin/credits/settings` | SUPER_ADMIN | product name, value, cost, duration, availability (audited `credits.product.update`); referral rewards and limits (audited `credits.settings.update`) |
-| `POST /internal/jobs/credits-reconcile` | service auth | hourly (`CreditReconcileScheduler` under `local`): repairs cached balances that differ from `SUM(amount)`, reports accounts whose latest `balance_after` differs (ERROR `credits.ledger.mismatch`, never edits the ledger) |
-| `GET /api/v1/ads?placement=&game=&geoCell=` | public (token optional) | `[]` while `advertising` is off for the caller or `ads.enabled` is false (PREMIUM, entitlement); otherwise up to the placement's `max_ads` ads `{creativeId, placement, sponsored: true, label: "Sponsored", advertiser, headline, body, imageUrl, ctaLabel, clickUrl, impressionToken}`; `Cache-Control: no-store` |
-| `POST /api/v1/ads/{creativeId}/impression` | public | `{token}` → 204; once per serve token (24 h); 400 for a token of another creative, forged or expired |
-| `GET /api/v1/ads/{creativeId}/click?token=` | public | 302 to the landing page (relative house-ad paths are sent to `ADS_WEB_BASE_URL`); a valid token records the click once; 404 unknown creative |
-| `/api/v1/admin/ads/advertisers[/{id}]`, `/placements[/{key}]`, `/campaigns[/{id}]`, `/campaigns/{id}/targeting`, `/campaigns/{id}/creatives`, `/creatives/{id}`, `/campaigns/{id}/stats?from=&to=` | ADMIN | CRUD with validation (URLs https or site paths, targeting values checked, no coordinates), stats (totals, CTR in percent, derived spend, remaining budget, daily rows); every write audited (`ads.advertiser.*`, `ads.campaign.*`, `ads.targeting.update`, `ads.creative.*`, `ads.placement.update`) |
-| `POST /internal/ads/clicks/{clickId}/conversions` | service auth | `{kind SIGNUP\|PURCHASE\|OTHER, value?, currency?}`, once per click and kind |
-| `POST /api/v1/donations/checkout` | member | `{amount, currency, message?, publicThanks?}` → 201 `{donation, url}` (fake: `/checkout/fake-donation/<ref>`); amounts and currencies from `donations.*` settings (400 otherwise); labelled "Voluntary support" |
-| `GET /api/v1/me/donations`, `GET /api/v1/donations/fake/{ref}`, `POST .../confirm` | member | history; the fake checkout (own donations only) emits a signed synthetic `donation.succeeded` / `donation.failed` (202) |
-| `POST /api/v1/webhooks/donations/{provider}` | provider (no token) | like the billing webhooks (`donation_webhook_event`); 404 FEATURE_DISABLED while donations is off for everybody |
-| `GET /api/v1/public/donations/supporters?limit=` | public | display names (and month) of active donors who chose `publicThanks`; never amounts, notes or handles |
-| `GET /api/v1/admin/donations?status=`, `/{id}`, `/settings`; `POST /{id}/refund`, `PUT /settings` | ADMIN reads; SUPER_ADMIN refunds and settings | totals per currency, detail with webhooks; refund audited `donation.refund`; settings audited `donations.settings.update` |
-
-### Subscriptions
-
-`BillingProvider` (`billing/domain`): `startCheckout`, `cancel(ref, atPeriodEnd)`, `parseWebhook`.
-`FakeBillingProvider` (default, `BILLING_PROVIDER=fake`): `fake_cs_…` checkouts at the web path
-`/checkout/fake-billing/<ref>`, `fake_sub_…` subscriptions, 30-day periods, synthetic webhooks
-signed with `FAKE_BILLING_WEBHOOK_SECRET` (`checkout.completed`, `checkout.failed`,
-`subscription.renewed`, `invoice.payment_failed`, `subscription.cancelled`).
-`StripeBillingProvider` (only with `BILLING_PROVIDER=stripe`): Checkout Sessions in subscription
-mode with the plan's Stripe price (`STRIPE_PRICE_PREMIUM`), `cancel_at_period_end` or `DELETE
-/v1/subscriptions/{id}`, webhooks `checkout.session.completed` / `.expired`, `invoice.paid` (period
-of the first line), `invoice.payment_failed`, `customer.subscription.deleted`; compile- and
-unit-tested only (`StripeBillingProviderTest`). An entitling subscription (TRIAL, ACTIVE, PAST_DUE)
-sets `user_account.plan_code` to its plan and grants PREMIUM_USER (`UserAccountService.applyPlan`),
-so limits, features and ads follow at once; its end sets FREE and revokes the role. States: PENDING
-(checkout open) → ACTIVE (webhook) → PAST_DUE (failed renewal, plan kept) → CANCELLED / EXPIRED;
-one live subscription per account (partial unique index, per-account advisory lock). Every change
-appends `subscription_event` and publishes `SubscriptionChanged` (statuses and plan only). A payment
-arriving for an abandoned checkout is cancelled at the provider at once.
-
-### Credits
-
-`CreditLedger`: entries appended under a transaction-scoped advisory lock per account (`balance_after`
-= running sum, never negative), idempotent by a unique `idempotency_key`
-(`spend:<userId>:<client key>`, `referral:<redemptionId>:referrer|referee`, `admin:<uuid>`,
-`seed:…`). The database refuses UPDATE, DELETE and TRUNCATE (trigger
-`credit_ledger_entry_append_only`). Balance = `SUM(amount)` (view `credit_balance`), cached in Redis
-`orenji:credits:balance:<userId>` (10 minutes, evicted after every committed entry; spends always sum
-under the lock). Credits are never bought, withdrawn or transferred through the API. Credit products
-(`premium_search_day` 50 → `filters.advanced` 24 h, `binder_views_day` 30 → unlimited binder views
-24 h, `map_radius_day` 30 → 100 km radius 24 h) and referral settings (`credits.*`: 100 / 50 credits,
-30-day window, 50 redemptions per code) are data.
-
-### Ads
-
-`AdService` builds an `AdContext` from public values only — the requested `game` and `geoCell`, the
-viewer's public grid cell and region label (`LocationService.publicLocationOf`), interest games and
-tag slugs (`ProfileService.publicPartsOf`), the plan code (`ANONYMOUS` signed out) — and a
-pseudonymous viewer hash (the analytics `ActorHasher`). `InternalCampaignAdProvider` keeps ACTIVE
-creatives of the placement whose ACTIVE campaign (inside its schedule, advertiser ACTIVE) matches the
-targeting rules (kinds AND, values OR; REGION_LABEL matches the label, one of its comma-separated
-parts or the city of "Downtown X" / "Near X", accent-insensitive), respects the per-viewer daily
-frequency cap and passes `AdPacing` (total budget covers the next unit; daily budget or the
-remainder spread evenly until `end_at`; intraday pacing = daily × elapsed fraction + 10 %
-allowance), ranks by priority, then pace, then randomly, one creative per campaign. Spend is derived
-from `ad_campaign_daily` (CPM bid × impressions / 1000, CPC bid × clicks, FLAT = the flat fee once
-served). Serve tokens (`AdToken`, HMAC with `ADS_TOKEN_SECRET`) name the creative, placement, public
-cell, viewer hash, time and a nonce; impressions and clicks are unique per nonce. The ads module
-never reads `user_location` (checked by `AdsTargetingIT`). A future `ExternalNetworkAdProvider` plugs
-in behind `AdProvider`.
-
-### Donations
-
-`DonationProvider` with `FakeDonationProvider` (`fake_dn_…` checkouts at `/checkout/fake-donation/<ref>`,
-synthetic `donation.succeeded` / `donation.failed` / `donation.refunded` webhooks signed with
-`FAKE_DONATIONS_WEBHOOK_SECRET`, immediate idempotent refunds). Nothing in ratings, search ranking or
-trust reads donations.
-
-### Seed (Phase 10)
-
-"subscriptions" (order 670): `premium_user` ACTIVE fake subscription `…a000…0001` (30 days from the
-first seeding, renewed by the local job). "credits" (671): collector1 200 welcome credits and the code
-`COLLECTOR1`, collector8 redeemed it (`…a100…0001`: 50 / 100 credits), premium_user 500 credits.
-"ads" (672): fictional advertiser "Maple Sleeve Co." (`partners@maplesleeve.example`) with "Matte
-sleeves (spring)" (CPM, GAME pokemon/yugioh, SEARCH_SPONSORED + MAP_PANEL) and "Harbour deck boxes
-(Montréal)" (CPC, REGION_LABEL Montréal, INVENTORY_SIDEBAR + COLLECTOR_PROFILE), and the house ad
-"OrenjiTrade Premium" (FLAT, PLAN FREE/ANONYMOUS, MAP_PANEL + MOBILE_FEED, landing `/premium`).
-"donations" (673): collector2 25.00 CAD with public thanks, collector5 10.00 CAD without. All inserted
-once; the local seed enables `advertising` and `donations` (Phase 2 `FeatureFlagSeedContributor`).
-
-### Account data
-
-Export sections `subscriptions` (plan, status, provider, price, dates), `credits` (balance, entries
-without admin notes, referral code and redemptions) and `donations` (amounts, statuses, the donor's
-own note and public-thanks choice). A deletion request stops renewals (cancel at the period end); the
-purge ends the live subscription at once, deletes the referral code (the ledger stays, as ledgers do)
-and erases donation notes and public thanks (the rows stay as financial records).
-
-### Deviations from the Phase 10 contract
-
-- Subscription states add `PENDING` (checkout open, not yet paid); `subscription` adds `checkout_ref`,
-  `checkout_url`, `amount`, `currency`, `current_period_start`, `cancel_requested_at`,
-  `activated_at`, `ended_at`, `failure_code`, `version`; new `subscription_event` and
-  `billing_webhook_event`. Webhooks live at `/api/v1/webhooks/billing/{provider}`.
-- The checkout answers `{subscription, url, clientSecret, resumed}`; the fake checkout adds `GET
-  /billing/fake/{ref}` and `POST /billing/fake/{ref}/confirm`. Admin subscriptions add `GET /{id}` and
-  `POST /{id}/cancel`. The subscription plan is set through `user_account.plan_code` (+ PREMIUM_USER),
-  not through `SUBSCRIPTION` entitlements.
-- `credit_ledger_entry` adds `balance_after`, `details` (jsonb), `note`, `seq`; `credit_balance` is a
-  plain view (not materialised) read through a Redis cache. `POST /me/credits/spend` takes a credit
-  product key as `featureKey`; products live in the new `credit_product` table. Referral routes add
-  `GET /me/referrals`; `referral_redemption` records redemptions. Admin credits add products and
-  settings; referral numbers are `platform_settings` rows `credits.*`.
-- Advertising tables are prefixed (`ad_placement`, `ad_campaign`, `ad_creative`,
-  `ad_targeting_rule`) and add `advertiser.created_by`, `ad_campaign.bid_amount`, `priority`,
-  `frequency_cap_per_day`, `version`, `ad_placement.max_ads`, `ad_impression.serve_id`, `campaign_id`,
-  `ad_click.impression_id`, and the counter table `ad_campaign_daily`; the ad user is a pseudonymous
-  hash (`user_hash`). Impressions need the serve token (`{token}` body); clicks take `?token=`.
-  Conversions arrive through `POST /internal/ads/clicks/{clickId}/conversions`.
-- Donations add `GET /me/donations`, the fake checkout routes, admin routes and `donations.*` settings;
-  the supporters list is `{label, note, supporters: [{displayName, month}]}`. Only the fake donation
-  provider exists (a Stripe Checkout adapter is future work; any other `DONATION_PROVIDER` fails the
-  start-up).
-- Additive error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED` (409) and
-  `NOT_IMPLEMENTED` (501); problem extensions `subscriptionId`, `currentStatus`, `balance`, `cost`,
-  `reason`.
-
+Phase 10 built the `billing` (plans, entitlements, subscriptions with a fake and a Stripe Billing
+provider, webhooks, the `subscriptions-period` job), `credits` (append-only ledger, products,
+referrals, the `credits-reconcile` job), `ads` (internal campaigns, signed serve tokens,
+impressions, clicks, conversions) and `donations` (fake provider, supporters list) modules, with
+migrations V090–V093, seeds and account-export sections. On 2026-10-14 the owner made OrenjiTrade
+free for all (ADR 0019): the four modules, their routes (they answer 404), jobs, seeds, settings,
+flags (`premiumPlans`, `credits`, `donations`, `advertising`), error codes (`ALREADY_SUBSCRIBED`,
+`INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`), problem extensions (`planCode`, `upgradeUrl`,
+`subscriptionId`, `balance`, `cost`), the `PREMIUM_USER` role and the common `SignedWebhooks`
+helper are gone. V120 (ads), V121 (donations), V122 (credits) and V123 (Premium) drop their tables
+and rows; see `docs/database/schema.md`. The usage limits moved to the `limits` module (see
+"Feature flags and usage limits" above). Protected payments (Phase 9) are untouched and keep their
+own webhook signature helper (`payments/infra/WebhookSignatures`). The code is kept on the branch
+`archive/paid-features`; bringing a feature back means restoring it from there plus a new
+migration recreating its tables (never editing V120–V123).
 
 ## Build, format, test
 
@@ -1464,8 +1331,10 @@ money flags off), and the owner's change of 2026-10-08 V106–V114: stage S1, pl
 the self-declared location (V106–V111, ADR 0017); stage S2, the simplified wishlist (V112); stage
 S5, the inventory import (V113, V114). Stage R1 of the phone redesign (ADR 0018, deals happen in
 the chat) adds V115 (the curated "Local Meetups" tag hidden) and V116 (the region channel
-descriptions say "trades and sales by mail"). V001 to V114 are applied and frozen; V115 and V116
-freeze once R1 is merged; the next migration is V117.
+descriptions say "trades and sales by mail"); stage F1 ("free for all", ADR 0019) adds V120–V123,
+which drop the Phase 10 tables (V011's plans and entitlements, V090–V093) and give `usage_limit` one
+row per key. V001 to V114 are applied and frozen; V115, V116 and V120–V123 freeze as they land on
+`main` (V117–V119 are unused). The next migration is V124.
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout
@@ -1497,8 +1366,8 @@ com.orenjitrade.api
 ├── cards/       sets, cards, printings, images, CardProvider + MockCardProvider, idempotent
 │                CatalogImportService, FTS + trigram search, placeholder SVGs, admin catalog
 ├── featureflags/ feature_flag, FeatureFlags (Redis cache), public + admin endpoints
-├── billing/     plans, plan features, usage limits + counters, entitlements (Limits, Entitlements),
-│                subscriptions: BillingProvider (fake / Stripe Billing), webhooks, period job (Phase 10)
+├── limits/      usage limits (the same for everyone) + counters: Limits, LimitUsageSource,
+│                /me/limits, /admin/usage-limits (stage F1; formerly part of billing)
 ├── delisting/   delist_policy, FreshnessPolicy / FreshnessLabels, freshness event log, delist job
 │                (strikes), listing pauses (user_responsiveness), /admin/delist-policies
 ├── binders/     binders, PublicVisibilityRules, public binder views, BinderContents SPI
@@ -1517,14 +1386,9 @@ com.orenjitrade.api
 │                offer links of messages (Phase 8)
 ├── trades/      trades from accepted offers: meetup, completion (inventory transfer, TRADE
 │                interaction), cancellation (Phase 8), TradeProtection extension point (Phase 9)
-├── payments/    PaymentProvider (fake / Stripe Connect), seller accounts, protected checkout,
-│                webhooks, shipping, receipt, payouts, refunds, disputes, auto-release job,
-│                admin transactions / disputes / payments / webhooks / settings (Phase 9)
-├── credits/     append-only credit ledger, balance cache + reconcile job, credit products,
-│                referral codes, admin grants (Phase 10)
-├── ads/         AdProvider + InternalCampaignAdProvider (targeting, pacing), signed serve tokens,
-│                impressions / clicks / conversions, admin campaigns + stats (Phase 10)
-└── donations/   DonationProvider (fake), donations, webhooks, supporters list, admin (Phase 10)
+└── payments/    PaymentProvider (fake / Stripe Connect), seller accounts, protected checkout,
+                 webhooks, shipping, receipt, payouts, refunds, disputes, auto-release job,
+                 admin transactions / disputes / payments / webhooks / settings (Phase 9)
 ```
 
 Inside a module: `api/` (controllers + DTOs), `domain/`, `infra/`, `events/`. Entities never leave a

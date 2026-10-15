@@ -17,7 +17,6 @@ import { formatLongDate } from '@/src/lib/dates';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 const ROLE_LABELS: Record<string, string> = {
-  PREMIUM_USER: 'Premium',
   MODERATOR: 'Moderator',
   ADMIN: 'Administrator',
   SUPER_ADMIN: 'Super administrator',
@@ -35,7 +34,10 @@ function Row({ label, value, testID }: { label: string; value: string; testID?: 
   );
 }
 
-/** Settings → Account (web: `/settings/account`): email, plan, data export, deletion, sign out. */
+/**
+ * Settings → Account (web: `/settings/account`): email, staff roles, data export, deletion, sign
+ * out. No plan: OrenjiTrade is free for every collector (stage F1).
+ */
 export default function AccountSettingsScreen() {
   const { palette } = useTheme();
   const router = useRouter();
@@ -123,13 +125,11 @@ export default function AccountSettingsScreen() {
           ) : null}
         </SectionCard>
 
-        <SectionCard title="Plan" description="Your OrenjiTrade membership.">
-          <Row
-            label="Current plan"
-            value={account.me?.plan === 'FREE' ? 'Free' : (account.me?.plan ?? '—')}
-          />
-          {roles.length > 0 ? <Row label="Staff roles" value={roles.join(', ')} /> : null}
-        </SectionCard>
+        {roles.length > 0 ? (
+          <SectionCard title="Staff roles" description="What you can do in the admin console.">
+            <Row label="Roles" value={roles.join(', ')} testID="account-roles" />
+          </SectionCard>
+        ) : null}
 
         <SectionCard
           title="Your data"

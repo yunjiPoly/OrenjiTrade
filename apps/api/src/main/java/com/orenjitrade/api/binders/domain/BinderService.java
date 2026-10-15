@@ -1,6 +1,5 @@
 package com.orenjitrade.api.binders.domain;
 
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.BinderChanges.BinderPatch;
 import com.orenjitrade.api.binders.domain.BinderChanges.NewBinder;
 import com.orenjitrade.api.binders.events.BinderFreshnessChanged;
@@ -20,6 +19,7 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
+import com.orenjitrade.api.limits.domain.Limits;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -116,8 +116,8 @@ public class BinderService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * Creates a binder at the end of the owner's list. {@code 429 LIMIT_REACHED} beyond the plan's
-     * {@code binders.max}; {@code 400} for invalid input.
+     * Creates a binder at the end of the owner's list. {@code 429 LIMIT_REACHED} beyond the usage
+     * limit {@code binders.max}; {@code 400} for invalid input.
      */
     @Transactional
     public BinderDetails create(UUID ownerId, NewBinder input) {

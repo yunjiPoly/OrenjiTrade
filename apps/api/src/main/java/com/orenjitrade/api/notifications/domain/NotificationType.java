@@ -8,7 +8,7 @@ import org.jspecify.annotations.Nullable;
  * category in {@code notification_preferences}); {@link #WISHLIST_ALERT} has its own on/off switch
  * instead ({@code wishlistAlerts}: in-app and push, never email; stage S2); {@link #SYSTEM} notices
  * are in-app only and not configurable. Types with a daily limit key are counted per UTC day
- * against the caller's plan ({@code usage_limit}, ADR 0014).
+ * against that usage limit ({@code usage_limit}, ADR 0014; the same for every collector).
  */
 @Schema(name = "NotificationType")
 public enum NotificationType {

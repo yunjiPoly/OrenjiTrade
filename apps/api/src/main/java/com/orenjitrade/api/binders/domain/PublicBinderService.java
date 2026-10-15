@@ -1,12 +1,12 @@
 package com.orenjitrade.api.binders.domain;
 
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.events.PublicBinderViewed;
 import com.orenjitrade.api.binders.infra.BinderRepository;
 import com.orenjitrade.api.binders.infra.BinderViewTracker;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.profiles.domain.BlockRelationProvider;
@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * profile is PRIVATE or who blocked (or was blocked by) the viewer does not exist publicly (404).
  *
  * <p>Signed-in visitors consume {@code binder.views.per_day} once per binder and UTC day when they
- * open another collector's binder ({@code 429 LIMIT_REACHED} beyond the plan limit).
+ * open another collector's binder ({@code 429 LIMIT_REACHED} beyond the usage limit).
  */
 @Service
 public class PublicBinderService {

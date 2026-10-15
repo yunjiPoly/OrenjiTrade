@@ -1,8 +1,5 @@
 package com.orenjitrade.api.inventory.domain;
 
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.BinderContents;
 import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.binders.domain.BinderView;
@@ -48,6 +45,9 @@ import com.orenjitrade.api.inventory.infra.InventoryItemRepository.LockedItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.MergeCandidate;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.SummaryRow;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
+import com.orenjitrade.api.limits.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -245,8 +245,8 @@ public class InventoryService {
     // ---------------------------------------------------------------------------------------
 
     /**
-     * {@code POST /inventory/items}. {@code 429 LIMIT_REACHED} beyond the plan's {@code
-     * inventory.items.max} (no plan has a number today).
+     * {@code POST /inventory/items}. {@code 429 LIMIT_REACHED} beyond the usage limit {@code
+     * inventory.items.max} (unlimited until an admin gives it a number).
      */
     @Transactional
     public InventoryItemView create(UUID ownerId, NewItem input) {

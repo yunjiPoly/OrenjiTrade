@@ -12,12 +12,12 @@ import ch.qos.logback.core.read.ListAppender;
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.web.ServiceAuthFilter;
-import com.orenjitrade.api.billing.domain.Entitlements;
 import com.orenjitrade.api.inventory.ImportTestSupport.TestCard;
 import com.orenjitrade.api.inventory.ImportTestSupport.TestPrinting;
 import com.orenjitrade.api.inventory.ImportTestSupport.TestSet;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportSettings;
+import com.orenjitrade.api.limits.domain.UsageLimitService;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -64,7 +64,7 @@ class InventoryImportIT extends AbstractIntegrationTest {
 
     @Autowired private InventoryImportService importService;
     @Autowired private InventoryImportSettings importSettings;
-    @Autowired private Entitlements entitlements;
+    @Autowired private UsageLimitService usageLimits;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private PlatformTransactionManager transactionManager;
 
@@ -80,6 +80,10 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         + " ('inventory.import.preview_ttl_minutes', '60')) AS d (key, value)"
                         + " WHERE platform_settings.key = d.key");
         importSettings.invalidate();
+        // inventory.items.max has no number unless a test gives it one (limitInventory).
+        testUsers.update(
+                "UPDATE usage_limit SET max_value = NULL WHERE limit_key = 'inventory.items.max'");
+        usageLimits.invalidate();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1858,7 +1862,7 @@ class InventoryImportIT extends AbstractIntegrationTest {
                         ImportTestSupport.set(testUsers, YUGIOH, LocalDate.of(2025, 1, 1)),
                         "EN030",
                         "Rare");
-        // Two items already; the plan of this collector allows three.
+        // Two items already; the inventory limit allows three.
         Map<String, Object> owned = InventoryTestSupport.item(deck.only.id());
         owned.put("condition", "DAMAGED");
         String ownedId = callJson(HttpMethod.POST, ITEMS, uid, owned, 201).path("id").asString();
@@ -1891,8 +1895,8 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(refused.path("limit").asInt()).isEqualTo(3);
         assertThat(refused.path("used").asInt()).isEqualTo(2);
         assertThat(refused.path("requested").asInt()).isEqualTo(2);
-        assertThat(refused.path("planCode").asString()).isEqualTo("FREE");
-        assertThat(refused.path("upgradeUrl").asString()).isEqualTo("/premium");
+        assertThat(refused.has("planCode")).isFalse();
+        assertThat(refused.has("upgradeUrl")).isFalse();
         assertThat(refused.has("resetsAt")).as("a total never resets").isFalse();
         assertThat(liveItems(ownerId)).as("nothing was written").isEqualTo(2);
         assertThat(
@@ -2023,16 +2027,16 @@ class InventoryImportIT extends AbstractIntegrationTest {
         assertThat(form.path("used").asInt())
                 .as("500 cards in the inventory and 20 the commit has still to write")
                 .isEqualTo(cards);
-        JsonNode plan = null;
+        JsonNode status = null;
         for (JsonNode candidate :
-                callJson(HttpMethod.GET, "/api/v1/me/plan", uid, null, 200).path("limits")) {
+                callJson(HttpMethod.GET, "/api/v1/me/limits", uid, null, 200).path("limits")) {
             if (candidate.path("key").asString().equals("inventory.items.max")) {
-                plan = candidate;
+                status = candidate;
             }
         }
-        assertThat(plan).isNotNull();
-        assertThat(plan.path("used").asInt()).isEqualTo(cards);
-        assertThat(plan.path("remaining").asInt()).isZero();
+        assertThat(status).isNotNull();
+        assertThat(status.path("used").asInt()).isEqualTo(cards);
+        assertThat(status.path("remaining").asInt()).isZero();
 
         // Neither does a second import.
         String other =
@@ -2206,14 +2210,13 @@ class InventoryImportIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void noPlanLimitsTheInventoryUntilAnAdminGivesTheLimitANumber() {
+    void nothingLimitsTheInventoryUntilAnAdminGivesTheLimitANumber() {
         assertThat(
                         testUsers.query(
-                                "SELECT p.code, l.kind, l.limit_window, l.max_value FROM"
-                                        + " usage_limit l JOIN plan p ON p.id = l.plan_id WHERE"
-                                        + " l.limit_key = 'inventory.items.max' ORDER BY p.code"))
-                .as("V113: the limit exists for every plan, without a number")
-                .isNotEmpty()
+                                "SELECT kind, limit_window, max_value FROM usage_limit WHERE"
+                                        + " limit_key = 'inventory.items.max'"))
+                .as("V113: the limit exists without a number (one row for everyone since V123)")
+                .hasSize(1)
                 .allSatisfy(
                         row -> {
                             assertThat(row.get("kind")).isEqualTo("COUNTER");
@@ -2224,7 +2227,7 @@ class InventoryImportIT extends AbstractIntegrationTest {
         provisionCompliant(uid);
         JsonNode limit = null;
         for (JsonNode candidate :
-                callJson(HttpMethod.GET, "/api/v1/me/plan", uid, null, 200).path("limits")) {
+                callJson(HttpMethod.GET, "/api/v1/me/limits", uid, null, 200).path("limits")) {
             if (candidate.path("key").asString().equals("inventory.items.max")) {
                 limit = candidate;
             }
@@ -2740,17 +2743,30 @@ class InventoryImportIT extends AbstractIntegrationTest {
         };
     }
 
-    /** Gives this collector alone an inventory limit (an entitlement beats the plan's value). */
+    /**
+     * Gives the inventory limit a number for this test, through the admin route as a SUPER_ADMIN
+     * would (the limit is the same for every collector; {@link #defaultSettings} removes it).
+     */
     private void limitInventory(UUID ownerId, int max) {
-        String admin = uniqueUid("import-limit-admin");
-        provisionWithRoles(admin, Role.ADMIN);
+        String superAdmin = uniqueUid("import-limit-admin");
+        provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
+        UUID limitId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT id FROM usage_limit WHERE limit_key ="
+                                                + " 'inventory.items.max'")
+                                .get(0)
+                                .get("id");
         callJson(
-                HttpMethod.POST,
-                "/api/v1/admin/users/" + ownerId + "/entitlements",
-                admin,
-                Map.of("featureKey", "inventory.items.max", "value", String.valueOf(max)),
-                201);
-        assertThat(entitlements.limitOverride(ownerId, "inventory.items.max")).isPresent();
+                HttpMethod.PUT,
+                "/api/v1/admin/usage-limits/" + limitId,
+                superAdmin,
+                Map.of("unlimited", false, "maxValue", max),
+                200);
+        assertThat(usageLimits.find("inventory.items.max").orElseThrow().maxValue())
+                .as("for %s and everyone else", ownerId)
+                .isEqualTo(max);
     }
 
     private int liveItems(UUID ownerId) {

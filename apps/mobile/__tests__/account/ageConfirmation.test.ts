@@ -86,16 +86,16 @@ describe('the 18+ rule (launch readiness)', () => {
     ).toBe('ready');
   });
 
-  it('keeps the plan-limit wording neutral (no Premium pitch in the generic message)', () => {
+  it('keeps the limit wording plain (no plan, no Premium pitch in the generic message)', () => {
     const limit = ApiError.fromProblem(429, {
       status: 429,
       errorCode: 'LIMIT_REACHED',
       message: 'Limit reached',
     });
     expect(friendlyError(limit)).toEqual({
-      title: 'Plan limit reached',
-      message: 'You reached a limit of your plan. It resets soon.',
+      title: 'Limit reached',
+      message: 'You reached a usage limit for this action.',
     });
-    expect(friendlyError(limit).message).not.toMatch(/Premium/);
+    expect(friendlyError(limit).message).not.toMatch(/Premium|plan/);
   });
 });

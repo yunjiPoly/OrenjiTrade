@@ -35,8 +35,8 @@ export interface ImportPreviewHeaderProps {
   busy: boolean;
   /** The lowest condition of each game: where a line whose file names none starts. */
   lowestGrades: readonly string[];
-  /** What the plan has no room for, when the import does not fit; `null` otherwise. */
-  planRoom: string | null;
+  /** What the inventory limit has no room for, when the import does not fit; `null` otherwise. */
+  limitRoom: string | null;
 }
 
 /** The lines a count stands for: pressing it shows them. */
@@ -63,7 +63,7 @@ export function ImportPreviewHeader({
   onLeaveOut,
   busy,
   lowestGrades,
-  planRoom,
+  limitRoom,
 }: ImportPreviewHeaderProps) {
   const { palette } = useTheme();
   // Two counts side by side; one per line once the text is large (a label such as "added to
@@ -131,9 +131,9 @@ export function ImportPreviewHeader({
         </Text>
       </SectionCard>
 
-      {planRoom ? (
-        <FormMessage tone="info" testID="import-plan-room">
-          {planRoom}
+      {limitRoom ? (
+        <FormMessage tone="info" testID="import-limit-room">
+          {limitRoom}
         </FormMessage>
       ) : null}
 

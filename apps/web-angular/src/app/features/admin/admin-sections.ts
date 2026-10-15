@@ -13,7 +13,8 @@ export interface AdminSection {
 /**
  * Every admin console section from the product spec (Phase 7 contract). Sections whose phase is
  * still ahead stay listed but disabled until their phase lands; transactions, disputes and
- * payments arrived with Phase 9, ads, subscriptions, plans, credits and donations with Phase 10.
+ * payments arrived with Phase 9. Ads, subscriptions, plans, credits and donations left with stage
+ * F1 ("free for all", 2026-10-14); the usage limits stay, the same for every collector.
  */
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {
@@ -108,30 +109,11 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
     phase: null,
     area: 'moderation',
   },
-  { id: 'ads', label: 'Ads', icon: 'campaign', path: 'ads', phase: null, area: 'admin' },
-  {
-    id: 'subscriptions',
-    label: 'Subscriptions',
-    icon: 'workspace_premium',
-    path: 'subscriptions',
-    phase: null,
-    area: 'admin',
-  },
-  { id: 'plans', label: 'Plans', icon: 'sell', path: 'plans', phase: null, area: 'admin' },
   {
     id: 'usage-limits',
     label: 'Usage limits',
     icon: 'speed',
     path: 'usage-limits',
-    phase: null,
-    area: 'admin',
-  },
-  { id: 'credits', label: 'Credits', icon: 'toll', path: 'credits', phase: null, area: 'admin' },
-  {
-    id: 'donations',
-    label: 'Donations',
-    icon: 'volunteer_activism',
-    path: 'donations',
     phase: null,
     area: 'admin',
   },

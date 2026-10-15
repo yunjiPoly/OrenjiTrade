@@ -269,7 +269,7 @@ describe('Add a card', () => {
     expect(screen.getByTestId('add-item-error')).toBeOnTheScreen();
   });
 
-  it('explains a reached plan limit', async () => {
+  it('explains a reached inventory limit', async () => {
     mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
     mockApi(
       signedInRoutes({
@@ -278,7 +278,6 @@ describe('Add a card', () => {
           limitKey: 'inventory.items.max',
           limit: 100,
           used: 100,
-          planCode: 'FREE',
         }),
       })
     );

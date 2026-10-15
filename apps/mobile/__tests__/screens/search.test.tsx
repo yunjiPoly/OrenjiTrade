@@ -60,6 +60,8 @@ describe('Search tab', () => {
       expect(screen.getByTestId('search-count')).toHaveTextContent('1 card for “fox”')
     );
     expect(screen.queryByTestId('card-result-tidal-otterling')).toBeNull();
+    // No sponsored row with the results of a search (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('fox');
 
     fireEvent(screen.getByTestId('search-input'), 'submitEditing');

@@ -21,7 +21,6 @@ import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { friendlyMessage } from '../../core/http/api-error-messages';
 import { RegionContext } from '../../core/region/region-context.service';
-import { SponsoredSlotComponent } from '../../shared/ads/sponsored-slot.component';
 import { REGION_CODE, RegionsStore, subdivisionLabel } from '../../shared/regions/regions.store';
 import { holdersParams, suggestionPage } from '../../shared/search/suggestions';
 import { UnifiedSearchBoxComponent } from '../../shared/search/unified-search-box/unified-search-box.component';
@@ -53,7 +52,6 @@ const SUBDIVISION_CODE = /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/;
     MatTooltipModule,
     BoundaryMapComponent,
     MessagesPanelComponent,
-    SponsoredSlotComponent,
     SubdivisionListComponent,
     SubdivisionPanelComponent,
     UnifiedSearchBoxComponent,

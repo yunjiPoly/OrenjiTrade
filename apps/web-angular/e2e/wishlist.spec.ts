@@ -494,7 +494,7 @@ test.describe('wishlist and notifications', () => {
     }
   });
 
-  test('a full FREE wishlist explains the plan limit when adding one more wish', async ({
+  test('a full wishlist explains the limit when adding one more wish', async ({
     page,
     request,
   }) => {
@@ -502,7 +502,7 @@ test.describe('wishlist and notifications', () => {
     const collector = await createOnboardedCollector(request, 'wishfull', {
       displayName: `Fay Full ${suffix()}`,
     });
-    // The FREE plan allows 20 wishes: fill it through the API with 20 different catalog cards.
+    // Every collector can have 20 wishes: fill them through the API with 20 different catalog cards.
     const catalog = await request.get(`${API_URL}/api/v1/cards`, {
       headers: authHeader(collector.idToken),
       params: { size: 30 },
@@ -536,7 +536,7 @@ test.describe('wishlist and notifications', () => {
         .getByTestId('wishlist-location-prompt')
         .getByRole('link', { name: 'Choose my location' }),
     ).toHaveAttribute('href', '/settings/location');
-    await expect(page.getByRole('link', { name: 'Need more room? See Premium' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Premium/ })).toHaveCount(0);
     // No per-wish alert switch and no filters any more.
     await expect(page.getByRole('switch', { name: /alerts for/i })).toHaveCount(0);
     await expect(page.getByRole('radio')).toHaveCount(0);
@@ -549,15 +549,16 @@ test.describe('wishlist and notifications', () => {
     await dialog.getByRole('button', { name: 'Add to wishlist' }).click();
 
     // 429 LIMIT_REACHED: the limit dialog explains it, and the wish dialog says why inline.
-    const limit = page.getByRole('alertdialog', { name: 'You reached a plan limit' });
+    const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });
     await expect(limit).toBeVisible();
     await expect(limit).toContainText('you used 20 of 20');
     // The technical limit key is not shown to collectors.
     await expect(limit).not.toContainText('wishlist.items.max');
-    await limit.getByRole('button', { name: 'Not now' }).click();
+    await expect(limit).not.toContainText(/premium|plan/i);
+    await limit.getByRole('button', { name: 'OK' }).click();
     await expect(limit).toBeHidden();
     await expect(dialog.getByTestId('wish-error')).toContainText(
-      'Your wishlist is full: your plan allows 20 wishes',
+      'Your wishlist is full: it holds up to 20 wishes',
     );
     // Back in the wish dialog, the focus is on its save button, not on the page behind.
     await expect(dialog.getByRole('button', { name: 'Add to wishlist' })).toBeFocused();

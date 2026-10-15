@@ -9,7 +9,7 @@ import { BUILT_IN_REGIONS, DEFAULT_REGION, isRegionCode } from '@/src/lib/place'
 
 /**
  * The platform region the app browses (ADR 0017, mirror of the web's `RegionContext`): search,
- * card holders, the map, its binder lists and sponsored placements all send it as `region`, and
+ * card holders, the map and its binder lists all send it as `region`, and
  * the server stays the judge of what a region holds.
  *
  * Which region, in this order:

@@ -33,7 +33,7 @@ import { WishlistSummaryComponent } from './list/wishlist-summary.component';
 
 /**
  * `/wishlist` (stage S2): a clean list of the collector's wishes (picture, which copy, public
- * note, "Near Mint only" and price term chips, edit, remove), the plan usage, the "Let others see
+ * note, "Near Mint only" and price term chips, edit, remove), how many fit, the "Let others see
  * what you want" switch (privacy setting `wishlistVisible`) and, without a location, a prompt to
  * set country and state so wishlist alerts can arrive. No matches: when a collector of the region
  * lists a fitting card, a wishlist alert opens its card page.

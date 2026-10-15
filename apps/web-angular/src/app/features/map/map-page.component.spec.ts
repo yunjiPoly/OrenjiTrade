@@ -1,7 +1,7 @@
 import { Component, input, output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { AdsService, MapService, RegionsService } from '@orenji/api-client';
+import { MapService, RegionsService } from '@orenji/api-client';
 import { of } from 'rxjs';
 import { provideApiClient } from '../../core/api/provide-api-client';
 import { AuthService } from '../../core/auth/auth.service';
@@ -79,7 +79,6 @@ describe('MapPageComponent', () => {
         provideApiClient(),
         { provide: MapService, useValue: mapApi },
         { provide: RegionsService, useValue: { listRegions: vi.fn(() => of(REGIONS_FIXTURE)) } },
-        { provide: AdsService, useValue: { listAds: vi.fn(() => of([])) } },
         {
           provide: AuthService,
           useValue: {

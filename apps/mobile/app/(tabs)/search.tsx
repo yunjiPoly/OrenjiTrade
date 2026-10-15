@@ -17,7 +17,6 @@ import { Segmented } from '@/src/components/ui/Segmented';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
 import { CardFiltersSheet } from '@/src/features/catalog/CardFiltersSheet';
 import { CardRow } from '@/src/features/catalog/CardRow';
 import {
@@ -291,9 +290,6 @@ function CardsSegment({ params }: { params: SearchParams }) {
             </View>
           ) : null}
         </View>
-      ) : null}
-      {query.q ? (
-        <SponsoredSlot placement="SEARCH_SPONSORED" game={query.game ?? null} variant="compact" />
       ) : null}
     </View>
   );

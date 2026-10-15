@@ -10,8 +10,8 @@ The OpenAPI document `openapi.json` in this folder is generated from code
 `Authorization: Bearer <Firebase ID token>`. Unauthenticated requests to protected routes get
 `401` with `errorCode=UNAUTHENTICATED`. Suspended accounts get `403 ACCOUNT_SUSPENDED`. Routes
 needing accepted terms return `428 TERMS_ACCEPTANCE_REQUIRED`. Public routes live under
-`/api/v1/public/**` plus `/api/v1/meta`; the read-only catalog and plan routes (`GET /games`,
-`/sets`, `/cards`, `/printings`, `/plans` and their sub-paths) are public too, for GET only
+`/api/v1/public/**` plus `/api/v1/meta`; the read-only catalog routes (`GET /games`,
+`/sets`, `/cards`, `/printings` and their sub-paths) are public too, for GET only
 (`SecurityConfig.PUBLIC_GET_PATTERNS`). Admin routes live under `/api/v1/admin/**` and require
 `ADMIN`/`SUPER_ADMIN` (moderation subset for `MODERATOR`). Internal routes (`/internal/**`) are
 for Cloud Scheduler / Pub/Sub / ML with OIDC or a service token; never exposed through Cloudflare.
@@ -48,7 +48,7 @@ No stack traces, SQL, or class names. `requestId` equals the `X-Request-Id` resp
 | PAYLOAD_TOO_LARGE | 413 |
 | UNSUPPORTED_MEDIA_TYPE | 415 |
 | TERMS_ACCEPTANCE_REQUIRED | 428 |
-| RATE_LIMITED, LIMIT_REACHED (freemium; includes `limitKey`, `limit`, `used`, `resetsAt`, `planCode`, `upgradeUrl` extensions) | 429 |
+| RATE_LIMITED, LIMIT_REACHED (usage limits, the same for everyone; includes `limitKey`, `limit`, `used`, `resetsAt` extensions) | 429 |
 | INTERNAL_ERROR | 500 |
 | SERVICE_UNAVAILABLE | 503 |
 
@@ -70,7 +70,7 @@ The API handles **no coordinates, distances or radii**: no request takes `lat`, 
   `subdivisionCode`, optional `city` (≤ 80 characters, never geocoded) and `showCity`. Unknown or
   inactive codes answer `400 VALIDATION_FAILED`; becoming discoverable without a location answers
   `409 LOCATION_REQUIRED`.
-- Region-scoped endpoints (`/search`, `/search/suggest`, `/search/card-holders`, `/ads`,
+- Region-scoped endpoints (`/search`, `/search/suggest`, `/search/card-holders`,
   `/regions/{region}/binder-counts`, `/regions/{region}/subdivisions/{code}/binders`) take a
   `region` code: the request's, else the caller's home region (`GET /me` → `homeRegion`), else the
   default. Clients always send it; an unknown code is a 400. It scopes results, never grants
@@ -82,6 +82,14 @@ The API handles **no coordinates, distances or radii**: no request takes `lat`, 
 ADR 0017 removed the former geography fields (`publicPoint`, `distanceBucket`, `publicLabel`,
 `tradingArea`, `radiusKm`) inside `/api/v1`: no production client existed yet, so the usual
 `/api/v2` rule for removals was not needed.
+
+Stage F1 (ADR 0019, 2026-10-14) removed the paid features inside `/api/v1` for the same reason:
+`/plans`, `/me/plan`, `/me/subscription/**`, `/me/credits/**`, `/me/referrals/**`,
+`/me/donations`, `/ads/**`, `/donations/**`, `/public/donations/supporters`,
+`/webhooks/billing/**`, `/webhooks/donations/**`, their admin routes and the internal
+`credits-reconcile`, `subscriptions-period` and ad conversion routes answer 404.
+`GET /me/limits` and `GET`/`PUT /admin/usage-limits` serve the usage limits, the same for every
+collector, and `LIMIT_REACHED` no longer carries `planCode` or `upgradeUrl`.
 
 ## Versioning and compatibility
 

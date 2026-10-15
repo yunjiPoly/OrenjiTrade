@@ -7,7 +7,9 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-14 (stage R1 of the phone redesign, "Offers out, shipping wording, look": offers, trades, protected payments and disputes off the phone (ADR 0018, "Deals happen in the chat"), the chat safety tip per side, ratings without meetup reliability, V115 (the meetup tag hidden) and V116 (region channels by mail), shipping seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono through the theme, a new install in dark — branch `feature/r1-offers-out-shipping-look`, builder done, review fix 1 done (the bio placeholder, the last seeded meetup line, the inbox line of old offers, the keyboard and system views in the dark default, the switch thumb, the lint rule for the fonts, tests for the hidden notification categories, the report reasons and the seeds), not pushed; see "Phone redesign R1: offers out, shipping wording, look (2026-10-14)")
+**Last updated:** 2026-10-15 (stage F1, "free for all", merged with `main` after stage R1 of the phone redesign (#72): both stages' removals hold together — no offer, trade, payment, dispute, Premium, credits, donation or sponsored screen, row, route or checkout left on the phone; one removed-route mechanism for the links of both (`src/navigation/removedRoutes.ts`); R1's fonts, tokens, wording and safety tip with F1's limit messages; migrations V115, V116 (R1) and V120–V123 (F1); ADR 0018 and ADR 0019 — branch `feature/f1-free-for-all`, not pushed; see "Merged with R1 (2026-10-15)" in the F1 section)
+**Last updated:** 2026-10-14 (stage F1, "free for all": Premium, sponsored placements, credits and donations removed from the API, the phone and the paused web app; the usage limits the same for every collector; protected payments kept on the API; migrations V120–V123; ADR 0019; the code saved on `archive/paid-features` — branch `feature/f1-free-for-all`; see "Free for all: Premium, ads, credits and donations removed (stage F1, 2026-10-14)")
+**Last updated:** 2026-10-14 (stage R1 of the phone redesign, "Offers out, shipping wording, look": offers, trades, protected payments and disputes off the phone (ADR 0018, "Deals happen in the chat"), the chat safety tip per side, ratings without meetup reliability, V115 (the meetup tag hidden) and V116 (region channels by mail), shipping seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono through the theme, a new install in dark — branch `feature/r1-offers-out-shipping-look`, merged as #72; see "Phone redesign R1: offers out, shipping wording, look (2026-10-14)")
 **Last updated:** 2026-10-14 (stage S6, the end of the owner's change of 2026-10-08: the final documents and the definition-of-done walkthrough — 12 of 22 clauses done, 5 partly, 5 not built (stages S3 and S4, skipped by the owner on 2026-10-13); the small fixes before them; the import chip and button names start with their visible words; the documents brought to today (except two lines of the paused web README and two database comments of V112, recorded) and corrected after the fact check, rounds 1 and 2; the delivery report `docs/product/2026-10-08-change-delivery-report.md`; the phone redesign of 2026-10-14 saved as `docs/product/specs/2026-10-14-phone-redesign.md` and set as the next task — branch `feature/s6-final-docs`, not pushed; see "Final documents and the definition-of-done walkthrough (stage S6, 2026-10-14)". Merged since the line below: stage S2 (#60), the first run on Apple Silicon (#59), the iOS path of the native suite (#61), mobile stage M9 (#67), the inventory lock fix (#68), stage S5 (#69) and the scrim fix (#70))
 **Last updated:** 2026-10-10 (stage S2 review fix 3, first run on the Mac mini: an "Any printing" wishlist alert opens the card page on "Any printing" (`?printing=any`), a typed printing code never picks one of several printings, V112's last edit before it freezes (opt-outs carried over, paused wishes deleted, outbox rows completed, more normalisation), the seed on a database seeded before S2, small UX fixes — branch `feature/regions-s2-wishlist`, not pushed; see "Review fix 3" in "A simpler wishlist, wishlist alerts, no matches (stage S2)")
 **Last updated:** 2026-10-08 (stage S1 of the 2026-10-08 product change, geography: platform regions instead of geolocation, ADR 0017 — no coordinates, distances, radii, GPS, geocoding or map provider anywhere; regions / countries / ISO 3166-2 subdivisions as admin-editable data (V106/V107); the self-declared location (country, state or province, optional city shown only on the owner's profile; V108); region-scoped search, card holders, wishlist matching, ads and analytics (V109); one community channel per platform region (V110); the web region switcher and a Leaflet vector map of bundled Natural Earth boundaries; mobile pickers and a Map tab placeholder — branch `feature/regions-geography`, builder done, not pushed; see "Platform regions and the self-declared location (stage S1)")
@@ -162,6 +164,8 @@ _Backend complete (workflow `web-mvp-local-continue` stage 9, independently re-v
 - [x] Mobile payment/dispute UI — stage M6 (2026-10-05, branch `feature/mobile-m6`, merged into `main` as #51): payment protection on the trade screen (pay on the app's fake checkout, ship, confirm receipt, payout status), disputes (statements, photos from the library, thread, timeline), Settings → Payouts, "Use payment protection" on offers; see "Mobile app (stage M6)"
 
 ## Phase 10 — Freemium + Credits + Ads + Donations
+
+_**Removed by stage F1 (2026-10-14, ADR 0019), except the usage limits**, now the same for every collector in the `limits` module: see "Free for all: Premium, ads, credits and donations removed (stage F1, 2026-10-14)". The items below are the Phase 10 history; the code is on `archive/paid-features`._
 
 _Backend complete (workflow `web-mvp-local-continue` stage 10, independently re-verified: 704 API tests / 140 classes, 0 failures, 0 skipped on `./gradlew spotlessCheck build --rerun-tasks`; OpenAPI re-exported (243 paths, previously 199; 276 operations, previously 227; 364 schemas, previously 295; every contract route present; no path, operation or schema lost; no duplicate operationIds; existing schemas changed only additively: `MyPlan.subscription`, `ProblemDetail` `currentStatus` / `subscriptionId` / `balance` / `cost` / `reason` and the error codes `ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`, `NOT_IMPLEMENTED`); verifier fix: Jackson 3 `JsonNode` fields (webhook payloads, ledger and subscription event details) are documented as free-form objects by `OpenApiConfig` instead of a reflected, non-deterministic `JsonNode` bean schema, so two exports are byte-identical; clients regenerated (new `SubscriptionsService`, `CreditsService`, `AdsService`, `DonationsService`, `AdminBillingService`); live check on `.local-dev/api-snapshots/api-phase10.jar` (= `api-latest.jar`) on the local stack with emulator tokens: V090–V093 applied, 20 seed contributors, premium_user `GET /me/plan` PREMIUM with the ACTIVE fake subscription, collector1 credits 300 with `withdrawable`/`transferable` false and referral code `COLLECTOR1`, anonymous MAP_PANEL ads labelled "Sponsored", impression 204 and click 302 to the fictional `.example` landing, premium_user gets `[]`, supporters list without amounts, admin subscriptions 200 / collector 403, anonymous credits 401, mobile receipt 501 `NOT_IMPLEMENTED`, forged billing webhook 400 `WEBHOOK_SIGNATURE_INVALID`; log without ERROR lines, tokens, e-mail addresses or coordinates). Migrations V090–V093 (range V090–V099). Flags: `premiumPlans` (checkout; on by default in V010, **off since V105** — launch configuration, 2026-10-05), `credits` (on in V010, **off since V105**), `advertising` and `donations` (off by default); the local seed switches all four on with `protectedPayments`; member routes answer 404 `FEATURE_DISABLED` while their flag is off, admin routes stay available, live subscriptions keep working whatever `premiumPlans` says. Web Premium checkout, credits, "Sponsored" placements, donations and the admin billing/credits/ads/donations sections complete (workflow `web-mvp-local-continue` stage 11, independently re-verified: 704 API tests / 140 classes still green on `./gradlew spotlessCheck build --rerun-tasks`, OpenAPI export unchanged (243 paths, 276 operations, 364 schemas; every contract route present), clients regenerated without changes, 578 web unit tests / 120 files, lint + format clean, production build 877.57 kB initial with no warnings, mobile typecheck/lint/29 tests and shared-types typecheck green, 51/51 Playwright specs against `.local-dev/api-snapshots/api-latest.jar` (rebuilt from this tree, same code as `api-phase10.jar`), 0 skipped; live curls: collector1 credits and referral code, anonymous MAP_PANEL ad labelled "Sponsored" with `Cache-Control: no-store`, premium_user `[]` and PREMIUM/ACTIVE plan, admin subscriptions 200 / collector 403, anonymous credits 401; log without ERROR lines, tokens, e-mail addresses or coordinates); mobile deferred by owner decision. Contract deviations are documented in `apps/api/README.md` ("Deviations from the Phase 10 contract"; the contract document itself is not edited): subscription state PENDING and additive columns plus `subscription_event` / `billing_webhook_event`; checkout answers `{subscription, url, clientSecret, resumed}`; fake checkout routes `GET /billing/fake/{ref}` + `POST /billing/fake/{ref}/confirm` (web path `/checkout/fake-billing/<ref>`); admin subscription detail and cancel; the plan follows `user_account.plan_code` + PREMIUM_USER instead of SUBSCRIPTION entitlements; `credit_ledger_entry` adds `balance_after` / `details` / `note` / `seq` and `credit_balance` is a plain view behind a Redis cache; `POST /me/credits/spend` takes a `credit_product` key; `GET /me/referrals` + `referral_redemption`; admin credit products and settings (`platform_settings` `credits.*`); prefixed ad tables (`ad_placement`, `ad_campaign`, `ad_creative`, `ad_targeting_rule`) with additive columns and `ad_campaign_daily`; impressions need the serve token body, clicks `?token=`; conversions through `POST /internal/ads/clicks/{clickId}/conversions`; donations add `GET /me/donations`, fake checkout and admin routes and `donations.*` settings, only the fake donation provider exists._
 
@@ -5013,30 +5017,478 @@ and selling tips; quick replies; the "+" sheet with Settings → Shipping detail
 (the `deals` module, the `SALE` interaction, the buyer's notification, the 10-minute undo); the
 inbox thumbnails and previews.
 
+## Free for all: Premium, ads, credits and donations removed (stage F1, 2026-10-14)
+
+The owner, on 2026-10-14 (after the redesign spec of the same day): *"can you remove the
+implementation of premium subscription and ads? Just save pay service feature in a new branch for
+later. I am trying to make this app free for all first."* Asked to be precise, the owner chose to
+remove all four paid features (Premium subscriptions, sponsored placements, credits, donations)
+from the API, the phone and the paused web app, to keep the usage limits Premium used to raise as
+the same caps for everyone, and to keep protected payments. Branch `feature/f1-free-for-all`
+(worktree `OrenjiTrade-s2-ux`), cut from `main` at `bf1135a`; not pushed. Decision record:
+[ADR 0019](docs/architecture/adr/0019-free-for-all-no-paid-features.md) (amends ADR 0011, 0014,
+0016 and 0017).
+
+**Saved for later:** the whole implementation is on the pushed branch `archive/paid-features`
+(`main` at `bf87f0b`; stage S6, merged after it, touched none of these files). Bringing a feature
+back = its module, screens and tests from that branch **plus a new migration** recreating its
+tables, rows and flags (V011 and V090–V093 are the original definitions; `usage_limit` would get
+its `plan_id` back). V120–V123 are never edited.
+
+### What changed
+
+- [x] **API** — the `billing`, `credits`, `donations` and `ads` modules, their routes (404 now),
+  the `subscriptions-period` and `credits-reconcile` jobs, their seeds, settings, account-export
+  sections, error codes (`ALREADY_SUBSCRIBED`, `INSUFFICIENT_CREDITS`, `REFERRAL_NOT_ALLOWED`),
+  problem extensions (`planCode`, `upgradeUrl`, `subscriptionId`, `balance`, `cost`), the
+  `PREMIUM_USER` role, `PlanCode`, the common `SignedWebhooks` helper and the four flags are gone.
+  The usage limits moved into a new `limits` module (`Limits`, `UsageLimitService`,
+  `LimitDecision` = schema `LimitStatus`, `LimitReachedException`, `LimitUsageSource`,
+  `UsageCounterRepository`): one rule per key for everyone, `GET /api/v1/me/limits` (replaces
+  `GET /me/plan`), `GET`/`PUT /api/v1/admin/usage-limits` (one row per key, SUPER_ADMIN writes,
+  audited `usage_limit.update`, cache `orenji:cache:usage-limits:v1` 60 s), `429 LIMIT_REACHED`
+  with `limitKey`, `limit`, `used`, `resetsAt` (and `requested` for inventory). The daily limit
+  notice reads "You reached today's limit of N wishlist alerts. New listings still show on the
+  card pages. The limit resets tomorrow." Protected payments keep their own webhook signature
+  helper. OpenAPI: 264 → 215 paths, 303 → 248 operations, 395 → 316 schemas; clients regenerated
+  (94 stale generated files of `packages/api-client` deleted).
+- [x] **Migrations** — V120 (ads: 9 tables, the flag), V121 (donations: 2 tables, settings, flag,
+  outbox rows of `DonationWebhookReceived` completed), V122 (credits: the view, the ledger and its
+  append-only trigger function, products, referrals, settings, flag, the entitlements bought with
+  credits, the `credits-reconcile` run history), V123 (Premium: subscriptions and their events and
+  webhooks, entitlements, plan features, `user_account.plan_code`, plans; `usage_limit` keeps the
+  FREE row of each key with any admin edit, `plan_id` dropped, `UNIQUE (limit_key)`;
+  `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters; the
+  `PREMIUM_USER` rows and CHECK value; the flag; the `subscriptions-period` run history). Each
+  drops dependants first, without `CASCADE`. **Old data:** the daily limit notices are rewritten
+  (no plan, no upgrade link, no "upgrade to Premium" sentence, no link to `/premium`); admin
+  broadcasts that linked to `/premium`, `/credits`, `/support` or their fake checkouts promoted
+  those features and are deleted; any other notification linking there keeps its text and loses
+  the link; incomplete outbox rows of the removed events are completed; audit rows
+  of the old actions stay as history (the admin audit page renders them as text). R1 owns V115–V119.
+- [x] **Phone** (`apps/mobile`) — `premium`, `credits`, `support` and the two fake checkouts of
+  Premium and donations, `src/features/billing`, `src/features/ads` (every `SponsoredSlot`: search,
+  holders, inventory, collector profiles), `SeePremiumButton`, the billing hooks and the Profile
+  tab's money rows are gone; `GET /me/limits` (`useMyLimits`) feeds the limit messages; every
+  limit message says which limit, how much is used and when it resets, never a plan
+  (`LimitReachedNotice`, `src/lib/limits.ts`, the binder form, the public binder, the import, the
+  wishlist, the offer editor); Settings → Account shows no plan (staff roles only to staff); an old
+  link or notification to `/premium`, `/credits` or `/support` shows "OrenjiTrade is free for every
+  collector now: there is no Premium, credits or donations." instead of a screen.
+- [x] **Web** (`apps/web-angular`, paused: touched only to remove these and stay green) —
+  `features/premium`, `credits`, `support`, the Premium and donation fake checkouts,
+  `shared/ads`, `shared/billing`, `shared/plans`, the admin pages of plans, subscriptions, credits,
+  ads, donations and entitlements are gone (the routes answer "Page not found"); the limit dialog
+  says "Every collector has the same limits." with no link; `/admin/usage-limits` is one list.
+  Initial bundle 899.93 kB → **896.71 kB**.
+- [x] **Infra** — the `credits-reconcile` and `subscriptions-period` Cloud Scheduler jobs (7 jobs
+  remain, about US$0.40/month instead of 0.60), the `ads-token-secret` (generated) and
+  `stripe-billing-webhook-secret` secrets, `BILLING_PROVIDER`, `STRIPE_PRICE_PREMIUM`,
+  `DONATION_PROVIDER`, `ADS_*` env and the `billing_provider` / `stripe_price_premium` variables
+  are gone from the three Terraform roots; Stripe Connect's secrets stay (protected payments). The
+  `billing-budget` module (the GCP cost budget) is unrelated and stays. `.env.example`, docker
+  compose, the E2E workflow and the E2E guards lost the removed settings.
+- [x] **Legal drafts** (English and French, web source and the phone's synced copy) — see "For the
+  lawyer" below. Draft banners and every `[to confirm]` stay; nothing claims compliance.
+- [x] **Docs** — ADR 0019 (new) and amendments to ADR 0011, 0014, 0016, 0017; CLAUDE.md (a
+  separate commit, `e4ee954`, the owner's to keep or drop); the product overview; the development
+  guides (test accounts, seed data, local setup, macOS setup, the handoff); the API README and
+  contracts (the Phase 10 contract carries a removal banner); `docs/database/schema.md` (V120–V123
+  and the old data); the deployment guide, environments, runbooks (the launch configuration of a
+  free app), security notes; the web and phone READMEs.
+
+### Decisions (the builder's, with reasons)
+
+1. **One `limits` module** instead of keeping `billing` for the limits: the name said "billing"
+   while nothing is billed; the module boundary keeps Spring Modulith's checks meaningful.
+2. **Entitlements removed with Premium**: per-account overrides contradict "the same caps for
+   everyone"; an admin who needs a different cap for one collector has no tool now (ADR 0019).
+3. **`usage_limit` keeps the FREE row of each key, with any admin edit**, and a key that only
+   another plan defined stays unlimited (defensive; none exists in the migrations).
+4. **`premium_user` stays as an ordinary seed collector** (handle, uid, e-mail and sign-in kept)
+   so the documents, scripts and tests that name it keep working; its PREMIUM_USER role and
+   subscription are gone.
+5. **One migration per feature, each in the commit that removes the feature's code**, so a revert
+   of one feature's removal (or a bisect) stays coherent.
+6. **Old limit notices are rewritten, promotional broadcasts deleted** (changed in review fix 1):
+   a limit notice is the collector's own history, so only its plan, upgrade sentence and link go;
+   an admin broadcast that linked to `/premium`, `/credits`, `/support` or their checkouts was a
+   promotion ("Go Premium", "earn credits", "keep OrenjiTrade running with a donation") and is
+   deleted, as the owner asked for no upgrade offer anywhere. A broadcast that talked about them
+   without a link cannot be told apart and stays as written (none is seeded).
+7. **`saved_searches.max` is deleted** (changed in review fix 1; first kept for the owner): it
+   limited a feature that was never built (0 for FREE, 50 for PREMIUM), so it only existed as a
+   Premium perk and showed "Saved searches 0" to the admin and `allowed: false` to every
+   collector. V109 set the precedent (`map.radius.max_km` went with the map radius). A
+   saved-searches feature would bring its own limit in its own migration.
+8. **The phone and the web also ignore old payloads** (an `upgradeUrl`, a deep link to a removed
+   page) so an older API or an old cached notification never leads to a missing screen.
+9. **The web E2E flag test** moved from the removed `credits` flag to `publicChat`, in the serial
+   `launch-config` project (`e2e/admin-flags.spec.ts`), so no parallel spec sees the flag change.
+
+### For the lawyer (legal drafts, version 0.2-draft, last updated 2026-10-14, EN and FR)
+
+1. **Privacy Policy**, transfers outside Quebec: Stripe is named "only when protected payments are
+   enabled" with "payment and payout data" (was "payment or premium features" with "payment, payout
+   and subscription data"); FR: « seulement lorsque les paiements protégés sont activés, Stripe
+   (données de paiement et de versement; États-Unis [à confirmer]) ».
+2. **Community Guidelines**: the sentence "Sponsored content is labelled by OrenjiTrade and is
+   never posted by ordinary accounts." is deleted (no sponsored content exists); FR likewise.
+3. **Marketplace Policy**: the section "Fees and plans" becomes "Fees" ("Frais") and now says:
+   "Listing and browsing are free. The same usage limits apply to every Collector (for example the
+   number of Binders, or of public Binders opened per day); they are shown where they apply and
+   may change with notice." (was: free "within the limits of your plan", with "premium
+   entitlements" shown in Settings).
+4. **Acceptable Use Policy**: "plan limits" becomes "usage limits" ("limites d'utilisation").
+5. Unchanged and to review with the rest: the Terms, the Payment Protection Policy and the Refund
+   and Dispute Policy (protected payments stay), every `[to confirm]` placeholder.
+
+### Phone redesign spec: the owner's later decision wins
+
+`docs/product/specs/2026-10-14-phone-redesign.md` is the owner's verbatim text and is not edited.
+Where it says Premium, credits, donations or ads "keep their flags" or "move into Settings", this
+later decision of the same day (free for all) wins: those features are gone and R2 to R8 build no
+screen, row or setting for them. (Recorded in the handoff too.)
+
+### Merging with stage R1 (built at the same time on `feature/r1-offers-out-shipping-look`)
+
+R1 should ship first (its migrations V115–V119 come before V120). When F1 then merges `main`:
+
+- **Modify/delete conflicts** on the phone's billing and ads files (`app/premium.tsx`,
+  `credits.tsx`, `support.tsx`, `app/checkout/fake-billing/[ref].tsx`,
+  `app/checkout/fake-donation/[ref].tsx`, `src/features/billing/*`, `src/features/ads/*`,
+  `__tests__/screens/billing.test.tsx`, `.maestro/premium.yaml`) and on the API seed contributors
+  of ads and donations: resolve as **deleted**.
+- Files **R1 added or moved** for the paid features must be deleted too: `.maestro/scripts/billing.js`,
+  `__tests__/features/billing.test.ts`, `src/features/billing/checkoutTargets.ts`,
+  `src/features/billing/FakeProviderCheckout.tsx` and `src/features/billing/useProviderCheckout.ts`
+  (R1 moved the last two from `src/features/checkout`; with offers, trades and payments off the
+  phone (ADR 0018) and the paid features gone, the phone has no checkout at all). F1's edits to
+  `src/features/checkout/*`, `src/features/payments/checkoutTargets.ts`, `.maestro/scripts/payments.js`
+  and the offer files R1 deleted resolve as deleted; `__tests__/navigation/freeForAll.test.tsx`
+  then loses its last test (the checkout targets) or checks R1's removed-route handling instead.
+- `app/(tabs)/profile.tsx`: R1 keeps the `MONEY_ROWS` card (Premium, credits, support behind their
+  flags); F1 removed it: keep no money row. `src/navigation/RootNavigator.tsx`: R1 keeps the
+  `premium`, `credits`, `support` and fake checkout screens; F1 removed them. Consider adding
+  `/premium`, `/credits`, `/support`, `/checkout/fake-billing` and `/checkout/fake-donation` to
+  R1's `src/navigation/removedRoutes.ts` (`removedRouteTarget`), with the free-for-all note.
+- R1 replaced React Native's `Text` with the app's `@/src/components/ui/Text` (its lint refuses
+  the former in `app/` and `src/`) in many files F1 also edited (the Profile tab, search, holders,
+  the import screens, Settings → Account, the binder form and public binder, the collector
+  profile, `LimitReachedNotice`, the wishlist editor and notices, `UnifiedResults`): keep R1's
+  imports and F1's wording when resolving; `npm run lint -w apps/mobile` finds any left.
+- Legal: merge both sources, then `npm run sync:legal -w apps/mobile` (R1 changed "Trading
+  safely", F1 the privacy, community, marketplace and acceptable-use drafts).
+- **Migration numbers with stage R2** (`feature/r2-inventory-adding-cards`, built on R1 at the
+  same time): it adds `V117__inventory_price_text_restore.sql`. Flyway runs without `outOfOrder`
+  (`application.yml`), so a database already at V123 (the owner's dev database once F1 is on
+  `main`, any deployed environment) refuses to start with a V117 it has not applied ("detected
+  resolved migration not applied"); fresh CI databases would not notice. **If F1 ships before
+  R2, R2 renumbers V117 to the first free number after F1 (V124 or later) before it merges**;
+  if R2 ships first, nothing changes (V117 comes before V120). The lead tells the R2 builder.
+- ADR numbers: 0018 is R1's, 0019 is F1's. Expect text conflicts in CLAUDE.md, the READMEs,
+  `schema.md`, the handoff, this file and the generated OpenAPI and clients (regenerate after the
+  merge: `./gradlew exportOpenApi`, `npm run generate:api`).
+
+### Verification (retries off; real numbers)
+
+On 2026-10-14, this branch, every suite with retries off:
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 4 min 26 s: **949 tests** (937 in 157 classes + 12 catalog tests in 2), 0 failures, 0 skipped; new: `LimitsIT` (5), `LimitRulesTest`, `PaidFeaturesRemovalMigrationIT` (7: a scratch database migrated to V119, filled with plans, an admin-edited FREE limit, PREMIUM limits, subscriptions, entitlements, credits, ads, donations, old limit notices, a broadcast linking to `/credits`, outbox rows and job runs, then migrated to the latest version), `FlywayMigrationIT.thePaidFeaturesLeftTheSchema` |
+| `./gradlew exportOpenApi` + `npm run generate:api` | git clean afterwards |
+| `npm run build -w apps/web-angular` | passed; initial total **896.71 kB** (899.93 kB on `main`) |
+| `npm run test:web` | 135 files, **630 tests** passed |
+| `npm run lint` / `format:check -w apps/web-angular` | passed / passed |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) after one fix: the first run had 66 passed, 2 failed, 2 did not run (the usage-limits spec left the "New binder" form open behind the limit dialog: fixed `72ef04e`; the smoke spec's Inventory link: passed on the next run, unchanged, a navigation race under load), and the `launch-config` project did not run because of them |
+| `npm run typecheck` / `lint` / `format:check -w apps/mobile` | passed / passed / passed |
+| `npm run test:mobile` | 90 suites, **916 tests** passed |
+| `npx expo export --platform ios`, `android`, `web` (into scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` | **56 passed** (53 s) after one fix: the first run had 55 passed and 1 failed (`binders.spec.ts` still expected "the number of binders your plan allows" and "on the Free plan": fixed `bd86243`) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro simulator, under the lock) | **30 of 31 flows passed** (50 min); `limit-reached.yaml` failed on its title assertion (on iOS the notice is one accessible element: fixed `6af22d0`), then its Profile step (a link to the app's root does not close a pushed screen: fixed `46d1463`); re-run alone afterwards: **passed**. The other 30 flows, including `payment-protection.yaml`, passed in the full run |
+| `npm run test:scripts` | **133 tests** passed |
+| `npm run infra:validate` | passed (fmt, init without backend, validate; nothing planned or applied) |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+| Android | **the Android run could not be verified** (no Android SDK on this Mac) |
+
+**Migration on a seeded database:** a scratch database `orenjitrade_f1_check` was seeded by the
+`main` API jar (`bf1135a`: the Premium subscription of `premium_user`, credits, the referral, the
+three ads campaigns, two donations, every flag on), given two notices as the old API wrote them (a
+limit notice with `planCode`, `upgradeUrl` and a `/premium` link; a broadcast linking to
+`/credits`), then started with this branch's jar: V120–V123 applied in 0.1 s; 7 limits, one per key
+(`binders.max` 5, `binder.views.per_day` 30, `inventory.items.max` unlimited, `offers.per_day` 20,
+`saved_searches.max` 0, `wishlist.alerts.per_day` 5, `wishlist.items.max` 20); flags
+`mlScanning`, `publicChat`, `protectedPayments` only; roles USER, MODERATOR, ADMIN, SUPER_ADMIN;
+no table of the paid features left; the limit notice reads "You reached today's limit of 5
+wishlist alerts. New listings still show on the card pages. The limit resets tomorrow." with no
+plan or link; the broadcast kept its text and lost its link. A fresh database is covered by
+`FlywayMigrationIT` and every Testcontainers suite. The database was dropped afterwards.
+
+**Hand walk of the web** (this branch's build on :4580, API :8580 on that database, Redis db 6;
+Playwright, screenshots in the session's scratch folder): 29 of 29 checks. Signed out: the map has
+no sponsored placement, the footer no Support link, `/premium`, `/credits`, `/support` and the two
+fake checkouts are "Page not found". `collector1`: the account menu is Profile, Offers, Trades,
+Settings, Sign out; the old limit notice reads as above and opens the wishlist; the old broadcast
+opens no removed page; the inventory, search and another collector's profile show no
+"Sponsored"; Settings → Account shows no plan; the sixth binder gets "You reached a limit —
+Binders — you used 5 of 5 on your account … Every collector has the same limits." with OK only.
+`collector2`: the wishlist meter reads "3 of 20 wishes". `superadmin`: the admin menu has no plans,
+subscriptions, credits, ads or donations; `/admin/usage-limits` is one list for everyone;
+`/admin/feature-flags` lists `protectedPayments`, `publicChat` and `mlScanning`; the former
+Premium account has no plan, role or entitlement; `/admin/plans`, `/admin/subscriptions`,
+`/admin/credits`, `/admin/ads`, `/admin/donations` lead back to the dashboard. No request went
+to a removed route; no console error (except the 429 of the sixth binder, on purpose). **Found
+and fixed:** the role editor still described the super admin as editing "plans" (`75fef29`).
+
+**Hand walk of the phone** (the owner's iPhone 18 Pro simulator under the lock, Expo Go on the
+isolated stack, a scratch Maestro flow with screenshots in the session's scratch folder, and
+`limit-reached.yaml`): passed. `collector1` (seed): the Profile tab has no Premium, credits or
+support row; Settings → Account shows no plan; the Search tab's card results, the Inventory tab and
+another collector's profile show no "Sponsored" row; old links to `/credits`, `/support` and
+`/premium` open "This page does not exist". A collector with the five binders everyone may have
+gets, on the sixth, "You reached the number of binders you can have — You have used 5 of 5
+binders. Delete a binder you no longer need." with nothing to buy. The owner's simulator was left
+as found (light appearance, large text) and the lock released.
+
+### Review fix 1 (2026-10-14)
+
+Two independent reviews (product and functional) asked for changes; every finding was fixed at its
+cause, with a test:
+
+- **The "Premium member." bio on a database seeded before F1** (major): profiles are seeded once
+  and local edits kept, so the owner's dev database and the GCP dev environment kept the old seed
+  bio on `premium_user`'s public profile. `ProfileSeedContributor` (local/dev only, the
+  `WishlistSeedContributor` precedent) now replaces a bio that is still exactly the old seed text
+  with today's; a bio written by hand is never changed. `SeedDataRunnerIT` plants the old bio and
+  checks one seed run removes it (`c4aa683`).
+- **Old broadcasts that promoted a removed feature, and `saved_searches.max`** (minor, the
+  builder's decisions 6 and 7, now changed, see above): V123 deletes the admin broadcasts that
+  linked to `/premium`, `/credits`, `/support` or their checkouts, and deletes
+  `saved_searches.max` with its counters (V109's precedent); the web and phone labels go and the
+  admin-rules E2E raises `binder.views.per_day` instead (`c22f834`). **V123 was edited** rather
+  than followed by a V124: it is this stage's own migration, not merged and never applied to a
+  persistent database (the walk and review databases were dropped; `orenjitrade_e2e` is
+  recreated by every run). Once F1 is on `main`, V120–V123 are frozen like the others.
+- **Tests that let a regression through** (minor): `SeedAccountLimitsIT` (the 12 seed accounts,
+  staff and the former Premium account included, see the same numbers and are refused at the same
+  count by `Limits.consume`) and `GeoPrivacyContractTest` comparing the numbers, not the sizes
+  (`a8f7299`); the phone checks the views-limit message for Premium, plan, upgrade or credits and
+  the Search tab (three segments), the holders and the inventory for a "Sponsored" row
+  (`9a8512f`); a web spec for the search page (results, holders, invitation) checks for no
+  sponsored placement (`e3157dd`; the inventory's is covered by the usage-limits E2E). Each new
+  check was seen failing against the regression the reviewers planted (a Limits that lets the
+  former Premium account through; an upgrade sentence in the views message; a sponsored row in
+  the phone's search results; a sponsored aside on the web search page).
+- **Documents** (minor): the owner account checklist's Stripe row lists no subscriptions; the
+  Phase 6 contract and the schema say the limit notice offers no upgrade since F1 (`f0ead8d`).
+- **Stage R2's V117** (minor): the merge notes, NEXT TASK and the handoff say R2 renumbers it
+  after F1's migrations if it merges after F1 (Flyway refuses out-of-order migrations) (`9524f97`).
+
+The builder's walk and migration check above predate this round (they show
+`saved_searches.max` 0 and a broadcast that kept its text). **Re-checked on a database seeded by
+`main`'s jar** (`bf1135a`, with six old broadcasts for collector2: "Go Premium", "Earn credits",
+"Support OrenjiTrade", a Premium checkout, a `/wishlist` one and a `/premiumcards` look-alike),
+then started with this branch's jar (V120–V123 in 0.09 s, then "Seed account 09: the bio of an
+earlier seed was replaced"): the API answers 14 of 14 checks (the bio, the four promotions gone,
+the two others kept, no link to a removed page, the same six limits for the former Premium account
+and collector1, six rows in `/admin/usage-limits`); the web build on that stack, at 1280 and 390
+px, passes 19 of 19 (the profile of `premium_user` reads "Collector and trader across all four
+games.", collector2's notifications hold no promotion). The database was dropped and Redis db 6
+emptied afterwards.
+
+Checks of this round (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 18 s: **952 tests** (940 in 158 classes + 12 catalog tests), 0 failures, 0 skipped (new: `SeedAccountLimitsIT` 2, `SeedDataRunnerIT` 1) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | git clean afterwards (no API change) |
+| `npm run build -w apps/web-angular` | passed; initial total **896.71 kB** (899.93 kB on `main`) |
+| `npm run test:web` | 136 files, **633 tests** passed |
+| `npm run lint` / `format:check -w apps/web-angular` | passed / passed |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min), `admin-rules` on `binder.views.per_day` included |
+| `npm run typecheck` / `lint` / `format:check -w apps/mobile` | passed / passed / passed |
+| `npm run test:mobile` | 90 suites, **916 tests** passed |
+| `npx expo export --platform ios`, `android`, `web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` | **56 passed** (53 s) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro simulator, under the lock) | **31 of 31 flows passed** (49 min 44 s), `limit-reached.yaml` and `payment-protection.yaml` included; the simulator left as found (light appearance, large text), the lock released |
+| `npm run test:scripts` | **133 tests** passed |
+| `npm run infra:validate` | passed (nothing planned or applied) |
+| `npm run audit:gate` | OK |
+| Android | **the Android run could not be verified** (no Android SDK on this Mac) |
+
+### Review fix 2 (2026-10-15)
+
+The second review round found two minor gaps; both were fixed:
+
+- **A per-account exception on a limit another module counts went unnoticed** (minor):
+  `binders.max`, `wishlist.items.max` and `inventory.items.max` are counted by their modules (a
+  `LimitUsageSource` each), and `Limits.consume` decides them in a branch of its own. A
+  regression in that branch that let the former Premium account through still passed every test:
+  `SeedAccountLimitsIT` checked only a counter limit. Two new tests, run against the 12 seed
+  accounts (`premium_user` and the staff included), close the gap. For each of the three limits,
+  the number is set to the account's own usage: the probe answers `429 LIMIT_REACHED` (with the
+  `limitKey`, no plan and no upgrade link), and `GET /me/limits` shows it as not allowed with 0
+  left. One more allows it again. With `binders.max` at the account's binder count, the binder
+  creation itself answers 429 and creates nothing. The numbers are restored after each test.
+  Both tests failed against the reviewers' regression (an exception for seed account 09 in the
+  source branch of `Limits.consume`) and pass without it (`ec9d508`).
+- **The runbook's Redis restart table still listed the credit balance cache** (minor):
+  `docs/deployment/runbooks.md` section 9 no longer names it. A line under the table says the
+  cache went with credits in F1 (ADR 0019, V122), and that no Premium, credit or advertising key
+  is left in Redis (`b4ecba7`; checked against the key prefixes in `apps/api/src/main`).
+
+Checks of this round (retries off):
+
+| Check | Result |
+| --- | --- |
+| `./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 41 s: **954 tests** (942 in 158 classes + 12 catalog tests), 0 failures, 0 skipped (new: `SeedAccountLimitsIT` 2) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | git clean afterwards (no API change) |
+| `npm run build -w apps/web-angular` | passed; initial total **896.71 kB** (899.93 kB on `main`) |
+| `npm run test:web` | 136 files, **633 tests** passed |
+| `npm run lint` / `format:check -w apps/web-angular` | passed / passed |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.5 min) |
+| `npm run typecheck` / `lint` / `format:check -w apps/mobile` | passed / passed / passed |
+| `npm run test:mobile` | 90 suites, **916 tests** passed (and the 28 harness guard tests) |
+| `npx expo export --platform ios`, `android`, `web` (scratch folders) | all three passed |
+| `npm run test:mobile:e2e -- --retries=0` | **not run in this round**: the simulator lock was held by stage R2's fixer for the whole round (this round changed no phone code; review fix 1: 56 passed) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro simulator, under the lock) | **not run in this round**, same reason (review fix 1: 31 of 31 flows) |
+| `npm run test:scripts` | **133 tests** passed |
+| `npm run infra:validate` | passed (nothing planned or applied) |
+| `npm run audit:gate` | OK |
+| Android | **the Android run could not be verified** (no Android SDK on this Mac) |
+
+### Merged with R1 (2026-10-15)
+
+`origin/main` with stage R1 (#72) was merged into this branch (merge commit "Merge origin/main
+(redesign R1, #72) into feature/f1-free-for-all"); 46 conflicts, resolved so that both stages'
+intents hold. **Modify/delete (22):** every file one stage deleted stays deleted (F1's Premium,
+credits, support and checkout screens, billing and ads parts, `billing.test.tsx`, `premium.yaml`,
+the ads and donation seed contributors; R1's offer, trade, payment and dispute files, tests and
+`scripts/payments.js`), after checking that nothing kept imports them. R1's provider checkout,
+which it had moved to `src/features/billing` for Premium and donations (`FakeProviderCheckout`,
+`checkoutTargets`, `useProviderCheckout`, with `billing.test.ts`, `providerCheckout.test.tsx` and
+`.maestro/scripts/billing.js`), had no user left and was deleted: **the phone has no checkout at
+all**. **Both edited (24):** the phone files keep R1's removals, `Text` imports and wording and
+F1's removals and plain limit messages (the Profile tab without offer, trade or money rows; no
+sponsored slot; no checkout query key; no offer or paid-feature types, stack screens or app
+roots); `paymentFixtures.ts` keeps only the seed flags. **Removed routes, one mechanism:** R1's
+`removedRouteTarget` (through the not-found screen) now also sends `/premium`, `/credits`,
+`/support` and the `fake-billing` / `fake-donation` checkouts to the Profile tab with F1's
+free-for-all note, as it sends offers, trades, disputes and the payment checkout to Messages or
+Settings with the deals note; old notifications of both use R1's `{ kind: 'note' }` target (F1's
+`'later'` renamed). Tests: `removedRoutes.test.tsx` (the F1 paths and the not-found screen on
+`/premium`), `freeForAll.test.tsx` (no `checkout/` route and no `billing`, `checkout`, `payments`
+or `ads` folder left; the old links through `removedRouteTarget`), `gate.test.ts`,
+`notifications.test.ts`, a new Playwright spec `removed-links.spec.ts`, and `limit-reached.yaml`
+now expects the Profile tab and the note instead of the not-found screen. **API:** R1's
+`SeedWordingTest` and `SeedIT` no longer read the deleted donation contributor and table.
+**Documents:** both sections kept (R1's first), NEXT TASK rewritten (R1 and F1 merged; next R2,
+whose V117 must become V124 or later), the ADR index lists 0018 and 0019, ADR 0011 carries both
+amendments (the app-store question has nothing left to apply to on the phone), ADR 0018 and 0019
+point at each other, and CLAUDE.md, the READMEs, `schema.md` (V115, V116, V120–V123), the
+handoff, local setup, seed data and the product overview say both. The paused web holds exactly
+F1's deletions and R1's "Trading safely" exception. Migrations unchanged: V115, V116, V120–V123.
+
+Checks after the merge, retries off: `spotlessCheck --rerun-tasks` passed; `npm run test:api`
+**962 tests** (950 in 160 classes + 12 catalog tests), 0 failures, 0 skipped; `exportOpenApi` and
+`npm run generate:api` left git clean; web build passed, initial total **896.09 kB**; `npm run
+test:web` 136 files / 633 tests, web lint and `format:check` clean; `npm run test:e2e --
+--retries=0` **70 / 70** (1 min 45 s); mobile typecheck, lint (0 warnings) and `format:check` clean; `npm run
+test:mobile` jest **89 suites / 886 tests** + 28 guard tests; `npx expo export` ios, android and
+web passed; `npm run test:mobile:e2e -- --retries=0` **54 / 54** (1 min 14 s, the new `removed-links.spec.ts` included); `npm run
+test:mobile:maestro -- --platform ios` on the owner's iPhone 18 Pro simulator, under the lock:
+**29 / 30** in 48 min 39 s, then `limit-reached.yaml` fixed (it looked for the 6-second note only
+after the developer-menu checks, which take about 7 s; it now reads the note right after the
+link) and **passed alone twice** (1 min 26 s, 1 min 25 s); the simulator left light at its
+default text size; `npm run test:scripts` 133 / 133; `npm run
+infra:validate` passed; `npm run audit:gate` OK. A grep of `apps/mobile` finds no import of a
+deleted file, no route to a removed screen (only the web paths `notificationLink` builds, which
+`mobileTarget` turns into the deals note) and no upgrade, Premium, credits, donation, sponsored,
+offer or trade entry point; "Accepts offers" remains only as a card attribute, which R2 removes
+from the phone's forms.
+
+Seen on the simulator, not changed (R1's mechanism, now shared): the Maestro screenshot taken
+during the move shows the Profile tab sliding in over the earlier Profile tab, so `router.replace`
+from the not-found screen to a tab seems to add a second tab navigator rather than return to the
+first one (not checked further: the back swipe was not tried). The tests pin `replace`;
+`router.navigate` or `dismissTo` would return to the existing tabs: a choice for R2 or later.
+
+### Owner follow-ups
+
+- Keep or drop the CLAUDE.md commit `e4ee954` (the handoff says CLAUDE.md is the owner's; the task
+  asked for these lines).
+- `saved_searches.max` was deleted in review fix 1 (a Premium perk of a feature never built):
+  say so if it should come back as a cap of 0.
+- `premium_user`: keep the handle, or rename the seed account in a later change.
+- A different cap for some collectors would need a new decision (no per-account override exists).
+- The lawyer's review of the four changed drafts (list above).
+- Admin broadcasts that linked to a removed page are deleted by V123 (review fix 1); a broadcast
+  that talked about Premium, credits or donations without a link stays as written.
+
 ## NEXT TASK
 
-> **Stage R1 of the phone redesign is built** ("Offers out, shipping wording, look"; branch
-> `feature/r1-offers-out-shipping-look`, cut from the head of S6; section "Phone redesign R1:
-> offers out, shipping wording, look (2026-10-14)" above): offers, trades, protected payments and
-> disputes off the phone ([ADR 0018](docs/architecture/adr/0018-deals-happen-in-the-chat.md), "Deals
-> happen in the chat"; the API keeps them for the paused web), the chat safety tip, ratings without
-> meetup reliability, V115 (the meetup tag hidden) and V116 (the region channels "by mail"), the
-> seeds, "Trading safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono
-> and the dark theme of a new install. Its two independent reviewers ran and **review fixes 1 and
-> 2 are done** (the R1 section, "Review fix 1" and "Review fix 2"; two fix rounds is the most the
-> spec's section 15 allows). **Next for this branch:** its ship step (merge
-> `main` once it holds S6; the check list of `docs/development/claude-handoff.md`; the pull
-> request; merge when CI is green). Migrations V001 to V116 exist on this branch (V115 and V116 are
-> R1's); the next one is V117. Owner points from R1: the web exception reached two web spec files
-> that pinned the old "Trading safely" text, one assertion and three strings (both reviewers
-> recommend accepting it; nothing else of the web changed outside the exception); the lawyer's
-> list of the meetup, offer and protection wording left in the other legal texts, with the
-> question whether the phone's legal index should keep the Payment Protection and Refund and
-> Dispute policies; the owner's database keeps its earlier seed texts until a reset (all in the
-> R1 section).
+> **Stages R1 and F1 are merged into `main`.** Stage R1 of the phone redesign ("Offers out,
+> shipping wording, look", #72; section "Phone redesign R1: offers out, shipping wording, look
+> (2026-10-14)" above): offers, trades, protected payments and disputes off the phone
+> ([ADR 0018](docs/architecture/adr/0018-deals-happen-in-the-chat.md), "Deals happen in the chat";
+> the API keeps them for the paused web), the chat safety tip, ratings without meetup reliability,
+> V115 (the meetup tag hidden) and V116 (the region channels "by mail"), the seeds, "Trading
+> safely" in English and French, the deckCore tokens, Sora / Inter / JetBrains Mono and the dark
+> theme of a new install. Stage F1, "free for all" (owner, 2026-10-14; section "Free for all:
+> Premium, ads, credits and donations removed (stage F1, 2026-10-14)" above, with its review fixes
+> and "Merged with R1 (2026-10-15)"): Premium, sponsored placements, credits and donations removed
+> from the API, the phone and the web
+> ([ADR 0019](docs/architecture/adr/0019-free-for-all-no-paid-features.md)); the usage limits the
+> same for everyone, with plain limit messages and nothing to buy; V120–V123; the removed code on
+> `archive/paid-features`. Where the redesign spec says the paid features "keep their flags" or
+> "move into Settings", F1's later decision wins. Owner points left by both stages are in their
+> sections (R1: the web exception that reached two web spec files, the lawyer's list of the
+> meetup, offer and protection wording left in the other legal texts, the Payment Protection and
+> Refund and Dispute policies on the phone's legal index, the owner's database keeping its earlier
+> seed texts until a reset; F1: "Owner follow-ups").
 >
-> **Exact next task after R1 ships: stage R2 of the phone redesign, "Inventory and adding cards"**
-> (mockup screens 1 to 9), on a new branch from the `main` that holds R1, as
+> The owner's change of 2026-10-08 ended with stage S6 (#71): of the 22 clauses of its definition of
+> done, 12 done, 5 partly, 5 not built (the delivery report
+> `docs/product/2026-10-08-change-delivery-report.md`). **Not built, by the owner's decisions:
+> stages S3 and S4 (skipped on 2026-10-13) and the web import screen of S5 (the web app is paused
+> since 2026-10-12).**
+>
+> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); the handoff documents for
+> continuing on the Mac (#58, 2026-10-10); stage S2, the simplified wishlist, wishlist alerts and
+> no matches (#60, 2026-10-10); the first run on Apple Silicon (#59, 2026-10-10); the iOS path of
+> the native Maestro harness and the iOS defects it found (#61, 2026-10-12); mobile stage M9,
+> regions on the phone (#67, 2026-10-13); the binder / inventory lock fix (#68, 2026-10-13); stage
+> S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
+> backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14);
+> stage R1 of the phone redesign (#72, 2026-10-14); stage F1, free for all (its pull request, after
+> this merge). Migrations V001 to V114 are applied and frozen; R1's V115 and V116 and F1's V120–V123
+> freeze as each lands on `main` (V117–V119 are unused); the next one is **V124**. Stage R2's
+> `V117__inventory_price_text_restore.sql` must be renumbered to V124 or later before R2 merges:
+> Flyway runs without `outOfOrder` and a database already at V123 refuses a V117 it has not applied
+> (see "Merging with stage R1" in the F1 section). The owner's local database migrates on the next
+> `npm run dev` and loses its trading areas by design (S1).
+>
+> **Owner orders in force:** free for all (2026-10-14, ADR 0019: no Premium, ads, credits or
+> donations; the same usage limits for everyone; protected payments kept on the API); deals happen
+> in the chat on the phone (2026-10-14, ADR 0018: no offers, trades, protected payments or
+> disputes on the phone; the API keeps them for the paused web); mobile only, the web app is paused
+> until a new order (2026-10-12; do not change `apps/web-angular`; read, build, test and walk it; a
+> defect found there is recorded; stage F1 changed it only to remove the paid features, and stage
+> R1 only for the "Trading safely" text, as the owner asked);
+> stages S3 and S4 are skipped until the owner asks (2026-10-13; never describe them as done); the
+> native suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
+> UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
+> ("the Android run could not be verified").
+>
+> **Exact next task: stage R2 of the phone redesign, "Inventory and adding cards"** (mockup
+> screens 1 to 9). Its branch `feature/r2-inventory-adding-cards` (built on R1 at the same time as
+> F1) is being finished elsewhere; before it ships it merges this `main` (R1 and F1), renumbers
+> its V117 to V124 or later, and builds no Premium, credits, donation or sponsored screen, row or
+> setting (ADR 0019). R2 is what
 > [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
 > says in sections 6 (the screens), 12 ("Inventory": `asking_price_text` varchar(40) with the plain
 > amounts parsed into `asking_price` and the currency, photos while adding through the existing
@@ -5046,50 +5498,13 @@ inbox thumbnails and previews.
 > public" and private notes (the API keeps the columns; condition becomes "not stated" where the
 > paused web still compiles, and Near Mint only alerts treat it as a possible match). Defaults of
 > section 16 it builds: 4 (a deleted card can be restored for 10 minutes) and 5 (no stated
-> condition). Read first: `CLAUDE.md`, the handoff, the spec (sections 0 to 3, 6, 12 to 17), ADR
-> 0018, the R1 section above, `docs/api/contracts/s5-inventory-import.md`. Then R3 to R8 in order,
-> one branch and one PR each (the spec's section 15).
->
-> **Stage S6 (before R1)** — the end of the owner's change of 2026-10-08:
->
-> **The owner's change of 2026-10-08 ends with stage S6** (branch `feature/s6-final-docs`: the
-> small fixes, the final documents, the definition-of-done walkthrough and the delivery report
-> `docs/product/2026-10-08-change-delivery-report.md`; section "Final documents and the
-> definition-of-done walkthrough (stage S6, 2026-10-14)" above). **Next for this branch: its ship
-> step** (merge `main`, which holds #70; run the check list of `docs/development/claude-handoff.md`;
-> the pull request; merge when CI is green). Of the 22 clauses of the definition of done: 12 done,
-> 5 partly, 5 not built. **Not built, by the owner's decisions: stages S3 and S4 (skipped on
-> 2026-10-13) and the web import screen of S5 (the web app is paused since 2026-10-12).**
->
-> **Merged into `main`:** stage S1, geography (#57, 2026-10-09); the handoff documents for
-> continuing on the Mac (#58, 2026-10-10); stage S2, the simplified wishlist, wishlist alerts and
-> no matches (#60, 2026-10-10); the first run on Apple Silicon (#59, 2026-10-10); the iOS path of
-> the native Maestro harness and the iOS defects it found (#61, 2026-10-12); mobile stage M9,
-> regions on the phone (#67, 2026-10-13); the binder / inventory lock fix (#68, 2026-10-13); stage
-> S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
-> backdrop iOS took for a modal (#70, 2026-10-14). Migrations
-> V001 to V114 are applied and frozen; the next one is V115. The owner's local database migrates
-> on the next `npm run dev` and loses its trading areas by design (S1).
->
-> **Owner orders in force:** mobile only, the web app is paused until a new order (2026-10-12; do
-> not change `apps/web-angular`; read, build, test and walk it; a defect found there is recorded);
-> stages S3 and S4 are skipped until the owner asks (2026-10-13; never describe them as done); the
-> native suite runs on the simulator the owner keeps booted (`ORENJI_IOS_SIMULATOR_UDID=<its
-> UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
-> ("the Android run could not be verified").
->
-> **Next task as S6 left it (decided by the owner on 2026-10-14; R1 is now built, see above): the
-> phone redesign of 2026-10-14, stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`**
-> (the owner's prompt, verbatim). Start with **R1** ("Offers out, shipping wording, look") on a new branch from a
-> `main` that holds S6, then R2 to R8 in order, one branch and one PR each, each with its builder,
-> at least two independent reviewers and at most two fix rounds (the spec's section 15). Read
-> first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where things stand, the working
-> agreements, the check list, the simulator rules and lock); this section; the spec's section 0
-> (ADR 0011, ADR 0015, ADR 0017, `docs/api/contracts/phase8-offers-trades.md`,
-> `docs/api/contracts/s5-inventory-import.md`, `docs/product/specs/2026-10-08-have-want-regions.md`,
-> and the code it lists); then the delivery report's sections (f) and (h) for the decisions and
-> defects that the redesign meets. Until a stage lands, documents describe the phone as it is
-> today (six tabs, offers on the phone; since R1: six tabs, no offers on the phone).
+> condition). Then R3 to R8 in order, one branch and one PR each, each with its builder, at least
+> two independent reviewers and at most two fix rounds (the spec's section 15); none of them
+> builds a paid feature (ADR 0019). Read first: `CLAUDE.md`; `docs/development/claude-handoff.md`
+> (where things stand, the working agreements, the check list, the simulator rules and lock); this
+> section; the spec (the owner's prompt, verbatim; sections 0 to 3, 6, 12 to 17); ADR 0018 and
+> ADR 0019; R1's and F1's sections of this file; `docs/api/contracts/s5-inventory-import.md`; then
+> the delivery report's sections (f) and (h) for the decisions and defects that the redesign meets.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
@@ -5097,7 +5512,7 @@ inbox thumbnails and previews.
 > the Android SDK on the Mac; the hardening list (a lock timeout on inventory writes, the
 > after-commit analytics listeners, blocked collectors in the collectors section of search, the
 > search text in the search analytics events, the photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
-> (store purchases, an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
+> (an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
 > placeholders, OrbStack's licence, VoiceOver on a real iPhone). Proposed CLAUDE.md sentences wait
 > for the owner (the end of the delivery report).
 >

@@ -61,7 +61,7 @@ it). Nothing else ever carries a city.
 ## Region-scoped discovery
 
 `region` (a platform region code) on `GET /search`, `/search/suggest`, `/search/card-holders` and
-`/ads`; default: the caller's home region, else `americas-north`; unknown → 400. Card holders sort
+`/ads` (`/ads` removed by stage F1, ADR 0019); default: the caller's home region, else `americas-north`; unknown → 400. Card holders sort
 `freshness` (default) or `price`; results rank by freshness, rating, handle. The
 `/collectors/nearby` and `/collectors/{handle}/preview` endpoints are removed.
 
@@ -93,3 +93,4 @@ separate change (a `public` `Cache-Control` on anonymous answers only plus a cac
 - Ads: targeting kinds `GAME`, `REGION`, `COUNTRY`, `SUBDIVISION`, `TAG`, `PLAN`.
 - Plans: the `map.radius.max_km` limit, its entitlements and the `map_radius_day` credit product
   are gone.
+- Stage F1 (2026-10-14, ADR 0019) later removed ads, plans, entitlements and credits altogether.

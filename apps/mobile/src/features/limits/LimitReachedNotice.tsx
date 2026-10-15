@@ -2,12 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
-import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { Text } from '@/src/components/ui/Text';
 import { limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
-
-import { SeePremiumButton } from './SeePremiumButton';
 
 export interface LimitReachedNoticeProps {
   error: ApiError;
@@ -18,18 +15,17 @@ export interface LimitReachedNoticeProps {
 }
 
 /**
- * Explains a reached freemium limit where it happened (429 `LIMIT_REACHED`): what is counted,
- * how much was used of the plan's allowance, when it resets or how to get more, and "See Premium"
- * while premium plans are sold.
+ * Explains a reached usage limit where it happened (429 `LIMIT_REACHED`): what is counted, how
+ * much of it was used, and when it resets or what to do to fit. The limits are the same for every
+ * collector and nothing is sold to lift them (stage F1).
  */
 export function LimitReachedNotice({
   error,
-  title = 'You reached a plan limit',
+  title = 'You reached a limit',
   message,
   testID = 'limit-reached',
 }: LimitReachedNoticeProps) {
   const { palette } = useTheme();
-  const premium = useFeature(FEATURE.premiumPlans);
   const info = limitReachedInfo(error);
   const percent =
     info.used !== null && info.limit
@@ -51,16 +47,13 @@ export function LimitReachedNotice({
         <Text style={[textStyle('md'), styles.title, { color: palette.ink }]}>{title}</Text>
       </View>
       <Text testID={`${testID}-message`} style={[textStyle('sm'), { color: palette.ink }]}>
-        {message
-          ? `${message}${premium.enabled ? ' Premium raises the limit.' : ''}`
-          : limitReachedMessage(info, undefined, { premiumOffered: premium.enabled })}
+        {message ?? limitReachedMessage(info)}
       </Text>
       {percent !== null ? (
         <View style={[styles.meter, { backgroundColor: palette.border }]}>
           <View style={[styles.fill, { width: `${percent}%`, backgroundColor: palette.warning }]} />
         </View>
       ) : null}
-      <SeePremiumButton testID={`${testID}-premium`} style={styles.premium} />
     </View>
   );
 }
@@ -71,5 +64,4 @@ const styles = StyleSheet.create({
   title: { fontWeight: fontWeight.semibold, flex: 1 },
   meter: { height: 6, borderRadius: radius.pill, overflow: 'hidden' },
   fill: { height: 6 },
-  premium: { alignSelf: 'flex-start' },
 });
