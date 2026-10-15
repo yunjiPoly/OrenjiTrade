@@ -48,24 +48,17 @@
   </ul>
 </app-section-card>
 
-<app-section-card
-  heading="Plan"
-  headingId="account-plan"
-  description="Your OrenjiTrade membership."
->
-  <div class="account__plan">
-    <div class="account__plan-badge">
-      <mat-icon aria-hidden="true">workspace_premium</mat-icon>
-      <span>{{ session.me()?.plan === 'FREE' ? 'Free' : session.me()?.plan }}</span>
-    </div>
-    <p class="section-muted">
-      Premium plans with higher limits arrive later. Your current plan keeps every core feature.
+@if (roleLabels().length > 0) {
+  <app-section-card
+    heading="Staff roles"
+    headingId="account-roles"
+    description="What you can do in the admin console."
+  >
+    <p class="section-muted account__roles" data-testid="account-roles">
+      {{ roleLabels().join(', ') }}
     </p>
-  </div>
-  @if (roleLabels().length > 0) {
-    <p class="section-muted account__roles">Staff roles: {{ roleLabels().join(', ') }}</p>
-  }
-</app-section-card>
+  </app-section-card>
+}
 
 <app-section-card
   heading="Your data"

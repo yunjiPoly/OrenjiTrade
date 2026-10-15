@@ -580,7 +580,6 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
           limitKey: 'inventory.items.max',
           limit: 100,
           used: 100,
-          planCode: 'FREE',
         }),
       })
     );

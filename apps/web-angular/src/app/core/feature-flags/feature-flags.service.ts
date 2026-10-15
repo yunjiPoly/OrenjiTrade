@@ -22,12 +22,8 @@ import { ATTACH_ID_TOKEN, SKIP_ERROR_TOAST, SKIP_SESSION_REDIRECT } from '../htt
  * Unknown keys are allowed: the map from the server is the source of truth.
  */
 export const FEATURE = {
-  premiumPlans: 'premiumPlans',
   publicChat: 'publicChat',
   protectedPayments: 'protectedPayments',
-  advertising: 'advertising',
-  donations: 'donations',
-  credits: 'credits',
   mlScanning: 'mlScanning',
 } as const;
 

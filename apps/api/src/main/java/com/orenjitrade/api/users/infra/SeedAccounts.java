@@ -48,8 +48,7 @@ public class SeedAccounts {
             String handle,
             String email,
             String displayName,
-            Set<Role> roles,
-            String planCode) {}
+            Set<Role> roles) {}
 
     /** JSON shape of {@value #RESOURCE}. */
     record SeedAccountEntry(
@@ -58,8 +57,7 @@ public class SeedAccounts {
             @Nullable String providerUid,
             String email,
             String displayName,
-            List<String> roles,
-            @Nullable String planCode) {
+            List<String> roles) {
 
         SeedAccount toAccount() {
             Set<Role> roleSet =
@@ -71,8 +69,7 @@ public class SeedAccounts {
                     handle,
                     email,
                     displayName,
-                    Set.copyOf(roleSet),
-                    planCode != null ? planCode : "FREE");
+                    Set.copyOf(roleSet));
         }
     }
 }

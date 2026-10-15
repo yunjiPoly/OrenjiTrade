@@ -16,7 +16,7 @@ import {
   useUpdateImportSections,
   type ImportRowFilter,
 } from '@/src/api/hooks/inventoryImport';
-import { useMyPlan } from '@/src/api/hooks/plan';
+import { useMyLimits } from '@/src/api/hooks/limits';
 import { useGames } from '@/src/api/hooks/profile';
 import { useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
@@ -49,7 +49,7 @@ import {
   limitRefusalText,
   lineNoun,
   mostRecentMessage,
-  planRoomText,
+  limitRoomText,
   pluralLines,
   rowTitle,
 } from './importLabels';
@@ -103,7 +103,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
   const discard = useDiscardImport();
   // Edits that are on their way to the API, or wait their turn behind another one.
   const saving = useImportEditsPending(preview.id) > 0;
-  const plan = useMyPlan({ fresh: true });
+  const limits = useMyLimits({ fresh: true });
   const listRef = useRef<FlatList<ImportRow>>(null);
   const headerHeight = useRef(0);
   const [printingRowId, setPrintingRowId] = useState<string | null>(null);
@@ -237,8 +237,8 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
   const lowestGrades = (games.data ?? [])
     .map((game) => game.schema?.conditions?.slice(-1)[0])
     .filter((grade): grade is string => !!grade);
-  const room = plan.data?.limits?.find((limit) => limit.key === 'inventory.items.max');
-  const planRoom = planRoomText(preview.summary, room?.limit == null ? null : room.remaining);
+  const room = limits.data?.limits?.find((limit) => limit.key === 'inventory.items.max');
+  const limitRoom = limitRoomText(preview.summary, room?.limit == null ? null : room.remaining);
 
   /** A filter from the bar that stays on screen: its first line comes up under the bar. */
   const chooseFilter = (next: ImportRowFilter) => {
@@ -262,7 +262,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
         onLeaveOut={setLeaveOut}
         busy={wholeBusy}
         lowestGrades={lowestGrades}
-        planRoom={planRoom}
+        limitRoom={limitRoom}
       />
     </View>
   );
@@ -384,7 +384,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
         {failure && limited ? (
           <LimitReachedNotice
             error={failure}
-            title="This import does not fit your plan"
+            title="This import does not fit the inventory limit"
             message={limitRefusalText(limitReachedInfo(failure))}
             testID="import-limit"
           />

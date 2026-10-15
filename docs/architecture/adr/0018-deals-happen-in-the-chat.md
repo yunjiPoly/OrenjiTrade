@@ -48,7 +48,9 @@ the money.
 4. **Payment stays outside the app.** No escrow, no payment protection and no claim of either on
    the phone: OrenjiTrade is not a party to the deal and never handles the money. The
    `protectedPayments` flag and the `PaymentProvider` abstraction of ADR 0011 stay for the paused
-   web; Premium, credits and donations keep their providers and their flags (off at launch).
+   web; Premium, credits and donations kept their providers and their flags (off at launch) until
+   [ADR 0019](0019-free-for-all-no-paid-features.md) removed them the same day (stage F1, "free
+   for all", merged after this stage).
 5. **Cards ship by mail.** No meetups and no game stores: the chat safety tip is worded per side
    (buying, selling, a chat without a card; section 10 of the spec), "Meetup details always stay
    private" is gone, the curated "Local Meetups" tag is hidden (V115), the region channels say
@@ -64,7 +66,10 @@ the money.
   the phone never uses the "payment protection" wording; the open owner question on app-store
   purchases now concerns Premium and donations only (protected payments were physical goods
   between people and are gone from the phone). The fake provider checkout of Premium and
-  donations stays (`apps/mobile/src/features/billing`).
+  donations stayed (`apps/mobile/src/features/billing`) until ADR 0019 removed the paid features:
+  since that merge (2026-10-15) the phone has no checkout at all, and old links to any removed
+  screen of either decision land on a screen that exists with a note
+  (`apps/mobile/src/navigation/removedRoutes.ts`).
 - The web keeps offers, trades, payment protection and disputes while it is paused; when the web
   resumes, its product shape is the owner's call (the redesign covers the phone).
 - The legal texts other than "Trading safely" still describe meetups and payment protection

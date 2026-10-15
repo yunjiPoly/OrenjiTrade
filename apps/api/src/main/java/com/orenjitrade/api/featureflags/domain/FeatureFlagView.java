@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
  */
 @Schema(name = "FeatureFlag", description = "Feature flag (admin view)")
 public record FeatureFlagView(
-        @Schema(example = "advertising") String key,
+        @Schema(example = "publicChat") String key,
         boolean enabled,
         @Schema(example = "100", minimum = "0", maximum = "100") int rolloutPercent,
         String description,

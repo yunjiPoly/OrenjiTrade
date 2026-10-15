@@ -20,12 +20,12 @@ never binder-to-binder, never ML.
 - `wishlist_match(id, wishlist_item_id, inventory_item_id, matched_at, distance_bucket, notified bool, dismissed bool, unique(wishlist_item_id, inventory_item_id))`
 - `notification(id, user_id, type, title, body, data jsonb (deep link + ids), dedup_key unique, created_at, read_at null, seen_at null, channel_state jsonb ({push: SENT|FAILED|SKIPPED, email: …}))`
 - `push_token(id, user_id, platform IOS|ANDROID|WEB, token unique, created_at, last_seen_at, invalid_at null)`
-- `notification_rate_limit` is Redis (`notif:{userId}:{type}:{day}`), limits from `usage_limit` (`wishlist.alerts.per_day` FREE 5 / PREMIUM unlimited).
+- `notification_rate_limit` is Redis (`notif:{userId}:{type}:{day}`), limits from `usage_limit` (`wishlist.alerts.per_day` FREE 5 / PREMIUM unlimited; 5 for everyone since stage F1, ADR 0019).
 
 ## Endpoints
 
 - `GET /wishlist` → `[WishlistItemResponse]` `{ id, game, card: {id,name,imageUrl}|null, printing: PrintingSummary|null, rarity, conditionMin, edition, language, maxPrice, currency, radiusKm, tradePreference, notes, active, matchCount, lastMatchedAt, createdAt }`
-- `POST /wishlist` (limit `wishlist.items.max` FREE 20 / PREMIUM 500 → `429 LIMIT_REACHED`), `PATCH /wishlist/{id}`, `DELETE /wishlist/{id}`
+- `POST /wishlist` (limit `wishlist.items.max` FREE 20 / PREMIUM 500, 20 for everyone since stage F1 → `429 LIMIT_REACHED`), `PATCH /wishlist/{id}`, `DELETE /wishlist/{id}`
 - `GET /wishlist/{id}/matches?cursor=` → `CursorPage<WishlistMatchResponse>` `{ id, item: PublicInventoryItem, collector: CollectorMarker, distanceBucket, matchedAt, dismissed }` ; `POST /wishlist/matches/{id}/dismiss`
 - `GET /collectors/{handle}/wishlist` (only when `wishlistVisible`) → summary `[ { card, printing, conditionMin } ]`
 - `GET /notifications?cursor=&unreadOnly=` → `CursorPage<NotificationResponse>` `{ id, type, title, body, data, createdAt, readAt }`; `GET /notifications/unread-count`; `POST /notifications/{id}/read`; `POST /notifications/read-all`
@@ -50,7 +50,8 @@ WHERE w.active AND w.owner_id <> :ownerId
 → insert `wishlist_match` (ignore conflicts) → `NotificationService.notify(userId, type
 WISHLIST_MATCH, dedupKey "wishlist:{wishlistItemId}:{inventoryItemId}", data {…})` which
 applies notification preferences, quiet hours, daily limit per type (limit-reached creates a
-single "You have more matches — upgrade" notification once per day), then fans out: in-app
+single "You have more matches — upgrade" notification once per day; since stage F1, ADR 0019, it
+names the limit and when it resets, with no upgrade), then fans out: in-app
 row + realtime `/user/queue/notifications`, push via `PushProvider` (FCM adapter with
 multicast + invalid-token cleanup; `LogPushProvider` locally), email via `EmailProvider`
 (log locally). Body example: "Azure-Eyes Sky Dragon AZR-EN001 was listed ~4 km away".

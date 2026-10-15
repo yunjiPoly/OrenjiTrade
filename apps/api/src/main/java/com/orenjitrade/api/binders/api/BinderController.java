@@ -73,8 +73,8 @@ public class BinderController {
             description =
                     "Added at the end of the caller's list. PRIVATE unless `visibility` says"
                             + " otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days"
-                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the plan's"
-                            + " binder limit.")
+                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder"
+                            + " limit, the same for every collector.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",

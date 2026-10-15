@@ -34,7 +34,7 @@ below are fictional placeholders; the real ones live in each environment's git-i
 | Identity | Firebase Auth emulator | Firebase project (dev) | Firebase project (staging) | Identity Platform + MFA |
 | Payments | `FakePaymentProvider` | fake (Stripe test keys optional) | Stripe **test** keys | fake until Stripe secrets exist, then Stripe live keys behind `protectedPayments` |
 | Events | in-process outbox | outbox; analytics to Pub/Sub | same | outbox; analytics to Pub/Sub → BigQuery; `domain-events` push off until the receiver exists |
-| Scheduled jobs | `@Scheduled` under `local` | 9 Cloud Scheduler jobs | 9 | 9 (every scheduled `/internal/jobs/*` route) |
+| Scheduled jobs | `@Scheduled` under `local` | 7 Cloud Scheduler jobs | 7 | 7 (every scheduled `/internal/jobs/*` route) |
 | Images | local build | built here (`docker-build.yml`) | pulled from the build registry | pulled from the build registry (prod's own when there is no dev project) |
 | Deploy trigger | manual | manual `deploy.yml` | manual `deploy.yml`, approval | manual `deploy.yml`, approval, `main`/`v*` only |
 | WIF refs allowed | — | any ref of the repo | any ref | `refs/heads/main` |
@@ -48,12 +48,10 @@ below are fictional placeholders; the real ones live in each environment's git-i
 | `db-password` | Terraform (`random_password`) | api-run | yes | Cloud SQL application user |
 | `service-token` | Terraform | api-run (+ ml-run when enabled) | yes (`ServiceTokenStartupValidator`) | `/internal/**` shared secret for operator scripts |
 | `analytics-actor-salt` | Terraform | api-run | yes (`AnalyticsConfig`) | pseudonymises actors in analytics events |
-| `ads-token-secret` | Terraform | api-run | yes (`AdsConfig`) | HMAC of ad serve tokens |
 | `consent-ip-salt` | Terraform | api-run | no (default refused only by review) | hashed client IP stored with consents |
 | `redis-url` | Terraform (Memorystore AUTH) | api-run | — | only with `redis_mode = memorystore`; the sidecar uses plain `REDIS_URL=redis://localhost:6379` |
 | `stripe-secret-key` | operator (`gcloud secrets versions add`) | api-run | when `stripe_secrets_enabled` | restricted key |
 | `stripe-webhook-secret` | operator | api-run | when `stripe_secrets_enabled` | payments webhook |
-| `stripe-billing-webhook-secret` | operator | api-run | when `billing_provider = stripe` | subscriptions webhook |
 | `firebase-service-account` | operator, optional | api-run | no | only if ADC is insufficient |
 
 Public configuration that is **not** secret and is passed as plain environment: the Firebase web

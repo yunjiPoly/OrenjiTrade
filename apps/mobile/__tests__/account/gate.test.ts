@@ -65,14 +65,23 @@ describe('auth gate', () => {
     expect(redirectFor('app', ['ratings', 'reference'])).toBeNull();
     expect(redirectFor('app', ['+not-found'])).toBeNull();
     expect(redirectFor('guest', ['+not-found'])).toBeNull();
-    // Phase 10: the Premium and donation checkouts, Premium, credits and donations.
-    expect(redirectFor('app', ['checkout', 'fake-billing', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['checkout', 'fake-donation', '[ref]'])).toBeNull();
-    expect(redirectFor('app', ['premium'])).toBeNull();
-    expect(redirectFor('app', ['credits'])).toBeNull();
-    expect(redirectFor('app', ['support'])).toBeNull();
-    expect(redirectFor('guest', ['checkout', 'fake-billing', '[ref]'])).toBe('/sign-in');
-    expect(redirectFor('onboarding', ['premium'])).toBe('/onboarding');
+    // Offers, trades, protected payments and disputes left the phone (ADR 0018); Premium, credits,
+    // donations and their checkouts left the app (ADR 0019, stage F1): none is an app root any
+    // more (an old link is an unmatched route, which the not-found screen moves on).
+    for (const removed of [
+      ['offers'],
+      ['offers', '[id]'],
+      ['trades', '[id]'],
+      ['disputes', '[id]'],
+      ['checkout', 'fake', '[ref]'],
+      ['checkout', 'fake-billing', '[ref]'],
+      ['checkout', 'fake-donation', '[ref]'],
+      ['premium'],
+      ['credits'],
+      ['support'],
+    ]) {
+      expect(redirectFor('app', removed)).toBe('/');
+    }
     expect(redirectFor('guest', ['report'])).toBe('/sign-in');
     // Signed out: the inventory screens, profiles and conversations send the visitor to sign in.
     expect(redirectFor('guest', ['items', 'new'])).toBe('/sign-in');

@@ -1,17 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
-import { FEATURE, FeatureFlagsService } from '../../../core/feature-flags/feature-flags.service';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { WishUsage } from '../data/wishlist.store';
 
 /**
- * The wishlist at a glance: the number of wishes and the plan usage (`wishlist.items.max`) as a
- * meter with a link to Premium when it is close (only while the `premiumPlans` flag is on:
- * nothing offers a subscription otherwise). No matches any more (stage S2).
+ * The wishlist at a glance: the number of wishes and how many fit (`wishlist.items.max`, the same
+ * limit for every collector) as a meter. No matches any more (stage S2); nothing to buy (stage
+ * F1).
  */
 @Component({
   selector: 'app-wishlist-summary',
-  imports: [MatIconModule, RouterLink],
   template: `
     <section class="ws" aria-label="Wishlist summary">
       <dl class="ws__stats">
@@ -27,9 +23,6 @@ import type { WishUsage } from '../data/wishlist.store';
               {{ usage.used }} of {{ usage.limit }} wishes
             } @else {
               {{ usage.used }} wishes · unlimited
-            }
-            @if (usage.planName) {
-              <span class="ws__plan">{{ usage.planName }} plan</span>
             }
           </p>
           @if (percent() !== null) {
@@ -47,12 +40,6 @@ import type { WishUsage } from '../data/wishlist.store';
                 [style.width.%]="percent()"
               ></span>
             </div>
-          }
-          @if (full() && premiumEnabled()) {
-            <a class="ws__upgrade" routerLink="/premium">
-              <mat-icon aria-hidden="true">workspace_premium</mat-icon>
-              Need more room? See Premium
-            </a>
           }
         </div>
       }
@@ -116,9 +103,6 @@ import type { WishUsage } from '../data/wishlist.store';
       margin: 0;
       font-size: var(--font-size-sm);
     }
-    .ws__plan {
-      color: var(--color-text-muted);
-    }
     .ws__meter {
       height: 8px;
       overflow: hidden;
@@ -135,24 +119,10 @@ import type { WishUsage } from '../data/wishlist.store';
     .ws__fill--full {
       background: var(--color-warning);
     }
-    .ws__upgrade {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      color: var(--color-primary);
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-semibold);
-    }
-    .ws__upgrade mat-icon {
-      width: 18px;
-      height: 18px;
-      font-size: 18px;
-    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WishlistSummaryComponent {
-  private readonly flags = inject(FeatureFlagsService);
   readonly count = input(0);
   readonly usage = input<WishUsage | null>(null);
 
@@ -163,7 +133,6 @@ export class WishlistSummaryComponent {
     }
     return Math.min(100, Math.round((usage.used / usage.limit) * 100));
   });
-  /** At least 80 % of the plan's wishes are used. */
+  /** At least 80 % of the wishes that fit are used. */
   protected readonly full = computed(() => (this.percent() ?? 0) >= 80);
-  protected readonly premiumEnabled = this.flags.enabled(FEATURE.premiumPlans);
 }

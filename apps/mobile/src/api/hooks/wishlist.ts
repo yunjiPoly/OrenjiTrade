@@ -51,7 +51,7 @@ function useWishWrite<V>(write: (variables: V) => Promise<WishlistItemResponse>)
           : [saved, ...items];
       });
       // Usage of `wishlist.items.max`.
-      void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
+      void queryClient.invalidateQueries({ queryKey: meKeys.limits(uid) });
     },
   });
 }
@@ -85,7 +85,7 @@ export function useDeleteWish() {
       queryClient.setQueryData<WishlistItemResponse[]>(meKeys.wishlistItems(uid), (items) =>
         items?.filter((item) => item.id !== id)
       );
-      void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
+      void queryClient.invalidateQueries({ queryKey: meKeys.limits(uid) });
     },
   });
 }

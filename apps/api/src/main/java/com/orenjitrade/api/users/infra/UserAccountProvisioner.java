@@ -40,10 +40,10 @@ public class UserAccountProvisioner {
                 jdbc.sql(
                                 """
                                 INSERT INTO user_account (id, provider_uid, email, email_verified,
-                                    handle, display_name, status, plan_code, created_at, updated_at,
+                                    handle, display_name, status, created_at, updated_at,
                                     last_active_at)
                                 VALUES (:id, :providerUid, :email, :emailVerified, :handle,
-                                    :displayName, 'ACTIVE', 'FREE', :now, :now, :now)
+                                    :displayName, 'ACTIVE', :now, :now, :now)
                                 ON CONFLICT (provider_uid) DO NOTHING
                                 """)
                         .param("id", id)

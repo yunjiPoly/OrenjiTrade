@@ -21,7 +21,6 @@ public record AdminUserSummary(
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean emailVerified,
         @Schema(requiredMode = RequiredMode.REQUIRED) AccountStatus status,
         @Schema(requiredMode = RequiredMode.REQUIRED) Set<Role> roles,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "FREE") String plan,
         @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                 @Nullable String avatarUrl,
         @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant createdAt,

@@ -115,6 +115,8 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     expect(second).not.toHaveTextContent(/No price|Open to offers|Offers/);
     // Offers left the phone (ADR 0018): no "Make an offer" on any row.
     expect(screen.queryByRole('button', { name: /Make an offer/ })).toBeNull();
+    // No sponsored row among the holders (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     // The home region (ADR 0017): no position; the card id, the default sort and page.
     const query = api.callsTo('GET /api/v1/search/card-holders')[0]?.query;
     expect(Object.fromEntries(query ?? [])).toEqual({
@@ -337,7 +339,7 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     ).toBeOnTheScreen();
   });
 
-  it('shows an error with retry, and the plan limit', async () => {
+  it('shows an error with retry, and the usage limit', async () => {
     const api = mockApi(
       routes({
         'GET /api/v1/search/card-holders': [

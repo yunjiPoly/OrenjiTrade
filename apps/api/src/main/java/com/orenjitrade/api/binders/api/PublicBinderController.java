@@ -79,7 +79,7 @@ public class PublicBinderController {
                         + " their state/province and country while they are discoverable; never a"
                         + " city or coordinates. Signed-in callers other than the owner consume"
                         + " `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED"
-                        + " beyond the plan limit).")
+                        + " beyond the usage limit, the same for every collector).")
     @ApiResponse(responseCode = "200", description = "The binder")
     @ApiResponse(
             responseCode = "404",

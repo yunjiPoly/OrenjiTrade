@@ -30,7 +30,7 @@ import {
   openImportText,
   orderedPrintings,
   ownedText,
-  planRoomText,
+  limitRoomText,
   refusalBeforeUpload,
   resultLines,
   resultSentence,
@@ -786,25 +786,25 @@ describe('the commit button says what a press does', () => {
     });
   });
 
-  it('says before the commit when the plan has no room, and what to do when it was refused', () => {
+  it('says before the commit when the inventory limit has no room, and what to do when refused', () => {
     const adds = summaryOf({ toChoose: 0, items: 3, mergedItems: 1 });
-    expect(planRoomText(adds, null)).toBeNull();
-    expect(planRoomText(adds, 2)).toBeNull();
-    expect(planRoomText(adds, 1)).toBe(
-      'Your plan has room for 1 more card and this import adds 2 new cards: leave 1 out. Copies added to cards you already have always fit.'
+    expect(limitRoomText(adds, null)).toBeNull();
+    expect(limitRoomText(adds, 2)).toBeNull();
+    expect(limitRoomText(adds, 1)).toBe(
+      'Your inventory has room for 1 more card and this import adds 2 new cards: leave 1 out. Copies added to cards you already have always fit.'
     );
-    expect(planRoomText(adds, 0)).toBe(
-      'Your plan has no room for a new card and this import adds 2 new cards: leave 2 out. Copies added to cards you already have always fit.'
+    expect(limitRoomText(adds, 0)).toBe(
+      'Your inventory has no room for a new card and this import adds 2 new cards: leave 2 out. Copies added to cards you already have always fit.'
     );
     // Lines that still need a printing may become new cards too: said as "up to".
-    expect(planRoomText(summaryOf({ toChoose: 2, items: 1, mergedItems: 0 }), 2)).toBe(
-      'Your plan has room for 2 more cards and this import can add up to 3 new cards: leave out what does not fit before you add it. Copies added to cards you already have always fit.'
+    expect(limitRoomText(summaryOf({ toChoose: 2, items: 1, mergedItems: 0 }), 2)).toBe(
+      'Your inventory has room for 2 more cards and this import can add up to 3 new cards: leave out what does not fit before you add it. Copies added to cards you already have always fit.'
     );
     expect(limitRefusalText({ limit: 6, used: 5, requested: 2 })).toBe(
-      'This import adds 2 new cards and your plan has room for 1 (5 of 6 used). Leave 1 out and try again.'
+      'This import adds 2 new cards and your inventory has room for 1 (5 of 6 used). Leave 1 out and try again.'
     );
     expect(limitRefusalText({ limit: 6, used: 6, requested: 1 })).toBe(
-      'This import adds 1 new card and your plan has room for 0 (6 of 6 used). Leave 1 out and try again.'
+      'This import adds 1 new card and your inventory has room for 0 (6 of 6 used). Leave 1 out and try again.'
     );
     expect(limitRefusalText({ limit: null, used: 5, requested: 2 })).toBeNull();
   });

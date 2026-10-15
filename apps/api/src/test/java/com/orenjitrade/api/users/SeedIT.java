@@ -132,9 +132,10 @@ class SeedIT extends AbstractIntegrationTest {
     /**
      * Deals ship by mail (ADR 0018, spec 2026-10-14 section 11): what the seed writes for its
      * collectors (bios, binder descriptions, card notes, messages and inbox previews, community
-     * posts and replies, offers and their history, ratings, donations) never speaks of meeting, a
-     * game store, a café or the locals. Only the seed accounts' rows are read, since other test
-     * classes share this database; {@link SeedWordingTest} reads the seed's own sources.
+     * posts and replies, offers and their history, ratings) never speaks of meeting, a game store,
+     * a café or the locals. (The seeded donation left with its table, stage F1, ADR 0019.) Only the
+     * seed accounts' rows are read, since other test classes share this database; {@link
+     * SeedWordingTest} reads the seed's own sources.
      */
     @Test
     void seedsShippingWordingOnly() {
@@ -170,9 +171,6 @@ class SeedIT extends AbstractIntegrationTest {
                         + seed);
         texts.put(
                 "rating", "SELECT coalesce(comment, '') AS text FROM rating WHERE rater_id" + seed);
-        texts.put(
-                "donation",
-                "SELECT coalesce(message, '') AS text FROM donation WHERE user_id" + seed);
         List<String> found = new ArrayList<>();
         texts.forEach(
                 (what, sql) -> {

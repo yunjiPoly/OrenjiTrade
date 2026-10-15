@@ -52,8 +52,8 @@ export const meKeys = {
   binderItems: (uid: Uid, id: string, filters: object) =>
     [...ME_ROOT, uidKey(uid), 'binders', 'items', id, filters] as const,
   listingStatus: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'listing-status'] as const,
-  /** The caller's plan (`GET /me/plan`: limits such as `binders.max`). */
-  plan: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'plan'] as const,
+  /** The usage limits with the caller's usage (`GET /me/limits`: `binders.max`, ...). */
+  limits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'limits'] as const,
   /** Another collector as this viewer sees them: profile, binders, cards, ratings, references. */
   collector: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
@@ -120,22 +120,6 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
   /** The caller's collector reports (`GET /me/reports`). */
   reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
-  /** A local fake provider checkout (a subscription or a donation), the caller's own only. */
-  checkout: (uid: Uid, kind: 'billing' | 'donation', ref: string) =>
-    [...ME_ROOT, uidKey(uid), 'checkout', kind, ref] as const,
-  /** Credits (Phase 10): every read (prefix), the ledger pages, the referral code. */
-  credits: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits'] as const,
-  creditLedger: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits', 'ledger'] as const,
-  referral: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'credits', 'referral'] as const,
-  /** The caller's donations (`GET /me/donations`). */
-  donations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'donations'] as const,
-  /**
-   * Sponsored placements served to this viewer (targeting and the plan depend on who asks):
-   * every placement (prefix), one placement for a game and a plan.
-   */
-  ads: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'ads'] as const,
-  adSlot: (uid: Uid, placement: string, game: string | null, plan: string | null, region: string) =>
-    [...ME_ROOT, uidKey(uid), 'ads', placement, game ?? '', plan ?? '', region] as const,
 };
 
 export const publicKeys = {
@@ -143,15 +127,11 @@ export const publicKeys = {
   legalDocuments: ['public', 'legal-documents'] as const,
   games: ['public', 'games'] as const,
   tags: (query: string) => ['tags', query] as const,
-  /** The plans and their limits (`GET /plans`). */
-  plans: ['public', 'plans'] as const,
   /**
    * Public feature flags (`GET /public/feature-flags`: `publicChat`, `protectedPayments`, ...),
    * evaluated for the signed-in collector (partial rollouts), so keyed by who asks.
    */
   featureFlags: (uid: Uid) => ['public', 'feature-flags', uidKey(uid)] as const,
-  /** The public supporters wall (`GET /public/donations/supporters`). */
-  supporters: ['public', 'donations', 'supporters'] as const,
   /** Platform regions, countries and subdivisions (`GET /regions`, ADR 0017). */
   regions: ['public', 'regions'] as const,
   /** The bundled drawing of a region's borders (no request: a file of the app, ADR 0017). */

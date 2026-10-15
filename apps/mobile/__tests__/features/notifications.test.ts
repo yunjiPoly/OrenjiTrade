@@ -1,6 +1,7 @@
 import { bellLabel } from '@/src/features/notifications/NotificationBell';
 import {
   DEALS_IN_CHAT_NOTE,
+  FREE_FOR_ALL_NOTE,
   groupByDay,
   isUnread,
   mobileTarget,
@@ -22,7 +23,7 @@ describe('notification kinds', () => {
     });
     expect(notificationKind({ type: 'MESSAGE', data: {} }).label).toBe('Message');
     expect(notificationKind({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED' } }).label).toBe(
-      'Plan limit'
+      'Limit reached'
     );
     expect(notificationKind({ type: 'SYSTEM', data: { kind: 'LISTINGS_PAUSED' } }).tone).toBe(
       'warning'
@@ -60,17 +61,18 @@ describe('notification kinds', () => {
     expect(link('OFFER_ACCEPTED', { offerId: 'o1', tradeId: 't1' })).toBe('/trades/t1');
     expect(link('DISPUTE_UPDATE', { disputeId: 'd1' })).toBe('/disputes/d1');
     expect(link('REPORT_DECISION', {})).toBe('/settings/reports');
-    // The plan-limit notice leads to Premium only while the API offers it (`upgradeUrl` /
-    // `deepLink` in the payload); with the flag off it is only about held-back alerts.
+    // The daily limit notice is about held-back alerts; nothing to buy (stage F1): an old
+    // notice's `upgradeUrl` is ignored and an old `deepLink` to Premium says the app is free.
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED' })).toBe('/notifications');
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' })).toBe(
       '/wishlist'
     );
-    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: '/premium' })).toBe('/premium');
+    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: '/premium' })).toBe(
+      '/notifications'
+    );
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: 'https://evil.example' })).toBe(
       '/notifications'
     );
-    expect(link('SYSTEM', { kind: 'LIMIT_REACHED', deepLink: '/premium' })).toBe('/premium');
     expect(link('SYSTEM', { kind: 'MODERATION_WARNING' })).toBe('/legal/community-guidelines');
     expect(link('MESSAGE', { conversationId: '../../x' })).toBe('/messages');
     expect(link('MESSAGE', { deepLink: '/messages/c9', conversationId: 'c1' })).toBe(
@@ -142,14 +144,10 @@ describe('notification kinds', () => {
     ]) {
       expect(mobileTarget(gone)).toEqual({ kind: 'note', note: DEALS_IN_CHAT_NOTE });
     }
-    // Phase 10 screens (mobile stage M6).
-    expect(mobileTarget('/premium')).toEqual({ kind: 'route', href: '/premium' });
-    expect(mobileTarget('/premium?checkout=success')).toEqual({
-      kind: 'route',
-      href: '/premium?checkout=success',
-    });
-    expect(mobileTarget('/credits')).toEqual({ kind: 'route', href: '/credits' });
-    expect(mobileTarget('/support')).toEqual({ kind: 'route', href: '/support' });
+    // Premium, credits and "Support OrenjiTrade" left with stage F1 (ADR 0019): old links say why.
+    for (const path of ['/premium', '/premium?checkout=success', '/credits', '/support']) {
+      expect(mobileTarget(path)).toEqual({ kind: 'note', note: FREE_FOR_ALL_NOTE });
+    }
     expect(mobileTarget('/settings/blocked')).toEqual({
       kind: 'route',
       href: '/settings/blocked',

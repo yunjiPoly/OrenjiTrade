@@ -39,8 +39,7 @@ update it in the same change.
 | `dispute.description`, `dispute_evidence.body`, `dispute_message.body`, `shipment.notes`, `shipment.tracking_number` | Free text of the two parties | The two parties and admins only (`GET /disputes/{id}`, `GET /trades/{id}`, admin dispute views); never in notifications, events, analytics or the audit log |
 | `dispute_evidence.storage_key` (files under `disputes/<disputeId>/`) | Evidence photos (re-encoded JPEG, EXIF/GPS stripped) and PDF documents | Never public: `ObjectKeys.isPublic` refuses the `disputes` namespace and PDFs on `/public/media`; served only by `GET /disputes/{id}/evidence/{evidenceId}/file` to the parties and admins (`Cache-Control: private, no-store`) |
 | `dispute_note.body`, `payment_refund.reason` | Staff free text | Admin console only; the audit log records ids, outcomes and amounts, never the text |
-| `entitlement.note` | Admin free text | Admin console only; never returned to the account owner (`GET /me/plan` omits it) nor logged |
-| `usage_counter` | Per-user usage | Owner (`GET /me/plan`) and admins only; never in analytics with the user id |
+| `usage_counter` | Per-user usage | Owner (`GET /me/limits`) and admins only; never in analytics with the user id |
 | `inventory_item.notes` | Private owner notes | Owner only (`GET /inventory/**`, `GET /me/export`); never in public responses (`PublicInventoryItem` has no such field), domain events or logs |
 | `inventory_item_image` | Owner photos | Re-encoded JPEG, EXIF/GPS stripped before storage; public only while the item is effectively public; deleted with the item or the account |
 | `inventory_freshness_event` | Owner activity trail | Owner/admin views only; purged with the account |
@@ -57,14 +56,6 @@ update it in the same change.
 | `offer.message`, `offer_event.reason`, `trade.cancel_reason` (and the `reason` of `trade_event.details`) | Free text of the two parties | Returned to the two parties only (`GET /offers/{id}`, `GET /trades/{id}`); never in notifications, SYSTEM messages, events or analytics; erased when their author's account is purged (the rows stay for the other party) |
 | `offer.item_snapshot`, `offer_trade_item.item_snapshot`, `offer_event.snapshot` | Public form of negotiated cards and terms | Parties only; built from the public item fields (never `inventory_item.notes`, never a location) |
 | `offer`, `trade` (rows) | Who negotiates or trades with whom | The two parties only (404 for anybody else); analytics get kinds, statuses and HMAC hashes only (`offer_created`, `offer_status_changed`, `trade_status_changed`), never amounts, ids or text |
-| `subscription.provider_ref`, `subscription.checkout_ref`, `donation.provider_ref` | Provider references | Never returned to other members; a member's own fake checkout path carries its checkout reference; admin views show statuses and amounts, never subscription ids at the provider |
-| `billing_webhook_event.payload`, `donation_webhook_event.payload` | Provider events as received | Admin detail views only; never logged |
-| `credit_ledger_entry` (rows) | Credit history | Append-only (trigger refuses UPDATE, DELETE, TRUNCATE); owner and admins only; kept with the anonymised account after a purge |
-| `credit_ledger_entry.note` | Admin free text | Admin ledger view only; never returned to the owner (`GET /me/credits` and the export omit it) |
-| `advertiser.contact_email` | Business contact | Admin console only; never in ad responses |
-| `ad_impression.user_hash`, `ad_click.user_hash`, `ad_conversion.user_hash` | Pseudonymous viewer id | HMAC of the account id (analytics actor hash); never an account id, never returned by the API; ad targeting reads the platform region and the viewer's country and subdivision codes (through the location module), never a city |
-| `donation.message` | Donor free text | Admins and the donor's own export only; never public; erased on purge |
-| `donation.public_thanks` | Opt-in | Only opted-in, active donors' display names (and month) are listed publicly; never amounts |
 | `card_image.source_url` | Provider image URL | Server-side only (ADR 0015): never returned to members or visitors for `REHOST_REQUIRED` providers such as YGOPRODeck (clients get `/api/v1/public/card-images/{id}`) |
 | Search region (not stored) | Platform region code of a scoped request | Validated against `platform_region`; never authorization; analytics get the region and subdivision codes only |
 
@@ -106,18 +97,6 @@ erDiagram
   USER_ACCOUNT ||--o| USER_RESPONSIVENESS : strikes
   USER_ACCOUNT ||--o{ COLLECTOR_REPORT : files
   USER_ACCOUNT ||--o{ NOTIFICATION : receives
-  USER_ACCOUNT ||--o{ CREDIT_LEDGER_ENTRY : has
-  USER_ACCOUNT ||--o| REFERRAL_CODE : shares
-  USER_ACCOUNT ||--o{ SUBSCRIPTION : has
-  PLAN ||--o{ SUBSCRIPTION : grants
-  SUBSCRIPTION ||--o{ SUBSCRIPTION_EVENT : history
-  ADVERTISER ||--o{ AD_CAMPAIGN : runs
-  AD_CAMPAIGN ||--o{ AD_CREATIVE : has
-  AD_CAMPAIGN ||--o{ AD_TARGETING_RULE : targets
-  AD_PLACEMENT ||--o{ AD_CREATIVE : shows
-  AD_CREATIVE ||--o{ AD_IMPRESSION : served
-  USER_ACCOUNT ||--o{ DONATION : gives
-  PLAN ||--o{ PLAN_FEATURE : defines
   USER_ACCOUNT ||--o{ AUDIT_LOG : actor
 ```
 
@@ -135,7 +114,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V006 | `V006__settings.sql` | Phase 1-B: `notification_preferences` |
 | V007 | `V007__deletion.sql` | Phase 1-B: `account_deletion_request` |
 | V010 | `V010__feature_flags.sql` | Phase 2: `feature_flag` (+ 7 default flags) |
-| V011 | `V011__plans_limits.sql` | Phase 2 (Phase 10 foundation): `plan` (+ FREE, PREMIUM), `plan_feature`, `usage_limit` (+ contract limits), `usage_counter`, `entitlement`; `user_account.plan_code` → FK to `plan.code` |
+| V011 | `V011__plans_limits.sql` | Phase 2 (Phase 10 foundation): `plan` (+ FREE, PREMIUM), `plan_feature`, `usage_limit` (+ contract limits), `usage_counter`, `entitlement`; `user_account.plan_code` → FK to `plan.code` (plans, features, entitlements and `plan_code` dropped by V123; `usage_limit` and `usage_counter` stay) |
 | V012 | `V012__games.sql` | Phase 2: `game` (+ yugioh, pokemon, mtg, riftbound with their GameSchema) |
 | V013 | `V013__catalog.sql` | Phase 2: `card_set`, `card`, `card_printing`, `card_image`, `catalog_sync_run`; FTS + trigram + JSONB GIN indexes |
 | V020 | `V020__delist_policy.sql` | Phase 3: `delist_policy` (+ the single active default policy ACTIVE 0-14 / AGING 15-30 / STALE 31-45 / HIDDEN 46+ days, warn 5 days before hiding) |
@@ -155,10 +134,10 @@ Detailed column lists are appended per phase below as migrations land.
 | V071 | `V071__trades.sql` | Phase 8: `trade` (one per accepted offer), `trade_event` (timeline) |
 | V080 | `V080__payments.sql` | Phase 9: `platform_settings` (+ `payments.*`), `seller_account`, `payment`, `payment_event`, `payment_refund`, `payment_webhook_event` |
 | V081 | `V081__shipments_disputes.sql` | Phase 9: `shipment`, `dispute`, `dispute_evidence`, `dispute_event`, `dispute_message`, `dispute_note` |
-| V090 | `V090__subscriptions.sql` | Phase 10: `subscription` (one live per account), `subscription_event`, `billing_webhook_event` |
-| V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings |
-| V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` |
-| V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings |
+| V090 | `V090__subscriptions.sql` | Phase 10: `subscription` (one live per account), `subscription_event`, `billing_webhook_event` (dropped by V123) |
+| V091 | `V091__credits.sql` | Phase 10: append-only `credit_ledger_entry` (trigger), view `credit_balance`, `credit_product` (+ 3 products), `referral_code`, `referral_redemption`, `credits.*` settings (dropped by V122) |
+| V092 | `V092__advertising.sql` | Phase 10: `advertiser`, `ad_placement` (+ 5 placements), `ad_campaign`, `ad_creative`, `ad_targeting_rule`, `ad_impression`, `ad_click`, `ad_conversion`, `ad_campaign_daily` (dropped by V120) |
+| V093 | `V093__donations.sql` | Phase 10: `donation`, `donation_webhook_event`, `donations.*` settings (dropped by V121) |
 | V100 | `V100__card_image_cache.sql` | Card images (ADR 0015): `card_image` becomes one row per provider artwork (owner card/printing, provider id, server-side source URL, cache state), `card.image_id`, `card_image_cache_usage`, `card_image_cache_reservation`, `catalog_sync_run` image mode / provider version / phase / report |
 | V101 | `V101__yugioh_catalog_fields.sql` | Real Yu-Gi-Oh! catalog: the printing variant key includes the rarity (`uq_card_printing_variant` becomes a unique index); the yugioh GameSchema gains rank, link rating/arrows, pendulum scale, property, archetype, frame, the complete monster types and common rarities |
 | V102 | `V102__card_image_owner_compat.sql` | Backward compatibility: trigger `trg_card_image_fill_owner` derives `card_image.card_id` / `game_id` from `printing_id` when a writer that predates V100 omits them (older revisions during a rolling deploy, another checkout sharing the local database) |
@@ -177,6 +156,10 @@ Detailed column lists are appended per phase below as migrations land.
 | V115 | `V115__hide_local_meetups_tag.sql` | Stage R1 of the phone redesign (ADR 0018: deals happen in the chat, cards ship by mail): the curated `local-meetups` tag becomes `HIDDEN` (no longer offered, searched or shown; profiles keep the link until their owner next saves their tags; a tag an admin already hid or banned is left alone) |
 | V116 | `V116__region_channels_ship_by_mail.sql` | Stage R1: the descriptions of the REGION channels of V041 and V110 lose "trades, meetups, locals" for "trades and sales by mail", only where they still hold the migration's text (an admin's edit is kept) |
 | V117 | `V117__inventory_price_text_restore.sql` | Stage R2 of the phone redesign (inventory and adding cards): `inventory_item.asking_price_text` (≤ 40, trimmed, `ck_inventory_item_asking_price_text`; a plain amount also fills `asking_price`), `inventory_item.condition` nullable (`NULL` = not stated), `inventory_item.restorable_until` (an owner's delete can be undone until then; `ck_inventory_item_restorable_until`, partial index `ix_inventory_item_restorable`) |
+| V120 | `V120__remove_advertising.sql` | Stage F1 ("free for all", ADR 0019): the `ad_*` tables and `advertiser` dropped, the `advertising` flag deleted |
+| V121 | `V121__remove_donations.sql` | Stage F1: `donation` and `donation_webhook_event` dropped, `donations.*` settings and the `donations` flag deleted, incomplete outbox rows of `DonationWebhookReceived` completed |
+| V122 | `V122__remove_credits.sql` | Stage F1: `credit_ledger_entry` (with its append-only trigger function), view `credit_balance`, `credit_product`, `referral_code`, `referral_redemption` dropped; `credits.*` settings, the `credits` flag, the entitlements bought with credits and the `credits-reconcile` job runs deleted |
+| V123 | `V123__remove_premium_plans.sql` | Stage F1: `subscription`, `subscription_event`, `billing_webhook_event`, `entitlement`, `plan_feature` and `plan` dropped; `usage_limit` keeps one row per key (the FREE value, with any admin edit; `plan_id` and `uq_usage_limit_plan_key` dropped, `uq_usage_limit_key` added; `saved_searches.max`, a Premium perk of a feature never built, deleted with its counters); `user_account.plan_code` (and `fk_user_account_plan`) dropped; `PREMIUM_USER` rows deleted and `ck_user_role_role` without it; the `premiumPlans` flag deleted; old LIMIT_REACHED notices rewritten; admin broadcasts that linked to a removed page (Premium, credits, support, their checkouts) deleted, any other link to one dropped; incomplete outbox rows of `BillingWebhookReceived` / `SubscriptionChanged` completed; `subscriptions-period` job runs deleted |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -241,7 +224,7 @@ One row per identity-provider user, created on the first authenticated request
 | `status` | `text` | `ACTIVE` (default), `SUSPENDED`, `DELETION_REQUESTED`, `DELETED` |
 | `suspended_until` | `timestamptz` | null = indefinite; expired suspensions are lifted lazily on the next request |
 | `suspension_reason` | `text` | admin-provided |
-| `plan_code` | `text` | `FREE` (default) or `PREMIUM`; FK → `plan.code` since V011 (`fk_user_account_plan`, `ON UPDATE CASCADE`) |
+| `plan_code` | `text` | **dropped by V123** (stage F1: no plans). Was `FREE` (default) or `PREMIUM`, FK → `plan.code` since V011 |
 | `created_at`, `updated_at` | `timestamptz` | |
 | `last_active_at` | `timestamptz` | written at most once per 5 minutes per user (Redis `SET NX` throttle) |
 | `deleted_at` | `timestamptz` | set by the deletion job |
@@ -253,7 +236,7 @@ Indexes: `ix_user_account_email_lower`, `ix_user_account_status`, `ix_user_accou
 | Column | Type | Notes |
 | --- | --- | --- |
 | `user_id` | `uuid` | FK → `user_account.id` (cascade) |
-| `role` | `text` | `USER`, `PREMIUM_USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN`; PK `(user_id, role)` |
+| `role` | `text` | `USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN` (`ck_user_role_role`, V123; `PREMIUM_USER` existed until stage F1); PK `(user_id, role)` |
 | `granted_at` | `timestamptz` | |
 | `granted_by` | `uuid` | acting admin, null for provisioning/seed |
 
@@ -521,9 +504,17 @@ in `/admin > Feature flags` (`docs/deployment/runbooks.md`, "Launch configuratio
 `FeatureFlagSeedContributor` enables `protectedPayments`, `premiumPlans`, `credits`, `advertising`
 and `donations` (fake providers) unless an admin already edited them (`updated_by` set);
 `mlScanning` stays off everywhere. A disabled flag makes guarded routes answer
-`404 FEATURE_DISABLED` (extension `feature`).
+`404 FEATURE_DISABLED` (extension `feature`). **Stage F1 (2026-10-14, V120 to V123) deleted the
+`advertising`, `donations`, `credits` and `premiumPlans` rows** with their features: three flags
+remain (`mlScanning`, `protectedPayments`, `publicChat`), and the local/dev seed enables
+`protectedPayments` only.
 
 ### V011 — plans, plan features, usage limits, usage counters, entitlements (ADR 0014)
+
+> **Stage F1 (2026-10-14, ADR 0019):** V123 dropped `plan`, `plan_feature` and `entitlement` and
+> `usage_limit.plan_id`. What V011 created for the limits stays: `usage_limit` (one row per key,
+> the same for every collector, see below) and `usage_counter`. The plan tables are described
+> here as V011 created them, for the history and for bringing Premium back.
 
 Foundation of the Phase 10 contract "Plans and limits" (subscriptions come with Phase 10). Rules are
 cached in Redis (`orenji:cache:plans:v1`, per-user `orenji:cache:entitlements:v1:<userId>`, 60 s) and
@@ -563,8 +554,8 @@ Seeded: FREE `filters.advanced=false`, `ads.enabled=true`; PREMIUM `filters.adva
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `uuid` | PK (admin edits address limits by id) |
-| `plan_id` | `uuid` | FK → `plan.id` (cascade); `UNIQUE (plan_id, limit_key)` |
-| `limit_key` | `text` | dotted lower-case key |
+| `plan_id` | `uuid` | **dropped by V123**; was FK → `plan.id` (cascade) with `UNIQUE (plan_id, limit_key)` |
+| `limit_key` | `text` | dotted lower-case key; `UNIQUE` (`uq_usage_limit_key`, V123): one limit per key, the same for every collector |
 | `kind` | `text` | `COUNTER` (consumed per window) or `CAP` (bound of a requested value, e.g. radius) |
 | `limit_window` | `text` | `DAY`, `MONTH`, `TOTAL` (the contract's `window`; renamed because `WINDOW` is reserved in PostgreSQL). DAY/MONTH start at 00:00 UTC; caps always use `TOTAL` (`ck_usage_limit_cap_window`) |
 | `max_value` | `integer` | `NULL` = unlimited; ≥ 0 (0 blocks the action) |
@@ -580,6 +571,15 @@ new items the collector's import commits in progress have still to write) for ev
 `max_value` `NULL`: nothing limited the inventory before, and nothing does until an admin gives a
 plan a number through `/admin/usage-limits`. `POST /inventory/items` and the commit of an import
 check it (the import for all the items it would add, every chunk, before the first one).
+
+Since V123 (stage F1) the table holds one row per key with the FREE value of before (an admin edit
+of a FREE row is kept; a key only another plan defined would have become unlimited — none did):
+`binder.views.per_day` 30, `wishlist.alerts.per_day` 5, `wishlist.items.max` 20,
+`binders.max` 5, `offers.per_day` 20, `inventory.items.max` unlimited. `saved_searches.max` (0 /
+50) was deleted by V123 with its counters: it limited a feature that was never built and only
+existed as a Premium perk (as `map.radius.max_km` went with the map radius in V109).
+`Limits` (module `limits`) caches the rows in Redis (`orenji:cache:usage-limits:v1`, 60 s, evicted
+after every admin write); `GET /me/limits` returns them with the caller's usage.
 
 #### `usage_counter`
 
@@ -1362,8 +1362,9 @@ Wishlist rows never carry a location. Since stage S2 (V112) no match is stored: 
 listing appears (`InventoryItemPublished`), `WishlistAlerts` alerts the collectors **of the same
 platform region** (ADR 0017; the lister discoverable, the wisher with a location) whose wishes it
 fits, once per collector and item (`wishlist_alert_sent`). No distance is measured or stored.
-The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, FREE 5 / PREMIUM
-unlimited) is counted through the `Limits` service in `usage_counter` (window = UTC day, Redis
+The per-type daily notification limit (`usage_limit` `wishlist.alerts.per_day`, 5 for every
+collector since stage F1; FREE 5 / PREMIUM unlimited before) is counted through the `Limits` service
+in `usage_counter` (window = UTC day, Redis
 mirror); there is no separate notification rate-limit table.
 
 ### V050 / V112 — wishlist items and sent alerts
@@ -1429,7 +1430,7 @@ and the wishlist's deletion participant).
 | `type` | `text` | `WISHLIST_ALERT` (`WISHLIST_MATCH` until V112), `MESSAGE`, `OFFER_RECEIVED`, `OFFER_ACCEPTED`, `OFFER_COUNTERED`, `OFFER_DECLINED`, `BINDER_EXPIRING`, `BINDER_STALE_WARNING`, `BINDER_HIDDEN`, `RATING_RECEIVED`, `TRADE_UPDATE`, `SHIPMENT_STATUS`, `PAYMENT_UPDATE`, `REPORT_DECISION`, `SYSTEM` (pattern check; the enum lives in the API) |
 | `title` | `text` | 1-200 |
 | `body` | `text` | ≤ 1000; never message text, notes or coordinates |
-| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>`, `?rarity=<rarity>` or `?printing=any` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`, the upgrade URL); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
+| `data` | `jsonb` | object: ids of the objects concerned and `deepLink` (`/cards/<cardId>?printing=<id>`, `?rarity=<rarity>` or `?printing=any` of a wishlist alert, `/messages/<conversationId>`, `/inventory?binder=<id or unfiled>`; the upgrade URL of a limit notice until stage F1, ADR 0019); notifications about one card add `cardName`, `game` and `cardImageUrl` (ADR 0015: the `CardImageUrlResolver` URL as produced, an API-relative `/api/v1/public/card-images/<id>` or placeholder path, never a re-host-only provider URL; made absolute when listed); `ck_notification_data` (object). Only read per recipient (`data ->> 'conversationId'` for the MESSAGE throttle and read-with-conversation), so no GIN index |
 | `dedup_key` | `text` | `uq_notification_dedup_key`; e.g. `wishlist-alert:<userId>:<inventoryItemId>`, `message:<messageId>`, `binder-warning:<owner>:<binder or unfiled>:<epoch second>`, `binder-hidden:<owner>:<binder or unfiled>:<UTC day>`, `limit:<user>:<type>:<UTC day>` |
 | `in_app` | `boolean` | listed in the notification centre (in-app channel enabled for the category) |
 | `created_at` | `timestamptz` | microseconds (keyset cursor with `id`) |
@@ -1635,8 +1636,9 @@ module (their state or province and country, ADR 0017; never a city or a distanc
 `numeric(12,2)` + ISO currency. Every transition appends an event row (append-only) inside the same
 transaction as the state change; notifications, SYSTEM messages and analytics follow after commit
 from `OfferCreated` / `OfferUpdated` / `TradeUpdated` (Spring Modulith registry). Configurable
-numbers stay data (ADR 0014): the daily offer limit is `usage_limit` `offers.per_day` (FREE 20,
-PREMIUM 100, V011); `protectedPayments` is a `feature_flag` row.
+numbers stay data (ADR 0014): the daily offer limit is `usage_limit` `offers.per_day` (20 for
+every collector since stage F1; FREE 20 / PREMIUM 100 before, V011); `protectedPayments` is a
+`feature_flag` row.
 
 ### V070 — offers
 
@@ -1979,6 +1981,11 @@ accounts for collector1 and collector2, payment `9f00…0001` (trade `9d00…000
 
 ### Phase 10 — subscriptions, credits, advertising, donations (V090–V093)
 
+> **Removed by stage F1 (2026-10-14, ADR 0019): V120 (advertising), V121 (donations), V122
+> (credits) and V123 (subscriptions, plans) dropped every table of this section.** The sections
+> below describe them as they were, for the history and for bringing a feature back (the code is
+> on the branch `archive/paid-features`; a new migration would recreate the tables).
+
 Feature flags `premiumPlans`, `credits`, `advertising`, `donations` (ADR 0014). Every provider is a
 local fake by default (billing: `FakeBillingProvider`, Stripe Billing only by configuration;
 donations: `FakeDonationProvider`); the platform stores provider references only, never card data.
@@ -2241,3 +2248,42 @@ migration acting on data. Admin edits (`updated_by` set) are respected; the loca
 re-enables both so the fake checkout, credits and referral flows stay testable locally. Covered by
 `FeatureFlagsIT` (migration state) and `LaunchConfigurationIT` (everything else keeps working with
 every money flag off).
+
+**Stage F1 (2026-10-14, ADR 0019):** both rows are gone (V122 deletes `credits`, V123
+`premiumPlans`), with the `donations` (V121) and `advertising` (V120) flags. The local/dev seed now
+enables only `protectedPayments`; `LaunchConfigurationIT` checks that the removed flags no longer
+exist.
+
+### V120–V123 — free for all: Premium, ads, credits and donations removed (stage F1)
+
+Owner decision of 2026-10-14 (ADR 0019). Each migration drops its feature's tables without
+`CASCADE`, after its dependants, and deletes its flag; the code stays on the branch
+`archive/paid-features`, and bringing a feature back needs a **new** migration recreating what is
+dropped here (V011, V090–V093 are the original definitions).
+
+- **V120 — advertising:** drops `ad_conversion`, `ad_click`, `ad_impression`, `ad_campaign_daily`,
+  `ad_targeting_rule`, `ad_creative`, `ad_campaign`, `ad_placement`, `advertiser`; deletes the
+  `advertising` flag.
+- **V121 — donations:** drops `donation_webhook_event`, `donation`; deletes the `donations.*`
+  platform settings and the `donations` flag; completes the outbox rows of the removed
+  `DonationWebhookReceived` event.
+- **V122 — credits:** drops the `credit_balance` view, `credit_ledger_entry` and its append-only
+  trigger function, `referral_redemption`, `referral_code`, `credit_product`; deletes the
+  `credits.*` settings, the `credits` flag, the entitlements granted by credit purchases and the run
+  history of the removed `credits-reconcile` job.
+- **V123 — Premium:** drops `billing_webhook_event`, `subscription_event`, `subscription`,
+  `entitlement`, `plan_feature`, `user_account.plan_code` and `plan`; `usage_limit` keeps one row
+  per key (the FREE plan's value, with any admin edit; `plan_id` dropped, `UNIQUE (limit_key)`)
+  and loses `saved_searches.max` (a Premium perk of a feature never built) with its counters;
+  the `PREMIUM_USER` role leaves `user_role` (rows deleted, check constraint rebuilt as
+  `ck_user_role_role`); deletes the `premiumPlans` flag and the run history of
+  `subscriptions-period`.
+
+**Old data (V123):** the daily "limit reached" notices lose `planCode`, `upgradeUrl`, their link to
+`/premium` and the "Upgrade to Premium" sentence (rewritten as the API writes them now); admin
+broadcasts (`data.kind` `BROADCAST`) that linked to `/premium`, `/credits`, `/support` or their fake
+checkouts promoted those features and are deleted (no table references a notification); any other
+notification linking there keeps its text and loses the link (the API writes none); outbox rows of the removed billing events are completed. Audit rows of the old
+actions stay as history. Covered by `PaidFeaturesRemovalMigrationIT` (a scratch database migrated
+to V119, filled with plans, subscriptions, entitlements, credits, ads, donations, old notices,
+promotional broadcasts and outbox rows, then migrated to the latest version) and `FlywayMigrationIT`.

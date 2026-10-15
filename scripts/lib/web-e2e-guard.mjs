@@ -262,13 +262,10 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
     YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
-    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
     EVENTS_TRANSPORT: 'local',
     PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
     // Every worker of the suite calls from one address: on a fast machine the signed-out specs

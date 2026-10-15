@@ -144,6 +144,7 @@ describe('freemium limits', () => {
     });
 
   it('reads the LIMIT_REACHED extensions', () => {
+    // An old server may still send planCode: it is not read any more (stage F1).
     const error = limit({ limitKey: 'binders.max', limit: 5, used: 5, planCode: 'FREE' });
     expect(isLimitReached(error)).toBe(true);
     expect(isLimitReached(new Error('x'))).toBe(false);
@@ -152,7 +153,6 @@ describe('freemium limits', () => {
       limit: 5,
       used: 5,
       resetsAt: null,
-      planCode: 'FREE',
       requested: null,
     });
     // An import says how many new cards it asked room for: the notice can say what to leave out.
@@ -160,12 +160,9 @@ describe('freemium limits', () => {
       limitReachedInfo(limit({ limitKey: 'inventory.items.max', limit: 6, used: 5, requested: 2 }))
         .requested
     ).toBe(2);
-    // No Premium pitch unless premium plans are sold (launch configuration: every money flag off).
+    // The same limits for every collector: no plan, no Premium pitch.
     expect(limitReachedMessage(limitReachedInfo(error))).toBe(
-      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
-    );
-    expect(limitReachedMessage(limitReachedInfo(error), NOW, { premiumOffered: true })).toBe(
-      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need, or Premium raises the limit.'
+      'You have used 5 of 5 binders. Delete a binder you no longer need.'
     );
   });
 
@@ -182,10 +179,7 @@ describe('freemium limits', () => {
       'You have used 30 of 30 public binder views today. It resets in 12 hours.'
     );
     expect(limitReachedMessage(limitReachedInfo(limit({})), NOW)).toBe(
-      'You reached the uses of this feature your plan allows.'
-    );
-    expect(limitReachedMessage(limitReachedInfo(limit({})), NOW, { premiumOffered: true })).toBe(
-      'You reached the uses of this feature your plan allows. Premium raises the limit.'
+      'You reached the limit of uses of this feature.'
     );
   });
 });

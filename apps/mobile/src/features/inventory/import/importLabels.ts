@@ -908,12 +908,12 @@ export function defaultConditionsText(
 }
 
 /**
- * What the plan still has room for, said before the commit: `null` while the import fits (or the
- * plan has no limit). "Your plan has room for 1 more card and this import adds 2 new cards: leave
- * 1 out." Lines that still need a printing may become new cards too, so they count as "up to":
+ * What the inventory limit still has room for, said before the commit: `null` while the import
+ * fits (or the limit has no number). "Your inventory has room for 1 more card and this import adds
+ * 2 new cards: leave 1 out." Lines that still need a printing may become new cards too, so they count as "up to":
  * the collector learns it before choosing printings for a long file, not at the commit.
  */
-export function planRoomText(
+export function limitRoomText(
   summary: Pick<ImportSummary, 'items' | 'mergedItems' | 'toChoose'>,
   remaining: number | null | undefined
 ): string | null {
@@ -924,8 +924,8 @@ export function planRoomText(
   }
   const room =
     remaining === 0
-      ? 'Your plan has no room for a new card'
-      : `Your plan has room for ${plural(remaining, 'more card')}`;
+      ? 'Your inventory has no room for a new card'
+      : `Your inventory has room for ${plural(remaining, 'more card')}`;
   const fits = 'Copies added to cards you already have always fit.';
   if (summary.toChoose > 0) {
     return `${room} and this import can add up to ${plural(atMost, 'new card')}: leave out what does not fit before you add it. ${fits}`;
@@ -934,7 +934,7 @@ export function planRoomText(
 }
 
 /**
- * What a refused commit says about the plan limit, with the numbers to act on: how many new cards
+ * What a refused commit says about the inventory limit, with the numbers to act on: how many new cards
  * the import adds (`requested`), how many still fit, how many to leave out.
  */
 export function limitRefusalText(problem: {
@@ -948,7 +948,7 @@ export function limitRefusalText(problem: {
   }
   const room = Math.max(0, limit - used);
   const over = Math.max(1, requested - room);
-  return `This import adds ${plural(requested, 'new card')} and your plan has room for ${formatCount(room)} (${formatCount(used)} of ${formatCount(limit)} used). Leave ${formatCount(over)} out and try again.`;
+  return `This import adds ${plural(requested, 'new card')} and your inventory has room for ${formatCount(room)} (${formatCount(used)} of ${formatCount(limit)} used). Leave ${formatCount(over)} out and try again.`;
 }
 
 // --- The result --------------------------------------------------------------------------------

@@ -1,16 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { computed, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { PublicBindersService } from '@orenji/api-client';
 import { throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
-import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { PublicBinderPageComponent } from './public-binder-page.component';
 
-/** The API's answer once the plan's daily binder views are used up. */
+/** The API's answer once the daily binder views are used up (an old server may still send a plan). */
 function limitReached(): HttpErrorResponse {
   return new HttpErrorResponse({
     status: 429,
@@ -32,20 +31,11 @@ function limitReached(): HttpErrorResponse {
 describe('PublicBinderPageComponent (daily views limit)', () => {
   let fixture: ComponentFixture<PublicBinderPageComponent>;
   let element: HTMLElement;
-  const flagValues = signal<Record<string, boolean>>({});
-  const flags = {
-    enabled: (key: string) => computed(() => flagValues()[key] === true),
-  };
-
-  async function render(premiumPlans: boolean): Promise<void> {
-    flagValues.set({ premiumPlans });
+  async function render(): Promise<void> {
     TestBed.configureTestingModule({
       imports: [PublicBinderPageComponent],
       providers: [
-        provideRouter([
-          { path: 'premium', children: [] },
-          { path: 'map', children: [] },
-        ]),
+        provideRouter([{ path: 'map', children: [] }]),
         {
           provide: PublicBindersService,
           useValue: { getPublicBinder: () => throwError(() => limitReached()) },
@@ -56,7 +46,6 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
         },
         { provide: SessionService, useValue: { me: signal(null) } },
         { provide: ReportActionsService, useValue: {} },
-        { provide: FeatureFlagsService, useValue: flags },
       ],
     });
     fixture = TestBed.createComponent(PublicBinderPageComponent);
@@ -66,19 +55,15 @@ describe('PublicBinderPageComponent (daily views limit)', () => {
     fixture.detectChanges();
   }
 
-  it('offers the plans when the limit is hit and Premium is on', async () => {
-    await render(true);
+  it('explains the daily views plainly and leads back to the map, never to a plan', async () => {
+    await render();
     expect(element.textContent).toContain("You reached today's binder views");
-    const action = element.querySelector<HTMLAnchorElement>('a[href="/premium"]');
-    expect(action?.textContent).toContain('See plans');
-  });
-
-  it('leads back to the map, never to the plans, while the premiumPlans flag is off', async () => {
-    await render(false);
-    expect(element.textContent).toContain("You reached today's binder views");
+    expect(element.textContent).toContain(
+      'Every collector can open a set number of public binders',
+    );
     expect(element.querySelector('a[href="/premium"]')).toBeNull();
     const action = element.querySelector<HTMLAnchorElement>('a[href="/map"]');
     expect(action?.textContent).toContain('Back to the map');
-    expect(element.textContent).not.toContain('plans');
+    expect(element.textContent).not.toMatch(/plan|premium/i);
   });
 });

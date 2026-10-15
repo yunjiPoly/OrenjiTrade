@@ -53,8 +53,8 @@ cards (`items/new`: Add cards → search → printing → details), Edit card an
 "Undo" (`items/[id]`),
 and **binders** (`binders/new`, `binders/edit`, `binders/[id]`: create, rename, publish for 1 h /
 24 h / until disabled, make private, confirm, delete, add or remove cards; the public view of
-anyone's public binder). Freemium limits (`binders.max`, binder views per day) are explained where
-they happen.
+anyone's public binder). Usage limits (`binders.max`, binder views per day; the same for every
+collector since stage F1) are explained where they happen.
 
 Phase 4 (stage M3, reworked by stage S1 / ADR 0017 on 2026-10-08 and by stage M9 on 2026-10-12):
 there are no positions or distances any more. The app browses one **platform region**, chosen with
@@ -96,23 +96,15 @@ Profile tab's rows are gone, an old offer or trade notification opens nothing an
 link to `offers/…`, `trades/…` or `disputes/…` lands on Messages. Admin and moderator consoles
 stay on the web.
 
-Phases 9 and 10 (stage M6) are implemented on the same API and the same local **fake providers**
-as the web (no card, no money; each checkout is a screen of the app with a "Local test payment"
-banner). Stage M6 built payment protection, disputes and Settings → Payouts too; stage R1 deleted
-them with offers and trades (ADR 0018: payment stays outside the app, no protection is claimed).
-What stays: **Premium** (`premium`: plans, the live subscription, subscribe / continue /
-close / cancel through `checkout/fake-billing/[ref]`, usage and boosts; every reached plan limit
-offers "See Premium"), **Credits** (`credits`: balance, unlocks for a day with one idempotency key
-per dialog, referral code with "Share" and redemption, the append-only ledger), **Support
-OrenjiTrade** (`support`: voluntary donations through `checkout/fake-donation/[ref]`, supporters,
-own donations) and **"Sponsored" placements** (search results, the inventory and other collectors'
-profiles: the impression recorded once, a tap opens the API's click route in the browser; the Map
-tab and the binders of a place show none, unlike the web's map page and its `MAP_PANEL` slot: an
-open owner question since stage M9). Everything follows its feature flag (`protectedPayments`, `premiumPlans`, `credits`,
-`donations`, `advertising`), evaluated for the signed-in collector, like the web. The phone never
-says "payment protection" or "escrow". Selling Premium or donations in a store build raises the
-app-store in-app purchase rules: an open owner question recorded in ADR 0011 (no IAP and no real
-provider are added).
+Phases 9 and 10 (stage M6) were implemented on the same API and the same local **fake providers**
+as the web (no card, no money; each checkout was a screen of the app with a "Local test payment"
+banner). Stage M6 built payment protection, disputes and Settings → Payouts; stage R1 deleted them
+with offers and trades (ADR 0018: payment stays outside the app, no protection is claimed). Stage
+M6 also brought Premium, credits, "Support OrenjiTrade" donations and "Sponsored" placements;
+stage F1 removed them on 2026-10-14 (ADR 0019: the app is free for all, and the code is kept on the
+branch `archive/paid-features`). Since both, the phone has no checkout, sells nothing and takes no
+payment; a link to any of those screens lands on a screen that exists, with a note
+(`src/navigation/removedRoutes.ts`). The phone never says "payment protection" or "escrow".
 
 Stage M7 closes the gaps a comparison with the web app found, each on the web's endpoints:
 **Google sign-in and sign-up** ("Continue with Google" / "Sign up with Google": Firebase's pop-up
@@ -153,10 +145,9 @@ language; the UI around the texts stays English), the **safety tip** at the star
 (stage R1 replaced the dismissible "Trade safely" notice of M8: a shield and one line for the
 deal's side, buying, selling or a chat without a card, the last one until chats get a pinned card
 in R4; it opens the "Trading safely" page; Report and Block stay in the conversation menu),
-**Block / Unblock on
-the collector profile** next to Report, and the **money-off follow-ups** (neutral plan-limit
-wording and no "See Premium" unless `premiumPlans` is on; the plan-limit notification opens
-Premium only when the API's payload carries `upgradeUrl`). Nothing here claims legal compliance:
+**Block / Unblock on the collector profile** next to Report, and the **money-off follow-ups**
+(neutral limit wording; since stage F1 no limit message offers anything to buy and the limit
+notification never opens a removed screen). Nothing here claims legal compliance:
 the legal texts stay drafts (banner kept).
 
 Stage S5 (2026-10-13) adds the **inventory import** (`items/import`, "Import a deck" and "Import
@@ -270,13 +261,11 @@ app/                       expo-router routes
   ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),
                            reference (one per collector)
   settings/reports.tsx     My reports
-  checkout/                fake-billing/[ref] (Premium), fake-donation/[ref] (donation): the
-                           local fake provider checkouts
-  +not-found.tsx           unknown links; a link to a screen stage R1 removed (offers, trades,
-                           disputes, the payment checkout, offer and payout settings) lands on
-                           Messages or Settings with a note (src/navigation/removedRoutes.ts)
-  premium.tsx, credits.tsx, support.tsx   Premium (`?checkout=success`), Credits, Support
-                           (`?donation=thanks`)
+  +not-found.tsx           unknown links; a link to a screen that left the phone lands on a
+                           screen that exists with a note (src/navigation/removedRoutes.ts):
+                           offers, trades, disputes, the payment checkout, offer and payout
+                           settings (stage R1) on Messages or Settings; Premium, credits, support
+                           and their checkouts (stage F1) on the Profile tab
   cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
                            it, `?printing=any` any printing: neither picks one)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
@@ -301,9 +290,7 @@ src/
   features/safety/         the chat safety tip (ChatSafetyTip) and its wording per side
                            (chatSafetyTips: buying, selling, none; dealSideOf for stage R4)
   features/reports/, features/ratings/   their rules and routes
-  features/billing/        plans, subscription, usage, credits, donations, the fake provider
-                           checkout (useProviderCheckout, FakeProviderCheckout, checkoutTargets);
-                           features/ads/: SponsoredSlot (label, impression, click route)
+  features/limits/         LimitReachedNotice (the same limits for everyone, nothing to buy)
   realtime/                STOMP 1.2 codec + connection, RealtimeClient, RealtimeProvider
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
@@ -342,7 +329,8 @@ Conventions later stages reuse:
   `ChoiceChips` (a few values as radio chips) and `SelectSheet` (a field opening a bottom sheet of
   options) with inline errors and accessibility state; server field errors map through
   `src/api/errorMessages.ts`; `429 LIMIT_REACHED` is explained in place (`LimitReachedNotice`,
-  `src/lib/limits.ts`: what is counted, used / allowed on the plan, when it resets).
+  `src/lib/limits.ts`: what is counted, used / allowed, when it resets; the same limits for
+  everyone, nothing to buy).
 - **Inventory vocabulary** (`src/lib/inventory.ts`, the web's `inventory-labels`): the trade / sell
   intents are the API's `availability` (trade or sale, trade, sale, collection only, not available)
   plus the separate "accepts offers" flag; wanting a card is a wishlist entry. Visibility is
@@ -374,8 +362,8 @@ Conventions later stages reuse:
     pressed right after unticking a card would otherwise reach the API first, and the card shown
     as left out would be imported. The filter is pinned above the list (its text size capped like
     the commit bar) and brings the first line of its list up; the counts "need a printing" and
-    "not recognised" are buttons that set it. The plan limit is read from `GET /me/plan` and said
-    on top before any commit (`planRoomText`).
+    "not recognised" are buttons that set it. The limit is read from `GET /me/limits` and said
+    on top before any commit (`limitRoomText`).
     **The lines whose copy was assumed stay in reach** (review fix 2): "Use the most recent
     printing" says once, in a snackbar, how many lines got the plain copy. While
     `summary.assumedPrintings` is above zero a card above the lines counts them ("Plain copy
@@ -406,8 +394,8 @@ Conventions later stages reuse:
     "Leave out the N cards that still need a printing". When the answer is lost the import is read
     again: a commit that went through shows its result, one that did not can be pressed again, and
     the API adds nothing twice. A commit that was cut between two parts (`COMMITTING`) shows
-    "Finish the import". `LIMIT_REACHED` (`inventory.items.max`) shows the app's limit notice, with
-    "See Premium" only while premium plans are sold.
+    "Finish the import". `LIMIT_REACHED` (`inventory.items.max`) shows the app's limit notice (nothing
+    to buy).
   - **Leaving**: an open preview or a pasted text holds the screen (`useLeaveGuard`, React
     Navigation's `usePreventRemove`): the back button, the back gesture and Android's back key ask
     "Leave this import?" first. Leaving loses nothing of a preview: the start screen offers it
@@ -435,7 +423,7 @@ Conventions later stages reuse:
   the app (`__tests__/privacy/regionWording.test.ts`).
 - **The browsed region (stage M9)**: `src/features/regions/browsingRegion.ts` (`useBrowsingRegion`)
   is the one place that says which platform region the app browses, and every region-scoped call
-  sends it explicitly (`/search`, `/search/card-holders`, `/ads`, the two region-map endpoints);
+  sends it explicitly (`/search`, `/search/card-holders`, the two region-map endpoints);
   the server stays the judge of what a region holds. In this order: the region picked with the
   switcher or opened by a link in this session; the collector's home region (`homeRegion` of
   `GET /me`); the last region picked on this device (AsyncStorage key
@@ -523,18 +511,13 @@ Conventions later stages reuse:
   `settings/payouts`) lands on Messages or Settings with that note (`removedRouteTarget`,
   `src/navigation/removedRoutes.ts`, through the not-found screen); the notification settings no
   longer list the OFFER and TRADE categories (their stored values are sent back unchanged).
-- **Premium, credits, donations and ads** (`src/features/billing/`, `src/features/ads/`,
-  `src/api/hooks/billing.ts`, the web's `features/{premium,credits,support,checkout}` and
-  `shared/{billing,ads}`): the Premium and donation checkouts follow only the app's fake checkout
-  paths (`checkout/fake-billing/<ref>`, `checkout/fake-donation/<ref>`) or an https provider page
-  (`src/features/billing/checkoutTargets.ts`) and poll until the synthetic webhook lands
-  (`useProviderCheckout`, `FakeProviderCheckout`); a plan change (checkout, cancel) re-reads `/me`, the plan, the ads and
-  discovery; a credit spend keeps one idempotency key per dialog; donations validate the amount
-  (two decimals) and show the API's range on the field; a sponsored slot serves nothing while
-  `advertising` is off or for Premium (`[]`), always says "Sponsored", records one impression per
-  serve token once laid out and only opens the API's click route or an https page.
-  `LimitReachedNotice` and the other limit messages offer "See Premium" while premium plans are
-  sold.
+- **Usage limits** (`src/api/hooks/limits.ts` with `GET /me/limits`, `src/lib/limits.ts`,
+  `src/features/limits/LimitReachedNotice.tsx`): the same limits for every collector (stage F1,
+  ADR 0019); a reached limit says which one, how much is used and when it resets, never offers a
+  plan. Premium, credits, donations and sponsored placements are gone: an old notification to
+  `/premium`, `/credits` or `/support` says "OrenjiTrade is free for every collector now"
+  (`FREE_FOR_ALL_NOTE`, a `{ kind: 'note' }` target), and a link to one of them or to their
+  checkouts lands on the Profile tab with that note (`removedRouteTarget`, as above).
 - **Ratings and reports** (`src/features/collectors/ratingLabels.ts`, `src/features/ratings/`,
   `src/features/reports/`): the rate, reference and report screens take the collector (and the
   report's context or the rating to edit) in their route params (`ratingParams`,
@@ -544,9 +527,10 @@ Conventions later stages reuse:
 - **Notifications** (`src/features/notifications/notificationKinds.ts`, the web's
   `notification-kinds.ts`): an icon / tone / label per type, and the web path of a notification
   (`data.deepLink` when it is a safe same-app path, else rebuilt from its ids) mapped to an app
-  screen (`mobileTarget`: Premium, credits, support, My reports and `?tab=ratings` included), or a
-  note: for the settings that stay on the web, and, since stage R1, for offers, trades, disputes
-  and the offer and payout settings, which say that deals happen in the chat (ADR 0018).
+  screen (`mobileTarget`: My reports and `?tab=ratings` included), or a note: for the settings that
+  stay on the web; since stage R1, for offers, trades, disputes and the offer and payout settings,
+  which say that deals happen in the chat (ADR 0018); since stage F1, for the removed Premium,
+  credits and support pages, which say that the app is free (ADR 0019).
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
@@ -639,9 +623,9 @@ invitation for a collector without a location, a profile with the state and the 
 map and from the list, its binders with the owner and the state and never the owner's city, a
 binder opened, a state without a binder, only the drawing of the region on screen downloaded; the
 region switcher re-scopes search (the request names the region) and the map, says "Not your
-region" and goes home in one press, and the sponsored placement of the results is asked for the
-region on screen; a link opens the tab on a region and a state, and a new visit starts in the
-home region; the same link opened twice, a link to a region that does not exist and a code an
+region" and goes home in one press, and no sponsored placement is asked for any more (stage
+F1); a link opens the tab on a region and a state, and a new visit starts in the home region; the
+same link opened twice, a link to a region that does not exist and a code an
 older install kept on the device, which is neither browsed nor kept; the list back at its top
 when the Map tab is pressed again and when the region changes), `messages.spec.ts` (a second
 collector writes over the API: the inbox badge, the thread, live delivery, a reply, "Seen", a
@@ -659,12 +643,8 @@ and declined through the API leaves two "Offer (no longer available)" lines in t
 notification opens nothing and says that deals happen in the chat, an old `/offers/<id>` link lands
 on Messages with that note, and the app never calls the offer routes), `ratings.spec.ts` (stage
 R1: after three messages each, "Rate" from the conversation menu; Overall, Communication, Card
-condition and Shipping, no meetup reliability; the rating on the API without a meetup score), `billing.spec.ts` (`binders.max` -> "See
-Premium" -> the fake billing checkout declines then succeeds -> the sixth binder, no ads ->
-"Cancel now"; a referral code redeemed, unlimited binder views unlocked for a day with credits, both in the
-ledger; a voluntary donation through the fake donation checkout and the supporters; a FREE
-collector's "Sponsored" search result: one impression (204), the click route's 302 to the landing
-page), `google.spec.ts` (a Google sign-up through the emulator's simulated account: the fake OAuth
+condition and Shipping, no meetup reliability; the rating on the API without a meetup score),
+`google.spec.ts` (a Google sign-up through the emulator's simulated account: the fake OAuth
 credential checked, consent -> onboarding -> tabs, Google as the only sign-in method; the chooser
 dismissed; Google with the e-mail of a verified password account signs in to it and links Google,
 the password still works; an unverified one is taken over, Firebase's rule), `search-segments.spec.ts`
@@ -700,7 +680,7 @@ marking, the "Trading safely" page in both languages, deals by mail since stage 
 without a card, the "Trading safely" page from it, the composer never blocked, Report and Block
 from the conversation menu, the tip still there after a reload; Block / Unblock on the collector
 profile). `offers.spec.ts` and `payments.spec.ts` were deleted with offers and protected payments
-(stage R1). `auth.spec.ts` ticks the 18+ checkbox at sign-up and on
+(stage R1), `billing.spec.ts` with Premium, credits, donations and ads (stage F1). `auth.spec.ts` ticks the 18+ checkbox at sign-up and on
 the consent screen. The global setup records the `AGE_CONFIRMATION` consent for the seed
 collectors the specs sign in to (through the API, in the isolated database: the seed predates the
 rule), and `createOnboardedCollector` records it for every collector it creates unless
@@ -856,9 +836,10 @@ both in Montevideo): one wishlist alert on the bell, live, naming the state, whi
 `qualify`; "Rate" from the conversation menu, a form with Overall, Communication, Card condition
 and Shipping and no meetup reliability, the rating checked on the API without a meetup score),
 `report-collector.yaml` (report a collector from the profile, the confirmation, My reports,
-checked on the API through `scripts/reports.js`), `premium.yaml` (`scripts/billing.js`: the binder limit -> "See Premium" ->
-"Upgrade to Premium" -> the fake billing checkout declines, then succeeds -> the welcome and the
-plan checked on the API -> the sixth binder -> "Cancel now" -> FREE again), `google-sign-in.yaml`
+checked on the API through `scripts/reports.js`), `limit-reached.yaml` (stage F1: a collector with
+the five binders everyone may have (`scripts/limits.js`) gets "You have used 5 of 5 binders" with
+nothing to buy, the Profile tab has no Premium, credits or support row, an old link to the Premium
+screen lands on the Profile tab with the free-for-all note), `google-sign-in.yaml`
 (a fresh password collector continues with Google under the same e-mail through the emulator's
 simulated account: the chooser dismissed, then the sign-in lands on the tabs of that account and
 Settings -> Account names both methods), `collector-search-looking-for.yaml` (the Collectors
@@ -877,7 +858,7 @@ then in English, the choice kept across a relaunch), `safety-notice.yaml` (stage
 opens with the safety tip of a chat without a card, the tip opens the "Trading safely" page
 in-app, the composer keeps working, the tip is still there after a relaunch). The flows
 `offer-trade-rating.yaml` and `payment-protection.yaml` were deleted with offers and protected
-payments (stage R1). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `large-text.yaml`) first record the
+payments (stage R1), `premium.yaml` with Premium (stage F1). The seed flows (`sign-in.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `large-text.yaml`) first record the
 seed's 18+ confirmation on the host (`scripts/confirm-age.js`, idempotent) and every host script
 that creates a collector records it too (the sign-up flow ticks the checkbox itself). Flows scroll only with the scroll subflows (on Android an edge swipe: a slow swipe in the middle can start on a text
 field); option lists of the pickers scroll with `scrollUntilVisible`. A list with a bar that stays on screen under it
@@ -934,23 +915,24 @@ Writing a flow that passes on both:
 - Custom scheme: `orenjitrade://collectors/<handle>`, `orenjitrade://cards/<id>`,
   `orenjitrade://binders/<id>`, and every other app route (`orenjitrade://messages/<id>`,
   `orenjitrade://wishlist`, `orenjitrade://community/<slug>`, `orenjitrade://notifications`,
-  `orenjitrade://settings/reports`, `orenjitrade://premium`, `orenjitrade://credits`,
-  `orenjitrade://support`, `orenjitrade://holders?card=<id>` (or `?printing=<id>`),
+  `orenjitrade://settings/reports`, `orenjitrade://holders?card=<id>` (or `?printing=<id>`),
   `orenjitrade://sets/<id>`, `orenjitrade://settings/blocked`).
   Signed out, a link leads to sign-in and opens after signing in.
 - Links to the screens stage R1 removed (`orenjitrade://offers/<id>`, `trades/<id>`,
   `disputes/<id>`, `checkout/fake/<ref>`) land on Messages, and `settings/offers` and
-  `settings/payouts` on Settings, with a note that deals happen in the chat (ADR 0018); never on a
-  blank or not-found screen.
+  `settings/payouts` on Settings, with a note that deals happen in the chat (ADR 0018); links to
+  the screens stage F1 removed (`orenjitrade://premium`, `credits`, `support`,
+  `checkout/fake-billing/<ref>`, `checkout/fake-donation/<ref>`) land on the Profile tab with a
+  note that the app is free (ADR 0019); never on a blank or not-found screen.
 - Universal/App Links: `https://www.orenjitrade.com/(collectors|cards|binders)/<id>` via
   `ios.associatedDomains` and Android `intentFilters` (`autoVerify`) in `app.config.ts`.
 
 ## Not yet wired (tracked in `IMPLEMENTATION_STATUS.md`)
 
-- The admin / moderator consoles (web only, including dispute resolution, refunds, plans,
-  campaigns and donation refunds). Store builds: real payment providers and in-app purchase are
-  not wired (open owner question, ADR 0011); the fake providers are local only. Moderators remove
-  community posts on the web only; photos come from the library (no camera).
+- The admin / moderator consoles (web only, including dispute resolution, refunds and usage
+  limits). Store builds: real payment providers are not wired, and nothing is sold or paid in the
+  app since stages R1 and F1, so no in-app purchase is needed; the fake providers are local only.
+  Moderators remove community posts on the web only; photos come from the library (no camera).
 - Google sign-in on a device needs the OAuth client ids of the real Firebase project
   (`EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`, deferred with that project: `docs/deployment/DEFERRED.md`);
   locally it is proven only against the Auth emulator's simulated account, and a device build

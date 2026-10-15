@@ -102,7 +102,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Add an item
-     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit; none has a number today.
+     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
      * @endpoint post /api/v1/inventory/items
 * @param requestParameters
      */

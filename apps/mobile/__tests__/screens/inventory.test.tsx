@@ -104,6 +104,8 @@ describe('Inventory (screen 1)', () => {
     expect(screen.getByTestId('notification-bell-inventory')).toBeOnTheScreen();
     expect(screen.getByRole('tab', { name: 'Cards, 20' })).toBeSelected();
     expect(screen.getByRole('tab', { name: 'Binders, 1' })).toBeOnTheScreen();
+    // No sponsored row in the inventory (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
 
     fireEvent.press(screen.getByRole('button', { name: /^Emberfang Fox VMAX, SVX-001/ }));
     expect(mockRouter.push).toHaveBeenCalledWith({

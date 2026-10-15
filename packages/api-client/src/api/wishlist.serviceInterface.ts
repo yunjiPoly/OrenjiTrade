@@ -46,7 +46,7 @@ export interface WishlistServiceInterface {
 
     /**
      * Add a card to the wishlist
-     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
+     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (20 for everyone by default; an admin setting). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
      * @endpoint post /api/v1/wishlist
 * @param requestParameters
      */

@@ -1,6 +1,6 @@
 package com.orenjitrade.api.wishlist.infra;
 
-import com.orenjitrade.api.billing.domain.LimitUsageSource;
+import com.orenjitrade.api.limits.domain.LimitUsageSource;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import com.orenjitrade.api.wishlist.domain.WishlistService;

@@ -122,7 +122,7 @@ public class SeedWordingTest {
                         "CommunitySeedContributor.java",
                         "OfferSeedContributor.java",
                         "RatingSeedContributor.java",
-                        "DonationSeedContributor.java");
+                        "ProfileSeedContributor.java");
         for (Path file : contributors) {
             for (String text : literalTexts(Files.readString(file, StandardCharsets.UTF_8))) {
                 findings(text)

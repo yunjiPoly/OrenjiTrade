@@ -26,7 +26,7 @@ import type {
   MatchingItem,
   MessagePage,
   MessageResponse,
-  MyPlan,
+  MyLimits,
   Place,
   PublicBinderCursorPage,
   PublicBinderSummary,
@@ -163,7 +163,6 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
       ageConfirmed: true,
     },
     requiredConsents: [],
-    plan: 'FREE',
     ...overrides,
   };
 }
@@ -721,9 +720,9 @@ export function referencesPageFixture(overrides: Partial<ReferencePage> = {}): R
   };
 }
 
-export function planFixture(viewsPerDay: number | null = 25): MyPlan {
+/** `GET /me/limits`: the same limits for every collector (stage F1). */
+export function limitsFixture(viewsPerDay: number | null = 25): MyLimits {
   return {
-    plan: { code: 'FREE', name: 'Free' },
     limits: [
       {
         key: 'binder.views.per_day',
@@ -732,7 +731,6 @@ export function planFixture(viewsPerDay: number | null = 25): MyPlan {
         window: 'DAY',
         limit: viewsPerDay ?? undefined,
         used: 0,
-        planCode: 'FREE',
       },
     ],
   };

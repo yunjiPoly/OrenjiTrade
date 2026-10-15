@@ -62,7 +62,7 @@ export interface BinderFormProps {
 
 /**
  * Create or edit a binder (web: `app-binder-form-dialog`): name, kind, description. A reached
- * `binders.max` (429 LIMIT_REACHED) is explained in place with the plan's numbers.
+ * `binders.max` (429 LIMIT_REACHED) is explained in place with the limit's numbers.
  */
 export function BinderForm({ initial, editing, saving, onSave, onCancel }: BinderFormProps) {
   const { palette } = useTheme();
@@ -131,7 +131,7 @@ export function BinderForm({ initial, editing, saving, onSave, onCancel }: Binde
       {failure && isLimitReached(failure) ? (
         <LimitReachedNotice
           error={failure}
-          title="You reached the number of binders your plan allows"
+          title="You reached the number of binders you can have"
           testID="binder-limit"
         />
       ) : failure ? (

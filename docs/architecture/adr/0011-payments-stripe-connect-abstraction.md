@@ -67,5 +67,21 @@ Deals happen in the chat and payment stays outside the app ([ADR 0018](0018-deal
 The phone no longer offers payment protection, its checkout or payouts (stage R1 of the phone
 redesign deleted them), and never claims protection or escrow. Everything above stays in force
 for the paused web: `PaymentProvider`, the Stripe Connect adapter, the `protectedPayments` flag
-(off at launch) and the webhooks. The app-store question above now concerns Premium and donations
-only; their fake checkouts stay on the phone behind their flags.
+(off at launch) and the webhooks. The app-store question above then concerned Premium and
+donations only (their fake checkouts stayed on the phone behind their flags until stage F1: see
+the next amendment).
+
+## Amendment 2026-10-14 (stage F1): only protected payments remain
+
+[ADR 0019](0019-free-for-all-no-paid-features.md) removed Premium, credits and donations (and the
+ads) on the owner's decision of 2026-10-14: the `FakeBillingProvider`, `StripeBillingProvider`,
+`FakeDonationProvider`, their checkouts (`checkout/fake-billing/[ref]`,
+`checkout/fake-donation/[ref]`, `/checkout/fake-billing/:ref`, `/checkout/fake-donation/:ref`) and
+the reserved `POST /me/subscription/mobile-receipt` are gone. The decision above (payment
+protection through `PaymentProvider`, Stripe Connect, the fake provider, the `protectedPayments`
+flag) is unchanged for the API and the paused web. With the amendment above (no protected payments
+on the phone), the phone takes no payment of any kind and sells nothing, so the open question of
+the 2026-10-05 amendment has nothing to apply to today: its protected-payment row applies again
+only if payment protection comes back to the phone (physical goods between people, outside
+in-app purchase rules), and its Premium and donation rows and options 1 to 3 only if the owner
+brings a paid feature back (`archive/paid-features`).

@@ -110,7 +110,7 @@ export type RatingSummaryResponse = Schemas['RatingSummaryResponse'];
 export type CollectorRatingsPage = Schemas['CollectorRatingsPage'];
 export type ReferenceResponse = Schemas['ReferenceResponse'];
 export type ReferencePage = Schemas['CursorPageReferenceResponse'];
-export type MyPlan = Schemas['MyPlan'];
+export type MyLimits = Schemas['MyLimits'];
 export type LimitStatus = Schemas['LimitStatus'];
 export type UnifiedSearchResponse = Schemas['UnifiedSearchResponse'];
 export type CardHolderResult = Schemas['CardHolderResult'];
@@ -181,27 +181,5 @@ export type MyReport = Schemas['MyReport'];
 export type ReportStatus = MyReport['status'];
 
 // Offers, trades, protected payments and disputes (Phases 8 and 9) left the phone (ADR 0018): the
-// API keeps them for the paused web; old conversations still carry `OfferLink` payloads.
-
-// --- Premium, credits, ads and donations (Phase 10) ---------------------------------------------
-export type Plan = Schemas['Plan'];
-export type PlanLimit = Schemas['PlanLimit'];
-export type PlanFeature = Schemas['PlanFeature'];
-export type MySubscription = Schemas['MySubscription'];
-export type MyEntitlement = Schemas['MyEntitlement'];
-export type SubscriptionCheckout = Schemas['SubscriptionCheckout'];
-export type FakeBillingCheckout = Schemas['FakeBillingCheckout'];
-export type MyCredits = Schemas['MyCredits'];
-export type CreditEntry = Schemas['CreditEntry'];
-export type CreditProduct = Schemas['CreditProduct'];
-export type CreditSpend = Schemas['CreditSpend'];
-export type MyReferral = Schemas['MyReferral'];
-export type ReferralRedemption = Schemas['ReferralRedemption'];
-export type Ad = Schemas['Ad'];
-export type AdPlacement = NonNullable<Ad['placement']>;
-export type DonationCheckoutRequest = Schemas['DonationCheckoutRequest'];
-export type DonationCheckout = Schemas['DonationCheckout'];
-export type Donation = Schemas['Donation'];
-export type FakeDonationCheckout = Schemas['FakeDonationCheckout'];
-export type Supporters = Schemas['Supporters'];
-export type Supporter = Schemas['Supporter'];
+// API keeps them for the paused web; old conversations still carry `OfferLink` payloads. Premium,
+// credits, ads and donations (Phase 10) left the app and the API (ADR 0019).

@@ -60,9 +60,6 @@ public class UserAccount {
     @Column(name = "suspension_reason")
     private @Nullable String suspensionReason;
 
-    @Column(name = "plan_code", nullable = false)
-    private String planCode = PlanCode.FREE;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -242,15 +239,9 @@ public class UserAccount {
         this.status = AccountStatus.DELETED;
         this.suspendedUntil = null;
         this.suspensionReason = null;
-        this.planCode = PlanCode.FREE;
         this.lastActiveAt = null;
         this.deletedAt = now;
         roles.removeIf(userRole -> userRole.getRole() != Role.USER);
-        touch(now);
-    }
-
-    public void changePlan(String planCode, Instant now) {
-        this.planCode = planCode;
         touch(now);
     }
 
@@ -273,7 +264,6 @@ public class UserAccount {
                 status,
                 suspendedUntil,
                 suspensionReason,
-                planCode,
                 Collections.unmodifiableSet(roleSet()),
                 createdAt,
                 updatedAt,
@@ -318,10 +308,6 @@ public class UserAccount {
 
     public @Nullable String getSuspensionReason() {
         return suspensionReason;
-    }
-
-    public String getPlanCode() {
-        return planCode;
     }
 
     public Instant getCreatedAt() {

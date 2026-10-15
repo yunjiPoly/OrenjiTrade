@@ -106,16 +106,6 @@ export function RootNavigator() {
         <Stack.Screen name="ratings/rate" options={{ title: 'Rate' }} />
         <Stack.Screen name="ratings/reference" options={{ title: 'Write a reference' }} />
         <Stack.Screen name="settings/reports" options={{ title: 'My reports' }} />
-        {/* Premium, credits and donations (Phase 10; web: /premium, /credits, /support and the
-            fake billing / donation checkouts). */}
-        <Stack.Screen name="premium" options={{ title: 'Premium' }} />
-        <Stack.Screen name="checkout/fake-billing/[ref]" options={{ title: 'Premium checkout' }} />
-        <Stack.Screen name="credits" options={{ title: 'Credits' }} />
-        <Stack.Screen name="support" options={{ title: 'Support OrenjiTrade' }} />
-        <Stack.Screen
-          name="checkout/fake-donation/[ref]"
-          options={{ title: 'Donation checkout' }}
-        />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}

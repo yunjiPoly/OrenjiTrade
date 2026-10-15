@@ -197,8 +197,9 @@ public class InventoryController {
                             + " amount. Visibility defaults to PUBLIC inside a binder (the binder"
                             + " decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC"
                             + " needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED"
-                            + " (limitKey `inventory.items.max`) beyond the inventory size limit;"
-                            + " none has a number today.")
+                            + " (limitKey `inventory.items.max`) beyond the inventory size limit,"
+                            + " the same for every collector; unlimited until an admin gives it a"
+                            + " number.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "429",
