@@ -18,8 +18,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * A small fictional catalog in memory for the scan rules: fictional twins of the mockup's samples
  * (Yew Flowers & Velvet Breeze, Fable Tide - Lyra, Inkshade Interference in several rarities), an
- * old ZOB-era card, a French printing, look-alike traps and a card of another game. Counts the
- * lookups, so the tests see that a match costs a few grouped queries, never one per variant.
+ * old ZOB-era card, a French printing, look-alike traps, fictional cards in the shapes of the
+ * real-card gate's reads and a card of another game. Counts the lookups, so the tests see that a
+ * match costs a few grouped queries, never one per variant.
  */
 final class InMemoryScanCatalog implements ScanCatalogLookup {
 
@@ -46,6 +47,12 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
     final Card gateWarden = card("Twin Gate Warden");
     final Card tinHerald = card("Zither Tin Herald");
     final Card tinPage = card("Zither Tin Page");
+    // The shapes of the real-card gate's reads (2026-10-15), on fictional cards and sets.
+    final Card brinemoss = card("Brinemoss Warden");
+    final Card coralWisp = card("Coral Lantern Wisp");
+    final Card coilglass = card("Coilglass Shrine");
+    final Card gleamscale = card("Gleamscale Drake");
+    final Card reefGolem = card("Twofold Reef Golem");
     final Card otherGame = card("pokemon", "Yew Flowers Fox");
 
     static final String[] ZA01_RARITIES = {
@@ -129,6 +136,20 @@ final class InMemoryScanCatalog implements ScanCatalogLookup {
         // German ZT1-DE001 with its D read as 0: the catalog knows both sets.
         printing(tinHerald, "ZT10", "Fictional Tins Ten", za01, "ZT10-EN001", "Common", "en");
         printing(tinPage, "ZT1", "Fictional Tins", zob, "ZT1-EN001", "Common", "en");
+        // A code with a character lost (ZBM1-EN13): Brinemoss Warden's ZBM1-EN137; the code
+        // ZBM1-EN139 one character from it is Coral Lantern Wisp's.
+        printing(brinemoss, "ZBM1", "Fictional Moss", za01, "ZBM1-EN137", "Ultra Rare", "en");
+        printing(brinemoss, "ZBM1", "Fictional Moss", za01, "ZBM1-EN098", "Common", "en");
+        printing(coralWisp, "ZBM1", "Fictional Moss", za01, "ZBM1-EN139", "Common", "en");
+        // Its first letter lost (AGV-EN056).
+        printing(coilglass, "ZAGV", "Fictional Glass", za01, "ZAGV-EN056", "Super Rare", "en");
+        printing(coilglass, "ZDOC", "Fictional Glass Two", zob, "ZDOC-EN010", "Common", "en");
+        // A look-alike and a misread digit (ZRAO-ENO1S for ZRA0-EN013).
+        printing(gleamscale, "ZRA0", "Fictional Scales", za01, "ZRA0-EN013", "Secret Rare", "en");
+        printing(gleamscale, "ZQ11", "Fictional Quills Two", zob, "ZQ11-EN044", "Common", "en");
+        // Two printings one character from ZRG1-EN02.
+        printing(reefGolem, "ZRG1", "Fictional Reefs", za01, "ZRG1-EN021", "Common", "en");
+        printing(reefGolem, "ZRG1", "Fictional Reefs", za01, "ZRG1-EN027", "Common", "en");
         printing(otherGame, "ZACR", "Fictional Pokemon Set", zacr, "ZACR-EN036", "Rare", "en");
         printing(otherGame, "ZV1", "Fictional Pokemon Sentries", za01, "ZV1-EN001", "Rare", "en");
     }

@@ -301,6 +301,57 @@ class TextCardMatcherTest {
     }
 
     @Test
+    void whenTheNameWinsWithoutACatalogCodeReadItTakesItsOnlyPrintingOneCharacterAway() {
+        // The real-card gate (2026-10-15): codes read with their last digit lost, their first
+        // letter lost, or a look-alike and a misread digit, the card's name read clearly. Before,
+        // its printing was to pick.
+        catalog.calls.clear();
+        ScanMatch lost = match(List.of("ZBM1-EN13"), List.of("Brinemoss Warden"));
+        assertThat(lost.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(lost.card().id()).isEqualTo(catalog.brinemoss.id());
+        assertThat(lost.printing().printingCode()).isEqualTo("ZBM1-EN137");
+        // No lookup more than any read costs.
+        assertThat(catalog.calls)
+                .containsEntry("printingsByCodes", 1)
+                .containsEntry("cardsByNames", 1)
+                .containsEntry("printingsOfCards", 1)
+                .containsEntry("cards", 1)
+                .hasSize(4);
+
+        ScanMatch first = match(List.of("AGV-EN056"), List.of("Coilglass Shrine"));
+        assertThat(first.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(first.printing().printingCode()).isEqualTo("ZAGV-EN056");
+
+        // ZRAO-ENO1S: its look-alike ZRA0-EN015 is one character from ZRA0-EN013.
+        ScanMatch misread = match(List.of("ZRAO-ENO1S"), List.of("Gleamscale Drake"));
+        assertThat(misread.status()).isEqualTo(ScanStatus.FOUND);
+        assertThat(misread.printing().printingCode()).isEqualTo("ZRA0-EN013");
+
+        // Two printings one character away: the printing is to pick.
+        ScanMatch two = match(List.of("ZRG1-EN02"), List.of("Twofold Reef Golem"));
+        assertThat(two.status()).isEqualTo(ScanStatus.PICK_PRINTING);
+        assertThat(two.card().id()).isEqualTo(catalog.reefGolem.id());
+
+        // Two characters away, or a code the catalog does not know far from every printing.
+        assertThat(match(List.of("ZBM-EN13"), List.of("Brinemoss Warden")).status())
+                .isEqualTo(ScanStatus.PICK_PRINTING);
+        assertThat(match(List.of("ZZZZ-EN999"), List.of("Brinemoss Warden")).status())
+                .isEqualTo(ScanStatus.PICK_PRINTING);
+        // Never when a code read is another card's printing as read: Coral Lantern Wisp's
+        // ZBM1-EN139 is one character from Brinemoss Warden's ZBM1-EN137.
+        ScanMatch other = match(List.of("ZBM1-EN139"), List.of("Brinemoss Warden"));
+        assertThat(other.status()).isNotEqualTo(ScanStatus.FOUND);
+        assertThat(other.printing()).isNull();
+
+        assertThat(ScanRules.oneEditApart("ZBM1-EN137", "ZBM1-EN13")).isTrue();
+        assertThat(ScanRules.oneEditApart("AGV-EN056", "ZAGV-EN056")).isTrue();
+        assertThat(ScanRules.oneEditApart("ZRA0-EN013", "ZRA0-EN015")).isTrue();
+        assertThat(ScanRules.oneEditApart("ZRA0-EN013", "ZRA0-EN013")).isFalse();
+        assertThat(ScanRules.oneEditApart("ZBM1-EN137", "ZBM-EN13")).isFalse();
+        assertThat(ScanRules.oneEditApart("ZBM1-EN137", "ZBM1-EN173")).isFalse();
+    }
+
+    @Test
     void aNameCloseToNoCardCountsAsNoName() {
         ScanMatch match = match(List.of("ZACR-EN038"), List.of("xqzv wvvt"));
         assertThat(match.status()).isEqualTo(ScanStatus.FOUND);

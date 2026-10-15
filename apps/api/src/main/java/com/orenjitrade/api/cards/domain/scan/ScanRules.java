@@ -27,9 +27,10 @@ import org.jspecify.annotations.Nullable;
  *   <li>Deciding: the code's card when it has the read name or no usable name was read (with no
  *       name, a look-alike variant counts only when it is the only one the catalog has); the name
  *       wins when it clearly points to another card, which then takes its printing one look-alike
- *       character from the read code when exactly one is, and otherwise has an unknown printing
- *       (PICK_PRINTING, even with a single printing); several candidates and nothing to choose: not
- *       found.
+ *       character from the read code when exactly one is; when no code read is a catalog code as
+ *       read, its only printing one character lost, added or misread from a code read or its
+ *       look-alikes; and otherwise has an unknown printing (PICK_PRINTING, even with a single
+ *       printing). Several candidates and nothing to choose: not found.
  *   <li>English cards only: a code with another language's region, as printed or read with
  *       look-alike characters ({@code MACR-0E036}), is NOT_FOUND whatever the name says, and
  *       printings of another language are never matched, not even as look-alikes. A read without
@@ -530,7 +531,9 @@ public final class ScanRules {
 
         /**
          * The name wins: its card, with its printing whose code is the one read or one look-alike
-         * character from it when exactly one is; otherwise its printing is unknown (PICK_PRINTING,
+         * character from it when exactly one is; when no code read is a catalog code as read, its
+         * only printing one character lost, added or misread from a code read or one of its strict
+         * look-alikes ({@link #oneEditApart}). Otherwise its printing is unknown (PICK_PRINTING,
          * even for a card with a single printing: the code read is not that printing's, so it may
          * be another card's, another language's or a printing the catalog lacks). With no code
          * read, the card alone decides ({@link #withoutCode}).
@@ -558,6 +561,26 @@ public final class ScanRules {
                                 .toList();
                 if (near.size() == 1) {
                     return withCode(card, near.get(0));
+                }
+                if (near.isEmpty() && exact.isEmpty()) {
+                    // No code read is a catalog code as read: one character lost, added or misread.
+                    Set<String> variants = new LinkedHashSet<>(forms);
+                    evidence.codes()
+                            .forEach(
+                                    read -> read.lookAlikes().forEach(v -> variants.add(v.code())));
+                    List<String> edited =
+                            codesOfCard.stream()
+                                    .filter(
+                                            code ->
+                                                    variants.stream()
+                                                            .anyMatch(
+                                                                    variant ->
+                                                                            oneEditApart(
+                                                                                    code, variant)))
+                                    .toList();
+                    if (edited.size() == 1) {
+                        return withCode(card, edited.get(0));
+                    }
                 }
             }
             return new Outcome(ScanStatus.PICK_PRINTING, null, card, null, null, List.of());
@@ -696,6 +719,25 @@ public final class ScanRules {
                     .map(Hit::code)
                     .orElseThrow();
         }
+    }
+
+    /**
+     * Whether two codes are one character apart: the same length and one character different, or
+     * one character more or less.
+     */
+    static boolean oneEditApart(String a, String b) {
+        if (a.equals(b) || Math.abs(a.length() - b.length()) > 1) {
+            return false;
+        }
+        String longer = a.length() >= b.length() ? a : b;
+        String shorter = a.length() >= b.length() ? b : a;
+        int same = 0;
+        while (same < shorter.length() && longer.charAt(same) == shorter.charAt(same)) {
+            same++;
+        }
+        return longer.length() == shorter.length()
+                ? longer.substring(same + 1).equals(shorter.substring(same + 1))
+                : longer.substring(same + 1).equals(shorter.substring(same));
     }
 
     /** A decision before its other matches. */
