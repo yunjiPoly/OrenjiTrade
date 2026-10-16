@@ -16,6 +16,7 @@ import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.profiles.domain.TagService;
 import com.orenjitrade.api.profiles.domain.TagView;
@@ -410,6 +411,55 @@ public class SearchService {
         return publicBinderService.publicBinders(
                 viewerId,
                 regionBinders.deckCoresWithCard(cardId, region.code(), viewerId, size, now));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // GET /search/collectors
+    // ---------------------------------------------------------------------------------------
+
+    /** The most collectors {@code GET /search/collectors} lists. */
+    public static final int COLLECTORS_BY_NAME_MAX = 10;
+
+    /**
+     * A collector found by name while a card is typed.
+     *
+     * @param id account id
+     * @param handle handle
+     * @param displayName display name
+     * @param avatarUrl public avatar URL, when any
+     * @param place state/province and country (never a city)
+     */
+    public record CollectorByName(
+            UUID id,
+            String handle,
+            String displayName,
+            @Nullable String avatarUrl,
+            PublicPlace place) {}
+
+    /**
+     * {@code GET /search/collectors}: the "Collectors" section under the cards while a card is
+     * typed on the phone (stage R5): discoverable collectors of the region who allow name search,
+     * whose handle or display name contains the text, at most {@code limit}; never the caller nor a
+     * collector blocked with them (in SQL, before the limit). No analytics event: the text a
+     * collector types never leaves for analytics.
+     */
+    @Transactional(readOnly = true)
+    public List<CollectorByName> collectorsByName(
+            @Nullable UUID viewerId, String q, @Nullable String regionCode, int limit) {
+        RegionView region = discovery.scope(viewerId, regionCode);
+        int size = Math.max(1, Math.min(limit, COLLECTORS_BY_NAME_MAX));
+        return collectors.byName(q, region.code(), viewerId, size, timeProvider.now()).stream()
+                .map(
+                        hit ->
+                                new CollectorByName(
+                                        hit.id(),
+                                        hit.handle(),
+                                        hit.displayName(),
+                                        hit.avatarKey() == null
+                                                ? null
+                                                : storage.publicUrl(hit.avatarKey()),
+                                        hit.place()))
+                .toList();
     }
 
     // ---------------------------------------------------------------------------------------

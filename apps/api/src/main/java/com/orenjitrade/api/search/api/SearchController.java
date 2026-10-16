@@ -8,6 +8,7 @@ import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.search.api.SearchResponses.CardHolderResultResponse;
+import com.orenjitrade.api.search.api.SearchResponses.CollectorByNameResponse;
 import com.orenjitrade.api.search.api.SearchResponses.SuggestionResponse;
 import com.orenjitrade.api.search.api.SearchResponses.UnifiedSearchResponse;
 import com.orenjitrade.api.search.domain.DiscoveryResults.CardHolder;
@@ -155,8 +156,11 @@ public class SearchController {
                         + " The caller's own items are excluded. Filters: `availability`,"
                         + " `condition`, `minPrice`/`maxPrice` (items without a price never match),"
                         + " `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness"
-                        + " (default, newest listing first) or price. Each row pairs the holder"
-                        + " (state/province + country, never a distance) with the public item.")
+                        + " (default, newest listing first), price, or province (grouped by state"
+                        + " or province for \"Who has this card\": the caller's own first, then the"
+                        + " other ones of their country, then the rest of the region). Each row"
+                        + " pairs the holder (state/province + country, never a distance) with the"
+                        + " public item.")
     @ApiResponse(responseCode = "200", description = "One page of holders")
     @ApiResponse(
             responseCode = "400",
@@ -198,10 +202,15 @@ public class SearchController {
                     @Nullable String language,
             @RequestParam(required = false) @Nullable Boolean acceptsOffers,
             @Parameter(
-                            description = "freshness (newest listing first) or price",
+                            description =
+                                    "freshness (newest listing first), price, or province (the"
+                                        + " caller's own state or province first, then the other"
+                                        + " ones of their country, then the rest of the region by"
+                                        + " country and province name; newest listing first in"
+                                        + " each)",
                             schema =
                                     @Schema(
-                                            allowableValues = {"freshness", "price"},
+                                            allowableValues = {"freshness", "price", "province"},
                                             defaultValue = "freshness"))
                     @RequestParam(defaultValue = "freshness")
                     String sort,
@@ -222,7 +231,8 @@ public class SearchController {
                                                 List.of(
                                                         new ProblemFieldError(
                                                                 "sort",
-                                                                "must be freshness or price"))));
+                                                                "must be freshness, price or"
+                                                                        + " province"))));
         PageResponse<CardHolder> holders =
                 searchService.cardHolders(
                         viewer(principal),
@@ -292,6 +302,47 @@ public class SearchController {
         Instant now = timeProvider.now();
         return searchService.deckCoresWithCard(viewer(principal), cardId, region, limit).stream()
                 .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                .toList();
+    }
+
+    @GetMapping(path = "/api/v1/search/collectors", produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirements
+    @Operation(
+            operationId = "searchCollectorsByName",
+            summary = "Collectors of a region by handle or name (auth optional)",
+            description =
+                    "The \"Collectors\" section of the phone's card search (stage R5): discoverable"
+                        + " collectors of `region` (default: the caller's home region, else"
+                        + " americas-north) who allow name search and whose handle (a leading @ is"
+                        + " ignored) or display name contains `q` (accent- and case-insensitive), a"
+                        + " handle that starts with it first, at most `limit`. Never the caller,"
+                        + " never a collector blocked with them in either direction (left out"
+                        + " before the limit). Each carries their state/province and country, never"
+                        + " a city. Emits no analytics event.")
+    @ApiResponse(responseCode = "200", description = "Collectors")
+    @ApiResponse(
+            responseCode = "400",
+            description = "Invalid query, limit or region",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public List<CollectorByNameResponse> collectorsByName(
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
+            @Parameter(description = "Typed text") @RequestParam @NotBlank @Size(max = 100)
+                    String q,
+            @Parameter(
+                            description =
+                                    "Platform region code (GET /regions); default: the caller's"
+                                            + " home region, else americas-north. Scopes results"
+                                            + " only, never grants access")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String region,
+            @RequestParam(defaultValue = "3") @Min(1) @Max(SearchService.COLLECTORS_BY_NAME_MAX)
+                    int limit) {
+        return searchService.collectorsByName(viewer(principal), q, region, limit).stream()
+                .map(CollectorByNameResponse::from)
                 .toList();
     }
 

@@ -7,18 +7,22 @@ import com.orenjitrade.api.wishlist.api.WishlistRequests.UpdateWishlistItemReque
 import com.orenjitrade.api.wishlist.api.WishlistResponses.PriceTermsResponse;
 import com.orenjitrade.api.wishlist.api.WishlistResponses.WishlistItemResponse;
 import com.orenjitrade.api.wishlist.domain.WishlistChanges.WishlistPatch;
+import com.orenjitrade.api.wishlist.domain.WishlistItemView;
 import com.orenjitrade.api.wishlist.domain.WishlistService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +35,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
@@ -58,12 +63,49 @@ public class WishlistController {
     }
 
     @GetMapping
-    @Operation(operationId = "listWishlist", summary = "The caller's wishlist items (newest first)")
+    @Operation(
+            operationId = "listWishlist",
+            summary = "The caller's wishlist items (newest first)",
+            description =
+                    "Each item says whether it is `available` in `region` (stage R5): at least one"
+                        + " public, fresh (ACTIVE or AGING) copy that fits the wish (its printing,"
+                        + " or any printing of its card in its rarity; Near Mint or a condition not"
+                        + " stated when the wish asks for Near Mint only, as for the wishlist"
+                        + " alert), a card listed on its own or in a public deck core, held by a"
+                        + " discoverable collector of the region who is not the caller and with no"
+                        + " block either way. One grouped query for the whole list. No count.")
     @ApiResponse(responseCode = "200", description = "Every item of the caller")
-    public List<WishlistItemResponse> list(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return wishlistService.list(principal.userId()).stream()
-                .map(WishlistItemResponse::from)
+    @ApiResponse(
+            responseCode = "400",
+            description = "VALIDATION_FAILED: unknown region",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public List<WishlistItemResponse> list(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @Parameter(
+                            description =
+                                    "Platform region of `available` (GET /regions); default: the"
+                                            + " caller's home region, else americas-north")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String region) {
+        WishlistService.Listing listing =
+                wishlistService.listWithAvailability(principal.userId(), region);
+        return listing.items().stream()
+                .map(
+                        view ->
+                                WishlistItemResponse.from(
+                                        view, listing.available().contains(view.row().id())))
                 .toList();
+    }
+
+    /** A written item with its availability in the caller's home region. */
+    private WishlistItemResponse written(UUID ownerId, WishlistItemView view) {
+        return WishlistItemResponse.from(
+                view,
+                wishlistService.availableAtHome(ownerId, List.of(view)).contains(view.row().id()));
     }
 
     @GetMapping("/price-terms")
@@ -117,7 +159,9 @@ public class WishlistController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody CreateWishlistItemRequest body) {
         WishlistItemResponse created =
-                WishlistItemResponse.from(wishlistService.create(principal.userId(), body.toNew()));
+                written(
+                        principal.userId(),
+                        wishlistService.create(principal.userId(), body.toNew()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .location(URI.create("/api/v1/wishlist/" + created.id()))
                 .body(created);
@@ -181,8 +225,8 @@ public class WishlistController {
                         patch.bool("nearMintOnly"),
                         patch.text("priceTerm"));
         patch.throwIfInvalid();
-        return WishlistItemResponse.from(
-                wishlistService.update(principal.userId(), id, wishlistPatch));
+        return written(
+                principal.userId(), wishlistService.update(principal.userId(), id, wishlistPatch));
     }
 
     @DeleteMapping("/{id}")
