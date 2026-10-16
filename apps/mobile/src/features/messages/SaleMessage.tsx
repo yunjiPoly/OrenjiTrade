@@ -70,6 +70,8 @@ export function SaleMessage({
         accessibilityRole="button"
         accessibilityLabel={SALE_MESSAGE_COPY.rate(otherHandle)}
         onPress={onRate}
+        // 34 pt tall: the slop makes the target 44 pt (spec section 3, review fix 1, F11).
+        hitSlop={{ top: 5, bottom: 5, left: 0, right: 0 }}
         testID="sale-message-rate"
         style={({ pressed }) => [
           styles.rate,

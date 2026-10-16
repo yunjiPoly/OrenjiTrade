@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Dimensions, Keyboard, ScrollView } from 'react-native';
+import { Dimensions, Keyboard, ScrollView, StyleSheet } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
 import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
@@ -781,6 +781,37 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
         body: 'Thanks!',
       })
     );
+  });
+
+  it('gives the chips, "+", send and "Rate" touch targets of at least 44 pt (F11)', async () => {
+    mockApi(
+      chatRoutes(subjectFixture(), {
+        'GET /api/v1/conversations/{id}/messages': ok(messagePage([saleMessageFixture()])),
+      })
+    );
+    render();
+    const target = (id: string) => {
+      const node = screen.getByTestId(id);
+      const style = StyleSheet.flatten(node.props.style) as {
+        minHeight?: number;
+        height?: number;
+        width?: number;
+      };
+      const slop = (node.props.hitSlop ?? {}) as Record<string, number | undefined>;
+      return {
+        height: (style.height ?? style.minHeight ?? 0) + (slop.top ?? 0) + (slop.bottom ?? 0),
+        width: style.width === undefined ? 44 : style.width + (slop.left ?? 0) + (slop.right ?? 0),
+      };
+    };
+    const replies = await screen.findByTestId('quick-replies');
+    const ids = within(replies)
+      .getAllByRole('button')
+      .map((chip) => chip.props.testID as string);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of [...ids, 'composer-attach', 'conversation-send', 'sale-message-rate']) {
+      const size = target(id);
+      expect({ id, ok: size.height >= 44 && size.width >= 44 }).toEqual({ id, ok: true });
+    }
   });
 
   it('buying, before the seller answered: the first replies; one sent is hidden', async () => {

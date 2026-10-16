@@ -242,6 +242,7 @@ export function MessageComposer({
               accessibilityLabel={QUICK_REPLIES.send(reply)}
               disabled={busy}
               onPress={() => void sendQuickReply(reply)}
+              hitSlop={CHIP_HIT_SLOP}
               testID={`quick-reply-${reply}`}
               style={({ pressed }) => [
                 styles.quickChip,
@@ -304,6 +305,7 @@ export function MessageComposer({
           aria-disabled={disabled}
           disabled={disabled}
           onPress={() => setMenuOpen(true)}
+          hitSlop={ROUND_HIT_SLOP}
           testID="composer-attach"
           style={({ pressed }) => [
             styles.round,
@@ -352,6 +354,7 @@ export function MessageComposer({
           aria-busy={busy}
           disabled={!canSend}
           onPress={() => void submit()}
+          hitSlop={ROUND_HIT_SLOP}
           testID="conversation-send"
           style={({ pressed }) => [
             styles.round,
@@ -524,6 +527,13 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
     </View>
   );
 }
+
+/**
+ * Touch targets of at least 44 pt (spec section 3) around the 34 pt chips and the 42 pt round
+ * buttons, without changing how they look (review fix 1, F11); the chips' 8 pt gaps are shared.
+ */
+export const CHIP_HIT_SLOP = { top: 5, bottom: 5, left: 4, right: 4 } as const;
+export const ROUND_HIT_SLOP = { top: 2, bottom: 2, left: 2, right: 2 } as const;
 
 const styles = StyleSheet.create({
   root: { gap: spacing[2] },
