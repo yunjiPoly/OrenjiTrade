@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -95,9 +95,9 @@ export default function SearchScreen() {
   );
   const [state, setState] = useState<string | null>(() => placeCodeFrom(params.state));
   // The state a link names, on the region it names (applied once per link: `nonce`).
-  const linkNonce = useRef(0);
+  const [linkCount, setLinkCount] = useState(0);
   const [linkedPlace, setLinkedPlace] = useState<LinkedPlace | null>(() =>
-    linkedPlaceOf(params, ++linkNonce.current)
+    linkedPlaceOf(params, 0)
   );
 
   // A new link into the tab: its segment, text, region and place, once (then its parameters go).
@@ -119,7 +119,8 @@ export default function SearchScreen() {
       if (params.state !== undefined) {
         setState(placeCodeFrom(params.state));
       }
-      const place = linkedPlaceOf(params, ++linkNonce.current);
+      const place = linkedPlaceOf(params, linkCount + 1);
+      setLinkCount(linkCount + 1);
       if (place) {
         setSegment('cards');
         setTyping(null);
