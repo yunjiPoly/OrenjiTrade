@@ -1,10 +1,11 @@
 # The largest text size (mobile stage M9, review fix 1; Search of stage R5): a seed collector of
 # Americas (North) (collector1, Quebec) reopens the app at the last accessibility size of iOS
 # (subflows/relaunch-large-text.yaml; an Android device keeps its own size and walks the same
-# paths). On Search the title, the segments and the field stay within reach above the map, and a
-# finger dragged over the map scrolls the page down to the note under it; a card that is typed is
-# narrowed to its game and opened; in Europe the "Not your region" line stands under the field,
-# and a collector who is typed is found and opened; one press goes home.
+# paths). On Search the title, the segments and the field stay within reach above the map, the
+# card of the collector's province shows under the map, and a finger dragged over the whole region
+# scrolls the page down to the note under it; a card that is typed is narrowed to its game and
+# opened; in Europe the "Not your region" line stands under the field, and a collector who is
+# typed is found and opened; one press goes home.
 # Seed accounts are only signed in to; who lives in Île-de-France is read on the host from the
 # public API (scripts/region-map.js).
 appId: ${APP_ID}
@@ -61,8 +62,31 @@ tags:
           tolerance: 40
 - takeScreenshot: large-text-search
 
-# The map under the field: a finger dragged over the whole region scrolls the page on, down to
-# the note under the map.
+# The map opens on the collector's province (zoomed in: a finger on it moves the map). At this
+# size its card stands under the map, which keeps its smallest height, so the card's top is in
+# view without scrolling.
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-map-zoom-out'
+      enabled: true
+    timeout: 15000
+- takeScreenshot: large-text-province-card
+# Zoomed out to the whole region, a finger dragged over the map scrolls the page on, down to the
+# note under the map.
+- repeat:
+    while:
+      visible:
+        id: 'search-region-map-zoom-out'
+        enabled: true
+    times: 6
+    commands:
+      - tapOn:
+          id: 'search-region-map-zoom-out'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
