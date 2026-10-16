@@ -186,3 +186,112 @@ export function tileAction(
 export function printingListText(tile: ScanTile): string {
   return `${tile.card?.name ?? ''}. We couldn’t read its set code: type it from your card, or pick it below.`;
 }
+
+/**
+ * What a screen reader hears when a photo lands in the tray ("Ash Blossom & Joyous Spring,
+ * found"): the card and its result, the copies of a grouped repeat.
+ */
+export function tileAnnouncement(tile: ScanTile): string {
+  if (tile.status === 'READING') {
+    return 'Reading a card';
+  }
+  if (tile.status === 'WAITING') {
+    return 'A card is waiting for connection';
+  }
+  if (tile.status === 'NOT_FOUND' || !tile.card) {
+    return "Couldn't read this card";
+  }
+  const copies = tile.copies > 1 ? `, ${tile.copies} copies` : '';
+  return `${tile.card.name}, ${STATUS_SPOKEN[tile.status]}${copies}`;
+}
+
+/** "{n} rarities" (a code of the printing list, a tile of "Other matches"). */
+export function raritiesCount(count: number): string {
+  return `${count} rarities`;
+}
+
+/** Screen 28: "This code comes in {n} rarities. Pick yours." */
+export function manyRaritiesText(count: number): string {
+  return `This code comes in ${count} rarities. Pick yours.`;
+}
+
+/** The wording of the camera screen (27) and its sheets (28, 29, the lists), from the mockup. */
+export const SCAN_COPY = {
+  // 27: the camera.
+  title: 'Scan cards',
+  close: 'Close the scanner',
+  light: 'Light',
+  hint: 'Fit the card in the frame, then tap the button.',
+  frame: 'Card frame: fit the whole card inside',
+  nameArea: 'Name',
+  setCodeArea: 'Set code',
+  trayPrivacy: 'Photos stay on your phone',
+  trayList: 'Scanned cards',
+  trayEmpty: 'The cards you snap show up here.',
+  photos: 'Photos',
+  photosLabel: 'Add photos you already took',
+  shutter: 'Take the photo',
+  review: 'Review',
+  tip: 'Tip: tilt the card a little if the set code shines.',
+  photosFailed: "Your photos couldn't be opened. Try again.",
+  shotFailed: "The photo couldn't be taken. Try again.",
+  // The camera itself: its permission, a phone without a camera, a camera that did not start.
+  cameraStarting: 'Starting the camera…',
+  permissionRefused: 'Allow the camera in Settings to scan cards.',
+  openSettings: 'Open Settings',
+  noCamera: 'There is no camera here. Choose photos you already took.',
+  cameraFailed: "The camera didn't start.",
+  tryAgain: 'Try again',
+  chooseFromPhotos: 'Choose from photos',
+  // The scan cannot run here.
+  unavailableTitle: "Scanning isn't available here",
+  readerMissing:
+    'This version of the app cannot read cards. Add them by name or code from Add cards.',
+  flagOff: 'Scanning is turned off for now. Add cards by name or code from Add cards.',
+  flagsFailed: "We couldn't check whether scanning is on.",
+  backToAddCards: 'Back to Add cards',
+  // Leaving with cards in the tray.
+  leaveTitle: 'Leave without adding?',
+  leaveDialog: 'Leave the scanner',
+  keepScanning: 'Keep scanning',
+  leave: 'Leave',
+  // The rarity list.
+  rarityTitle: 'Pick the rarity',
+  rarityGroup: 'Rarity',
+  cancel: 'Cancel',
+  // The printing list.
+  printingTitle: 'Pick the printing',
+  codeField: 'Set code on your card',
+  codePlaceholder: 'Code on your card, like MACR',
+  printingsList: 'Printings',
+  noPrintingStart: 'No printing of this card has that code. Check it, or ',
+  noPrintingLink: 'search by name or code',
+  printingsLoadFailed: "We couldn't load this card's printings.",
+  // 28: Check the match.
+  checkTitle: 'Check the match',
+  remove: 'Remove',
+  closeSheet: 'Close',
+  yourPhoto: 'Your photo',
+  ourMatch: 'Our match',
+  readFromPhoto: 'Read from your photo',
+  copies: 'Copies',
+  oneLess: 'One less',
+  oneMore: 'One more',
+  otherMatches: 'Other matches',
+  matchesGroup: 'Matches',
+  notHere: 'Not here?',
+  notHereSearch: 'Search',
+  notHereLabel: 'Not here? Search',
+  done: 'Done',
+  pickARarity: 'Pick a rarity',
+  // 29: Couldn't read this card.
+  unreadTitle: "Couldn't read this card",
+  noMatchYet: 'No match yet',
+  unreadText:
+    "We couldn't read the name or the set code. Search for the card, or take the photo again.",
+  tipFillFrame: 'Fill the frame',
+  tipNoGlare: 'No glare',
+  tipHoldStill: 'Hold still',
+  searchByNameOrCode: 'Search by name or code',
+  takeItAgain: 'Take it again',
+} as const;
