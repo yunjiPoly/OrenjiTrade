@@ -5,6 +5,7 @@ import {
   switchPriceMode,
   toCreateBody,
   toPatch,
+  toSaveBody,
   typePrice,
   validateCardForm,
   type CardFormValue,
@@ -301,8 +302,8 @@ describe('the price in the card form (screens 6 and 7)', () => {
     expect(toPatch(cleared, item)).toEqual({ askingPriceText: null, confirm: true });
   });
 
-  it('leaves a price read back as it was saved until it changes', () => {
-    // "$12" and "85%" read back as 12.00 and 85: unchanged, they stay as saved.
+  it('counts a price read back as no change until it changes', () => {
+    // "$12" and "85%" read back as 12.00 and 85: left so, they are no change ("No changes yet").
     for (const text of ['$12', '85%', '12,50 $']) {
       const item = itemFixture({ askingPriceText: text, askingPrice: null });
       expect(toPatch(cardFormOf(item, NOW), item)).toBeNull();
@@ -321,6 +322,65 @@ describe('the price in the card form (screens 6 and 7)', () => {
     });
     // A wrong number is a change ("Save changes" turns on, then shows the error).
     expect(formChanged({ ...back, ...typePrice(back, '500') }, item)).toBe(true);
+  });
+
+  it('rewrites a price read back the one way on any save, without counting it as a change (fix round 2)', () => {
+    for (const [text, written] of [
+      ['85 % tcg', '85% TCG'],
+      ['85%', '85% TCG'],
+      ['12,50 $', '$12.50'],
+      ['$12', '$12.00'],
+    ] as const) {
+      const item = itemFixture({ askingPriceText: text, askingPrice: null, quantity: 2 });
+      const opened = cardFormOf(item, NOW);
+      // Opened and left: still "No changes yet".
+      expect(formChanged(opened, item)).toBe(false);
+      // A copies-only save writes it the one way with the copies.
+      expect(toSaveBody({ ...opened, quantity: '3' }, item)).toEqual({
+        quantity: 3,
+        askingPriceText: written,
+        confirm: true,
+      });
+      // A save of photos alone too.
+      expect(toSaveBody(opened, item)).toEqual({ askingPriceText: written, confirm: true });
+    }
+    // Already written the one way, or no price: nothing more is sent.
+    for (const text of ['85% TCG', '$12.50']) {
+      const item = itemFixture({ askingPriceText: text, askingPrice: null, quantity: 2 });
+      expect(toSaveBody({ ...cardFormOf(item, NOW), quantity: '3' }, item)).toEqual({
+        quantity: 3,
+        confirm: true,
+      });
+    }
+    const none = itemFixture({ askingPriceText: null, askingPrice: null, quantity: 2 });
+    expect(toSaveBody({ ...cardFormOf(none, NOW), quantity: '3' }, none)).toEqual({
+      quantity: 3,
+      confirm: true,
+    });
+    // A text neither mode shows stays as it was saved; an old amount without a text (the paused
+    // web's, in dollars or not) has no text to rewrite.
+    const kept = [
+      itemFixture({ askingPriceText: 'Trade only', askingPrice: null, quantity: 2 }),
+      itemFixture({ askingPriceText: null, askingPrice: 40, currency: 'CAD', quantity: 2 }),
+      itemFixture({ askingPriceText: null, askingPrice: 12.5, currency: 'EUR', quantity: 2 }),
+    ];
+    for (const item of kept) {
+      expect(toSaveBody({ ...cardFormOf(item, NOW), quantity: '3' }, item)).toEqual({
+        quantity: 3,
+        confirm: true,
+      });
+    }
+    // A price typed or cleared is the form's.
+    const item = itemFixture({ askingPriceText: '85 % tcg', askingPrice: null, quantity: 2 });
+    const opened = cardFormOf(item, NOW);
+    expect(toSaveBody({ ...opened, ...typePrice(opened, '90') }, item)).toEqual({
+      askingPriceText: '90% TCG',
+      confirm: true,
+    });
+    expect(toSaveBody({ ...opened, ...typePrice(opened, '') }, item)).toEqual({
+      askingPriceText: null,
+      confirm: true,
+    });
   });
 
   it('leaves a card without a price alone when the mode alone changes', () => {

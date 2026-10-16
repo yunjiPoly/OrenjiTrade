@@ -35,6 +35,7 @@ import {
   hasErrors,
   serverCardErrors,
   toPatch,
+  toSaveBody,
   validateCardForm,
   type CardFormErrors,
   type CardFormValue,
@@ -275,8 +276,9 @@ function CardEditor({
     setSaving(true);
     const patch = toPatch(form, item);
     try {
-      // A save counts as "still available", photos alone included.
-      await update.mutateAsync({ id: item.id, patch: patch ?? { confirm: true } });
+      // A save counts as "still available", photos alone included; it writes the card's price the
+      // one way ("85% TCG", "$12.50") when it was saved another way.
+      await update.mutateAsync({ id: item.id, patch: toSaveBody(form, item) });
     } catch (error) {
       const apiError = error as ApiError;
       setErrors(serverCardErrors(apiError));
@@ -290,7 +292,8 @@ function CardEditor({
       return;
     }
     // The mode used last is the one of a price saved here: not of a price read back and left as
-    // it was (fix round 1 of the owner's change of 2026-10-16), nor of a cleared one.
+    // it was (fix round 1 of the owner's change of 2026-10-16) or only rewritten the one way (fix
+    // round 2), nor of a cleared one.
     if (patch?.askingPriceText) {
       updatePrefs({ priceMode: form.priceMode });
     }

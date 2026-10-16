@@ -1382,6 +1382,36 @@ describe('Edit card (screen 7)', () => {
     await waitFor(() => expect(useAppStore.getState().prefs.priceMode).toBe('pct'));
   });
 
+  it('writes an old price the one way on a save that leaves it, as no change of its own (fix round 2)', async () => {
+    useAppStore.getState().updatePrefs({ priceMode: 'usd' });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: '85 % tcg', askingPrice: null, quantity: 1 })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
+    // Read back and left: no change by itself.
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+    // Only the copies change: the save writes "85% TCG" with them.
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      quantity: 2,
+      askingPriceText: '85% TCG',
+      confirm: true,
+    });
+    // No price was typed: the mode used last stays "$".
+    expect(useAppStore.getState().prefs.priceMode).toBe('usd');
+  });
+
   it('says when the card is gone, and shows errors with retry', async () => {
     mockApi(
       signedInRoutes({

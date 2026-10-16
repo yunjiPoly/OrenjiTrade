@@ -208,11 +208,12 @@ export function toCreateBody(value: CardFormValue, printingId: string): CreateIn
 }
 
 /**
- * `PATCH /inventory/items/{id}` of Edit card: only the fields that changed (absent = unchanged,
- * null clears), and `confirm: true` (a save counts as "still available", section 6). Visibility is
- * sent when it changed and whenever the binder changes, so the card is exactly as the form shows
- * it. The price is sent only when it saves another price than the card's: an untouched old text
- * ("Trade only", "$12") stays as it was saved. `null` when nothing in the form changed.
+ * What Edit card's form changes on the card (`PATCH /inventory/items/{id}`): only the fields that
+ * changed (absent = unchanged, null clears), and `confirm: true` (a save counts as "still
+ * available", section 6). Visibility is sent when it changed and whenever the binder changes, so
+ * the card is exactly as the form shows it. The price counts only when it is another price than
+ * the card's: "$12" read back as 12.00 and left so is no change. `null` when nothing in the form
+ * changed ("No changes yet"). The body a save sends is `toSaveBody`.
  */
 export function toPatch(
   value: CardFormValue,
@@ -243,6 +244,32 @@ export function toPatch(
   }
   patch.confirm = true;
   return patch;
+}
+
+/**
+ * The body of an Edit card save: the changes (`toPatch`), or only `confirm: true` when just the
+ * photos changed. A saved text that reads back into a mode but was written another way ("85 %
+ * tcg", "12,50 $", "$12") is rewritten the one way ("85% TCG", "$12.50", "$12.00") by any save, as
+ * every price the phone saves is (fix round 2 of the owner's change of 2026-10-16): the same
+ * price, so it is no change by itself and the amount the API reads from it stays the same. A text
+ * neither mode can show ("Trade only") stays until a price is typed; an old amount without a text
+ * (the paused web's) has no text to rewrite and stays as it is.
+ */
+export function toSaveBody(
+  value: CardFormValue,
+  item: InventoryItemResponse
+): UpdateInventoryItemRequest {
+  const body: UpdateInventoryItemRequest = toPatch(value, item) ?? { confirm: true };
+  if (!('askingPriceText' in body)) {
+    // The price is the card's own: write its text the one way when it reads back into a mode.
+    const stored = item.askingPriceText?.trim();
+    const saved = cardFormOf(item);
+    const text = saved.priceWas === null ? askingPriceTextOf(saved.priceMode, saved.price) : null;
+    if (stored && text !== null && text !== stored) {
+      body.askingPriceText = text;
+    }
+  }
+  return body;
 }
 
 /** Whether the form differs from the card (the photos are counted by the screen). */
