@@ -1,6 +1,14 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { memo, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import {
   Platform,
   Pressable,
@@ -22,6 +30,7 @@ import {
   MAX_MAP_ZOOM,
   ZOOM_STEP,
   baseWindow,
+  focusWindow,
   isZoomedIn,
   liveTransform,
   panWindow,
@@ -35,24 +44,14 @@ import {
   type MapWindow,
 } from './mapWindow';
 import { loadRegionOutline, meshPath, shapeAt, type RegionOutline } from './regionOutline';
-import {
-  MARK_RADIUS,
-  MARK_REACH,
-  SHADE_OPACITY,
-  binderCountLabel,
-  markAt,
-  placeMarks,
-  shadeLevel,
-} from './shading';
+import { MARK_RADIUS, MARK_REACH, SHADE_OPACITY, markAt, placeMarks, shadeLevel } from './shading';
 
 /** A touch that travels less than this many points is a tap on a state, not a drag. */
 const TAP_TRAVEL = 8;
 /** A tap beside a small state still picks it, within this many points. */
 const TAP_REACH = 10;
-/** A finger held this long on a place names it instead of opening it. */
+/** A finger held this long on a place picks it while the finger is still down. */
 export const HOLD_MS = 350;
-/** The name card stays readable inside the map at the largest text sizes. */
-const CALLOUT_MAX_FONT_SCALE = 1.6;
 
 /**
  * The drawing of a region (a file of the app, ADR 0017), read when that region is first shown.
@@ -92,6 +91,16 @@ export interface RegionMapProps {
    * waited for too.
    */
   pending?: boolean;
+  /**
+   * The collector's declared state or province (owner spec 2026-10-14, section 8): the map opens
+   * centred on it, and "My province" (a button over the map) centres on it again and picks it.
+   * Never a device location: the declared code only.
+   */
+  home?: string | null;
+  /** Over the map's top left corner (the region pill of Search). */
+  topLeft?: ReactNode;
+  /** Over the bottom of the map (the state card and the legend of Search). */
+  bottom?: ReactNode;
   style?: ViewStyle;
   testID?: string;
 }
@@ -140,8 +149,9 @@ function touchCount(event: GestureResponderEvent | undefined): number {
  * vectors on the device with react-native-svg from the bundled drawing. No tile, no map provider,
  * no request, no device location.
  *
- * Tapping a state or province opens it; holding it names it first (its name, its number of public
- * binders, "Open"). Pinching and the buttons zoom. While the whole region is on screen a finger
+ * Tapping a state or province picks it (Search shows its card over the map; holding it picks it
+ * while the finger is still down). The map opens on the collector's declared province, which "My
+ * province" brings back; pinching and the buttons zoom. While the whole region is on screen a finger
  * dragged over the map scrolls the page (the map has nothing to move, and a map that swallowed
  * the drag left its own buttons and legend out of reach under the fold); once zoomed in, a finger
  * moves the map. During a gesture the picture is only slid and scaled; the vectors are drawn
@@ -157,6 +167,9 @@ export function RegionMap({
   nameOf,
   onTouching,
   pending = false,
+  home = null,
+  topLeft,
+  bottom,
   style,
   testID = 'region-map',
 }: RegionMapProps) {
@@ -173,15 +186,23 @@ export function RegionMap({
     (typeof givenHeight !== 'number' || Math.abs(laidOut.height - givenHeight) < 1);
   const size = pending || !settled ? null : laidOut;
   const base = useMemo(() => (outline && size ? baseWindow(outline, size) : null), [outline, size]);
+  const homeShape =
+    outline && home ? outline.shapes.find((shape) => shape.code === home) : undefined;
+  // The first view: on the collector's province when this region has it, else the whole region.
+  const start = useMemo(
+    () => (base && outline && homeShape ? focusWindow(base, outline, homeShape.box) : base),
+    [base, outline, homeShape]
+  );
 
   // The view starts over on another region or another frame (a rotation, a resized window).
   const key = size ? `${region}|${size.width}x${size.height}` : '';
   const [stored, setStored] = useState<MapView | null>(null);
-  const view: MapView | null = base
-    ? stored && stored.key === key
-      ? stored
-      : { key, drawn: base, live: base }
-    : null;
+  const view: MapView | null =
+    base && start
+      ? stored && stored.key === key
+        ? stored
+        : { key, drawn: start, live: start }
+      : null;
   if (view && view !== stored) {
     setStored(view);
   }
@@ -199,9 +220,6 @@ export function RegionMap({
     held: boolean;
   } | null>(null);
   const hold = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The place a held finger named, with the region it belongs to.
-  const [named, setNamed] = useState<{ region: string; code: string } | null>(null);
-  const namedCode = named && named.region === region ? named.code : null;
   const zoomedIn = !!view && !!base && isZoomedIn(view.live, base);
 
   const cancelHold = () => {
@@ -274,7 +292,7 @@ export function RegionMap({
         const code = placeAt(current.start.x - origin.x, current.start.y - origin.y);
         if (code) {
           current.held = true;
-          setNamed({ region, code });
+          onPick(code);
         }
       }, HOLD_MS);
     }
@@ -339,7 +357,6 @@ export function RegionMap({
     if (tapped && current.fingers === 1 && current.travel < TAP_TRAVEL && !current.held) {
       const code = placeAt(current.start.x - current.origin.x, current.start.y - current.origin.y);
       if (code) {
-        setNamed(null);
         onPick(code);
       }
     }
@@ -356,7 +373,6 @@ export function RegionMap({
     }
   };
   const zoom = view && base ? zoomOf(view.live, base) : 1;
-  const moved = !!view && !!base && !sameWindow(view.live, base);
 
   const label = `Map of ${regionLabel}: states and provinces shaded by their number of public binders`;
   const transform =
@@ -378,7 +394,7 @@ export function RegionMap({
         accessible
         accessibilityRole="image"
         accessibilityLabel={label}
-        accessibilityHint="To choose a state or province, use the list."
+        accessibilityHint="With a screen reader, Search lists every state and province instead."
         pointerEvents="box-only"
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={(event) => zoomedIn || touchCount(event) > 1}
@@ -424,7 +440,6 @@ export function RegionMap({
               size={size}
               counts={counts}
               selected={selected}
-              named={namedCode}
               land={palette.surface}
               line={palette.borderStrong}
               border={palette.textMuted}
@@ -464,67 +479,31 @@ export function RegionMap({
         </View>
       ) : (
         <>
-          {namedCode ? (
-            <View
-              accessibilityLiveRegion="polite"
-              style={[
-                styles.callout,
-                { backgroundColor: palette.surface, borderColor: palette.borderStrong },
-                elevation.floating,
-              ]}
-              testID={`${testID}-callout`}
-            >
-              <View style={styles.calloutText}>
-                <Text
-                  maxFontSizeMultiplier={CALLOUT_MAX_FONT_SCALE}
-                  style={[textStyle('sm'), styles.calloutName, { color: palette.ink }]}
-                  testID={`${testID}-callout-name`}
-                >
-                  {nameOf?.(namedCode) ?? namedCode}
-                </Text>
-                <Text
-                  maxFontSizeMultiplier={CALLOUT_MAX_FONT_SCALE}
-                  style={[textStyle('xs'), { color: palette.textMuted }]}
-                  testID={`${testID}-callout-count`}
-                >
-                  {binderCountLabel(counts.get(namedCode))}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${nameOf?.(namedCode) ?? namedCode}`}
-                onPress={() => {
-                  setNamed(null);
-                  onPick(namedCode);
-                }}
-                hitSlop={6}
-                testID={`${testID}-callout-open`}
-                style={({ pressed }) => [
-                  styles.calloutOpen,
-                  { backgroundColor: palette.primary },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text
-                  maxFontSizeMultiplier={CALLOUT_MAX_FONT_SCALE}
-                  style={[textStyle('sm'), styles.calloutName, { color: palette.onPrimary }]}
-                >
-                  Open
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close"
-                onPress={() => setNamed(null)}
-                hitSlop={8}
-                testID={`${testID}-callout-close`}
-                style={({ pressed }) => [styles.calloutClose, pressed && styles.pressed]}
-              >
-                <MaterialCommunityIcons name="close" size={20} color={palette.textMuted} />
-              </Pressable>
+          {topLeft ? (
+            <View style={styles.topLeft} pointerEvents="box-none">
+              {topLeft}
+            </View>
+          ) : null}
+          {bottom ? (
+            <View style={styles.bottom} pointerEvents="box-none">
+              {bottom}
             </View>
           ) : null}
           <View style={styles.controls} pointerEvents="box-none">
+            {homeShape ? (
+              <MapButton
+                icon="home-outline"
+                label="Show my province"
+                onPress={() => {
+                  if (base && outline) {
+                    const next = focusWindow(base, outline, homeShape.box);
+                    update((now) => ({ ...now, drawn: next, live: next }));
+                  }
+                  onPick(homeShape.code);
+                }}
+                testID={`${testID}-home`}
+              />
+            ) : null}
             <MapButton
               icon="plus"
               label="Zoom in"
@@ -539,14 +518,6 @@ export function RegionMap({
               onPress={() => zoomBy(1 / ZOOM_STEP)}
               testID={`${testID}-zoom-out`}
             />
-            {moved ? (
-              <MapButton
-                icon="fit-to-screen-outline"
-                label="Show the whole region"
-                onPress={() => base && update((now) => ({ ...now, drawn: base, live: base }))}
-                testID={`${testID}-reset`}
-              />
-            ) : null}
           </View>
         </>
       )}
@@ -571,8 +542,6 @@ interface MapDrawingProps {
   size: MapSize;
   counts: ReadonlyMap<string, number>;
   selected: string | null;
-  /** The place a held finger named. */
-  named: string | null;
   land: string;
   line: string;
   border: string;
@@ -600,7 +569,6 @@ const MapDrawing = memo(function MapDrawing({
   size,
   counts,
   selected,
-  named,
   land,
   line,
   border,
@@ -614,8 +582,6 @@ const MapDrawing = memo(function MapDrawing({
     [outline, counts]
   );
   const chosen = selected ? outline.shapes.find((shape) => shape.code === selected) : undefined;
-  const held =
-    named && named !== selected ? outline.shapes.find((shape) => shape.code === named) : undefined;
   // Line widths are given in screen points, whatever the zoom.
   const point = unitsPerPoint(window, size);
   const marks = useMemo(() => placeMarks(shaded, counts, point), [shaded, counts, point]);
@@ -657,16 +623,6 @@ const MapDrawing = memo(function MapDrawing({
           strokeWidth={2.5 * point}
           strokeLinejoin="round"
           testID={`map-selected-${chosen.code}`}
-        />
-      ) : null}
-      {held ? (
-        <Path
-          d={held.d}
-          fill="none"
-          stroke={ink}
-          strokeWidth={1.5 * point}
-          strokeLinejoin="round"
-          testID={`map-named-${held.code}`}
         />
       ) : null}
       {marks.map((mark) => (
@@ -737,33 +693,12 @@ const styles = StyleSheet.create({
   loading: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   controls: {
     position: 'absolute',
-    right: spacing[2],
-    bottom: spacing[2],
+    right: spacing[3],
+    top: spacing[3],
     gap: spacing[2],
   },
-  callout: {
-    position: 'absolute',
-    top: spacing[2],
-    left: spacing[2],
-    right: spacing[2],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingVertical: spacing[2],
-    paddingLeft: spacing[3],
-    paddingRight: spacing[1],
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  calloutText: { flex: 1 },
-  calloutName: { fontWeight: fontWeight.semibold },
-  calloutOpen: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: spacing[3],
-    borderRadius: radius.md,
-  },
-  calloutClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  topLeft: { position: 'absolute', left: spacing[3], top: spacing[3], right: 72 },
+  bottom: { position: 'absolute', left: spacing[3], right: spacing[3], bottom: spacing[3] },
   button: {
     width: 44,
     height: 44,

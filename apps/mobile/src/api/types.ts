@@ -115,6 +115,10 @@ export type LimitStatus = Schemas['LimitStatus'];
 export type UnifiedSearchResponse = Schemas['UnifiedSearchResponse'];
 export type CardHolderResult = Schemas['CardHolderResult'];
 export type CardHoldersPage = Schemas['PageResponseCardHolderResult'];
+/** A collector found by handle or name while a card is typed (stage R5). */
+export type CollectorByName = Schemas['CollectorByName'];
+/** The wishes a public holder of a region has (stage R5, `GET /wishlist/availability`). */
+export type WishlistAvailability = Schemas['WishlistAvailability'];
 export type PublicBinderOwner = Schemas['PublicBinderOwner'];
 export type RegionBinderCounts = Schemas['RegionBinderCounts'];
 export type SubdivisionBinderCount = Schemas['SubdivisionBinderCount'];

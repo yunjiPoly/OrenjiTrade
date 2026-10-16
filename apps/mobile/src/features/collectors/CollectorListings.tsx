@@ -16,7 +16,7 @@ import { Text } from '@/src/components/ui/Text';
 import { deckCoreTag } from '@/src/features/binders/binderCopy';
 import { CoreThumb, DeckCoreTag } from '@/src/features/binders/BinderRows';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
-import { publicBinderKindParts } from '@/src/features/map/PlaceBinderRow';
+import { publicBinderKindParts } from '@/src/features/binders/binderCopy';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';

@@ -1,3 +1,6 @@
+import type { PublicBinderSummary } from '@/src/api/types';
+import { binderKindLabel, cardCount } from '@/src/lib/inventory';
+
 /**
  * The approved English copy of the binder screens (owner spec 2026-10-14, section 7, mockup
  * screens 16 to 18): Inventory › Binders, Edit binder and New binder, the deck core page and the
@@ -171,3 +174,13 @@ export const PUBLIC_BINDER_COPY = {
   emptyBody: 'Try another search.',
   cardsLoadError: 'The cards could not load',
 } as const;
+
+/**
+ * What a screen reader says of a public binder's kind in lists: "Deck core · $60" for a deck core
+ * (its cards sell only with it, and it may have none), else "Collection", "9 cards".
+ */
+export function publicBinderKindParts(binder: PublicBinderSummary): string[] {
+  return binder.sellsAsCore
+    ? [deckCoreTag(binder.askingPriceText)]
+    : [binderKindLabel(binder.kind), cardCount(binder.itemCount)];
+}
