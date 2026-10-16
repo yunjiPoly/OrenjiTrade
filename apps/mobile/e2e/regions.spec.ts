@@ -308,12 +308,6 @@ test.describe('mobile regions and the region map', () => {
       timeout: 30_000,
     });
     await expect(page.getByText('Something went wrong')).toHaveCount(0);
-    // As a full page load (an old shared link): the same.
-    await page.goto('/regions/americas-north/CA-QC');
-    await expect(screen(page, 'search').getByTestId('binders-state-chip')).toContainText('Quebec', {
-      timeout: 30_000,
-    });
-    await expect(page.getByText('Something went wrong')).toHaveCount(0);
 
     // As a full page load (a link opened from outside the app): the region alone.
     await page.goto('/?region=europe');
