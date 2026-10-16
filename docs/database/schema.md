@@ -908,7 +908,9 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
   the transaction and deleted again when the binder refuses it), Mark as sold and its undo
   (`InventorySales`, V127, stage R4: the seller's owner lock, then the binder of the card or the
   deck core, then the card or every live card of the deck core, ascending; the undo takes the
-  owner lock before the `sale` row and the `interaction` it deletes) and the two seed contributors
+  owner lock before the `sale` row, the `interaction` it deletes and, when a later sale of the card
+  took its last copies, that later `sale` row (review fix 1, F4: case
+  `SALE_UNDO_BEFORE_LATER_SALE`)) and the two seed contributors
   of the `local`/`dev` profiles. The writes of one collector therefore run one after the other: none reads the binder
   of an item while another one moves it, and none waits in the middle of its work for a row that
   another write of the same collector holds. **A new write path starts with
