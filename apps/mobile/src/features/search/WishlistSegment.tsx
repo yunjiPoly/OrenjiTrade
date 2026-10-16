@@ -1,7 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo, useMemo } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Switch, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Switch,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -47,6 +55,9 @@ import { WISHLIST_COPY } from './searchCopy';
  * that fits (it opens Who has this card on that printing) or "None yet". A row edits the wish. No
  * counts; a usage line only near the cap. "Let others see what you want" is in Settings › Privacy.
  */
+/** Above this text size the alert switch's sentence goes under the bell and the switch. */
+export const STACKED_FONT_SCALE = 1.3;
+
 export function WishlistSegment() {
   const { palette } = useTheme();
   const router = useRouter();
@@ -55,6 +66,9 @@ export function WishlistSegment() {
   const availability = useWishlistAvailability();
   const location = useMyLocation();
   const limits = useMyLimits();
+  // From the larger text sizes on, the sentence takes the row's whole width under the bell and
+  // the switch: beside them it broke "someone" in the middle at the largest size.
+  const stacked = useWindowDimensions().fontScale > STACKED_FONT_SCALE;
   const settings = useNotificationSettings();
   const saveSettings = useSaveNotificationSettings();
   const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
@@ -75,28 +89,42 @@ export function WishlistSegment() {
   const alertsOn = !!settings.data?.wishlistAlerts;
   const add = () => router.push('/wishlist/new');
 
+  const alertsSwitch = (
+    <Switch
+      accessibilityLabel={WISHLIST_COPY.alertsLabel}
+      accessibilityHint={WISHLIST_COPY.alerts}
+      value={alertsOn}
+      onValueChange={(on) => void setAlerts(on)}
+      disabled={!settings.data || saveSettings.isPending}
+      trackColor={{ true: palette.primary, false: palette.borderStrong }}
+      thumbColor={SWITCH_THUMB}
+      style={stacked ? styles.switchStacked : undefined}
+      testID="wishlist-alerts-switch"
+    />
+  );
   const head = (
     <View style={styles.head}>
       <View
         style={[
           styles.switchRow,
+          stacked && styles.switchRowStacked,
           { backgroundColor: palette.surface, borderColor: palette.border },
         ]}
+        testID="wishlist-alerts-row"
       >
         <MaterialCommunityIcons name="bell-outline" size={20} color={palette.primary} />
-        <Text style={[textStyle('md'), styles.grow, { color: palette.ink }]}>
+        {stacked ? alertsSwitch : null}
+        <Text
+          style={[
+            textStyle('md'),
+            stacked ? styles.alertsStacked : styles.grow,
+            { color: palette.ink },
+          ]}
+          testID="wishlist-alerts-text"
+        >
           {WISHLIST_COPY.alerts}
         </Text>
-        <Switch
-          accessibilityLabel={WISHLIST_COPY.alertsLabel}
-          accessibilityHint={WISHLIST_COPY.alerts}
-          value={alertsOn}
-          onValueChange={(on) => void setAlerts(on)}
-          disabled={!settings.data || saveSettings.isPending}
-          trackColor={{ true: palette.primary, false: palette.borderStrong }}
-          thumbColor={SWITCH_THUMB}
-          testID="wishlist-alerts-switch"
-        />
+        {stacked ? null : alertsSwitch}
       </View>
       <AlertReadinessNotice readiness={alertReadiness(location.data)} />
       <Pressable
@@ -262,6 +290,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
   },
+  // Bell and switch on the first line (the switch at the right end), the sentence under them.
+  switchRowStacked: { flexWrap: 'wrap', alignItems: 'flex-start' },
+  switchStacked: { marginLeft: 'auto' },
+  alertsStacked: { width: '100%' },
   add: {
     flexDirection: 'row',
     alignItems: 'center',

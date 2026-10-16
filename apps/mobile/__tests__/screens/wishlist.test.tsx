@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import EditWishScreen from '@/app/wishlist/edit';
@@ -137,6 +138,62 @@ describe('Search › Wishlist (screen 15)', () => {
       wishlistAlerts: false,
     });
     expect(await screen.findByText('Wishlist alerts are off.')).toBeOnTheScreen();
+  });
+
+  it('puts the alert sentence under the bell and the switch at the largest text size', async () => {
+    mockApi(routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()) }));
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    const order = () => {
+      const row = screen.getByTestId('wishlist-alerts-row');
+      const ids = (row.children as { props: { testID?: string } }[])
+        .map((child) => child.props.testID)
+        .filter((id) => id === 'wishlist-alerts-switch' || id === 'wishlist-alerts-text');
+      return ids;
+    };
+    textSize(3.1);
+    try {
+      renderWishlist();
+      await screen.findByTestId('wishlist-alerts-switch');
+      // The switch shares the first line with the bell; the sentence takes the whole width
+      // under them (beside them, "someone" broke in the middle).
+      expect(order()).toEqual(['wishlist-alerts-switch', 'wishlist-alerts-text']);
+      expect(screen.getByTestId('wishlist-alerts-text')).toHaveStyle({ width: '100%' });
+      expect(screen.getByTestId('wishlist-alerts-row')).toHaveStyle({ flexWrap: 'wrap' });
+    } finally {
+      textSize(window.fontScale);
+    }
+  });
+
+  it('keeps the alert sentence and its switch on one line at the default text size', async () => {
+    mockApi(routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()) }));
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    textSize(1);
+    try {
+      renderWishlist();
+      await screen.findByTestId('wishlist-alerts-switch');
+      const row = screen.getByTestId('wishlist-alerts-row');
+      const ids = (row.children as { props: { testID?: string } }[])
+        .map((child) => child.props.testID)
+        .filter((id) => id === 'wishlist-alerts-switch' || id === 'wishlist-alerts-text');
+      expect(ids).toEqual(['wishlist-alerts-text', 'wishlist-alerts-switch']);
+      expect(screen.getByTestId('wishlist-alerts-text')).not.toHaveStyle({ width: '100%' });
+    } finally {
+      textSize(window.fontScale);
+    }
   });
 
   it('shows a usage line only near the cap, and the location prompt without a location', async () => {
