@@ -16,6 +16,12 @@ export interface SessionPrefs {
    * list while a screen reader is on). A layout preference, nothing about a place.
    */
   mapView: MapViewChoice | null;
+  /**
+   * The way the collector typed a card's asking price last on this phone, "$" (`usd`) or "% TCG"
+   * (`pct`): a new card starts in it (owner change of 2026-10-16). Null until a card is saved
+   * with a price, which reads as "$".
+   */
+  priceMode: 'usd' | 'pct' | null;
 }
 
 export interface AppState {
@@ -30,6 +36,7 @@ export interface AppState {
 export const DEFAULT_PREFS: SessionPrefs = {
   lastSignedInEmail: null,
   mapView: null,
+  priceMode: null,
 };
 
 export const APP_STORE_STORAGE_KEY = 'orenjitrade.app-store.v1';
@@ -56,11 +63,11 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: APP_STORE_STORAGE_KEY,
-      version: 5,
+      version: 6,
       // v1 also stored `prefs.hasCompletedOnboarding` (onboarding now comes from `GET /me`); v1
       // and v2 stored the Map tab's last viewport, which is no longer kept on the device; v1 to
       // v3 stored a distance unit (there are no distances since ADR 0017); v5 adds the Map tab's
-      // view (map or list). Nothing location-like is persisted.
+      // view (map or list); v6 the price mode used last. Nothing location-like is persisted.
       migrate: (persisted) => {
         const state = { ...(persisted as Record<string, unknown> | undefined) };
         const prefs: Record<string, unknown> = { ...(state.prefs as object | undefined) };

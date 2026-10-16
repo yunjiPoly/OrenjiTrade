@@ -45,9 +45,11 @@ import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScree
 import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
 import { ITEM_PHOTO_MAX_COUNT, photoRefusal } from '@/src/features/inventory/itemPhotoRules';
+import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
+import { useAppStore } from '@/src/store';
 import {
   fontWeight,
   PINNED_MAX_FONT_SCALE,
@@ -59,9 +61,10 @@ import {
 
 /**
  * Edit card (owner spec 2026-10-14, section 6, mockup screen 7): the fields of Add to inventory,
- * filled in; "Save changes", disabled and reading "No changes yet" until something changes (a
- * save also confirms the card is still available); the photos, saved with the button; and "Delete
- * this card", asked in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
+ * filled in (the price read back in "$" or "% TCG", an old text kept as "Was: {text}"); "Save
+ * changes", disabled and reading "No changes yet" until something changes (a save also confirms
+ * the card is still available); the photos, saved with the button; and "Delete this card", asked
+ * in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
  * hidden card keeps "Still available" (the freshness rules). Photos that were not saved (here, or
  * when the card was added: the screen then opens on them) keep "Try again", and leaving asks
  * first; a photo the API refused says why and can only be removed.
@@ -156,7 +159,11 @@ function CardEditor({
   const applyPhotos = useApplyPhotoChanges();
   const markSaved = useInventoryUiStore((state) => state.markSaved);
   const takeFailedPhotos = useInventoryUiStore((state) => state.takeFailedPhotos);
-  const [form, setForm] = useState<CardFormValue>(() => cardFormOf(item));
+  // A card without a price starts in the price mode used last on this phone.
+  const updatePrefs = useAppStore((state) => state.updatePrefs);
+  const [form, setForm] = useState<CardFormValue>(() =>
+    cardFormOf(item, Date.now(), useAppStore.getState().prefs.priceMode ?? 'usd')
+  );
   const [errors, setErrors] = useState<CardFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   // Photos picked here (or not saved when the card was added), and the saved ones taken away.
@@ -281,6 +288,9 @@ function CardEditor({
       );
       setSaving(false);
       return;
+    }
+    if (form.priceWas === null && askingPriceTextOf(form.priceMode, form.price)) {
+      updatePrefs({ priceMode: form.priceMode });
     }
     const failed =
       pending.length > 0 || toRemove.length > 0

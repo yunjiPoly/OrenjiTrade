@@ -109,7 +109,29 @@ export const CARD_FORM_COPY = {
   oneLess: 'One less',
   oneMore: 'One more',
   askingPrice: 'Asking price',
-  askingPricePlaceholder: '85% TCG or 12.50',
+  // The price in "$" or "% TCG" (owner change of 2026-10-16, mockup v43, screens 6 and 7).
+  priceIn: 'Price in',
+  priceModes: {
+    usd: { label: '$', spoken: 'Dollars' },
+    pct: { label: '% TCG', spoken: 'Percent of the TCGplayer price' },
+  },
+  priceInputLabel: {
+    usd: 'Asking price in dollars',
+    pct: 'Asking price in percent of the TCGplayer price',
+  },
+  pricePlaceholder: { usd: '12.50', pct: '85' },
+  priceHint: {
+    usd: 'Leave it empty to agree on a price in the chat.',
+    pct: 'Percent of the TCGplayer market price.',
+  },
+  // A saved text neither mode can show ("Trade only"): kept until a price is typed.
+  priceWas: (text: string) => `Was: ${text}`,
+  priceUsdFormat: 'Enter an amount like 12.50.',
+  priceUsdDecimals: 'Use at most 2 decimals, like 12.50.',
+  priceUsdZero: 'Enter more than $0, or leave it empty.',
+  priceUsdMax: 'At most $99,999.99.',
+  pricePctFormat: 'Enter a whole number, like 85.',
+  pricePctRange: 'Enter a percent from 1 to 200.',
   whoCanSee: 'Who can see it',
   private: 'Private',
   public: 'Public',
@@ -185,7 +207,6 @@ export const CARD_FORM_COPY = {
     limit !== null
       ? `Your inventory is full: it holds at most ${limit} cards. Delete a card you no longer have to add another.`
       : 'Your inventory is full. Delete a card you no longer have to add another.',
-  priceTooLong: 'At most 40 characters.',
   noteTooLong: 'At most 500 characters.',
 } as const;
 

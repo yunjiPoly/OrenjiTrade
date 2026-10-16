@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { BinderResponse } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
@@ -19,7 +19,7 @@ import {
 } from './cardForm';
 import { CardPhotos, type CardPhotosProps } from './CardPhotos';
 import { CARD_FORM_COPY } from './inventoryCopy';
-import { ASKING_PRICE_MAX } from './itemPrice';
+import { PriceField } from './PriceField';
 import { cardVisibilityHint, type CardFindability, type SavedCardState } from './visibilityStatus';
 
 export interface CardFormFieldsProps {
@@ -43,8 +43,8 @@ export interface CardFormFieldsProps {
 
 /**
  * The fields of Add to inventory and Edit card, in the order of the spec (section 6, screen 6):
- * Copies and Asking price side by side, Who can see it, Binder, Public note, Photos. At large text
- * sizes Copies and Asking price stack.
+ * Copies on its own row (the label on the left, − n + on the right) above the Asking price in "$"
+ * or "% TCG" (owner change of 2026-10-16, mockup v43), Who can see it, Binder, Public note, Photos.
  */
 export function CardFormFields({
   value,
@@ -57,8 +57,6 @@ export function CardFormFields({
   disabled = false,
 }: CardFormFieldsProps) {
   const { palette } = useTheme();
-  const { fontScale } = useWindowDimensions();
-  const stacked = fontScale > 1.3;
   const [choosingBinder, setChoosingBinder] = useState(false);
   const chosenBinder = value.binderId
     ? (binders.find((binder) => binder.id === value.binderId) ?? null)
@@ -74,17 +72,19 @@ export function CardFormFields({
 
   return (
     <View style={styles.root}>
-      <View style={[styles.pair, stacked && styles.stacked]}>
-        <Field label={CARD_FORM_COPY.copies} error={errors.quantity} style={styles.half}>
-          <View
-            style={[
-              styles.stepper,
-              {
-                backgroundColor: palette.surface,
-                borderColor: errors.quantity ? palette.danger : palette.borderStrong,
-              },
-            ]}
-          >
+      <View style={styles.field}>
+        <View
+          testID="card-copies"
+          style={[
+            styles.copies,
+            {
+              backgroundColor: palette.surface,
+              borderColor: errors.quantity ? palette.danger : palette.borderStrong,
+            },
+          ]}
+        >
+          <Text style={[styles.copiesLabel, { color: palette.ink }]}>{CARD_FORM_COPY.copies}</Text>
+          <View style={styles.stepper}>
             <StepButton
               icon="minus"
               label={CARD_FORM_COPY.oneLess}
@@ -111,24 +111,15 @@ export function CardFormFields({
               testID="card-quantity-more"
             />
           </View>
-        </Field>
-        <Field label={CARD_FORM_COPY.askingPrice} error={errors.price} style={styles.half}>
-          <TextInput
-            value={value.price}
-            onChangeText={(price) => onChange({ price })}
-            placeholder={CARD_FORM_COPY.askingPricePlaceholder}
-            placeholderTextColor={palette.textDisabled}
-            // A little room for the spaces the API trims; the counter is the API's 40.
-            maxLength={ASKING_PRICE_MAX + 10}
-            autoCorrect={false}
-            editable={!disabled}
-            accessibilityLabel={CARD_FORM_COPY.askingPrice}
-            accessibilityHint={CARD_FORM_COPY.askingPricePlaceholder}
-            testID="card-price"
-            style={[...inputStyle, errors.price ? { borderColor: palette.danger } : null]}
-          />
-        </Field>
+        </View>
+        {errors.quantity ? (
+          <Text accessibilityRole="alert" style={[textStyle('xs'), { color: palette.danger }]}>
+            {errors.quantity}
+          </Text>
+        ) : null}
       </View>
+
+      <PriceField value={value} onChange={onChange} error={errors.price} disabled={disabled} />
 
       <View style={styles.field}>
         <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>
@@ -392,9 +383,6 @@ export function VisibilityToggle({
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
-  pair: { flexDirection: 'row', gap: spacing[3] },
-  stacked: { flexDirection: 'column' },
-  half: { flex: 1 },
   field: { gap: 6 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   label: { fontWeight: fontWeight.semibold },
@@ -407,15 +395,21 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2],
   },
   note: { minHeight: 64, paddingTop: 10, textAlignVertical: 'top' },
-  stepper: {
-    minHeight: 48,
+  copies: {
+    minHeight: 52,
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 4,
+    columnGap: spacing[2],
+    paddingLeft: 14,
+    paddingRight: 5,
+    paddingVertical: 5,
   },
+  copiesLabel: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   step: {
     width: 40,
     height: 40,
@@ -424,8 +418,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   count: {
-    flex: 1,
-    minWidth: 40,
+    minWidth: 32,
     textAlign: 'center',
     fontSize: 16,
     fontWeight: fontWeight.semibold,

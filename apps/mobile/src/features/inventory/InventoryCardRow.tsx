@@ -10,6 +10,7 @@ import { fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
 
 import { INVENTORY_COPY } from './inventoryCopy';
 import { itemPriceText } from './itemPrice';
+import { itemVisibilityTag, visibilityTagColors } from './visibilityTag';
 
 export interface InventoryCardRowProps {
   item: InventoryItemResponse;
@@ -29,7 +30,11 @@ export interface InventoryCardRowProps {
 /**
  * One card of the Inventory (owner spec 2026-10-14, section 6, screen 1): only the card picture,
  * its name, the card code in mono, the asking price as typed on the right (nothing when there is
- * none) and "×{copies}". No set name, condition, availability, public badge or counts.
+ * none) and "×{copies}". No set name, condition, availability or counts. After the code, a small
+ * tag says who can see the card (owner change of 2026-10-16, mockup v43): Private (a lock, grey),
+ * Public (a globe, teal), or, for a card set to Public that nobody can see yet, the amber short
+ * label of its status ("Public · not visible"). The bulk actions and the filter "Who can see it"
+ * stay as they are; the tags follow them.
  */
 export const InventoryCardRow = memo(function InventoryCardRow({
   item,
@@ -43,11 +48,20 @@ export const InventoryCardRow = memo(function InventoryCardRow({
   // One line as in the mockup. At large text sizes the price and the copies go under the code,
   // which gives the name the width of the row (side by side, names broke in the middle of a word)
   // and up to three lines.
-  const large = useWindowDimensions().fontScale > 1.3;
+  const { fontScale } = useWindowDimensions();
+  const large = fontScale > 1.3;
   const nameLines = large ? 3 : 1;
   const code = printingCode(item.printing);
   const price = itemPriceText(item);
-  const spoken = [item.card.name, code, price, INVENTORY_COPY.copiesSpoken(item.quantity)]
+  const tag = itemVisibilityTag(item);
+  const tagColors = visibilityTagColors(tag.kind, palette);
+  const spoken = [
+    item.card.name,
+    code,
+    tag.spoken,
+    price,
+    INVENTORY_COPY.copiesSpoken(item.quantity),
+  ]
     .filter(Boolean)
     .join(', ');
   const ring =
@@ -102,9 +116,28 @@ export const InventoryCardRow = memo(function InventoryCardRow({
         <Text numberOfLines={nameLines} style={[styles.name, { color: palette.ink }]}>
           {item.card.name}
         </Text>
-        <Text numberOfLines={1} style={[styles.code, { color: palette.textMuted }]}>
-          {code}
-        </Text>
+        {/* The tag goes under the code when they do not fit side by side, and always at large
+            text sizes, rather than squeezing the name. */}
+        <View
+          testID={`item-${item.id}-code-line`}
+          style={large ? styles.codeLineBelow : styles.codeLine}
+        >
+          <Text numberOfLines={1} style={[styles.code, { color: palette.textMuted }]}>
+            {code}
+          </Text>
+          <View
+            testID={`item-${item.id}-visibility`}
+            style={[styles.tag, { backgroundColor: tagColors.background }]}
+          >
+            <MaterialCommunityIcons
+              name={tag.icon}
+              // The icon grows with the label (at the largest sizes a 12 pt icon was a dot).
+              size={Math.round(12 * Math.min(Math.max(fontScale, 1), 3))}
+              color={tagColors.color}
+            />
+            <Text style={[styles.tagLabel, { color: tagColors.color }]}>{tag.label}</Text>
+          </View>
+        </View>
         {large ? end : null}
       </View>
       {large ? null : end}
@@ -127,7 +160,26 @@ const styles = StyleSheet.create({
   art: { width: 42, height: 60, borderRadius: 5, borderWidth: 1 },
   text: { flex: 1, minWidth: 0, gap: 4 },
   name: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
-  code: { fontFamily: fontFamily.mono, fontSize: 12, lineHeight: 16 },
+  code: { fontFamily: fontFamily.mono, fontSize: 12, lineHeight: 16, flexShrink: 1 },
+  codeLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    columnGap: 8,
+    rowGap: 4,
+  },
+  codeLineBelow: { alignItems: 'flex-start', gap: 4 },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 20,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    borderRadius: 6,
+    flexShrink: 1,
+  },
+  tagLabel: { fontSize: 11, lineHeight: 14, fontWeight: fontWeight.semibold, flexShrink: 1 },
   end: { alignItems: 'flex-end', gap: 4, maxWidth: '40%' },
   endBelow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 12 },
   price: { fontSize: 14, lineHeight: 18, fontWeight: fontWeight.bold, textAlign: 'right' },
