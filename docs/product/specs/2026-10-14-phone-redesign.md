@@ -560,9 +560,9 @@ Keep the repository buildable at the end of every session.
 ## Changed by the owner on 2026-10-16
 
 After stages R2 and R3, the owner asked for two changes to the Inventory and the card form
-(mockup version 43, screens 1, 6, 7, 8 and 9): *"I think that on page 1, the cards should show if
+(mockup version 43, screens 1, 6, 7, 8 and 9): _"I think that on page 1, the cards should show if
 it's public or private. on page 7, when I type the price, it should be in $. or have option to
-chose %tcg"*. The prompt above is kept as it was; these two points replace what it says about
+chose %tcg"_. The prompt above is kept as it was; these two points replace what it says about
 them (section 6, screens 1, 6 and 7):
 
 1. **Every Inventory card shows who can see it.** After the card code, a small tag: "Private"
@@ -578,5 +578,9 @@ them (section 6, screens 1, 6 and 7):
    first time). A card saves one text, "$12.50" or "85% TCG", shown everywhere as it is. Edit card
    reads a saved price back into its mode, and any save writes it that one way ("85 % tcg" becomes
    "85% TCG"); any other old text ("Trade only") shows as "Was: {text}" and is kept until a price
-   is typed. Copies moves to its own row above the price. Deck
+   is typed or the box is emptied. Copies moves to its own row above the price. Deck
    cores keep their free text. No migration and no API change.
+
+Screens 1 and 7 as built, on the iPhone simulator (dark, default text size, fictional data):
+[Inventory with the tags](../screens/2026-10-16-screen-01-inventory-tags.jpg) and
+[Edit card with the price switch](../screens/2026-10-16-screen-07-edit-card-price.jpg).
