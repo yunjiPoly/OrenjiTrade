@@ -494,19 +494,19 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 callJson(HttpMethod.POST, "/api/v1/inventory/items", seller, item, 201)
                         .path("id")
                         .asString();
-        String chatId =
+        JsonNode started =
                 callJson(
-                                HttpMethod.POST,
-                                "/api/v1/conversations",
-                                buyer,
-                                Map.of(
-                                        "recipientId",
-                                        idOf("collector5").toString(),
-                                        "subjectItemId",
-                                        itemId),
-                                201)
-                        .path("id")
-                        .asString();
+                        HttpMethod.POST,
+                        "/api/v1/conversations",
+                        buyer,
+                        Map.of(
+                                "recipientId",
+                                idOf("collector5").toString(),
+                                "subjectItemId",
+                                itemId),
+                        201);
+        fetched.add(new Fetched("/api/v1/conversations (card)", buyer, started));
+        String chatId = started.path("id").asString();
         try {
             JsonNode sale =
                     callJson(
@@ -515,6 +515,7 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                             seller,
                             Map.of("quantity", 1, "trackingNumber", "LX123456789CA"),
                             201);
+            fetched.add(new Fetched("/api/v1/conversations/{id}/sales", seller, sale));
             for (String caller : List.of(buyer, seller)) {
                 JsonNode chat = fetch("/api/v1/conversations/" + chatId, caller);
                 assertThat(chat.path("subject").path("id").asString()).isEqualTo(itemId);
@@ -573,6 +574,10 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     .doesNotContain("geo-r4-private-note");
             assertNoPrivateNotes(document.body(), document.path());
         }
+        // Spec section 13: the tracking number is the two collectors' only, never in the logs.
+        assertThat(output.getAll())
+                .as("tracking number in the logs")
+                .doesNotContain("LX123456789CA");
         assertContract(output);
     }
 

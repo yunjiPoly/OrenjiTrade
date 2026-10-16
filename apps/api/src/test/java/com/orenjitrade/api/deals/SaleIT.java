@@ -13,6 +13,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
@@ -25,6 +28,7 @@ import tools.jackson.databind.JsonNode;
  * exactly what was there. 409 when no copy is left, also for the second of two sales of the last
  * copy at once.
  */
+@ExtendWith(OutputCaptureExtension.class)
 class SaleIT extends AbstractDealsIT {
 
     @Test
@@ -352,5 +356,64 @@ class SaleIT extends AbstractDealsIT {
         // Nothing was half-undone: the interaction and the message stay.
         assertThat(saleInteractions(buyer, seller)).hasSize(1);
         assertThat(saleMessages(buyer, chatId)).hasSize(1);
+    }
+
+    /**
+     * Owner spec 2026-10-14, section 13: tracking numbers are seen by the two collectors only and
+     * never reach the logs, the analytics or the domain events (the outbox). Every path that
+     * receives one is run: a card sale, a deck core sale, a refused number, a refused quantity, an
+     * undo and a refused undo.
+     */
+    @Test
+    void trackingNumbersNeverReachTheLogsOrTheEvents(CapturedOutput output) {
+        Collector seller = collector("r4-track-seller");
+        Collector buyer = collector("r4-track-buyer");
+        String itemId = card(seller, 3, "PUBLIC", "$12");
+        String chatId = chatAbout(buyer, seller, itemId);
+        List<String> numbers =
+                List.of(
+                        "LX123456789CA",
+                        "7023 2109 8876 5432",
+                        "1Z999AA10123456784",
+                        "RR998877665CA",
+                        "TRK-REFUSED-4411");
+
+        // Refused before anything is written: a malformed number, then too many copies.
+        markSold(seller, chatId, 1, numbers.get(4) + " https://track.example", 400);
+        markSold(seller, chatId, 9, numbers.get(3), 400);
+        String first = markSold(seller, chatId, 1, numbers.get(0), 201).path("id").asString();
+        undo(seller, first, 200);
+        String second = markSold(seller, chatId, 2, numbers.get(1), 201).path("id").asString();
+        undo(buyer, second, 403);
+
+        String coreId = deckCore(seller, "Tracked core", "$60");
+        String coreChat = startAbout(buyer, seller, null, coreId, 200).path("id").asString();
+        assertThat(coreChat).isEqualTo(chatId);
+        markSold(seller, chatId, null, numbers.get(2), 201);
+
+        // The two collectors see it in the chat; nothing else carries it.
+        assertThat(messages(buyer, chatId).toString())
+                .contains(numbers.get(1))
+                .contains(numbers.get(2));
+        String logs = output.getAll();
+        for (String number : numbers) {
+            assertThat(logs).as("tracking number %s in the logs", number).doesNotContain(number);
+            assertThat(
+                            testUsers.count(
+                                    "SELECT count(*) FROM event_publication WHERE"
+                                            + " serialized_event LIKE ?",
+                                    "%" + number + "%"))
+                    .as("tracking number %s in a domain event", number)
+                    .isZero();
+            assertThat(
+                            testUsers.count(
+                                    "SELECT count(*) FROM notification WHERE title LIKE ? OR"
+                                            + " body LIKE ? OR data::text LIKE ?",
+                                    "%" + number + "%",
+                                    "%" + number + "%",
+                                    "%" + number + "%"))
+                    .as("tracking number %s in a notification", number)
+                    .isZero();
+        }
     }
 }
