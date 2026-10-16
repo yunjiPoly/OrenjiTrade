@@ -295,3 +295,63 @@ export const SCAN_COPY = {
   searchByNameOrCode: 'Search by name or code',
   takeItAgain: 'Take it again',
 } as const;
+
+/** "Reading 3 of 12…": the photo being read and how many the scan holds (screen 30). */
+export function readingProgressText(current: number, total: number): string {
+  return `Reading ${current} of ${total}…`;
+}
+
+/** The wording of the review (mockup screen 30) and of the search inside the scan. */
+export const REVIEW_COPY = {
+  backToScanning: 'Back to scanning',
+  checkMatchFor: (name: string) => `Check the match for ${name}`,
+  pickRarity: 'Pick rarity',
+  pickPrinting: 'Pick printing',
+  codeUnreadable: 'Set code not readable',
+  searchByNameOrCode: 'Search by name or code',
+  couldntRead: "Couldn't read",
+  remove: (name: string) => `Remove ${name}`,
+  // The two pills.
+  private: 'Private',
+  public: 'Public',
+  privateLabel: 'Private: only you see them. Change',
+  publicLabel: 'Public: collectors in your region can find them. Change',
+  noBinder: 'No binder',
+  binderLabel: (name: string | null) => (name ? `Binder: ${name}` : 'Binder: no binder'),
+  binderTitle: 'Binder',
+  noBinderYet: 'You have no binders yet. The cards go in no binder.',
+  bindersFailed: "We couldn't load your binders.",
+  privateBinder: 'Private',
+  // The add.
+  adding: 'Adding…',
+  waitForReading: 'Wait until every photo is read',
+  footer: 'Add prices and photos later by tapping a card in Inventory.',
+  copiesNotAdded: (count: number) =>
+    count === 1
+      ? "1 copy didn't fit: a card holds at most 9999 copies."
+      : `${count} copies didn't fit: a card holds at most 9999 copies.`,
+  // What went wrong with the add: nothing was added, the scan is kept.
+  limitTitle: 'Your inventory is full',
+  limitMessage: (limit: number | null, used: number | null, needed: number | null) => {
+    const room = limit !== null && used !== null ? Math.max(0, limit - used) : null;
+    const holds =
+      limit !== null
+        ? `Your inventory holds at most ${limit} cards${used !== null ? ` and has ${used}` : ''}.`
+        : 'Your inventory is full.';
+    const fit =
+      room !== null && needed !== null && room < needed
+        ? ` These cards need ${needed} new ${needed === 1 ? 'place' : 'places'} and ${room} ${room === 1 ? 'is' : 'are'} left.`
+        : '';
+    return `${holds}${fit} Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.`;
+  },
+  offline:
+    'We could not reach OrenjiTrade. Nothing was added and your cards are still here: check your connection and add again.',
+  binderGone:
+    'That binder is gone. Nothing was added: pick another binder, or No binder, and add again.',
+  scanOff:
+    'Adding scanned cards is turned off for now. Nothing was added: add them by name or code from Add cards.',
+  failed: (message: string) => `${message} Nothing was added: try again.`,
+  // The search inside the scan.
+  searchTitle: 'Search by name or code',
+  tileGone: 'This card is no longer in the scan.',
+} as const;

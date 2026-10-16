@@ -25,16 +25,13 @@ import { LeaveScanSheet } from './LeaveScanSheet';
 import { ScanBottomBar } from './ScanBottomBar';
 import { SCAN_COPY } from './scanCopy';
 import { pickScanPhotos } from './scanPhotos';
+import { SCAN_REVIEW_ROUTE, SCAN_SEARCH_ROUTE } from './scanRoutes';
 import { scanRunner } from './scanRunner';
 import { scanCounts } from './scanSession';
 import { useScanStore } from './scanStore';
 import { ScanTray } from './ScanTray';
 import { useScanEffects } from './useScanEffects';
 import { useScanTileSheets } from './useScanTileSheets';
-
-/** Where the review (30) and the search inside the scan live (part B of the screens). */
-export const SCAN_REVIEW_ROUTE = '/scan/review';
-export const SCAN_SEARCH_ROUTE = '/scan/search';
 
 /** What dims the round buttons of the top bar over the picture (the mockup's). */
 const ROUND_BACKGROUND = 'rgba(20, 18, 16, 0.6)';

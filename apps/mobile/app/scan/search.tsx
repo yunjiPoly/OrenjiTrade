@@ -1,37 +1,17 @@
+import { Stack } from 'expo-router';
+
+import { REVIEW_COPY } from '@/src/features/scan/scanCopy';
+import { ScanSearchScreen } from '@/src/features/scan/ScanSearchScreen';
+
 /**
- * PLACEHOLDER (card scan batch B2a). Part B builds the search inside the scan here ("Search by name
- * or code" from 28, 29, 30 and the printing list, owner spec 2026-10-15, section 4): it opens with
- * what was read (`tileId` names the tile), shows cards and exact printings from /cards/suggest, and
- * its pick fixes the tile without leaving the scan. Until then this page shows what was read and
- * leads back.
+ * Search by name or code inside the scan (`tileId` names the tile it fixes): opened by 28, 29, a
+ * review row and the printing list; it goes back to where it was opened.
  */
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-
-import { EmptyState } from '@/src/components/ui/EmptyState';
-import { SCAN_COPY } from '@/src/features/scan/scanCopy';
-import { ScanGateFrame } from '@/src/features/scan/ScanGateFrame';
-import { readText } from '@/src/features/scan/scanPrintings';
-import { findTile } from '@/src/features/scan/scanSession';
-import { useScanStore } from '@/src/features/scan/scanStore';
-
-export default function ScanSearchPlaceholder() {
-  const router = useRouter();
-  const { tileId } = useLocalSearchParams<{ tileId?: string }>();
-  const tile = useScanStore((state) => (tileId ? findTile(state.session, tileId) : null));
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/scan'));
+export default function ScanSearchRoute() {
   return (
     <>
-      <Stack.Screen options={{ headerShown: false, title: SCAN_COPY.searchByNameOrCode }} />
-      <ScanGateFrame onClose={back} testID="screen-scan-search">
-        <EmptyState
-          icon="magnify"
-          title={SCAN_COPY.searchByNameOrCode}
-          description={readText(tile?.read ?? null)}
-          actionLabel="Back to scanning"
-          onAction={back}
-          testID="scan-search-placeholder"
-        />
-      </ScanGateFrame>
+      <Stack.Screen options={{ headerShown: false, title: REVIEW_COPY.searchTitle }} />
+      <ScanSearchScreen />
     </>
   );
 }
