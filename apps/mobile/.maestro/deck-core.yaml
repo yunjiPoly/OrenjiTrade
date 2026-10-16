@@ -1,5 +1,5 @@
 # Native flow 2 of the phone redesign (owner spec 2026-10-14, section 14; stage R3, mockup screens
-# 16 to 18 and Inventory › Binders), as far as stage R3 reaches: a fresh collector (Quebec,
+# 16 to 18 and Inventory › Binders, and Search of stage R5): a fresh collector (Quebec,
 # "Show me on the map" on) makes a binder a deck core with a photo and a price (New binder: the
 # "Sell as a deck core" switch, Photos, Asking price, Public note and a key card picked from the
 # inventory), sees it first on Inventory › Binders with its purple tag, then on its own page
@@ -13,10 +13,9 @@
 # core's row on the owner's profile (Profile › Public preview) shows a price saved from the Edit
 # binder that row opens (the binder's own link, /binders/[id]), and "Delete binder" there lands on
 # Inventory › Binders.
-#
-# Not in this flow yet: finding the deck core in Search › Binders › Deck cores and on the map's
-# state card ("{n} binders · {n} deck cores") comes with stage R5, which builds those screens on
-# the API of this stage (`deckCore` and `q` on the binder searches, `deckCoreCount`).
+# Stage R5 completes native flow 2: the deck core is found on the map's state card of the
+# collector's province ("{n} deck cores") and in Search › Binders › Deck cores, which opens its
+# page.
 #
 # The photo is the fictional picture of native flow 1 (media/fictional-card-photo.jpg, 600 × 800),
 # put in the simulator's photo library by `addMedia` and picked as the newest photo
@@ -25,6 +24,7 @@ appId: ${APP_ID}
 name: Make a binder a deck core with a photo and a price, and see it on its page
 tags:
   - mobile-r3
+  - mobile-r5
   - binders
 ---
 - runScript:
@@ -415,6 +415,67 @@ tags:
     visible: 'Maestro core, Deck core · \$120'
     timeout: 30000
 - takeScreenshot: r3-profile-row-after-save
+
+# Native flow 2 in full (stage R5): the deck core is found in Search. The map opens on the
+# collector's province, whose card counts its deck cores; "See binders", then "Deck cores": the row
+# with the core's price, which opens its page (the owner sees "Edit binder").
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-search'
+    timeout: 30000
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-stats-CA-QC'
+      text: '.*[0-9]+ deck cores?'
+    timeout: 30000
+- takeScreenshot: r5-map-state-card-deck-cores
+- tapOn:
+    id: 'search-state-see-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-kind-cores'
+    timeout: 30000
+- tapOn:
+    id: 'binders-kind-cores'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Deck core, Maestro core, .*\$120'
+- assertVisible: 'Deck core, Maestro core, .*\$120'
+- takeScreenshot: r5-search-binders-deck-cores
+- tapOn: 'Deck core, Maestro core, .*\$120'
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-name'
+      text: 'Maestro core'
+    timeout: 60000
+- assertVisible:
+    id: 'deck-core-edit'
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binders-kind-cores'
+    timeout: 30000
+# Back to the profile's public preview, where the delete below starts.
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-preview'
+- tapOn:
+    id: 'profile-preview'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro core, Deck core · \$120'
 
 # "Delete binder" from that Edit binder closes every screen of the deck core and lands on
 # Inventory › Binders (R3 review fix 2: it showed "This binder is not available"); the card stays
