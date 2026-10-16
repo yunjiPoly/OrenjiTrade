@@ -220,22 +220,31 @@ class RealtimeIT extends AbstractMessagingIT {
                         "/queue/messages",
                         "/topic/messages",
                         "/user/queue/secrets");
+        // A refusal ends the session. Its ERROR frame can be lost when the server closes the socket
+        // while another frame is still being written (Spring's send buffer drops what is left), so
+        // the wording is checked when it arrives and pinned in StompSecurityInterceptorTest.
         for (String destination : forbidden) {
             Connection connection = connectWithQueryToken(spy.uid());
             Queues sink = new Queues();
             connection.session().subscribe(destination, sink.handler(sink.messages()));
             await().atMost(Duration.ofSeconds(10))
                     .alias("subscription to " + destination + " is refused")
-                    .until(() -> !connection.errors().isEmpty());
-            assertThat(connection.errors().get(0)).contains("Subscriptions are limited");
-            await().atMost(Duration.ofSeconds(10)).until(() -> !connection.session().isConnected());
+                    .until(() -> !connection.session().isConnected());
+            if (!connection.errors().isEmpty()) {
+                assertThat(connection.errors().get(0)).contains("Subscriptions are limited");
+            }
+            assertThat(sink.messages()).isEmpty();
         }
 
         // Clients may not publish to broker or user destinations either.
         Connection sender = connectWithQueryToken(spy.uid());
         sender.session().send("/user/" + b.id() + "/queue/messages", Map.of("body", "forged"));
-        await().atMost(Duration.ofSeconds(10)).until(() -> !sender.errors().isEmpty());
-        assertThat(sender.errors().get(0)).contains("not allowed");
+        await().atMost(Duration.ofSeconds(10))
+                .alias("a send to a user destination is refused")
+                .until(() -> !sender.session().isConnected());
+        if (!sender.errors().isEmpty()) {
+            assertThat(sender.errors().get(0)).contains("not allowed");
+        }
 
         // B still receives genuine messages only.
         StompSession sessionB = connectWithQueryToken(b.uid()).session();
