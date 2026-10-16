@@ -7,6 +7,8 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
+**Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches; review fix 1: a public deck core shows every card in it as a key card and the cards keep their own visibility, Edit binder follows saves made elsewhere; review fix 2: the sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms — branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
@@ -6520,7 +6522,7 @@ there were not measured on a device).
 > backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14);
 > stage R1 of the phone redesign (#72, 2026-10-14); stage F1, free for all (#73, 2026-10-15);
 > stage R2 of the phone redesign (#74, 2026-10-15); stage R3 of the phone redesign (#75,
-> 2026-10-15). Migrations V001 to V114
+> 2026-10-15); stage R4 of the phone redesign (#76, 2026-10-16). Migrations V001 to V114
 > are applied and frozen; R1's V115 and V116, F1's V120–V123, R2's V125, R3's V126 and R4's V127
 > freeze as each lands on `main` (V117–V119 are unused; V124 is kept for another branch); the next
 > one is **V128**. R2
@@ -6546,9 +6548,8 @@ there were not measured on a device).
 > cores in the public lists, the search API of R5; on the phone Inventory › Binders, Edit binder
 > and New binder with "Sell as a deck core", the deck core page and the public binder restyled.
 >
-> **Stage R4 of the phone redesign is built** ("Messages and Mark as sold", mockup screens 22 to 25;
-> section "Phone redesign R4: messages and Mark as sold (2026-10-15)" above; branch
-> `feature/r4-messages-mark-as-sold`, cut from the `main` that holds R3, builder done, not pushed):
+> **Stage R4 of the phone redesign is on `main`** (#76; "Messages and Mark as sold", mockup screens
+> 22 to 25; section "Phone redesign R4: messages and Mark as sold (2026-10-15)" above):
 > R3's leftovers first (R2-1, R2-2, U10, U8); V127 (the chat's subject, the `sale` table, the SALE
 > interaction), the `deals` module, `GET /conversations/{id}`, `POST /conversations` pinning a card
 > or a deck core, sharing one's own card (`inventoryItemId`), `POST /conversations/{id}/sales` and
@@ -6564,15 +6565,24 @@ there were not measured on a device).
 > while a pushed pin re-reads the chat, and the quick reply row's padding that gives the chips their
 > 44 pt touch targets on iOS (no migration, no API change).
 >
+> **The owner's inventory change of 2026-10-16 is built** (mockup v43, screens 1 and 6 to 9; the
+> "Last updated" lines at the top of this file; the dated note at the end of
+> `docs/product/specs/2026-10-14-phone-redesign.md`; branch `feature/inventory-visibility-price`,
+> reviewed, fix rounds 1 and 2 done, merged with the `main` that holds R4, not pushed): the Public /
+> Private tag on every Inventory row, the asking price typed in "$" or "% TCG", Copies on its own
+> row; phone only, no migration, no API change.
+>
 > **R5 acceptance items left by R3** (its review, U5 and U3): Who has this card passes
 > `excludeDeckCoreItems=true` **together with** the "Also in a deck core" banner (`GET
 > /search/deck-cores`), so a deck core's cards never show as separate rows; the map's state list
 > and Search › Binders show deck cores as the mockup's rows (R3 shows the tag and the photo in
 > today's rows meanwhile).
 >
-> **Exact next task: the pull request of stage R4** (both fix rounds used; merge `main` first if it
-> moved, run the handoff's full check list again if it did), then **stage R5 of the phone redesign, "Search"** (mockup screens 11 to 15).
-> R5, on a new branch from the `main` that holds R4, as
+> **Exact next task: the pull request of the owner's inventory change of 2026-10-16** (branch
+> `feature/inventory-visibility-price`, merged with `main` after R4 and the handoff's full check
+> list run on the merged code; merge `main` first if it moved again, and run the list again if it
+> did), then **stage R5 of the phone redesign, "Search"** (mockup screens 11 to 15).
+> R5, on a new branch from the `main` that holds R4 and that change, as
 > [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
 > says in sections 4 and 8 (the Map and Wishlist tabs move into Search, which leaves four tabs; the
 > map with deck core counts and typing with collectors; the one card page, Who has this card with

@@ -11,16 +11,17 @@ paused web), every chat opens with a shipping safety tip, ratings no longer ask 
 app opens in the dark theme on a new install and draws its text in Sora, Inter and JetBrains Mono.
 **Stage R2 is built** ("Inventory and adding cards", mockup screens 1 to 9, contract
 `docs/api/contracts/r2-inventory-phone.md`): the Inventory draws its own header (title, bell, "Add
-cards"), "Cards {n} | Binders {n}", "Search your cards" with the filter sheet (Recently added /
-Name / Price, game, binder, who can see it, "Show {n} cards"), rows of only the picture, name,
-code, the asking price as typed and the copies; "Add cards" opens the search first (cards and
-exact printings while typing), the deck and Collectr imports and the camera "Coming later";
-"Choose the printing"; the card form (copies, asking price as text, Private | Public, binder,
-public note, up to 4 photos uploaded after the card); Edit card ("No changes yet" until a change,
-a save confirms the card, photos saved with the button, "1 photo wasn't saved. Try again.");
+cards"), "Cards {n} | Binders {n}", "Search your cards" with the filter sheet (Recently added / Name
+/ Price, game, binder, who can see it, "Show {n} cards"), rows of only the picture, name, code with
+a Private / Public tag (the owner's change dated 2026-10-16), the asking price as saved and the
+copies; "Add cards" opens the search first (cards and exact printings while typing), the deck and
+Collectr imports and the camera "Coming later"; "Choose the printing"; the card form (copies on
+their own row, the asking price in "$" or "% TCG", saved as "$12.50" or "85% TCG", Private | Public,
+binder, public note, up to 4 photos uploaded after the card); Edit card ("No changes yet" until a
+change, a save confirms the card, photos saved with the button, "1 photo wasn't saved. Try again.");
 deleting asks in a sheet and "Undo" restores the card within 10 minutes. Condition, language,
-edition, finish, "Available for", "Accepts offers", currency, "Temporarily public" and private
-notes are gone from the phone's forms. **Stage R3 is built** ("Binders and deck cores", mockup
+edition, finish, "Available for", "Accepts offers", currency, "Temporarily public" and private notes
+are gone from the phone's forms. **Stage R3 is built** ("Binders and deck cores", mockup
 screens 16 to 18 and Inventory › Binders, contract `docs/api/contracts/r3-binders-deck-cores.md`):
 Inventory › Binders lists the deck cores first (photo, "{n} photos · Public", the purple tag "Deck
 core · {price}"), then the binders (a fan of three cards, "{n} cards · Public" or "· Private"), with

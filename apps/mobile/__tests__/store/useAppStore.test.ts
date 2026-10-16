@@ -55,7 +55,11 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().prefs).toEqual({
       lastSignedInEmail: 'ayumi@example.test',
       mapView: 'list',
+      priceMode: null,
     });
+    // The price mode used last ("$" or "% TCG", owner change of 2026-10-16) the same way.
+    useAppStore.getState().updatePrefs({ priceMode: 'pct' });
+    expect(useAppStore.getState().prefs).toMatchObject({ mapView: 'list', priceMode: 'pct' });
   });
 
   it('resets to the initial state', () => {
@@ -75,7 +79,7 @@ describe('useAppStore', () => {
       state: Record<string, unknown>;
       version: number;
     };
-    expect(persisted.version).toBe(5);
+    expect(persisted.version).toBe(6);
     expect(persisted.state).toEqual({ themeOverride: 'light', prefs: DEFAULT_PREFS });
   });
 
@@ -132,6 +136,23 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().prefs).toEqual({
       lastSignedInEmail: 'kept@example.test',
       mapView: null,
+      priceMode: null,
+    });
+  });
+
+  it('gives version 5 (before the price modes) no price mode yet, and keeps its map view', async () => {
+    await AsyncStorage.setItem(
+      APP_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 5,
+        state: { themeOverride: 'dark', prefs: { lastSignedInEmail: null, mapView: 'list' } },
+      })
+    );
+    await useAppStore.persist.rehydrate();
+    expect(useAppStore.getState().prefs).toEqual({
+      lastSignedInEmail: null,
+      mapView: 'list',
+      priceMode: null,
     });
   });
 

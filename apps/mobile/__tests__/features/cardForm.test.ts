@@ -11,12 +11,7 @@ import {
   toPatch,
   validateCardForm,
 } from '@/src/features/inventory/cardForm';
-import {
-  itemPriceText,
-  priceFieldText,
-  priceTextOf,
-  statedCondition,
-} from '@/src/features/inventory/itemPrice';
+import { itemPriceText, statedCondition } from '@/src/features/inventory/itemPrice';
 import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import {
   binderVisibilityStatus,
@@ -51,14 +46,6 @@ describe('the price a card shows (stage R2)', () => {
     expect(itemPriceText({})).toBeNull();
   });
 
-  it('fills the field with the text, or a plain amount for an old price', () => {
-    expect(priceFieldText({ askingPriceText: 'Trade only', askingPrice: null })).toBe('Trade only');
-    expect(priceFieldText({ askingPriceText: null, askingPrice: 42 })).toBe('42.00');
-    expect(priceFieldText({})).toBe('');
-    expect(priceTextOf('  90% TCG ')).toBe('90% TCG');
-    expect(priceTextOf('   ')).toBeNull();
-  });
-
   it('tells a stated condition from one the owner did not state', () => {
     expect(statedCondition({ condition: 'NEAR_MINT', conditionStated: true })).toBe('NEAR_MINT');
     expect(statedCondition({ condition: 'NEAR_MINT' })).toBe('NEAR_MINT');
@@ -71,7 +58,9 @@ describe('the card form (screens 6 and 7)', () => {
   it('starts a new card with one copy, no price, private, the binder it comes from', () => {
     expect(newCardForm()).toEqual({
       quantity: '1',
+      priceMode: 'usd',
       price: '',
+      priceWas: null,
       visibility: 'PRIVATE',
       binderId: null,
       publicNote: '',
@@ -89,7 +78,9 @@ describe('the card form (screens 6 and 7)', () => {
     });
     expect(cardFormOf(item, NOW)).toEqual({
       quantity: '2',
+      priceMode: 'usd',
       price: '40.00',
+      priceWas: null,
       visibility: 'PUBLIC',
       binderId: 'b-2',
       publicNote: 'Sleeved.',
@@ -127,20 +118,14 @@ describe('the card form (screens 6 and 7)', () => {
     expect(parseQuantity('1.5')).toBeNaN();
   });
 
-  it('validates like the API: copies, 40 characters of price on one line, 500 of note', () => {
+  it('validates like the API: copies, the price of its mode, 500 of note', () => {
     expect(hasErrors(validateCardForm(newCardForm()))).toBe(false);
     expect(validateCardForm({ ...newCardForm(), quantity: '' }).quantity).toMatch(/copies/);
     expect(validateCardForm({ ...newCardForm(), quantity: '0' }).quantity).toBe('At least 1 copy.');
     expect(validateCardForm({ ...newCardForm(), quantity: '10000' }).quantity).toMatch(/9999/);
-    expect(validateCardForm({ ...newCardForm(), price: 'x'.repeat(40) }).price).toBeUndefined();
-    // Spaces the API trims do not count.
-    expect(
-      validateCardForm({ ...newCardForm(), price: `  ${'x'.repeat(40)}  ` }).price
-    ).toBeUndefined();
-    expect(validateCardForm({ ...newCardForm(), price: 'x'.repeat(41) }).price).toBe(
-      'At most 40 characters.'
-    );
-    expect(validateCardForm({ ...newCardForm(), price: '85%\nTCG' }).price).toMatch(/one line/);
+    // The price rules of each mode: askingPrice.test.ts.
+    expect(validateCardForm({ ...newCardForm(), price: ' 12.50 ' }).price).toBeUndefined();
+    expect(validateCardForm({ ...newCardForm(), price: '12.505' }).price).toMatch(/2 decimals/);
     expect(validateCardForm({ ...newCardForm(), publicNote: 'n'.repeat(501) }).publicNote).toBe(
       'At most 500 characters.'
     );
@@ -151,7 +136,9 @@ describe('the card form (screens 6 and 7)', () => {
       toCreateBody(
         {
           quantity: '3',
-          price: ' 85% TCG ',
+          priceMode: 'pct',
+          price: ' 85 ',
+          priceWas: null,
           visibility: 'PUBLIC',
           binderId: 'b-1',
           publicNote: ' NM ',
@@ -184,7 +171,7 @@ describe('the card form (screens 6 and 7)', () => {
     expect(formChanged(form, item)).toBe(false);
 
     expect(toPatch({ ...form, quantity: '3' }, item)).toEqual({ quantity: 3, confirm: true });
-    expect(toPatch({ ...form, price: '90% TCG' }, item)).toEqual({
+    expect(toPatch({ ...form, price: '90' }, item)).toEqual({
       askingPriceText: '90% TCG',
       confirm: true,
     });

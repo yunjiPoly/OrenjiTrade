@@ -35,6 +35,7 @@ import {
   hasErrors,
   serverCardErrors,
   toPatch,
+  toSaveBody,
   validateCardForm,
   type CardFormErrors,
   type CardFormValue,
@@ -48,6 +49,7 @@ import { ITEM_PHOTO_MAX_COUNT, photoRefusal } from '@/src/features/inventory/ite
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
+import { useAppStore } from '@/src/store';
 import {
   fontWeight,
   PINNED_MAX_FONT_SCALE,
@@ -59,9 +61,10 @@ import {
 
 /**
  * Edit card (owner spec 2026-10-14, section 6, mockup screen 7): the fields of Add to inventory,
- * filled in; "Save changes", disabled and reading "No changes yet" until something changes (a
- * save also confirms the card is still available); the photos, saved with the button; and "Delete
- * this card", asked in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
+ * filled in (the price read back in "$" or "% TCG", an old text kept as "Was: {text}"); "Save
+ * changes", disabled and reading "No changes yet" until something changes (a save also confirms
+ * the card is still available); the photos, saved with the button; and "Delete this card", asked
+ * in a sheet, then undone from Inventory's toast within 10 minutes. A stale or
  * hidden card keeps "Still available" (the freshness rules). Photos that were not saved (here, or
  * when the card was added: the screen then opens on them) keep "Try again", and leaving asks
  * first; a photo the API refused says why and can only be removed.
@@ -156,7 +159,11 @@ function CardEditor({
   const applyPhotos = useApplyPhotoChanges();
   const markSaved = useInventoryUiStore((state) => state.markSaved);
   const takeFailedPhotos = useInventoryUiStore((state) => state.takeFailedPhotos);
-  const [form, setForm] = useState<CardFormValue>(() => cardFormOf(item));
+  // A card without a price starts in the price mode used last on this phone.
+  const updatePrefs = useAppStore((state) => state.updatePrefs);
+  const [form, setForm] = useState<CardFormValue>(() =>
+    cardFormOf(item, Date.now(), useAppStore.getState().prefs.priceMode ?? 'usd')
+  );
   const [errors, setErrors] = useState<CardFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
   // Photos picked here (or not saved when the card was added), and the saved ones taken away.
@@ -267,9 +274,11 @@ function CardEditor({
     }
     setMessage(null);
     setSaving(true);
+    const patch = toPatch(form, item);
     try {
-      // A save counts as "still available", photos alone included.
-      await update.mutateAsync({ id: item.id, patch: toPatch(form, item) ?? { confirm: true } });
+      // A save counts as "still available", photos alone included; it writes the card's price the
+      // one way ("85% TCG", "$12.50") when it was saved another way.
+      await update.mutateAsync({ id: item.id, patch: toSaveBody(form, item) });
     } catch (error) {
       const apiError = error as ApiError;
       setErrors(serverCardErrors(apiError));
@@ -281,6 +290,12 @@ function CardEditor({
       );
       setSaving(false);
       return;
+    }
+    // The mode used last is the one of a price saved here: not of a price read back and left as
+    // it was (fix round 1 of the owner's change of 2026-10-16) or only rewritten the one way (fix
+    // round 2), nor of a cleared one.
+    if (patch?.askingPriceText) {
+      updatePrefs({ priceMode: form.priceMode });
     }
     const failed =
       pending.length > 0 || toRemove.length > 0

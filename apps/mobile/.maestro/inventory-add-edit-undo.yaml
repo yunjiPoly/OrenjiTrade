@@ -1,8 +1,10 @@
 # Native flow 1 of the phone redesign (owner spec 2026-10-14, section 14; stage R2, mockup screens
-# 1 to 9): a fresh collector adds a card with a text price and a photo (Add cards → typing →
-# Choose the printing → Add to inventory), sees "Saved", edits it (Edit card, "No changes yet"
-# until a change), deletes it after the sheet and undoes the delete from the toast.
-# scripts/check-inventory.js checks on the host what the isolated API holds after each step.
+# 1 to 9): a fresh collector adds a card with a price in "% TCG" and a photo (Add cards → typing →
+# Choose the printing → Add to inventory), sees "Saved" and the row's Private tag, edits it (Edit
+# card, "No changes yet" until a change; the price switched to "$"), deletes it after the sheet and
+# undoes the delete from the toast. The price switch ("$" | "% TCG") and the tag are the owner's
+# change of 2026-10-16 (mockup v43). scripts/check-inventory.js checks on the host what the
+# isolated API holds after each step.
 #
 # The photo is a fictional picture of a card (media/fictional-card-photo.jpg), put in the
 # simulator's photo library by `addMedia` (`xcrun simctl addmedia`): each run adds one more copy
@@ -13,7 +15,7 @@
 # photo of the library. The flow checks the upload worked before it goes on, and that the saved
 # photo is this picture (600 × 800, kept as it is by the API), not another photo of the device.
 appId: ${APP_ID}
-name: Add a card with a text price and a photo, see Saved, edit it, delete it and undo
+name: Add a card with a price in % TCG and a photo, see Saved, edit it in $, delete it and undo
 tags:
   - mobile-r2
   - inventory
@@ -74,7 +76,7 @@ tags:
 - takeScreenshot: r2-choose-printing
 - tapOn: 'SVX-025, .*Reverse holo.*'
 
-# Add to inventory (screen 6): two copies, a text price, a photo.
+# Add to inventory (screen 6): two copies, 85 in "% TCG" (the switch; "$" the first time), a photo.
 - extendedWaitUntil:
     visible:
       id: 'card-header-name'
@@ -82,9 +84,13 @@ tags:
     timeout: 30000
 - tapOn:
     id: 'card-quantity-more'
+- assertVisible: 'Leave it empty to agree on a price in the chat.'
+- tapOn:
+    id: 'card-price-mode-pct'
+- assertVisible: 'Percent of the TCGplayer market price.'
 - tapOn:
     id: 'card-price'
-- inputText: '85% TCG'
+- inputText: '85'
 - runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
@@ -123,7 +129,7 @@ tags:
     id: 'snackbar-view'
 - takeScreenshot: r2-inventory-saved
 - extendedWaitUntil:
-    visible: 'Tidal Otterling, SVX-025, 85% TCG, 2 copies'
+    visible: 'Tidal Otterling, SVX-025, Private, 85% TCG, 2 copies'
     timeout: 60000
 - runScript:
     file: scripts/check-inventory.js
@@ -140,8 +146,9 @@ tags:
       EXPECT_IMAGES: '1'
       EXPECT_IMAGE_SIZE: '600x800'
 
-# Edit card (screen 7): "No changes yet" until a change; a new price.
-- tapOn: 'Tidal Otterling, SVX-025, 85% TCG, 2 copies'
+# Edit card (screen 7): "No changes yet" until a change; the price read back in "% TCG", then
+# switched to "$" (which clears the number) and 12.50.
+- tapOn: 'Tidal Otterling, SVX-025, Private, 85% TCG, 2 copies'
 - extendedWaitUntil:
     visible:
       id: 'card-header-name'
@@ -151,11 +158,16 @@ tags:
     id: 'edit-item-save'
     text: 'No changes yet'
     enabled: false
+- assertVisible:
+    id: 'card-price'
+    text: '85'
 - takeScreenshot: r2-edit-card
 - tapOn:
+    id: 'card-price-mode-usd'
+- assertVisible: 'Leave it empty to agree on a price in the chat.'
+- tapOn:
     id: 'card-price'
-- eraseText: 12
-- inputText: '$12.50'
+- inputText: '12.50'
 - runFlow: subflows/hide-keyboard.yaml
 - assertVisible:
     id: 'edit-item-save'
@@ -163,7 +175,7 @@ tags:
 - tapOn:
     id: 'edit-item-save'
 - extendedWaitUntil:
-    visible: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+    visible: 'Tidal Otterling, SVX-025, Private, \$12\.50, 2 copies'
     timeout: 60000
 - runScript:
     file: scripts/check-inventory.js
@@ -176,7 +188,7 @@ tags:
       EXPECT_IMAGES: '1'
 
 # Delete after the sheet, then Undo (screen 9).
-- tapOn: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+- tapOn: 'Tidal Otterling, SVX-025, Private, \$12\.50, 2 copies'
 - extendedWaitUntil:
     visible:
       id: 'edit-item-delete'
@@ -207,7 +219,7 @@ tags:
     visible: 'Card restored, Tidal Otterling'
     timeout: 60000
 - extendedWaitUntil:
-    visible: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+    visible: 'Tidal Otterling, SVX-025, Private, \$12\.50, 2 copies'
     timeout: 60000
 - runScript:
     file: scripts/check-inventory.js

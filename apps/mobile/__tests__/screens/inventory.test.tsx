@@ -1,7 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text } from 'react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
+import { useSavePrivacy } from '@/src/api/hooks/location';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { lightPalette, PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
@@ -15,6 +16,7 @@ import {
   ITEM_ID,
   itemFixture,
   listingStatusFixture,
+  privacyFixture,
   summaryFixture,
 } from '../support/fixtures';
 import { mockApi, ok, problem } from '../support/mockApi';
@@ -86,8 +88,10 @@ describe('Inventory (screen 1)', () => {
     // A card priced before R2 shows its amount; the copies after a ×.
     expect(within(row).getByTestId(`item-${ITEM_ID}-price`)).toHaveTextContent('$40.00');
     expect(row).toHaveTextContent(/×2$/);
-    // Nothing else: no set name, condition, intent, offers or visibility.
-    expect(row).not.toHaveTextContent(/Stellar Vortex|Near Mint|NM|Trade or sale|Offers|Private/);
+    // Nothing else but who can see it (owner change of 2026-10-16): no set name, condition,
+    // intent or offers.
+    expect(row).not.toHaveTextContent(/Stellar Vortex|Near Mint|NM|Trade or sale|Offers/);
+    expect(within(row).getByTestId(`item-${ITEM_ID}-visibility`)).toHaveTextContent(/Private$/);
 
     // The price exactly as typed; nothing at all without one.
     expect(screen.getByTestId('item-text-1-price')).toHaveTextContent('85% TCG');
@@ -96,7 +100,7 @@ describe('Inventory (screen 1)', () => {
 
     expect(
       screen.getByRole('button', {
-        name: /^Ash Blossom & Joyous Spring, SVX-001, 85% TCG, 1 copy$/,
+        name: /^Ash Blossom & Joyous Spring, SVX-001, Private, 85% TCG, 1 copy$/,
       })
     ).toBeOnTheScreen();
     expect(await screen.findByTestId('inventory-summary-totals')).toHaveTextContent(
@@ -116,6 +120,151 @@ describe('Inventory (screen 1)', () => {
       params: { id: ITEM_ID },
     });
   });
+
+  it('shows Public or Private on every card, amber with its reason while nobody can see it', async () => {
+    const shown = itemFixture({
+      id: 'shown-1',
+      card: { id: 'c5', name: 'Ash Blossom & Joyous Spring', game: 'yugioh' },
+      askingPrice: null,
+      askingPriceText: '85% TCG',
+      quantity: 1,
+      visibility: 'PUBLIC',
+      effectivePublic: true,
+    });
+    // Set to Public while the profile is not discoverable: nobody sees it yet.
+    const pending = itemFixture({
+      id: 'pending-1',
+      card: { id: 'c6', name: 'Infinite Impermanence', game: 'yugioh' },
+      visibility: 'PUBLIC',
+      effectivePublic: false,
+    });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([shown, pending, NO_PRICE])),
+        'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 3 })),
+      })
+    );
+    render();
+    const publicTag = await screen.findByTestId('item-shown-1-visibility');
+    expect(publicTag).toHaveTextContent(/Public$/);
+    // In the teal of "Select", on a faint teal.
+    const teal = screen.getByText('Select');
+    expect(within(publicTag).getByText('Public')).toHaveStyle({
+      color: StyleSheet.flatten(teal.props.style).color,
+    });
+    expect(screen.getByTestId('item-pending-1-visibility')).toHaveTextContent(
+      /Public · not visible$/
+    );
+    // Amber (in the light theme of the tests: a dark amber on an amber fill, for contrast).
+    expect(screen.getByTestId('item-pending-1-visibility')).toHaveStyle({
+      backgroundColor: '#F7E1C8',
+    });
+    expect(
+      within(screen.getByTestId('item-pending-1-visibility')).getByText('Public · not visible')
+    ).toHaveStyle({ color: '#8D510D' });
+    expect(screen.getByTestId('item-none-1-visibility')).toHaveTextContent(/Private$/);
+    expect(within(screen.getByTestId('item-none-1-visibility')).getByText('Private')).toHaveStyle({
+      color: lightPalette.textMuted,
+    });
+    // The row's name says it too, after the code.
+    expect(
+      screen.getByRole('button', {
+        name: 'Ash Blossom & Joyous Spring, SVX-001, Public, 85% TCG, 1 copy',
+      })
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', {
+        name: 'Infinite Impermanence, SVX-001, Public, not visible, $40.00, 2 copies',
+      })
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Called by the Grave, SVX-001, Private, 4 copies' })
+    ).toBeOnTheScreen();
+  });
+
+  it('follows "Show me on the map" at once, without a pull to refresh (fix round 1)', async () => {
+    const shown = itemFixture({
+      id: 'shown-1',
+      card: { id: 'c5', name: 'Frostbite Sorceress', game: 'yugioh' },
+      visibility: 'PUBLIC',
+      effectivePublic: true,
+    });
+    mockApi(
+      signedInRoutes({
+        // Read again once the collector is hidden from the map: nobody sees the card now.
+        'GET /api/v1/inventory/items': [
+          ok(inventoryPage([shown])),
+          ok(inventoryPage([{ ...shown, effectivePublic: false }])),
+        ],
+        'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 1 })),
+        'PUT /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+      })
+    );
+    // Settings › Location's switch, while the Inventory tab stays mounted behind it.
+    function HideFromMap() {
+      const save = useSavePrivacy();
+      return (
+        <Pressable onPress={() => save.mutate(privacyFixture({ discoverable: false }))}>
+          <Text>Hide me from the map</Text>
+        </Pressable>
+      );
+    }
+    renderWithProviders(
+      <>
+        <InventoryScreen />
+        <HideFromMap />
+      </>,
+      { port: new FakeAuthPort(testUser()) }
+    );
+    expect(await screen.findByTestId('item-shown-1-visibility')).toHaveTextContent(/Public$/);
+    fireEvent.press(screen.getByText('Hide me from the map'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-shown-1-visibility')).toHaveTextContent(
+        /Public · not visible$/
+      )
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Frostbite Sorceress, SVX-001, Public, not visible, $40.00, 2 copies',
+      })
+    ).toBeOnTheScreen();
+  });
+
+  it.each([
+    [1, true],
+    [3.1, false],
+  ])(
+    'puts the tag after the code, under it at large text sizes (text size %s)',
+    async (fontScale, beside) => {
+      const window = Dimensions.get('window');
+      act(() => {
+        Dimensions.set({ window: { ...window, fontScale }, screen: { ...window, fontScale } });
+      });
+      try {
+        mockApi(
+          signedInRoutes({
+            'GET /api/v1/inventory/items': ok(inventoryPage([itemFixture()])),
+            'GET /api/v1/inventory/summary': ok(summaryFixture()),
+          })
+        );
+        render();
+        const line = await screen.findByTestId(`item-${ITEM_ID}-code-line`);
+        // Beside the code (wrapping under it when they do not fit), never squeezing the name.
+        if (beside) {
+          expect(line).toHaveStyle({ flexDirection: 'row', flexWrap: 'wrap' });
+        } else {
+          expect(line).not.toHaveStyle({ flexDirection: 'row' });
+        }
+        expect(within(line).getByTestId(`item-${ITEM_ID}-visibility`)).toHaveTextContent(
+          /Private$/
+        );
+      } finally {
+        act(() => {
+          Dimensions.set({ window, screen: window });
+        });
+      }
+    }
+  );
 
   it('opens Add cards from the header and from an empty inventory', async () => {
     mockApi(
