@@ -51,6 +51,9 @@ const SEARCH_MAP_MIN_HEIGHT = Math.max(MIN_MAP_HEIGHT, 380);
 /**
  * Above this system text size the state card leaves the map and stands under it (over the map it
  * covered the whole drawing at the accessibility sizes); the legend follows the size a little only.
+ * The map then keeps its smallest height, so the card's top shows under it without scrolling and a
+ * finger on the card scrolls the page: a zoomed-in map keeps a finger for itself, and a map as
+ * tall as the page left only the field to scroll the page with.
  */
 const OVERLAY_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
 
@@ -161,7 +164,9 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
     ) : null;
 
   const countsFailed = !counts.data && !!counts.error;
-  const height = Math.max(SEARCH_MAP_MIN_HEIGHT, pageHeight - fieldHeight - spacing[3]);
+  const height = stacked
+    ? SEARCH_MAP_MIN_HEIGHT
+    : Math.max(SEARCH_MAP_MIN_HEIGHT, pageHeight - fieldHeight - spacing[3]);
   return (
     <ScrollView
       style={styles.fill}

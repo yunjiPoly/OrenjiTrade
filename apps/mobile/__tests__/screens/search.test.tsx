@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
@@ -52,6 +52,12 @@ function render() {
   return renderWithProviders(<SearchScreen />, { port: new FakeAuthPort(testUser()) });
 }
 
+/** The height Search gives its map (the frame is laid out at it). */
+function givenMapHeight(): number {
+  const style = StyleSheet.flatten(screen.getByTestId('search-region-map-frame').props.style);
+  return Number(style.height);
+}
+
 /** Lays the map out (the screen measures itself before it draws the map once). */
 async function layOutMap() {
   fireEvent(await screen.findByTestId('search-map'), 'layout', {
@@ -61,7 +67,7 @@ async function layOutMap() {
     nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 52 } },
   });
   fireEvent(screen.getByTestId('search-region-map-frame'), 'layout', {
-    nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 576 } },
+    nativeEvent: { layout: { x: 0, y: 0, width: 360, height: givenMapHeight() } },
   });
 }
 
@@ -129,6 +135,45 @@ describe('Search: the map (screen 11)', () => {
     const asked = api.callsTo('GET /api/v1/regions/{region}/subdivisions/{code}/binders')[0];
     expect(asked?.path).toBe('/api/v1/regions/americas-north/subdivisions/CA-QC/binders');
     expect(asked?.query.get('deckCore')).toBe('false');
+  });
+
+  it('keeps the state card over a page-tall map, and under a shorter map at large text sizes', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(binderCountsFixture()),
+      })
+    );
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    try {
+      textSize(1);
+      const first = render();
+      await layOutMap();
+      // The default size: the map takes the page under the field, the card sits on it.
+      expect(givenMapHeight()).toBe(640 - 52 - 12);
+      const map = screen.getByTestId('search-region-map-frame');
+      expect(await within(map).findByTestId('search-state-card')).toBeOnTheScreen();
+      first.unmount();
+      // The largest size: the card stands under the map, which keeps its smallest height, so
+      // the card shows without scrolling and a finger on it scrolls the page (a zoomed-in map
+      // keeps a finger for itself).
+      textSize(3.1);
+      render();
+      await layOutMap();
+      expect(givenMapHeight()).toBe(380);
+      expect(await screen.findByTestId('search-state-card')).toBeOnTheScreen();
+      expect(
+        within(screen.getByTestId('search-region-map-frame')).queryByTestId('search-state-card')
+      ).toBeNull();
+    } finally {
+      textSize(window.fontScale);
+    }
   });
 
   it('a state without binders says so, has no See binders, and the card closes', async () => {

@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import CardScreen from '@/app/cards/[id]';
@@ -138,8 +139,11 @@ describe('place privacy contract (ADR 0017)', () => {
     fireEvent(screen.getByTestId('search-field-frame'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 52 } },
     });
-    fireEvent(screen.getByTestId('search-region-map-frame'), 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: 576 } },
+    const frame = screen.getByTestId('search-region-map-frame');
+    fireEvent(frame, 'layout', {
+      nativeEvent: {
+        layout: { x: 0, y: 0, width: 360, height: StyleSheet.flatten(frame.props.style).height },
+      },
     });
     // The map is a drawing of states and provinces: no collector, no marker, no pin on it.
     expect(await screen.findByTestId('map-shape-CA-QC')).toBeOnTheScreen();
