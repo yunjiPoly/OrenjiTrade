@@ -144,6 +144,9 @@ cascade; `ck_sale_parties`), `kind` (`CARD`, `DECK_CORE`), `inventory_item_id` /
   `interaction_subject_type_check` with `ck_interaction_kind` / `ck_interaction_subject_type`).
   `GET /ratings/eligibility` lists `SALE` interactions; the phone's "Rate {other}" in a sale message
   opens the rating with `kind=SALE`.
+- Each sale can be rated, but the rated collector's summary (`rating_summary`: average and count)
+  counts only the newest `SALE` rating each collector gave them (review fix 1, F10; a default the
+  owner can change); every rating stays listed.
 - `NotificationType` gains `SALE_RECORDED` (in-app only, follows the in-app master switch).
 
 ## Error codes (new)

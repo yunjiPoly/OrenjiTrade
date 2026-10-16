@@ -365,6 +365,69 @@ class SaleIT extends AbstractDealsIT {
         assertThat(saleMessages(buyer, chatId)).hasSize(2);
     }
 
+    /**
+     * Review fix 1, F10: every sale lets both rate, but a pair cannot stack ratings through many
+     * small sales: the seller's summary counts the newest sale rating of each buyer only, while
+     * every rating stays listed.
+     */
+    @Test
+    void manySalesToOneBuyerCountOneRatingInTheSummary() {
+        Collector seller = collector("r4-stack-seller");
+        Collector buyer = collector("r4-stack-buyer");
+        Collector other = collector("r4-stack-other");
+        String itemId = card(seller, 5, "PUBLIC", "$3");
+        String chatId = chatAbout(buyer, seller, itemId);
+        for (int overall : List.of(5, 5, 2)) {
+            markSold(seller, chatId, 1, null, 201);
+            // The buyer opens the card again: the next copy can be sold in the same chat.
+            startAbout(buyer, seller, itemId, null, 200);
+            List<String> open = new ArrayList<>(saleInteractions(buyer, seller));
+            open.removeIf(
+                    id ->
+                            testUsers.count(
+                                            "SELECT count(*) FROM rating WHERE interaction_id = ?",
+                                            UUID.fromString(id))
+                                    > 0);
+            assertThat(open).hasSize(1);
+            callJson(
+                    HttpMethod.POST,
+                    "/api/v1/ratings",
+                    buyer.uid(),
+                    Map.of("interactionId", open.get(0), "overall", overall, "shipping", overall),
+                    201);
+        }
+        JsonNode ratings =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/collectors/" + seller.handle() + "/ratings",
+                        other.uid(),
+                        null,
+                        200);
+        assertThat(ratings.path("items")).hasSize(3);
+        assertThat(ratings.path("summary").path("count").asInt()).isEqualTo(1);
+        assertThat(ratings.path("summary").path("average").asDouble()).isEqualTo(2.0);
+
+        // Another buyer's rating counts on its own.
+        String otherChat = chatAbout(other, seller, itemId);
+        markSold(seller, otherChat, 1, null, 201);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/ratings",
+                other.uid(),
+                Map.of("interactionId", saleInteractions(other, seller).get(0), "overall", 4),
+                201);
+        JsonNode summary =
+                callJson(
+                                HttpMethod.GET,
+                                "/api/v1/collectors/" + seller.handle() + "/ratings",
+                                buyer.uid(),
+                                null,
+                                200)
+                        .path("summary");
+        assertThat(summary.path("count").asInt()).isEqualTo(2);
+        assertThat(summary.path("average").asDouble()).isEqualTo(3.0);
+    }
+
     @Test
     void aDeckCoreSoldLeavesSearchWithItsCardsAndComesBackOnUndo() {
         Collector seller = collector("r4-core-seller");

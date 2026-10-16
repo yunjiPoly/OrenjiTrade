@@ -1569,7 +1569,9 @@ Constraint `uq_rating_interaction_rater (interaction_id, rater_id)` (409 `ALREAD
 | `updated_at` | `timestamptz` | last recomputation |
 
 Recomputed by the ratings module (single upsert from `rating`) on every rating write, hide, unhide
-and deletion; read by `RatingSummaryProvider` (profiles, collector search results, offers; one query per
+and deletion. Of the OK ratings one collector gave another for sales (interaction kind `SALE`, stage
+R4), only the newest counts in the average and the count (review fix 1, F10: a pair cannot stack
+ratings through many one-copy sales); every rating stays listed. Read by `RatingSummaryProvider` (profiles, collector search results, offers; one query per
 page of results; no nearby ranking since ADR 0017, comment refreshed by V111). Index `ix_rating_summary_average (average DESC NULLS LAST, count DESC)`.
 
 #### `reference`
