@@ -1170,6 +1170,63 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     }
   });
 
+  it('an open Mark as sold sheet keeps the card it opened with when a pin re-reads the chat (R1-1)', async () => {
+    jest.useFakeTimers();
+    try {
+      const rt = fakeRealtime();
+      let current = subjectFixture({ ownerId: SELF_ID, copies: 3, askingPriceText: '85% TCG' });
+      const api = mockApi(
+        chatRoutes(null, {
+          'GET /api/v1/conversations/{id}': () =>
+            ok(conversationFixture({ other: OTHER, subject: current })),
+          'POST /api/v1/conversations/{id}/sales': problem(
+            409,
+            'SUBJECT_CHANGED',
+            'What this chat is about changed: check it before you mark it sold'
+          ),
+        })
+      );
+      render(rt);
+      expect(await screen.findByTestId('pinned-name')).toHaveTextContent('Emberfang Fox VMAX');
+      await waitFor(() => expect(rt.client.state).toBe('connected'));
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(500);
+      });
+      fireEvent.press(screen.getByTestId('pinned-mark-sold'));
+      const sheet = await screen.findByTestId('mark-sold-sheet');
+      expect(within(sheet).getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 3 copies');
+      const reads = api.callsTo('GET /api/v1/conversations/{id}').length;
+
+      // The buyer opens the seller's deck core while the sheet is open: the push re-reads the
+      // chat and the bar under the sheet follows it.
+      current = deckCoreSubjectFixture({ ownerId: SELF_ID, name: 'Lantern core' });
+      act(() =>
+        rt.current().push('/user/queue/conversations', { conversationId: CONVERSATION_ID })
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('pinned-name')).toHaveTextContent('Lantern core')
+      );
+      expect(api.callsTo('GET /api/v1/conversations/{id}').length).toBe(reads + 1);
+
+      // The sheet still shows the card the seller opened it for, and the sale names that card:
+      // the server then refuses it, so nothing is sold that the seller did not see.
+      expect(screen.getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 3 copies');
+      expect(screen.getByTestId('mark-sold-quantity')).toBeOnTheScreen();
+      fireEvent.press(screen.getByTestId('mark-sold-confirm'));
+      await waitFor(() =>
+        expect(api.callsTo('POST /api/v1/conversations/{id}/sales')[0]?.body).toEqual({
+          quantity: 1,
+          subjectItemId: ITEM_ID,
+        })
+      );
+      expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+        'collector2 opened another of your listings. Check the card above, then mark it sold.'
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('the sale message reads for each side, with the tracking number and Rate', async () => {
     // The first sale was undone: its message is dropped.
     const undone = saleMessageFixture(
