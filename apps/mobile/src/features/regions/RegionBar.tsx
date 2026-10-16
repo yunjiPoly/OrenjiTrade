@@ -11,9 +11,10 @@ import { useBrowsingRegion } from './browsingRegion';
 export interface RegionBarProps {
   /**
    * `bar` (default): the switcher with the region's name, and the "not your region" line under
-   * it (Search's list of states for screen readers). `pill`: the switcher alone, over the map of
-   * Search (the accent colour says when another region than the collector's is shown; the line is
-   * `RegionAwayNote`, under the field).
+   * it (Search's list of states for screen readers). `pill`: the switcher alone over the map of
+   * Search, the globe and the region's name without "Region:" (mockup screen 11; a screen reader
+   * still hears it). The accent colour says when another region than the collector's is shown;
+   * the line is `RegionAwayNote`, under the field.
    */
   variant?: 'bar' | 'pill';
   /**
@@ -55,6 +56,7 @@ export function RegionBar({
     return (
       <SelectSheet
         compact
+        hideLabel
         label="Region"
         icon="earth"
         tone={away ? 'accent' : 'default'}

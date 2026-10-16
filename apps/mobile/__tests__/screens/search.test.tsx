@@ -94,6 +94,11 @@ describe('Search: the map (screen 11)', () => {
     expect(await screen.findByTestId('map-shape-CA-QC')).toBeOnTheScreen();
     expect(screen.getByLabelText('Show my province')).toBeOnTheScreen();
     expect(screen.getByLabelText('Zoom in')).toBeOnTheScreen();
+    // The region pill: the globe and the region's name alone (mockup screen 11), so the name is
+    // what stays at large text sizes; a screen reader hears "Region: …" (stage R5 review, U4).
+    const pill = screen.getByRole('button', { name: 'Region: Americas (North)' });
+    expect(within(pill).getByText('Americas (North)')).toBeOnTheScreen();
+    expect(pill).not.toHaveTextContent(/Region/);
     expect(
       screen.getByTestId('search-map-legend', { includeHiddenElements: true })
     ).toHaveTextContent(/Public binders/);
@@ -358,6 +363,26 @@ describe('Search: typing a card (screen 12)', () => {
     fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
     expect(await screen.findByTestId('search-no-match')).toHaveTextContent(
       'No card matches “zzzz”Try fewer letters, or the code printed on the card, like LAVD-EN008.'
+    );
+  });
+
+  it('remembers the whole text when the Search key is pressed right after typing', async () => {
+    const api = mockApi(typingRoutes());
+    render();
+    fireEvent.press(await screen.findByRole('search', { name: /Card name or code/ }));
+    const input = screen.getByTestId('search-input');
+    // A pause mid-word: the results follow "mer".
+    fireEvent.changeText(input, 'mer');
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('mer')
+    );
+    // Then the rest of the word and the Search key at once, inside the debounce.
+    fireEvent.changeText(input, 'mermaid ');
+    fireEvent(input, 'submitEditing');
+    expect(useRecentSearchesStore.getState().byUser['uid-maika']).toEqual(['mermaid']);
+    // And it searches that text at once.
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('mermaid')
     );
   });
 
