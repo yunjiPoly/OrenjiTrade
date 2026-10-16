@@ -102,3 +102,25 @@ export function placeLabelOf(region: PlatformRegion | null, code: string): strin
   }
   return null;
 }
+
+/**
+ * The name of a place and of its country ("Quebec" and "Canada"; a whole-country entry gives the
+ * country twice), for the state card of Search's map; null when the region does not list it.
+ */
+export function placeParts(
+  region: PlatformRegion | null,
+  code: string
+): { name: string; country: string; countryCode: string } | null {
+  for (const country of region?.countries ?? []) {
+    for (const subdivision of country.subdivisions) {
+      if (subdivision.code === code) {
+        return {
+          name: subdivision.wholeCountry ? country.name : subdivision.name,
+          country: country.name,
+          countryCode: country.code,
+        };
+      }
+    }
+  }
+  return null;
+}

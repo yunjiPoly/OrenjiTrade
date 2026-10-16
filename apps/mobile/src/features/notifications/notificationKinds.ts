@@ -93,7 +93,7 @@ export function notificationLink(
       const card = idOf(data, 'cardId');
       const printing = idOf(data, 'printingId');
       if (!card) {
-        return '/wishlist';
+        return '/search?segment=wishlist';
       }
       // Without a printing, "any" is said explicitly: the screen never picks one itself.
       return `/cards/${card}?printing=${printing ?? ANY_PRINTING_PARAM}`;
@@ -136,7 +136,9 @@ export function notificationLink(
       switch (data?.['kind']) {
         case 'LIMIT_REACHED':
           // Held-back alerts; nothing to buy (stage F1). An old notice's `upgradeUrl` is ignored.
-          return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
+          return data?.['notificationType'] === 'WISHLIST_ALERT'
+            ? '/search?segment=wishlist'
+            : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':
@@ -204,8 +206,9 @@ export function mobileTarget(webPath: string): NotificationTarget {
   const id = rawId && ID.test(rawId) ? rawId : null;
   switch (root) {
     case 'wishlist':
-      // The matches screen of one wish is gone (stage S2): old links open the list.
-      return route('/wishlist');
+      // The matches screen of one wish is gone (stage S2): old links open the list, which is
+      // Search › Wishlist since stage R5.
+      return route('/search?segment=wishlist');
     case 'messages':
       return route(id ? `/messages/${id}` : '/messages');
     case 'community':
@@ -234,22 +237,35 @@ export function mobileTarget(webPath: string): NotificationTarget {
       return route(id ? `/sets/${id}` : '/search');
     case 'collectors':
       return route(
-        id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/'
+        id ? `/collectors/${id}${params.get('tab') === 'ratings' ? '?tab=ratings' : ''}` : '/search'
       );
-    case 'map':
-      return route('/');
+    case 'map': {
+      // The Map tab is Search's default view since stage R5 (the web's `/map?region=&subdivision=`).
+      const region = params.get('region');
+      const subdivision = params.get('subdivision');
+      const query = [
+        region && /^[a-z]+(-[a-z]+)*$/.test(region) ? `region=${region}` : null,
+        subdivision && /^[A-Z]{2}(-[A-Z0-9]{1,3})?$/.test(subdivision)
+          ? `subdivision=${subdivision}`
+          : null,
+      ].filter(Boolean);
+      return route(query.length > 0 ? `/search?${query.join('&')}` : '/search');
+    }
     case 'search': {
-      // The web's holders view (`/search?card=|printing=`) is the app's holders list.
+      // The web's holders view (`/search?card=|printing=`) is the app's card page, Who has this
+      // card, since stage R5 (a printing is looked up by `/holders` first to find its card).
       const printing = params.get('printing');
       const card = params.get('card');
+      if (card && ID.test(card)) {
+        return route(
+          printing && ID.test(printing) ? `/cards/${card}?printing=${printing}` : `/cards/${card}`
+        );
+      }
       if (printing && ID.test(printing)) {
         return route(`/holders?printing=${printing}`);
       }
-      if (card && ID.test(card)) {
-        return route(`/holders?card=${card}`);
-      }
-      const tab = params.get('tab');
-      return route(tab === 'collectors' || tab === 'binders' ? `/search?tab=${tab}` : '/search');
+      // Collectors show under the cards while a card is typed since stage R5.
+      return route(params.get('tab') === 'binders' ? '/search?segment=binders' : '/search');
     }
     case 'notifications':
       return route('/notifications');

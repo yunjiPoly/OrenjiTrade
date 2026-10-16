@@ -12,9 +12,10 @@ export interface RegionBarProps {
   /**
    * `bar` (default): the switcher with the region's name, and the "not your region" line under
    * it. `header`: a round button for a navigation header, on a screen whose own texts already
-   * name the region.
+   * name the region. `pill`: the switcher alone, over the map of Search (the accent colour says
+   * when another region than the collector's is shown).
    */
-  variant?: 'bar' | 'header';
+  variant?: 'bar' | 'header' | 'pill';
   /**
    * The bar stays on screen above a list that scrolls under it (the Search tab): its texts follow
    * the system text size only a little, so the bar stays a line or two at any size instead of
@@ -49,6 +50,22 @@ export function RegionBar({
     detail: option.code === home ? 'Your region' : undefined,
   }));
   const homeName = options.find((option) => option.value === home)?.label ?? regionName(home);
+
+  if (variant === 'pill') {
+    return (
+      <SelectSheet
+        compact
+        label="Region"
+        icon="earth"
+        tone={away ? 'accent' : 'default'}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        options={options}
+        value={region}
+        onChange={select}
+        testID={testID}
+      />
+    );
+  }
 
   if (variant === 'header') {
     return (

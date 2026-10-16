@@ -4,7 +4,6 @@ import { StyleSheet, View } from 'react-native';
 
 import type { MyLimits, MyLocationResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
-import { SwitchRow } from '@/src/components/ui/FormControls';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -68,67 +67,9 @@ export function AlertReadinessNotice({ readiness }: { readiness: AlertReadiness 
   );
 }
 
-/** "Let others see what you want": the `wishlistVisible` privacy setting, explained. */
-export function WishlistVisibilityRow({
-  visible,
-  onChange,
-  disabled,
-  alertsPossible = true,
-}: {
-  visible: boolean;
-  onChange: (visible: boolean) => void;
-  disabled?: boolean;
-  /** `false` while the collector has no location: no alert can arrive, so none is promised. */
-  alertsPossible?: boolean;
-}) {
-  const { palette } = useTheme();
-  return (
-    <View
-      testID="wishlist-visibility"
-      style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
-    >
-      <SwitchRow
-        label="Let others see what you want"
-        help={`Collectors who own these cards can find you on your profile and offer them.${alertsPossible ? ' Your wishlist alerts work either way.' : ''}`}
-        value={visible}
-        onChange={onChange}
-        disabled={disabled}
-        testID="wishlist-visible"
-      />
-    </View>
-  );
-}
-
-/** The wishlist at a glance: the number of wishes and how many fit. */
-export function WishlistSummary({ count, usage }: { count: number; usage: WishUsage | null }) {
-  const { palette } = useTheme();
-  return (
-    <View
-      testID="wishlist-summary"
-      accessibilityLabel={`Wishlist summary: ${count} ${count === 1 ? 'wish' : 'wishes'}`}
-      style={[styles.summary, { backgroundColor: palette.surface, borderColor: palette.border }]}
-    >
-      <Text
-        testID="wishlist-count"
-        style={[textStyle('md'), styles.strong, { color: palette.ink }]}
-      >
-        {count} {count === 1 ? 'wish' : 'wishes'}
-      </Text>
-      {usage ? (
-        <Text testID="wishlist-usage" style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {usage.limit !== null
-            ? `${usage.used} of ${usage.limit} wishes`
-            : `${usage.used} wishes · unlimited`}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   notice: { gap: spacing[2], padding: spacing[3], borderRadius: radius.lg, borderWidth: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   grow: { flex: 1 },
   strong: { fontWeight: fontWeight.semibold },
-  summary: { gap: spacing[2], padding: spacing[3], borderRadius: radius.lg, borderWidth: 1 },
 });

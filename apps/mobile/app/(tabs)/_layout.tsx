@@ -7,7 +7,7 @@ import { useConversations } from '@/src/api/hooks/messaging';
 import { inboxConversations } from '@/src/features/messages/conversationCache';
 import { badgeCount, totalUnread } from '@/src/features/messages/messageText';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
-import { TABS } from '@/src/navigation/tabs';
+import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 import { useTheme } from '@/src/theme/useTheme';
 
 /** Unread chats of the inbox (not muted), for the Messages tab badge (stage R4). */
@@ -66,6 +66,9 @@ export default function TabLayout() {
           />
         );
       })}
+      {HIDDEN_TAB_ROUTES.map((name) => (
+        <Tabs.Screen key={name} name={name} options={{ href: null, headerShown: false }} />
+      ))}
     </Tabs>
   );
 }

@@ -5,6 +5,16 @@
  * the design keeps are the map's binders and deck cores and the number of your wishes.
  */
 
+import { gameLabel } from '@/src/lib/profile';
+
+/** The short names of the game chips and results (mockup screen 12: "Magic"). */
+const SHORT_GAME_NAMES: Readonly<Record<string, string>> = { mtg: 'Magic' };
+
+/** The name of a game in Search: its short name, else `fallback`, else the app's label. */
+export function gameName(slug: string, fallback?: string): string {
+  return SHORT_GAME_NAMES[slug] ?? fallback ?? gameLabel(slug);
+}
+
 /** "1 binder", "7 binders". */
 export function binderCount(count: number): string {
   return `${count} ${count === 1 ? 'binder' : 'binders'}`;

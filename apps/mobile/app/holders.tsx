@@ -1,288 +1,73 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useCard } from '@/src/api/hooks/catalog';
-import { useGames } from '@/src/api/hooks/profile';
-import { useCardHolders } from '@/src/api/hooks/search';
-import type { CardDetail } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { CardImage } from '@/src/components/ui/CardImage';
+import { usePrintingCard } from '@/src/api/hooks/search';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Screen } from '@/src/components/ui/Screen';
-import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { Text } from '@/src/components/ui/Text';
-import {
-  DEFAULT_HOLDER_FILTERS,
-  HOLDER_SORTS,
-  activeHolderFilterCount,
-  holdersCountLabel,
-  isHolderSort,
-  type HolderFilters,
-} from '@/src/features/holders/holderFilters';
-import { HolderFiltersSheet } from '@/src/features/holders/HolderFiltersSheet';
-import { HolderRow } from '@/src/features/holders/HolderRow';
-import { holdersTarget } from '@/src/features/collectors/collectorLabels';
-import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
-import { RegionBar } from '@/src/features/regions/RegionBar';
-import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
-import { printingCode, printingImageUrl } from '@/src/lib/catalog';
-import { isLimitReached } from '@/src/lib/limits';
-import { regionName, regionPhrase } from '@/src/lib/place';
-import { gameLabel } from '@/src/lib/profile';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { CARD_PAGE_COPY } from '@/src/features/search/searchCopy';
+import { holdersLinkTarget } from '@/src/features/search/searchLinks';
 
 /**
- * "Who has this card in my region" as a list (the web's `/search?card=|printing=` card-holders
- * view, `GET /search/card-holders`): the card, every filter and sort of the web (a sheet), the
- * matching public copies of the browsed region with their holders (state or province only, never
- * a position or a distance, ADR 0017), paged. The region switcher is in the navigation header.
+ * The old card holders list (`/holders?card=<id>` or `?printing=<id>`, the web's
+ * `/search?card=|printing=`): since stage R5 the card page is Who has this card (owner spec
+ * 2026-10-14, section 4), so the link lands on `/cards/<id>`, on the printing it named. A printing
+ * is looked up first to find its card.
  */
-export default function HoldersScreen() {
+export default function HoldersRedirect() {
   const params = useLocalSearchParams<{ card?: string; printing?: string }>();
-  const target = useMemo(() => holdersTarget(params), [params]);
-  const [filters, setFilters] = useState<HolderFilters>(DEFAULT_HOLDER_FILTERS);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const router = useRouter();
-  const { palette } = useTheme();
-  const games = useGames();
-  const { region, home } = useBrowsingRegion();
-  // "your region" at home, the region's name while browsing another one.
-  const where = regionPhrase(region, home);
-  const holders = useCardHolders(target, filters);
-  // The card: its picture, name and game schema (for the condition / edition / language values).
-  const cardId = target?.kind === 'card' ? target.id : null;
-  const card = useCard(cardId ?? resolvedCardId(holders.data?.pages[0]?.items));
-  const printingOf = (detail: CardDetail | undefined) =>
-    target?.kind === 'printing'
-      ? (detail?.printings ?? []).find((printing) => printing.id === target.id)
-      : undefined;
-  const printing = printingOf(card.data);
-  const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
-  const name = card.data?.name ?? 'this card';
-  const heading = `Who has ${name}${printing ? ` (${printingCode(printing)})` : ''} in ${where}`;
-  const rows = useMemo(
-    () => holders.data?.pages.flatMap((page) => page.items ?? []) ?? [],
-    [holders.data]
-  );
-  const total = holders.data?.pages[0]?.totalItems ?? null;
-  const active = activeHolderFilterCount(filters);
+  const target = holdersLinkTarget(params);
+  const lookup = target && !('card' in target) ? target.printing : null;
+  const printingCard = usePrintingCard(lookup);
 
-  if (!target) {
+  if (target && 'card' in target) {
     return (
-      <Screen safeBottom testID="screen-holders">
-        <Stack.Screen options={{ title: 'Card holders' }} />
-        <EmptyState
-          testID="holders-no-card"
-          icon="cards-outline"
-          title="Choose a card first"
-          description={`Open a card and ask who has it in ${where}.`}
-          actionLabel="Search the catalog"
-          onAction={() => router.navigate('/search')}
-        />
-      </Screen>
+      <Redirect
+        href={{
+          pathname: '/cards/[id]',
+          params: target.printing
+            ? { id: target.card, printing: target.printing }
+            : { id: target.card },
+        }}
+      />
     );
   }
-
-  const header = (
-    <View style={styles.header}>
-      <View style={styles.hero}>
-        <CardImage
-          src={printingImageUrl(printing) ?? card.data?.primaryImageUrl ?? null}
-          alt={name}
-          game={card.data?.game}
-          size="md"
-        />
-        <View style={styles.grow}>
-          {card.data?.game ? (
-            <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.primary }]}>
-              {gameLabel(card.data.game)}
-            </Text>
-          ) : null}
-          <Text
-            accessibilityRole="header"
-            testID="holders-title"
-            style={[textStyle('xl', 'heading'), styles.strong, { color: palette.ink }]}
-          >
-            {heading}
-          </Text>
-          <Text testID="holders-subtitle" style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {`Collectors of ${regionName(region)}. Only their state or province is shown.`}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.actions}>
-        {card.data?.id ? (
-          <Button
-            label="Card details"
-            icon="cards-outline"
-            variant="ghost"
-            onPress={() =>
-              router.push({ pathname: '/cards/[id]', params: { id: card.data?.id ?? '' } })
-            }
-            style={styles.action}
-            testID="holders-card"
-          />
-        ) : null}
-        <Button
-          label="Add to wishlist"
-          icon="heart-plus-outline"
-          variant="ghost"
-          onPress={() =>
-            router.push({
-              pathname: '/wishlist/new',
-              params: {
-                cardId: card.data?.id ?? '',
-                printingId: target.kind === 'printing' ? target.id : '',
-              },
-            })
-          }
-          style={styles.action}
-          testID="holders-wishlist"
-        />
-      </View>
-      <View style={styles.toolbar}>
-        <SelectSheet
-          compact
-          label="Sort"
-          options={HOLDER_SORTS}
-          value={filters.sort}
-          onChange={(sort) =>
-            setFilters((current) => ({ ...current, sort: isHolderSort(sort) ? sort : 'freshness' }))
-          }
-          testID="holders-sort"
-        />
-        <Button
-          label={active > 0 ? `Filters (${active})` : 'Filters'}
-          icon="filter-variant"
-          variant="secondary"
-          onPress={() => setFiltersOpen(true)}
-          style={styles.filterButton}
-          testID="holders-filters"
-        />
-      </View>
-      <Text
-        testID="holders-count"
-        accessibilityLiveRegion="polite"
-        style={[textStyle('sm'), styles.strong, { color: palette.ink }]}
-      >
-        {holdersCountLabel(total, where)}
-        {holders.isFetching && !holders.isFetchingNextPage && total !== null ? ' · updating…' : ''}
-      </Text>
-    </View>
-  );
-
-  let body;
-  if (!holders.data && holders.error) {
-    body = isLimitReached(holders.error) ? (
-      <View style={styles.pad}>
-        <LimitReachedNotice error={holders.error} />
-      </View>
-    ) : (
+  if (lookup && printingCard.data) {
+    return (
+      <Redirect
+        href={{ pathname: '/cards/[id]', params: { id: printingCard.data, printing: lookup } }}
+      />
+    );
+  }
+  let content;
+  if (!target || (lookup && printingCard.isSuccess && !printingCard.data)) {
+    content = (
+      <EmptyState
+        testID="holders-no-card"
+        icon="cards-outline"
+        title={CARD_PAGE_COPY.notFound}
+        description={CARD_PAGE_COPY.notFoundHint}
+        actionLabel={CARD_PAGE_COPY.searchCards}
+        onAction={() => router.replace({ pathname: '/search', params: { typing: '1' } })}
+      />
+    );
+  } else if (printingCard.error) {
+    content = (
       <ErrorState
         testID="holders-error"
-        error={holders.error}
-        title="Holders could not load"
-        onRetry={() => void holders.refetch()}
+        error={printingCard.error}
+        title={CARD_PAGE_COPY.error}
+        onRetry={() => void printingCard.refetch()}
       />
     );
-  } else if (!holders.data) {
-    body = <SkeletonList rows={3} rowHeight={150} testID="holders-loading" />;
   } else {
-    body = (
-      <FlatList
-        testID="holders-list"
-        data={rows}
-        keyExtractor={(result) => result.item.id}
-        renderItem={({ item }) => <HolderRow result={item} />}
-        ItemSeparatorComponent={Separator}
-        ListEmptyComponent={
-          <EmptyState
-            testID="holders-empty"
-            icon="magnify-close"
-            title={`Nobody in ${where} lists this card with these filters`}
-            description="Widen the filters, or add it to your wishlist: we'll tell you when a collector of your region lists it."
-            actionLabel={active > 0 ? 'Clear filters' : undefined}
-            onAction={
-              active > 0
-                ? () => setFilters((current) => ({ ...DEFAULT_HOLDER_FILTERS, sort: current.sort }))
-                : undefined
-            }
-          />
-        }
-        ListFooterComponent={
-          <ListFooter
-            loading={holders.isFetchingNextPage}
-            failed={!!holders.error && holders.hasNextPage}
-            onRetry={() => void holders.fetchNextPage()}
-          />
-        }
-        onEndReached={() => {
-          if (holders.hasNextPage && !holders.isFetchingNextPage && !holders.error) {
-            void holders.fetchNextPage();
-          }
-        }}
-        onEndReachedThreshold={0.5}
-        refreshControl={
-          <RefreshControl
-            refreshing={holders.isRefetching && !holders.isFetchingNextPage}
-            onRefresh={() => void holders.refetch()}
-          />
-        }
-        contentContainerStyle={styles.listContent}
-      />
-    );
+    content = <SkeletonList rows={3} rowHeight={72} testID="holders-loading" />;
   }
-
   return (
-    <Screen testID="screen-holders" style={styles.screen}>
-      {/* The region switcher sits in the navigation header: the title, the line under it and the
-          count below already name the region, and the list keeps its room. */}
-      <Stack.Screen
-        options={{
-          title: 'Card holders',
-          headerRight: () => <RegionBar variant="header" testID="holders-region" />,
-        }}
-      />
-      {header}
-      <View style={styles.grow}>{body}</View>
-      <HolderFiltersSheet
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        filters={filters}
-        conditions={schema?.conditions}
-        editions={schema?.editions}
-        languages={schema?.languages}
-        onChange={setFilters}
-      />
+    <Screen safeBottom testID="screen-holders">
+      <Stack.Screen options={{ title: 'Card' }} />
+      {content}
     </Screen>
   );
 }
-
-/** The card id of a printing target, read from the first result (the printing's card). */
-function resolvedCardId(items: { item: { card: { id: string } } }[] | undefined): string | null {
-  return items?.[0]?.item.card.id ?? null;
-}
-
-function Separator() {
-  return <View style={styles.separator} />;
-}
-
-const styles = StyleSheet.create({
-  screen: { paddingBottom: 0 },
-  header: { gap: spacing[3], marginBottom: spacing[2] },
-  hero: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start' },
-  grow: { flex: 1 },
-  eyebrow: { fontWeight: fontWeight.semibold, textTransform: 'uppercase', letterSpacing: 0.6 },
-  strong: { fontWeight: fontWeight.semibold },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  action: { minHeight: 40, paddingVertical: spacing[2], paddingHorizontal: spacing[3] },
-  toolbar: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  filterButton: { minHeight: 36, paddingVertical: spacing[1], paddingHorizontal: spacing[3] },
-  pad: { paddingVertical: spacing[4] },
-  listContent: { paddingBottom: spacing[6] },
-  separator: { height: spacing[2] },
-});

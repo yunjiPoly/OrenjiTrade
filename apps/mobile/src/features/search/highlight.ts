@@ -12,10 +12,7 @@ export interface HighlightParts {
 
 /** Folds one character for comparison: lower case, without its accent. */
 function foldChar(char: string): string {
-  return char
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return char.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 /** The folded name and, for each folded character, the index of the character it came from. */
@@ -35,10 +32,7 @@ function foldWithIndex(text: string): { folded: string; origin: number[] } {
 export function highlightParts(name: string, query: string): HighlightParts {
   const chars = Array.from(name);
   const none = { before: name, match: '', after: '' };
-  const wanted = Array.from(query.trim())
-    .map(foldChar)
-    .join('')
-    .replace(/\s+/g, ' ');
+  const wanted = Array.from(query.trim()).map(foldChar).join('').replace(/\s+/g, ' ');
   if (!wanted) {
     return none;
   }
