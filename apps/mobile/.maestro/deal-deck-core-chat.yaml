@@ -26,7 +26,7 @@ tags:
       PASSWORD: ${output.ada.password}
 - extendedWaitUntil:
     visible:
-      id: 'tab-index'
+      id: 'tab-search'
     timeout: 60000
 - openLink: ${APP_URL}/--/binders/${output.core.id}
 - runFlow: subflows/dismiss-dev-menu.yaml

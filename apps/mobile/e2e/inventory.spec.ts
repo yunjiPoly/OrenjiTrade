@@ -250,13 +250,16 @@ test.describe('mobile inventory (stage R2)', () => {
     });
     await signInThroughUi(page, collector.email, collector.password);
 
-    // Add to inventory from the card page: the printing is preselected, the details open.
-    await openTab(page, 'Search');
-    const search = screen(page, 'search');
-    await search.getByLabel('Find a card').fill('Azure-Eyes');
-    await search.getByRole('link', { name: 'Azure-Eyes Sky Dragon' }).click();
-    const card = screen(page, 'card');
-    await card.getByRole('button', { name: 'Add to inventory' }).click();
+    // Add cards with an exact printing code: the details open on that printing (the card page
+    // of stage R5, Who has this card, adds nothing: it lists the holders).
+    await openTab(page, 'Inventory');
+    await screen(page, 'inventory').getByRole('button', { name: 'Add cards' }).first().click();
+    await screen(page, 'add-cards-start')
+      .getByRole('search', { name: 'Card name or code' })
+      .click();
+    const typing = screen(page, 'add-cards-typing');
+    await typing.getByLabel('Card name or code').fill('AZR-EN001');
+    await typing.getByTestId('add-printing-AZR-EN001').click({ timeout: 30_000 });
     const add = screen(page, 'add-item');
     await expect(add.getByTestId('card-header-name')).toHaveText('Azure-Eyes Sky Dragon', {
       timeout: 30_000,
@@ -265,8 +268,6 @@ test.describe('mobile inventory (stage R2)', () => {
     await add.getByLabel('Asking price').fill('12,50');
     await add.getByRole('button', { name: 'Add to inventory' }).click();
     await expect(snackbar(page)).toContainText('Azure-Eyes Sky Dragon', { timeout: 30_000 });
-    // Back on the card page.
-    await expect(screen(page, 'card').getByTestId('card-name')).toBeVisible();
 
     await openInApp(page, '/inventory');
     const inventory = screen(page, 'inventory');

@@ -276,7 +276,7 @@ test.describe('mobile binders and deck cores', () => {
     await expect(seen.getByTestId('deck-core-seller-line')).toHaveText('Quebec · 1 public binder');
     await expect(seen.getByTestId('deck-core-seller')).not.toContainText(/Montréal|\bkm\b/);
     await expect(seen.getByTestId('deck-core-photos-page-1')).toBeAttached();
-    // A key card opens the card page (Who has this card comes with stage R5).
+    // A key card opens the card page, Who has this card (stage R5).
     await expect(seen.getByRole('link', { name: /^Lantern Fox Spirit, 3 copies/ })).toBeVisible();
     // Message opens the chat with the seller (the deck core is pinned to it from stage R4).
     await seen.getByRole('button', { name: `Message ${seller.handle}` }).click();

@@ -129,6 +129,46 @@ export function RegionBar({
   );
 }
 
+/**
+ * "Not your region. Back to {home}" alone, while another region than the collector's is browsed
+ * (Search's map shows it under its field: the pill over the map has no room for it).
+ */
+export function RegionAwayNote({ testID = 'region-away' }: { testID?: string }) {
+  const { palette } = useTheme();
+  const { home, away, select } = useBrowsingRegion();
+  const homeName =
+    useRegionOptions().find((option) => option.code === home)?.name ?? regionName(home);
+  if (!away || !home) {
+    return null;
+  }
+  return (
+    <View style={styles.away} testID={testID}>
+      <Text
+        accessibilityLiveRegion="polite"
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        style={[textStyle('sm'), styles.strong, { color: palette.ink }]}
+      >
+        Not your region.
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Back to ${homeName}`}
+        onPress={() => select(home)}
+        hitSlop={8}
+        testID={`${testID}-home`}
+        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+      >
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+        >
+          Back to {homeName}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',

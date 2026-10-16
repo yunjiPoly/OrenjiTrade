@@ -16,7 +16,7 @@ import { PlaceList } from '@/src/features/map/PlaceList';
 import { placeParts, regionOf, placeLabelOf } from '@/src/features/map/places';
 import { RegionMap } from '@/src/features/map/RegionMap';
 import { SHADE_OPACITY, countsByCode, shadeLevel } from '@/src/features/map/shading';
-import { RegionBar } from '@/src/features/regions/RegionBar';
+import { RegionAwayNote, RegionBar } from '@/src/features/regions/RegionBar';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { useScreenReader } from '@/src/hooks/useScreenReader';
 import { regionName } from '@/src/lib/place';
@@ -30,8 +30,11 @@ export interface SearchMapProps {
   onType: () => void;
   /** "See binders": the Binders segment filtered to that state or province. */
   onSeeBinders: (code: string) => void;
-  /** The state or province a link asked for (`/search?subdivision=`), picked on the map once. */
-  linkedPlace: string | null;
+  /**
+   * The state or province a link asked for (`/search?region=&subdivision=`), on its region (the
+   * browsed one when the link names none), picked on the map once per link (`nonce`).
+   */
+  linkedPlace: { region: string | null; code: string; nonce: number } | null;
 }
 
 /** The map is never shorter than this inside Search, so the state card and the legend fit. */
@@ -69,10 +72,10 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
   // The state shown on the card, per region: the collector's province until another is tapped
   // (the mockup opens on it), none once the card is closed; a link's state wins once.
   const [picked, setPicked] = useState<{ region: string; code: string | null } | null>(null);
-  const [linkUsed, setLinkUsed] = useState<string | null>(null);
-  if (linkedPlace && linkedPlace !== linkUsed) {
-    setLinkUsed(linkedPlace);
-    setPicked({ region, code: linkedPlace });
+  const [linkUsed, setLinkUsed] = useState<number | null>(null);
+  if (linkedPlace && linkedPlace.nonce !== linkUsed) {
+    setLinkUsed(linkedPlace.nonce);
+    setPicked({ region: linkedPlace.region ?? region, code: linkedPlace.code });
   }
   const selected = picked && picked.region === region ? picked.code : homeInRegion;
   const [pageHeight, setPageHeight] = useState(0);
@@ -87,9 +90,11 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
   const field = (
     <View
       onLayout={(event) => setFieldHeight(event.nativeEvent.layout.height)}
+      style={styles.field}
       testID="search-field-frame"
     >
       <SearchFieldButton onPress={onType} />
+      <RegionAwayNote testID="search-region-away" />
     </View>
   );
 
@@ -307,6 +312,7 @@ function StateCard({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { gap: spacing[3], paddingBottom: spacing[4] },
+  field: { gap: spacing[2] },
   listHead: { gap: spacing[3], marginBottom: spacing[2] },
   bold: { fontWeight: fontWeight.bold },
   alert: {

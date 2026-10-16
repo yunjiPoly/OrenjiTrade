@@ -1,10 +1,8 @@
-# Search tab and card detail (mobile Phase 2): a fresh collector scrolls deep into the catalog
-# (the mock catalog of the isolated database) and comes back to the search field by pressing the
-# Search tab again (stage M9, review fix 2), searches the catalog, narrows it with a language
-# from the game schema, opens a card, reads its printings and switches to the French printing,
-# which has no market price.
+# The card search and the card page (mobile Phase 2; Search and Who has this card since stage
+# R5): a fresh collector types a card of the mock catalog of the isolated database, narrows the
+# results with a game chip, opens a card and picks its French printing in "Any printing ▾".
 appId: ${APP_ID}
-name: Search the catalog and open a card
+name: Type a card on Search and open its page
 tags:
   - mobile-m2
   - catalog
@@ -22,104 +20,64 @@ tags:
       PASSWORD: ${output.collector.password}
 - extendedWaitUntil:
     visible:
-      id: 'tab-search'
-    timeout: 60000
-- tapOn:
-    id: 'tab-search'
-- extendedWaitUntil:
-    visible:
-      id: 'search-count'
+      id: 'screen-search'
     timeout: 60000
 
-# Deep in the catalog the field, the game pills and the filters have scrolled away with the
-# cards: only the region switcher and the segments stay. The Search tab pressed again brings the
-# list back to its top, where they are.
-- assertVisible:
-    id: 'search-input'
-- repeat:
-    while:
-      visible:
-        id: 'search-filters'
-    times: 6
-    commands:
-      - swipe:
-          start: 50%, 75%
-          end: 50%, 30%
-          duration: 300
-- assertNotVisible:
-    id: 'search-input'
-- assertNotVisible:
-    id: 'search-filters'
-- assertVisible:
-    id: 'search-region'
-- assertVisible:
-    id: 'search-segment-cards'
+# The field of Search opens the card search with the keyboard up (stage R5, screen 12): the
+# privacy line of the recent searches, then live, typo-tolerant results.
 - tapOn:
-    id: 'tab-search'
+    id: 'search-field'
 - extendedWaitUntil:
     visible:
       id: 'search-input'
-    timeout: 15000
+    timeout: 30000
 - assertVisible:
-    id: 'search-game-pokemon'
-- assertVisible:
-    id: 'search-filters'
-
-# Live, typo-tolerant search.
-- tapOn:
-    id: 'search-input'
+    id: 'recent-searches-privacy'
 - inputText: 'emberfang'
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
-    visible:
-      id: 'card-result-emberfang-fox'
+    visible: 'Emberfang Fox VMAX, Pokémon'
     timeout: 30000
-- assertVisible:
-    id: 'card-result-emberfang-fox-vmax'
+- assertVisible: 'Emberfang Fox, Pokémon'
 
-# The Pokémon pill, then a language from its schema: only the card with a French printing stays.
+# The game chips are the only filter: Yu-Gi-Oh! has no Emberfang, All games brings it back.
 - tapOn:
-    id: 'search-game-pokemon'
-- tapOn:
-    id: 'search-filters'
+    id: 'search-game-yugioh'
 - extendedWaitUntil:
     visible:
-      id: 'filter-language-fr'
+      id: 'search-no-match'
     timeout: 30000
 - tapOn:
-    id: 'filter-language-fr'
-- tapOn:
-    id: 'filters-done'
+    id: 'search-game-__all__'
 - extendedWaitUntil:
-    notVisible:
-      id: 'card-result-emberfang-fox'
+    visible: 'Emberfang Fox VMAX, Pokémon'
     timeout: 30000
-- assertVisible:
-    id: 'card-result-emberfang-fox-vmax'
 - takeScreenshot: search-results
 
-# The card detail: name, printings, the market price of the selected printing.
-- tapOn:
-    id: 'card-result-emberfang-fox-vmax'
+# The card page, Who has this card: the game, the name, "Check TCGplayer price" and "Any
+# printing"; the sheet of printings filters the holders to the French one.
+- tapOn: 'Emberfang Fox VMAX, Pokémon'
 - extendedWaitUntil:
     visible:
       id: 'card-name'
       text: 'Emberfang Fox VMAX'
     timeout: 60000
 - assertVisible:
-    id: 'card-add-to-inventory'
+    id: 'card-game'
+    text: 'POKÉMON'
+- assertVisible:
+    id: 'card-tcgplayer'
 - takeScreenshot: card-detail
-- runFlow:
-    file: subflows/scroll-down-to-text.yaml
-    env:
-      TEXT: 'SVX-001, Stellar Vortex, .*French.*'
 - tapOn:
-    text: 'SVX-001, Stellar Vortex, .*French.*'
-- runFlow:
-    file: subflows/scroll-up-to.yaml
-    env:
-      ID: 'card-price'
+    id: 'card-printing'
 - extendedWaitUntil:
-    visible: 'No market price for this printing yet.'
+    visible:
+      id: 'card-printing-sheet'
+    timeout: 30000
+- tapOn: 'SVX-001 · .*French.*'
+- extendedWaitUntil:
+    visible:
+      id: 'card-printing'
+      text: 'SVX-001 · .*French.*'
     timeout: 30000
 - takeScreenshot: card-printing-fr

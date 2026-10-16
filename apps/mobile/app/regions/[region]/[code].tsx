@@ -1,6 +1,7 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
 import { placeBindersTarget } from '@/src/features/search/searchLinks';
+import { DeferredRedirect } from '@/src/navigation/DeferredRedirect';
 
 /**
  * The old public binders of a state or province (`/regions/<region>/<code>`, stage M9): since
@@ -9,5 +10,5 @@ import { placeBindersTarget } from '@/src/features/search/searchLinks';
  */
 export default function PlaceBindersRedirect() {
   const params = useLocalSearchParams<{ region?: string; code?: string }>();
-  return <Redirect href={placeBindersTarget(params)} />;
+  return <DeferredRedirect href={placeBindersTarget(params)} testID="screen-place" />;
 }

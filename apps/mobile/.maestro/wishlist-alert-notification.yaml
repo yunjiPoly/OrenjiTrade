@@ -24,20 +24,21 @@ tags:
       PASSWORD: ${output.wren.password}
 - extendedWaitUntil:
     visible:
-      id: 'tab-wishlist'
+      id: 'screen-search'
     timeout: 60000
+# Search › Wishlist (the old Wishlist tab, stage R5): the alert switch, "Add a wish".
 - tapOn:
-    id: 'tab-wishlist'
+    id: 'search-segment-wishlist'
 - extendedWaitUntil:
     visible:
       id: 'wishlist-empty'
     timeout: 60000
 - assertVisible:
-    id: 'wishlist-visible'
+    id: 'wishlist-alerts-switch'
 - assertNotVisible:
     id: 'wishlist-location-prompt'
 - tapOn:
-    id: 'wishlist-empty-action'
+    id: 'wishlist-add'
 
 # The wish: card autocomplete, then the public note, Near Mint only and a price term.
 - extendedWaitUntil:
@@ -82,9 +83,11 @@ tags:
     id: 'wish-save'
 - extendedWaitUntil:
     visible:
-      id: 'wishlist-summary'
+      id: 'search-wishlist'
     timeout: 60000
-- assertVisible: '.*Near Mint only.*'
+- extendedWaitUntil:
+    visible: '.*NM only · 85% TCG.*'
+    timeout: 30000
 - assertNotVisible: '.*[Mm]atch.*'
 - runScript:
     file: scripts/wishlist.js
@@ -104,13 +107,13 @@ tags:
       BINDER: ${output.hal.binderId}
 - extendedWaitUntil:
     visible:
-      id: 'notification-bell-wishlist-badge'
+      id: 'notification-bell-search-badge'
     timeout: 90000
 - takeScreenshot: wishlist-alert-live
 
 # The notification centre, then the card page.
 - tapOn:
-    id: 'notification-bell-wishlist'
+    id: 'notification-bell-search'
 - extendedWaitUntil:
     visible:
       id: 'screen-notifications'
@@ -130,14 +133,15 @@ tags:
       id: 'card-name'
       text: 'Emberfang Fox'
     timeout: 60000
-# The wish is for any printing: the alert says so (?printing=any) and the card screen shows
-# "Any printing", never a printing picked for the collector.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'card-selected-any'
+# The wish is for any printing: the alert says so (?printing=any) and Who has this card starts
+# on "Any printing", never a printing picked for the collector; Hal's copy is under Montevideo.
 - assertVisible:
-    id: 'card-selected-any'
-- assertNotVisible:
-    id: 'card-selected-printing'
+    id: 'card-printing'
+    text: 'Any printing.*'
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holders-group-UY-MO'
+- assertVisible:
+    id: 'holders-group-UY-MO'
 - takeScreenshot: wishlist-alert-card

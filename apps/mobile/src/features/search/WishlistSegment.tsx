@@ -16,6 +16,7 @@ import { useWishlist } from '@/src/api/hooks/wishlist';
 import type { WishlistItemResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { SWITCH_THUMB } from '@/src/components/ui/FormControls';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
@@ -93,7 +94,7 @@ export function WishlistSegment() {
           onValueChange={(on) => void setAlerts(on)}
           disabled={!settings.data || saveSettings.isPending}
           trackColor={{ true: palette.primary, false: palette.borderStrong }}
-          thumbColor={palette.onPrimary}
+          thumbColor={SWITCH_THUMB}
           testID="wishlist-alerts-switch"
         />
       </View>

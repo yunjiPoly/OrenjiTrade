@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -40,6 +40,23 @@ type SearchParams = {
   state?: string;
 };
 
+/** The state a link names, on the region it names (or the browsed one), once per link. */
+export interface LinkedPlace {
+  region: string | null;
+  code: string;
+  nonce: number;
+}
+
+function linkedPlaceOf(params: SearchParams, nonce: number): LinkedPlace | null {
+  const code = placeCodeFrom(params.subdivision);
+  if (!code) {
+    return null;
+  }
+  const region =
+    typeof params.region === 'string' && isRegionCode(params.region) ? params.region : null;
+  return { region, code, nonce };
+}
+
 const LINK_KEYS: readonly (keyof SearchParams)[] = [
   'segment',
   'tab',
@@ -77,8 +94,10 @@ export default function SearchScreen() {
     params.q || params.typing === '1' ? { text: params.q ?? '', game: params.game || null } : null
   );
   const [state, setState] = useState<string | null>(() => placeCodeFrom(params.state));
-  const [linkedPlace, setLinkedPlace] = useState<string | null>(() =>
-    placeCodeFrom(params.subdivision)
+  // The state a link names, on the region it names (applied once per link: `nonce`).
+  const linkNonce = useRef(0);
+  const [linkedPlace, setLinkedPlace] = useState<LinkedPlace | null>(() =>
+    linkedPlaceOf(params, ++linkNonce.current)
   );
 
   // A new link into the tab: its segment, text, region and place, once (then its parameters go).
@@ -100,10 +119,11 @@ export default function SearchScreen() {
       if (params.state !== undefined) {
         setState(placeCodeFrom(params.state));
       }
-      if (params.subdivision) {
+      const place = linkedPlaceOf(params, ++linkNonce.current);
+      if (place) {
         setSegment('cards');
         setTyping(null);
-        setLinkedPlace(placeCodeFrom(params.subdivision));
+        setLinkedPlace(place);
       }
     }
   }

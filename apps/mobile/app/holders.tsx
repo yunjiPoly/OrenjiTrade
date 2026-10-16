@@ -1,4 +1,4 @@
-import { Redirect, Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { usePrintingCard } from '@/src/api/hooks/search';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -7,6 +7,7 @@ import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { CARD_PAGE_COPY } from '@/src/features/search/searchCopy';
 import { holdersLinkTarget } from '@/src/features/search/searchLinks';
+import { DeferredRedirect } from '@/src/navigation/DeferredRedirect';
 
 /**
  * The old card holders list (`/holders?card=<id>` or `?printing=<id>`, the web's
@@ -23,7 +24,8 @@ export default function HoldersRedirect() {
 
   if (target && 'card' in target) {
     return (
-      <Redirect
+      <DeferredRedirect
+        testID="screen-holders"
         href={{
           pathname: '/cards/[id]',
           params: target.printing
@@ -35,7 +37,8 @@ export default function HoldersRedirect() {
   }
   if (lookup && printingCard.data) {
     return (
-      <Redirect
+      <DeferredRedirect
+        testID="screen-holders"
         href={{ pathname: '/cards/[id]', params: { id: printingCard.data, printing: lookup } }}
       />
     );
