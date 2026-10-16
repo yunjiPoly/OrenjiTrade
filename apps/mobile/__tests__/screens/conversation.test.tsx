@@ -931,6 +931,82 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     );
   });
 
+  it('explains a refused undo and a refused sale in the chat’s words (F9)', async () => {
+    const sale = (id: string) => ({
+      id,
+      conversationId: CONVERSATION_ID,
+      kind: 'CARD' as const,
+      itemId: ITEM_ID,
+      binderId: null,
+      sellerId: SELF_ID,
+      buyerId: OTHER_ID,
+      name: 'Emberfang Fox VMAX',
+      quantity: 1,
+      trackingNumber: null,
+      remaining: 2,
+      removed: false,
+      createdAt: '2026-10-15T12:00:00Z',
+      undoableUntil: '2026-10-15T12:10:00Z',
+      undoneAt: null,
+    });
+    const api = mockApi(
+      chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 3 }), {
+        'POST /api/v1/conversations/{id}/sales': [
+          ok(sale('sale-a'), 201),
+          ok(sale('sale-b'), 201),
+          problem(400, 'VALIDATION_FAILED', 'You have 2 copies of this card'),
+          problem(403, 'MESSAGING_BLOCKED', 'This collector cannot take part in a sale now'),
+        ],
+        'POST /api/v1/sales/{id}/undo': [
+          problem(409, 'SALE_UNDO_CLOSED', 'A sale can be undone for 10 minutes only', {
+            undoableUntil: '2026-10-15T12:10:00Z',
+          }),
+          problem(409, 'SALE_ALREADY_RATED', 'This sale was already rated'),
+        ],
+      })
+    );
+    render();
+    const sell = async () => {
+      fireEvent.press(await screen.findByTestId('pinned-mark-sold'));
+      const sheet = await screen.findByTestId('mark-sold-sheet');
+      fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+      return sheet;
+    };
+    const undoFromToast = async () => {
+      fireEvent.press(await screen.findByTestId('mark-sold-undo'));
+    };
+
+    // Ten minutes passed on the server: the sale stays, and the toast says why.
+    await sell();
+    await undoFromToast();
+    await waitFor(() =>
+      expect(screen.getByTestId('snackbar')).toHaveTextContent('This sale can no longer be undone.')
+    );
+    expect(api.callsTo('POST /api/v1/sales/{id}/undo')[0]?.path).toBe('/api/v1/sales/sale-a/undo');
+
+    // The buyer rated it already.
+    await sell();
+    await undoFromToast();
+    await waitFor(() =>
+      expect(screen.getByTestId('snackbar')).toHaveTextContent(
+        'This sale was already rated, so it stays.'
+      )
+    );
+
+    // A refused sale stays in the sheet: the server's own words for a validation error, the
+    // app's friendly words otherwise.
+    const sheet = await sell();
+    expect(await within(sheet).findByTestId('mark-sold-error')).toHaveTextContent(
+      'You have 2 copies of this card'
+    );
+    fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('mark-sold-error')).toHaveTextContent(
+        'You cannot message this collector. They may have blocked messages or you blocked them.'
+      )
+    );
+  });
+
   it('names the card it shows; a listing the buyer pinned meanwhile is refused and read again (F1)', async () => {
     const mine = subjectFixture({ ownerId: SELF_ID, copies: 3, askingPriceText: '85% TCG' });
     const core = deckCoreSubjectFixture({
