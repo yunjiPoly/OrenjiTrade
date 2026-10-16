@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, FlatList, StyleSheet } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
@@ -315,7 +315,11 @@ describe('Search: typing a card (screen 12)', () => {
     expect(screen.getByTestId(`search-result-${BARRENS.id}`)).toHaveTextContent(/Magic/);
     expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('ash bl');
 
+    // A game chip starts the results at the first card, wherever the list was scrolled.
+    const toTop = jest.spyOn(FlatList.prototype, 'scrollToOffset');
     fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
+    expect(toTop).toHaveBeenCalledWith({ offset: 0, animated: false });
+    toTop.mockRestore();
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('yugioh')
     );

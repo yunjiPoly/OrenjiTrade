@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { EMPTY_CARD_SEARCH, useCardSearch } from '@/src/api/hooks/catalog';
@@ -73,6 +73,13 @@ export function CardTyping({ initialText = '', initialGame = null, onCancel }: C
     const timer = setTimeout(() => setQuery(q), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [text, query]);
+
+  // New results (another text or game) start at the first card: a list left scrolled showed the
+  // first result of a game chip half under the chips (native large-text flow, review fix 1).
+  const list = useRef<FlatList<CardSummary>>(null);
+  useEffect(() => {
+    list.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [query, game]);
 
   const typed = query.length > 0;
   const cards = useCardSearch({ ...EMPTY_CARD_SEARCH, q: query, game }, typed);
@@ -186,6 +193,7 @@ export function CardTyping({ initialText = '', initialGame = null, onCancel }: C
         />
       </View>
       <FlatList
+        ref={list}
         testID="search-results"
         style={styles.fill}
         data={results}
