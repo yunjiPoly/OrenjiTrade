@@ -80,7 +80,9 @@ describe('no screen of the removed paid features', () => {
   });
 
   it('knows no flag of the removed features', () => {
+    // cardTextScan: the camera card scan (V129), added after F1.
     expect(Object.values(FEATURE).sort()).toEqual([
+      'cardTextScan',
       'mlScanning',
       'protectedPayments',
       'publicChat',
