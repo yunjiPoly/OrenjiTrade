@@ -812,6 +812,30 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       const size = target(id);
       expect({ id, ok: size.height >= 44 && size.width >= 44 }).toEqual({ id, ok: true });
     }
+    // iOS drops a touch outside the sideways row's frame before it reaches a chip: the row leaves
+    // room for the chips' slop above and under them, and takes it back with a negative margin so
+    // it sits as before (review fix 2, R1-2: a 2 pt padding left the chips 38 pt to the finger).
+    const row = StyleSheet.flatten(replies.props.contentContainerStyle) as {
+      paddingVertical?: number;
+      paddingTop?: number;
+      paddingBottom?: number;
+    };
+    const frame = StyleSheet.flatten(replies.props.style) as {
+      marginVertical?: number;
+      marginTop?: number;
+      marginBottom?: number;
+    };
+    const chip = target(ids[0]!);
+    const chipSlop = screen.getByTestId(ids[0]!).props.hitSlop as { top: number; bottom: number };
+    const padTop = row.paddingTop ?? row.paddingVertical ?? 0;
+    const padBottom = row.paddingBottom ?? row.paddingVertical ?? 0;
+    expect(padTop).toBeGreaterThanOrEqual(chipSlop.top);
+    expect(padBottom).toBeGreaterThanOrEqual(chipSlop.bottom);
+    expect(
+      chip.height - chipSlop.top - chipSlop.bottom + padTop + padBottom
+    ).toBeGreaterThanOrEqual(44);
+    expect(padTop + (frame.marginTop ?? frame.marginVertical ?? 0)).toBe(2);
+    expect(padBottom + (frame.marginBottom ?? frame.marginVertical ?? 0)).toBe(2);
   });
 
   it('buying, before the seller answered: the first replies; one sent is hidden', async () => {

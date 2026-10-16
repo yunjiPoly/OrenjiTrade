@@ -534,11 +534,19 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
  */
 export const CHIP_HIT_SLOP = { top: 5, bottom: 5, left: 4, right: 4 } as const;
 export const ROUND_HIT_SLOP = { top: 2, bottom: 2, left: 2, right: 2 } as const;
+/**
+ * The quick-reply row keeps the chips' slop inside itself: iOS drops a touch outside a scroll
+ * view's frame before it reaches the chip, so a 2 pt row padding left the chips 38 pt tall to the
+ * finger (review fix 2, R1-2). A negative margin takes the extra room back, so the row looks and
+ * sits as before (2 pt above and under the chips).
+ */
+const QUICK_ROW_PADDING = Math.max(CHIP_HIT_SLOP.top, CHIP_HIT_SLOP.bottom);
+const QUICK_ROW_SPACE = 2;
 
 const styles = StyleSheet.create({
   root: { gap: spacing[2] },
-  quick: { marginHorizontal: -12 },
-  quickRow: { gap: 8, paddingHorizontal: 12, paddingVertical: 2 },
+  quick: { marginHorizontal: -12, marginVertical: QUICK_ROW_SPACE - QUICK_ROW_PADDING },
+  quickRow: { gap: 8, paddingHorizontal: 12, paddingVertical: QUICK_ROW_PADDING },
   quickChip: {
     minHeight: 34,
     paddingHorizontal: 14,
