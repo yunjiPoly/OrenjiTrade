@@ -6456,11 +6456,17 @@ review fix 1.
 | `npm run test:mobile` | passed: jest **94 suites / 1011 tests** (+1, R1-1) + 28 guard tests |
 | `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
 | `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (60 s) |
-| `npm run test:mobile:maestro -- --platform ios` | NATIVE_RESULT |
+| `npm run test:mobile:maestro -- --platform ios` | **33 / 33** in 52 min 30 s on the owner's iPhone 18 Pro (under the lock), native flow 4 `deal-mark-sold.yaml` in 1 min 34 s |
 | `npm run test:scripts` | **135 / 135** |
 | `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
 
-WALK_RESULT
+**Walked on the simulator** (scratch Maestro flows on the suite's kept stack, a fictional seller in
+Quebec and a buyer in Ontario who asked about her card, default text size): the quick reply row is
+now 44 pt tall ([0,740]–[402,784], 38 pt before) while the chips and "+" sit where they did (chips
+745–779, "+" from 790, as the verifier measured). Taps 4 pt above "Yes, still available", 4 pt
+under "Shipped!" (the verifier's dead spot) and 4 pt above "Thanks for buying!" each sent their
+reply; a tap 7 pt above a chip, outside its slop, sent nothing. The owner's appearance (light) and
+text size (Large) were not changed; the walk's two accounts were deleted.
 
 **Could not be verified:** the Android run (no Android SDK on this Mac; the chips' touch targets
 there were not measured on a device).
