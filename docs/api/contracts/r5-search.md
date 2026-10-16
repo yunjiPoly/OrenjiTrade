@@ -46,6 +46,11 @@ displayName, avatarUrl, place}]`.
   banner.
 - The phone groups consecutive rows by `collector.place.subdivisionCode`; no group count, no
   holder count is shown.
+- **`rarity`** (optional, review fix 1, additive; at most 64 characters, exact, blank = none):
+  only the printings of the card in that rarity, as the catalogue names it (`p.rarity`), in the
+  rows and in `totalItems` alike. The card page passes it when a wish of any printing in one
+  rarity opens it (`/cards/<id>?rarity=`, "Available" and the wishlist alert), so the page lists
+  what the wish counts as available (`GET /wishlist/availability` matches the same way).
 - "Any printing ▾" uses `printingId` (exactly one of `printingId`, `cardId`, as before).
 - 400 for an unknown sort: "must be freshness, price or province".
 

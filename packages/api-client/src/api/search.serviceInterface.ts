@@ -47,6 +47,7 @@ export interface SearchCardHoldersRequestParams {
     page?: number;
     size?: number;
     excludeDeckCoreItems?: boolean;
+    rarity?: string;
 }
 
 export interface SearchCollectorsByNameRequestParams {

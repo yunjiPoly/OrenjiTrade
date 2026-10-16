@@ -268,6 +268,8 @@ public class SearchService {
      * @param size page size
      * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it;
      *     the phone shows the core instead, stage R5)
+     * @param rarity any printing of the card in this rarity, as the catalogue names it (a wish of
+     *     any printing in one rarity, stage R5)
      */
     public record HolderQuery(
             @Nullable UUID printingId,
@@ -284,7 +286,8 @@ public class SearchService {
             HolderSort sort,
             int page,
             int size,
-            boolean excludeDeckCoreItems) {}
+            boolean excludeDeckCoreItems,
+            @Nullable String rarity) {}
 
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
@@ -323,6 +326,8 @@ public class SearchService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        @Nullable String rarity =
+                query.rarity() == null || query.rarity().isBlank() ? null : query.rarity().trim();
         RegionView region = discovery.scope(viewerId, query.region());
         ItemFilter filter =
                 new ItemFilter(
@@ -336,7 +341,8 @@ public class SearchService {
                         query.freshness(),
                         edition,
                         language,
-                        query.acceptsOffers());
+                        query.acceptsOffers(),
+                        rarity);
         Instant now = timeProvider.now();
         HolderPage page =
                 cardHolders.page(

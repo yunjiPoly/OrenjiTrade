@@ -212,6 +212,48 @@ class WhoHasThisCardIT extends AbstractSearchIT {
     }
 
     @Test
+    void aRarityKeepsTheHoldersOfTheCardsPrintingsInThatRarity() {
+        // A wish of any printing in one rarity opens the card page on that rarity (stage R5 review,
+        // F3): the French printing is the only Secret Rare one, so only its holder is left, and
+        // the count follows.
+        testUsers.update(
+                "UPDATE card_printing SET rarity = 'Secret Rare' WHERE id = ?", frenchPrintingId);
+        JsonNode secret =
+                get(
+                        viewer.uid(),
+                        200,
+                        "/api/v1/search/card-holders?region={region}&sort=province"
+                                + "&excludeDeckCoreItems=true&cardId={card}&rarity={rarity}",
+                        REGION,
+                        cardId,
+                        "Secret Rare");
+        assertThat(itemIds(secret)).containsExactly(qcNew);
+        assertThat(secret.path("totalItems").asInt()).isEqualTo(1);
+        // A rarity none of its printings has: nobody.
+        JsonNode none =
+                get(
+                        viewer.uid(),
+                        200,
+                        "/api/v1/search/card-holders?region={region}&cardId={card}&rarity={rarity}",
+                        REGION,
+                        cardId,
+                        "Mythic");
+        assertThat(itemIds(none)).isEmpty();
+        assertThat(none.path("totalItems").asInt()).isZero();
+        // A blank one is no filter.
+        JsonNode blank =
+                get(
+                        viewer.uid(),
+                        200,
+                        "/api/v1/search/card-holders?region={region}&sort=province"
+                                + "&excludeDeckCoreItems=true&cardId={card}&rarity={rarity}",
+                        REGION,
+                        cardId,
+                        " ");
+        assertThat(itemIds(blank)).isEqualTo(itemIds(page(viewer.uid(), "cardId=" + cardId)));
+    }
+
+    @Test
     void anUnknownSortIsRejected() {
         JsonNode problem =
                 callJson(

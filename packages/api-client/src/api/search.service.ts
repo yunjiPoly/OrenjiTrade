@@ -202,6 +202,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
         const page = requestParameters?.page;
         const size = requestParameters?.size;
         const excludeDeckCoreItems = requestParameters?.excludeDeckCoreItems;
+        const rarity = requestParameters?.rarity;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -335,6 +336,15 @@ export class SearchService extends BaseService implements SearchServiceInterface
             localVarQueryParameters,
             'excludeDeckCoreItems',
             <any>excludeDeckCoreItems,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'rarity',
+            <any>rarity,
             QueryParamStyle.Form,
             true,
         );

@@ -221,7 +221,15 @@ public class SearchController {
                                     "Leave out the cards filed in a deck core: they sell only with"
                                             + " it (GET /search/deck-cores lists the cores)")
                     @RequestParam(defaultValue = "false")
-                    boolean excludeDeckCoreItems) {
+                    boolean excludeDeckCoreItems,
+            @Parameter(
+                            description =
+                                    "Any printing of the card in this rarity, as the catalogue"
+                                            + " names it (e.g. Ultra Rare; exact): the holders a"
+                                            + " wish of any printing in one rarity opens")
+                    @RequestParam(required = false)
+                    @Size(max = 64)
+                    @Nullable String rarity) {
         HolderSort holderSort =
                 HolderSort.parse(sort)
                         .orElseThrow(
@@ -251,7 +259,8 @@ public class SearchController {
                                 holderSort,
                                 page,
                                 size,
-                                excludeDeckCoreItems));
+                                excludeDeckCoreItems,
+                                rarity));
         Instant now = timeProvider.now();
         return new PageResponse<>(
                 holders.items().stream()

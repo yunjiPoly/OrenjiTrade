@@ -22794,6 +22794,8 @@ export interface operations {
                 size?: number;
                 /** @description Leave out the cards filed in a deck core: they sell only with it (GET /search/deck-cores lists the cores) */
                 excludeDeckCoreItems?: boolean;
+                /** @description Any printing of the card in this rarity, as the catalogue names it (e.g. Ultra Rare; exact): the holders a wish of any printing in one rarity opens */
+                rarity?: string;
             };
             header?: never;
             path?: never;
