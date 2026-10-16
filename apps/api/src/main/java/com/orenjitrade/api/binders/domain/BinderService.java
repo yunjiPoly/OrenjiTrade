@@ -480,10 +480,24 @@ public class BinderService {
             return Map.of();
         }
         List<BinderView> binders = repository.findByIds(binderIds, timeProvider.now());
+        // A sold deck core's cards left the inventory with it: without a photo, its picture is
+        // the first card the sale took (review fix 1, F7), so both still see it.
+        List<UUID> sold =
+                binders.stream()
+                        .filter(binder -> binder.soldAt() != null)
+                        .map(BinderView::id)
+                        .toList();
+        @Nullable BinderContents binderContents = contents.getIfAvailable();
+        Map<UUID, String> soldPictures =
+                sold.isEmpty() || binderContents == null
+                        ? Map.of()
+                        : binderContents.soldDeckCorePicturesOf(sold);
         Map<UUID, ChatDeckCore> result = new HashMap<>();
         for (BinderDetails details : details(binders, true)) {
             BinderView binder = details.binder();
             List<String> previews = details.showcase().previewImages();
+            @Nullable String picture =
+                    previews.isEmpty() ? soldPictures.get(binder.id()) : previews.get(0);
             result.put(
                     binder.id(),
                     new ChatDeckCore(
@@ -492,7 +506,7 @@ public class BinderService {
                             binder.name(),
                             binder.sellsAsCore(),
                             binder.askingPriceText(),
-                            previews.isEmpty() ? null : previews.get(0),
+                            picture,
                             binder.soldAt(),
                             binder.effectivePublic()));
         }

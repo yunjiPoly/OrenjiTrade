@@ -548,6 +548,34 @@ public class InventoryItemRepository {
     }
 
     /**
+     * The first card of each sold deck core among those its sale took out (soft-deleted at or after
+     * the binder's {@code sold_at}), in the order they were added: the picture a chat about it
+     * keeps once it is sold (stage R4, review fix 1, F7). Binders not sold, or without such a card,
+     * are absent.
+     */
+    public List<PreviewRow> soldCorePreviews(Collection<UUID> binderIds) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        """
+                        SELECT DISTINCT ON (i.binder_id) i.binder_id, i.printing_id
+                          FROM inventory_item i
+                          JOIN binder b ON b.id = i.binder_id
+                         WHERE i.binder_id IN (:ids) AND b.sold_at IS NOT NULL
+                           AND i.deleted_at >= b.sold_at
+                         ORDER BY i.binder_id, i.created_at, i.id
+                        """)
+                .param("ids", binderIds)
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
      * The cards of each binder with their copies (every printing of a card together), most copies
      * first, then by name, at most {@code max} per binder (a deck core's key cards, stage R3),
      * optionally among the cards buyers see ({@link #SHOWN_PUBLICLY}: every live card of a public

@@ -57,7 +57,7 @@ default 8: the latest wins).
   | `id`, `ownerId` | the item or binder; its owner is the seller, the other collector the buyer |
   | `name`, `printingCode`, `rarity` | the card (a deck core: its name, no code or rarity) |
   | `cardId`, `printingId` | the card and printing (opens "Who has this card"; null for a deck core) |
-  | `imageUrl` | the card's picture (the catalog's, never an owner photo), or the deck core's first photo (else the first card picture buyers see) |
+  | `imageUrl` | the card's picture (the catalog's, never an owner photo), or the deck core's first photo (else the first card picture buyers see; once sold, the first card its sale took, review fix 1, F7) |
   | `askingPriceText` | the price as typed; **null for the buyer while it is not listed** |
   | `sold` | it was marked sold in this chat: a sale not undone, made at or after it was pinned |
   | `listed` | still on offer: in the inventory (a deck core: unsold) and public, or shared by its owner in this chat |

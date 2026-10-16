@@ -1103,8 +1103,25 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public Map<UUID, List<String>> binderPreviewImages(
             Collection<UUID> binderIds, boolean publicOnly, int max) {
-        List<PreviewRow> rows =
-                items.binderPreviews(binderIds, publicOnly, max, timeProvider.now());
+        return printingImages(items.binderPreviews(binderIds, publicOnly, max, timeProvider.now()));
+    }
+
+    /**
+     * The picture of each sold deck core: the catalog picture of the first card its sale took out
+     * (stage R4, review fix 1, F7: a chat about it keeps its picture once it is sold).
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> soldDeckCorePictures(Collection<UUID> binderIds) {
+        Map<UUID, String> result = new HashMap<>();
+        printingImages(items.soldCorePreviews(binderIds))
+                .forEach((binderId, urls) -> result.put(binderId, urls.get(0)));
+        return result;
+    }
+
+    /**
+     * The catalog pictures of preview rows, per binder in their order (rows without one left out).
+     */
+    private Map<UUID, List<String>> printingImages(List<PreviewRow> rows) {
         if (rows.isEmpty()) {
             return Map.of();
         }

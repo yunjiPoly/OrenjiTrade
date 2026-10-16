@@ -370,7 +370,11 @@ class SaleIT extends AbstractDealsIT {
         Collector seller = collector("r4-core-seller");
         Collector buyer = collector("r4-core-buyer");
         String coreId = deckCore(seller, "Snake-Eye core", "$95");
-        String chatId = startAbout(buyer, seller, null, coreId, 201).path("id").asString();
+        JsonNode started = startAbout(buyer, seller, null, coreId, 201);
+        String chatId = started.path("id").asString();
+        // A deck core without a photo shows its first card's picture.
+        String picture = started.path("subject").path("imageUrl").asString();
+        assertThat(picture).isNotBlank();
         callJson(HttpMethod.GET, "/api/v1/public/binders/" + coreId, buyer.uid(), null, 200);
 
         markSold(seller, chatId, 2, null, 400);
@@ -385,6 +389,21 @@ class SaleIT extends AbstractDealsIT {
         callJson(HttpMethod.GET, "/api/v1/public/binders/" + coreId, buyer.uid(), null, 404);
         assertThat(conversation(buyer, chatId, 200).path("subject").path("sold").asBoolean())
                 .isTrue();
+        // Review fix 1, F7: sold, its cards gone, both still see its picture (bar and inbox).
+        for (Collector member : List.of(buyer, seller)) {
+            assertThat(
+                            conversation(member, chatId, 200)
+                                    .path("subject")
+                                    .path("imageUrl")
+                                    .asString())
+                    .isEqualTo(picture);
+            JsonNode inbox = callJson(HttpMethod.GET, CONVERSATIONS, member.uid(), null, 200);
+            for (JsonNode row : inbox.path("items")) {
+                if (row.path("id").asString().equals(chatId)) {
+                    assertThat(row.path("subject").path("imageUrl").asString()).isEqualTo(picture);
+                }
+            }
+        }
         assertThat(markSold(seller, chatId, null, null, 409).path("errorCode").asString())
                 .isEqualTo("NOTHING_LEFT_TO_SELL");
 
