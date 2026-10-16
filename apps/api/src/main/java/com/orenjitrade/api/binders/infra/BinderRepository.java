@@ -6,6 +6,7 @@ import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -25,6 +26,24 @@ import org.springframework.stereotype.Repository;
  * {@code binder} access (explicit SQL). {@code item_count} is maintained by a database trigger and
  * never written here. Reads carry the live effective public visibility ({@link
  * PublicVisibilityRules}).
+ *
+ * <p>Locks (docs/database/schema.md "Locks of binders and inventory items"): a write to a
+ * collector's binders or inventory items first takes that collector's owner lock ({@link
+ * #lockOwners}), so the writes of one collector run one after the other. Below it, binder rows are
+ * locked before inventory item rows and, within the table, in ascending {@code id}: every statement
+ * here that locks several binders takes them through an {@code ORDER BY id} locking clause.
+ *
+ * <p>The freshness job writes binders of every collector and takes no owner lock. Its statements
+ * ({@link #normaliseExpired}, {@link #recomputeFreshness}, {@link #warn} and the {@link #reconcile}
+ * of every binder) skip the rows another transaction holds ({@code SKIP LOCKED}): the job never
+ * waits for a row, so it cannot be part of a lock cycle, and its next run handles what it skipped.
+ *
+ * <p>Binder rows are locked {@code FOR NO KEY UPDATE}, never {@code FOR UPDATE}. A transaction that
+ * updates an item a second time re-runs the foreign key check of {@code inventory_item.binder_id}
+ * (PostgreSQL does so for a row the transaction itself wrote before), which takes a key-share lock
+ * on the binder. The job does that when it hides an item and then unlists it; against a full row
+ * lock it would wait for the write that holds the binder, which may be waiting for that item. Only
+ * {@link #delete} and {@link #deleteAllOf} take the full lock, as their last statement.
  */
 @Repository
 public class BinderRepository {
@@ -33,7 +52,8 @@ public class BinderRepository {
             """
             b.id, b.owner_id, b.name, b.description, b.kind, b.visibility, b.public_until,
             b.sort_order, b.cover_printing_id, b.item_count, b.freshness_state, b.confirmed_at,
-            b.created_at, b.updated_at, b.last_owner_activity_at,
+            b.created_at, b.updated_at, b.last_owner_activity_at, b.sells_as_core,
+            b.asking_price_text, b.asking_price, b.currency, b.sold_at,
             """
                     + PublicVisibilityRules.binderEffectivelyPublic("b")
                     + " AS effective_public";
@@ -172,12 +192,75 @@ public class BinderRepository {
 
     /** Locks the owner's binder row (writes). */
     public boolean lockOwned(UUID ownerId, UUID id) {
-        return jdbc.sql("SELECT id FROM binder WHERE id = :id AND owner_id = :ownerId FOR UPDATE")
+        return jdbc.sql(
+                        "SELECT id FROM binder WHERE id = :id AND owner_id = :ownerId FOR NO KEY"
+                                + " UPDATE")
                 .param("id", id)
                 .param("ownerId", ownerId)
                 .query(UUID.class)
                 .optional()
                 .isPresent();
+    }
+
+    /**
+     * Takes the owner locks of these collectors until the transaction ends: transaction-scoped
+     * advisory locks, one per collector, taken in ascending key order (a trade transfer writes the
+     * items of two collectors). Every write to a collector's binders or inventory items takes the
+     * lock before its first row lock, so those writes run one after the other and none of them
+     * reads a state that another one is still changing.
+     */
+    public void lockOwners(Collection<UUID> ownerIds) {
+        if (ownerIds.isEmpty()) {
+            return;
+        }
+        // The keys are sorted in a subquery, so the locks are taken in that order whatever the
+        // order of the ids.
+        jdbc.sql(
+                        """
+                        SELECT pg_advisory_xact_lock(k.key)
+                          FROM (SELECT DISTINCT
+                                       hashtextextended('inventory-owner:' || o.id, 0) AS key
+                                  FROM unnest(ARRAY[:ownerIds]::text[]) AS o(id)
+                                 ORDER BY 1) k
+                        """)
+                .param("ownerIds", ownerIds.stream().map(UUID::toString).distinct().toList())
+                .query()
+                .listOfRows();
+    }
+
+    /**
+     * Locks binders in ascending id order, before any of their items is written (the lock order).
+     * {@code FOR NO KEY UPDATE}, the mode {@link #lockOwned} takes and the lock an {@code UPDATE}
+     * of a binder needs: it keeps every other write of the binder out and lets the foreign key
+     * checks of its items through.
+     *
+     * @param ownerId only this owner's binders when given
+     * @return the binders locked (unknown ids and other owners' binders are absent)
+     */
+    public List<UUID> lockAll(@Nullable UUID ownerId, Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT id FROM binder WHERE id IN (:ids)"
+                                        + (ownerId == null ? "" : " AND owner_id = :ownerId")
+                                        + " ORDER BY id FOR NO KEY UPDATE")
+                        .param("ids", ids);
+        if (ownerId != null) {
+            statement = statement.param("ownerId", ownerId);
+        }
+        return statement.query(UUID.class).list();
+    }
+
+    /** Locks every binder of an owner in ascending id order; returns their ids. */
+    public List<UUID> lockAllOf(UUID ownerId) {
+        return jdbc.sql(
+                        "SELECT id FROM binder WHERE owner_id = :ownerId ORDER BY id FOR NO KEY"
+                                + " UPDATE")
+                .param("ownerId", ownerId)
+                .query(UUID.class)
+                .list();
     }
 
     /** Ids among {@code ids} that the owner does not own (or that do not exist). */
@@ -194,8 +277,13 @@ public class BinderRepository {
         return ids.stream().filter(id -> !owned.contains(id)).toList();
     }
 
+    /**
+     * The owner's binders that count toward {@code binders.max}: a sold deck core (stage R4) is
+     * left out, as the owner can neither see nor delete it on the phone (review fix 1, F3); its
+     * undo may take the owner past the cap, like every undo.
+     */
     public long countByOwner(UUID ownerId) {
-        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId")
+        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId AND sold_at IS NULL")
                 .param("ownerId", ownerId)
                 .query(Long.class)
                 .single();
@@ -218,14 +306,6 @@ public class BinderRepository {
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .map(Timestamp::toInstant);
-    }
-
-    /** Serialises binder creation per owner (limit check + insert) until the transaction ends. */
-    public void lockOwnerForCreation(UUID ownerId) {
-        jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended('binder-create:' || :ownerId, 0))")
-                .param("ownerId", ownerId.toString())
-                .query()
-                .singleRow();
     }
 
     public int nextSortOrder(UUID ownerId) {
@@ -256,14 +336,17 @@ public class BinderRepository {
             @Nullable Instant publicUntil,
             int sortOrder,
             @Nullable UUID coverPrintingId,
+            CoreFields core,
             Instant now) {
         jdbc.sql(
                         """
                         INSERT INTO binder (id, owner_id, name, description, kind, visibility,
                             public_until, sort_order, cover_printing_id, freshness_state, created_at,
-                            updated_at, confirmed_at, last_owner_activity_at)
+                            updated_at, confirmed_at, last_owner_activity_at, sells_as_core,
+                            asking_price_text, asking_price)
                         VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
-                            :publicUntil, :sortOrder, :cover, 'ACTIVE', :now, :now, :now, :now)
+                            :publicUntil, :sortOrder, :cover, 'ACTIVE', :now, :now, :now, :now,
+                            :sellsAsCore, :priceText, :price)
                         """)
                 .param("id", id)
                 .param("ownerId", ownerId)
@@ -274,6 +357,9 @@ public class BinderRepository {
                 .param("publicUntil", timestamp(publicUntil), Types.TIMESTAMP)
                 .param("sortOrder", sortOrder)
                 .param("cover", coverPrintingId, Types.OTHER)
+                .param("sellsAsCore", core.sellsAsCore())
+                .param("priceText", core.askingPriceText(), Types.VARCHAR)
+                .param("price", core.askingPrice(), Types.NUMERIC)
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -286,13 +372,15 @@ public class BinderRepository {
             ListingVisibility visibility,
             @Nullable Instant publicUntil,
             @Nullable UUID coverPrintingId,
+            CoreFields core,
             Instant now) {
         jdbc.sql(
                         """
                         UPDATE binder SET name = :name, description = :description, kind = :kind,
                                visibility = :visibility, public_until = :publicUntil,
-                               cover_printing_id = :cover, updated_at = :now,
-                               last_owner_activity_at = :now
+                               cover_printing_id = :cover, sells_as_core = :sellsAsCore,
+                               asking_price_text = :priceText, asking_price = :price,
+                               updated_at = :now, last_owner_activity_at = :now
                          WHERE id = :id
                         """)
                 .param("id", id)
@@ -302,6 +390,22 @@ public class BinderRepository {
                 .param("visibility", visibility.name())
                 .param("publicUntil", timestamp(publicUntil), Types.TIMESTAMP)
                 .param("cover", coverPrintingId, Types.OTHER)
+                .param("sellsAsCore", core.sellsAsCore())
+                .param("priceText", core.askingPriceText(), Types.VARCHAR)
+                .param("price", core.askingPrice(), Types.NUMERIC)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * An owner write that changes nothing of the row but its activity (a photo added or removed):
+     * {@code updated_at} and {@code last_owner_activity_at}. The caller holds the binder.
+     */
+    public void touch(UUID id, Instant now) {
+        jdbc.sql(
+                        "UPDATE binder SET updated_at = :now, last_owner_activity_at = :now WHERE"
+                                + " id = :id")
+                .param("id", id)
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -321,6 +425,40 @@ public class BinderRepository {
                 .update();
     }
 
+    /**
+     * Marks a deck core sold ({@code soldAt}) or unsold again ({@code null}, the undo of its sale):
+     * stage R4. A sold binder is never public. The caller holds the owner lock and the binder.
+     */
+    public void setSoldAt(UUID id, @Nullable Instant soldAt, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE binder SET sold_at = :soldAt, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("soldAt", timestamp(soldAt), Types.TIMESTAMP)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * Holds a binder {@code FOR KEY SHARE} until the transaction ends, before a row of another
+     * module references it (a chat's subject, stage R4): the lock of that row's foreign key check,
+     * taken first, so a binder delete never waits for that row while the row waits for the binder.
+     * It conflicts with no owner write ({@code FOR NO KEY UPDATE}) and waits for a delete in
+     * progress.
+     *
+     * @return whether the binder exists
+     */
+    public boolean lockKeyShare(UUID id) {
+        return jdbc.sql("SELECT id FROM binder WHERE id = :id FOR KEY SHARE")
+                .param("id", id)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
     public void setSortOrder(UUID id, int sortOrder) {
         jdbc.sql("UPDATE binder SET sort_order = :sortOrder WHERE id = :id")
                 .param("id", id)
@@ -328,6 +466,20 @@ public class BinderRepository {
                 .update();
     }
 
+    /**
+     * Deletes a binder the transaction holds ({@link #lockOwned}). The delete strengthens that lock
+     * to the full row lock and so waits for a freshness job that holds a key-share lock on the
+     * binder (see the class comment). With the full lock in hand it can wait for the job once more:
+     * an item deleted earlier keeps its {@code binder_id}; when the binder is deleted together with
+     * its items only the live ones were released first, so this statement reaches the deleted one
+     * through the foreign key ({@code ON DELETE SET NULL}), and the job may hold that row.
+     *
+     * <p>The job never waits for this transaction in turn. The live items of the binder were
+     * released first, so the job holds none of them. And the job writes a deleted item at most once
+     * per run (it clears a listed flag left on it; {@code InventoryItemRepository.normaliseExpired}
+     * leaves deleted items alone), so it never re-runs the foreign key check of such a row and
+     * never asks for this binder.
+     */
     public void delete(UUID id) {
         jdbc.sql("DELETE FROM binder WHERE id = :id").param("id", id).update();
     }
@@ -354,7 +506,8 @@ public class BinderRepository {
                         """
                         WITH previous AS (
                             SELECT id, freshness_state FROM binder
-                             WHERE owner_id = :ownerId AND id IN (:ids) FOR UPDATE)
+                             WHERE owner_id = :ownerId AND id IN (:ids)
+                             ORDER BY id FOR NO KEY UPDATE)
                         UPDATE binder b SET confirmed_at = :now, last_owner_activity_at = :now,
                                warned_at = NULL, freshness_state = 'ACTIVE'
                           FROM previous p
@@ -369,15 +522,20 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Re-derives the freshness of every binder from the policy; returns the changes. */
+    /**
+     * Re-derives the freshness of every binder from the policy; returns the changes. A binder
+     * another transaction holds is skipped (freshness job).
+     */
     public List<StateChange> recomputeFreshness(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
-                        "WITH computed AS (SELECT id, freshness_state AS old_state, "
+                        "WITH computed AS MATERIALIZED (SELECT id, freshness_state AS old_state, "
                                 + FRESHNESS_CASE
-                                + " AS new_state FROM binder)"
+                                + " AS new_state FROM binder WHERE freshness_state <> "
+                                + FRESHNESS_CASE
+                                + " ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)"
                                 + " UPDATE binder b SET freshness_state = c.new_state"
                                 + " FROM computed c"
-                                + " WHERE b.id = c.id AND c.old_state <> c.new_state"
+                                + " WHERE b.id = c.id"
                                 + " RETURNING b.id, b.owner_id, c.old_state, c.new_state")
                 .param("hiddenCutoff", Timestamp.from(policy.hiddenCutoff(now)))
                 .param("staleCutoff", Timestamp.from(policy.staleCutoff(now)))
@@ -386,14 +544,23 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Marks publicly listed binders entering the warning window; returns them. */
+    /**
+     * Marks publicly listed binders entering the warning window; returns them. A binder another
+     * transaction holds is skipped (freshness job).
+     */
     public List<Warned> warn(FreshnessPolicy policy, Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE binder SET warned_at = :now
-                         WHERE warned_at IS NULL AND publicly_listed AND freshness_state <> 'HIDDEN'
-                           AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
-                        RETURNING id, owner_id, confirmed_at
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM binder
+                             WHERE warned_at IS NULL AND publicly_listed
+                               AND freshness_state <> 'HIDDEN'
+                               AND confirmed_at <= :warnCutoff AND confirmed_at > :hiddenCutoff
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE binder b SET warned_at = :now
+                          FROM due d
+                         WHERE b.id = d.id
+                        RETURNING b.id, b.owner_id, b.confirmed_at
                         """)
                 .param("now", Timestamp.from(now))
                 .param("warnCutoff", Timestamp.from(policy.warnCutoff(now)))
@@ -407,12 +574,20 @@ public class BinderRepository {
                 .list();
     }
 
-    /** Expired temporary publications become PRIVATE; returns the number of binders changed. */
+    /**
+     * Expired temporary publications become PRIVATE; returns the number of binders changed. A
+     * binder another transaction holds is skipped (freshness job).
+     */
     public int normaliseExpired(Instant now) {
         return jdbc.sql(
                         """
-                        UPDATE binder SET visibility = 'PRIVATE', public_until = NULL
-                         WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                        WITH expired AS MATERIALIZED (
+                            SELECT id FROM binder
+                             WHERE visibility = 'TEMPORARILY_PUBLIC' AND public_until <= :now
+                             ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE binder b SET visibility = 'PRIVATE', public_until = NULL
+                          FROM expired e
+                         WHERE b.id = e.id
                         """)
                 .param("now", Timestamp.from(now))
                 .update();
@@ -420,10 +595,14 @@ public class BinderRepository {
 
     /**
      * Stores the effective public visibility of the binders matching {@code scopeSql} (a condition
-     * on alias {@code b}) and returns those whose value flipped.
+     * on alias {@code b}) and returns those whose value flipped. The flipped rows are locked in
+     * ascending id order before they are written.
+     *
+     * @param skipLocked leave the binders another transaction holds to a later call instead of
+     *     waiting for them (the freshness job, which reconciles every binder)
      */
     public List<ListingChange> reconcile(
-            String scopeSql, java.util.Map<String, ?> params, Instant now) {
+            String scopeSql, java.util.Map<String, ?> params, boolean skipLocked, Instant now) {
         JdbcClient.StatementSpec statement =
                 jdbc.sql(
                                 "WITH computed AS (SELECT b.id, "
@@ -432,12 +611,17 @@ public class BinderRepository {
                                         + FROM
                                         + " WHERE "
                                         + scopeSql
+                                        + "), flipped AS MATERIALIZED (SELECT t.id, c.listed"
+                                        + " FROM binder t JOIN computed c ON c.id = t.id"
+                                        + " WHERE t.publicly_listed <> c.listed"
+                                        + " ORDER BY t.id FOR NO KEY UPDATE OF t"
+                                        + (skipLocked ? " SKIP LOCKED" : "")
                                         + ")"
-                                        + " UPDATE binder t SET publicly_listed = c.listed,"
+                                        + " UPDATE binder t SET publicly_listed = f.listed,"
                                         + " listing_changed_at = :now"
-                                        + " FROM computed c"
-                                        + " WHERE t.id = c.id AND t.publicly_listed <> c.listed"
-                                        + " RETURNING t.id, t.owner_id, c.listed")
+                                        + " FROM flipped f"
+                                        + " WHERE t.id = f.id"
+                                        + " RETURNING t.id, t.owner_id, f.listed")
                         .param("now", Timestamp.from(now));
         for (java.util.Map.Entry<String, ?> param : params.entrySet()) {
             statement = statement.param(param.getKey(), param.getValue());
@@ -492,7 +676,16 @@ public class BinderRepository {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 rs.getTimestamp("last_owner_activity_at").toInstant(),
-                rs.getBoolean("effective_public"));
+                rs.getBoolean("effective_public"),
+                rs.getBoolean("sells_as_core"),
+                rs.getString("asking_price_text"),
+                rs.getBigDecimal("asking_price"),
+                rs.getString("currency"),
+                instant(rs.getTimestamp("sold_at")));
+    }
+
+    private static @Nullable Instant instant(@Nullable Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private static StateChange mapStateChange(ResultSet rs, int rowNum) throws SQLException {
@@ -512,4 +705,19 @@ public class BinderRepository {
 
     /** A flip of the materialised effective visibility. */
     public record ListingChange(UUID binderId, UUID ownerId, boolean listed) {}
+
+    /**
+     * The deck core columns of a write (V126).
+     *
+     * @param sellsAsCore "Sell as a deck core"
+     * @param askingPriceText the price as typed, {@code null} for none
+     * @param askingPrice the amount of a plain-amount text
+     */
+    public record CoreFields(
+            boolean sellsAsCore,
+            @Nullable String askingPriceText,
+            @Nullable BigDecimal askingPrice) {
+
+        public static final CoreFields NONE = new CoreFields(false, null, null);
+    }
 }

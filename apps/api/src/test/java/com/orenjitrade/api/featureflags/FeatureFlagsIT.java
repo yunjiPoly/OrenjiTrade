@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -19,26 +20,36 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature
- * off), public map, admin reads/writes, rollout, 404 when off.
+ * off), public map, admin reads/writes, rollout, 404 when off. Rollout is exercised on {@link
+ * #PROBE}, a flag row this test creates and removes, so no product flag is switched on.
  */
 class FeatureFlagsIT extends AbstractIntegrationTest {
+
+    /** A test-only flag (no code reads it), created before each test and removed after it. */
+    static final String PROBE = "rolloutProbe";
 
     static final Map<String, Boolean> DEFAULTS =
             Map.of(
                     "mlScanning", false,
                     "protectedPayments", false,
-                    "publicChat", true,
-                    "premiumPlans", false,
-                    "advertising", false,
-                    "credits", false,
-                    "donations", false);
+                    "publicChat", true);
 
     @Autowired private FeatureFlags featureFlags;
     @Autowired private FeatureFlagRepository repository;
     @Autowired private TimeProvider timeProvider;
 
+    @BeforeEach
+    void createProbe() {
+        testUsers.update(
+                "INSERT INTO feature_flag (key, enabled, description) VALUES (?, false, 'Test"
+                        + " probe') ON CONFLICT (key) DO NOTHING",
+                PROBE);
+        featureFlags.invalidate();
+    }
+
     @AfterEach
     void restoreDefaults() {
+        testUsers.update("DELETE FROM feature_flag WHERE key = ?", PROBE);
         DEFAULTS.forEach(
                 (key, enabled) ->
                         testUsers.update(
@@ -82,45 +93,44 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", null, null, 401);
         callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", collector, null, 403);
         JsonNode list = callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", admin, null, 200);
-        assertThat(list.size()).isEqualTo(7);
+        assertThat(list.size())
+                .as("the migration flags and the probe")
+                .isEqualTo(DEFAULTS.size() + 1);
         assertThat(list.get(0).has("rolloutPercent")).isTrue();
         assertThat(list.get(0).has("description")).isTrue();
 
         Map<String, Object> enable = Map.of("enabled", true);
-        callJson(HttpMethod.PUT, "/api/v1/admin/feature-flags/donations", collector, enable, 403);
+        callJson(HttpMethod.PUT, "/api/v1/admin/feature-flags/" + PROBE, collector, enable, 403);
         JsonNode denied =
                 callJson(
-                        HttpMethod.PUT,
-                        "/api/v1/admin/feature-flags/donations",
-                        admin,
-                        enable,
-                        403);
+                        HttpMethod.PUT, "/api/v1/admin/feature-flags/" + PROBE, admin, enable, 403);
         assertThat(denied.path("errorCode").asString()).isEqualTo("FORBIDDEN");
 
         JsonNode updated =
                 callJson(
                         HttpMethod.PUT,
-                        "/api/v1/admin/feature-flags/donations",
+                        "/api/v1/admin/feature-flags/" + PROBE,
                         superAdmin,
-                        Map.of("enabled", true, "description", "Local donations test"),
+                        Map.of("enabled", true, "description", "Local probe test"),
                         200);
         assertThat(updated.path("enabled").asBoolean()).isTrue();
         assertThat(updated.path("updatedBy").asString()).isEqualTo(superAdminId.toString());
-        assertThat(updated.path("description").asString()).isEqualTo("Local donations test");
+        assertThat(updated.path("description").asString()).isEqualTo("Local probe test");
 
         // Evicted at once: the public map and the service see the change.
         assertThat(
                         callJson(HttpMethod.GET, "/api/v1/public/feature-flags", null, null, 200)
-                                .path("donations")
+                                .path(PROBE)
                                 .asBoolean())
                 .isTrue();
-        assertThat(featureFlags.isEnabled("donations")).isTrue();
+        assertThat(featureFlags.isEnabled(PROBE)).isTrue();
 
         List<Map<String, Object>> audit =
                 testUsers.query(
                         "SELECT actor_user_id, actor_type, details::text AS details FROM audit_log"
-                                + " WHERE action = 'feature_flag.update' AND target_id ="
-                                + " 'donations' ORDER BY occurred_at DESC");
+                                + " WHERE action = 'feature_flag.update' AND target_id = ?"
+                                + " ORDER BY occurred_at DESC",
+                        PROBE);
         assertThat(audit).isNotEmpty();
         assertThat(audit.get(0).get("actor_user_id")).isEqualTo(superAdminId);
         assertThat(audit.get(0).get("actor_type")).isEqualTo("ADMIN");
@@ -129,13 +139,13 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         callJson(HttpMethod.PUT, "/api/v1/admin/feature-flags/noSuchFlag", superAdmin, enable, 404);
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/donations",
+                "/api/v1/admin/feature-flags/" + PROBE,
                 superAdmin,
                 Map.of("enabled", true, "rolloutPercent", 101),
                 400);
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/donations",
+                "/api/v1/admin/feature-flags/" + PROBE,
                 superAdmin,
                 Map.of("rolloutPercent", 50),
                 400);
@@ -149,55 +159,50 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         UUID userId = provisionCompliant(user);
 
         JsonNode off =
-                callJson(
-                        HttpMethod.GET,
-                        "/api/v1/test-probes/features/advertising",
-                        user,
-                        null,
-                        404);
+                callJson(HttpMethod.GET, "/api/v1/test-probes/features/" + PROBE, user, null, 404);
         assertThat(off.path("errorCode").asString()).isEqualTo("FEATURE_DISABLED");
-        assertThat(off.path("feature").asString()).isEqualTo("advertising");
+        assertThat(off.path("feature").asString()).isEqualTo(PROBE);
         assertThat(off.path("status").asInt()).isEqualTo(404);
 
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/advertising",
+                "/api/v1/admin/feature-flags/" + PROBE,
                 superAdmin,
                 Map.of("enabled", true, "rolloutPercent", 0),
                 200);
         // Enabled but rolled out to nobody.
-        callJson(HttpMethod.GET, "/api/v1/test-probes/features/advertising", user, null, 404);
+        callJson(HttpMethod.GET, "/api/v1/test-probes/features/" + PROBE, user, null, 404);
         assertThat(
                         callJson(HttpMethod.GET, "/api/v1/public/feature-flags", null, null, 200)
-                                .path("advertising")
+                                .path(PROBE)
                                 .asBoolean())
                 .isFalse();
-        assertThat(featureFlags.isEnabled("advertising", userId)).isFalse();
+        assertThat(featureFlags.isEnabled(PROBE, userId)).isFalse();
 
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/advertising",
+                "/api/v1/admin/feature-flags/" + PROBE,
                 superAdmin,
                 Map.of("enabled", true, "rolloutPercent", 100),
                 200);
-        callJson(HttpMethod.GET, "/api/v1/test-probes/features/advertising", user, null, 204);
-        assertThat(featureFlags.isEnabled("advertising")).isTrue();
+        callJson(HttpMethod.GET, "/api/v1/test-probes/features/" + PROBE, user, null, 204);
+        assertThat(featureFlags.isEnabled(PROBE)).isTrue();
 
         // A partial rollout gives the same answer every time for the same account.
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/advertising",
+                "/api/v1/admin/feature-flags/" + PROBE,
                 superAdmin,
                 Map.of("enabled", true, "rolloutPercent", 50),
                 200);
-        boolean first = featureFlags.isEnabled("advertising", userId);
+        boolean first = featureFlags.isEnabled(PROBE, userId);
         for (int i = 0; i < 5; i++) {
-            assertThat(featureFlags.isEnabled("advertising", userId)).isEqualTo(first);
+            assertThat(featureFlags.isEnabled(PROBE, userId)).isEqualTo(first);
         }
-        assertThat(featureFlags.isEnabled("advertising", null)).isFalse();
+        assertThat(featureFlags.isEnabled(PROBE, null)).isFalse();
         assertThat(
                         callJson(HttpMethod.GET, "/api/v1/public/feature-flags", user, null, 200)
-                                .path("advertising")
+                                .path(PROBE)
                                 .asBoolean())
                 .isEqualTo(first);
     }
@@ -206,22 +211,23 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
     void localSeedEnablesTheFakeProviderFlagsButNotMlScanningAndKeepsAdminEdits() {
         String superAdmin = uniqueUid("ff-seed-super");
         provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
-        // An admin explicitly turned donations off: the seed must leave it alone.
+        FeatureFlagSeedContributor seed =
+                new FeatureFlagSeedContributor(repository, featureFlags, timeProvider);
+
+        seed.seed();
+        assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
+        assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
+        assertThat(featureFlags.isEnabled("publicChat")).isTrue();
+
+        // An admin explicitly turns protectedPayments off: the seed must leave it alone.
         callJson(
                 HttpMethod.PUT,
-                "/api/v1/admin/feature-flags/donations",
+                "/api/v1/admin/feature-flags/protectedPayments",
                 superAdmin,
                 Map.of("enabled", false),
                 200);
-
-        new FeatureFlagSeedContributor(repository, featureFlags, timeProvider).seed();
-
-        assertThat(featureFlags.isEnabled("protectedPayments")).isTrue();
-        assertThat(featureFlags.isEnabled("premiumPlans")).isTrue();
-        assertThat(featureFlags.isEnabled("credits")).isTrue();
-        assertThat(featureFlags.isEnabled("advertising")).isTrue();
-        assertThat(featureFlags.isEnabled("donations")).isFalse();
-        assertThat(featureFlags.isEnabled("mlScanning")).isFalse();
-        assertThat(featureFlags.isEnabled("publicChat")).isTrue();
+        seed.seed();
+        assertThat(featureFlags.isEnabled("protectedPayments")).isFalse();
+        assertThat(FeatureFlagSeedContributor.LOCAL_ENABLED).containsExactly("protectedPayments");
     }
 }

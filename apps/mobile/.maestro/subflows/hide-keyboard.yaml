@@ -1,10 +1,19 @@
 # Hides the on-screen keyboard the way each platform lets a collector do it.
 # Android: its own "hide keyboard" (the back key).
-# iOS has no such key. A collector drags the list under the field (Search and the card pickers
-# let go of the keyboard when a drag begins) or taps beside the fields of a form. So: a short drag
-# in the middle of the screen, above the keyboard (a real drag: it scrolls, it never presses what
-# it starts on), then, only while a keyboard is still on screen, a tap in the page's right padding
-# at mid-height (inside the scrolling part of a form or of a conversation, above the keyboard).
+# iOS has no such key. A collector drags the list under the field (Search, the card pickers and
+# the Map tab's list let go of the keyboard when a drag begins) or taps beside the fields of a
+# form. So: a short drag in the middle of the screen, above the keyboard (a real drag: it scrolls,
+# it never presses what it starts on), then, only while a keyboard is still on screen, a tap in
+# the page's right padding at mid-height (inside the scrolling part of a form or of a
+# conversation, above the keyboard), then, only if it is still there, the same drag once more.
+#
+# Why the second drag: on a simulator booted without a window (no Mac keyboard attached to it,
+# for example after a restart of the Mac), iOS puts the keyboard away while Maestro types and
+# brings it back at the next touch, the field still focused. The first drag is that touch: a list
+# only lets go of a keyboard that is on screen, so it does nothing, and the tap lands beside the
+# list. By the second drag the keyboard is back and the list lets go of it. Where the keyboard
+# stays up while Maestro types, the first drag (a list) or the tap (a form) hides it as before.
+#
 # (Maestro's own hideKeyboard is not used on iOS: its flick in the middle of the screen is so
 # short that it presses what is there, for example the "Forgot your password?" link of the
 # sign-in screen. In a form dialog use hide-keyboard-in-dialog.yaml: beside a dialog there is
@@ -31,6 +40,15 @@ appId: ${APP_ID}
           commands:
             - tapOn:
                 point: 98%, 50%
+            - runFlow:
+                when:
+                  visible:
+                    id: 'UIKeyboardLayoutStar.*'
+                commands:
+                  - swipe:
+                      start: 50%, 55%
+                      end: 50%, 45%
+                      duration: 400
             - extendedWaitUntil:
                 notVisible:
                   id: 'UIKeyboardLayoutStar.*'

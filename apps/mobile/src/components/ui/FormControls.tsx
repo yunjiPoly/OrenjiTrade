@@ -1,15 +1,8 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState, type ReactNode } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, Switch, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { TextField, type TextFieldProps } from './TextField';
@@ -69,6 +62,13 @@ export function Checkbox({
   );
 }
 
+/**
+ * The thumb of every switch: white in both schemes, as in the mockup (a white thumb on #44403C in
+ * dark). It was the surface colour, a dark thumb on a dark track in dark, so a switch that was off
+ * could hardly be seen (10 : 1 now against the off track).
+ */
+export const SWITCH_THUMB = '#FFFFFF';
+
 export interface SwitchRowProps {
   label: string;
   help?: string;
@@ -113,7 +113,7 @@ export function SwitchRow({ label, help, value, onChange, disabled, testID }: Sw
           value={value}
           disabled={disabled}
           trackColor={{ true: palette.primary, false: palette.borderStrong }}
-          thumbColor={palette.surface}
+          thumbColor={SWITCH_THUMB}
         />
       </View>
     </Pressable>

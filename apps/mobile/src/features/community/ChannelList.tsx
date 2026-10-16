@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useCommunityChannels } from '@/src/api/hooks/community';
 import { useGames } from '@/src/api/hooks/profile';
@@ -10,6 +10,7 @@ import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { gamesFrom } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 

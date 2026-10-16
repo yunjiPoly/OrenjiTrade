@@ -1,6 +1,9 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import MessagesScreen from '@/app/(tabs)/messages';
+import { toLastMessage } from '@/src/features/messages/messageText';
+import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -9,7 +12,10 @@ import {
   SELF_ID,
   conversationFixture,
   conversationPage,
+  deckCoreSubjectFixture,
   messageFixture,
+  saleMessageFixture,
+  subjectFixture,
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { fakeRealtime, type FakeRealtime } from '../support/realtime';
@@ -82,16 +88,117 @@ describe('Messages tab: inbox', () => {
     expect(screen.getByTestId('conversation-preview-collector2')).toHaveTextContent(
       'You: See you Saturday'
     );
-    expect(screen.getByTestId('unread-badge-collector3')).toHaveTextContent('2');
+    // Unread: an orange dot and an orange time; muted keeps its icon (mockup screen 22).
+    expect(screen.getByTestId('unread-badge-collector3')).toBeOnTheScreen();
     expect(screen.queryByTestId('unread-badge-collector2')).toBeNull();
+    expect(screen.getByTestId('conversation-muted-collector2')).toBeOnTheScreen();
+    expect(screen.queryByTestId('conversation-muted-collector3')).toBeNull();
     expect(screen.getByTestId('conversation-row-collector3').props.accessibilityLabel).toBe(
-      'Devon Okafor, online, 2 unread messages, Card: Lantern Fox'
+      'collector3, online, 2 unread messages, Card: Lantern Fox'
     );
+    // Rows name the handle (the mockup's rows), not the display name.
+    expect(screen.getByTestId('conversation-row-collector3')).toHaveTextContent(/collector3/);
+    expect(screen.getByTestId('conversation-row-collector3')).not.toHaveTextContent(/Devon Okafor/);
+    expect(screen.queryByText('Messages view')).toBeNull();
     fireEvent.press(screen.getByTestId('conversation-row-collector2'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/messages/[id]',
       params: { id: CONVERSATION_ID },
     });
+  });
+
+  it('words a last message about an old offer or trade as no longer available (ADR 0018)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/conversations': ok(
+          conversationPage([
+            {
+              ...devon,
+              lastMessage: {
+                id: 'm-trade',
+                preview: 'Devon Okafor cancelled the trade: 18.00 CAD for Tidebinder Sovereign.',
+                kind: 'SYSTEM',
+                createdAt: '2026-10-05T09:00:00Z',
+                senderId: null,
+              },
+            },
+            {
+              ...noe,
+              lastMessage: { ...noe.lastMessage!, preview: 'Offer', kind: 'OFFER_LINK' },
+            },
+          ])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('conversation-preview-collector3')).toHaveTextContent(
+      'Offer (no longer available)'
+    );
+    expect(screen.getByTestId('conversation-preview-collector2')).toHaveTextContent(
+      'You: Offer (no longer available)'
+    );
+    expect(screen.queryByText(/trade/i)).toBeNull();
+  });
+
+  it('shows the picture of what each chat is about and words a sale for the reader (R4)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/conversations': ok(
+          conversationPage([
+            {
+              ...devon,
+              subject: deckCoreSubjectFixture({ ownerId: devon.other.id }),
+              lastMessage: toLastMessage(
+                saleMessageFixture(
+                  { sellerId: devon.other.id, name: 'Snake-Eye core' },
+                  { createdAt: '2026-10-05T09:00:00Z' }
+                )
+              ),
+            },
+            { ...noe, subject: subjectFixture({ ownerId: SELF_ID }) },
+          ])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('conversation-subject-collector3')).toBeOnTheScreen();
+    expect(screen.getByTestId('conversation-subject-collector2')).toBeOnTheScreen();
+    expect(screen.getByTestId('conversation-preview-collector3')).toHaveTextContent(
+      'collector3 marked Snake-Eye core as sold to you.'
+    );
+    expect(screen.getByTestId('conversation-row-collector3').props.accessibilityLabel).toMatch(
+      /, about Snake-Eye core$/
+    );
+  });
+
+  it('keeps the header small and gives the handle and the last message room at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(routes({ 'GET /api/v1/notifications/unread-count': ok({ count: 3 }) }));
+      render();
+      const handle = await screen.findByText('collector3');
+      // The handle follows the text size (it was held at 1.35 beside an uncapped last message) and
+      // takes the row's width, up to three lines, the time under it.
+      expect(handle.props.maxFontSizeMultiplier).toBeUndefined();
+      expect(handle).toHaveProp('numberOfLines', 3);
+      expect(screen.getByTestId('conversation-preview-collector3')).toHaveProp('numberOfLines', 2);
+      // The title, "Live" and the bell's count stay within the header.
+      expect(screen.getByText('Messages')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      expect(await screen.findByText('3')).toHaveProp('maxFontSizeMultiplier', 1);
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('shows the empty inbox, and an error with retry', async () => {
@@ -109,10 +216,9 @@ describe('Messages tab: inbox', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     const empty = await screen.findByTestId('inbox-empty');
-    expect(empty).toHaveTextContent(/No conversations yet/);
-    // ADR 0017: collectors are found through search and their profile, never on the map.
+    // Spec section 10: "No messages yet. Find a card in Search and message its owner."
     expect(empty).toHaveTextContent(
-      /Find a card or a binder in search, open the collector's profile and press Message/
+      /No messages yet.*Find a card in Search and message its owner\./
     );
     expect(empty).not.toHaveTextContent(/map|preview|near/i);
     fireEvent.press(screen.getByText('Open search'));
@@ -140,7 +246,7 @@ describe('Messages tab: inbox', () => {
       )
     );
     expect(screen.getByTestId('conversation-preview-collector2')).toHaveTextContent('Still there?');
-    expect(screen.getByTestId('unread-badge-collector2')).toHaveTextContent('1');
+    expect(screen.getByTestId('unread-badge-collector2')).toBeOnTheScreen();
 
     // A message of a conversation the inbox does not hold yet re-reads the inbox.
     const before = api.callsTo('GET /api/v1/conversations').length;
@@ -173,9 +279,22 @@ describe('Messages tab: inbox', () => {
   });
 });
 
+/** The community is behind the `publicChat` flag: the Inbox | Community switch shows only then. */
+const COMMUNITY_ON = { 'GET /api/v1/public/feature-flags': ok({ publicChat: true }) };
+
 describe('Messages tab: community', () => {
+  it('has no Inbox | Community switch while the publicChat flag is off', async () => {
+    mockParams.current = { view: 'community' };
+    mockApi(routes({ 'GET /api/v1/public/feature-flags': ok({ publicChat: false }) }));
+    render();
+    // The inbox, even from a link to the community.
+    expect(await screen.findByTestId('conversation-row-collector2')).toBeOnTheScreen();
+    expect(screen.queryByTestId('messages-view')).toBeNull();
+    expect(screen.queryByTestId('channel-americas-north')).toBeNull();
+  });
+
   it('switches to the public channels, grouped, with their activity of the day', async () => {
-    mockApi(routes());
+    mockApi(routes(COMMUNITY_ON));
     render();
     await screen.findByTestId('conversation-row-collector2');
     fireEvent.press(screen.getByTestId('messages-view-community'));
@@ -201,6 +320,7 @@ describe('Messages tab: community', () => {
     mockParams.current = { view: 'community' };
     mockApi(
       routes({
+        ...COMMUNITY_ON,
         'GET /api/v1/community/channels': problem(403, 'FEATURE_DISABLED', 'Disabled'),
       })
     );
@@ -216,6 +336,7 @@ describe('Messages tab: community', () => {
     mockParams.current = { view: 'community' };
     mockApi(
       routes({
+        ...COMMUNITY_ON,
         'GET /api/v1/community/channels': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok(CHANNELS)],
       })
     );

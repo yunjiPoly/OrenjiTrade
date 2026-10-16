@@ -91,7 +91,7 @@ describe('profile rules', () => {
     expect(customTagCandidate('  vintage   holo ', [])).toBe('vintage holo');
     expect(customTagCandidate('x', [])).toBeNull();
     expect(customTagCandidate('x'.repeat(25), [])).toBeNull();
-    expect(customTagCandidate('Local Pickup', ['local pickup'])).toBeNull();
+    expect(customTagCandidate('Tracked Shipping', ['tracked shipping'])).toBeNull();
   });
 
   it('lists the API games with friendly labels and falls back to the built-in list', () => {

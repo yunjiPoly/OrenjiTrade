@@ -199,6 +199,12 @@ public class NotificationRepository {
                 .list();
     }
 
+    public int deleteByDedupKey(String dedupKey) {
+        return jdbc.sql("DELETE FROM notification WHERE dedup_key = :key")
+                .param("key", dedupKey)
+                .update();
+    }
+
     public int deleteByUser(UUID userId) {
         return jdbc.sql("DELETE FROM notification WHERE user_id = :userId")
                 .param("userId", userId)

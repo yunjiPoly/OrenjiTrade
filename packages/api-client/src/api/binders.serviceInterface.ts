@@ -36,6 +36,11 @@ export interface DeleteBinderRequestParams {
     deleteItems?: boolean;
 }
 
+export interface DeleteBinderImageRequestParams {
+    id: string;
+    imageId: string;
+}
+
 export interface GetBinderRequestParams {
     id: string;
 }
@@ -72,6 +77,11 @@ export interface UpdateBinderRequestParams {
     updateBinderRequest: UpdateBinderRequest;
 }
 
+export interface UploadBinderImageRequestParams {
+    id: string;
+    file: Blob;
+}
+
 
 export interface BindersServiceInterface {
     defaultHeaders: HttpHeaders;
@@ -87,7 +97,7 @@ export interface BindersServiceInterface {
 
     /**
      * Create a binder
-     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the plan\&#39;s binder limit.
+     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector.
      * @endpoint post /api/v1/binders
 * @param requestParameters
      */
@@ -100,6 +110,14 @@ export interface BindersServiceInterface {
 * @param requestParameters
      */
     deleteBinder(requestParameters: DeleteBinderRequestParams, extraHttpRequestParams?: any): Observable<{}>;
+
+    /**
+     * Remove a photo of one of the caller\&#39;s binders
+     * 
+     * @endpoint delete /api/v1/binders/{id}/images/{imageId}
+* @param requestParameters
+     */
+    deleteBinderImage(requestParameters: DeleteBinderImageRequestParams, extraHttpRequestParams?: any): Observable<{}>;
 
     /**
      * One of the caller\&#39;s binders
@@ -150,10 +168,18 @@ export interface BindersServiceInterface {
 
     /**
      * Update a binder (any subset of the fields)
-     * Absent fields are unchanged; &#x60;publicUntil&#x60; and &#x60;coverPrintingId&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish).
+     * Absent fields are unchanged; &#x60;publicUntil&#x60;, &#x60;coverPrintingId&#x60; and &#x60;askingPriceText&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does &#x60;confirm: true&#x60;. &#x60;sellsAsCore&#x60; turns \&quot;Sell as a deck core\&quot; on or off (photos and price are kept, public views show them only for a deck core); &#x60;askingPriceText&#x60; is at most 40 characters once trimmed, and a plain amount also sets &#x60;askingPrice&#x60;.
      * @endpoint patch /api/v1/binders/{id}
 * @param requestParameters
      */
     updateBinder(requestParameters: UpdateBinderRequestParams, extraHttpRequestParams?: any): Observable<BinderResponse>;
+
+    /**
+     * Add a photo to one of the caller\&#39;s binders (a deck core)
+     * Multipart part &#x60;file&#x60;: JPEG, PNG or WebP up to 8 MB (type sniffed from the content). Re-encoded as JPEG, at most 1600 px on the long side, without any metadata (EXIF/GPS stripped). At most 4 photos per binder (409). 404 for another collector\&#39;s binder, 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (60 per hour). Public views show the photos of a deck core only.
+     * @endpoint post /api/v1/binders/{id}/images
+* @param requestParameters
+     */
+    uploadBinderImage(requestParameters: UploadBinderImageRequestParams, extraHttpRequestParams?: any): Observable<BinderResponse>;
 
 }

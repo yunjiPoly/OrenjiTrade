@@ -15,8 +15,8 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import type { AdminUsageLimit } from '@orenji/api-client';
-import { windowSuffix } from '../../../shared/plans/plan-labels';
-import { limitValueError } from './limit-matrix';
+import { windowSuffix } from '../../../shared/limits/limit-labels';
+import { limitValueError } from './limit-rows';
 
 export interface LimitEdit {
   limit: AdminUsageLimit;
@@ -25,8 +25,8 @@ export interface LimitEdit {
 }
 
 /**
- * One plan x limit cell: the value, and for super admins an inline editor (number or unlimited,
- * Enter saves, Escape cancels) with validation.
+ * The value of one usage limit (the same for every collector), and for super admins an inline
+ * editor (number or unlimited, Enter saves, Escape cancels) with validation.
  */
 @Component({
   selector: 'app-limit-cell',
@@ -86,10 +86,7 @@ export interface LimitEdit {
       </div>
     } @else {
       <div class="cell__view">
-        <span
-          class="cell__value"
-          [attr.data-testid]="'limit-' + limit()!.planCode + '-' + limit()!.key"
-        >
+        <span class="cell__value" [attr.data-testid]="'limit-' + limit()!.key">
           @if (limit()!.unlimited) {
             <span class="cell__unlimited">Unlimited</span>
           } @else {
@@ -172,7 +169,8 @@ export interface LimitEdit {
 })
 export class LimitCellComponent {
   readonly limit = input<AdminUsageLimit | null>(null);
-  readonly planName = input('');
+  /** The readable name of the limit, for its buttons and field ("Public binder views per day"). */
+  readonly label = input('');
   readonly canEdit = input(false, { transform: booleanAttribute });
   readonly saving = input(false, { transform: booleanAttribute });
   readonly edit = output<LimitEdit>();
@@ -183,7 +181,7 @@ export class LimitCellComponent {
   protected readonly draft = signal('');
   protected readonly unlimited = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly name = computed(() => `${this.planName()} ${this.limit()?.key ?? ''}`.trim());
+  protected readonly name = computed(() => this.label() || this.limit()?.key || '');
   protected readonly inputId = computed(() => `limit-${this.limit()?.id ?? 'none'}`);
   protected readonly suffix = computed(() =>
     this.limit()?.unlimited ? '' : windowSuffix(this.limit()?.window),

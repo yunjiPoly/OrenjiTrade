@@ -90,7 +90,10 @@ public class CollectorDiscoveryService {
      * collectors removed), at most {@code criteria.limit()}.
      */
     Found find(DiscoveryCriteria criteria, @Nullable UUID viewerId, Instant now) {
-        DiscoveryPage page = cache.get(criteria, () -> load(criteria, now));
+        // Collectors blocked with a signed-in viewer are left out in SQL, before the limit and of
+        // the count (the page of such a viewer is cached under its own key); the markers step below
+        // drops them again should a block be newer than the cached page.
+        DiscoveryPage page = cache.get(criteria, viewerId, () -> load(criteria, viewerId, now));
         List<CollectorMarker> markers = assembler.visibleMarkers(page.rows(), viewerId, now);
         long hidden = page.rows().size() - markers.size();
         long total = Math.max(0, page.total() - hidden);
@@ -99,8 +102,8 @@ public class CollectorDiscoveryService {
         return new Found(List.copyOf(limited), total);
     }
 
-    private DiscoveryPage load(DiscoveryCriteria criteria, Instant now) {
-        DiscoveryPage page = repository.discover(criteria, now);
+    private DiscoveryPage load(DiscoveryCriteria criteria, @Nullable UUID viewerId, Instant now) {
+        DiscoveryPage page = repository.discover(criteria, viewerId, now);
         if (!criteria.listsMatchingItems() || page.rows().isEmpty()) {
             return page;
         }
@@ -118,9 +121,10 @@ public class CollectorDiscoveryService {
     }
 
     /**
-     * Markers of the given collectors as {@code viewerId} sees them (collector lists built
-     * elsewhere, such as the card page's "Who wants it" of stage S3): only discoverable collectors
-     * with a location and no block with the viewer are returned.
+     * Markers of the given collectors as {@code viewerId} sees them, for collector lists built
+     * elsewhere: only discoverable collectors with a location and no block with the viewer are
+     * returned. Nothing calls it today; it was written for the card page's "Who wants it" of stage
+     * S3, which the owner skipped on 2026-10-13 and the phone redesign of 2026-10-14 drops.
      */
     @Transactional(readOnly = true)
     public Map<UUID, CollectorMarker> markersFor(UUID viewerId, Collection<UUID> ids) {

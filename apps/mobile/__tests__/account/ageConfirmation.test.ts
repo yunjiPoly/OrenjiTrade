@@ -71,7 +71,7 @@ describe('the 18+ rule (launch readiness)', () => {
     expect(friendlyError(error)).toEqual({
       title: 'Age confirmation required',
       message:
-        'Please confirm that you are 18 years of age or older to be shown on the map, message, post or make offers. We will take you to the confirmation.',
+        'Please confirm that you are 18 years of age or older to be shown on the map, message or post. We will take you to the confirmation.',
     });
     expect(signalFromError(error, 7)).toEqual({ kind: 'age-confirmation-required', at: 7 });
     // The signal itself is not an account state: `/me` (reloaded) decides through its flag.
@@ -86,16 +86,16 @@ describe('the 18+ rule (launch readiness)', () => {
     ).toBe('ready');
   });
 
-  it('keeps the plan-limit wording neutral (no Premium pitch in the generic message)', () => {
+  it('keeps the limit wording plain (no plan, no Premium pitch in the generic message)', () => {
     const limit = ApiError.fromProblem(429, {
       status: 429,
       errorCode: 'LIMIT_REACHED',
       message: 'Limit reached',
     });
     expect(friendlyError(limit)).toEqual({
-      title: 'Plan limit reached',
-      message: 'You reached a limit of your plan. It resets soon.',
+      title: 'Limit reached',
+      message: 'You reached a usage limit for this action.',
     });
-    expect(friendlyError(limit).message).not.toMatch(/Premium/);
+    expect(friendlyError(limit).message).not.toMatch(/Premium|plan/);
   });
 });

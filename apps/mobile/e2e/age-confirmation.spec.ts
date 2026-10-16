@@ -81,12 +81,12 @@ test.describe('mobile age confirmation', () => {
       { timeout: 30_000 }
     );
     expect(await apiAgeConfirmed(request, collector.idToken)).toBe(true);
-    await openInApp(page, '/');
-    await expect(screen(page, 'map')).toBeVisible({ timeout: 30_000 });
+    await openInApp(page, '/search');
+    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
 
     // Confirmed for good: a reload lands on the tabs, never on the step again.
     await page.reload();
-    await expect(screen(page, 'map')).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Are you 18 or older?')).toHaveCount(0);
   });
 

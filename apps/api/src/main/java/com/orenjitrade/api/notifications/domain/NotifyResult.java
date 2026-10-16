@@ -21,8 +21,8 @@ public record NotifyResult(Outcome outcome, @Nullable UUID notificationId) {
         /** The collector's preferences refuse every channel of this type; nothing stored. */
         SUPPRESSED,
         /**
-         * The daily limit of the type is reached: nothing stored for this request; the single "more
-         * matches, upgrade" notice of the day was created (or already existed).
+         * The daily limit of the type is reached: nothing stored for this request; the single
+         * "limit reached" notice of the day was created (or already existed).
          */
         LIMITED,
         /** The recipient is unknown, suspended, pending deletion or deleted. */

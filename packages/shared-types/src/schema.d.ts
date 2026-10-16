@@ -239,7 +239,7 @@ export interface paths {
         get?: never;
         /**
          * Change a usage limit (SUPER_ADMIN)
-         * @description Live edit: every instance applies the new value at once (cache evicted); counters keep their usage. Audited (`usage_limit.update`).
+         * @description Live edit for every collector: every instance applies the new value at once (cache evicted); counters keep their usage. Audited (`usage_limit.update`).
          */
         put: operations["updateUsageLimit"];
         post?: never;
@@ -309,26 +309,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/plans/{code}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change a plan (SUPER_ADMIN)
-         * @description Name, description, display price, active flag, order and feature switches (listed features are upserted). FREE cannot be disabled. Audited (`plan.update`).
-         */
-        put: operations["updatePlan"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/payments/settings": {
         parameters: {
             query?: never;
@@ -377,6 +357,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/inventory/import-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The limits of an inventory import (ADMIN) */
+        get: operations["getAdminInventoryImportSettings"];
+        /**
+         * Change the limits of an inventory import (ADMIN)
+         * @description Any subset of the fields; absent fields are unchanged. ydkMaxKb 1-1024, ydkMaxLines 10-5000, csvMaxKb 16-8192, csvMaxRows 10-20000, previewTtlMinutes 5-1440. Applied to the next upload (cached at most 60 s on other instances). Audited (inventory.import.settings.update).
+         */
+        put: operations["updateAdminInventoryImportSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/games/{slug}": {
         parameters: {
             query?: never;
@@ -417,27 +418,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/donations/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Accepted donation amounts and currencies (ADMIN) */
-        get: operations["getAdminDonationSettings"];
-        /**
-         * Change donation amounts and currencies (SUPER_ADMIN)
-         * @description Absent values are kept; minimum 0.50-1000.00, maximum 1.00-10000.00 (at least the minimum), 1-10 ISO currencies. Audited (donations.settings.update).
-         */
-        put: operations["updateAdminDonationSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/delist-policies/{id}": {
         parameters: {
             query?: never;
@@ -451,47 +431,6 @@ export interface paths {
          * @description 400 unless 1 <= agingAfterDays < staleAfterDays < hiddenAfterDays <= 3650, 0 <= warnBeforeHiddenDays < hiddenAfterDays, 1 <= maxStrikes <= 100 and 1 <= unansweredAfterHours <= 720. Takes effect on every instance at once (cache evicted) and on the next freshness job run. Audited (`delist_policy.update`).
          */
         put: operations["updateDelistPolicy"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/credits/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Referral settings (ADMIN) */
-        get: operations["getAdminCreditSettings"];
-        /**
-         * Change referral settings (SUPER_ADMIN)
-         * @description Absent values are kept; bounds: rewards 0-10000, window 1-365 days, redemptions per code 1-10000. Audited (credits.settings.update).
-         */
-        put: operations["updateAdminCreditSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/credits/products/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change a credit product (SUPER_ADMIN)
-         * @description Name, description, entitlement value, cost, duration, availability and order; the entitlement key is fixed. Audited (credits.product.update); 404 for unknown keys.
-         */
-        put: operations["updateAdminCreditProduct"];
         post?: never;
         delete?: never;
         options?: never;
@@ -519,107 +458,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/ads/placements/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change a placement (ADMIN)
-         * @description Name, active, maximum ads per request (1-5). Audited.
-         */
-        put: operations["updateAdminAdPlacement"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/creatives/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change a creative (ADMIN)
-         * @description Audited (ads.creative.update); 404 for unknown creatives.
-         */
-        put: operations["updateAdminAdCreative"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/campaigns/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A campaign with creatives, targeting and totals (ADMIN) */
-        get: operations["getAdminAdCampaign"];
-        /**
-         * Change a campaign (ADMIN)
-         * @description Also pauses, resumes and ends it (status). Audited.
-         */
-        put: operations["updateAdminAdCampaign"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/campaigns/{id}/targeting": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Replace a campaign's targeting rules (ADMIN)
-         * @description Kinds GAME, REGION, COUNTRY, SUBDIVISION, TAG and PLAN only (never a city): kinds combine with AND, values of one kind with OR; an empty list targets everybody. Audited (ads.targeting.update).
-         */
-        put: operations["replaceAdminAdTargeting"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/advertisers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Change an advertiser (ADMIN)
-         * @description Audited (ads.advertiser.update); 404 for unknown advertisers.
-         */
-        put: operations["updateAdminAdvertiser"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/internal/jobs/upload-cleanup": {
         parameters: {
             query?: never;
@@ -634,26 +472,6 @@ export interface paths {
          * @description Every 15 minutes. Deletes image uploads older than 1 h that no message consumed, with their stored objects. Records a job run.
          */
         post: operations["runUploadCleanupJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/internal/jobs/subscriptions-period": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * End, renew or expire subscriptions whose period ended (service auth)
-         * @description Hourly. Cancellations at the period end take effect (FREE); fake-provider subscriptions are renewed through a synthetic signed webhook; other providers' subscriptions without a renewal expire after orenji.billing.renewal-grace. Records a job run.
-         */
-        post: operations["runSubscriptionsPeriodJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -720,6 +538,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/jobs/inventory-import-purge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete expired inventory import previews (service auth)
+         * @description Deletes the import previews past their time to live (inventory.import.preview_ttl_minutes), the results of finished imports past the same time, and commits nobody finished for 7 days. Never touches the inventory. Records a job run. The hourly freshness job runs it too; this route is for a run on request.
+         */
+        post: operations["runInventoryImportPurgeJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/jobs/freshness": {
         parameters: {
             query?: never;
@@ -731,7 +569,7 @@ export interface paths {
         put?: never;
         /**
          * Recompute listing freshness (service auth)
-         * @description Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+         * @description Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes a listing. Records a job run. The same trigger then runs the inventory-import-purge job (expired import previews), as a job run of its own.
          */
         post: operations["runFreshnessJob"];
         delete?: never;
@@ -754,26 +592,6 @@ export interface paths {
          * @description Nightly. Counts the conversations waiting for each collector's answer (the other participant's last message of the last 30 days, older than the policy's unansweredAfterHours), stores the strikes (unanswered conversations since the owner's last resume) and pauses the public listings of owners who reached the policy's maxStrikes (they resume by confirming, POST /me/listings/resume). Also ends timed pauses. Never deletes. Records a job run.
          */
         post: operations["runDelistJob"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/internal/jobs/credits-reconcile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Compare cached credit balances with the ledger (service auth)
-         * @description Hourly. Repairs cached balances that differ from SUM(amount) and reports accounts whose latest running balance differs from the sum (never edits the ledger). Records a job run.
-         */
-        post: operations["runCreditsReconcileJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -897,26 +715,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/internal/ads/clicks/{clickId}/conversions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record a conversion of an ad click (service auth)
-         * @description Once per click and kind (recorded=false for a repeat); 404 for unknown clicks.
-         */
-        post: operations["recordAdConversion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/wishlist": {
         parameters: {
             query?: never;
@@ -924,12 +722,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's wishlist items (newest first) */
+        /**
+         * The caller's wishlist items (newest first)
+         * @description Each item says whether it is `available` in the caller's home region (stage R5; GET /wishlist/availability answers for any region): at least one public, fresh (ACTIVE or AGING) copy that fits the wish (its printing, or any printing of its card in its rarity; Near Mint or a condition not stated when the wish asks for Near Mint only, as for the wishlist alert), a card listed on its own or in a public deck core, held by a discoverable collector of the region who is not the caller and with no block either way. One grouped query for the whole list. No count.
+         */
         get: operations["listWishlist"];
         put?: never;
         /**
          * Add a card to the wishlist
-         * @description Which copy (cardId for any printing, optionally with a rarity of the card's printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller's platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
+         * @description Which copy (cardId for any printing, optionally with a rarity of the card's printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller's platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (20 for everyone by default; an admin setting). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
          */
         post: operations["createWishlistItem"];
         delete?: never;
@@ -952,46 +753,6 @@ export interface paths {
          * @description Called by the active provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider's event id: a retry answers duplicate=true) and processed after the 200. 404 for another provider or while protectedPayments is off for everybody (FEATURE_DISABLED); 413 above 256 KB.
          */
         post: operations["receivePaymentWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/donations/{provider}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Donation provider webhook
-         * @description Called by the active donation provider only (fake: X-Fake-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider's event id) and applied after the 200. 404 for another provider or while donations is off for everybody (FEATURE_DISABLED); 413 above 256 KB.
-         */
-        post: operations["receiveDonationWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/billing/{provider}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Billing provider webhook
-         * @description Called by the active billing provider only (fake: X-Fake-Signature; stripe: Stripe-Signature, HMAC-SHA256 with a 5-minute tolerance). A bad signature answers 400 WEBHOOK_SIGNATURE_INVALID and is stored as IGNORED; a verified event is stored (idempotent by the provider's event id: a retry answers duplicate=true) and applied after the 200 (activation, renewal, past due, cancellation). 404 for another provider; 413 above 256 KB.
-         */
-        post: operations["receiveBillingWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1182,6 +943,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sales/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a sale (the seller, within 10 minutes, before anyone rated it)
+         * @description Puts back exactly what the sale took (copies; the card with its binder, visibility, price, note and photos; a deck core with its cards), removes its SALE interaction, withdraws its message (pushed to both marked undone) and the buyer's notification. 403 for the buyer, 404 for anyone else; 409 SALE_UNDO_CLOSED after 10 minutes (extension undoableUntil) or when what it took cannot come back; 409 SALE_ALREADY_RATED once one of them rated it. A repeated undo answers the undone sale.
+         */
+        post: operations["undoSale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/collectors": {
         parameters: {
             query?: never;
@@ -1277,7 +1058,7 @@ export interface paths {
         put?: never;
         /**
          * Make an offer on a public card
-         * @description CASH (cashAmount), TRADE (tradeItemIds: the buyer's own non-deleted cards, public visibility not required) or MIXED (both). The card must be public and visible to the caller (404 otherwise, blocks included), accept offers and fit the kind: 422 OFFERS_NOT_ACCEPTED for cards without offers, NOT_AVAILABLE / COLLECTION_ONLY cards, cash on trade-only or trades on sale-only cards, and MIXED offers unless the card is TRADE_OR_SALE and the seller accepts mixed offers. One open offer per buyer and card (409 OFFER_ALREADY_OPEN, extension offerId); expiresInHours 1-168 (default 72); offers.per_day of the caller's plan (429 LIMIT_REACHED, FREE 20). The seller gets OFFER_RECEIVED and a SYSTEM message with the offer link appears in the pair conversation. An Idempotency-Key repeats the original answer for 24 hours.
+         * @description CASH (cashAmount), TRADE (tradeItemIds: the buyer's own non-deleted cards, public visibility not required) or MIXED (both). The card must be public and visible to the caller (404 otherwise, blocks included), accept offers and fit the kind: 422 OFFERS_NOT_ACCEPTED for cards without offers, NOT_AVAILABLE / COLLECTION_ONLY cards, cash on trade-only or trades on sale-only cards, and MIXED offers unless the card is TRADE_OR_SALE and the seller accepts mixed offers. One open offer per buyer and card (409 OFFER_ALREADY_OPEN, extension offerId); expiresInHours 1-168 (default 72); the usage limit offers.per_day, the same for every collector (429 LIMIT_REACHED, 20 by default). The seller gets OFFER_RECEIVED and a SYSTEM message with the offer link appears in the pair conversation. An Idempotency-Key repeats the original answer for 24 hours.
          */
         post: operations["createOffer"];
         delete?: never;
@@ -1403,66 +1184,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/subscription/mobile-receipt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Validate an App Store / Google Play receipt (reserved)
-         * @description Reserved for platform billing compliance of the mobile apps; answers 501 NOT_IMPLEMENTED until store receipt validation is built.
-         */
-        post: operations["submitMobileReceipt"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/subscription/checkout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a checkout for a paid plan
-         * @description Opens a checkout at the active billing provider and returns where to pay (the fake provider: the web path /checkout/fake-billing/<ref>). The subscription is PENDING until the provider's webhook activates it; the plan and the PREMIUM_USER role follow. An open checkout of the same plan is answered again (resumed=true). 404 FEATURE_DISABLED while premiumPlans is off; 409 ALREADY_SUBSCRIBED while a subscription is active.
-         */
-        post: operations["startSubscriptionCheckout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/subscription/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel the caller's subscription
-         * @description atPeriodEnd true (default): the plan stays until currentPeriodEnd (cancelAtPeriodEnd=true), then the subscriptions-period job ends it; false: CANCELLED at once and the FREE plan applies. An open checkout is abandoned. Idempotent. 404 without a live subscription.
-         */
-        post: operations["cancelSubscription"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/seller-account/onboarding": {
         parameters: {
             query?: never;
@@ -1477,26 +1198,6 @@ export interface paths {
          * @description Returns where to continue: the provider-hosted onboarding (Stripe Connect Express) or, with the fake provider, the return path at once (the account is ACTIVE immediately). returnUrl must be a web path (default /settings/payouts). No bank details ever reach OrenjiTrade.
          */
         post: operations["startSellerOnboarding"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/referrals/redeem": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Redeem another collector's referral code
-         * @description Once per account, within credits.referral_max_account_age_days of sign-up: both parties earn credits (EARN, REFERRAL). 404 for unknown codes; 409 REFERRAL_NOT_ALLOWED with reason SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD or REFERRER_LIMIT; 404 FEATURE_DISABLED while credits is off.
-         */
-        post: operations["redeemReferralCode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1588,26 +1289,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/credits/spend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Spend credits on a time-boxed feature
-         * @description Buys the credit product featureKey (e.g. premium_search_day) for its cost: a SPEND entry and a CREDIT_PURCHASE entitlement for durationHours (stacked after an active one of the same feature). Idempotent per idempotencyKey: a retry returns the original result (duplicate=true) without spending again; the same key for another product is 409 CONFLICT. 409 INSUFFICIENT_CREDITS (extensions balance, cost); 404 FEATURE_DISABLED while the credits flag is off.
-         */
-        post: operations["spendCredits"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/consents": {
         parameters: {
             query?: never;
@@ -1637,15 +1318,35 @@ export interface paths {
         };
         /**
          * The caller's items (filters, sort, pages)
-         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), name (A-Z) or price (highest first); `direction` overrides the order.
+         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.
          */
         get: operations["listInventoryItems"];
         put?: never;
         /**
          * Add an item
-         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead.
+         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions), or none with `conditionStated: false` (the response then has `condition` empty and `conditionStated` false); currency to CAD. `askingPriceText` keeps the price as typed and fills `askingPrice` when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
          */
         post: operations["createInventoryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo the delete of an item
+         * @description Within 10 minutes of the caller's own delete (one item or a bulk delete), brings the item back exactly as it was: copies, prices, notes, photos, binder and visibility. A live item is answered as it is (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes, or for an item that left otherwise (a trade, its binder deleted with it); 429 LIMIT_REACHED when `inventory.items.max` was reached meanwhile.
+         */
+        post: operations["restoreInventoryItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1703,7 +1404,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk operation on the caller's items
-         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
+         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
          */
         post: operations["bulkUpdateInventoryItems"];
         delete?: never;
@@ -1712,27 +1413,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/donations/fake/{ref}/confirm": {
+    "/api/v1/inventory/imports": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * The caller's imports that are still kept
+         * @description Newest first, at most 20: the open preview (PENDING, not expired; there is at most one), a commit that was cut and waits to be finished (COMMITTING), and the results of recent imports (COMMITTED) until they are purged. An app that was closed in the middle of an import finds it here.
+         */
+        get: operations["listInventoryImports"];
         put?: never;
         /**
-         * Pay a fake-provider donation checkout (donor, local only)
-         * @description Emits a signed synthetic donation.succeeded (outcome SUCCEEDED, the default) or donation.failed (FAILED) webhook through the regular donation webhook pipeline; the donation changes asynchronously (poll GET /me/donations). 409 unless PENDING.
+         * Upload a file and get its preview
+         * @description Multipart part `file` and parameter `source` (in the query string, or as a form field of the same multipart body): YDK (a deck file: `#main`, `#extra`, `!side`, one passcode per line) or COLLECTR_CSV (a CSV the collector exported from Collectr; the columns are found by their titles, prices are never read). The file must be UTF-8 text; what it is, is decided from its content, never from its name or declared type. Optional `game` (COLLECTR_CSV): the game of rows that name none. The preview is stored for a limited time (`expiresAt`) and replaces the caller's previews no commit has started. Nothing is added to the inventory yet. 413 above the size limit, 415 for a file that is not UTF-8 text, 400 with `reason` for a file that cannot be imported. Rate-limited (30 per hour).
          */
-        post: operations["confirmFakeDonationCheckout"];
+        post: operations["createInventoryImport"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/donations/checkout": {
+    "/api/v1/inventory/imports/{id}/commit": {
         parameters: {
             query?: never;
             header?: never;
@@ -1742,10 +1447,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start a voluntary donation
-         * @description Opens a checkout at the donation provider (fake locally: the web path /checkout/fake-donation/<ref>); the donation is PENDING until the provider's webhook confirms it. publicThanks lists the donor's display name among the supporters (never the amount or the note). Donations never affect ratings, ranking or trust. 400 outside the configured amounts and currencies; 404 FEATURE_DISABLED while donations is off.
+         * Add the rows of a preview to the inventory
+         * @description Idempotent: a second commit of the same import, also one sent while the first is running, adds nothing and answers with the same result. Rows that are equal (printing, condition, edition, language) are one item; a row equal to a private item the caller already has raises that item's quantity instead of adding a second one; every new item is PRIVATE and unfiled, and an item the caller shows is never raised (nothing an import adds is public). Up to 500 items are one transaction; above that the import is written in chunks of 500, in order, and a commit that was cut answers COMMITTING: commit again to finish (it continues after the last chunk written). The usage limit `inventory.items.max` is checked for the whole import before the first item (429 LIMIT_REACHED, nothing written), and the items of the chunks still to write count as used from then on. Rows that still need a printing refuse the commit (409 IMPORT_ROWS_UNRESOLVED) unless `skipUnresolved` leaves them out. Rate-limited (30 per hour).
          */
-        post: operations["startDonationCheckout"];
+        post: operations["commitInventoryImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/{id}/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One action on every row of a preview it applies to
+         * @description USE_MOST_RECENT_PRINTING: every matched row without a printing gets the most recent printing of its card (by the release date of the set), among the printings its file narrowed it to when it did. Where that most recent set holds the card in several editions or finishes, the plain copy (Unlimited, normal finish) is taken and the row is marked MOST_RECENT_ASSUMED (`assumed` counts them); a row whose printings of that date differ otherwise stays to choose (`undecided`). SET_CONDITION (`condition`): every matched row whose condition nobody chose (`conditionSource` DEFAULT) gets that condition; rows of a game that does not have it are left alone.
+         */
+        post: operations["bulkUpdateInventoryImport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1807,9 +1532,29 @@ export interface paths {
         put?: never;
         /**
          * Start (or reopen) a conversation with a collector
-         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself.
+         * @description Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient's messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what the chat is about, the latest wins; it must be the recipient's and public, or the caller's own (404 when private, deleted or sold; 400 for both at once, for someone else's, and for a binder that is not a deck core).
          */
         post: operations["startConversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the chat's card or deck core as sold to the other collector
+         * @description The seller only: the chat's subject must be the caller's (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:<id>:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 409 SUBJECT_CHANGED when subjectItemId or subjectBinderId (what the seller's chat shows) is no longer the chat's subject; 400 for copies below 1 or above those held, a malformed tracking number and both subjects at once; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
+         */
+        post: operations["markSold"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1851,7 +1596,7 @@ export interface paths {
         put?: never;
         /**
          * Send a message
-         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+         * @description TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or `inventoryItemId` of one of the caller's own cards (stage R4: its picture, code and price as typed, and it becomes the chat's subject); BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
          */
         post: operations["sendMessage"];
         delete?: never;
@@ -1923,7 +1668,7 @@ export interface paths {
         put?: never;
         /**
          * Create a binder
-         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the plan's binder limit.
+         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector.
          */
         post: operations["createBinder"];
         delete?: never;
@@ -1972,6 +1717,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/binders/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to one of the caller's binders (a deck core)
+         * @description Multipart part `file`: JPEG, PNG or WebP up to 8 MB (type sniffed from the content). Re-encoded as JPEG, at most 1600 px on the long side, without any metadata (EXIF/GPS stripped). At most 4 photos per binder (409). 404 for another collector's binder, 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (60 per hour). Public views show the photos of a deck core only.
+         */
+        post: operations["uploadBinderImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/binders/{id}/confirm": {
         parameters: {
             query?: never;
@@ -1986,46 +1751,6 @@ export interface paths {
          * @description Refreshes the confirmation of the binder and every item in it: freshness back to ACTIVE, HIDDEN listings restored.
          */
         post: operations["confirmBinder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/billing/fake/{ref}/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pay a fake-provider subscription checkout (member, local only)
-         * @description Emits a signed synthetic checkout.completed (outcome SUCCEEDED, the default) or checkout.failed (FAILED) webhook through the regular billing webhook pipeline; the subscription becomes ACTIVE asynchronously (poll GET /me/plan). 409 unless the checkout is PENDING; 404 when another provider is active.
-         */
-        post: operations["confirmFakeBillingCheckout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ads/{creativeId}/impression": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record that a served ad was shown (public)
-         * @description Idempotent per impressionToken (one impression per serve); 400 for a token not issued for this ad or older than 24 hours.
-         */
-        post: operations["recordAdImpression"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2106,50 +1831,6 @@ export interface paths {
          * @description The listings stay in the collector's inventory; nobody else sees them until an admin resumes them or `until` passes. 409 when already paused. Audited (`listings.pause`); the collector is notified without the reason.
          */
         post: operations["pauseUserListings"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/users/{id}/entitlements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Entitlements of an account (ADMIN, SUPER_ADMIN)
-         * @description Active, expired and revoked entitlements, newest first.
-         */
-        get: operations["listUserEntitlements"];
-        put?: never;
-        /**
-         * Grant an entitlement (ADMIN, SUPER_ADMIN)
-         * @description Overrides a plan limit (`value` = number or `unlimited`) or feature (`true` / `false`) for one account, optionally until `expiresAt`. Takes effect at once. Audited (`entitlement.grant`).
-         */
-        post: operations["grantEntitlement"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/subscriptions/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a member's subscription (ADMIN)
-         * @description immediately=false (default): at the period end; true: now (FREE at once). An open checkout is abandoned. 409 when it already ended. Audited (subscription.cancel).
-         */
-        post: operations["cancelAdminSubscription"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2461,26 +2142,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/donations/{id}/refund": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Refund a donation (SUPER_ADMIN)
-         * @description Full refund through the provider; 409 unless SUCCEEDED. Audited (donation.refund).
-         */
-        post: operations["refundAdminDonation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/disputes/{id}/unfreeze": {
         parameters: {
             query?: never;
@@ -2555,26 +2216,6 @@ export interface paths {
          * @description OPEN or UNDER_REVIEW → FROZEN: the payout stays frozen and the parties can no longer add evidence or messages; an optional reason becomes an internal note. Audited (dispute.freeze). 409 INVALID_STATE_TRANSITION otherwise.
          */
         post: operations["freezeDispute"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/credits/grant": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Grant or adjust credits (ADMIN)
-         * @description Positive amounts append a GRANT, negative ones an ADJUST (never below a balance of 0: 409 INSUFFICIENT_CREDITS). The ledger is never edited. Audited (credits.grant); 404 for unknown accounts.
-         */
-        post: operations["grantAdminCredits"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2765,71 +2406,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/ads/campaigns": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Ad campaigns (ADMIN)
-         * @description Most recent change first; status and advertiser filters.
-         */
-        get: operations["listAdminAdCampaigns"];
-        put?: never;
-        /**
-         * Create a campaign (ADMIN)
-         * @description Budgets in the campaign currency (numeric 12,2); bidAmount is the CPM or CPC price (ignored for FLAT); budgetDaily null spreads the remaining budget evenly until endAt. Audited (ads.campaign.create).
-         */
-        post: operations["createAdminAdCampaign"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/campaigns/{id}/creatives": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add a creative to a campaign (ADMIN)
-         * @description Landing and image URLs are https or a site path. Audited (ads.creative.create).
-         */
-        post: operations["createAdminAdCreative"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/advertisers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Advertisers (ADMIN) */
-        get: operations["listAdminAdvertisers"];
-        put?: never;
-        /**
-         * Create an advertiser (ADMIN)
-         * @description Audited (ads.advertiser.create).
-         */
-        post: operations["createAdminAdvertiser"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/wishlist/{id}": {
         parameters: {
             query?: never;
@@ -2864,16 +2440,64 @@ export interface paths {
         post?: never;
         /**
          * Delete an item
-         * @description Soft delete: the item disappears everywhere; its photos are removed.
+         * @description Soft delete: the item disappears everywhere. For 10 minutes `POST .../restore` brings it back with its photos; the photos are deleted after that.
          */
         delete: operations["deleteInventoryItem"];
         options?: never;
         head?: never;
         /**
          * Update an item (any subset of the fields)
-         * @description Absent fields are unchanged. `askingPrice`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it.
+         * @description Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. `askingPriceText` sets the price as typed (and `askingPrice` when it is a plain amount); `askingPrice` without it clears the text. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it, and so does `confirm: true` (the phone's Edit card: a save counts as still available).
          */
         patch: operations["updateInventoryItem"];
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of the caller's imports
+         * @description The import with its counts; while a commit is under way, how many chunks are written (`result`).
+         */
+        get: operations["getInventoryImport"];
+        put?: never;
+        post?: never;
+        /**
+         * Discard a preview
+         * @description Only while no commit has started; nothing was added to the inventory.
+         */
+        delete: operations["deleteInventoryImport"];
+        options?: never;
+        head?: never;
+        /**
+         * Which sections of a deck count
+         * @description YDK only. A section that does not count gives none of its copies; a card that is in no section that counts leaves the import (`inScope` false). Absent fields are unchanged.
+         */
+        patch: operations["updateInventoryImport"];
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/{id}/rows/{rowId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a row of a preview
+         * @description Any subset of the fields; absent fields are unchanged. `printingId`: a printing of the row's card (null: back to "choose a printing"). `condition`: a condition of the card's game. `quantity`: 1-9999 (null: back to the copies of the file). `included`: false leaves the row out. A row that fits nothing in the catalog cannot be changed (409).
+         */
+        patch: operations["updateInventoryImportRow"];
         trace?: never;
     };
     "/api/v1/conversations/{id}": {
@@ -2883,7 +2507,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * One conversation of the caller
+         * @description Stage R4: the conversation as in the list, with its subject (the card or deck core it is about). 404 for non-participants and conversations hidden by a block.
+         */
+        get: operations["getConversation"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2940,7 +2568,7 @@ export interface paths {
         head?: never;
         /**
          * Update a binder (any subset of the fields)
-         * @description Absent fields are unchanged; `publicUntil` and `coverPrintingId` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish).
+         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`.
          */
         patch: operations["updateBinder"];
         trace?: never;
@@ -3011,6 +2639,26 @@ export interface paths {
          * @description Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
          */
         get: operations["listWishPriceTerms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/wishlist/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which of the caller's wishes are available in a region
+         * @description The ids of the caller's wishes that `available` would mark in `region` (default: the caller's home region, else americas-north): the phone's Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as `available` on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+         */
+        get: operations["getWishlistAvailability"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3128,7 +2776,7 @@ export interface paths {
         };
         /**
          * Unified search (auth optional)
-         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
+         * @description Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most `limit` per section (`types` narrows the sections). When `q` designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), `resolved` is set and `collectors` lists the holders of it with `matchingItems`; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of `region` (default: the caller's home region, else americas-north; 400 for an unknown code). Binders match their name or description, their owner's handle and, for a deck core, its card names; deck cores show without cards, `deckCore` keeps only them (true) or only the other binders (false). Binders carry their owner block and, for a deck core, its price, photos and key cards. Emits the analytics events search_performed / search_no_results.
          */
         get: operations["search"];
         put?: never;
@@ -3159,6 +2807,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/deck-cores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public deck cores of a region holding a card (auth optional)
+         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a copy of `cardId` among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+         */
+        get: operations["searchDeckCores"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search/collectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collectors of a region by handle or name (auth optional)
+         * @description The "Collectors" section of the phone's card search (stage R5): discoverable collectors of `region` (default: the caller's home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains `q` (accent- and case-insensitive), a handle that starts with it first, at most `limit`. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+         */
+        get: operations["searchCollectorsByName"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/card-holders": {
         parameters: {
             query?: never;
@@ -3168,7 +2856,7 @@ export interface paths {
         };
         /**
          * Collectors of a region holding a card (auth optional)
-         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
+         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first), price, or province (grouped by state or province for "Who has this card": the caller's own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
          */
         get: operations["searchCardHolders"];
         put?: never;
@@ -3208,9 +2896,29 @@ export interface paths {
         };
         /**
          * Public binders of a state/province (auth optional)
-         * @description Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.
+         * @description Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. `deckCore` keeps the deck cores (true) or the other binders (false); `q` matches a binder's name or description, its owner's handle and a deck core's card names. 404 when the region is unknown or the subdivision is not one of its own.
          */
         get: operations["listSubdivisionBinders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/regions/{region}/binders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public binders of a whole region (auth optional)
+         * @description As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same `deckCore` and `q` filters. 404 for an unknown region.
+         */
+        get: operations["listRegionBinders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3228,7 +2936,7 @@ export interface paths {
         };
         /**
          * Public binders per state/province of a region (auth optional)
-         * @description Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+         * @description Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; `deckCoreCount` says how many of them are deck cores (other binders = binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
          */
         get: operations["getRegionBinderCounts"];
         put?: never;
@@ -3356,26 +3064,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/donations/supporters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Supporters who opted in to public thanks (public)
-         * @description Display names of active members who chose publicThanks, most recent first, with the month of their latest donation; never amounts, notes or handles. Voluntary support never affects ratings, ranking or trust. 404 FEATURE_DISABLED while donations is off.
-         */
-        get: operations["listSupporters"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/public/card-images/{imageId}": {
         parameters: {
             query?: never;
@@ -3405,7 +3093,7 @@ export interface paths {
         };
         /**
          * A public binder (auth optional)
-         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the plan limit).
+         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the usage limit, the same for every collector).
          */
         get: operations["getPublicBinder"];
         put?: never;
@@ -3445,26 +3133,6 @@ export interface paths {
         };
         /** Printing with card, set, images and metadata (public) */
         get: operations["getPrinting"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Active plans with features and limits (public)
-         * @description Ordered for display (FREE first). `limit` null means unlimited.
-         */
-        get: operations["listPlans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3627,46 +3295,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me/referrals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The caller's referral code and rewards
-         * @description Creates the caller's code on first request. redeemBefore is the end of the caller's own redemption window (credits.referral_max_account_age_days after sign-up). 404 FEATURE_DISABLED while credits is off.
-         */
-        get: operations["getMyReferral"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/plan": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The caller's plan, limits with usage, features and entitlements
-         * @description Limits carry the effective value (entitlements override the plan), the usage of the current window and when it resets (UTC day or month; null for totals and caps). subscription is the live subscription (PENDING checkout, TRIAL, ACTIVE or PAST_DUE), absent otherwise.
-         */
-        get: operations["getMyPlan"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/ping": {
         parameters: {
             query?: never;
@@ -3707,6 +3335,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The usage limits with the caller's usage
+         * @description Every usage limit, the same for every collector, with the usage of the current window and when it resets (UTC day or month; null for totals and caps). `limit` null means unlimited.
+         */
+        get: operations["getMyLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/export": {
         parameters: {
             query?: never;
@@ -3719,46 +3367,6 @@ export interface paths {
          * @description JSON document with one section per module (account + consents, profile + tags + privacy settings, notification preferences, location, ...). Served as an attachment. Rate-limited (10 per hour); also available while a deletion is pending.
          */
         get: operations["exportMyData"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/donations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The caller's donations
-         * @description Newest first. 404 FEATURE_DISABLED while donations is off.
-         */
-        get: operations["listMyDonations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/credits": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The caller's credit balance, ledger and products
-         * @description balance = SUM of the append-only ledger; entries newest first (cursor pagination); products are what credits unlock. Credits are non-cash: never withdrawable or transferable. 404 FEATURE_DISABLED while the credits flag is off.
-         */
-        get: operations["getMyCredits"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3804,6 +3412,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/imports/{id}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The rows of an import (pages)
+         * @description In file order. `status` keeps the rows of one status: READY, CHOOSE_PRINTING or UNMATCHED. `printingChoice` keeps the rows whose printing was chosen one way: MOST_RECENT_ASSUMED lists the rows `summary.assumedPrintings` counts, for the collector to check. Both together keep the rows that fit both.
+         */
+        get: operations["listInventoryImportRows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/imports/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What an import file may be
+         * @description The size and length limits of both sources and the time a preview is kept (admin settings). A client may check a file before it uploads it; the server applies the limits whatever the client did.
+         */
+        get: operations["getInventoryImportLimits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/games": {
         parameters: {
             query?: never;
@@ -3836,26 +3484,6 @@ export interface paths {
          * @description 404 for unknown or hidden games.
          */
         get: operations["getGame"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/donations/fake/{ref}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A fake-provider donation checkout (donor, local only)
-         * @description What /checkout/fake-donation/<ref> shows. The donor only (404 otherwise).
-         */
-        get: operations["getFakeDonationCheckout"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4144,66 +3772,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/billing/fake/{ref}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A fake-provider subscription checkout (member, local only)
-         * @description What /checkout/fake-billing/<ref> shows: plan, price and status. The member only; 404 for anybody else and when another provider is active.
-         */
-        get: operations["getFakeBillingCheckout"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Sponsored ads for a placement (public)
-         * @description Targeting uses the requested game and platform region and, for signed-in callers, their country and state/province, interest games, tags and plan (never a city or a coordinate). [] while the advertising flag is off for the caller or ads.enabled is false (PREMIUM, entitlements). Each ad carries an impressionToken for POST /ads/{creativeId}/impression and a clickUrl; UIs always show the Sponsored label.
-         */
-        get: operations["listAds"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/ads/{creativeId}/click": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Open a sponsored ad's landing page (public)
-         * @description 302 to the landing page; a valid token records the click once per serve (relative landing paths are sent to the web app). 404 for unknown ads.
-         */
-        get: operations["clickAd"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -4290,7 +3858,7 @@ export interface paths {
         };
         /**
          * List usage limits (ADMIN, SUPER_ADMIN)
-         * @description Every limit of every plan (optionally one plan), by plan then key.
+         * @description Every usage limit, by key. Each applies to every collector alike.
          */
         get: operations["listUsageLimits"];
         put?: never;
@@ -4381,43 +3949,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/subscriptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Subscriptions (ADMIN)
-         * @description Most recent change first; filters by status, plan code and account.
-         */
-        get: operations["listAdminSubscriptions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/subscriptions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A subscription with its history and webhooks (ADMIN) */
-        get: operations["getAdminSubscription"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/reports": {
         parameters: {
             query?: never;
@@ -4487,26 +4018,6 @@ export interface paths {
          * @description Newest first; filter by rated collector, author or moderation state.
          */
         get: operations["listAdminRatings"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/plans": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List plans with features and limits (ADMIN, SUPER_ADMIN)
-         * @description Active and inactive plans, by sort order.
-         */
-        get: operations["listAdminPlans"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4692,43 +4203,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/donations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Donations with totals (ADMIN)
-         * @description Newest first; totals of succeeded donations per currency.
-         */
-        get: operations["listAdminDonations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/donations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A donation with its provider webhooks (ADMIN) */
-        get: operations["getAdminDonation"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/disputes": {
         parameters: {
             query?: never;
@@ -4801,43 +4275,6 @@ export interface paths {
          * @description Accounts, active collectors of the last 7 days, public items and binders, open and unassigned reports, open moderation flags, stale and hidden listings, owners with paused listings, open disputes (OPEN, UNDER_REVIEW, FROZEN), payment webhooks that failed or had an invalid signature and notifications whose push or email failed in the last 24 hours.
          */
         get: operations["getAdminDashboard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/credits/products": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Credit products, active or not (ADMIN) */
-        get: operations["listAdminCreditProducts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/credits/ledger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Credit ledger entries (ADMIN)
-         * @description Newest first; with userId the account's entries and balance, without it every account's entries.
-         */
-        get: operations["listAdminCreditLedger"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5000,43 +4437,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/ads/placements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Ad placements (ADMIN) */
-        get: operations["listAdminAdPlacements"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/ads/campaigns/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Delivery statistics of a campaign (ADMIN)
-         * @description All-time totals and one row per UTC day between from and to (default: the last 30 days); spend derived from the pricing model.
-         */
-        get: operations["getAdminAdCampaignStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/me/push-tokens/{token}": {
         parameters: {
             query?: never;
@@ -5114,7 +4514,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/users/{id}/entitlements/{entitlementId}": {
+    "/api/v1/binders/{id}/images/{imageId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -5124,11 +4524,8 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Revoke an entitlement (ADMIN, SUPER_ADMIN)
-         * @description 404 when the entitlement does not belong to the account or is no longer active. Audited (`entitlement.revoke`).
-         */
-        delete: operations["revokeEntitlement"];
+        /** Remove a photo of one of the caller's binders */
+        delete: operations["deleteBinderImage"];
         options?: never;
         head?: never;
         patch?: never;
@@ -5203,7 +4600,7 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
             /** @enum {string} */
-            interactionKind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED";
+            interactionKind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED" | "SALE";
             /**
              * Format: date-time
              * @description End of the author's 14-day edit window
@@ -5344,9 +4741,9 @@ export interface components {
         TagResponse: {
             /** Format: uuid */
             id: string;
-            /** @example local-meetups */
+            /** @example shipping */
             slug: string;
-            /** @example Local Meetups */
+            /** @example Shipping */
             label: string;
             /** @enum {string} */
             category: "GAME" | "ROLE" | "STYLE" | "LOGISTICS" | "LANGUAGE" | "CUSTOM";
@@ -5413,6 +4810,31 @@ export interface components {
         ReorderBindersRequest: {
             binderIds: string[];
         };
+        /** @description A photo of a binder (a deck core) */
+        BinderImage: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uri */
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+            /** Format: int32 */
+            sortOrder: number;
+        };
+        /** @description A card of a deck core and its copies */
+        BinderKeyCard: {
+            /** Format: uuid */
+            cardId: string;
+            /** @example Tidecaller Mermaid */
+            name: string;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            quantity: number;
+        };
         /** @description A binder of the caller */
         BinderResponse: {
             /** Format: uuid */
@@ -5467,6 +4889,31 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description "Sell as a deck core" (stage R3): the binder is offered as one bundle with its photos, one price and its description as the public note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed; null without one. Kept when the switch is turned off (public views show it only for a deck core)
+             * @example $180
+             */
+            askingPriceText?: string | null;
+            /** @description The amount of a plain-amount price text ("$180", "180,00 $"), in `currency`; null for a text price or none */
+            askingPrice?: number | null;
+            /**
+             * @description ISO 4217 currency of `askingPrice`
+             * @example CAD
+             */
+            currency?: string;
+            /**
+             * Format: date-time
+             * @description When the deck core was sold (stage R4); a sold binder is not public
+             */
+            soldAt?: string | null;
+            /** @description The binder's photos in order (at most 4). Always sent */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the card pictures of its first items. Always sent */
+            previewImages?: string[];
+            /** @description A deck core's cards with their copies, most copies first (at most 30); empty for other binders. Always sent */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
         };
         /** @description Freshness of a listing */
         Freshness: {
@@ -5502,7 +4949,7 @@ export interface components {
              *       "MODERATOR"
              *     ]
              */
-            roles: ("USER" | "PREMIUM_USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
+            roles: ("USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
         };
         /** @description Usage limit change (takes effect at once on every instance) */
         UpdateUsageLimitRequest: {
@@ -5513,12 +4960,10 @@ export interface components {
             window?: "DAY" | "MONTH" | "TOTAL";
             description?: string;
         };
-        /** @description Usage limit of a plan (admin view) */
+        /** @description Usage limit, the same for every collector (admin view) */
         AdminUsageLimit: {
             /** Format: uuid */
             id?: string;
-            /** @example FREE */
-            planCode?: string;
             /** @example binder.views.per_day */
             key?: string;
             /** @enum {string} */
@@ -5700,73 +5145,11 @@ export interface components {
             finish?: string;
             images?: components["schemas"]["PrintingImage"][];
             marketPrice?: components["schemas"]["MarketPrice"];
-        };
-        PlanFeatureChange: {
-            key: string;
-            enabled: boolean;
-            value?: string;
-        };
-        /** @description Plan change */
-        UpdatePlanRequest: {
-            name: string;
-            description?: string;
-            monthlyPrice: number;
-            currency: string;
-            active: boolean;
-            /** Format: int32 */
-            sortOrder: number;
-            features?: components["schemas"]["PlanFeatureChange"][];
-        };
-        /** @description Plan with features and limits (admin view) */
-        AdminPlan: {
-            /** Format: uuid */
-            id?: string;
-            /** @example FREE */
-            code?: string;
-            name?: string;
-            description?: string;
-            /** @example 4.99 */
-            monthlyPrice?: number;
-            /** @example CAD */
-            currency?: string;
-            active?: boolean;
-            /** Format: int32 */
-            sortOrder?: number;
-            features?: components["schemas"]["PlanFeature"][];
-            limits?: components["schemas"]["UsageLimit"][];
-            /** Format: uuid */
-            updatedBy?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @description Feature switch of a plan */
-        PlanFeature: {
-            /** @example filters.advanced */
-            key?: string;
-            enabled?: boolean;
-            value?: string;
-        };
-        /** @description Usage limit of a plan */
-        UsageLimit: {
-            /** Format: uuid */
-            id?: string;
-            /** @example binder.views.per_day */
-            key?: string;
-            /** @enum {string} */
-            kind?: "COUNTER" | "CAP";
-            /** @enum {string} */
-            window?: "DAY" | "MONTH" | "TOTAL";
             /**
-             * Format: int32
-             * @description The limit; null means unlimited
-             * @example 30
+             * Format: date
+             * @example 2002-03-08
              */
-            maxValue?: number;
-            description?: string;
-            /** Format: uuid */
-            updatedBy?: string;
-            /** Format: date-time */
-            updatedAt?: string;
+            setReleaseDate?: string | null;
         };
         UpdatePaymentSettingsRequest: {
             /** Format: int32 */
@@ -5826,6 +5209,73 @@ export interface components {
             updatedAt: string;
             /** Format: uuid */
             updatedBy?: string | null;
+        };
+        /** @description Any subset of the fields; absent fields are unchanged */
+        UpdateInventoryImportSettingsRequest: {
+            /**
+             * Format: int32
+             * @description 1-1024
+             * @example 100
+             */
+            ydkMaxKb?: number;
+            /**
+             * Format: int32
+             * @description 10-5000
+             * @example 500
+             */
+            ydkMaxLines?: number;
+            /**
+             * Format: int32
+             * @description 16-8192
+             * @example 2048
+             */
+            csvMaxKb?: number;
+            /**
+             * Format: int32
+             * @description 10-20000
+             * @example 5000
+             */
+            csvMaxRows?: number;
+            /**
+             * Format: int32
+             * @description 5-1440
+             * @example 60
+             */
+            previewTtlMinutes?: number;
+        };
+        /** @description The inventory.import.* settings (admin) */
+        InventoryImportSettingsResponse: {
+            /**
+             * Format: int32
+             * @description Largest YDK file in kB of 1 024 bytes
+             * @example 100
+             */
+            ydkMaxKb: number;
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ydkMaxLines: number;
+            /**
+             * Format: int32
+             * @description Largest CSV file in kB of 1 024 bytes
+             * @example 2048
+             */
+            csvMaxKb: number;
+            /**
+             * Format: int32
+             * @example 5000
+             */
+            csvMaxRows: number;
+            /**
+             * Format: int32
+             * @example 60
+             */
+            previewTtlMinutes: number;
+            /** Format: uuid */
+            updatedBy?: string | null;
+            /** Format: date-time */
+            updatedAt?: string | null;
         };
         /** @description Game-specific card attribute */
         GameMetadataField: {
@@ -5894,7 +5344,7 @@ export interface components {
         };
         /** @description Feature flag (admin view) */
         FeatureFlag: {
-            /** @example advertising */
+            /** @example publicChat */
             key?: string;
             enabled?: boolean;
             /**
@@ -5903,29 +5353,6 @@ export interface components {
              */
             rolloutPercent?: number;
             description?: string;
-            /** Format: uuid */
-            updatedBy?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        UpdateDonationSettingsRequest: {
-            /** @example 2 */
-            minAmount?: number;
-            /** @example 500 */
-            maxAmount?: number;
-            /**
-             * @example [
-             *       "CAD",
-             *       "USD"
-             *     ]
-             */
-            currencies?: string[];
-        };
-        /** @description Accepted amounts and currencies */
-        DonationSettings: {
-            minAmount?: number;
-            maxAmount?: number;
-            currencies?: string[];
             /** Format: uuid */
             updatedBy?: string;
             /** Format: date-time */
@@ -6011,87 +5438,6 @@ export interface components {
              */
             unansweredAfterHours: number;
         };
-        UpdateCreditSettingsRequest: {
-            /**
-             * Format: int32
-             * @example 100
-             */
-            referrerReward?: number;
-            /**
-             * Format: int32
-             * @example 50
-             */
-            refereeReward?: number;
-            /**
-             * Format: int32
-             * @example 30
-             */
-            maxAccountAgeDays?: number;
-            /**
-             * Format: int32
-             * @example 50
-             */
-            maxPerReferrer?: number;
-        };
-        /** @description Referral rewards and limits (credits.*) */
-        CreditSettings: {
-            /** Format: int32 */
-            referrerReward?: number;
-            /** Format: int32 */
-            refereeReward?: number;
-            /** Format: int32 */
-            maxAccountAgeDays?: number;
-            /** Format: int32 */
-            maxPerReferrer?: number;
-            /** Format: uuid */
-            updatedBy?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        UpdateCreditProductRequest: {
-            name: string;
-            description?: string;
-            /** @description Entitlement value: true/false for features, a number or unlimited for limits */
-            featureValue?: string;
-            /**
-             * Format: int32
-             * @example 50
-             */
-            cost: number;
-            /**
-             * Format: int32
-             * @example 24
-             */
-            durationHours: number;
-            active: boolean;
-            /**
-             * Format: int32
-             * @example 10
-             */
-            sortOrder?: number;
-        };
-        /** @description What credits unlock */
-        CreditProduct: {
-            /** @example premium_search_day */
-            key?: string;
-            name?: string;
-            description?: string;
-            /** @example filters.advanced */
-            featureKey?: string;
-            /** @example true */
-            featureValue?: string;
-            /**
-             * Format: int32
-             * @example 50
-             */
-            cost?: number;
-            /**
-             * Format: int32
-             * @example 24
-             */
-            durationHours?: number;
-            active?: boolean;
-        };
         /** @description Card creation or change */
         AdminCardRequest: {
             /** @example yugioh */
@@ -6120,215 +5466,9 @@ export interface components {
             primaryImageUrl?: string;
             printings?: components["schemas"]["PrintingSummary"][];
         };
-        AdPlacementRequest: {
-            name: string;
-            active: boolean;
-            /**
-             * Format: int32
-             * @example 1
-             */
-            maxAds: number;
-        };
-        /** @description An ad placement (admin view) */
-        AdminAdPlacement: {
-            /** @enum {string} */
-            key?: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-            name?: string;
-            active?: boolean;
-            /** Format: int32 */
-            maxAds?: number;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        AdCreativeRequest: {
-            /** @enum {string} */
-            placement: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-            headline: string;
-            body?: string;
-            /** @description https URL or site path */
-            imageUrl?: string;
-            /** @example Shop now */
-            ctaLabel: string;
-            /** @description https URL or site path */
-            landingUrl: string;
-            /**
-             * @description DRAFT (default), ACTIVE, PAUSED or ARCHIVED
-             * @enum {string}
-             */
-            status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
-        };
-        /** @description An ad creative (admin view) */
-        AdminAdCreative: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            campaignId?: string;
-            /** @enum {string} */
-            placement?: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-            headline?: string;
-            body?: string;
-            imageUrl?: string;
-            ctaLabel?: string;
-            landingUrl?: string;
-            /** @enum {string} */
-            status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED";
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        AdCampaignRequest: {
-            /** Format: uuid */
-            advertiserId: string;
-            name: string;
-            /**
-             * @description DRAFT (default), ACTIVE, PAUSED or ENDED
-             * @enum {string}
-             */
-            status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
-            /** Format: date-time */
-            startAt: string;
-            /** Format: date-time */
-            endAt?: string;
-            /** @example 250 */
-            budgetTotal: number;
-            /** @example 10 */
-            budgetDaily?: number;
-            /** @example CAD */
-            currency: string;
-            /** @enum {string} */
-            pricing: "CPM" | "CPC" | "FLAT";
-            /** @description CPM: per 1000 impressions; CPC: per click; ignored for FLAT */
-            bidAmount?: number;
-            /**
-             * Format: int32
-             * @example 10
-             */
-            priority?: number;
-            /**
-             * Format: int32
-             * @example 3
-             */
-            frequencyCapPerDay?: number;
-        };
-        /** @description Impressions, clicks and conversions */
-        AdDeliveryTotals: {
-            /** Format: int64 */
-            impressions?: number;
-            /** Format: int64 */
-            clicks?: number;
-            /** Format: int64 */
-            conversions?: number;
-            /**
-             * @description Click-through rate in percent, 2 decimals
-             * @example 1.25
-             */
-            ctrPercent?: number;
-        };
-        /** @description A targeting rule */
-        AdTargeting: {
-            /** @enum {string} */
-            kind?: "GAME" | "REGION" | "COUNTRY" | "SUBDIVISION" | "TAG" | "PLAN";
-            value?: string;
-        };
-        /** @description An ad campaign (admin view) */
-        AdminAdCampaign: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            advertiserId?: string;
-            advertiserName?: string;
-            name?: string;
-            /** @enum {string} */
-            status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
-            /** Format: date-time */
-            startAt?: string;
-            /** Format: date-time */
-            endAt?: string;
-            budgetTotal?: number;
-            budgetDaily?: number;
-            spent?: number;
-            remainingBudget?: number;
-            currency?: string;
-            /** @enum {string} */
-            pricing?: "CPM" | "CPC" | "FLAT";
-            bidAmount?: number;
-            /** Format: int32 */
-            priority?: number;
-            /** Format: int32 */
-            frequencyCapPerDay?: number;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @description An ad campaign with everything */
-        AdminAdCampaignDetail: {
-            campaign?: components["schemas"]["AdminAdCampaign"];
-            creatives?: components["schemas"]["AdminAdCreative"][];
-            targeting?: components["schemas"]["AdTargeting"][];
-            totals?: components["schemas"]["AdDeliveryTotals"];
-        };
-        AdTargetingRequest: {
-            rules: components["schemas"]["AdTargetingRule"][];
-        };
-        AdTargetingRule: {
-            /** @enum {string} */
-            kind: "GAME" | "REGION" | "COUNTRY" | "SUBDIVISION" | "TAG" | "PLAN";
-            /**
-             * @description GAME/TAG slug, REGION code (americas-north), COUNTRY (CA), SUBDIVISION (CA-QC), PLAN code or ANONYMOUS
-             * @example pokemon
-             */
-            value: string;
-        };
-        AdvertiserRequest: {
-            name: string;
-            /** @description Business contact (admin only) */
-            contactEmail?: string;
-            /**
-             * @description ACTIVE (default), PAUSED or ARCHIVED
-             * @enum {string}
-             */
-            status?: "ACTIVE" | "PAUSED" | "ARCHIVED";
-        };
-        /** @description An advertiser (admin view) */
-        AdminAdvertiser: {
-            /** Format: uuid */
-            id?: string;
-            name?: string;
-            contactEmail?: string;
-            /** @enum {string} */
-            status?: "ACTIVE" | "PAUSED" | "ARCHIVED";
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
         UploadCleanupJobResponse: {
             /** Format: int32 */
             removed: number;
-        };
-        SubscriptionsPeriodJobResult: {
-            /**
-             * Format: int32
-             * @description Subscriptions whose period ended
-             */
-            due?: number;
-            /**
-             * Format: int32
-             * @description Cancellations at the period end applied
-             */
-            cancelled?: number;
-            /**
-             * Format: int32
-             * @description Fake renewals requested
-             */
-            renewalsRequested?: number;
-            /**
-             * Format: int32
-             * @description Subscriptions expired without renewal
-             */
-            expired?: number;
         };
         PingJobResponse: {
             ok: boolean;
@@ -6355,6 +5495,10 @@ export interface components {
         OfferExpiryJobResponse: {
             /** Format: int32 */
             expired: number;
+        };
+        InventoryImportPurgeJobResponse: {
+            /** Format: int32 */
+            removed: number;
         };
         FreshnessJobResponse: {
             /** Format: int32 */
@@ -6393,23 +5537,6 @@ export interface components {
              * @description Timed pauses that ended
              */
             pausesExpired: number;
-        };
-        CreditsReconcileJobResult: {
-            /**
-             * Format: int32
-             * @description Accounts holding credits
-             */
-            accounts?: number;
-            /**
-             * Format: int32
-             * @description Cached balances repaired
-             */
-            cacheMismatches?: number;
-            /**
-             * Format: int32
-             * @description Accounts whose latest running balance differs from the sum
-             */
-            ledgerMismatches?: number;
         };
         /** @description Catalog sync request */
         CatalogSyncRequest: {
@@ -6571,18 +5698,6 @@ export interface components {
             /** @example payment.secured */
             type: string;
         };
-        AdConversionRequest: {
-            /** @enum {string} */
-            kind: "SIGNUP" | "PURCHASE" | "OTHER";
-            /** @example 4.99 */
-            value?: number;
-            /** @example CAD */
-            currency?: string;
-        };
-        AdConversionResult: {
-            /** @description false when this click already converted with this kind */
-            recorded?: boolean;
-        };
         /** @description Which copy: cardId (any printing, optionally of one rarity of the card's printings) or printingId (that printing; its card is derived). note is public (plain text, at most 280 characters, moderated). priceTerm is one of GET /wishlist/price-terms (a display term, not a filter). */
         CreateWishlistItemRequest: {
             /** Format: uuid */
@@ -6647,28 +5762,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
-        };
-        /** @description A received donation webhook */
-        DonationWebhookReceipt: {
-            received: boolean;
-            duplicate: boolean;
-            /** Format: uuid */
-            webhookEventId?: string | null;
-            /** @example donation.succeeded */
-            type: string;
-        };
-        /** @description A received billing provider webhook */
-        BillingWebhookReceipt: {
-            received: boolean;
-            /** @description The provider already sent this event (no new change) */
-            duplicate: boolean;
-            /**
-             * Format: uuid
-             * @description Stored event (null for a duplicate)
-             */
-            webhookEventId?: string | null;
-            /** @example checkout.completed */
-            type: string;
+            /** @description At least one public holder of the caller's home region has a copy that fits (stage R5; always sent; GET /wishlist/availability answers for any region) */
+            available?: boolean;
         };
         BlockUserRequest: {
             /** @description Private note (never shown to the blocked collector) */
@@ -6981,8 +6076,13 @@ export interface components {
              * @example 1
              */
             quantity: number;
-            /** @example NEAR_MINT */
+            /**
+             * @description Condition code; empty when the owner stated none (conditionStated false)
+             * @example NEAR_MINT
+             */
             condition: string;
+            /** @description false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling. */
+            conditionStated?: boolean;
             /** @example en */
             language: string;
             /** @example FIRST_EDITION */
@@ -6991,6 +6091,11 @@ export interface components {
             finish: string;
             /** @example 45 */
             askingPrice?: number | null;
+            /**
+             * @description The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
             /** @example CAD */
             currency: string;
             /** @enum {string} */
@@ -7232,6 +6337,38 @@ export interface components {
             /** @description Reason shown to the other party */
             reason: string;
         };
+        /** @description A card or deck core marked sold from a chat */
+        SaleResponse: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            conversationId: string;
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** Format: uuid */
+            itemId?: string | null;
+            /** Format: uuid */
+            binderId?: string | null;
+            /** Format: uuid */
+            sellerId: string;
+            /** Format: uuid */
+            buyerId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: int32 */
+            quantity: number;
+            /** @example 7023 2109 8876 5432 */
+            trackingNumber?: string | null;
+            /** Format: int32 */
+            remaining?: number | null;
+            removed: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            undoableUntil: string;
+            /** Format: date-time */
+            undoneAt?: string | null;
+        };
         ReportCollectorRequest: {
             /** Format: uuid */
             reportedUserId: string;
@@ -7389,7 +6526,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SYSTEM";
+            type: "WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM";
             /** @example Wishlist alert: Azure-Eyes */
             title: string;
             /** @example Azure-Eyes Sky Dragon AZR-EN001 Ultra Rare was just listed by @collector1 in Quebec, Canada. */
@@ -7413,63 +6550,6 @@ export interface components {
              * @example 3
              */
             updated: number;
-        };
-        MobileReceiptRequest: {
-            /** @description APPLE or GOOGLE */
-            platform?: string;
-            /** @description Store receipt or purchase token */
-            receipt?: string;
-        };
-        SubscriptionCheckoutRequest: {
-            /** @example PREMIUM */
-            planCode: string;
-            /**
-             * @description Billing provider; defaults to the active one (fake locally). apple/google are validated through /me/subscription/mobile-receipt
-             * @example fake
-             */
-            provider?: string;
-        };
-        /** @description The caller's subscription */
-        MySubscription: {
-            /** Format: uuid */
-            id?: string;
-            /** @example PREMIUM */
-            planCode?: string;
-            planName?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
-            /** @example fake */
-            provider?: string;
-            /** @example 4.99 */
-            amount?: number;
-            /** @example CAD */
-            currency?: string;
-            /** Format: date-time */
-            currentPeriodStart?: string;
-            /** Format: date-time */
-            currentPeriodEnd?: string;
-            cancelAtPeriodEnd?: boolean;
-            /** @example /checkout/fake-billing/fake_cs_0123 */
-            checkoutUrl?: string;
-            failureCode?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            activatedAt?: string;
-            /** Format: date-time */
-            endedAt?: string;
-        };
-        /** @description Where the member pays for a plan */
-        SubscriptionCheckout: {
-            subscription?: components["schemas"]["MySubscription"];
-            /** @example /checkout/fake-billing/fake_cs_0123 */
-            url?: string;
-            clientSecret?: string;
-            resumed?: boolean;
-        };
-        SubscriptionCancelRequest: {
-            /** @description true (default): the plan stays until the end of the paid period; false: ends now */
-            atPeriodEnd?: boolean;
         };
         SellerOnboardingRequest: {
             /**
@@ -7495,21 +6575,6 @@ export interface components {
             /** @description Provider-hosted page, or the return path once the account is active (fake provider) */
             url: string;
             account: components["schemas"]["SellerAccount"];
-        };
-        ReferralRedeemRequest: {
-            /** @example COLLECTOR1 */
-            code: string;
-        };
-        /** @description A redeemed referral code */
-        ReferralRedemption: {
-            /** Format: uuid */
-            redemptionId?: string;
-            /** Format: int32 */
-            reward?: number;
-            /** Format: int32 */
-            referrerReward?: number;
-            /** Format: int64 */
-            balance?: number;
         };
         PushTokenRequest: {
             /** @enum {string} */
@@ -7583,61 +6648,6 @@ export interface components {
             /** @description Always empty on an accepted request (blocked ones are 409) */
             blockers: string[];
         };
-        CreditSpendRequest: {
-            /**
-             * @description Credit product key (see products of GET /me/credits)
-             * @example premium_search_day
-             */
-            featureKey: string;
-            /**
-             * @description Client-generated key; a retry with the same key returns the original result without spending again
-             * @example 3f0f5d8e-4c1e-4a55-9f9e-5b1e0b0c2d11
-             */
-            idempotencyKey: string;
-        };
-        /** @description A credit ledger entry */
-        CreditEntry: {
-            /** Format: uuid */
-            id?: string;
-            /**
-             * Format: int32
-             * @example -50
-             */
-            amount?: number;
-            /**
-             * Format: int32
-             * @example 150
-             */
-            balanceAfter?: number;
-            /** @enum {string} */
-            type?: "EARN" | "SPEND" | "GRANT" | "EXPIRE" | "ADJUST" | "REVERSAL";
-            /** @example FEATURE_UNLOCK */
-            reason?: string;
-            /** @example premium_search_day */
-            product?: string;
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        /** @description Result of a credit spend */
-        CreditSpend: {
-            entry?: components["schemas"]["CreditEntry"];
-            /** Format: int64 */
-            balance?: number;
-            entitlement?: components["schemas"]["CreditUnlock"];
-            duplicate?: boolean;
-        };
-        /** @description The entitlement a spend unlocked */
-        CreditUnlock: {
-            /** Format: uuid */
-            id?: string;
-            /** @example filters.advanced */
-            featureKey?: string;
-            value?: string;
-            /** Format: date-time */
-            expiresAt?: string;
-        };
         /** @description Acceptance of one legal document version */
         ConsentRequest: {
             /** @enum {string} */
@@ -7683,6 +6693,13 @@ export interface components {
             publicUntil?: string;
             /** Format: uuid */
             binderId?: string;
+            /**
+             * @description The asking price as typed (at most 40 characters once trimmed), shown exactly as typed. A plain amount (12.50, $12.50, 12,50 $) also fills askingPrice in the item's currency; other text leaves it empty. Do not send askingPrice with it.
+             * @example 85% TCG
+             */
+            askingPriceText?: string;
+            /** @description false: the card's condition is not stated (cards added on the phone; send no condition). Default true. */
+            conditionStated?: boolean;
         };
         /** @description An inventory item of the caller */
         InventoryItemResponse: {
@@ -7697,8 +6714,13 @@ export interface components {
              * @example 1
              */
             quantity: number;
-            /** @example NEAR_MINT */
+            /**
+             * @description Condition code; empty when the owner stated none (conditionStated false)
+             * @example NEAR_MINT
+             */
             condition: string;
+            /** @description false for cards added on the phone, whose condition is not stated (it may be in the public note). Always sent; optional in the schema so that clients built before stage R2 keep compiling. */
+            conditionStated?: boolean;
             /** @example en */
             language: string;
             /** @example FIRST_EDITION */
@@ -7707,6 +6729,11 @@ export interface components {
             finish: string;
             /** @example 45 */
             askingPrice?: number | null;
+            /**
+             * @description The asking price as the owner typed it, to show as is; null when none (then askingPrice, if any, is the price)
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
             /** @example CAD */
             currency: string;
             /** @enum {string} */
@@ -7770,54 +6797,208 @@ export interface components {
              */
             reason: "NOT_FOUND" | "UNCHANGED";
         };
-        FakeDonationConfirmRequest: {
-            /**
-             * @description SUCCEEDED (default) or FAILED
-             * @example SUCCEEDED
-             */
-            outcome?: string;
-        };
-        DonationCheckoutRequest: {
-            /**
-             * @description Within donations.min_amount..max_amount
-             * @example 10
-             */
-            amount: number;
-            /**
-             * @description One of donations.currencies
-             * @example CAD
-             */
-            currency: string;
-            /** @description Optional note to the team (never public) */
-            message?: string;
-            /** @description List my display name among the supporters (default false) */
-            publicThanks?: boolean;
-        };
-        /** @description A voluntary donation */
-        Donation: {
+        /** @description An inventory import of the caller: a preview, then its commit */
+        InventoryImportResponse: {
             /** Format: uuid */
-            id?: string;
-            /** @example 10 */
-            amount?: number;
-            /** @example CAD */
-            currency?: string;
+            id: string;
             /** @enum {string} */
-            status?: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
-            message?: string;
-            publicThanks?: boolean;
-            checkoutUrl?: string;
+            source: "YDK" | "COLLECTR_CSV";
+            /**
+             * @description PENDING: a preview that can be edited, committed or discarded. COMMITTING: the commit wrote some chunks; commit again to finish. COMMITTED: done
+             * @enum {string}
+             */
+            status: "PENDING" | "COMMITTING" | "COMMITTED";
             /** Format: date-time */
-            createdAt?: string;
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Until when the preview can be used; after a commit, until when its result stays readable
+             */
+            expiresAt: string;
             /** Format: date-time */
-            succeededAt?: string;
-            /** @example Voluntary support */
-            label?: string;
+            committedAt?: string | null;
+            /** @description YDK only: which sections of the deck count (null for a CSV) */
+            sections?: components["schemas"]["InventoryImportSections"];
+            /**
+             * Format: int32
+             * @description Lines of the file that were no card (YDK: no passcode; CSV: rows without a card name)
+             * @example 0
+             */
+            ignoredLines: number;
+            summary: components["schemas"]["InventoryImportSummary"];
+            /** @description Null until the commit starts */
+            result: components["schemas"]["InventoryImportResult"];
         };
-        /** @description Where the donor pays */
-        DonationCheckout: {
-            donation?: components["schemas"]["Donation"];
-            /** @example /checkout/fake-donation/fake_dn_0123 */
-            url?: string;
+        /** @description What the commit of an import wrote */
+        InventoryImportResult: {
+            /**
+             * Format: int32
+             * @example 28
+             */
+            itemsCreated: number;
+            /**
+             * Format: int32
+             * @description Existing items whose quantity was raised
+             * @example 2
+             */
+            itemsMerged: number;
+            /**
+             * Format: int32
+             * @example 52
+             */
+            copiesAdded: number;
+            /**
+             * Format: int32
+             * @example 31
+             */
+            rowsImported: number;
+            /**
+             * Format: int32
+             * @description Copies of the imported rows that were not added: one item holds at most 9 999 copies
+             * @example 0
+             */
+            copiesNotAdded: number;
+            /**
+             * Format: int32
+             * @example 1
+             */
+            chunksDone: number;
+            /**
+             * Format: int32
+             * @description Chunks of at most 500 items; done when chunksDone equals it
+             * @example 1
+             */
+            totalChunks: number;
+        };
+        /** @description The sections of a deck that count */
+        InventoryImportSections: {
+            includeMain: boolean;
+            includeExtra: boolean;
+            includeSide: boolean;
+            /**
+             * Format: int64
+             * @description Copies the file holds in the main deck, recognised or not, whether the section counts or not
+             * @example 40
+             */
+            mainCopies: number;
+            /**
+             * Format: int64
+             * @description Copies the file holds in the extra deck
+             * @example 15
+             */
+            extraCopies: number;
+            /**
+             * Format: int64
+             * @description Copies the file holds in the side deck
+             * @example 15
+             */
+            sideCopies: number;
+        };
+        /** @description The counts of an import preview */
+        InventoryImportSummary: {
+            /**
+             * Format: int32
+             * @example 40
+             */
+            rows: number;
+            /**
+             * Format: int32
+             * @description Rows a commit imports: a card, a printing, not left out
+             * @example 31
+             */
+            ready: number;
+            /**
+             * Format: int32
+             * @description Rows that still need a printing (and are not left out)
+             * @example 7
+             */
+            toChoose: number;
+            /**
+             * Format: int32
+             * @description Rows that fit nothing in the catalog
+             * @example 2
+             */
+            unmatched: number;
+            /**
+             * Format: int32
+             * @description Matched rows the collector took out, or whose deck sections do not count
+             * @example 0
+             */
+            leftOut: number;
+            /**
+             * Format: int64
+             * @description Copies the ready rows add
+             * @example 52
+             */
+            copies: number;
+            /**
+             * Format: int32
+             * @description Inventory items the ready rows write, once rows that are equal are merged
+             * @example 30
+             */
+            items: number;
+            /**
+             * Format: int32
+             * @description Of `items`, those equal to a private item the caller already has (same printing, condition, edition and language): the commit raises that item, and `items - mergedItems` are new. An item the caller shows is never raised. A count of the preview: after the commit, `result` says what was written
+             * @example 2
+             */
+            mergedItems: number;
+            /**
+             * Format: int32
+             * @description Matched rows whose condition nobody chose (`conditionSource` DEFAULT): the rows the bulk action SET_CONDITION changes
+             * @example 7
+             */
+            defaultConditions: number;
+            /**
+             * @description The condition those rows have when they all have the same one: the lowest grade of the game until SET_CONDITION gives them another. Null when there is no such row or they differ
+             * @example DAMAGED
+             */
+            defaultCondition?: string | null;
+            /**
+             * Format: int32
+             * @description Rows whose printing the bulk action USE_MOST_RECENT_PRINTING took as the plain copy of several versions (`printingChoice` MOST_RECENT_ASSUMED) and the collector has not confirmed or changed since, left out or not: the rows to check. GET /inventory/imports/{id}/rows?printingChoice=MOST_RECENT_ASSUMED lists them
+             * @example 0
+             */
+            assumedPrintings: number;
+        };
+        /** @description How to commit a preview */
+        CommitInventoryImportRequest: {
+            /**
+             * @description Leave out the rows that still need a printing instead of refusing the commit
+             * @default false
+             */
+            skipUnresolved: boolean;
+        };
+        /** @description A bulk action on a preview */
+        BulkInventoryImportRequest: {
+            /** @enum {string} */
+            action: "USE_MOST_RECENT_PRINTING" | "SET_CONDITION";
+            /**
+             * @description Required for SET_CONDITION
+             * @example NEAR_MINT
+             */
+            condition?: string;
+        };
+        /** @description The rows a bulk action changed and the preview with its new counts */
+        InventoryImportBulkResponse: {
+            /**
+             * Format: int32
+             * @example 7
+             */
+            updated: number;
+            /**
+             * Format: int32
+             * @description USE_MOST_RECENT_PRINTING: of `updated`, the rows whose card its most recent set holds in several editions or finishes: they got the plain copy (Unlimited, normal finish; `printingChoice` MOST_RECENT_ASSUMED); 0 for SET_CONDITION
+             * @example 0
+             */
+            assumed: number;
+            /**
+             * Format: int32
+             * @description USE_MOST_RECENT_PRINTING: rows left to choose because several printings of their card share the most recent release date and are not one printing in several editions or finishes (two rarities, two languages, no date): nothing is guessed; 0 for SET_CONDITION
+             * @example 0
+             */
+            undecided: number;
+            preview: components["schemas"]["InventoryImportResponse"];
         };
         DisputeMessageRequest: {
             body: string;
@@ -7839,6 +7020,16 @@ export interface components {
              * @description Account id of the recipient
              */
             recipientId: string;
+            /**
+             * Format: uuid
+             * @description Stage R4: the card (inventory item) the chat is about, which becomes its subject (the latest wins). It must be public and the recipient's, or yours.
+             */
+            subjectItemId?: string;
+            /**
+             * Format: uuid
+             * @description Stage R4: the deck core (binder) the chat is about, which becomes its subject. It must be public and the recipient's, or yours. At most one of subjectItemId and subjectBinderId.
+             */
+            subjectBinderId?: string;
         };
         /** @description The other participant of a conversation */
         ConversationParticipant: {
@@ -7851,6 +7042,36 @@ export interface components {
             avatarUrl?: string | null;
             /** @enum {string} */
             onlineStatus: "ONLINE" | "OFFLINE" | "HIDDEN";
+            place?: components["schemas"]["Place"];
+        };
+        /** @description The card or deck core a chat is about */
+        ConversationSubject: {
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            ownerId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** @example RA01-EN008 */
+            printingCode?: string | null;
+            /** @example Secret Rare */
+            rarity?: string | null;
+            /** Format: uuid */
+            cardId?: string | null;
+            /** Format: uuid */
+            printingId?: string | null;
+            imageUrl?: string | null;
+            /** @example $32 */
+            askingPriceText?: string | null;
+            sold: boolean;
+            listed: boolean;
+            /**
+             * Format: int32
+             * @description The owner's copies (the owner's view of a card)
+             */
+            copies?: number | null;
         };
         /** @description A private conversation of the caller */
         ConversationSummary: {
@@ -7864,6 +7085,7 @@ export interface components {
             archived: boolean;
             /** Format: date-time */
             createdAt: string;
+            subject?: components["schemas"]["ConversationSubject"];
         };
         /** @description Last message of a conversation */
         LastMessage: {
@@ -7877,6 +7099,46 @@ export interface components {
             createdAt: string;
             /** Format: uuid */
             senderId?: string | null;
+            /** @enum {string|null} */
+            systemTopic?: "OFFER" | "SALE" | null;
+            sale?: components["schemas"]["SaleNotice"];
+        };
+        /** @description The sale announced by a SYSTEM message */
+        SaleNotice: {
+            /** Format: uuid */
+            saleId: string;
+            /** Format: uuid */
+            sellerId: string;
+            /** Format: uuid */
+            buyerId: string;
+            /** @enum {string} */
+            kind: "CARD" | "DECK_CORE";
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: int32 */
+            quantity: number;
+            /** @example 7023 2109 8876 5432 */
+            trackingNumber?: string | null;
+            undone: boolean;
+        };
+        MarkSoldRequest: {
+            /**
+             * Format: int32
+             * @description Copies sold (1 by default; a deck core sells as one); at most the copies the seller holds
+             */
+            quantity?: number;
+            /** @description Optional tracking number of the shipment (letters, digits, spaces, dots and dashes; trimmed); seen by the two collectors only */
+            trackingNumber?: string;
+            /**
+             * Format: uuid
+             * @description The card the seller's chat shows (optional; the phone sends it): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+             */
+            subjectItemId?: string;
+            /**
+             * Format: uuid
+             * @description The deck core the seller's chat shows (optional, not with subjectItemId): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+             */
+            subjectBinderId?: string;
         };
         MarkConversationReadRequest: {
             /**
@@ -7895,7 +7157,7 @@ export interface components {
             body?: string;
             /**
              * Format: uuid
-             * @description CARD_LINK: the printing to share
+             * @description CARD_LINK: the printing to share (or inventoryItemId for one of your own cards)
              */
             cardPrintingId?: string;
             /**
@@ -7913,6 +7175,11 @@ export interface components {
              * @description IMAGE: uploadId of POST /uploads/images (within 1 h)
              */
             imageUploadId?: string;
+            /**
+             * Format: uuid
+             * @description CARD_LINK (stage R4): one of your own cards, live in your inventory: shares its picture, code and price as typed (a private card is shown to this collector only) and pins it as the chat's subject
+             */
+            inventoryItemId?: string;
         };
         /** @description A public binder shared in a message or post */
         BinderLink: {
@@ -7952,6 +7219,8 @@ export interface components {
             binder?: components["schemas"]["BinderLink"];
             offer?: components["schemas"]["OfferLink"];
             image?: components["schemas"]["MessageImage"];
+            item?: components["schemas"]["SharedItem"];
+            sale?: components["schemas"]["SaleNotice"];
         };
         /** @description A private message */
         MessageResponse: {
@@ -7982,6 +7251,17 @@ export interface components {
             summary: string;
             /** @description Picture of the offered card (OrenjiTrade's own card image or placeholder URL) */
             imageUrl?: string | null;
+        };
+        /** @description The sender's own card shared from their inventory */
+        SharedItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** Format: uuid */
+            ownerId: string;
+            /** @example 85% TCG */
+            askingPriceText?: string | null;
+            /** @example Secret Rare */
+            rarity?: string | null;
         };
         CreateReplyRequest: {
             body: string;
@@ -8054,6 +7334,7 @@ export interface components {
         CreateBinderRequest: {
             /** @example Trade binder */
             name: string;
+            /** @description At most 1 000 characters; a deck core's public note (the phone caps it at 500) */
             description?: string;
             /** @enum {string} */
             kind?: "COLLECTION" | "TRADE" | "SALE" | "DECK" | "CUSTOM";
@@ -8066,6 +7347,13 @@ export interface components {
             publicUntil?: string;
             /** Format: uuid */
             coverPrintingId?: string;
+            /** @description Sell as a deck core: one bundle with photos, one price and the description as its note (false when omitted) */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed (at most 40 characters once trimmed, one line): "$180", "Trade only". A plain amount also sets askingPrice
+             * @example $180
+             */
+            askingPriceText?: string;
         };
         /** @description How to publish a binder */
         PublishBinderRequest: {
@@ -8074,17 +7362,6 @@ export interface components {
              * @enum {string}
              */
             mode: "PUBLIC" | "ONE_HOUR" | "ONE_DAY" | "UNTIL_DISABLED";
-        };
-        FakeBillingConfirmRequest: {
-            /**
-             * @description SUCCEEDED (default) or FAILED
-             * @example SUCCEEDED
-             */
-            outcome?: string;
-        };
-        AdImpressionRequest: {
-            /** @description impressionToken of the served ad */
-            token: string;
         };
         SuspendUserRequest: {
             /** @example Repeated spam reports */
@@ -8106,110 +7383,6 @@ export interface components {
              * @description Optional end of the pause (future)
              */
             until?: string | null;
-        };
-        /** @description Entitlement grant */
-        GrantEntitlementRequest: {
-            /** @example binder.views.per_day */
-            featureKey: string;
-            /** @example unlimited */
-            value?: string;
-            /** Format: date-time */
-            expiresAt?: string;
-            note?: string;
-        };
-        /** @description Per-user override of a plan feature or limit */
-        Entitlement: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            userId?: string;
-            /** @example binder.views.per_day */
-            featureKey?: string;
-            /** @description Features: true/false (null = true). Limits: a number (null = unlimited) */
-            value?: string;
-            /** @enum {string} */
-            source?: "SUBSCRIPTION" | "ADMIN_GRANT" | "PROMO" | "CREDIT_PURCHASE";
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: uuid */
-            grantedBy?: string;
-            note?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            revokedAt?: string;
-        };
-        AdminSubscriptionCancelRequest: {
-            /** @description true: ends now; false (default): at the period end */
-            immediately?: boolean;
-            /** @description Internal reason (not stored in the audit log) */
-            reason?: string;
-        };
-        /** @description A billing provider webhook (admin) */
-        AdminBillingWebhook: {
-            /** Format: uuid */
-            id?: string;
-            provider?: string;
-            providerEventId?: string;
-            type?: string;
-            signatureValid?: boolean;
-            /** @enum {string} */
-            status?: "RECEIVED" | "PROCESSED" | "IGNORED" | "FAILED";
-            error?: string;
-            /** Format: date-time */
-            receivedAt?: string;
-            /** Format: date-time */
-            processedAt?: string;
-            /** @description The body as received (confidential) */
-            payload?: Record<string, never>;
-        };
-        /** @description A subscription (admin view) */
-        AdminSubscription: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            userId?: string;
-            userHandle?: string;
-            planCode?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
-            provider?: string;
-            amount?: number;
-            currency?: string;
-            /** Format: date-time */
-            currentPeriodStart?: string;
-            /** Format: date-time */
-            currentPeriodEnd?: string;
-            cancelAtPeriodEnd?: boolean;
-            failureCode?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            activatedAt?: string;
-            /** Format: date-time */
-            endedAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @description A subscription with its history */
-        AdminSubscriptionDetail: {
-            subscription?: components["schemas"]["AdminSubscription"];
-            events?: components["schemas"]["AdminSubscriptionEvent"][];
-            webhooks?: components["schemas"]["AdminBillingWebhook"][];
-        };
-        /** @description A subscription history entry */
-        AdminSubscriptionEvent: {
-            /** Format: uuid */
-            id?: string;
-            /** @example ACTIVATED */
-            event?: string;
-            providerEventId?: string;
-            /** Format: uuid */
-            actorId?: string;
-            /** @description Structured details (statuses, plan, dates) */
-            details?: Record<string, never>;
-            /** Format: date-time */
-            createdAt?: string;
         };
         ResolveReportRequest: {
             /** @enum {string} */
@@ -8446,7 +7619,7 @@ export interface components {
              * @enum {string|null}
              */
             audience?: "ALL" | "STAFF" | null;
-            /** @description App path, e.g. /premium */
+            /** @description App path, e.g. /wishlist */
             deepLink?: string | null;
         };
         BroadcastResponse: {
@@ -8560,50 +7733,6 @@ export interface components {
         HideListingRequest: {
             /** @description Why (audited) */
             reason: string;
-        };
-        /** @description A donation (admin view) */
-        AdminDonation: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            userId?: string;
-            amount?: number;
-            currency?: string;
-            provider?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
-            message?: string;
-            publicThanks?: boolean;
-            failureCode?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            succeededAt?: string;
-            /** Format: date-time */
-            refundedAt?: string;
-        };
-        /** @description A donation with its webhooks (admin) */
-        AdminDonationDetail: {
-            donation?: components["schemas"]["AdminDonation"];
-            webhooks?: components["schemas"]["AdminDonationWebhook"][];
-        };
-        /** @description A donation webhook (admin) */
-        AdminDonationWebhook: {
-            /** Format: uuid */
-            id?: string;
-            provider?: string;
-            providerEventId?: string;
-            type?: string;
-            signatureValid?: boolean;
-            /** @enum {string} */
-            status?: "RECEIVED" | "PROCESSED" | "IGNORED" | "FAILED";
-            error?: string;
-            /** Format: date-time */
-            receivedAt?: string;
-            /** Format: date-time */
-            processedAt?: string;
-            /** @description Free-form JSON object */
-            payload?: Record<string, never>;
         };
         /** @description A dispute with its full history (admin) */
         AdminDispute: {
@@ -8748,43 +7877,6 @@ export interface components {
             /** @description Kept as an internal note */
             reason?: string;
         };
-        AdminCreditGrantRequest: {
-            /** Format: uuid */
-            userId: string;
-            /**
-             * Format: int32
-             * @description Positive: GRANT; negative: ADJUST (never below a balance of 0); never 0
-             * @example 100
-             */
-            amount: number;
-            /** @enum {string} */
-            reason: "ADMIN" | "PROMO" | "REWARD" | "CORRECTION";
-            /** @description Internal note (admin views only) */
-            note?: string;
-        };
-        /** @description A credit ledger entry (admin view) */
-        AdminCreditEntry: {
-            /** Format: uuid */
-            id?: string;
-            /** Format: uuid */
-            userId?: string;
-            /** Format: int32 */
-            amount?: number;
-            /** Format: int32 */
-            balanceAfter?: number;
-            /** @enum {string} */
-            type?: "EARN" | "SPEND" | "GRANT" | "EXPIRE" | "ADJUST" | "REVERSAL";
-            reason?: string;
-            referenceType?: string;
-            referenceId?: string;
-            /** @description Free-form JSON object */
-            details?: Record<string, never>;
-            note?: string;
-            /** Format: uuid */
-            createdBy?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
         RemoveContentRequest: {
             /** @description Moderator note (audited, never shown to members) */
             reason: string;
@@ -8889,7 +7981,7 @@ export interface components {
             /** @example 85% TCG */
             priceTerm?: string | null;
         };
-        /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it. */
+        /** @description Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it, and so does confirm: true. */
         UpdateInventoryItemRequest: {
             /** Format: uuid */
             printingId?: string;
@@ -8915,6 +8007,169 @@ export interface components {
             publicUntil?: string | null;
             /** Format: uuid */
             binderId?: string | null;
+            /**
+             * @description The asking price as typed (at most 40 characters); null clears the price. A plain amount also sets askingPrice; sending askingPrice without it clears the text. Not both.
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
+            /** @description true: the save also confirms the item is still available, as POST .../confirm does (the phone's Edit card). */
+            confirm?: boolean;
+        };
+        /** @description Which sections of a deck count; absent fields are unchanged */
+        UpdateInventoryImportRequest: {
+            includeMain?: boolean;
+            includeExtra?: boolean;
+            includeSide?: boolean;
+        };
+        /** @description Any subset of the fields; absent fields are unchanged. printingId null means "to choose" again; quantity null means the copies of the file */
+        UpdateInventoryImportRowRequest: {
+            /** Format: uuid */
+            printingId?: string | null;
+            /** @example NEAR_MINT */
+            condition?: string;
+            /** Format: int32 */
+            quantity?: number | null;
+            included?: boolean;
+        };
+        /** @description The card a row of an import is */
+        InventoryImportCard: {
+            /** Format: uuid */
+            id: string;
+            /** @example Azure-Eyes Sky Dragon */
+            name: string;
+            /** @example yugioh */
+            game: string;
+            /** @description The card's picture (OrenjiTrade's own URL) */
+            imageUrl?: string | null;
+        };
+        /** @description Copies per section of a deck */
+        InventoryImportDeckCopies: {
+            /**
+             * Format: int32
+             * @example 3
+             */
+            main: number;
+            /**
+             * Format: int32
+             * @example 0
+             */
+            extra: number;
+            /**
+             * Format: int32
+             * @example 0
+             */
+            side: number;
+        };
+        /** @description A row of an import preview */
+        InventoryImportRow: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: int32
+             * @description Order in the file, from 0
+             * @example 0
+             */
+            position: number;
+            /**
+             * @description READY: a card and a printing. CHOOSE_PRINTING: a card, the printing is to choose. UNMATCHED: nothing in the catalog fits; never imported, never editable
+             * @enum {string}
+             */
+            status: "READY" | "CHOOSE_PRINTING" | "UNMATCHED";
+            /**
+             * @description Why the row is UNMATCHED
+             * @enum {string|null}
+             */
+            unmatchedReason?: "UNKNOWN_PASSCODE" | "UNKNOWN_CARD" | "AMBIGUOUS_CARD" | "UNKNOWN_GAME" | "NO_PRINTING" | "INVALID_QUANTITY" | "CARD_REMOVED" | null;
+            source: components["schemas"]["InventoryImportRowSource"];
+            /** @description YDK only: copies per section of the deck */
+            deck?: components["schemas"]["InventoryImportDeckCopies"];
+            /** @description Null when UNMATCHED */
+            card?: components["schemas"]["InventoryImportCard"];
+            /** @description The printing chosen; null while to choose */
+            printing?: components["schemas"]["PrintingSummary"];
+            /**
+             * @description AUTO: the row fits exactly one printing. MANUAL: chosen for this row. MOST_RECENT: by the bulk action. MOST_RECENT_ASSUMED: by the bulk action, for a card its most recent set holds in several editions or finishes: the plain copy (Unlimited, normal finish) was taken, to be checked by the collector
+             * @enum {string|null}
+             */
+            printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | "MOST_RECENT_ASSUMED" | null;
+            /**
+             * Format: int32
+             * @description Printings of the card in the catalog (GET /cards/{id}/printings lists them)
+             * @example 2
+             */
+            printingCount: number;
+            /** @description CSV: the printings that fit what the row says, when that is fewer than all of them (at most 50); empty otherwise. Any printing of the card may be chosen */
+            suggestedPrintingIds: string[];
+            /**
+             * @description Null when UNMATCHED
+             * @example DAMAGED
+             */
+            condition?: string | null;
+            /**
+             * @description DEFAULT: the file names no condition, so the row has the lowest condition of the game until the collector says otherwise. FILE: from the file. EDITED: set for this row
+             * @enum {string}
+             */
+            conditionSource: "DEFAULT" | "FILE" | "EDITED";
+            /**
+             * @description Language the item gets: the file's, else the printing's; null while neither is known
+             * @example en
+             */
+            language?: string | null;
+            /**
+             * @description Edition the item gets: the file's, else the printing's
+             * @example UNLIMITED
+             */
+            edition?: string | null;
+            /**
+             * Format: int32
+             * @description Copies the row adds: the collector's number, else the copies of the file (YDK: of the sections that count)
+             * @example 3
+             */
+            quantity: number;
+            /**
+             * Format: int32
+             * @description Copies the file says (YDK: every section together); 0 when the file wrote no number
+             * @example 3
+             */
+            fileQuantity: number;
+            /** @description Whether the collector typed the copies of this row */
+            quantityEdited: boolean;
+            /** @description Whether the collector keeps the row in the import */
+            included: boolean;
+            /** @description YDK: whether a section that counts holds the card (always true for a CSV) */
+            inScope: boolean;
+            /** @description Whether a commit imports the row: READY, included, in scope */
+            willImport: boolean;
+            /**
+             * Format: int32
+             * @description Copies the caller already holds in an equal private item (same printing, condition, edition and language): the commit raises that item instead of adding one
+             * @example 0
+             */
+            ownedQuantity: number;
+            /**
+             * Format: int32
+             * @description Copies the caller holds in equal items they show (visibility other than PRIVATE). An import never raises such an item: the copies of this row become, or join, a private item, so nothing an import adds is public
+             * @example 0
+             */
+            shownQuantity: number;
+        };
+        /** @description A changed row and the preview with its new counts */
+        InventoryImportRowChange: {
+            row: components["schemas"]["InventoryImportRow"];
+            preview: components["schemas"]["InventoryImportResponse"];
+        };
+        /** @description What the file says about a row: a passcode (YDK), or the card name, set, number and rarity as written (CSV). Never a price */
+        InventoryImportRowSource: {
+            /** @example 89631139 */
+            passcode?: string | null;
+            /** @example Azure-Eyes Sky Dragon */
+            name?: string | null;
+            /** @example Azure Dawn */
+            set?: string | null;
+            /** @example AZR-EN001 */
+            number?: string | null;
+            /** @example Ultra Rare */
+            rarity?: string | null;
         };
         UpdateConversationRequest: {
             muted?: boolean;
@@ -8938,6 +8193,15 @@ export interface components {
             publicUntil?: string | null;
             /** Format: uuid */
             coverPrintingId?: string | null;
+            /** @description Sell as a deck core (not null) */
+            sellsAsCore?: boolean;
+            /**
+             * @description The deck core's asking price as typed (at most 40 characters once trimmed); null or blank clears it and its amount
+             * @example $180
+             */
+            askingPriceText?: string | null;
+            /** @description true also confirms the binder and its cards are still available, as POST /binders/{id}/confirm (the phone's Save changes) */
+            confirm?: boolean;
         };
         UpdateCommunityChannelRequest: {
             name?: string;
@@ -8999,6 +8263,13 @@ export interface components {
         WishPriceTermsResponse: {
             /** @description In display order */
             terms: components["schemas"]["WishPriceTerm"][];
+        };
+        /** @description The caller's wishes a public holder of the region has right now */
+        WishlistAvailability: {
+            /** @example americas-north */
+            region: string;
+            /** @description Ids of the available wishes, newest wish first */
+            available: string[];
         };
         /** @description Cursor-paginated list */
         CursorPageTradeSummary: {
@@ -9215,6 +8486,19 @@ export interface components {
             freshness: components["schemas"]["Freshness"];
             /** @description Owner block; present in search results (`GET /search`), absent in a collector's own binder list */
             owner?: components["schemas"]["PublicBinderOwner"];
+            /** @description A deck core ("Sell as a deck core", stage R3): one bundle with photos, one price and the description as its note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description A deck core's asking price as the owner typed it; null for other binders and a core without a price
+             * @example $95
+             */
+            askingPriceText?: string | null;
+            /** @description A deck core's photos in order; empty for other binders */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the catalog pictures of its first public cards (every card of a deck core counts) */
+            previewImages?: string[];
+            /** @description A deck core's key cards with their copies, most copies first (at most 30): every live card filed in it, whatever the card's own visibility, as its cards sell only together; empty for other binders */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
         };
         /** @description Printing and/or card the query resolved to (both null when ambiguous) */
         SearchResolution: {
@@ -9262,6 +8546,18 @@ export interface components {
              * @description Card of a PRINTING entry
              */
             cardId?: string | null;
+        };
+        /** @description A discoverable collector whose handle or name matches the text, with their state/province and country (never a city, a coordinate or a distance) */
+        CollectorByName: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            place: components["schemas"]["Place"];
         };
         /** @description A collector of the region holding the card */
         CardHolderResult: {
@@ -9324,20 +8620,33 @@ export interface components {
             region: string;
             /**
              * Format: int64
-             * @description Public binders in all
+             * @description Public binders in all (deck cores included)
              */
             total: number;
             /** @description Subdivisions holding at least one public binder */
             subdivisions: components["schemas"]["SubdivisionBinderCount"][];
+            /**
+             * Format: int64
+             * @description The public deck cores among `total` (stage R3). Always sent
+             * @example 1
+             */
+            deckCoreTotal?: number;
         };
         SubdivisionBinderCount: {
             /** @example CA-QC */
             code: string;
             /**
              * Format: int64
+             * @description Public binders, deck cores included
              * @example 3
              */
             binderCount: number;
+            /**
+             * Format: int64
+             * @description The public deck cores among them (stage R3): the map's state card says "{n} binders · {n} deck cores" with binderCount - deckCoreCount binders. Always sent
+             * @example 1
+             */
+            deckCoreCount?: number;
         };
         RatingEligibility: {
             /** @description At least one interaction is not rated yet */
@@ -9348,7 +8657,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED";
+            kind: "TRADE" | "OFFER_ACCEPTED" | "CONVERSATION_QUALIFIED" | "SALE";
             /** Format: date-time */
             occurredAt: string;
             alreadyRated: boolean;
@@ -9374,18 +8683,6 @@ export interface components {
             url: string;
             requiredAtRegistration: boolean;
         };
-        /** @description An opted-in supporter (name only) */
-        Supporter: {
-            displayName?: string;
-            /** @example 2026-09 */
-            month?: string;
-        };
-        /** @description Opted-in supporters */
-        Supporters: {
-            label?: string;
-            note?: string;
-            supporters?: components["schemas"]["Supporter"][];
-        };
         /** @description A public binder with its owner */
         PublicBinderResponse: {
             /** Format: uuid */
@@ -9409,6 +8706,25 @@ export interface components {
             games: string[];
             /** Format: uri */
             coverImageUrl?: string | null;
+            /** @description A deck core ("Sell as a deck core", stage R3): one bundle with photos, one price and the description as its note. Always sent */
+            sellsAsCore?: boolean;
+            /**
+             * @description A deck core's asking price as the owner typed it; null for other binders and a core without a price
+             * @example $95
+             */
+            askingPriceText?: string | null;
+            /** @description A deck core's photos in order; empty for other binders */
+            photos?: components["schemas"]["BinderImage"][];
+            /** @description Up to 3 pictures for lists: a deck core's first photo, otherwise the catalog pictures of its first public cards (every card of a deck core counts) */
+            previewImages?: string[];
+            /** @description A deck core's key cards with their copies, most copies first (at most 30): every live card filed in it, whatever the card's own visibility, as its cards sell only together; empty for other binders */
+            keyCards?: components["schemas"]["BinderKeyCard"][];
+            /**
+             * Format: int32
+             * @description The owner's public binders, deck cores included (the seller row of a deck core page)
+             * @example 2
+             */
+            ownerPublicBinderCount?: number;
         };
         /** @description Offset-paginated list */
         PageResponsePublicInventoryItem: {
@@ -9438,36 +8754,6 @@ export interface components {
              * @example 7
              */
             totalPages?: number;
-        };
-        /** @description Subscription plan with its features and limits */
-        Plan: {
-            /** @example PREMIUM */
-            code?: string;
-            /** @example Premium */
-            name?: string;
-            description?: string;
-            /** @example 4.99 */
-            monthlyPrice?: number;
-            /** @example CAD */
-            currency?: string;
-            features?: components["schemas"]["PlanFeature"][];
-            limits?: components["schemas"]["PlanLimit"][];
-        };
-        /** @description Usage limit of a plan */
-        PlanLimit: {
-            /** @example binder.views.per_day */
-            key?: string;
-            /** @enum {string} */
-            kind?: "COUNTER" | "CAP";
-            /** @enum {string} */
-            window?: "DAY" | "MONTH" | "TOTAL";
-            /**
-             * Format: int32
-             * @description null means unlimited
-             * @example 30
-             */
-            limit?: number;
-            description?: string;
         };
         /** @description A fake-provider checkout (local only) */
         FakeCheckout: {
@@ -9567,7 +8853,7 @@ export interface components {
             displayName?: string | null;
             email?: string | null;
             emailVerified: boolean;
-            roles: ("USER" | "PREMIUM_USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
+            roles: ("USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
             /** @enum {string} */
             status: "ACTIVE" | "SUSPENDED" | "DELETION_REQUESTED" | "DELETED";
             /** Format: uri */
@@ -9579,8 +8865,6 @@ export interface components {
             onboarding: components["schemas"]["OnboardingStatus"];
             /** @description Current legal document versions still to accept; while non-empty every non-exempt route answers 428 */
             requiredConsents: components["schemas"]["RequiredConsent"][];
-            /** @example FREE */
-            plan: string;
             /**
              * @description Platform region of the collector's declared location (ADR 0017); null without a location. Clients browse it by default
              * @example americas-north
@@ -9616,22 +8900,13 @@ export interface components {
             resolvedAt?: string | null;
             reportedUser: components["schemas"]["ReportMember"];
         };
-        /** @description The caller's referral code and rewards */
-        MyReferral: {
-            /** @example K7M2PQ9X */
-            code?: string;
-            /** Format: int32 */
-            redemptions?: number;
-            /** Format: int32 */
-            referrerReward?: number;
-            /** Format: int32 */
-            refereeReward?: number;
-            redeemed?: boolean;
-            canRedeem?: boolean;
+        /** @description Authenticated connectivity check */
+        PingResponse: {
+            ok: boolean;
             /** Format: date-time */
-            redeemBefore?: string;
+            serverTime: string;
         };
-        /** @description Effective usage limit of the caller */
+        /** @description A usage limit (the same for every collector) with the caller's usage */
         LimitStatus: {
             /** @example binder.views.per_day */
             key?: string;
@@ -9642,7 +8917,7 @@ export interface components {
             window?: "DAY" | "MONTH" | "TOTAL";
             /**
              * Format: int32
-             * @description Effective limit; null means unlimited
+             * @description The limit; null means unlimited
              * @example 30
              */
             limit?: number;
@@ -9658,48 +8933,10 @@ export interface components {
             remaining?: number;
             /** Format: date-time */
             resetsAt?: string;
-            /** @example FREE */
-            planCode?: string;
-            overridden?: boolean;
-            /** @example /premium */
-            upgradeUrl?: string;
         };
-        /** @description Active entitlement of the caller */
-        MyEntitlement: {
-            /** Format: uuid */
-            id?: string;
-            featureKey?: string;
-            value?: string;
-            /** @enum {string} */
-            source?: "SUBSCRIPTION" | "ADMIN_GRANT" | "PROMO" | "CREDIT_PURCHASE";
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: date-time */
-            grantedAt?: string;
-        };
-        /** @description The caller's plan, limits, features and entitlements */
-        MyPlan: {
-            plan?: components["schemas"]["Plan"];
+        /** @description The usage limits with the caller's usage */
+        MyLimits: {
             limits?: components["schemas"]["LimitStatus"][];
-            /**
-             * @example {
-             *       "filters.advanced": false,
-             *       "ads.enabled": true
-             *     }
-             */
-            features?: {
-                [key: string]: boolean;
-            };
-            entitlements?: components["schemas"]["MyEntitlement"][];
-            /** @example /premium */
-            upgradeUrl?: string;
-            subscription?: components["schemas"]["MySubscription"];
-        };
-        /** @description Authenticated connectivity check */
-        PingResponse: {
-            ok: boolean;
-            /** Format: date-time */
-            serverTime: string;
         };
         AccountExport: {
             formatVersion?: string;
@@ -9710,27 +8947,6 @@ export interface components {
             sections?: {
                 [key: string]: unknown;
             };
-        };
-        /** @description Cursor-paginated list */
-        CursorPageCreditEntry: {
-            /** @description Items of the current slice */
-            items?: components["schemas"]["CreditEntry"][];
-            /** @description Opaque cursor to pass as the cursor parameter for the next slice; absent when there is no more data */
-            nextCursor?: string | null;
-            /** @description Whether another slice exists */
-            hasMore?: boolean;
-        };
-        /** @description The caller's credits (non-cash) */
-        MyCredits: {
-            /**
-             * Format: int64
-             * @example 150
-             */
-            balance?: number;
-            entries?: components["schemas"]["CursorPageCreditEntry"];
-            products?: components["schemas"]["CreditProduct"][];
-            withdrawable?: boolean;
-            transferable?: boolean;
         };
         /** @description Totals of the caller's inventory */
         InventorySummaryResponse: {
@@ -9798,16 +9014,63 @@ export interface components {
              */
             totalPages?: number;
         };
-        /** @description A fake donation checkout (local only) */
-        FakeDonationCheckout: {
-            ref?: string;
-            /** Format: uuid */
-            donationId?: string;
-            amount?: number;
-            currency?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
-            summary?: string;
+        /** @description Offset-paginated list */
+        PageResponseInventoryImportRow: {
+            /** @description Items of the current page */
+            items?: components["schemas"]["InventoryImportRow"][];
+            /**
+             * Format: int32
+             * @description Zero-based page index
+             * @example 0
+             */
+            page?: number;
+            /**
+             * Format: int32
+             * @description Requested page size
+             * @example 20
+             */
+            size?: number;
+            /**
+             * Format: int64
+             * @description Total number of items across all pages
+             * @example 137
+             */
+            totalItems?: number;
+            /**
+             * Format: int32
+             * @description Total number of pages
+             * @example 7
+             */
+            totalPages?: number;
+        };
+        /** @description What an import file may be (admin settings; the server enforces them) */
+        InventoryImportLimits: {
+            /**
+             * Format: int32
+             * @example 102400
+             */
+            ydkMaxBytes: number;
+            /**
+             * Format: int32
+             * @example 500
+             */
+            ydkMaxLines: number;
+            /**
+             * Format: int32
+             * @example 2097152
+             */
+            csvMaxBytes: number;
+            /**
+             * Format: int32
+             * @example 5000
+             */
+            csvMaxRows: number;
+            /**
+             * Format: int32
+             * @description Minutes a preview is kept
+             * @example 60
+             */
+            previewTtlMinutes: number;
         };
         /** @description Cursor-paginated list */
         CursorPageConversationSummary: {
@@ -10014,40 +9277,21 @@ export interface components {
             setCode?: string;
             printingCode?: string;
             imageUrl?: string;
-        };
-        /** @description A fake billing checkout (local only) */
-        FakeBillingCheckout: {
-            ref?: string;
-            /** Format: uuid */
-            subscriptionId?: string;
-            planCode?: string;
-            planName?: string;
-            amount?: number;
-            currency?: string;
-            /** @enum {string} */
-            status?: "PENDING" | "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
-            failureCode?: string;
-            summary?: string;
-        };
-        /** @description A sponsored placement (always labelled Sponsored) */
-        Ad: {
-            /** Format: uuid */
-            creativeId?: string;
-            /** @enum {string} */
-            placement?: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-            sponsored?: boolean;
-            /** @example Sponsored */
-            label?: string;
-            /** @example Maple Sleeve Co. */
-            advertiser?: string;
-            headline?: string;
-            body?: string;
-            imageUrl?: string;
-            /** @example Shop sleeves */
-            ctaLabel?: string;
-            /** @example /api/v1/ads/7c9e.../click?token=v1... */
-            clickUrl?: string;
-            impressionToken?: string;
+            /** @example Azure Dawn */
+            setName?: string | null;
+            /** @example Ultra Rare */
+            rarity?: string | null;
+            /**
+             * Format: int32
+             * @example 3
+             */
+            printingCount?: number | null;
+            /** @example FIRST_EDITION */
+            edition?: string | null;
+            /** @example en */
+            language?: string | null;
+            /** @example NORMAL */
+            finish?: string | null;
         };
         /** @description Account as listed in the admin console */
         AdminUserSummary: {
@@ -10059,9 +9303,7 @@ export interface components {
             emailVerified: boolean;
             /** @enum {string} */
             status: "ACTIVE" | "SUSPENDED" | "DELETION_REQUESTED" | "DELETED";
-            roles: ("USER" | "PREMIUM_USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
-            /** @example FREE */
-            plan: string;
+            roles: ("USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN")[];
             /** Format: uri */
             avatarUrl?: string | null;
             /** Format: date-time */
@@ -10212,35 +9454,6 @@ export interface components {
             /** Format: int64 */
             notificationsPendingDispatch: number;
             jobs: components["schemas"]["JobStatus"][];
-        };
-        /** @description Offset-paginated list */
-        PageResponseAdminSubscription: {
-            /** @description Items of the current page */
-            items?: components["schemas"]["AdminSubscription"][];
-            /**
-             * Format: int32
-             * @description Zero-based page index
-             * @example 0
-             */
-            page?: number;
-            /**
-             * Format: int32
-             * @description Requested page size
-             * @example 20
-             */
-            size?: number;
-            /**
-             * Format: int64
-             * @description Total number of items across all pages
-             * @example 137
-             */
-            totalItems?: number;
-            /**
-             * Format: int32
-             * @description Total number of pages
-             * @example 7
-             */
-            totalPages?: number;
         };
         /** @description Offset-paginated list */
         PageResponseReportSummary: {
@@ -10524,47 +9737,6 @@ export interface components {
             /** Format: date-time */
             warnedAt?: string | null;
         };
-        /** @description Donations with totals (admin) */
-        AdminDonations: {
-            donations?: components["schemas"]["PageResponseAdminDonation"];
-            totals?: components["schemas"]["DonationTotal"][];
-        };
-        /** @description Succeeded donations of one currency */
-        DonationTotal: {
-            currency?: string;
-            total?: number;
-            /** Format: int64 */
-            donations?: number;
-        };
-        /** @description Offset-paginated list */
-        PageResponseAdminDonation: {
-            /** @description Items of the current page */
-            items?: components["schemas"]["AdminDonation"][];
-            /**
-             * Format: int32
-             * @description Zero-based page index
-             * @example 0
-             */
-            page?: number;
-            /**
-             * Format: int32
-             * @description Requested page size
-             * @example 20
-             */
-            size?: number;
-            /**
-             * Format: int64
-             * @description Total number of items across all pages
-             * @example 137
-             */
-            totalItems?: number;
-            /**
-             * Format: int32
-             * @description Total number of pages
-             * @example 7
-             */
-            totalPages?: number;
-        };
         /** @description A dispute in the admin queue */
         AdminDisputeSummary: {
             /** Format: uuid */
@@ -10662,43 +9834,6 @@ export interface components {
             suspended: number;
             /** Format: int64 */
             new7d: number;
-        };
-        /** @description Credit ledger entries (admin view) */
-        AdminCreditLedger: {
-            /** Format: uuid */
-            userId?: string;
-            /** Format: int64 */
-            balance?: number;
-            entries?: components["schemas"]["PageResponseAdminCreditEntry"];
-        };
-        /** @description Offset-paginated list */
-        PageResponseAdminCreditEntry: {
-            /** @description Items of the current page */
-            items?: components["schemas"]["AdminCreditEntry"][];
-            /**
-             * Format: int32
-             * @description Zero-based page index
-             * @example 0
-             */
-            page?: number;
-            /**
-             * Format: int32
-             * @description Requested page size
-             * @example 20
-             */
-            size?: number;
-            /**
-             * Format: int64
-             * @description Total number of items across all pages
-             * @example 137
-             */
-            totalItems?: number;
-            /**
-             * Format: int32
-             * @description Total number of pages
-             * @example 7
-             */
-            totalPages?: number;
         };
         /** @description Offset-paginated list */
         PageResponseCatalogSyncRun: {
@@ -10815,67 +9950,6 @@ export interface components {
             };
             daily: components["schemas"]["AnalyticsDailyCount"][];
         };
-        /** @description Offset-paginated list */
-        PageResponseAdminAdCampaign: {
-            /** @description Items of the current page */
-            items?: components["schemas"]["AdminAdCampaign"][];
-            /**
-             * Format: int32
-             * @description Zero-based page index
-             * @example 0
-             */
-            page?: number;
-            /**
-             * Format: int32
-             * @description Requested page size
-             * @example 20
-             */
-            size?: number;
-            /**
-             * Format: int64
-             * @description Total number of items across all pages
-             * @example 137
-             */
-            totalItems?: number;
-            /**
-             * Format: int32
-             * @description Total number of pages
-             * @example 7
-             */
-            totalPages?: number;
-        };
-        /** @description Delivery statistics of a campaign */
-        AdCampaignStats: {
-            /** Format: uuid */
-            campaignId?: string;
-            /** @enum {string} */
-            status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
-            /** @enum {string} */
-            pricing?: "CPM" | "CPC" | "FLAT";
-            currency?: string;
-            budgetTotal?: number;
-            spent?: number;
-            remainingBudget?: number;
-            totals?: components["schemas"]["AdDeliveryTotals"];
-            /** Format: date */
-            from?: string;
-            /** Format: date */
-            to?: string;
-            daily?: components["schemas"]["AdDailyStats"][];
-        };
-        /** @description Delivery of a campaign on one UTC day */
-        AdDailyStats: {
-            /** Format: date */
-            day?: string;
-            /** Format: int64 */
-            impressions?: number;
-            /** Format: int64 */
-            clicks?: number;
-            /** Format: int64 */
-            conversions?: number;
-            ctrPercent?: number;
-            spent?: number;
-        };
         /** @description RFC 9457 problem details with OrenjiTrade extensions */
         ProblemDetail: {
             /** Format: uri */
@@ -10889,7 +9963,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "ALREADY_SUBSCRIBED" | "INSUFFICIENT_CREDITS" | "REFERRAL_NOT_ALLOWED" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "SUBJECT_CHANGED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -10933,31 +10007,29 @@ export interface components {
              * @description When the window resets (LIMIT_REACHED; absent for totals and caps)
              */
             resetsAt?: string;
-            /** @description The caller's plan (LIMIT_REACHED), e.g. FREE */
-            planCode?: string;
-            /** @description Where to send the user to upgrade (LIMIT_REACHED): /premium */
-            upgradeUrl?: string;
             /** @description Feature flag that is off for the caller (FEATURE_DISABLED) */
             feature?: string;
-            /** @description Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, ALREADY_SUBSCRIBED) */
+            /** @description Current status of the resource when a state conflicts (INVALID_STATE_TRANSITION, CONFLICT, IMPORT_ALREADY_COMMITTED) */
             currentStatus?: string;
-            /**
-             * Format: uuid
-             * @description The caller's live subscription (ALREADY_SUBSCRIBED)
-             */
-            subscriptionId?: string;
-            /**
-             * Format: int64
-             * @description The caller's credit balance (INSUFFICIENT_CREDITS)
-             */
-            balance?: number;
-            /**
-             * Format: int64
-             * @description Credits the action needs (INSUFFICIENT_CREDITS)
-             */
-            cost?: number;
-            /** @description Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED): SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT */
+            /** @description Why an inventory import file was refused (POST /inventory/imports): TOO_LARGE, NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED, NO_CARDS */
             reason?: string;
+            /**
+             * Format: int32
+             * @description The limit an inventory import file passed: bytes (reason TOO_LARGE), lines (TOO_MANY_LINES) or rows (TOO_MANY_ROWS)
+             */
+            fileLimit?: number;
+            /** @description The columns an inventory import file lacks (reason MISSING_COLUMNS), e.g. card name */
+            missingColumns?: string[];
+            /**
+             * Format: int32
+             * @description Rows of an inventory import that still need a printing (IMPORT_ROWS_UNRESOLVED)
+             */
+            unresolved?: number;
+            /**
+             * Format: int64
+             * @description New inventory items an import would add (LIMIT_REACHED with limitKey inventory.items.max)
+             */
+            requested?: number;
         };
     };
     responses: never;
@@ -12433,77 +11505,6 @@ export interface operations {
             };
         };
     };
-    updatePlan: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                code: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePlanRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminPlan"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     getPaymentSettings: {
         parameters: {
             query?: never;
@@ -12792,6 +11793,149 @@ export interface operations {
             };
         };
     };
+    getAdminInventoryImportSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportSettingsResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateAdminInventoryImportSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInventoryImportSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description The settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportSettingsResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     updateGame: {
         parameters: {
             query?: never;
@@ -12934,149 +12078,6 @@ export interface operations {
             };
         };
     };
-    getAdminDonationSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DonationSettings"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminDonationSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateDonationSettingsRequest"];
-            };
-        };
-        responses: {
-            /** @description The settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DonationSettings"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     updateDelistPolicy: {
         parameters: {
             query?: never;
@@ -13112,229 +12113,6 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getAdminCreditSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditSettings"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminCreditSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateCreditSettingsRequest"];
-            };
-        };
-        responses: {
-            /** @description The settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditSettings"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminCreditProduct: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateCreditProductRequest"];
-            };
-        };
-        responses: {
-            /** @description The product */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditProduct"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13442,473 +12220,6 @@ export interface operations {
             };
         };
     };
-    updateAdminAdPlacement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdPlacementRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdPlacement"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminAdCreative: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdCreativeRequest"];
-            };
-        };
-        responses: {
-            /** @description The creative */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCreative"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getAdminAdCampaign: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The campaign */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCampaignDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminAdCampaign: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdCampaignRequest"];
-            };
-        };
-        responses: {
-            /** @description The campaign */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCampaignDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    replaceAdminAdTargeting: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdTargetingRequest"];
-            };
-        };
-        responses: {
-            /** @description The campaign */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCampaignDetail"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    updateAdminAdvertiser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdvertiserRequest"];
-            };
-        };
-        responses: {
-            /** @description The advertiser */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdvertiser"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     runUploadCleanupJob: {
         parameters: {
             query?: never;
@@ -13925,53 +12236,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UploadCleanupJobResponse"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    runSubscriptionsPeriodJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubscriptionsPeriodJobResult"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -14144,6 +12408,53 @@ export interface operations {
             };
         };
     };
+    runInventoryImportPurgeJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportPurgeJobResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     runFreshnessJob: {
         parameters: {
             query?: never;
@@ -14207,53 +12518,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DelistJobResponse"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    runCreditsReconcileJob: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditsReconcileJobResult"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -14587,68 +12851,6 @@ export interface operations {
             };
         };
     };
-    recordAdConversion: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                clickId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdConversionRequest"];
-            };
-        };
-        responses: {
-            /** @description The outcome */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdConversionResult"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     listWishlist: {
         parameters: {
             query?: never;
@@ -14841,140 +13043,6 @@ export interface operations {
                 };
             };
             /** @description NOT_FOUND (provider), FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    receiveDonationWebhook: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Signature of the fake provider (t=<unix seconds>,v1=<hex HMAC-SHA256>) */
-                "X-Fake-Signature"?: string;
-            };
-            path: {
-                /** @description fake */
-                provider: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "*/*": string;
-            };
-        };
-        responses: {
-            /** @description Received */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DonationWebhookReceipt"];
-                };
-            };
-            /** @description WEBHOOK_SIGNATURE_INVALID, VALIDATION_FAILED (unreadable body) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND (provider), FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    receiveBillingWebhook: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Signature of the fake provider (t=<unix seconds>,v1=<hex HMAC-SHA256>) */
-                "X-Fake-Signature"?: string;
-                /** @description Signature of Stripe (t=<unix seconds>,v1=<hex HMAC-SHA256>) */
-                "Stripe-Signature"?: string;
-            };
-            path: {
-                /** @description fake or stripe */
-                provider: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "*/*": string;
-            };
-        };
-        responses: {
-            /** @description Received */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingWebhookReceipt"];
-                };
-            };
-            /** @description WEBHOOK_SIGNATURE_INVALID, VALIDATION_FAILED (unreadable body) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND (provider) */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -15820,6 +13888,91 @@ export interface operations {
                 };
             };
             /** @description INVALID_STATE_TRANSITION */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    undoSale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The undone sale */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FORBIDDEN (the buyer) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown sale */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description SALE_UNDO_CLOSED or SALE_ALREADY_RATED */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -16870,258 +15023,6 @@ export interface operations {
             };
         };
     };
-    submitMobileReceipt: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["MobileReceiptRequest"];
-            };
-        };
-        responses: {
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_IMPLEMENTED */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    startSubscriptionCheckout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SubscriptionCheckoutRequest"];
-            };
-        };
-        responses: {
-            /** @description The checkout */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SubscriptionCheckout"];
-                };
-            };
-            /** @description VALIDATION_FAILED (plan or provider) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description ALREADY_SUBSCRIBED (extensions subscriptionId, currentStatus) */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description SERVICE_UNAVAILABLE (billing provider) */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    cancelSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["SubscriptionCancelRequest"];
-            };
-        };
-        responses: {
-            /** @description The subscription */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MySubscription"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     startSellerOnboarding: {
         parameters: {
             query?: never;
@@ -17173,93 +15074,6 @@ export interface operations {
             };
             /** @description FEATURE_DISABLED */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    redeemReferralCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReferralRedeemRequest"];
-            };
-        };
-        responses: {
-            /** @description The redemption */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReferralRedemption"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND, FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description REFERRAL_NOT_ALLOWED (extension reason) */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -17742,102 +15556,6 @@ export interface operations {
             };
         };
     };
-    spendCredits: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreditSpendRequest"];
-            };
-        };
-        responses: {
-            /** @description What was unlocked */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditSpend"];
-                };
-            };
-            /** @description VALIDATION_FAILED (unknown or inactive product) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description INSUFFICIENT_CREDITS, CONFLICT (key reused for another product) */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     acceptConsent: {
         parameters: {
             query?: never;
@@ -17916,13 +15634,15 @@ export interface operations {
                 /** @description Only items without a binder */
                 unfiled?: boolean;
                 visibility?: "PRIVATE" | "PUBLIC" | "TEMPORARILY_PUBLIC";
+                /** @description Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC (the phone's "Public" filter; whether others see them also depends on the binder and the owner) */
+                markedPublic?: boolean;
                 availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
                 /** @description Condition code, e.g. NEAR_MINT */
                 condition?: string;
                 freshness?: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
-                /** @description updated | name | price */
-                sort?: "updated" | "name" | "price";
-                /** @description asc | desc (default: desc for updated and price, asc for name) */
+                /** @description updated | created | name | price */
+                sort?: "updated" | "created" | "name" | "price";
+                /** @description asc | desc (default: desc for updated, created and price, asc for name) */
                 direction?: "asc" | "desc";
                 page?: number;
                 size?: number;
@@ -18049,6 +15769,91 @@ export interface operations {
             };
             /** @description binderId is not one of the caller's binders */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`inventory.items.max`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    restoreInventoryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The restored item */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItemResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown or not the caller's item */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description RESTORE_WINDOW_CLOSED */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18340,28 +16145,22 @@ export interface operations {
             };
         };
     };
-    confirmFakeDonationCheckout: {
+    listInventoryImports: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                ref: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["FakeDonationConfirmRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description The synthetic webhook was received */
-            202: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DonationWebhookReceipt"];
+                    "application/json": components["schemas"]["InventoryImportResponse"][];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -18375,15 +16174,6 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description CONFLICT (not pending; extension currentStatus) */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18420,26 +16210,230 @@ export interface operations {
             };
         };
     };
-    startDonationCheckout: {
+    createInventoryImport: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description YDK or COLLECTR_CSV */
+                source: "YDK" | "COLLECTR_CSV";
+                /** @description COLLECTR_CSV: game slug of rows that name no game */
+                game?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["DonationCheckoutRequest"];
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
             };
         };
         responses: {
-            /** @description The checkout */
+            /** @description The preview */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DonationCheckout"];
+                    "application/json": components["schemas"]["InventoryImportResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (field `file`; reason EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS, MISSING_COLUMNS, MALFORMED or NO_CARDS), or an unknown `source` or `game` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE (reason TOO_LARGE, `fileLimit` in bytes) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE (reason NOT_TEXT) */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    commitInventoryImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CommitInventoryImportRequest"];
+            };
+        };
+        responses: {
+            /** @description The import, COMMITTED, with its result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, purged or not the caller's import */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_ROWS_UNRESOLVED (`unresolved`), IMPORT_EMPTY, or CONFLICT */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_EXPIRED */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description LIMIT_REACHED (`inventory.items.max`, with `requested`) or RATE_LIMITED */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulkUpdateInventoryImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkInventoryImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Rows changed and the preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportBulkResponse"];
                 };
             };
             /** @description VALIDATION_FAILED */
@@ -18469,8 +16463,8 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description FEATURE_DISABLED */
-            404: {
+            /** @description IMPORT_ALREADY_COMMITTED */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18836,6 +16830,104 @@ export interface operations {
             };
             /** @description Unknown recipient */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    markSold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkSoldRequest"];
+            };
+        };
+        responses: {
+            /** @description The sale */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SaleResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description FORBIDDEN (not the seller) or MESSAGING_BLOCKED */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown conversation (or not a participant, or hidden by a block) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOTHING_LEFT_TO_SELL, SUBJECT_CHANGED, or CONFLICT for a chat without a subject */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19738,6 +17830,116 @@ export interface operations {
             };
         };
     };
+    uploadBinderImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The binder with its photos */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BinderResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description CONFLICT: the binder already has 4 photos */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description PAYLOAD_TOO_LARGE */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description UNSUPPORTED_MEDIA_TYPE */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     confirmBinder: {
         parameters: {
             query?: never;
@@ -19787,137 +17989,6 @@ export interface operations {
             };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    confirmFakeBillingCheckout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ref: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["FakeBillingConfirmRequest"];
-            };
-        };
-        responses: {
-            /** @description The synthetic webhook was received */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BillingWebhookReceipt"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description CONFLICT (checkout not pending; extension currentStatus) */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    recordAdImpression: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                creativeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdImpressionRequest"];
-            };
-        };
-        responses: {
-            /** @description Recorded (or already recorded) */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description VALIDATION_FAILED (token) */
-            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20202,224 +18273,6 @@ export interface operations {
                 };
             };
             /** @description CONFLICT: already paused */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listUserEntitlements: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Entitlement"][];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    grantEntitlement: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GrantEntitlementRequest"];
-            };
-        };
-        responses: {
-            /** @description Granted */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Entitlement"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    cancelAdminSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminSubscriptionCancelRequest"];
-            };
-        };
-        responses: {
-            /** @description The subscription */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminSubscriptionDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description CONFLICT */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -21734,82 +19587,6 @@ export interface operations {
             };
         };
     };
-    refundAdminDonation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The donation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminDonationDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description CONFLICT */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     unfreezeDispute: {
         parameters: {
             query?: never;
@@ -22098,93 +19875,6 @@ export interface operations {
                 };
             };
             /** @description INVALID_STATE_TRANSITION */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    grantAdminCredits: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdminCreditGrantRequest"];
-            };
-        };
-        responses: {
-            /** @description The new entry */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminCreditEntry"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description INSUFFICIENT_CREDITS */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -22944,379 +20634,6 @@ export interface operations {
             };
         };
     };
-    listAdminAdCampaigns: {
-        parameters: {
-            query?: {
-                /** @description Status filter */
-                status?: "DRAFT" | "ACTIVE" | "PAUSED" | "ENDED";
-                /** @description Advertiser filter */
-                advertiserId?: string;
-                page?: number;
-                size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PageResponseAdminAdCampaign"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    createAdminAdCampaign: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdCampaignRequest"];
-            };
-        };
-        responses: {
-            /** @description The campaign */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCampaignDetail"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    createAdminAdCreative: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdCreativeRequest"];
-            };
-        };
-        responses: {
-            /** @description The creative */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdCreative"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listAdminAdvertisers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdvertiser"][];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    createAdminAdvertiser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdvertiserRequest"];
-            };
-        };
-        responses: {
-            /** @description The advertiser */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdvertiser"];
-                };
-            };
-            /** @description VALIDATION_FAILED */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     deleteWishlistItem: {
         parameters: {
             query?: never;
@@ -23682,6 +20999,438 @@ export interface operations {
                 };
             };
             /** @description Unknown, deleted or not the caller's item (or binder) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getInventoryImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The import */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportResponse"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, purged or not the caller's import */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_EXPIRED: the preview is older than its time to live */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deleteInventoryImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, purged or not the caller's import */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_ALREADY_COMMITTED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateInventoryImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInventoryImportRequest"];
+            };
+        };
+        responses: {
+            /** @description The preview with its new counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportResponse"];
+                };
+            };
+            /** @description VALIDATION_FAILED (a CSV import has no sections) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_ALREADY_COMMITTED */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    updateInventoryImportRow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                rowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateInventoryImportRowRequest"];
+            };
+        };
+        responses: {
+            /** @description The row and the preview with its new counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportRowChange"];
+                };
+            };
+            /** @description VALIDATION_FAILED */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown import or row, or not the caller's */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_ALREADY_COMMITTED, or CONFLICT for a row that fits nothing */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The conversation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummary"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown conversation (or not a participant, or hidden by a block) */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -24409,6 +22158,83 @@ export interface operations {
             };
         };
     };
+    getWishlistAvailability: {
+        parameters: {
+            query?: {
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north */
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The available wishes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistAvailability"];
+                };
+            };
+            /** @description VALIDATION_FAILED: unknown region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listTrades: {
         parameters: {
             query?: {
@@ -24736,6 +22562,8 @@ export interface operations {
                 /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
                 region?: string;
                 limit?: number;
+                /** @description Binders section: deck cores only (true) or other binders only (false); both when omitted */
+                deckCore?: boolean;
             };
             header?: never;
             path?: never;
@@ -24836,6 +22664,111 @@ export interface operations {
             };
         };
     };
+    searchDeckCores: {
+        parameters: {
+            query: {
+                cardId: string;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deck cores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBinderSummary"][];
+                };
+            };
+            /** @description Invalid card id, limit or region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    searchCollectorsByName: {
+        parameters: {
+            query: {
+                /** @description Typed text */
+                q: string;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collectors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectorByName"][];
+                };
+            };
+            /** @description Invalid query, limit or region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     searchCardHolders: {
         parameters: {
             query?: {
@@ -24855,10 +22788,14 @@ export interface operations {
                 /** @description ISO 639-1 code */
                 language?: string;
                 acceptsOffers?: boolean;
-                /** @description freshness (newest listing first) or price */
-                sort?: "freshness" | "price";
+                /** @description freshness (newest listing first), price, or province (the caller's own state or province first, then the other ones of their country, then the rest of the region by country and province name; newest listing first in each) */
+                sort?: "freshness" | "price" | "province";
                 page?: number;
                 size?: number;
+                /** @description Leave out the cards filed in a deck core: they sell only with it (GET /search/deck-cores lists the cores) */
+                excludeDeckCoreItems?: boolean;
+                /** @description Any printing of the card in this rarity, as the catalogue names it (e.g. Ultra Rare; exact): the holders a wish of any printing in one rarity opens */
+                rarity?: string;
             };
             header?: never;
             path?: never;
@@ -24945,6 +22882,10 @@ export interface operations {
     listSubdivisionBinders: {
         parameters: {
             query?: {
+                /** @description Deck cores only (true) or other binders only (false) */
+                deckCore?: boolean;
+                /** @description Binder name or description, owner handle, or a card of a deck core */
+                q?: string;
                 /** @description Opaque cursor of the previous page */
                 cursor?: string;
                 limit?: number;
@@ -24968,6 +22909,63 @@ export interface operations {
                 };
             };
             /** @description Unknown region or subdivision */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listRegionBinders: {
+        parameters: {
+            query?: {
+                /** @description Deck cores only (true) or other binders only (false) */
+                deckCore?: boolean;
+                /** @description Binder name or description, owner handle, or a card of a deck core */
+                q?: string;
+                /** @description Opaque cursor of the previous page */
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                region: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of binders */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CursorPagePublicBinderSummary"];
+                };
+            };
+            /** @description Unknown region */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -25315,55 +23313,6 @@ export interface operations {
             };
         };
     };
-    listSupporters: {
-        parameters: {
-            query?: {
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The supporters */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Supporters"];
-                };
-            };
-            /** @description FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     getCardImage: {
         parameters: {
             query?: never;
@@ -25550,44 +23499,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PrintingDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listPlans: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Plan"][];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -26149,145 +24060,6 @@ export interface operations {
             };
         };
     };
-    getMyReferral: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The referral state */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyReferral"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getMyPlan: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyPlan"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     pingMe: {
         parameters: {
             query?: never;
@@ -26418,6 +24190,71 @@ export interface operations {
             };
         };
     };
+    getMyLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyLimits"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     exportMyData: {
         parameters: {
             query?: never;
@@ -26447,149 +24284,6 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listMyDonations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Donation"][];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getMyCredits: {
-        parameters: {
-            query?: {
-                /** @description Opaque cursor of the next slice */
-                cursor?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The credits */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyCredits"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description FEATURE_DISABLED */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -26756,6 +24450,161 @@ export interface operations {
             };
         };
     };
+    listInventoryImportRows: {
+        parameters: {
+            query?: {
+                status?: "READY" | "CHOOSE_PRINTING" | "UNMATCHED";
+                printingChoice?: "AUTO" | "MANUAL" | "MOST_RECENT" | "MOST_RECENT_ASSUMED";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageResponseInventoryImportRow"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown, purged or not the caller's import */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description IMPORT_EXPIRED */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getInventoryImportLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryImportLimits"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listGames: {
         parameters: {
             query?: never;
@@ -26812,82 +24661,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameResponse"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getFakeDonationCheckout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ref: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The checkout */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FakeDonationCheckout"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND, FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
@@ -27825,199 +25598,13 @@ export interface operations {
             };
         };
     };
-    getFakeBillingCheckout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                ref: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The checkout */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FakeBillingCheckout"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND, FEATURE_DISABLED */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listAds: {
-        parameters: {
-            query: {
-                /** @description Placement */
-                placement: "SEARCH_SPONSORED" | "MAP_PANEL" | "INVENTORY_SIDEBAR" | "COLLECTOR_PROFILE" | "MOBILE_FEED";
-                /**
-                 * @description Game slug of the page
-                 * @example pokemon
-                 */
-                game?: string;
-                /**
-                 * @description Platform region of the page (GET /regions)
-                 * @example americas-north
-                 */
-                region?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The ads (possibly empty) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Ad"][];
-                };
-            };
-            /** @description VALIDATION_FAILED (placement, game or region) */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    clickAd: {
-        parameters: {
-            query?: {
-                /** @description Serve token from the clickUrl */
-                token?: string;
-            };
-            header?: never;
-            path: {
-                creativeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to the landing page */
-            302: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     listUsers: {
         parameters: {
             query?: {
                 /** @description Case-insensitive substring of handle, email or display name */
                 query?: string;
                 status?: "ACTIVE" | "SUSPENDED" | "DELETION_REQUESTED" | "DELETED";
-                role?: "USER" | "PREMIUM_USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
+                role?: "USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
                 page?: number;
                 size?: number;
             };
@@ -28304,10 +25891,7 @@ export interface operations {
     };
     listUsageLimits: {
         parameters: {
-            query?: {
-                /** @description Plan code filter, e.g. FREE */
-                plan?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -28641,159 +26225,6 @@ export interface operations {
             };
         };
     };
-    listAdminSubscriptions: {
-        parameters: {
-            query?: {
-                /** @description Status filter */
-                status?: "PENDING" | "TRIAL" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
-                /**
-                 * @description Plan code filter
-                 * @example PREMIUM
-                 */
-                plan?: string;
-                /** @description Account filter */
-                userId?: string;
-                page?: number;
-                size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PageResponseAdminSubscription"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getAdminSubscription: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The subscription */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminSubscriptionDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     listReports: {
         parameters: {
             query?: {
@@ -29029,71 +26460,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageResponseAdminRating"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listAdminPlans: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminPlan"][];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -29781,152 +27147,6 @@ export interface operations {
             };
         };
     };
-    listAdminDonations: {
-        parameters: {
-            query?: {
-                /** @description Status filter */
-                status?: "PENDING" | "SUCCEEDED" | "FAILED" | "REFUNDED";
-                page?: number;
-                size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminDonations"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getAdminDonation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The donation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminDonationDetail"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     listAdminDisputes: {
         parameters: {
             query?: {
@@ -30154,141 +27374,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminDashboard"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listAdminCreditProducts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreditProduct"][];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    listAdminCreditLedger: {
-        parameters: {
-            query?: {
-                /** @description Account filter */
-                userId?: string;
-                page?: number;
-                size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminCreditLedger"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -30892,152 +27977,6 @@ export interface operations {
             };
         };
     };
-    listAdminAdPlacements: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdminAdPlacement"][];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
-    getAdminAdCampaignStats: {
-        parameters: {
-            query?: {
-                /** @description First day (UTC) */
-                from?: string;
-                /** @description Last day (UTC) */
-                to?: string;
-            };
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdCampaignStats"];
-                };
-            };
-            /** @description Unauthenticated (missing or invalid token) */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description NOT_FOUND */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Error (RFC 9457 problem details) */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-        };
-    };
     deletePushToken: {
         parameters: {
             query?: never;
@@ -31317,19 +28256,19 @@ export interface operations {
             };
         };
     };
-    revokeEntitlement: {
+    deleteBinderImage: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 id: string;
-                entitlementId: string;
+                imageId: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Revoked */
+            /** @description Removed */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -31347,6 +28286,15 @@ export interface operations {
             };
             /** @description Forbidden (role, MFA or account state) */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unknown binder (or not the caller's) or photo */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

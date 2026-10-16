@@ -103,7 +103,7 @@ class AuthenticationIT extends AbstractIntegrationTest {
         assertThat(body.path("status").asString()).isEqualTo(AccountStatus.ACTIVE.name());
         assertThat(body.path("roles")).hasSize(1);
         assertThat(body.path("roles").get(0).asString()).isEqualTo(Role.USER.name());
-        assertThat(body.path("plan").asString()).isEqualTo("FREE");
+        assertThat(body.has("plan")).as("no plans since stage F1").isFalse();
         assertThat(body.path("displayName").asString()).isEqualTo(body.path("handle").asString());
         assertThat(body.has("avatarUrl")).as("avatarUrl is present even when null").isTrue();
         assertThat(body.path("avatarUrl").isNull()).isTrue();
@@ -119,7 +119,6 @@ class AuthenticationIT extends AbstractIntegrationTest {
         Map<String, Object> row = testUsers.row(id);
         assertThat(row.get("provider_uid")).isEqualTo(uid);
         assertThat(row.get("status")).isEqualTo("ACTIVE");
-        assertThat(row.get("plan_code")).isEqualTo("FREE");
         assertThat(testUsers.rolesOf(id)).containsExactly("USER");
     }
 

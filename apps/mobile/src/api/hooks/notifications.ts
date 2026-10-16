@@ -31,6 +31,9 @@ export function useSaveNotificationSettings() {
               inAppEnabled: settings.inAppEnabled,
               categories: settings.categories,
               quietHours: settings.quietHours,
+              // Without it the API keeps the stored value: the switch of Settings › Notifications
+              // and Search › Wishlist never reached the server before stage R5.
+              wishlistAlerts: settings.wishlistAlerts,
             },
           })
         ).data

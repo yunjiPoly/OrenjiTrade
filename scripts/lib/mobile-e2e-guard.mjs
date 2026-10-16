@@ -102,14 +102,22 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     YGOPRODECK_ENABLED: 'false',
     YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
     YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    // The inventory import of a deck file (stage S5) matches passcodes of the provider
+    // `ygoprodeck`, which the sample catalog does not have: the isolated database gets the three
+    // fictional ones of ImportFixtureSeedContributor (910000001 to 910000003). The contributor
+    // refuses to run while the real provider is enabled, and no developer database ever gets them.
+    SEED_IMPORT_FIXTURES: 'true',
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort},http://127.0.0.1:${webPort}`,
-    ADS_WEB_BASE_URL: `http://localhost:${webPort}`,
     EVENTS_TRANSPORT: 'local',
     PAYMENT_PROVIDER: 'fake',
-    BILLING_PROVIDER: 'fake',
-    DONATION_PROVIDER: 'fake',
     PUSH_PROVIDER: 'log',
     EMAIL_PROVIDER: 'log',
+    // Every worker of the suite (and the simulator of the native flows) calls from one address,
+    // and the app reads `/api/v1/public/*` without a token: the whole run shares the anonymous
+    // budget of 60 a minute, and the 429 then fails an unrelated spec (the reasons of the report
+    // dialog, right after the region specs). Same setting as the web suite (web-e2e-guard.mjs);
+    // the limits themselves are proven by the API's integration tests, not by these suites.
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
   };
 }
 

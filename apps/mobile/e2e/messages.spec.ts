@@ -1,11 +1,13 @@
 import { expect, test } from './support/fixtures';
 import {
+  apiAddItem,
   apiMarkRead,
   apiMessages,
   apiSendText,
   apiStartConversation,
   createOnboardedCollector,
   openTab,
+  printingIdOf,
   requireStack,
   screen,
   signInThroughUi,
@@ -50,12 +52,13 @@ test.describe('mobile messages', () => {
       timeout: 30_000,
     });
     const row = messages.getByTestId(`conversation-row-${ben.handle}`);
-    await expect(row).toContainText(ben.displayName, { timeout: 30_000 });
+    // Rows name the handle (mockup screen 22).
+    await expect(row).toContainText(ben.handle, { timeout: 30_000 });
     await expect(messages.getByTestId(`conversation-preview-${ben.handle}`)).toHaveText(
       'Hi Ada, still trading?'
     );
-    await expect(messages.getByTestId(`unread-badge-${ben.handle}`)).toHaveText('1');
-    await expect(page.getByRole('tab', { name: /Messages tab, 1 unread/ })).toBeVisible();
+    await expect(messages.getByTestId(`unread-badge-${ben.handle}`)).toBeVisible();
+    await expect(page.getByRole('tab', { name: /Messages tab, 1 unread chat/ })).toBeVisible();
 
     // Ben writes again: the inbox follows without a reload.
     expect(await apiSendText(request, ben, conversationId, 'I have the Emberfang Fox.')).toBe(201);
@@ -63,12 +66,13 @@ test.describe('mobile messages', () => {
       'I have the Emberfang Fox.',
       { timeout: 30_000 }
     );
-    await expect(messages.getByTestId(`unread-badge-${ben.handle}`)).toHaveText('2');
+    await expect(messages.getByTestId(`unread-badge-${ben.handle}`)).toBeVisible();
+    await expect(row).toHaveAccessibleName(/2 unread messages/);
 
     // The thread: both messages, read by Ada (Ben sees his messages as read).
     await row.click();
     const thread = screen(page, 'conversation');
-    await expect(thread.getByTestId('conversation-profile')).toContainText(ben.displayName, {
+    await expect(thread.getByTestId('conversation-profile')).toContainText(ben.handle, {
       timeout: 30_000,
     });
     await expect(thread.getByText('Hi Ada, still trading?')).toBeVisible();
@@ -82,9 +86,9 @@ test.describe('mobile messages', () => {
     // Ada answers.
     const reply = `Great, Saturday at the café? ${suffix()}`;
     await thread.getByLabel('Message', { exact: true }).fill(reply);
-    await thread.getByRole('button', { name: 'Send message' }).click();
+    await thread.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(thread.getByText(reply)).toBeVisible({ timeout: 30_000 });
-    await expect(thread.getByTestId('receipt-sent')).toHaveText('Sent');
+    await expect(thread.getByTestId('receipt-sent')).toContainText('Sent');
     await expect
       .poll(async () => (await apiMessages(request, ben, conversationId)).map((m) => m.body))
       .toContain(reply);
@@ -94,18 +98,18 @@ test.describe('mobile messages', () => {
       (message) => message.body === reply
     );
     await apiMarkRead(request, ben, conversationId, adaMessage!.id);
-    await expect(thread.getByTestId('receipt-seen')).toHaveText('Seen', { timeout: 30_000 });
+    await expect(thread.getByTestId('receipt-seen')).toContainText('Seen', { timeout: 30_000 });
     expect(await apiSendText(request, ben, conversationId, 'Deal, see you there!')).toBe(201);
     await expect(thread.getByText('Deal, see you there!')).toBeVisible({ timeout: 30_000 });
 
     // A photo from the library: uploaded first, then sent as an IMAGE message.
-    await thread.getByRole('button', { name: 'Attach a card, binder, offer or photo' }).click();
+    await thread.getByRole('button', { name: 'Share in this chat' }).click();
     const chooser = page.waitForEvent('filechooser');
     await page.getByTestId('composer-attach-photo').click();
     await (await chooser).setFiles({ name: 'card.png', mimeType: 'image/png', buffer: PHOTO_PNG });
     await expect(thread.getByTestId('composer-attachment')).toContainText('card.png');
     await thread.getByLabel('Message', { exact: true }).fill('The card');
-    await thread.getByRole('button', { name: 'Send message' }).click();
+    await thread.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(thread.getByTestId('message-photo')).toBeVisible({ timeout: 30_000 });
     const photo = (await apiMessages(request, ben, conversationId)).find(
       (message) => message.kind === 'IMAGE'
@@ -114,7 +118,7 @@ test.describe('mobile messages', () => {
     expect(photo?.payload?.image?.url).toContain('/api/v1/public/media/');
   });
 
-  test('a card link, mute, then a block that stops messages both ways', async ({
+  test('a card of her inventory, mute, then a block that stops messages both ways', async ({
     page,
     request,
   }) => {
@@ -123,6 +127,8 @@ test.describe('mobile messages', () => {
     const ben = await createOnboardedCollector(request, 'msgd', `Ben Blocked ${suffix()}`);
     const conversationId = await apiStartConversation(request, ben, ada.id);
     expect(await apiSendText(request, ben, conversationId, 'Hello!')).toBe(201);
+    const printingId = await printingIdOf(request, ada.idToken, 'PFT-002');
+    const card = await apiAddItem(request, ada, printingId, { askingPriceText: '85% TCG' });
 
     await signInThroughUi(page, ada.email, ada.password);
     await openTab(page, 'Messages');
@@ -130,39 +136,37 @@ test.describe('mobile messages', () => {
     const thread = screen(page, 'conversation');
     await expect(thread.getByText('Hello!')).toBeVisible({ timeout: 30_000 });
 
-    // Share a card of the catalog: it arrives as a link card.
-    await thread.getByRole('button', { name: 'Attach a card, binder, offer or photo' }).click();
+    // Share one of her own cards (stage R4): its price goes with it and the chat is about it.
+    await thread.getByRole('button', { name: 'Share in this chat' }).click();
     await page.getByTestId('composer-share-card').click();
-    await thread.getByLabel('Card name or printing code').fill('Emberfang');
-    await thread
-      .getByRole('button', { name: /^Emberfang Fox VMAX/ })
-      .first()
-      .click();
-    await expect(thread.getByTestId('composer-attachment')).toContainText('Emberfang Fox VMAX');
-    await thread.getByRole('button', { name: 'Send message' }).click();
-    await expect(thread.getByTestId('shared-card-link')).toContainText('Emberfang Fox VMAX', {
+    await page.getByTestId('own-card-picker').getByTestId(`item-${card.id}`).click();
+    await expect(thread.getByTestId('composer-attachment')).toContainText(card.card.name);
+    await thread.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(thread.getByTestId('shared-card-link')).toContainText(card.card.name, {
       timeout: 30_000,
     });
+    await expect(thread.getByTestId('shared-card-link')).toContainText('85% TCG');
     await expect
       .poll(async () =>
         (await apiMessages(request, ben, conversationId)).map((m) => m.payload?.card?.name)
       )
-      .toContain('Emberfang Fox VMAX');
+      .toContain(card.card.name);
+    await expect(thread.getByTestId('pinned-mark-sold')).toBeVisible({ timeout: 30_000 });
 
     // Mute.
-    await page.getByTestId('conversation-menu').click(); // in the navigation header
+    await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-mute').click();
-    await expect(snackbar(page)).toHaveText('Conversation muted.');
+    await expect(snackbar(page)).toHaveText('Chat muted.');
     await expect(thread.getByTestId('conversation-status')).toContainText('Muted');
 
     // Block, after a confirmation: the composer closes, Ben cannot write any more.
-    await page.getByTestId('conversation-menu').click(); // in the navigation header
+    await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-block').click();
     const dialog = page.getByTestId('block-dialog');
-    await expect(dialog).toContainText(`Block ${ben.displayName}?`);
+    await expect(dialog).toContainText(`Block ${ben.handle}?`);
     await dialog.getByRole('button', { name: 'Block' }).click();
     await expect(thread.getByTestId('conversation-blocked-banner')).toContainText(
-      `You blocked ${ben.displayName}`
+      `You blocked ${ben.handle}`
     );
     await expect(thread.getByLabel('Message', { exact: true })).not.toBeEditable();
     expect(await apiSendText(request, ben, conversationId, 'Are you there?')).toBe(403);
@@ -170,7 +174,7 @@ test.describe('mobile messages', () => {
     // Unblock from the banner.
     await thread.getByTestId('conversation-banner-unblock').click();
     await expect(thread.getByTestId('conversation-blocked-banner')).toBeHidden();
-    await expect(snackbar(page)).toHaveText(`${ben.displayName} is unblocked.`);
+    await expect(snackbar(page)).toHaveText(`${ben.handle} is unblocked.`);
     expect(await apiSendText(request, ben, conversationId, 'Back again')).toBe(201);
     await expect(thread.getByText('Back again')).toBeVisible({ timeout: 30_000 });
   });

@@ -30,7 +30,6 @@ export interface MeResponse {
      * Current legal document versions still to accept; while non-empty every non-exempt route answers 428
      */
     requiredConsents: Array<RequiredConsent>;
-    plan: string;
     /**
      * Platform region of the collector\'s declared location (ADR 0017); null without a location. Clients browse it by default
      */
@@ -38,7 +37,6 @@ export interface MeResponse {
 }
 export enum MeResponseRolesEnum {
     User = 'USER',
-    PremiumUser = 'PREMIUM_USER',
     Moderator = 'MODERATOR',
     Admin = 'ADMIN',
     SuperAdmin = 'SUPER_ADMIN'

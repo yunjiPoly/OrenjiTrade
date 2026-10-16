@@ -14,14 +14,13 @@ import org.springframework.stereotype.Repository;
 
 /**
  * Public binder search (ADR 0012): full text on {@code binder.search_vector} (name A, description
- * B) plus an accent-insensitive name substring, restricted to effectively public binders holding at
- * least one public item ({@link PublicVisibilityRules}) whose owner is discoverable with a location
- * in the requested platform region (ADR 0017).
+ * B) plus an accent-insensitive name substring, the owner's handle and a deck core's card names
+ * (stage R3), restricted to effectively public binders holding at least one public item or sold as
+ * a deck core ({@link PublicVisibilityRules}) whose owner is discoverable with a location in the
+ * requested platform region (ADR 0017).
  */
 @Repository
 public class BinderSearchRepository {
-
-    private static final String TSQUERY = "websearch_to_tsquery('simple', unaccent_immutable(:q))";
 
     private final JdbcClient jdbc;
 
@@ -29,15 +28,29 @@ public class BinderSearchRepository {
         this.jdbc = jdbc;
     }
 
-    /** Ids of matching binders of {@code region}, best text match first, then by name. */
+    /**
+     * Ids of matching binders of {@code region}, best text match first, then by name. A signed-in
+     * viewer's list leaves out, before the limit, the binders of collectors blocked with them.
+     *
+     * <p>The text matches a binder's name and description, its owner's handle and, for a deck core,
+     * the names of its public cards (stage R3). A deck core shows without cards; with a {@code
+     * game}, a binder (a deck core too) needs a public card of that game.
+     *
+     * @param deckCore {@code true} deck cores only, {@code false} other binders only, {@code null}
+     *     both
+     */
     public List<UUID> search(
-            String query, @Nullable String game, String region, int limit, Instant now) {
+            String query,
+            @Nullable String game,
+            String region,
+            @Nullable UUID viewerId,
+            @Nullable Boolean deckCore,
+            int limit,
+            Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
-        String normalised = CatalogText.normalise(query);
-        String escaped = CatalogText.escapeLike(normalised);
-        params.put("q", query.trim());
-        params.put("contains", "%" + escaped + "%");
+        DiscoverySql.binderTextParams(query, params);
+        String escaped = CatalogText.escapeLike(CatalogText.normalise(query));
         params.put("prefix", escaped + "%");
         params.put("limit", limit);
         params.put("region", region);
@@ -51,21 +64,29 @@ public class BinderSearchRepository {
                 .append(DiscoverySql.IN_REGION)
                 .append(" AND ")
                 .append(PublicVisibilityRules.binderEffectivelyPublic("bn"))
-                .append(" AND (bn.search_vector @@ ")
-                .append(TSQUERY)
-                .append(" OR lower(unaccent_immutable(bn.name)) LIKE :contains ESCAPE '\\')")
-                .append(" AND EXISTS (SELECT 1")
-                .append(DiscoverySql.ITEM_JOINS)
-                .append(" WHERE i.binder_id = bn.id AND ")
-                .append(DiscoverySql.LISTED);
+                .append(" AND ")
+                .append(DiscoverySql.binderText("bn"));
         if (game != null) {
-            sql.append(" AND g.slug = :game");
+            sql.append(" AND EXISTS (SELECT 1")
+                    .append(DiscoverySql.ITEM_JOINS)
+                    .append(" WHERE i.binder_id = bn.id AND ")
+                    .append(DiscoverySql.SHOWN)
+                    .append(" AND g.slug = :game)");
             params.put("game", game);
+        } else {
+            sql.append(" AND ").append(DiscoverySql.binderShown("bn"));
         }
-        sql.append(")");
+        if (deckCore != null) {
+            sql.append(" AND bn.sells_as_core = :deckCore");
+            params.put("deckCore", deckCore);
+        }
+        if (viewerId != null) {
+            sql.append(DiscoverySql.notBlocked("bn.owner_id"));
+            params.put("viewer", viewerId);
+        }
         sql.append(" ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE :prefix")
                 .append(" ESCAPE '\\' THEN 0 ELSE 1 END, ts_rank_cd(bn.search_vector, ")
-                .append(TSQUERY)
+                .append("websearch_to_tsquery('simple', unaccent_immutable(:q))")
                 .append(") DESC, bn.name, bn.id LIMIT :limit");
         JdbcClient.StatementSpec statement = jdbc.sql(sql.toString());
         for (Map.Entry<String, Object> param : params.entrySet()) {
@@ -75,13 +96,16 @@ public class BinderSearchRepository {
     }
 
     /**
-     * Effectively public binders (with a public item) of discoverable collectors of {@code region}
-     * whose name starts with or contains the text.
+     * Effectively public binders (with a public item, or deck cores) of discoverable collectors of
+     * {@code region} whose name starts with or contains the text; for a signed-in viewer, without
+     * the binders of collectors blocked with them (left out before the limit).
      */
-    public List<BinderName> suggest(String query, String region, int limit, Instant now) {
+    public List<BinderName> suggest(
+            String query, String region, @Nullable UUID viewerId, int limit, Instant now) {
         String normalised = CatalogText.normalise(query);
         String escaped = CatalogText.escapeLike(normalised);
-        return jdbc.sql(
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
                         "SELECT bn.id, bn.name, bn.owner_id FROM binder bn"
                                 + PublicVisibilityRules.ownerJoins("bn.owner_id")
                                 + DiscoverySql.locationJoins("bn.owner_id")
@@ -92,13 +116,16 @@ public class BinderSearchRepository {
                                 + " AND "
                                 + PublicVisibilityRules.binderEffectivelyPublic("bn")
                                 + " AND lower(unaccent_immutable(bn.name)) LIKE :contains ESCAPE"
-                                + " '\\' AND EXISTS (SELECT 1"
-                                + DiscoverySql.ITEM_JOINS
-                                + " WHERE i.binder_id = bn.id AND "
-                                + DiscoverySql.LISTED
-                                + ") ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE"
+                                + " '\\' AND "
+                                + DiscoverySql.binderShown("bn")
+                                + (viewerId == null ? "" : DiscoverySql.notBlocked("bn.owner_id"))
+                                + " ORDER BY CASE WHEN lower(unaccent_immutable(bn.name)) LIKE"
                                 + " :prefix ESCAPE '\\' THEN 0 ELSE 1 END, bn.name, bn.id"
-                                + " LIMIT :limit")
+                                + " LIMIT :limit");
+        if (viewerId != null) {
+            statement = statement.param("viewer", viewerId);
+        }
+        return statement
                 .param("now", Timestamp.from(now))
                 .param("contains", "%" + escaped + "%")
                 .param("prefix", escaped + "%")

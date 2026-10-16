@@ -1,19 +1,25 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
-import { useCreateWish, usePriceTerms, useUpdateWish } from '@/src/api/hooks/wishlist';
+import {
+  useCreateWish,
+  useDeleteWish,
+  usePriceTerms,
+  useUpdateWish,
+} from '@/src/api/hooks/wishlist';
 import type { CardSuggestion, WishlistItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
-import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -30,7 +36,7 @@ import {
   type WishFormErrors,
   type WishFormValue,
 } from './wishForm';
-import { addedMessage } from './wishlistLabels';
+import { addedMessage, removeConfirmation } from './wishlistLabels';
 
 export type WishEditorProps =
   | {
@@ -49,7 +55,7 @@ export type WishEditorProps =
  * only when exactly one printing of the card has it; a code several printings share starts on
  * "Any printing" and "Which copy" lists those printings first (never a silent pick). Wishlist alerts come from collectors of the same region (ADR
  * 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409)
- * and plan limits (429) are explained in place.
+ * and usage limits (429, the same for every collector) are explained in place.
  */
 export function WishEditor(props: WishEditorProps) {
   const { palette } = useTheme();
@@ -74,12 +80,12 @@ export function WishEditor(props: WishEditorProps) {
   );
   const [errors, setErrors] = useState<WishFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
-  // A plan limit refused the save: offer Premium.
-  const [limited, setLimited] = useState(false);
   const card = useCard(cardId);
   const terms = usePriceTerms();
   const create = useCreateWish();
   const update = useUpdateWish();
+  const remove = useDeleteWish();
+  const [removing, setRemoving] = useState(false);
   const saving = create.isPending || update.isPending;
   const printings = card.data?.printings ?? [];
 
@@ -121,6 +127,32 @@ export function WishEditor(props: WishEditorProps) {
     setMessage(null);
   };
 
+  // Back where the wish was opened from: Search › Wishlist (stage R5) or a card page.
+  const leave = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({ pathname: '/search', params: { segment: 'wishlist' } });
+    }
+  };
+
+  const confirmRemove = async () => {
+    if (!editItem) {
+      return;
+    }
+    try {
+      await remove.mutateAsync({ id: editItem.id });
+      setRemoving(false);
+      snackbar.show(`${editItem.card?.name ?? 'The card'} left your wishlist.`);
+      leave();
+    } catch (error) {
+      setRemoving(false);
+      setMessage(
+        isApiError(error) ? wishSaveError(error as ApiError).message : 'Please try again.'
+      );
+    }
+  };
+
   const save = async () => {
     if (!form || !card.data?.id || saving) {
       return;
@@ -132,7 +164,6 @@ export function WishEditor(props: WishEditorProps) {
       return;
     }
     setMessage(null);
-    setLimited(false);
     try {
       if (editItem) {
         await update.mutateAsync({ id: editItem.id, body: toUpdateWishRequest(form) });
@@ -141,17 +172,12 @@ export function WishEditor(props: WishEditorProps) {
         const saved = await create.mutateAsync(toCreateWishRequest(form, card.data.id));
         snackbar.show(addedMessage(saved), { duration: 6000 });
       }
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/wishlist');
-      }
+      leave();
     } catch (error) {
       if (isApiError(error)) {
         const shown = wishSaveError(error as ApiError);
         setErrors(shown.fields);
         setMessage(shown.message);
-        setLimited(error.errorCode === 'LIMIT_REACHED');
       } else {
         setMessage('Something went wrong. Please try again.');
       }
@@ -237,7 +263,6 @@ export function WishEditor(props: WishEditorProps) {
       />
 
       {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
-      {limited ? <SeePremiumButton testID="wish-limit-premium" /> : null}
       <Button
         label={editing ? 'Save changes' : 'Add to wishlist'}
         icon={editing ? 'content-save-outline' : 'heart-plus-outline'}
@@ -246,6 +271,29 @@ export function WishEditor(props: WishEditorProps) {
         loadingLabel="Saving…"
         testID="wish-save"
       />
+      {editItem ? (
+        <>
+          <Button
+            label="Remove from wishlist"
+            icon="trash-can-outline"
+            variant="danger"
+            onPress={() => setRemoving(true)}
+            disabled={saving || remove.isPending}
+            testID="wish-remove"
+          />
+          <ConfirmSheet
+            visible={removing}
+            title={`Remove ${editItem.card?.name ?? 'this card'}?`}
+            message={removeConfirmation(editItem)}
+            confirmLabel="Remove"
+            cancelLabel="Keep it"
+            busy={remove.isPending}
+            onConfirm={() => void confirmRemove()}
+            onCancel={() => setRemoving(false)}
+            testID="wish-remove-dialog"
+          />
+        </>
+      ) : null}
     </View>
   );
 }

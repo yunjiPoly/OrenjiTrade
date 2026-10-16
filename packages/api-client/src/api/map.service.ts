@@ -30,6 +30,7 @@ import { BaseService } from '../api.base.service';
 import {
     MapServiceInterface,
     GetRegionBinderCountsRequestParams,
+    ListRegionBindersRequestParams,
     ListSubdivisionBindersRequestParams
 } from './map.serviceInterface';
 
@@ -46,7 +47,7 @@ export class MapService extends BaseService implements MapServiceInterface {
 
     /**
      * Public binders per state/province of a region (auth optional)
-     * Effectively public binders holding at least one public item whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+     * Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; &#x60;deckCoreCount&#x60; says how many of them are deck cores (other binders &#x3D; binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
      * @endpoint get /api/v1/regions/{region}/binder-counts
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -104,8 +105,110 @@ export class MapService extends BaseService implements MapServiceInterface {
     }
 
     /**
+     * Public binders of a whole region (auth optional)
+     * As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same &#x60;deckCore&#x60; and &#x60;q&#x60; filters. 404 for an unknown region.
+     * @endpoint get /api/v1/regions/{region}/binders
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public listRegionBinders(requestParameters: ListRegionBindersRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<CursorPagePublicBinderSummary>;
+    public listRegionBinders(requestParameters: ListRegionBindersRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<CursorPagePublicBinderSummary>>;
+    public listRegionBinders(requestParameters: ListRegionBindersRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<CursorPagePublicBinderSummary>>;
+    public listRegionBinders(requestParameters: ListRegionBindersRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const region = requestParameters?.region;
+        if (region === null || region === undefined) {
+            throw new Error('Required parameter region was null or undefined when calling listRegionBinders.');
+        }
+        const deckCore = requestParameters?.deckCore;
+        const q = requestParameters?.q;
+        const cursor = requestParameters?.cursor;
+        const limit = requestParameters?.limit;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'deckCore',
+            <any>deckCore,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'q',
+            <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'cursor',
+            <any>cursor,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'limit',
+            <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/regions/${this.configuration.encodeParam({name: "region", value: region, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: undefined})}/binders`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<CursorPagePublicBinderSummary>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Public binders of a state/province (auth optional)
-     * Public binders of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update) and owner block (handle, display name, avatar, state/province + country; never a city). 404 when the region is unknown or the subdivision is not one of its own.
+     * Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. &#x60;deckCore&#x60; keeps the deck cores (true) or the other binders (false); &#x60;q&#x60; matches a binder\&#39;s name or description, its owner\&#39;s handle and a deck core\&#39;s card names. 404 when the region is unknown or the subdivision is not one of its own.
      * @endpoint get /api/v1/regions/{region}/subdivisions/{code}/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -124,10 +227,30 @@ export class MapService extends BaseService implements MapServiceInterface {
         if (code === null || code === undefined) {
             throw new Error('Required parameter code was null or undefined when calling listSubdivisionBinders.');
         }
+        const deckCore = requestParameters?.deckCore;
+        const q = requestParameters?.q;
         const cursor = requestParameters?.cursor;
         const limit = requestParameters?.limit;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'deckCore',
+            <any>deckCore,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'q',
+            <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         localVarQueryParameters = this.addToHttpParams(
             localVarQueryParameters,

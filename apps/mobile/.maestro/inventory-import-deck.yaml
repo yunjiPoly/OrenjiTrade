@@ -1,0 +1,187 @@
+# Inventory import, a deck file (stage S5): a fresh collector pastes the text of a fictional .ydk
+# deck file (the system file picker lives outside the app, so the flows paste; the picker is
+# walked by hand), sees the preview, chooses one printing by hand, takes the most recent printing
+# for the other card, gives the cards of the file one condition, and commits. The cards arrive in
+# the inventory as Private. The deck is written for the fictional passcodes the isolated database
+# gets (SEED_IMPORT_FIXTURES): 910000001 has one printing, 910000002 has two, 910000003 is an
+# alternate artwork of 910000002, 919999999 is unknown. scripts/check-import.js checks on the host
+# what the isolated API holds before and after the commit.
+appId: ${APP_ID}
+name: Import a deck file into the inventory
+tags:
+  - mobile-s5
+  - inventory-import
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: ydk
+      DISPLAY_NAME: Maestro Deck Importer
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+
+# Add cards (stage R2 of the phone redesign): the two imports, then the deck file's.
+- tapOn:
+    id: 'inventory-add-card'
+- extendedWaitUntil:
+    visible:
+      id: 'add-cards-import-deck'
+    timeout: 30000
+- assertVisible:
+    id: 'add-cards-import-collectr'
+- takeScreenshot: import-start
+- tapOn:
+    id: 'add-cards-import-deck'
+- extendedWaitUntil:
+    visible:
+      id: 'import-choose-file'
+    timeout: 30000
+- assertVisible: 'Up to 100 kB and 500 lines.'
+
+# The text of the deck file, pasted.
+- tapOn:
+    id: 'import-paste'
+- tapOn:
+    id: 'import-paste-text'
+- inputText: "#main\n910000001\n910000001\n910000002\n#extra\n910000003\n!side\n910000002\n919999999\n"
+- takeScreenshot: import-deck-pasted
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'import-paste-submit'
+- tapOn:
+    id: 'import-paste-submit'
+
+# The preview: one card ready, two that need a printing, one passcode not recognised.
+- extendedWaitUntil:
+    visible:
+      id: 'import-summary'
+    timeout: 60000
+- assertVisible: '1 new card'
+- assertVisible: '0 added to cards you own'
+- assertVisible: '2 need a printing'
+- assertVisible: '1 not recognised'
+- assertVisible: 'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
+- takeScreenshot: import-deck-preview
+# The commit cannot be pressed yet, and says why.
+- assertVisible:
+    id: 'import-commit'
+    enabled: false
+- assertVisible: '2 cards still need a printing. Choose them, or leave them out.'
+# Nothing is in the inventory before the commit.
+- runScript:
+    file: scripts/check-import.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_ITEMS: ''
+      EXPECT_IMPORT_STATUS: 'PENDING'
+
+# One printing chosen by hand in the "Which copy" sheet.
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-row-1-printing'
+      BAR: 'import-commit-bar'
+- assertVisible: 'Which copy of Fixture Clockwork Heron: Choose printing'
+- tapOn:
+    id: 'import-row-1-printing'
+- extendedWaitUntil:
+    visible: 'YDKF-EN002, .*'
+    timeout: 30000
+- assertVisible: '2 printings. Pick the one you own.'
+- takeScreenshot: import-deck-which-copy
+- tapOn: 'YDKF-EN002, .*'
+- extendedWaitUntil:
+    visible: 'Which copy of Fixture Clockwork Heron: YDKF-EN002 · Rare · YDK Fixtures'
+    timeout: 30000
+
+# The other one by the bulk action: the most recent printing by release date.
+- runFlow:
+    file: subflows/scroll-to-top-below.yaml
+    env:
+      ID: 'import-summary'
+      HEAD: 'Import cards'
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-bulk-recent'
+      BAR: 'import-commit-bar'
+- assertVisible: '1 card needs a printing'
+- tapOn:
+    id: 'import-bulk-recent'
+- extendedWaitUntil:
+    visible: '1 card got its most recent printing.'
+    timeout: 30000
+# The filter stays on screen above the list: its count says so wherever the list stands.
+- extendedWaitUntil:
+    visible: 'Needs a printing \(0\)'
+    timeout: 30000
+
+# A deck file names no condition: one for all of its cards.
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-bulk-condition'
+      BAR: 'import-commit-bar'
+- tapOn:
+    id: 'import-bulk-condition'
+- extendedWaitUntil:
+    visible:
+      id: 'import-condition-NEAR_MINT'
+    timeout: 30000
+- tapOn:
+    id: 'import-condition-NEAR_MINT'
+- extendedWaitUntil:
+    visible: '3 cards set to Near Mint.'
+    timeout: 30000
+
+# The commit says what it does, and does it.
+# Three cards, five copies: the copies stand next to the cards.
+- extendedWaitUntil:
+    visible: 'Add 3 cards \(5 copies\) to my inventory'
+    timeout: 30000
+- assertVisible: 'They start private: nobody sees them until you publish them.'
+- takeScreenshot: import-deck-ready
+- tapOn:
+    id: 'import-commit'
+- extendedWaitUntil:
+    visible:
+      id: 'import-result'
+    timeout: 60000
+- assertVisible: 'Import done'
+- assertVisible: '3 new cards added'
+- assertVisible: '0 cards you already had got more copies'
+- assertVisible: '1 different card of your file left out: 1 not recognised'
+- takeScreenshot: import-deck-result
+- runScript:
+    file: scripts/check-import.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_ITEMS: 'YDKF-EN001:NEAR_MINT:2:PRIVATE,YDKF-EN002:NEAR_MINT:2:PRIVATE,YDKR-EN002:NEAR_MINT:1:PRIVATE'
+      EXPECT_IMPORT_STATUS: 'COMMITTED'
+
+# The way to the inventory: the cards, private (each row's tag says so).
+- tapOn:
+    id: 'import-result-inventory'
+- extendedWaitUntil:
+    visible: 'Fixture Lantern Wisp, YDKF-EN001, Private, 2 copies'
+    timeout: 60000
+- assertVisible: '3 cards · 5 copies · 0 public'
+- takeScreenshot: import-deck-inventory

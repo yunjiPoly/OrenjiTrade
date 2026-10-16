@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import {
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type StyleProp,
   type TextInputProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 
+import { Text, TextInput } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
@@ -16,6 +16,8 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   error?: string | null;
   hint?: string;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Extra style of the input itself (the height of a large multiline field). */
+  inputStyle?: StyleProp<TextStyle>;
 }
 
 /** Labelled input with visible focus ring (2px accent) and inline error, per the design system. */
@@ -24,6 +26,7 @@ export function TextField({
   error,
   hint,
   containerStyle,
+  inputStyle,
   onFocus,
   onBlur,
   testID,
@@ -59,6 +62,7 @@ export function TextField({
             borderColor,
             borderWidth: focused || error ? tokens.focus.width : 1,
           },
+          inputStyle,
         ]}
       />
       {error ? (

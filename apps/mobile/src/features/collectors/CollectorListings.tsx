@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import type {
@@ -12,9 +12,10 @@ import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { SectionCard } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
+import { deckCoreTag, publicBinderKindParts } from '@/src/features/binders/binderCopy';
+import { CoreThumb, DeckCoreTag } from '@/src/features/binders/BinderRows';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
-import { MakeOfferButton } from '@/src/features/offers/MakeOfferButton';
-import { offerTargetFromItem } from '@/src/features/offers/offerTarget';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -46,7 +47,7 @@ export function PublicBindersSection({
             <Pressable
               key={binder.id}
               accessibilityRole="link"
-              accessibilityLabel={`${binder.name}, ${binderKindLabel(binder.kind)}, ${cardCount(binder.itemCount)}`}
+              accessibilityLabel={[binder.name, ...publicBinderKindParts(binder)].join(', ')}
               onPress={() => router.push({ pathname: '/binders/[id]', params: { id: binder.id } })}
               testID={`collector-binder-${binder.id}`}
               style={({ pressed }) => [
@@ -55,15 +56,38 @@ export function PublicBindersSection({
                 pressed && styles.pressed,
               ]}
             >
-              <MaterialCommunityIcons name="book-open-variant" size={24} color={palette.primary} />
+              {binder.sellsAsCore ? (
+                <CoreThumb url={binder.previewImages?.[0]} size={40} />
+              ) : (
+                <MaterialCommunityIcons
+                  name="book-open-variant"
+                  size={24}
+                  color={palette.primary}
+                />
+              )}
               <View style={styles.grow}>
                 <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]}>
                   {binder.name}
                 </Text>
-                <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-                  {binderKindLabel(binder.kind)} · {cardCount(binder.itemCount)}
-                  {binder.games.length ? ` · ${binder.games.map(gameLabel).join(', ')}` : ''}
-                </Text>
+                {binder.sellsAsCore ? (
+                  // A deck core: its tag and price, never "0 cards" (its cards sell only with it).
+                  <View style={styles.coreLine}>
+                    <DeckCoreTag
+                      label={deckCoreTag(binder.askingPriceText)}
+                      testID={`collector-binder-tag-${binder.id}`}
+                    />
+                    {binder.games.length ? (
+                      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+                        {binder.games.map(gameLabel).join(', ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : (
+                  <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+                    {binderKindLabel(binder.kind)} · {cardCount(binder.itemCount)}
+                    {binder.games.length ? ` · ${binder.games.map(gameLabel).join(', ')}` : ''}
+                  </Text>
+                )}
               </View>
               <Badge variant="freshness" value={badgeFreshness(binder.freshness.state)} />
             </Pressable>
@@ -98,10 +122,7 @@ export function PublicBindersSection({
   );
 }
 
-/**
- * A preview of the public cards across binders (`GET /collectors/{handle}/inventory`), each with
- * "Make an offer" when it accepts one.
- */
+/** A preview of the public cards across binders (`GET /collectors/{handle}/inventory`). */
 export function PublicCardsSection({
   items,
   profile,
@@ -121,23 +142,7 @@ export function PublicCardsSection({
       <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{cardCount(total)}</Text>
       <View style={styles.list}>
         {list.map((item) => (
-          <ItemRow
-            key={item.id}
-            item={item}
-            testID={`collector-card-${item.id}`}
-            footer={
-              <MakeOfferButton
-                inCard
-                target={offerTargetFromItem(item, {
-                  id: profile.id,
-                  displayName: profile.displayName,
-                  handle: profile.handle,
-                  avatarUrl: profile.avatarUrl ?? null,
-                  placeLabel: profile.location?.label ?? null,
-                })}
-              />
-            }
-          />
+          <ItemRow key={item.id} item={item} testID={`collector-card-${item.id}`} />
         ))}
       </View>
     </SectionCard>
@@ -155,6 +160,7 @@ const styles = StyleSheet.create({
     padding: spacing[3],
   },
   grow: { flex: 1, gap: 2 },
+  coreLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing[1] },
   strong: { fontWeight: fontWeight.semibold },
   pressed: { opacity: 0.8 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },

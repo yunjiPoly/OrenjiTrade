@@ -1,282 +1,412 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { BackHandler, StyleSheet, View } from 'react-native';
 
+import type { ApiError } from '@/src/api/ApiError';
+import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { useCard } from '@/src/api/hooks/catalog';
-import { useCreateInventoryItem } from '@/src/api/hooks/inventory';
-import { useGames } from '@/src/api/hooks/profile';
-import { friendlyMessage } from '@/src/api/errorMessages';
-import type { ApiError } from '@/src/api/ApiError';
-import type { CardDetail, CardSuggestion, PrintingSummary } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { CardImage } from '@/src/components/ui/CardImage';
+import { useApplyPhotoChanges, useCreateInventoryItem } from '@/src/api/hooks/inventory';
+import type { CardSuggestion, PrintingSummary } from '@/src/api/types';
+import { BackBar } from '@/src/components/ui/BackBar';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
-import { PrintingList } from '@/src/features/catalog/PrintingList';
-import { CardPicker } from '@/src/features/inventory/CardPicker';
-import { ItemDetailsFields } from '@/src/features/inventory/ItemDetailsFields';
+import { Text } from '@/src/components/ui/Text';
+import { AddCardSearch } from '@/src/features/inventory/AddCardSearch';
+import { AddCardsStart } from '@/src/features/inventory/AddCardsStart';
+import { CardFormFields } from '@/src/features/inventory/CardFormFields';
+import { CardHeader } from '@/src/features/inventory/CardHeader';
+import type { PhotoTile } from '@/src/features/inventory/CardPhotos';
 import {
   hasErrors,
-  newItemDefaults,
-  serverItemErrors,
-  toCreateRequest,
-  validateItemForm,
-  type ItemFormErrors,
-  type ItemFormValue,
-} from '@/src/features/inventory/itemForm';
-import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
-import { StepIndicator } from '@/src/features/onboarding/StepIndicator';
-import { printingCode, printingImageUrl } from '@/src/lib/catalog';
-import { isLimitReached } from '@/src/lib/limits';
-import { gameLabel } from '@/src/lib/profile';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+  newCardForm,
+  serverCardErrors,
+  toCreateBody,
+  validateCardForm,
+  type CardFormErrors,
+  type CardFormValue,
+} from '@/src/features/inventory/cardForm';
+import {
+  ADD_CARDS_COPY,
+  ADD_DETAILS_COPY,
+  CARD_FORM_COPY,
+  PRINTING_COPY,
+  TOAST_COPY,
+} from '@/src/features/inventory/inventoryCopy';
+import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
+import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
+import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
+import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
+import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
+import { useCardFindability } from '@/src/features/inventory/useCardFindability';
+import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
+import { useAppStore } from '@/src/store';
+import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
-type Step = 'search' | 'printing' | 'details';
-
-const STEPS: readonly Step[] = ['search', 'printing', 'details'];
-const STEP_LABELS = ['Find the card', 'Choose the printing', 'Add details'];
+type Step = 'start' | 'typing' | 'printing' | 'details';
 
 type Params = { cardId?: string; printingId?: string; binderId?: string };
 
 /**
- * "Add a card" (web: the inventory's add dialog): catalog autocomplete → printing → details →
- * `POST /inventory/items`. Opened from the Inventory tab, a binder (preselected) or a card detail
- * (card and printing preselected). Cards start private unless the collector chooses otherwise.
+ * Adding cards (owner spec 2026-10-14, section 6, mockup screens 3 to 6): Add cards (the search
+ * first, the two imports, the camera "Coming later") → typing (cards and exact printings) →
+ * Choose the printing → Add to inventory (copies, the asking price in "$" or "% TCG", who can see
+ * it, the binder, the public note and up to four photos). The price starts in the mode used last
+ * on this phone ("$" the first time), remembered when a card is added with a price. The card is
+ * created first, then its photos are uploaded: a photo that fails keeps the card and opens Edit
+ * card with "Try again". Saving goes back with "Saved · {card}" and "View". Opened from a binder
+ * (preselected) or a card page (card and printing preselected) too.
  */
-export default function AddItemScreen() {
+export default function AddCardsScreen() {
   const params = useLocalSearchParams<Params>();
-  const { palette } = useTheme();
   const router = useRouter();
   const snackbar = useSnackbar();
-  const [step, setStep] = useState<Step>(params.cardId ? 'printing' : 'search');
+  const { palette } = useTheme();
+  const [step, setStep] = useState<Step>(
+    params.cardId ? (params.printingId ? 'details' : 'printing') : 'start'
+  );
+  const [text, setText] = useState('');
   const [cardId, setCardId] = useState<string | null>(params.cardId || null);
   const [printingId, setPrintingId] = useState<string | null>(params.printingId || null);
-  const [form, setForm] = useState<ItemFormValue | null>(null);
-  const [formPrinting, setFormPrinting] = useState<string | null>(null);
-  const [errors, setErrors] = useState<ItemFormErrors>({});
-  const [failure, setFailure] = useState<ApiError | null>(null);
+  // Where Back leads from the details: the printings, or the search for an exact printing.
+  const [detailsFrom, setDetailsFrom] = useState<'printing' | 'typing' | 'link'>(
+    params.printingId ? 'link' : 'printing'
+  );
+  // The mode of the price used last on this phone (owner change of 2026-10-16).
+  const updatePrefs = useAppStore((state) => state.updatePrefs);
+  const [form, setForm] = useState<CardFormValue>(() =>
+    newCardForm(params.binderId || null, useAppStore.getState().prefs.priceMode ?? 'usd')
+  );
+  const [photos, setPhotos] = useState<LocalPhoto[]>([]);
+  const [errors, setErrors] = useState<CardFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const card = useCard(cardId);
-  const games = useGames();
   const binders = useMyBinders();
   const create = useCreateInventoryItem();
+  const applyPhotos = useApplyPhotoChanges();
+  const markSaved = useInventoryUiStore((state) => state.markSaved);
+  const keepFailedPhotos = useInventoryUiStore((state) => state.keepFailedPhotos);
   const printings = card.data?.printings ?? [];
-  // A card with a single printing (or a printing suggestion) needs no choice.
-  const selected =
-    printings.find((printing) => printing.id === printingId) ??
+  const printing: PrintingSummary | null =
+    printings.find((candidate) => candidate.id === printingId) ??
     (printings.length === 1 ? (printings[0] ?? null) : null);
-  const schema = games.data?.find((game) => game.slug === card.data?.game)?.schema ?? null;
+  const findability = useCardFindability();
 
-  const pick = (suggestion: CardSuggestion) => {
-    if (!suggestion.id) {
-      return;
+  const leave = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/inventory');
     }
-    if (suggestion.id !== cardId) {
-      setForm(null);
-    }
-    setCardId(suggestion.id);
-    setPrintingId(suggestion.kind === 'PRINTING' ? (suggestion.printingId ?? null) : null);
-    setStep('printing');
-  };
+  }, [router]);
 
-  const toDetails = () => {
-    if (!selected?.id) {
-      return;
+  const back = useCallback(() => {
+    setMessage(null);
+    if (step === 'details') {
+      if (detailsFrom === 'link') {
+        leave();
+      } else if (detailsFrom === 'typing' || printings.length <= 1) {
+        setStep(params.cardId ? 'printing' : 'typing');
+      } else {
+        setStep('printing');
+      }
+    } else if (step === 'printing') {
+      if (params.cardId) {
+        leave();
+      } else {
+        setStep('typing');
+      }
+    } else if (step === 'typing') {
+      setStep('start');
+    } else {
+      leave();
     }
-    // Keep what was typed when coming back from the printing step without changing it.
-    if (!form || formPrinting !== selected.id) {
-      setForm(newItemDefaults(selected, schema, params.binderId || null));
-      setFormPrinting(selected.id);
-    }
+  }, [detailsFrom, leave, params.cardId, printings.length, step]);
+
+  // Android's back key walks the steps back like the back arrow.
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (step === 'start') {
+          return false;
+        }
+        back();
+        return true;
+      });
+      return () => subscription.remove();
+    }, [back, step])
+  );
+
+  const toDetails = (nextPrinting: string | null, from: 'printing' | 'typing') => {
+    setPrintingId(nextPrinting);
+    setDetailsFrom(from);
     setErrors({});
     setMessage(null);
-    setFailure(null);
     setStep('details');
   };
 
-  const back = () => {
-    setMessage(null);
-    setFailure(null);
-    setStep(step === 'details' ? 'printing' : 'search');
+  const pickCard = (suggestion: CardSuggestion) => {
+    if (!suggestion.id) {
+      return;
+    }
+    setCardId(suggestion.id);
+    setPrintingId(null);
+    // One printing needs no choice.
+    if (suggestion.printingCount === 1) {
+      toDetails(null, 'typing');
+    } else {
+      setStep('printing');
+    }
   };
+
+  const pickPrinting = (suggestion: CardSuggestion) => {
+    if (!suggestion.id || !suggestion.printingId) {
+      return;
+    }
+    setCardId(suggestion.id);
+    toDetails(suggestion.printingId, 'typing');
+  };
+
+  const tiles: PhotoTile[] = photos.map((photo) => ({
+    kind: 'local',
+    key: photo.key,
+    photo,
+    state: saving ? 'uploading' : 'waiting',
+  }));
 
   const submit = async () => {
-    if (!form || !selected?.id) {
+    if (!printing?.id || !card.data) {
       return;
     }
-    const found = validateItemForm(form);
+    const found = validateCardForm(form);
     setErrors(found);
-    setFailure(null);
     if (hasErrors(found)) {
-      setMessage('Check the highlighted fields.');
+      setMessage(CARD_FORM_COPY.checkFields);
       return;
     }
     setMessage(null);
+    setSaving(true);
+    let created;
     try {
-      const item = await create.mutateAsync(toCreateRequest(form, selected.id));
-      snackbar.show(`${item.card.name} added to your inventory.`);
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/inventory');
-      }
+      created = await create.mutateAsync(toCreateBody(form, printing.id));
     } catch (error) {
       const apiError = error as ApiError;
-      setErrors(serverItemErrors(apiError));
-      setFailure(apiError);
-      setMessage(isLimitReached(apiError) ? null : friendlyMessage(apiError));
+      setErrors(serverCardErrors(apiError));
+      // A reached limit is a plain cap for everyone (free for all): no plan, no upgrade.
+      setMessage(
+        isLimitReached(apiError)
+          ? CARD_FORM_COPY.inventoryFull(limitReachedInfo(apiError).limit)
+          : friendlyMessage(apiError)
+      );
+      setSaving(false);
+      return;
     }
+    let failed: LocalPhoto[] = [];
+    if (photos.length > 0) {
+      try {
+        const result = await applyPhotos.mutateAsync({ id: created.id, add: photos, remove: [] });
+        // A photo the API refused says why on Edit card, where it can only be removed.
+        failed = photos
+          .filter((photo) => result.failed.includes(photo.key))
+          .map((photo) => ({ ...photo, problem: photoRefusal(result.errors[photo.key]) }));
+      } catch {
+        failed = photos;
+      }
+    }
+    setSaving(false);
+    markSaved(created.id);
+    if (askingPriceTextOf(form.priceMode, form.price)) {
+      updatePrefs({ priceMode: form.priceMode });
+    }
+    const name = created.card.name;
+    if (failed.length > 0) {
+      // The card is kept; its Edit card opens on the photos that were not saved, with "Try
+      // again", and the toast says it too (not a plain "Saved").
+      keepFailedPhotos(created.id, failed);
+      snackbar.show(name, { title: TOAST_COPY.savedPhotosFailed(failed.length) });
+      router.replace({ pathname: '/items/[id]', params: { id: created.id } });
+      return;
+    }
+    snackbar.show(name, {
+      title: TOAST_COPY.saved,
+      icon: 'success',
+      action: {
+        label: TOAST_COPY.view,
+        onPress: () => router.push({ pathname: '/items/[id]', params: { id: created.id } }),
+        testID: 'snackbar-view',
+      },
+    });
+    leave();
   };
 
-  const index = STEPS.indexOf(step);
-
-  return (
-    <Screen scroll safeBottom testID="screen-add-item">
-      <StepIndicator steps={STEP_LABELS} current={index} />
-      {step === 'search' ? <CardPicker onPick={pick} /> : null}
-
-      {step === 'printing' ? (
-        <View style={styles.root}>
-          {card.data ? (
-            <>
-              <CardHeader card={card.data} printing={selected} />
-              <Text
-                style={[textStyle('sm'), { color: palette.textMuted }]}
-                testID="add-item-printing-count"
-              >
-                {printings.length} {printings.length === 1 ? 'printing' : 'printings'}. Pick the one
-                you own.
-              </Text>
-              <PrintingList
-                printings={printings}
-                cardName={card.data.name ?? ''}
-                game={card.data.game}
-                selectedId={selected?.id ?? null}
-                onSelect={(printing) => setPrintingId(printing.id ?? null)}
-                label="Printing"
-              />
-            </>
-          ) : card.error ? (
-            <ErrorState
-              testID="add-item-card-error"
-              error={card.error}
-              title="This card could not load"
-              onRetry={() => void card.refetch()}
-            />
-          ) : (
-            <SkeletonList rows={3} rowHeight={72} />
-          )}
-          <View style={styles.actions}>
-            <Button
-              label="Back"
-              variant="ghost"
-              icon="arrow-left"
-              onPress={back}
-              testID="add-item-back"
-            />
-            <Button
-              label="Continue"
-              onPress={toDetails}
-              disabled={!selected}
-              style={styles.grow}
-              testID="add-item-continue"
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {step === 'details' && form && card.data ? (
-        <View style={styles.root}>
-          <CardHeader card={card.data} printing={selected} compact />
-          <ItemDetailsFields
+  let header;
+  let body;
+  let footer = null;
+  if (step === 'start') {
+    header = (
+      <BackBar
+        label={ADD_CARDS_COPY.back}
+        variant="back"
+        backLabel={ADD_CARDS_COPY.backLabel}
+        onBack={leave}
+        testID="add-cards-back"
+      />
+    );
+    body = (
+      <AddCardsStart
+        onSearch={() => setStep('typing')}
+        onImportDeck={() => router.push({ pathname: '/items/import', params: { source: 'YDK' } })}
+        onImportCollectr={() =>
+          router.push({ pathname: '/items/import', params: { source: 'COLLECTR_CSV' } })
+        }
+      />
+    );
+  } else if (step === 'typing') {
+    header = null;
+    body = (
+      <AddCardSearch
+        text={text}
+        onText={setText}
+        onCancel={() => setStep('start')}
+        onCard={pickCard}
+        onPrinting={pickPrinting}
+      />
+    );
+  } else if (step === 'printing') {
+    header = (
+      <BackBar
+        label={PRINTING_COPY.title}
+        backLabel={PRINTING_COPY.backLabel}
+        onBack={back}
+        testID="printing-back"
+      />
+    );
+    body = card.data ? (
+      <PrintingPicker
+        card={card.data}
+        onPick={(picked) => toDetails(picked.id ?? null, 'printing')}
+      />
+    ) : card.error ? (
+      <ErrorState
+        testID="add-item-card-error"
+        error={card.error}
+        title={PRINTING_COPY.loadError}
+        onRetry={() => void card.refetch()}
+      />
+    ) : (
+      <SkeletonList rows={4} rowHeight={64} testID="add-item-card-loading" />
+    );
+  } else {
+    header = (
+      <BackBar
+        label={ADD_DETAILS_COPY.title}
+        backLabel={ADD_DETAILS_COPY.backLabel}
+        onBack={back}
+        testID="add-item-back"
+      />
+    );
+    if (card.data && printing) {
+      body = (
+        <View style={styles.details}>
+          <CardHeader
+            name={card.data.name ?? ''}
+            game={card.data.game}
+            printing={printing}
+            printings={printings}
+            fallbackImage={card.data.primaryImageUrl}
+            variant="add"
+          />
+          <CardFormFields
             value={form}
             onChange={(patch) => {
-              setForm((current) => (current ? { ...current, ...patch } : current));
+              setForm((current) => ({ ...current, ...patch }));
               setErrors((current) => {
                 const next = { ...current };
                 for (const key of Object.keys(patch)) {
-                  delete next[key as keyof ItemFormErrors];
+                  if (key === 'quantity' || key === 'price' || key === 'publicNote') {
+                    delete next[key];
+                  }
                 }
                 return next;
               });
             }}
             errors={errors}
-            schema={schema}
             binders={binders.data ?? []}
-            disabled={create.isPending}
+            findability={findability}
+            disabled={saving}
+            photos={{
+              tiles,
+              onAdd: (added) => setPhotos((current) => [...current, ...added].slice(0, 4)),
+              onRemove: (key) => setPhotos((current) => current.filter((p) => p.key !== key)),
+            }}
           />
-          {failure && isLimitReached(failure) ? <LimitReachedNotice error={failure} /> : null}
           {message ? <FormMessage testID="add-item-error">{message}</FormMessage> : null}
-          <View style={styles.actions}>
-            <Button
-              label="Back"
-              variant="ghost"
-              icon="arrow-left"
-              onPress={back}
-              testID="add-item-back"
-            />
-            <Button
-              label="Add to inventory"
-              loadingLabel="Adding…"
-              icon="plus"
-              loading={create.isPending}
-              onPress={() => void submit()}
-              style={styles.grow}
-              testID="add-item-submit"
-            />
-          </View>
         </View>
-      ) : null}
-    </Screen>
-  );
-}
+      );
+      footer = (
+        <>
+          <PillButton
+            label={ADD_DETAILS_COPY.submit}
+            loadingLabel={ADD_DETAILS_COPY.submitting}
+            icon="plus"
+            loading={saving}
+            onPress={() => void submit()}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            testID="add-item-submit"
+          />
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[textStyle('xs'), styles.footnote, { color: palette.textMuted }]}
+          >
+            {ADD_DETAILS_COPY.footnote}
+          </Text>
+        </>
+      );
+    } else if (card.error) {
+      body = (
+        <ErrorState
+          testID="add-item-card-error"
+          error={card.error}
+          title={PRINTING_COPY.loadError}
+          onRetry={() => void card.refetch()}
+        />
+      );
+    } else if (card.data && !printing) {
+      // The card's printings changed under a link: choose again.
+      body = (
+        <PrintingPicker
+          card={card.data}
+          onPick={(picked) => toDetails(picked.id ?? null, 'printing')}
+        />
+      );
+    } else {
+      body = <SkeletonList rows={4} rowHeight={72} testID="add-item-card-loading" />;
+    }
+  }
 
-function CardHeader({
-  card,
-  printing,
-  compact = false,
-}: {
-  card: CardDetail;
-  printing: PrintingSummary | null;
-  compact?: boolean;
-}) {
-  const { palette } = useTheme();
-  const image = printingImageUrl(printing) ?? card.primaryImageUrl ?? null;
   return (
-    <View style={styles.header} testID="add-item-card">
-      <CardImage src={image} alt={card.name ?? ''} game={card.game} size={compact ? 'xs' : 'sm'} />
-      <View style={styles.grow}>
-        {card.game ? (
-          <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.textMuted }]}>
-            {gameLabel(card.game)}
-          </Text>
-        ) : null}
-        <Text
-          accessibilityRole="header"
-          style={[textStyle('lg', 'heading'), styles.name, { color: palette.ink }]}
-        >
-          {card.name}
-        </Text>
-        {compact && printing ? (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            {printingCode(printing)} · {printing.setName}
-          </Text>
-        ) : null}
-      </View>
-    </View>
+    <>
+      <Stack.Screen options={{ headerShown: false, title: ADD_CARDS_COPY.title }} />
+      <InventoryFormScreen
+        // Each step opens at its top: a long list of printings scrolled down left Add to
+        // inventory scrolled past its header.
+        key={step}
+        header={header}
+        footer={footer}
+        testID={step === 'details' ? 'screen-add-item' : `screen-add-cards-${step}`}
+      >
+        {body}
+      </InventoryFormScreen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  grow: { flex: 1 },
-  eyebrow: { fontWeight: fontWeight.semibold, textTransform: 'uppercase' },
-  name: { fontWeight: fontWeight.semibold },
-  actions: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
+  details: { gap: spacing[4] },
+  footnote: { textAlign: 'center' },
 });

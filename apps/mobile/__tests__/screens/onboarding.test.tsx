@@ -97,6 +97,13 @@ describe('Onboarding', () => {
     // Step 1: profile.
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 3 · Profile')).toBeOnTheScreen();
+    // Deals ship by mail (ADR 0018): the first screen a collector fills in never asks where
+    // they meet, neither in a text nor in a placeholder.
+    expect(
+      screen.getByPlaceholderText('What do you collect? Do you trade, sell or ship?')
+    ).toBeOnTheScreen();
+    expect(screen.queryAllByText(/\bmeet/i)).toHaveLength(0);
+    expect(screen.queryAllByPlaceholderText(/\bmeet/i)).toHaveLength(0);
     fireEvent.changeText(screen.getByLabelText('Display name'), '');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByText('Enter a display name.')).toBeOnTheScreen();
@@ -122,7 +129,7 @@ describe('Onboarding', () => {
     );
 
     fireEvent.press(await screen.findByRole('checkbox', { name: 'Pokémon' }));
-    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Local pickup' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Add tag Tracked shipping' }));
     expect(screen.getByTestId('tag-count')).toHaveTextContent('1 / 12');
     fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
 

@@ -1,0 +1,527 @@
+# Native flow 2 of the phone redesign (owner spec 2026-10-14, section 14; stage R3, mockup screens
+# 16 to 18 and Inventory › Binders, and Search of stage R5): a fresh collector (Quebec,
+# "Show me on the map" on) makes a binder a deck core with a photo and a price (New binder: the
+# "Sell as a deck core" switch, Photos, Asking price, Public note and a key card picked from the
+# inventory), sees it first on Inventory › Binders with its purple tag, then on its own page
+# (screen 16) as buyers see it. scripts/check-binder.js checks on the host what the isolated API
+# holds, and the public page an anonymous buyer gets (the price, the photo, the key card, Quebec,
+# never a city). Then (R3 review fix 1) the page's "Edit binder" goes back to the Edit binder it
+# came from, and a new price shows on Inventory › Binders and on the page; scripts/check-card.js
+# checks that the card kept the visibility its collector gave it (private) in the deck core and
+# after the delete. R3 review fix 2: at the largest text size, the "Add cards" picker shows the card
+# with "Add 1 card", and Reorder shows the binders with Cancel and "Save order"; the deck
+# core's row on the owner's profile (Profile › Public preview) shows a price saved from the Edit
+# binder that row opens (the binder's own link, /binders/[id]), and "Delete binder" there lands on
+# Inventory › Binders.
+# Stage R5 completes native flow 2: the deck core is found on the map's state card of the
+# collector's province ("{n} deck cores") and in Search › Binders › Deck cores, which opens its
+# page.
+#
+# The photo is the fictional picture of native flow 1 (media/fictional-card-photo.jpg, 600 × 800),
+# put in the simulator's photo library by `addMedia` and picked as the newest photo
+# (subflows/pick-newest-photo.yaml; see inventory-add-edit-undo.yaml).
+appId: ${APP_ID}
+name: Make a binder a deck core with a photo and a price, and see it on its page
+tags:
+  - mobile-r3
+  - mobile-r5
+  - binders
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: core
+      DISPLAY_NAME: Maestro Deck Core
+      PLACE: 'CA:CA-QC'
+      DISCOVERABLE: 'true'
+- runScript:
+    file: scripts/add-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      QUERY: 'Lantern Fox Spirit'
+- addMedia:
+    - media/fictional-card-photo.jpg
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible: 'Lantern Fox Spirit, .*'
+    timeout: 60000
+
+# Inventory › Binders (screen 17): none yet; New binder.
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-empty'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-new-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 30000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'Maestro core'
+- runFlow: subflows/hide-keyboard.yaml
+
+# "Sell as a deck core": the binder becomes public, the card shows Photos, Asking price and
+# Public note, and the section names its key cards.
+- tapOn:
+    id: 'binder-deck-core-switch'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-price'
+    timeout: 30000
+- assertVisible:
+    id: 'binder-visibility-hint'
+    text: 'Collectors in Americas \(North\) can find it.'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-photos-add'
+- tapOn:
+    id: 'card-photos-add'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-library'
+    timeout: 30000
+- tapOn:
+    id: 'card-photos-library'
+- runFlow:
+    file: subflows/pick-newest-photo.yaml
+    env:
+      BEHIND: 'card-photos-count'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-count'
+      text: '1 of 4 photos'
+    timeout: 60000
+- tapOn:
+    id: 'binder-price'
+- inputText: '$180'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-note'
+- tapOn:
+    id: 'binder-note'
+- inputText: 'All NM, English. Sleeves included.'
+- runFlow: subflows/hide-keyboard.yaml
+
+# A key card, picked from the inventory (it moves in with the save).
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-add-cards'
+- assertVisible:
+    id: 'binder-cards-title'
+    text: 'Key cards · optional'
+- tapOn:
+    id: 'binder-add-cards'
+- extendedWaitUntil:
+    visible: 'Lantern Fox Spirit, .*unfiled'
+    timeout: 30000
+- tapOn: 'Lantern Fox Spirit, .*unfiled'
+- tapOn:
+    id: 'card-picker-submit'
+- extendedWaitUntil:
+    visible: 'Added when you save'
+    timeout: 30000
+- takeScreenshot: r3-new-deck-core
+- runFlow:
+    file: subflows/keyboard-down.yaml
+- tapOn:
+    id: 'edit-binder-save'
+
+# Saved: the toast, then Inventory › Binders with the deck core first and its purple tag. A photo
+# that failed reads "Saved · 1 photo wasn't saved" and opens Edit binder: the flow stops and says so.
+- extendedWaitUntil:
+    visible: 'Saved.*, Maestro core'
+    timeout: 60000
+- assertNotVisible: ".*photo wasn't saved.*"
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$180'
+    timeout: 60000
+- assertVisible:
+    id: 'binders-summary'
+    text: '1 deck core'
+- takeScreenshot: r3-inventory-binders
+- runScript:
+    file: scripts/check-binder.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      NAME: 'Maestro core'
+      EXPECT_CORE: 'true'
+      EXPECT_VISIBILITY: 'PUBLIC'
+      EXPECT_PRICE_TEXT: '$180'
+      EXPECT_PRICE: '180'
+      EXPECT_NOTE: 'All NM, English. Sleeves included.'
+      EXPECT_PHOTOS: '1'
+      EXPECT_PHOTO_SIZE: '600x800'
+      EXPECT_ITEMS: '1'
+      EXPECT_KEY_CARD: 'Lantern Fox Spirit'
+      EXPECT_PUBLIC_PLACE: 'Quebec, Canada'
+
+# The largest text size (R3 review fix 2): the "Add cards" picker of New binder shows the card and
+# "Add 1 card", and Reorder (two binders: a plain one is made here, empty) shows both binders with
+# Cancel and "Save order". Before the fix the text above their lists filled both sheets: no card,
+# no binder, no Cancel and no button within reach (subflows/relaunch-large-text.yaml; Android keeps
+# the device's own size).
+- runFlow: subflows/relaunch-large-text.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-view-binders'
+    timeout: 60000
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-new-binder'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-new-binder'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-name'
+    timeout: 30000
+- tapOn:
+    id: 'binder-name'
+- inputText: 'Maestro plain'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binder-add-cards'
+- tapOn:
+    id: 'binder-add-cards'
+- extendedWaitUntil:
+    visible:
+      id: 'card-picker-submit'
+    timeout: 30000
+- scrollUntilVisible:
+    element: 'Lantern Fox Spirit, .*in Maestro core'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Lantern Fox Spirit, .*in Maestro core'
+- assertVisible:
+    id: 'card-picker-submit'
+    text: 'Add 1 card'
+- takeScreenshot: r3-large-picker
+# Unpicked again (the card stays in the deck core), and the sheet closed from above it.
+- tapOn: 'Lantern Fox Spirit, .*in Maestro core'
+- assertVisible:
+    id: 'card-picker-submit'
+    text: 'Add cards'
+- tapOn:
+    point: '50%,10%'
+- extendedWaitUntil:
+    notVisible:
+      id: 'card-picker-submit'
+    timeout: 15000
+- runFlow:
+    file: subflows/keyboard-down.yaml
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro plain, .*'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binders-reorder'
+- tapOn:
+    id: 'binders-reorder'
+- extendedWaitUntil:
+    visible:
+      id: 'reorder-cancel'
+    timeout: 30000
+- assertVisible:
+    id: 'reorder-save'
+- scrollUntilVisible:
+    element: 'Maestro core, position 1 of 1'
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element: 'Maestro plain, position 1 of 1'
+    direction: DOWN
+    timeout: 20000
+- takeScreenshot: r3-large-reorder
+- tapOn:
+    id: 'reorder-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'reorder-cancel'
+    timeout: 15000
+# The app reopens at the device's own text size.
+- runFlow: subflows/relaunch.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-view-binders'
+    timeout: 60000
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$180'
+    timeout: 60000
+
+# Edit binder (screen 18): "No changes yet" until a change; its public page from the eye button.
+- tapOn: 'Maestro core, 1 photo · Public, Deck core · \$180'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- takeScreenshot: r3-edit-binder
+- tapOn:
+    id: 'edit-binder-public-page'
+
+# The deck core page (screen 16), what buyers see: the photo, the tag, the name and the price,
+# the seller row with the province, the note and the key card. The owner sees "Edit binder".
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-name'
+      text: 'Maestro core'
+    timeout: 60000
+- assertVisible:
+    id: 'deck-core-price'
+    text: '\$180'
+- assertVisible:
+    id: 'deck-core-tag'
+- assertVisible: 'Quebec · 1 public binder'
+- assertVisible: 'All NM, English. Sleeves included.'
+- assertVisible: 'Lantern Fox Spirit, 1 copy. Opens the card.'
+- assertVisible:
+    id: 'deck-core-edit'
+- takeScreenshot: r3-deck-core-page
+
+# The card picked into the deck core is still private: buyers see it as the core's key card
+# (checked above on the public page), never on its own.
+- runScript:
+    file: scripts/check-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      ITEM_ID: ${output.item.id}
+      EXPECT_BINDER: 'Maestro core'
+      EXPECT_VISIBILITY: 'PRIVATE'
+
+# "Edit binder" goes back to the Edit binder the page was opened from (never a second one over
+# it, which kept old values with "Save changes" on).
+- tapOn:
+    id: 'deck-core-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- assertNotVisible:
+    id: 'deck-core-name'
+
+# A new price: Inventory › Binders shows it, and so does the page buyers see.
+- tapOn:
+    id: 'binder-price'
+- eraseText: 12
+- inputText: '$150'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'Save changes'
+    timeout: 15000
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro core, 1 photo · Public, Deck core · \$150'
+    timeout: 60000
+- tapOn: 'Maestro core, 1 photo · Public, Deck core · \$150'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-public-page'
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-price'
+      text: '\$150'
+    timeout: 60000
+- takeScreenshot: r3-deck-core-page-edited
+
+# The deck core's row on the owner's profile as collectors see it (Profile › Public preview), with
+# its price. The row opens Edit binder (the binder's own link, /binders/[id]); a price saved there
+# shows on the row at once (R3 review fix 2: the row kept the old price).
+- tapOn:
+    id: 'deck-core-edit'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-back'
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-preview'
+- tapOn:
+    id: 'profile-preview'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro core, Deck core · \$150'
+- tapOn: 'Maestro core, Deck core · \$150'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'No changes yet'
+    timeout: 60000
+- tapOn:
+    id: 'binder-price'
+- eraseText: 12
+- inputText: '$120'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-save'
+      text: 'Save changes'
+    timeout: 15000
+- tapOn:
+    id: 'edit-binder-save'
+- extendedWaitUntil:
+    visible: 'Maestro core, Deck core · \$120'
+    timeout: 30000
+- takeScreenshot: r3-profile-row-after-save
+
+# Native flow 2 in full (stage R5): the deck core is found in Search. The map opens on the
+# collector's province, whose card counts its deck cores; "See binders", then "Deck cores": the row
+# with the core's price, which opens its page (the owner sees "Edit binder").
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'tab-search'
+    timeout: 30000
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-stats-CA-QC'
+      text: '.*[0-9]+ deck cores?'
+    timeout: 30000
+- takeScreenshot: r5-map-state-card-deck-cores
+- tapOn:
+    id: 'search-state-see-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-kind-cores'
+    timeout: 30000
+- tapOn:
+    id: 'binders-kind-cores'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Deck core, Maestro core, .*\$120'
+- assertVisible: 'Deck core, Maestro core, .*\$120'
+- takeScreenshot: r5-search-binders-deck-cores
+- tapOn: 'Deck core, Maestro core, .*\$120'
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-name'
+      text: 'Maestro core'
+    timeout: 60000
+- assertVisible:
+    id: 'deck-core-edit'
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binders-kind-cores'
+    timeout: 30000
+# Back to the profile's public preview, where the delete below starts.
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-preview'
+- tapOn:
+    id: 'profile-preview'
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro core, Deck core · \$120'
+
+# "Delete binder" from that Edit binder closes every screen of the deck core and lands on
+# Inventory › Binders (R3 review fix 2: it showed "This binder is not available"); the card stays
+# in the inventory, unfiled and still private. The "Saved · Maestro core" toast of the save above
+# sits at the bottom for about 5 seconds and can cover the row, depending on where the list
+# settled (R3 leftover R2-1: the tap hit the toast): wait for it to leave first.
+- extendedWaitUntil:
+    notVisible: 'Saved.*Maestro core.*'
+    timeout: 20000
+- tapOn: 'Maestro core, Deck core · \$120'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-delete'
+    timeout: 60000
+- tapOn:
+    id: 'edit-binder-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-binder-delete-sheet-confirm'
+    timeout: 15000
+- assertVisible: 'Delete Maestro core\?'
+- assertVisible: 'Its photos, price and note go away. Your cards stay in your inventory.'
+- tapOn:
+    id: 'edit-binder-delete-sheet-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-summary'
+      text: '1 binder'
+    timeout: 60000
+- assertVisible: 'Maestro plain, .*'
+- assertNotVisible: 'Maestro core.*'
+- assertNotVisible:
+    id: 'public-binder-not-found'
+- assertNotVisible:
+    id: 'deck-core-name'
+- takeScreenshot: r3-after-delete
+- runScript:
+    file: scripts/check-card.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      ITEM_ID: ${output.item.id}
+      EXPECT_BINDER: 'none'
+      EXPECT_VISIBILITY: 'PRIVATE'
+      GONE_BINDER: 'Maestro core'

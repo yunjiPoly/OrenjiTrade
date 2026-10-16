@@ -1,10 +1,10 @@
 package com.orenjitrade.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
+import com.orenjitrade.api.limits.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.boot.test.context.TestComponent;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +46,7 @@ public class TestProbeController {
             @AuthenticationPrincipal AuthenticatedUser user,
             @PathVariable String key,
             @RequestParam long requested) {
-        LimitDecision decision = limits.checkValue(user.userId(), key, requested);
+        LimitDecision decision = limits.checkValue(key, requested);
         if (!decision.allowed()) {
             throw new LimitReachedException(decision);
         }

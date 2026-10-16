@@ -56,20 +56,15 @@ const APP_ROOTS = new Set([
   'community',
   'wishlist',
   'notifications',
-  // Phases 7 and 8: collector reports, ratings and references, offers and trades.
+  // Phase 7: collector reports, ratings and references. Offers, trades, protected payments and
+  // disputes left the phone (ADR 0018); Premium, credits and donations left the app (ADR 0019).
   'report',
   'ratings',
-  'offers',
-  'trades',
-  // Phases 9 and 10: the local fake checkouts, disputes, Premium, credits and donations.
-  'checkout',
-  'disputes',
-  'premium',
-  'credits',
-  'support',
   // Stage M7: the card-holders list and set pages.
   'holders',
   'sets',
+  // Stage M9: the public binders of a state or province (opened from the Map tab).
+  'regions',
 ]);
 
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {

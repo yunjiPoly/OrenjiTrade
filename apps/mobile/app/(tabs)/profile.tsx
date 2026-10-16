@@ -1,8 +1,7 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
-import { FEATURE, useFeatureFlags } from '@/src/api/hooks/featureFlags';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useMyProfile } from '@/src/api/hooks/profile';
 import type { MyLocationResponse, MyProfileResponse } from '@/src/api/types';
@@ -13,20 +12,21 @@ import { ChipList, Divider, ListRow, SectionCard } from '@/src/components/ui/Lay
 import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { gameLabel, languageLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * Profile tab: the collector's own profile (what they set up in onboarding), its location and
- * visibility, shortcuts to edit it, to preview it as others see it, and to Settings.
+ * visibility, shortcuts to edit it, to preview it as others see it, and to Settings. Offers and
+ * trades left the phone (ADR 0018: deals happen in the chat); Premium, credits and donations left
+ * the app (ADR 0019: free for all).
  */
 export default function ProfileScreen() {
   const profile = useMyProfile();
   const location = useMyLocation();
   const router = useRouter();
   const session = useSession();
-  // Premium, credits and donations follow their flags (web: the account menu).
-  const flags = useFeatureFlags();
 
   return (
     <Screen scroll testID="screen-profile">
@@ -38,60 +38,6 @@ export default function ProfileScreen() {
       >
         {(data) => <ProfileContent profile={data} location={location.data} />}
       </QueryState>
-
-      <SectionCard style={styles.section}>
-        <ListRow
-          icon="tag-outline"
-          label="Offers"
-          detail="Offers on your cards and the ones you made"
-          onPress={() => router.push('/offers')}
-          testID="profile-offers"
-        />
-        <Divider />
-        <ListRow
-          icon="swap-horizontal-bold"
-          label="Trades"
-          detail="Deals you agreed on: meet, exchange, confirm"
-          onPress={() => router.push('/trades')}
-          testID="profile-trades"
-        />
-        {flags.data?.[FEATURE.premiumPlans] === true ? (
-          <>
-            <Divider />
-            <ListRow
-              icon="crown-outline"
-              label="Premium"
-              detail="Plans, your subscription and your usage"
-              onPress={() => router.push('/premium')}
-              testID="profile-premium"
-            />
-          </>
-        ) : null}
-        {flags.data?.[FEATURE.credits] === true ? (
-          <>
-            <Divider />
-            <ListRow
-              icon="hand-coin-outline"
-              label="Credits"
-              detail="Your balance, unlocks for a day and referrals"
-              onPress={() => router.push('/credits')}
-              testID="profile-credits"
-            />
-          </>
-        ) : null}
-        {flags.data?.[FEATURE.donations] === true ? (
-          <>
-            <Divider />
-            <ListRow
-              icon="hand-heart-outline"
-              label="Support OrenjiTrade"
-              detail="A voluntary donation"
-              onPress={() => router.push('/support')}
-              testID="profile-support"
-            />
-          </>
-        ) : null}
-      </SectionCard>
 
       <SectionCard style={styles.section}>
         <ListRow

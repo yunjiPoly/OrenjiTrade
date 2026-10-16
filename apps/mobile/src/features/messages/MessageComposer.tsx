@@ -1,17 +1,28 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState, type ElementRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { CardImage } from '@/src/components/ui/CardImage';
-import { ListRow } from '@/src/components/ui/Layout';
+import { Text, TextInput } from '@/src/components/ui/Text';
 import { afterModals } from '@/src/components/ui/modalTurns';
+import { SavedDetailSheet } from '@/src/features/shipping/SavedDetailSheet';
+import { useSavedDetails, type SavedDetailKind } from '@/src/features/shipping/savedDetails';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
-import { BinderLinkPicker, CardLinkPicker, OfferLinkPicker } from './LinkPickers';
+import { COMPOSER_COPY, QUICK_REPLIES, SAVED_DETAIL_COPY } from './chatCopy';
+import { attachRows, type AttachRow, type DealSide } from './dealRules';
+import { BinderLinkPicker } from './LinkPickers';
 import {
   fileSizeLabel,
   imageProblem,
@@ -21,8 +32,7 @@ import {
   type PickedPhoto,
 } from './messageDraft';
 import { MESSAGE_MAX_LENGTH } from './messageText';
-
-type Picker = 'card' | 'binder' | 'offer' | null;
+import { OwnCardPicker } from './OwnCardPicker';
 
 export interface MessageComposerProps {
   /** Sending in progress. */
@@ -32,39 +42,70 @@ export interface MessageComposerProps {
   /** Why the last send failed (from the thread). */
   error: string | null;
   placeholder: string;
+  /** Which side of the deal the reader is on (the "+" sheet's first rows). */
+  side: DealSide;
+  /** The quick replies to offer (one tap sends). */
+  quickReplies: readonly string[];
   /** Resolves true when the message was accepted (the composer then clears). */
   onSend: (draft: MessageDraft) => Promise<boolean>;
   /** The caller typed (throttled by the thread before it reaches the server). */
   onTyping: () => void;
   onDismissError: () => void;
-  /** The other participant ("Share an offer" lists the negotiations with them). */
-  otherId?: string | null;
-  otherName?: string;
 }
 
+const ROW_ICONS: Record<AttachRow, keyof typeof MaterialCommunityIcons.glyphMap> = {
+  address: 'map-marker-outline',
+  etransfer: 'email-outline',
+  photo: 'image-outline',
+  card: 'cards-outline',
+  binder: 'book-open-variant',
+};
+
+const ROW_LABELS: Record<AttachRow, string> = {
+  address: COMPOSER_COPY.address,
+  etransfer: COMPOSER_COPY.etransfer,
+  photo: COMPOSER_COPY.photo,
+  card: COMPOSER_COPY.card,
+  binder: COMPOSER_COPY.binder,
+};
+
+const ROW_IDS: Record<AttachRow, string> = {
+  address: 'composer-send-address',
+  etransfer: 'composer-send-etransfer',
+  photo: 'composer-attach-photo',
+  card: 'composer-share-card',
+  binder: 'composer-share-binder',
+};
+
 /**
- * Message composer (the web's `app-message-composer`): multi-line text, an attachment menu
- * (share a card, one of the caller's public binders or a negotiation with the other collector
- * through an inline picker, or attach a photo from the library with a preview and type / size
- * checks) and the send button. It only hands drafts to the thread, which decides whether the send
- * worked.
+ * The message box of a chat (owner spec 2026-10-14, section 10, mockup screens 23 and 24): the
+ * quick replies in one sideways row (one tap sends), then "+", the "Message" field and the send
+ * button, orange once there is something to send. The "+" sheet: "Send my address" (buying) or
+ * "Send my e-Transfer email" (selling; both in a chat without a card), each "Saved on this phone
+ * only" and asked for the first time; "Send a photo"; "Share a card from your inventory"; "Share a
+ * binder"; "Cancel". A saved detail goes into the message box to be checked, never sent by itself.
+ * The thread decides whether a send worked.
  */
 export function MessageComposer({
   busy,
   disabled,
   error,
   placeholder,
+  side,
+  quickReplies,
   onSend,
   onTyping,
   onDismissError,
-  otherId = null,
-  otherName = 'this collector',
 }: MessageComposerProps) {
   const { palette } = useTheme();
+  const input = useRef<ElementRef<typeof TextInput>>(null);
+  const saved = useSavedDetails();
   const [text, setText] = useState('');
   const [attachment, setAttachment] = useState<DraftAttachment | null>(null);
-  const [picker, setPicker] = useState<Picker>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [binderPicker, setBinderPicker] = useState(false);
+  const [cardPicker, setCardPicker] = useState(false);
+  const [asking, setAsking] = useState<SavedDetailKind | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const nearLimit = text.length > MESSAGE_MAX_LENGTH - 200;
   const canSend =
@@ -73,15 +114,36 @@ export function MessageComposer({
     (text.trim().length > 0 || !!attachment) &&
     text.length <= MESSAGE_MAX_LENGTH;
 
+  /** Puts a saved detail into the message box (after what is there), to be checked first. */
+  const insert = (kind: SavedDetailKind, value: string) => {
+    const line =
+      kind === 'address'
+        ? SAVED_DETAIL_COPY.addressMessage(value)
+        : SAVED_DETAIL_COPY.etransferMessage(value);
+    setText((current) => (current.trim() ? `${current.trimEnd()}\n${line}` : line));
+    setTimeout(() => input.current?.focus(), 0);
+  };
+
+  const applyDetail = async (kind: SavedDetailKind) => {
+    setMenuOpen(false);
+    const value = kind === 'address' ? saved.address : saved.etransfer;
+    await afterModals();
+    if (value) {
+      insert(kind, value);
+    } else {
+      setAsking(kind);
+    }
+  };
+
   const choosePhoto = async () => {
     setMenuOpen(false);
     setFileError(null);
-    // iOS puts the photo picker on top of whatever is on screen: opened while the attach sheet is
-    // still sliding away, it went away with the sheet and the row seemed to do nothing.
+    // iOS puts the photo picker on top of whatever is on screen: opened while the sheet is still
+    // sliding away, it went away with the sheet and the row seemed to do nothing.
     await afterModals();
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setFileError('Allow access to your photos to attach one.');
+      setFileError(COMPOSER_COPY.photoAccess);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -106,8 +168,31 @@ export function MessageComposer({
       setFileError(problem);
       return;
     }
-    setPicker(null);
+    setBinderPicker(false);
     setAttachment({ kind: 'image', photo });
+  };
+
+  const pick = async (row: AttachRow) => {
+    switch (row) {
+      case 'address':
+      case 'etransfer':
+        await applyDetail(row);
+        return;
+      case 'photo':
+        await choosePhoto();
+        return;
+      case 'card':
+        setMenuOpen(false);
+        setFileError(null);
+        await afterModals();
+        setCardPicker(true);
+        return;
+      case 'binder':
+        setMenuOpen(false);
+        setFileError(null);
+        setBinderPicker(true);
+        return;
+    }
   };
 
   const submit = async () => {
@@ -121,36 +206,59 @@ export function MessageComposer({
     }
   };
 
+  const sendQuickReply = async (reply: string) => {
+    if (busy || disabled) {
+      return;
+    }
+    await onSend({ text: reply, attachment: null });
+  };
+
   return (
     <View style={styles.root} testID="message-composer">
-      {picker === 'card' ? (
-        <CardLinkPicker
-          onPicked={(card) => {
-            setAttachment({ kind: 'card', card });
-            setPicker(null);
-          }}
-          onCancel={() => setPicker(null)}
-        />
-      ) : null}
-      {picker === 'offer' && otherId ? (
-        <OfferLinkPicker
-          otherId={otherId}
-          otherName={otherName}
-          onPicked={(offer) => {
-            setAttachment({ kind: 'offer', offer });
-            setPicker(null);
-          }}
-          onCancel={() => setPicker(null)}
-        />
-      ) : null}
-      {picker === 'binder' ? (
+      {binderPicker ? (
         <BinderLinkPicker
           onPicked={(binder) => {
             setAttachment({ kind: 'binder', binder });
-            setPicker(null);
+            setBinderPicker(false);
           }}
-          onCancel={() => setPicker(null)}
+          onCancel={() => setBinderPicker(false)}
         />
+      ) : null}
+
+      {quickReplies.length > 0 && !disabled ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          accessibilityLabel={QUICK_REPLIES.label}
+          contentContainerStyle={styles.quickRow}
+          style={styles.quick}
+          testID="quick-replies"
+        >
+          {quickReplies.map((reply) => (
+            <Pressable
+              key={reply}
+              accessibilityRole="button"
+              accessibilityLabel={QUICK_REPLIES.send(reply)}
+              disabled={busy}
+              onPress={() => void sendQuickReply(reply)}
+              hitSlop={CHIP_HIT_SLOP}
+              testID={`quick-reply-${reply}`}
+              style={({ pressed }) => [
+                styles.quickChip,
+                { borderColor: palette.borderStrong, backgroundColor: palette.surface },
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[styles.quickLabel, { color: palette.ink }]}
+              >
+                {reply}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       ) : null}
 
       {attachment ? (
@@ -164,7 +272,7 @@ export function MessageComposer({
           <AttachmentPreview attachment={attachment} />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Remove attachment"
+            accessibilityLabel={COMPOSER_COPY.removeAttachment}
             onPress={() => setAttachment(null)}
             hitSlop={8}
             testID="composer-attachment-remove"
@@ -175,7 +283,7 @@ export function MessageComposer({
       ) : null}
 
       {fileError ? (
-        <Text accessibilityRole="alert" style={[textStyle('sm'), { color: palette.danger }]}>
+        <Text accessibilityRole="alert" style={[styles.note, { color: palette.danger }]}>
           {fileError}
         </Text>
       ) : null}
@@ -186,28 +294,30 @@ export function MessageComposer({
           onPress={onDismissError}
           testID="conversation-send-error"
         >
-          <Text style={[textStyle('sm'), { color: palette.danger }]}>{error}</Text>
+          <Text style={[styles.note, { color: palette.danger }]}>{error}</Text>
         </Pressable>
       ) : null}
 
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Attach a card, binder, offer or photo"
+          accessibilityLabel={COMPOSER_COPY.attach}
           aria-disabled={disabled}
           disabled={disabled}
           onPress={() => setMenuOpen(true)}
-          hitSlop={6}
+          hitSlop={ROUND_HIT_SLOP}
           testID="composer-attach"
           style={({ pressed }) => [
-            styles.iconButton,
+            styles.round,
+            { borderColor: palette.borderStrong, backgroundColor: palette.surface },
             pressed && styles.pressed,
             disabled && styles.disabled,
           ]}
         >
-          <MaterialCommunityIcons name="plus-circle-outline" size={26} color={palette.accent} />
+          <MaterialCommunityIcons name="plus" size={22} color={palette.ink} />
         </Pressable>
         <TextInput
+          ref={input}
           value={text}
           onChangeText={(value) => {
             setText(value);
@@ -218,15 +328,17 @@ export function MessageComposer({
               onDismissError();
             }
           }}
-          accessibilityLabel="Message"
+          accessibilityLabel={COMPOSER_COPY.placeholder}
           placeholder={placeholder}
           placeholderTextColor={palette.textDisabled}
           editable={!disabled}
           multiline
           maxLength={MESSAGE_MAX_LENGTH}
           testID="conversation-input"
+          // The box stays on screen with the keyboard: it follows the text size up to twice its
+          // size, so the thread above it keeps room at the largest sizes.
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[
-            textStyle('md'),
             styles.input,
             {
               color: palette.ink,
@@ -237,13 +349,15 @@ export function MessageComposer({
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={busy ? 'Sending…' : 'Send message'}
+          accessibilityLabel={busy ? COMPOSER_COPY.sending : COMPOSER_COPY.send}
           aria-disabled={!canSend}
           aria-busy={busy}
           disabled={!canSend}
           onPress={() => void submit()}
+          hitSlop={ROUND_HIT_SLOP}
           testID="conversation-send"
           style={({ pressed }) => [
+            styles.round,
             styles.send,
             { backgroundColor: canSend ? palette.primary : palette.surfaceVariant },
             pressed && styles.pressed,
@@ -251,68 +365,105 @@ export function MessageComposer({
         >
           <MaterialCommunityIcons
             name={busy ? 'progress-clock' : 'send'}
-            size={22}
+            size={19}
             color={canSend ? palette.onPrimary : palette.textDisabled}
           />
         </Pressable>
       </View>
       {nearLimit ? (
-        <Text style={[textStyle('xs'), styles.counter, { color: palette.warning }]}>
-          {text.length} / {MESSAGE_MAX_LENGTH} characters
+        <Text style={[styles.note, styles.counter, { color: palette.warning }]}>
+          {COMPOSER_COPY.nearLimit(text.length, MESSAGE_MAX_LENGTH)}
         </Text>
       ) : null}
 
       <BottomSheet
         visible={menuOpen}
         onClose={() => setMenuOpen(false)}
-        title="Attach"
         testID="composer-attach-sheet"
       >
-        <ListRow
-          icon="cards-outline"
-          label="Share a card"
-          kind="button"
-          onPress={() => {
-            setMenuOpen(false);
-            setFileError(null);
-            setPicker('card');
-          }}
-          testID="composer-share-card"
-        />
-        <ListRow
-          icon="book-open-variant"
-          label="Share a binder"
-          kind="button"
-          onPress={() => {
-            setMenuOpen(false);
-            setFileError(null);
-            setPicker('binder');
-          }}
-          testID="composer-share-binder"
-        />
-        {otherId ? (
-          <ListRow
-            icon="tag-outline"
-            label="Share an offer"
-            detail={`A negotiation with ${otherName}`}
-            kind="button"
-            onPress={() => {
-              setMenuOpen(false);
-              setFileError(null);
-              setPicker('offer');
-            }}
-            testID="composer-share-offer"
-          />
-        ) : null}
-        <ListRow
-          icon="image-plus"
-          label="Attach a photo"
-          detail="JPEG, PNG or WebP, up to 8 MB"
-          kind="button"
-          onPress={() => void choosePhoto()}
-          testID="composer-attach-photo"
-        />
+        {/* The rows scroll at the largest text sizes; Cancel stays on screen under them. */}
+        <ScrollView style={styles.sheetScroll} bounces={false} testID="composer-attach-rows">
+          {attachRows(side).map((row) => {
+            const savedOnPhone = row === 'address' || row === 'etransfer';
+            return (
+              <Pressable
+                key={row}
+                accessibilityRole="button"
+                accessibilityLabel={ROW_LABELS[row]}
+                accessibilityHint={
+                  savedOnPhone
+                    ? COMPOSER_COPY.savedOnPhone
+                    : row === 'photo'
+                      ? COMPOSER_COPY.photoDetail
+                      : undefined
+                }
+                onPress={() => void pick(row)}
+                testID={ROW_IDS[row]}
+                style={({ pressed }) => [
+                  styles.sheetRow,
+                  savedOnPhone && styles.sheetRowTall,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={ROW_ICONS[row]}
+                  size={22}
+                  color={palette.ink}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+                <View style={styles.sheetText}>
+                  <Text style={[styles.sheetLabel, { color: palette.ink }]}>{ROW_LABELS[row]}</Text>
+                  {savedOnPhone ? (
+                    <Text style={[styles.sheetDetail, { color: palette.textMuted }]}>
+                      {COMPOSER_COPY.savedOnPhone}
+                    </Text>
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={COMPOSER_COPY.cancel}
+          onPress={() => setMenuOpen(false)}
+          testID="composer-attach-cancel"
+          style={({ pressed }) => [
+            styles.cancel,
+            { borderColor: palette.borderStrong },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.cancelLabel, { color: palette.ink }]}
+          >
+            {COMPOSER_COPY.cancel}
+          </Text>
+        </Pressable>
       </BottomSheet>
+
+      <OwnCardPicker
+        visible={cardPicker}
+        onClose={() => setCardPicker(false)}
+        onPicked={(item) => {
+          setCardPicker(false);
+          setAttachment({ kind: 'item', item });
+        }}
+      />
+      <SavedDetailSheet
+        kind={asking}
+        onClose={() => setAsking(null)}
+        onSave={async (kind, value) => {
+          const stored = await saved.save(kind, value);
+          setAsking(null);
+          if (stored) {
+            await afterModals();
+            insert(kind, stored);
+          }
+        }}
+      />
     </View>
   );
 }
@@ -324,6 +475,17 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
   let name: string;
   let meta: string | null = null;
   switch (attachment.kind) {
+    case 'item':
+      thumb = (
+        <CardImage src={attachment.item.imageUrl} alt="" game={attachment.item.game} size="xs" />
+      );
+      eyebrow = COMPOSER_COPY.attachmentCard;
+      name = attachment.item.name;
+      meta =
+        [attachment.item.printingCode, attachment.item.askingPriceText]
+          .filter(Boolean)
+          .join(' · ') || null;
+      break;
     case 'card':
       thumb = (
         <CardImage src={attachment.card.imageUrl} alt="" game={attachment.card.game} size="xs" />
@@ -334,16 +496,8 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
       break;
     case 'binder':
       thumb = <MaterialCommunityIcons name="book-open-variant" size={28} color={palette.primary} />;
-      eyebrow = 'Public binder';
+      eyebrow = COMPOSER_COPY.attachmentBinder;
       name = attachment.binder.name;
-      break;
-    case 'offer':
-      thumb = (
-        <CardImage src={attachment.offer.imageUrl} alt="" game={attachment.offer.game} size="xs" />
-      );
-      eyebrow = 'Offer';
-      name = attachment.offer.cardName;
-      meta = attachment.offer.terms;
       break;
     case 'image':
       thumb = (
@@ -352,10 +506,10 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
           style={styles.thumb}
           contentFit="cover"
           accessible
-          accessibilityLabel="Photo to send"
+          accessibilityLabel={COMPOSER_COPY.photoToSend}
         />
       );
-      eyebrow = 'Photo';
+      eyebrow = COMPOSER_COPY.attachmentPhoto;
       name = attachment.photo.fileName;
       meta = fileSizeLabel(attachment.photo.size) || null;
       break;
@@ -364,37 +518,66 @@ function AttachmentPreview({ attachment }: { attachment: DraftAttachment }) {
     <View style={styles.preview}>
       {thumb}
       <View style={styles.grow}>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{eyebrow}</Text>
-        <Text numberOfLines={1} style={[textStyle('sm'), styles.strong, { color: palette.ink }]}>
+        <Text style={[styles.eyebrow, { color: palette.textMuted }]}>{eyebrow}</Text>
+        <Text numberOfLines={1} style={[styles.previewName, { color: palette.ink }]}>
           {name}
         </Text>
-        {meta ? <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{meta}</Text> : null}
+        {meta ? <Text style={[styles.eyebrow, { color: palette.textMuted }]}>{meta}</Text> : null}
       </View>
     </View>
   );
 }
 
+/**
+ * Touch targets of at least 44 pt (spec section 3) around the 34 pt chips and the 42 pt round
+ * buttons, without changing how they look (review fix 1, F11); the chips' 8 pt gaps are shared.
+ */
+export const CHIP_HIT_SLOP = { top: 5, bottom: 5, left: 4, right: 4 } as const;
+export const ROUND_HIT_SLOP = { top: 2, bottom: 2, left: 2, right: 2 } as const;
+/**
+ * The quick-reply row keeps the chips' slop inside itself: iOS drops a touch outside a scroll
+ * view's frame before it reaches the chip, so a 2 pt row padding left the chips 38 pt tall to the
+ * finger (review fix 2, R1-2). A negative margin takes the extra room back, so the row looks and
+ * sits as before (2 pt above and under the chips).
+ */
+const QUICK_ROW_PADDING = Math.max(CHIP_HIT_SLOP.top, CHIP_HIT_SLOP.bottom);
+const QUICK_ROW_SPACE = 2;
+
 const styles = StyleSheet.create({
   root: { gap: spacing[2] },
-  row: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
-  iconButton: { paddingBottom: 9 },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 140,
+  quick: { marginHorizontal: -12, marginVertical: QUICK_ROW_SPACE - QUICK_ROW_PADDING },
+  quickRow: { gap: 8, paddingHorizontal: 12, paddingVertical: QUICK_ROW_PADDING },
+  quickChip: {
+    minHeight: 34,
+    paddingHorizontal: 14,
+    borderRadius: 17,
     borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingHorizontal: spacing[3],
-    paddingTop: 10,
-    paddingBottom: 10,
+    justifyContent: 'center',
   },
-  send: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  quickLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
+  row: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  round: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  send: { borderWidth: 0 },
+  input: {
+    flex: 1,
+    minHeight: 42,
+    maxHeight: 140,
+    borderWidth: 1,
+    borderRadius: 21,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    fontSize: 16,
+    lineHeight: 21,
+  },
+  note: { fontSize: 13, lineHeight: 18 },
   counter: { alignSelf: 'flex-end' },
   attachment: {
     flexDirection: 'row',
@@ -407,7 +590,30 @@ const styles = StyleSheet.create({
   preview: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   thumb: { width: 48, height: 48, borderRadius: radius.sm },
   grow: { flex: 1 },
-  strong: { fontWeight: fontWeight.semibold },
+  eyebrow: { fontSize: 12, lineHeight: 16 },
+  previewName: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  sheetScroll: { flexGrow: 0, flexShrink: 1 },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: 52,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+  },
+  sheetRowTall: { minHeight: 60 },
+  sheetText: { flex: 1, gap: 2 },
+  sheetLabel: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.medium },
+  sheetDetail: { fontSize: 12, lineHeight: 16 },
+  cancel: {
+    minHeight: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing[2],
+  },
+  cancelLabel: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.4 },
 });

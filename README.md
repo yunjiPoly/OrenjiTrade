@@ -1,18 +1,28 @@
 # OrenjiTrade
 
 **A regional discovery network for trading cards.** OrenjiTrade answers one question:
-*Who in my region owns, trades, sells, wants, or accepts offers for this card?* Collectors say
+*Who in my region owns, trades, sells or wants this card?* Collectors say
 which country and state or province they are in (never a position: ADR 0017), publish binders,
 and other collectors of the same platform region (Americas North, Americas South, Europe) find
-them by state or province on a map of binder counts, then message, offer, trade and rate each
-other. Multi-game by design (Yu-Gi-Oh!, Pokémon, Magic: The
-Gathering, Riftbound, and future TCGs) with one generic catalog model.
+them by state or province on a map of binder counts, then message and rate each other. Deals
+happen in the chat and cards ship by mail: the buyer pays the seller outside the app and
+OrenjiTrade never handles the money (ADR 0018; the phone has no offers, trades or protected
+payments, which the API keeps for the paused web). OrenjiTrade is free for all (ADR 0019): no
+Premium, ads, credits or donations, and the same usage limits for every collector. Multi-game by
+design (Yu-Gi-Oh!, Pokémon, Magic: The Gathering, Riftbound, and future TCGs) with one generic
+catalog model.
 
 - Web: https://www.orenjitrade.com (admin at `/admin`)
 - API: https://api.orenjitrade.com (`/api/v1/...`)
 
-> Status: MVP under active construction. See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
-> for the phase checklist and the exact next task, and [CLAUDE.md](CLAUDE.md) for engineering rules.
+> Status: MVP under active construction, nothing deployed. See
+> [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for the phase checklist and the exact next
+> task, and [CLAUDE.md](CLAUDE.md) for engineering rules. Since 2026-10-12 the phone app is the
+> client of new work and the web app is paused (owner order); the work in progress is the phone
+> redesign of 2026-10-14 ([spec](docs/product/specs/2026-10-14-phone-redesign.md), stages R1 to
+> R8: R1 is done, R2 is next). What
+> the owner's change of 2026-10-08 delivered, and what it did not:
+> [delivery report](docs/product/2026-10-08-change-delivery-report.md).
 
 ## Architecture at a glance
 
@@ -27,11 +37,14 @@ Pub/Sub (domain + analytics events) → BigQuery · ML workers · notifications 
 ```
 
 - **Modular monolith** backend (Java 21, Spring Boot 4.1) with one package per domain module.
-- **PostGIS** is the geographic source of truth; the map never receives exact collector
-  coordinates ([ADR 0004](docs/architecture/adr/0004-collector-location-privacy.md)).
+- **No coordinates at all** ([ADR 0017](docs/architecture/adr/0017-platform-regions-instead-of-geolocation.md),
+  which superseded ADR 0004): collectors declare a country, a state or province and an optional
+  city; discovery is scoped to a platform region and the map counts binders per state or province.
+  PostGIS stays installed but holds no personal geography.
 - **Firebase Authentication** for identity; roles and privacy settings live in our database.
-- **Provider abstractions** (cards, payments, push, storage, events, maps) with local/mock
-  implementations so everything runs without cloud credentials.
+- **Provider abstractions** (cards, payments, push, storage, events) with local/mock
+  implementations so everything runs without cloud credentials. There is no map provider: the map
+  is drawn from bundled Natural Earth boundaries.
 
 Full description: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md) and the
 [ADR index](docs/architecture/adr/README.md).
@@ -129,10 +142,11 @@ config). The map needs no key: it draws the bundled Natural Earth boundaries of
 `apps/web-angular/public/boundaries/` (no tiles, no map provider; provenance in
 [docs/development/regions-boundaries.md](docs/development/regions-boundaries.md)).
 
-### Mobile (deferred)
+### Mobile
 
-Mobile feature work is deferred until the web app is complete; the suite is kept green
-(`npm run test:mobile`).
+The Expo app is the client of every change since 2026-10-12 (the web app is paused by the owner's
+order and stays the reference for what the phone offers). It runs in Expo Go against the same
+local stack; details, suites and the native flows: [apps/mobile/README.md](apps/mobile/README.md).
 
 ```bash
 # after `npm ci` at the repo root
@@ -153,8 +167,8 @@ All variables are listed with comments in [.env.example](.env.example). Copy it 
 when you need to change something: docker compose reads the port variables from it and the npm
 scripts pass its non-empty values to the API. Key groups: database, Redis, Firebase (project id +
 emulator host), Google Cloud (project, region, buckets), events transport (`local` | `pubsub`),
-storage provider (`local` | `gcs`), payments / billing (`fake` | `stripe`), donations
-(`fake`), push (`log` | `fcm`), email (`log`), ML URL, CORS origins. Production values would live
+storage provider (`local` | `gcs`), payments (`fake` | `stripe`), push (`log` | `fcm`), email
+(`log`), ML URL, CORS origins. Production values would live
 in Secret Manager and Cloud Run configuration, never in Git.
 
 ## Running tests
@@ -164,6 +178,8 @@ in Secret Manager and Cloud Run configuration, never in Git.
 | `npm run test:api` | `gradlew check` in `apps/api`: Spotless, unit and integration tests (Testcontainers; Docker required) |
 | `npm run test:web` | web lint + unit tests (Vitest) |
 | `npm run test:mobile` | mobile typecheck + lint + jest |
+| `npm run test:mobile:e2e` | Playwright against the Expo web build on its own isolated stack (API :8090, web :19006) |
+| `npm run test:mobile:maestro` | Maestro flows in Expo Go on an Android emulator or the iOS simulator (`-- --platform android\|ios`), same isolated stack |
 | `npm run test:e2e` | whole Playwright suite on its own isolated stack next to `npm run dev`: recreates the database `orenjitrade_e2e`, builds and starts the API jar (:8180, Redis db 2, files under `.local-dev/e2e/`) and `ng serve --configuration e2e` (:4300), runs every spec (one retry; flaky specs are listed), deletes the run's emulator accounts, stops what it started (`-- --keep-running`, `-- --reuse-running` for a kept E2E stack only, `-- --stop`) |
 | `npm run test:scripts` | unit tests of the E2E isolation guards and the purge rules (`node --test`) |
 | `npm run e2e:purge` | removes every `@example.test` test account from the developer database and the Auth emulator through the account-deletion path (local only, asks first, no running API needed) |
@@ -210,6 +226,11 @@ and [infrastructure/cloudflare/README.md](infrastructure/cloudflare/README.md).
 
 - Engineering rules: [CLAUDE.md](CLAUDE.md)
 - Progress and next task: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+- Starting a session (state, stage plan, working agreements): [docs/development/claude-handoff.md](docs/development/claude-handoff.md)
+- Product: [docs/product/product-overview.md](docs/product/product-overview.md), the owner's specs in
+  [docs/product/specs/](docs/product/specs/) and the
+  [delivery report of the 2026-10-08 change](docs/product/2026-10-08-change-delivery-report.md)
+- API contracts: [docs/api/contracts/](docs/api/contracts/README.md)
 - Local development: [docs/development/local-setup.md](docs/development/local-setup.md)
 - Architecture and ADRs: [docs/architecture/](docs/architecture/)
 - Database schema: [docs/database/schema.md](docs/database/schema.md)

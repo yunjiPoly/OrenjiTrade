@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { isApiError } from '@/src/api/ApiError';
@@ -13,8 +13,10 @@ import { Button } from '@/src/components/ui/Button';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { Checkbox, FormMessage, PasswordField } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { exportMyData } from '@/src/features/account/exportData';
+import { deleteSavedDetails } from '@/src/features/shipping/savedDetails';
 import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
 import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
 import { spacing, textStyle, useTheme } from '@/src/theme';
@@ -93,6 +95,11 @@ export default function DeleteAccountScreen() {
       }
       setStatus('Scheduling the deletion…');
       await request.mutateAsync({ reason: reason.trim() || null, exportFirst });
+      // The saved address and e-Transfer email leave this phone with the account (review fix 1,
+      // P3): no screen is left to delete them from.
+      if (session.user?.uid) {
+        await deleteSavedDetails(session.user.uid);
+      }
       await account.reload();
       // The gate moves to the account status screen (deletion pending).
     } catch (caught) {

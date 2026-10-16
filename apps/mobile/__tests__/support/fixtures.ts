@@ -1,20 +1,15 @@
 import type {
   BlockedUser,
+  CollectorByName,
+  WishlistAvailability,
   CardHolderResult,
   CardHoldersPage,
   SetDetail,
   UnifiedSearchResponse,
   WishlistSummaryEntry,
   MyReport,
-  OfferPage,
-  OfferParty,
-  OfferResponse,
-  OfferSummary,
   RatingEligibility,
   ReportReasonOption,
-  TradePage,
-  TradeResponse,
-  TradeSummary,
   BinderResponse,
   CommunityChannel,
   ConversationPage,
@@ -29,13 +24,17 @@ import type {
   CardDetail,
   CollectorMarker,
   CollectorRatingsPage,
+  ConversationSubject,
   ConversationSummary,
   MatchingItem,
   MessagePage,
   MessageResponse,
-  MyPlan,
+  SaleNotice,
+  MyLimits,
   Place,
+  PublicBinderCursorPage,
   PublicBinderSummary,
+  RegionBinderCounts,
   RegionsResponse,
   PublicInventoryPage,
   ReferencePage,
@@ -168,7 +167,6 @@ export function meFixture(overrides: Partial<MeResponse> = {}): MeResponse {
       ageConfirmed: true,
     },
     requiredConsents: [],
-    plan: 'FREE',
     ...overrides,
   };
 }
@@ -212,8 +210,8 @@ export const LEGAL_DOCUMENTS: LegalDocument[] = [
 export const TAGS: TagResponse[] = [
   {
     id: 'tag-1',
-    slug: 'local-pickup',
-    label: 'Local pickup',
+    slug: 'tracked-shipping',
+    label: 'Tracked shipping',
     category: 'LOGISTICS',
     usageCount: 12,
   },
@@ -535,8 +533,45 @@ export function binderFixture(overrides: Partial<BinderResponse> = {}): BinderRe
     },
     createdAt: '2026-10-01T12:00:00Z',
     updatedAt: '2026-10-01T12:00:00Z',
+    sellsAsCore: false,
+    askingPriceText: null,
+    askingPrice: null,
+    currency: 'CAD',
+    soldAt: null,
+    photos: [],
+    previewImages: ['/api/v1/public/card-images/pa'],
+    keyCards: [],
     ...overrides,
   };
+}
+
+/** A photo of a binder (a deck core's), as the API serves it. */
+export const BINDER_PHOTO = {
+  id: '00000000-0000-4000-8b10-000000000001',
+  url: '/api/v1/public/media/binders/core-1.jpg',
+  width: 1200,
+  height: 900,
+  sortOrder: 0,
+};
+
+/** One of the caller's deck cores ("Sell as a deck core" on, a photo and a price; stage R3). */
+export function deckCoreFixture(overrides: Partial<BinderResponse> = {}): BinderResponse {
+  return binderFixture({
+    id: '00000000-0000-4000-8b00-000000000002',
+    name: 'Snake-Eye core',
+    description: 'All NM, English. Sleeves and a deck box included.',
+    kind: 'DECK',
+    visibility: 'PUBLIC',
+    effectivePublic: true,
+    itemCount: 0,
+    games: [],
+    sellsAsCore: true,
+    askingPriceText: '$180',
+    askingPrice: 180,
+    photos: [BINDER_PHOTO],
+    previewImages: [BINDER_PHOTO.url],
+    ...overrides,
+  });
 }
 
 export function publicBinderFixture(
@@ -564,8 +599,51 @@ export function publicBinderFixture(
     itemCount: 1,
     games: ['yugioh'],
     coverImageUrl: null,
+    sellsAsCore: false,
+    askingPriceText: null,
+    photos: [],
+    previewImages: ['/api/v1/public/card-images/pa'],
+    keyCards: [],
+    ownerPublicBinderCount: 2,
     ...overrides,
   };
+}
+
+/** Someone's public deck core, as buyers see it (mockup screen 16). */
+export function publicDeckCoreFixture(
+  overrides: Partial<PublicBinderResponse> = {}
+): PublicBinderResponse {
+  return publicBinderFixture({
+    id: 'core-1',
+    name: 'Yubel core',
+    description: 'Full Yubel engine plus 2 Ash Blossom. All NM, English.',
+    kind: 'DECK',
+    itemCount: 8,
+    sellsAsCore: true,
+    askingPriceText: '$95',
+    photos: [
+      BINDER_PHOTO,
+      {
+        ...BINDER_PHOTO,
+        id: 'photo-2',
+        url: '/api/v1/public/media/binders/core-2.jpg',
+        sortOrder: 1,
+      },
+      {
+        ...BINDER_PHOTO,
+        id: 'photo-3',
+        url: '/api/v1/public/media/binders/core-3.jpg',
+        sortOrder: 2,
+      },
+    ],
+    previewImages: [BINDER_PHOTO.url],
+    keyCards: [
+      { cardId: 'card-yubel', name: 'Yubel', quantity: 3 },
+      { cardId: 'card-spirit', name: 'Spirit of Yubel', quantity: 3 },
+      { cardId: 'card-ash', name: 'Ash Blossom & Joyous Spring', quantity: 2 },
+    ],
+    ...overrides,
+  });
 }
 
 export function publicItemFixture(
@@ -626,7 +704,7 @@ export function markerFixture(overrides: Partial<CollectorMarker> = {}): Collect
     avatarUrl: null,
     place: ONTARIO,
     rating: { average: 4.8, count: 12 },
-    tags: ['local-pickup'],
+    tags: ['tracked-shipping'],
     games: ['mtg'],
     lastActiveBucket: 'THIS_WEEK',
     onlineStatus: 'HIDDEN',
@@ -696,7 +774,7 @@ export function ratingsPageFixture(
         rater: { handle: 'collector5', displayName: 'Léa Mile End', avatarUrl: null },
         overall: 5,
         breakdown: { communication: 5 },
-        comment: 'Smooth trade at the café.',
+        comment: 'Well packed, shipped with tracking.',
         createdAt: '2026-09-20T12:00:00Z',
         updatedAt: '2026-09-20T12:00:00Z',
         interactionKind: 'TRADE',
@@ -726,9 +804,9 @@ export function referencesPageFixture(overrides: Partial<ReferencePage> = {}): R
   };
 }
 
-export function planFixture(viewsPerDay: number | null = 25): MyPlan {
+/** `GET /me/limits`: the same limits for every collector (stage F1). */
+export function limitsFixture(viewsPerDay: number | null = 25): MyLimits {
   return {
-    plan: { code: 'FREE', name: 'Free' },
     limits: [
       {
         key: 'binder.views.per_day',
@@ -737,7 +815,6 @@ export function planFixture(viewsPerDay: number | null = 25): MyPlan {
         window: 'DAY',
         limit: viewsPerDay ?? undefined,
         used: 0,
-        planCode: 'FREE',
       },
     ],
   };
@@ -763,6 +840,72 @@ export function conversationFixture(
     createdAt: '2026-10-01T12:00:00Z',
     ...overrides,
   };
+}
+
+/** The card a chat is about (stage R4): collector2's public card, as the buyer sees it. */
+export function subjectFixture(overrides: Partial<ConversationSubject> = {}): ConversationSubject {
+  return {
+    kind: 'CARD',
+    id: ITEM_ID,
+    ownerId: '00000000-0000-4000-8000-0000000000b1',
+    name: 'Emberfang Fox VMAX',
+    printingCode: 'SVX-001',
+    rarity: 'Ultra Rare',
+    cardId: CARD_ID,
+    printingId: PRINTING_A,
+    imageUrl: '/api/v1/public/card-images/pa',
+    askingPriceText: '$32',
+    sold: false,
+    listed: true,
+    copies: null,
+    ...overrides,
+  };
+}
+
+/** A deck core a chat is about (stage R4). */
+export function deckCoreSubjectFixture(
+  overrides: Partial<ConversationSubject> = {}
+): ConversationSubject {
+  return subjectFixture({
+    kind: 'DECK_CORE',
+    id: BINDER_ID,
+    name: 'Snake-Eye core',
+    printingCode: null,
+    rarity: null,
+    cardId: null,
+    printingId: null,
+    imageUrl: null,
+    askingPriceText: '$95',
+    ...overrides,
+  });
+}
+
+/** The SYSTEM message of a sale (stage R4). */
+export function saleMessageFixture(
+  sale: Partial<SaleNotice> = {},
+  overrides: Partial<MessageResponse> = {}
+): MessageResponse {
+  return messageFixture({
+    id: 'm-sale',
+    kind: 'SYSTEM',
+    senderId: null,
+    body: 'collector2 marked Emberfang Fox VMAX as sold to maika.',
+    createdAt: '2026-10-04T12:10:00Z',
+    payload: {
+      sale: {
+        saleId: 'sale-1',
+        sellerId: '00000000-0000-4000-8000-0000000000b1',
+        buyerId: SELF_ID,
+        kind: 'CARD',
+        name: 'Emberfang Fox VMAX',
+        quantity: 1,
+        trackingNumber: '7023 2109 8876 5432',
+        undone: false,
+        ...sale,
+      },
+    },
+    ...overrides,
+  });
 }
 
 export function messageFixture(overrides: Partial<MessageResponse> = {}): MessageResponse {
@@ -943,13 +1086,10 @@ export function notificationPage(
   return { items, nextCursor: null, hasMore: false, ...overrides };
 }
 
-// --- Ratings, reports, offers and trades (Phases 7 and 8, fictional) -----------------------------
+// --- Ratings and reports (Phase 7, fictional) ---------------------------------------------------
 
-/** The other collector of the offer and trade fixtures (the signed-in one is `meFixture`). */
+/** Another collector of the rating fixtures (the signed-in one is `meFixture`). */
 export const OTHER_ID = '00000000-0000-4000-8000-0000000000b1';
-export const OFFER_ID = '00000000-0000-4000-9c00-000000000001';
-export const TRADE_ID = '00000000-0000-4000-9d00-000000000001';
-export const BUYER_ITEM_ID = '00000000-0000-4000-8c00-000000020202';
 
 export function eligibilityFixture(overrides: Partial<RatingEligibility> = {}): RatingEligibility {
   return {
@@ -989,169 +1129,6 @@ export function myReportFixture(overrides: Partial<MyReport> = {}): MyReport {
   };
 }
 
-export function offerPartyFixture(overrides: Partial<OfferParty> = {}): OfferParty {
-  return {
-    id: OTHER_ID,
-    handle: 'collector2',
-    displayName: 'Noé Verdun',
-    avatarUrl: null,
-    place: ONTARIO,
-    rating: { average: 4.5, count: 2 },
-    ...overrides,
-  };
-}
-
-export const SELF_PARTY: OfferParty = {
-  id: '00000000-0000-4000-8000-0000000000a1',
-  handle: 'maika',
-  displayName: 'Maïka Test',
-  avatarUrl: null,
-  rating: { average: null, count: 0 },
-};
-
-/** An OPEN cash offer of 40 CAD by Maïka (the buyer, signed in) on Noé's Azure-Eyes. */
-export function offerFixture(overrides: Partial<OfferResponse> = {}): OfferResponse {
-  return {
-    id: OFFER_ID,
-    rootOfferId: OFFER_ID,
-    counterOf: null,
-    latestOfferId: OFFER_ID,
-    item: publicItemFixture(),
-    seller: offerPartyFixture(),
-    buyer: SELF_PARTY,
-    viewerRole: 'BUYER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItems: [],
-    message: 'Could we meet at the café?',
-    status: 'OPEN',
-    currentTurn: 'SELLER',
-    superseded: false,
-    expiresAt: '2099-10-08T12:00:00Z',
-    version: 0,
-    protectionRequested: false,
-    allowedActions: ['CANCEL'],
-    tradeId: null,
-    history: [
-      {
-        id: '00000000-0000-4000-9c10-000000000001',
-        offerId: OFFER_ID,
-        event: 'CREATED',
-        actorRole: 'BUYER',
-        reason: null,
-        terms: {
-          status: 'OPEN',
-          kind: 'CASH',
-          cashAmount: 40,
-          currency: 'CAD',
-          tradeItems: [],
-          message: 'Could we meet at the café?',
-          currentTurn: 'SELLER',
-          expiresAt: '2099-10-08T12:00:00Z',
-          version: 0,
-        },
-        createdAt: '2026-10-05T10:00:00Z',
-      },
-    ],
-    createdAt: '2026-10-05T10:00:00Z',
-    updatedAt: '2026-10-05T10:00:00Z',
-    closedAt: null,
-    ...overrides,
-  };
-}
-
-export function offerSummaryFixture(overrides: Partial<OfferSummary> = {}): OfferSummary {
-  return {
-    id: OFFER_ID,
-    rootOfferId: OFFER_ID,
-    item: publicItemFixture(),
-    counterparty: offerPartyFixture(),
-    viewerRole: 'SELLER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItemCount: 0,
-    status: 'OPEN',
-    currentTurn: 'SELLER',
-    yourTurn: true,
-    allowedActions: ['ACCEPT', 'COUNTER', 'DECLINE'],
-    expiresAt: '2099-10-08T12:00:00Z',
-    version: 0,
-    tradeId: null,
-    createdAt: '2026-10-05T10:00:00Z',
-    updatedAt: '2026-10-05T10:00:00Z',
-    ...overrides,
-  };
-}
-
-export function offerPage(items: OfferSummary[] = [offerSummaryFixture()]): OfferPage {
-  return { items, nextCursor: null, hasMore: false };
-}
-
-/** An AGREED trade from the accepted offer, Maïka buying (her turn to meet and confirm). */
-export function tradeFixture(overrides: Partial<TradeResponse> = {}): TradeResponse {
-  return {
-    id: TRADE_ID,
-    offer: offerFixture({ status: 'ACCEPTED', allowedActions: [], tradeId: TRADE_ID }),
-    viewerRole: 'BUYER',
-    counterparty: offerPartyFixture(),
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    status: 'AGREED',
-    protectionEnabled: false,
-    meetup: false,
-    buyerMarkedMeetup: false,
-    sellerMarkedMeetup: false,
-    buyerConfirmedAt: null,
-    sellerConfirmedAt: null,
-    nextAction: { actor: 'BUYER', action: 'MEET' },
-    allowedOperations: ['MARK_MEETUP', 'CONFIRM_COMPLETION', 'CANCEL'],
-    timeline: [
-      {
-        id: '00000000-0000-4000-9d10-000000000001',
-        event: 'CREATED',
-        actorRole: 'SELLER',
-        details: {},
-        createdAt: '2026-10-05T11:00:00Z',
-      },
-    ],
-    cancelReason: null,
-    createdAt: '2026-10-05T11:00:00Z',
-    updatedAt: '2026-10-05T11:00:00Z',
-    completedAt: null,
-    cancelledAt: null,
-    ...overrides,
-  };
-}
-
-export function tradeSummaryFixture(overrides: Partial<TradeSummary> = {}): TradeSummary {
-  return {
-    id: TRADE_ID,
-    offerId: OFFER_ID,
-    item: publicItemFixture(),
-    counterparty: offerPartyFixture(),
-    viewerRole: 'BUYER',
-    kind: 'CASH',
-    cashAmount: 40,
-    currency: 'CAD',
-    tradeItemCount: 0,
-    status: 'AGREED',
-    protectionEnabled: false,
-    meetup: false,
-    nextAction: { actor: 'BUYER', action: 'MEET' },
-    createdAt: '2026-10-05T11:00:00Z',
-    updatedAt: '2026-10-05T11:00:00Z',
-    completedAt: null,
-    ...overrides,
-  };
-}
-
-export function tradePage(items: TradeSummary[] = [tradeSummaryFixture()]): TradePage {
-  return { items, nextCursor: null, hasMore: false };
-}
-
 // --- Stage M7: unified search, card holders, public wishlist, blocked users, sets -----------------
 
 export function unifiedSearchFixture(
@@ -1184,6 +1161,29 @@ export function searchBinderFixture(
     },
     ...overrides,
   });
+}
+
+/** `GET /regions/{region}/binder-counts`: Quebec holds two public binders, Ontario one. */
+export function binderCountsFixture(
+  overrides: Partial<RegionBinderCounts> = {}
+): RegionBinderCounts {
+  return {
+    region: 'americas-north',
+    total: 3,
+    subdivisions: [
+      { code: 'CA-QC', binderCount: 2 },
+      { code: 'CA-ON', binderCount: 1 },
+    ],
+    ...overrides,
+  };
+}
+
+/** One page of `GET /regions/{region}/subdivisions/{code}/binders`. */
+export function placeBindersPage(
+  items: PublicBinderSummary[] = [],
+  nextCursor: string | null = null
+): PublicBinderCursorPage {
+  return { items, nextCursor, hasMore: nextCursor !== null };
 }
 
 export const HOLDER_ITEM_ID = '00000000-0000-4000-8c00-000000030303';
@@ -1257,4 +1257,24 @@ export function setDetailFixture(overrides: Partial<SetDetail> = {}): SetDetail 
     },
     ...overrides,
   };
+}
+
+/** A collector of `GET /search/collectors` (stage R5: collectors while a card is typed). */
+export function collectorByNameFixture(overrides: Partial<CollectorByName> = {}): CollectorByName {
+  return {
+    id: OTHER_ID,
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    place: ONTARIO,
+    ...overrides,
+  };
+}
+
+/** `GET /wishlist/availability` (stage R5): the wishes "Available" in a region. */
+export function wishlistAvailabilityFixture(
+  available: string[] = [],
+  region = 'americas-north'
+): WishlistAvailability {
+  return { region, available };
 }

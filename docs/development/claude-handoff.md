@@ -1,155 +1,279 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-16 after stages R1, F1, R2, R3 and R4, the owner's inventory change of 2026-10-16 (#77) and the builder of stage R5): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
 and the working agreements with the owner that are not written anywhere else (they lived in the
-Windows machine's Claude memory). Machine setup: [macos-setup.md](macos-setup.md).
+Windows machine's Claude memory, then were learned on the Mac). Machine setup:
+[macos-setup.md](macos-setup.md).
 
-**The machine (2026-10-10).** A Mac mini (Apple M6, 12 cores, 24 GB RAM, macOS 27.0.1), not a
+**The machine (2026-10-10).** A Mac mini (Apple M6, 12 cores, 24 GB RAM, macOS 27), not a
 MacBook. Docker is **OrbStack** (Docker context `orbstack`, `/var/run/docker.sock` linked to it,
 Rosetta on, 12 CPUs / 12 GB), not Docker Desktop. The only system JDK is Temurin 27, which works:
-the Gradle daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`) and the E2E
-harnesses pick a Java 21 for the API jar. Node 24.21.0, Xcode 27 with iOS 27 simulators (**the iOS
-simulator is available**), Maestro 2.11.0. **No Android SDK is installed** (no adb, no emulator;
-owner decision of 2026-10-10: skipped for now), so **the native Maestro check on this Mac is the
-iOS run** (`npm run test:mobile:maestro`, which picks the iOS simulator when no Android device is
-ready; [macos-setup.md](macos-setup.md) 9.5). Python 3.12 is not installed either (ML is on hold). The
-macOS and OrbStack fixes of 2026-10-10 are on branch `chore/macos-ios-dev` until it is merged; a
-branch without them needs `JAVA_HOME` set to a JDK 21 for Gradle. **After the fixes reach a branch,
-run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in every worktree that ever ran
-Gradle on JDK 27** (`OrenjiTrade-regions` did on 2026-10-10). Gradle keeps the failed Spotless
-result there (`:spotlessJava UP-TO-DATE`, then the same `NoSuchFieldError` lint errors) although
-its daemon now runs on Java 21, and `npm run test:api` fails the same way because it reruns only
-the tests. A new worktree can receive that failed result from the machine-wide Gradle build cache
-(`:spotlessJava FROM-CACHE`); the same command clears it.
+the Gradle daemon is pinned to Java 21 (`apps/api/gradle/gradle-daemon-jvm.properties`, on `main`
+since #59) and the E2E harnesses pick a Java 21 for the API jar. Node 24.21.0, Xcode 27 with iOS 27
+simulators, Maestro 2.11.0 in `~/.maestro/bin`. **No Android SDK is installed** (no adb, no
+emulator; owner decision of 2026-10-10: skipped for now), so **the native Maestro check on this Mac
+is the iOS run** on the simulator the owner keeps booted (section 4). Python 3.12 is not installed
+either (ML is on hold). A Spotless failure with `NoSuchFieldError ... EndPosTable` is a result
+cached from a JDK 27 daemon: run `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` once in that
+worktree.
 
-## 1. Where things stand
+## 1. Where things stand (2026-10-15)
 
 **On `main` (everything merged, CI green):** the web MVP (Phases 1–10), the mobile app
 (Phases 1–10 + web parity, stages M1–M8), launch readiness (18+ rule, trading safety, French legal
 pages, money features off by default, Law 25 operating docs), the low-cost first-year cloud profile
-(ADR 0016, prepared only — nothing deployed), the E2E isolation from the dev database, and **stage S1
-of the 2026-10-08 change** (platform regions replace geolocation; ADR 0017). Merged PRs since
-2026-10-04: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57.
+(ADR 0016, prepared only — nothing deployed), the E2E isolation from the dev database, the first
+run on Apple Silicon (#59), the iOS path of the native Maestro suite (#61), and the owner's change
+of 2026-10-08 as far as it was built: **stage S1** (platform regions replace geolocation, ADR 0017,
+#57), **stage S2** (the simplified wishlist and wishlist alerts, #60), **mobile stage M9** (the
+region switcher and the region map on the phone, #67), **the inventory lock fix** (writes to one
+collector's binders and cards take turns, #68), **stage S5** (the inventory import from a .ydk deck
+file or a Collectr CSV, API and phone, #69), the scrim fix (a dark backdrop iOS took for a
+modal, #70, 2026-10-14), **stage S6** (the final documents of the 2026-10-08 change, the
+delivery report `docs/product/2026-10-08-change-delivery-report.md`, #71, 2026-10-14), **stage R1**
+of the phone redesign (offers, trades, protected payments and disputes off the phone, ADR 0018;
+the chat safety tip, shipping wording, the deckCore tokens, the fonts, the dark default; #72,
+2026-10-14) and **stage F1**, free for all (Premium, ads, credits and donations removed from the
+API, the phone and the web, ADR 0019; the same usage limits for everyone; merged with R1 on
+2026-10-15, then its own pull request, #73), then **stage R2** of the phone redesign (the
+Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory with photos, Edit
+card, the toasts with "View" and "Undo"; the asking price as typed, a condition not stated, the
+undo of a delete for 10 minutes; merged with F1 on 2026-10-15, then its own pull request, #74),
+**stage R3** (binders and deck cores, #75), **stage R4** (messages and Mark as sold, #76) and the
+owner's inventory change of 2026-10-16 (the Public / Private tag and the "$" / "% TCG" price, #77).
+Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61
+#67 #68 #69 #70 #71 #72 #73 #74 #75 #76 #77.
 
 **Not on `main`:**
 
 | What | Where | State |
 | --- | --- | --- |
-| Stage S2 — simplified wishlist, matches removed, region wishlist alerts (spec section 4) | branch `feature/regions-s2-wishlist` (no PR yet) | Built; two review rounds. Round 1 blockers (alert link landed on a silent printing pick; wish-dialog error out of view) fixed and re-approved by the product/UX reviewer. The last functional review found that migration V112 failed on a populated pre-V112 database (rarity cleared after the duplicate collapse, so the unique index failed). **Fix round 2 is committed** (`c1b9df7` V112 normalises the selection before collapsing, proven by `SimplifiedWishlistMigrationIT`; `be24294` review polish; `b52211a` status notes) **but not re-reviewed yet.** |
-| The iOS path of the native Maestro suite (2026-10-10) | branch `feature/ios-maestro-harness`, on top of S2 and the macOS fixes | Built: `npm run test:mobile:maestro -- --platform ios` runs the 24 flows on a simulator of its own (24/24 from a cold start), one set of flows for both platforms, six iOS defects of the app fixed. Waits for review and for the two pull requests under it. |
-| Stages S3–S6 | — | Not started. |
-| Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable** (it was npm `next`/beta on React Native 0.88 RC). Refresh steps are in the PR comment. |
-| `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine (re-applied commits + Dependabot bumps), pushed as a backup. Not needed; do not merge. |
+| Expo SDK 58 upgrade | draft PR #54, branch `feature/expo-sdk-58` | Done and verified, **held by owner decision (2026-10-07) until SDK 58 is stable**. Refresh steps are in the PR comment. |
+| `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
+| Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | merged as #75 (`2f9c5506`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done; on `main`. |
+| Stage R4 of the phone redesign (messages and Mark as sold, mockup screens 22 to 25) | merged as #76 (`f26d531f`), from branch `feature/r4-messages-mark-as-sold` | Builder done (V127, the `deals` module; IMPLEMENTATION_STATUS.md, "Phone redesign R4"): the R3 leftovers R2-1, R2-2, U10 (and U8) fixed first; the chat's subject, `GET /conversations/{id}`, sharing one's own card, `POST /conversations/{id}/sales` and `POST /sales/{id}/undo`, the SALE interaction, the buyer's notification; on the phone the inbox, the chat with its pinned bar, tips, quick replies and + sheet, Settings › Shipping details, Mark as sold with its toast and Undo; native flows 3 (as far as R4 reaches) and 4; walked on the iPhone 18 Pro in dark and light at the default and the largest text size (three large-text fixes); the full check list run (the native suite 32 / 33, the one stale flow fixed and passing alone). Reviewed (a functional verifier and a privacy lens); **review fix 1 done** (IMPLEMENTATION_STATUS.md, R4 section, "Review fix 1"): Mark as sold names the card the seller saw (409 `SUBJECT_CHANGED`) and pins are pushed on `/user/queue/conversations`; the toast's Undo stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has its test; nine minor fixes. **Review fix 2 done** ("Review fix 2"): a jest test that the open Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS (the row's padding). On `main`. |
+| Stage R5 of the phone redesign (Search, mockup screens 11 to 15) | branch `feature/r5-search` (worktree `OrenjiTrade-r2`) | Builder done (no migration; IMPLEMENTATION_STATUS.md, "Phone redesign R5: search"): four tabs (Search \| Inventory \| Messages \| Profile), Search's map with the state card, typing a card with the collectors, Who has this card (holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy › "Remember my searches", the old routes and links redirected; API `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out in SQL from the collectors of search, no search text in analytics; native flows 2 and 3 in full. Not pushed; its reviews next. |
 
-The owner's local dev database on Windows was still at V105 (unmigrated); a fresh Mac database
-migrates to the newest level at the first `npm run dev`.
+**Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
+with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
+N", have/want counts in search, the rarity and code query parsing, the server-side search history)
+and stage S4 (photos in community posts): skipped on 2026-10-13 until the owner asks. The web
+import screen of S5, and every web screen after 2026-10-12: the web app is paused. Phase 11 (ML
+card scanning), the full French UI translation and every cloud deployment stay on hold.
 
-## 2. The 2026-10-08 change: stage plan
+**Decided next (owner, 2026-10-14): the phone redesign**, stages R1 to R8
+([`docs/product/specs/2026-10-14-phone-redesign.md`](../product/specs/2026-10-14-phone-redesign.md),
+verbatim). **R1 and R2 are on `main`** (#72; R2, mockup screens 1 to 9, by its own pull request
+after it merged F1 on 2026-10-15); **R3 is on `main`** (#75, binders and deck cores,
+mockup screens 16 to 18); **R4 is on `main`** (#76, messages and Mark as sold, mockup screens
+22 to 25); the owner's inventory change of 2026-10-16 (mockup v43: the Public / Private tag, the
+price in "$" or "% TCG") is on `main` (#77); **R5 is built on its branch** (Search, mockup screens
+11 to 15), waiting for its reviews; R6 to R8 are not built. The documents describe the phone as R1
+to R5 leave it: four tabs (Search, Inventory, Messages, Profile) until R7 adds Home, no offers,
+trades, protected payments or disputes on the phone
+(ADR 0018), deals in the chat by mail with Mark as sold and its undo, nothing to buy (ADR 0019),
+the Inventory and the adding of cards, the binders and deck cores, and the Messages of the
+redesign.
+
+**Free for all (owner, 2026-10-14, after the redesign spec):** *"can you remove the implementation
+of premium subscription and ads? Just save pay service feature in a new branch for later. I am
+trying to make this app free for all first."* Stage F1 did it (ADR 0019; merged with R1 on
+2026-10-15). Where the redesign spec
+says Premium, credits, donations or ads "keep their flags" or "move into Settings", this later
+decision wins: they are gone, and R2 to R8 build no screen for them (R2 has no sponsored row,
+upgrade offer or paid entry point; its limit messages are F1's plain caps).
+
+The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
+migrates to the newest level of `main` (V127: R1's V115 and V116, F1's V120–V123, R2's V125,
+R3's V126, R4's V127; V117–V119 unused, V124 kept for another branch) at the
+first `npm run dev`, and
+loses its trading areas by design (S1).
+
+## 2. The 2026-10-08 change: how it ended
 
 The owner's spec is in [`docs/product/specs/2026-10-08-have-want-regions.md`](../product/specs/2026-10-08-have-want-regions.md)
-(verbatim, authoritative; it overrides older rules in CLAUDE.md and ADRs 0004/0010 where they
-conflict). It is delivered in six stages, one PR each, in order:
+(verbatim). It was delivered in stages, one PR each, and the owner changed the plan on the way:
 
 | Stage | Spec sections | Status |
 | --- | --- | --- |
 | S1 geography | 1, 3 (+ forced parts) | merged (#57) |
-| S2 simplified wishlist | 4 | branch `feature/regions-s2-wishlist`, re-review pending |
-| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | next |
-| S4 community photos (no videos), region channels already done in S1 | 5 | — |
-| S5 inventory import: YDK + Collectr CSV | 6 | — |
-| S6 final docs, definition-of-done walkthrough, completeness check | 8, 9, DoD | — |
+| S2 simplified wishlist | 4 | merged (#60) |
+| M9 regions on the phone (not a section: the phone catches up with S1) | — | merged (#67) |
+| Lock fix (not a section) | — | merged (#68) |
+| S3 search, card page printing picker, have/want, wanted-by, search history | 2, 2b | **not built**: skipped by the owner on 2026-10-13; the redesign of 2026-10-14 drops "Who wants it", "Wanted by N" and the holder counts from the phone and keeps recent searches on the phone |
+| S4 community photos (no videos) | 5 | **not built**: skipped by the owner on 2026-10-13 (the region channels were done in S1) |
+| S5 inventory import: YDK + Collectr CSV | 6 | merged (#69): the API and the phone screens; not built: the web import screen (web paused) |
+| S6 final docs, definition-of-done walkthrough | 8, 9, DoD | branch `feature/s6-final-docs`, waits for its ship step |
 
-Facts the spec gets wrong (already handled, keep handling): section 7 says the mobile app "calls
-only GET /api/v1/meta" — it uses ~128 API paths, so every API change must adapt `apps/mobile`
-(typecheck, lint, jest, mobile web E2E, Maestro) with mobile parity of new features recorded as a
-follow-up; the `/mnt/project-files/...collectr-csv-import.md` prompt does not exist — build the
-Collectr import from section 6 itself (export from Collectr, header aliases, never call Collectr,
-never store Collectr prices).
+The clause-by-clause result (12 done, 5 partly, 5 not built), what each skipped piece would take
+and the decisions the owner can still overrule are in the
+[delivery report](../product/2026-10-08-change-delivery-report.md).
 
-## 3. Exact next steps on the Mac
+Facts the spec gets wrong (handled, keep handling): section 7 says the mobile app "calls only GET
+/api/v1/meta" — it uses more than 120 API paths, so every API change must adapt `apps/mobile`; the
+`/mnt/project-files/...collectr-csv-import.md` prompt does not exist (S5 was built from section 6
+itself: export from Collectr, header aliases, never call Collectr, never store Collectr prices).
 
-1. Set the machine up with [macos-setup.md](macos-setup.md) (Claude Code with the `orenji` alias:
-   bypass permissions + `--effort ultracode`, Docker with Rosetta, Java 21, Node 24, Android arm64
-   AVD, Maestro). Done on 2026-10-10 except the Android SDK and its arm64 AVD (see "The machine"
-   above).
-2. Start Claude in the repo and point it here: *"Read CLAUDE.md, docs/development/claude-handoff.md
-   and IMPLEMENTATION_STATUS.md, then continue the 2026-10-08 change from stage S2."*
-3. **Finish S2:** `git switch feature/regions-s2-wishlist`, `npm ci`, then an **independent
-   re-review** (a functional verifier and a product/UX reviewer, in parallel) of the whole stage
-   with special attention to V112 on a populated database, followed by a fix loop if needed. Then
-   merge `origin/main` into the branch, push, open the S2 PR against `main`, and merge it when CI
-   is green.
-4. **S3 → S6**, each the same way (section 4 below), each its own PR.
-5. After S6: the mobile follow-ups recorded in `IMPLEMENTATION_STATUS.md` (region switcher, printing
-   picker, have/want, state binder list and search history on mobile; `react-native-maps` removal).
+## 3. Exact next steps
+
+1. **The reviews of stage R5** (branch `feature/r5-search`, builder done; IMPLEMENTATION_STATUS.md,
+   "Phone redesign R5: search"): a functional verifier, a privacy lens and a product / UX lens (as
+   a collector), at most two fix rounds, then the ship step (merge `main`, the full check list
+   below, the pull request, the merge on green). **Then stage R6** (profiles, mockup screens 19 to
+   21, and Settings behind the gear), R7 (Home, the first of five tabs; it turns the hidden `index`
+   route of the tabs, which redirects to Search today, into Home) and R8, in order, one branch and
+   one PR each, none of them bringing back a paid feature (ADR 0019). Migrations: the newest is
+   R4's V127 (R5 has none), and V124 is kept for another branch, so the next is **V128** (Flyway,
+   without `outOfOrder`, refuses a version older than the database's newest one).
+2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
+   (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
+   `main` (IMPLEMENTATION_STATUS.md, "Phone redesign R2", "Merged with free for all
+   (2026-10-15)"); S6 is on `main` (#71); nothing is left of the 2026-10-08 change except what
+   the owner skipped.
+3. Anything else waits for the owner's choice: the list is in the delivery report, section (j)
+   (resume the web, S3 and S4, the Android SDK, the hardening list, the open launch decisions).
 
 Checks every stage must pass before its PR (run them, retries off): `./gradlew exportOpenApi` and
-`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`;
-`npm run build -w apps/web-angular` (initial bundle under the 900 kB warning budget);
-`npm run test:e2e -- --retries=0` (every spec green on the first attempt); `npm run test:mobile`;
-`npx expo export --platform android` and `--platform web`; `npm run test:mobile:e2e`;
-`npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs:
-`npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`,
-`npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`; and, when `apps/mobile` changed,
-the full Maestro set (`npm run test:mobile:maestro`). **On this Mac that is the iOS run:** the
-harness creates, boots and shuts down its own simulator ("OrenjiTrade Maestro"), so nothing has to
-be started, and `npx expo export --platform ios` joins the export checks. The same flows run on
-Android (`-- --platform android` with a booted emulator; the harness finds the SDK in
-`~/Library/Android/sdk` by itself).
+`npm run generate:api` leave git clean; `npm run test:api`; `npm run test:web`; `npm run build -w
+apps/web-angular` (initial bundle under the 900 kB warning budget: 899.31 kB after stage R1,
+896.09 kB with R1 and F1, the same with R2, which changes no web file; the English legal texts
+sit in the main bundle, and the deckCore tokens are kept out of `tokens.css`); `npm run test:e2e
+-- --retries=0` (every spec green on the first attempt); `npm run test:mobile`; `npx expo export
+--platform ios`, `--platform android` and `--platform web`; `npm run test:mobile:e2e --
+--retries=0`; `npm run audit:gate`; `npm run test:scripts`; exactly what GitHub CI runs: `npm run
+lint -w apps/web-angular`, `npm run format:check -w apps/web-angular`, `npm run typecheck -w
+apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile`; and, when
+`apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`,
+33 flows since R4 (R2 renamed `inventory-add-edit-delete.yaml` to `inventory-add-edit-undo.yaml`,
+native flow 1 of the redesign; R3 added `deck-core.yaml`, native flow 2; R4 added
+`deal-deck-core-chat.yaml` and `deal-mark-sold.yaml`, native flows 3 and 4; R5 replaced
+`holders-filters.yaml` with `search-who-has-this-card.yaml`, native flow 3 in full, and extended
+`deck-core.yaml`, native flow 2 in full), about 55 minutes) on
+the owner's simulator (section 4). Since Xcode 27.1 (on this Mac since 2026-10-16) iOS's
+accessibility tree no longer lists the texts inside an accessible view apart: a flow matches such a
+view (a banner, a form message) by its whole name, as `legal-french.yaml` now does. While the web is paused its checks are regression checks: a web failure is
+recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
 `apps/mobile` or to `apps/mobile/.maestro`. The iOS run proves the flows and the app on iOS only;
 Android has its own steps in the shared subflows (the back key, `hideKeyboard`, the swipe-based
 scrolls, the `checked` state, `10.0.2.2`) and its own app behaviour (edge-to-edge insets, the
-keyboard, dialogs as windows). Say in the PR report that Android "could not be verified on this
-machine", never skip it silently; a flow change is written so that Android executes the steps it
-executed before (platform-specific steps sit in `when: platform:` blocks).
+keyboard, dialogs as windows, the file part of uploads). Say in the PR report "the Android run could
+not be verified", never skip it silently; a flow change is written so that Android executes the
+steps it executed before (platform-specific steps sit in `when: platform:` blocks).
 
 ## 4. How the work has been done (keep doing it)
 
 - **One stage = builder → independent review → fix loop → PR.** The builder implements end to end
-  (API + migrations + seeds with tests, web, mobile adaptation, docs). Then at least two independent
-  reviewers run everything themselves: a functional verifier and a second lens that fits the stage
-  (privacy audit, product/UX as a collector, French-language review). At most two fix rounds, then
-  the ship step merges `origin/main`, pushes, and opens the PR with a plain-language report (what
-  changed, decisions, how it was verified, what could not be verified, owner follow-ups).
+  (API + migrations + seeds with tests, the phone, docs). Then at least two independent reviewers
+  run everything themselves: a functional verifier and a second lens that fits the stage (privacy
+  audit, product/UX as a collector, French-language review). At most two fix rounds, then the ship
+  step merges `origin/main`, pushes, and opens the PR with a plain-language report (what changed,
+  decisions, how it was verified, what could not be verified, owner follow-ups).
 - **Ultracode workflows** run these stages; split a large change into batches so the owner can
   check results between them. Prefer resuming a stopped workflow from its cache over redoing work.
-- **Isolation:** do feature work in a separate git worktree; never build or commit in the owner's
-  main checkout while they may be running the app. The owner's dev stack uses ports 8080 (API) and
-  4200 (web) and the database `orenjitrade` — never bind those ports, never touch that database,
-  never stop/restart/reset the Docker containers (`npm run infra:reset`, `docker compose down`).
-  Test suites have their own stacks: web E2E `orenjitrade_e2e` on 8180/4300 (Redis db 2), mobile
-  E2E `orenjitrade_mobile_e2e` on 8090/19006/8082 (Redis db 1); reviewers' live walks used
-  8480/4480 (db `orenjitrade_regions_check`, Redis db 5) and 8490/4490 (`orenjitrade_regions_ux`,
-  Redis db 6). Every E2E API gets its own card-image cache and media directories (start-up
-  reconciliation deletes files its own database does not reference).
+- **Isolation:** do feature work in a separate git worktree (sibling folders of the main checkout,
+  `/Users/yunji/Dev/OrenjiTrade-<name>`); never build or commit in the owner's main checkout while
+  they may be running the app. The owner's dev stack uses ports 8080 (API) and 4200 (web) and the
+  database `orenjitrade` — never bind those ports, never touch that database, never
+  stop/restart/reset the Docker containers `orenjitrade-postgres`, `orenjitrade-redis` and
+  `orenjitrade-firebase-auth` (`npm run infra:reset`, `docker compose down`). Test suites have
+  their own stacks: web E2E `orenjitrade_e2e` on 8180/4300 (Redis db 2), mobile E2E
+  `orenjitrade_mobile_e2e` on 8090/19006/8082 (Redis db 1); reviewers' live walks used 8480/4480
+  (a database of their own such as `orenjitrade_s6_check`, Redis db 5) and 8490/4490 (Redis db 6),
+  each dropped or flushed at the end. Every isolated API gets its own card-image cache and media
+  directories (start-up reconciliation deletes files its own database does not reference;
+  `scripts/lib/web-e2e-guard.mjs` shows the environment).
 - **Gradle daemons are shared by every worktree.** Never run `./gradlew --stop`: it stops every
   daemon of that Gradle version, the one behind the owner's `npm run dev` API and other worktrees'
-  running builds included. A build that needs its own daemon passes
-  `-Dorg.gradle.daemon.registry.base=<a scratch directory>` and stops only that one with the same
-  flag.
-- **Stop every process you start**; leave no emulator, Metro or test stack running.
+  running builds included. Stop only a daemon you started, by its PID (`pgrep -f GradleDaemon`
+  before and after), or give a build its own registry with
+  `-Dorg.gradle.daemon.registry.base=<a scratch directory>`.
+- **The shell environment of every agent that runs Gradle, an npm test script or Maestro** (learned
+  on the Mac):
+  `export JAVA_HOME=/Users/yunji/.gradle/jdks/eclipse_adoptium-21-aarch64-os_x.2/jdk-21.0.12.1+1/Contents/Home`,
+  `PATH="$JAVA_HOME/bin:$HOME/.maestro/bin:$PATH"`,
+  `DOCKER_HOST=unix:///Users/yunji/.orbstack/run/docker.sock`,
+  `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` and
+  `ORENJI_IOS_SIMULATOR_UDID=<the UDID of the owner's booted iPhone>`. After a restart of the Mac
+  OrbStack is not running until `orbctl start`, and `/var/run/docker.sock` is gone until it is, so
+  Testcontainers fails without the two Docker variables (do not recreate the link: it needs admin
+  rights). The three shared containers come back by themselves; the Auth emulator loses its
+  accounts.
+- **The owner's simulator** (owner order of 2026-10-12). The owner keeps an iPhone simulator booted
+  for the native runs (an iPhone 18 Pro, iOS 27.0, since 2026-10-13). Every native run sets
+  `ORENJI_IOS_SIMULATOR_UDID` to it (`xcrun simctl list devices booted`); without it the harness
+  would create and boot its own "OrenjiTrade Maestro" simulator, which is not allowed here. Never
+  boot, create, erase, shut down, restart or delete any simulator, and do not use the desktop app's
+  simulator panel or tools: each boot makes the desktop app ask the owner for permission. If it is
+  not booted when you need it, wait for it and say so. Screenshots:
+  `xcrun simctl io <UDID> screenshot <file>`; appearance and text size:
+  `xcrun simctl ui <UDID> appearance dark` / `content_size accessibility-extra-extra-extra-large`
+  (or the launch argument of `subflows/relaunch-large-text.yaml`), put back to `light` and `large`
+  afterwards; everything else through Maestro (`maestro --device <UDID> ...`). Leave no file in its
+  Files storage and stop Expo Go at the end (a one-step Maestro flow with `stopApp`).
+- **The simulator lock.** Sessions share that simulator and the ports 8090, 8082 and 19006 one at a
+  time: before any native run, mobile web E2E run or walk, take the lock with
+  `mkdir /Users/yunji/Dev/.orenji-simulator.lock` (it fails while someone holds it) and write who
+  you are and since when into its `holder` file; remove it (`rm -rf` of that folder) as soon as the
+  stack is stopped and the ports are free. If `mkdir` fails, read the holder and wait with one plain
+  background loop, doing meanwhile what needs neither the simulator nor those ports. A lock older
+  than two hours whose holder runs no `maestro` or `test.mjs` process is stale: say so, remove it
+  and take it. Never hold it while you are not using it.
+- **Agents' notes files.** The network of this Mac drops now and then, and an agent that loses it
+  is cut without warning. Every agent of a stage keeps a running notes file under
+  `.local-dev/<stage>-notes/` in its worktree (git-ignored; it survives a restart, the scratch
+  folder does not) with what is done, each result, every finding and what is next, and commits
+  each finished part at once (`wip:` commits are allowed and tidied before the end; nothing is
+  pushed until the ship step). An agent that finds such a file continues from it instead of
+  starting over.
+- **Stop every process you start**; leave no Metro, test stack, web server or test database
+  running.
+- **Walking the app by hand on the simulator**: `npm run test:mobile:maestro -- --platform ios
+  --keep-running <one flow>` leaves the API and Metro up (`-- --stop` ends them). The Metro of the
+  harness does not pick up source edits (it runs without file watching): after a change to the
+  app, `-- --stop` and start again. Relaunch the app after a text size change (the screen on
+  display keeps its old layout until it is drawn again). The names VoiceOver reads are in
+  `maestro --device <UDID> hierarchy`.
 
-## 5. Owner working agreements (from the Windows Claude memory)
+## 5. Owner working agreements
 
-- **Merging:** Claude may merge PRs into `main` once **all CI checks are green**: merge commits (not
-  squash), in order for stacked PRs, then delete the branch. Dependabot PRs are not covered (the
-  owner has not decided the Dependabot cleanup); the ones superseded by the SDK 58 upgrade (#14 #15
-  #21 #26 #27, not #23) are closed when #54 merges.
+- **Merging:** Claude may push, open PRs and merge them into `main` once **all CI checks are
+  green**: merge commits (not squash), in order for stacked PRs, then delete the branch. Dependabot
+  PRs are not covered (the owner has not decided the Dependabot cleanup); the ones superseded by the
+  SDK 58 upgrade (#14 #15 #21 #26 #27, not #23) are closed when #54 merges.
 - **Local-first and free:** no cloud deployment, no `terraform plan/apply`, no `gcloud`, no EAS
-  (build/submit/update/login), no `expo login`, no Maestro Cloud or `maestro login`, no paid APIs or
-  usage credits. The owner is budget-conscious: ask before anything that can cost money.
+  (build/submit/update/login), no `expo login`, no native build, no Maestro Cloud or
+  `maestro login`, no paid APIs or usage credits. Seeds, tests and agents never call YGOPRODeck (a
+  real catalog import is the explicit `npm run catalog:import`, an owner step), and nothing ever
+  calls Collectr. The owner is budget-conscious: ask before anything that can cost money, and run
+  multi-agent work in moderate batches.
 - **On hold:** Phase 11 ML card recognition (keep `mlScanning` off, no camera scanning); the Expo SDK
   58 upgrade until it is stable; the full French UI translation (the owner said "hold, don't start"
   on 2026-10-07 — the plan stays in IMPLEMENTATION_STATUS.md).
-- **Launch decisions (2026-10-05):** discovery + messaging only (money feature flags off at launch),
+- **Launch decisions (2026-10-05):** discovery + messaging only (protected payments off at launch),
   18+ self-declaration, legal texts in English and French that stay marked as drafts (never remove
-  the draft banner, never claim legal compliance), Law 25 operating docs in `docs/security/`.
+  the draft banner or a `[to confirm]` placeholder, never claim legal compliance), Law 25 operating
+  docs in `docs/security/`.
 - **Regions (2026-10-08):** no coordinates, GPS, distances or geocoding anywhere; country +
   state/province + optional city (city only on the owner's public profile, hideable); three platform
   regions. This supersedes the earlier 3 km zone rule.
+- **Mobile only (2026-10-12):** the owner paused the web app until a new order. Work in
+  `apps/mobile` (and in the API when a mobile stage needs it); do not change `apps/web-angular`.
+  Reading, building, testing and walking it are fine and wanted (it is the reference for what the
+  phone should offer); a defect found there is recorded, not fixed. A lockfile change still gets
+  `npm run build -w apps/web-angular` and `npm run test:web` once as a regression check.
+- **S3 and S4 skipped (2026-10-13):** after the map, only S5 and S6; build nothing of S3 or S4 until
+  the owner asks, and never describe them as done.
+- **The phone redesign (2026-10-14):** approved as final (mockup v32); built in stages R1 to R8 from
+  its spec. Until a stage lands, documents describe the phone as it is.
+- **Free for all (2026-10-14):** no Premium, credits, donations or ads anywhere (ADR 0019); the
+  usage limits stay, the same for every collector, and a reached limit never offers anything to
+  buy. Protected payments, offers, trades and disputes stay on the server. The paid code is on
+  `archive/paid-features`; bringing a feature back is an owner decision and a new migration.
+- **CLAUDE.md is the owner's:** agents propose exact sentences in their reports (the open proposals
+  are listed at the end of the delivery report) instead of editing it.
 - **Pausing:** when the owner says pause, stop every workflow and process at once and report exactly
   what is committed, pushed or pending; resume from the workflow cache on "continue".
 - **Tasks and reports:** the owner gives work as long pasted specs; report back in plain language
@@ -160,8 +284,23 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
 
 ## 6. Open owner decisions
 
-- In-app purchases for Premium/credits in store builds (IAP, link-out to the web, or web-only) — ADR
-  0011 open question; nothing is sold at launch.
+- In-app purchases in store builds: no longer open for Premium, credits or donations (removed by
+  stage F1, ADR 0019), and the phone takes no payment at all since stage R1 (ADR 0018: no
+  protected payments on the phone); the question of ADR 0011 comes back only if a paid feature or
+  payment protection returns to the phone.
+- Stage R1 of the phone redesign (IMPLEMENTATION_STATUS.md, "Phone redesign R1"): confirm that the
+  web exception for the "Trading safely" text also covered the two web spec files that pinned the
+  old text (one assertion of `legal-page.component.spec.ts`, three strings of
+  `e2e/launch-safety.spec.ts`; the guard of the new text reads the phone's copy, so the web's
+  `legal-content.spec.ts` is as S6 left it); the lawyer's list of the meetup, offer and protection wording
+  left in the Terms, the Privacy Policy, the Community Guidelines, the Marketplace, Payment
+  Protection, Refund and Dispute and Acceptable Use policies; whether the phone's legal index
+  keeps the Payment Protection and Refund and Dispute policies (ADR 0018: no claim of protection
+  on the phone); the defaults R1 chose (old offer and trade notifications open nothing, a removed
+  link lands on Messages, the chat tip opens "Trading safely", a holder row without a price reads
+  "Open to offers" until R2, the keyboard and the iOS system views follow the app's theme, the
+  splash is dark); the owner's database keeps its earlier seed texts (meetup, café) until a reset
+  (`seed-data.md`).
 - An arm64 PostGIS image: `postgis/postgis:17-3.5` is amd64-only and runs under Rosetta on Apple
   Silicon; decide before macOS 28 (Rosetta's end).
 - `security/npm-audit-allowlist.json`: the node-forge and braces entries expire on 2026-11-30;
@@ -171,19 +310,45 @@ executed before (platform-specific steps sit in `when: platform:` blocks).
 - OrbStack: its free use is limited; the owner checks OrbStack's current licence terms for
   commercial use and decides (macos-setup.md 4.4). On the owner's Mac it also publishes the dev
   ports (PostgreSQL, Redis, Auth emulator) on every network interface while the macOS firewall is
-  off, and it does not start at login.
+  off, and it does not start at login (section 4).
 - Installing the Android SDK and an arm64 AVD on the Mac (macos-setup.md 9.3): skipped for now
-  (2026-10-10), the native suite runs on the iOS simulator there. Until it is installed, nothing
-  on this Mac proves the Android half of a mobile change.
-- Photo uploads from the Android app: on iOS no photo could be uploaded (Expo's fetch refuses
-  React Native's file part) and that is fixed and proven on the simulator; Android runs the same
-  fetch and is expected to fail the same way, but keeps its old code until an Android run can
-  prove the fix (`apps/mobile/src/api/localFilePart.ts`; IMPLEMENTATION_STATUS.md, "Mobile app on
-  the iOS simulator", Open).
+  (2026-10-10). Until it is installed, nothing on this Mac proves the Android half of a mobile
+  change.
+- Photo and file uploads from the Android app: on iOS no photo could be uploaded (Expo's fetch
+  refuses React Native's file part) and that is fixed and proven on the simulator; Android runs the
+  same fetch and is expected to fail the same way, for photos and for the import's file, but keeps
+  its old code until an Android run can prove the fix (`apps/mobile/src/api/localFilePart.ts`;
+  IMPLEMENTATION_STATUS.md, "Mobile app on the iOS simulator", Open).
 - Uploaded photos can come out rotated on every client: the API drops a photo's EXIF orientation
   when it re-encodes the upload (same section). A backend fix, not started.
+- The inventory import (stage S5; the delivery report, section (f), lists each with the one place to
+  change it): (1) a card whose file names no condition starts at the lowest grade of its game
+  (`DAMAGED`); confirm, or say `NEAR_MINT` (`ImportMatcher.defaultCondition`). (2) No limit caps
+  the size of an inventory: V113 adds `inventory.items.max` without a number; give it one (for
+  everyone) in `/admin/usage-limits` or leave it open. (3) Collectr's real CSV header was never seen; try a real
+  export once. (4) An import never raises a card the collector shows (its copies become a private
+  card). (5) "Use the most recent printing" takes the plain copy where a set holds several versions
+  and marks the line; there is no "confirm all" for those lines. (6) Whether a preview line should
+  show the file's variant (a migration and a contract change). (7) The web import screen and a web
+  admin page for the `inventory.import.*` settings are not built (web paused). The redesign keeps
+  (1) and (2) open (its section 16).
+- Blocked collectors in the collectors section of `GET /search`: removed after a cache that every
+  viewer shares, so the section can hold fewer rows than asked; excluding them before the limit
+  means a cache per viewer (stage S6, recorded).
+- The freshness job no longer waits for a row another write holds (the lock fix): such a binder or
+  item is aged, warned, hidden or unlisted one hour later. Confirm, or ask for the waiting job back
+  (it is what deadlocked).
+- A dialog on screen with an empty accessibility tree (found during stage S5): **cause found and
+  fixed on 2026-10-13**, branch `fix/ios-second-modal-accessibility`, merged as #70 on 2026-10-14
+  (IMPLEMENTATION_STATUS.md on `main`, "A scrim iOS takes for a modal"). iOS takes a window-sized
+  view with a translucent pure black background for the dimming view of a modal, the native view
+  keeps that mark, and React Native reuses it: the dark theme's scrim was such a black. A view that
+  covers the window takes `palette.scrim`, never a pure black. Left for the owner, optional: hear a
+  sheet then a dialog with VoiceOver on a real iPhone in the dark theme (the verdict rests on
+  UIKit's own traversal on the simulator).
 - Optional, offered and not chosen yet: Phase 13 hardening (accessibility pass, load test, index
-  review, backup-restore drill, failure tests).
+  review, backup-restore drill, failure tests), with the follow-ups of the lock fix (a lock timeout
+  on inventory writes, the after-commit analytics listeners that can exhaust the connection pool).
 - The macOS issues of [macos-setup.md](macos-setup.md) section 12: items 1 to 4 and 7 to 13 were
   fixed on 2026-10-10 (item 2, the iOS path of the Maestro harness, and the macOS and Linux
   examples of `apps/mobile/README.md` with it). The Android run of the native suite on a Mac

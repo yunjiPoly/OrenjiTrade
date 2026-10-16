@@ -1,5 +1,6 @@
 package com.orenjitrade.api.inventory.infra;
 
+import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.cards.events.CatalogImportedEvent;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.seed.SeedContributor;
@@ -52,6 +53,7 @@ public class RealCatalogDemoSeedContributor implements SeedContributor {
     private static final Logger log = LoggerFactory.getLogger(RealCatalogDemoSeedContributor.class);
 
     private final JdbcClient jdbc;
+    private final BinderService binderService;
     private final ListingReconciler reconciler;
     private final TimeProvider timeProvider;
     private final SeedProperties seedProperties;
@@ -59,11 +61,13 @@ public class RealCatalogDemoSeedContributor implements SeedContributor {
 
     public RealCatalogDemoSeedContributor(
             JdbcClient jdbc,
+            BinderService binderService,
             ListingReconciler reconciler,
             TimeProvider timeProvider,
             SeedProperties seedProperties,
             PlatformTransactionManager transactionManager) {
         this.jdbc = jdbc;
+        this.binderService = binderService;
         this.reconciler = reconciler;
         this.timeProvider = timeProvider;
         this.seedProperties = seedProperties;
@@ -98,6 +102,9 @@ public class RealCatalogDemoSeedContributor implements SeedContributor {
     }
 
     int addDemoItems() {
+        // Like every write to binders and items: the owner lock first (this also runs after a
+        // catalog import, next to the collector's own requests and the freshness job).
+        binderService.lockOwners(List.of(OWNER));
         if (!binderExists()) {
             return 0;
         }

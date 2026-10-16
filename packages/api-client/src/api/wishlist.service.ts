@@ -25,6 +25,8 @@ import { UpdateWishlistItemRequest } from '../model/updateWishlistItemRequest';
 // @ts-ignore
 import { WishPriceTermsResponse } from '../model/wishPriceTermsResponse';
 // @ts-ignore
+import { WishlistAvailability } from '../model/wishlistAvailability';
+// @ts-ignore
 import { WishlistItemResponse } from '../model/wishlistItemResponse';
 // @ts-ignore
 import { WishlistSummaryEntry } from '../model/wishlistSummaryEntry';
@@ -38,6 +40,7 @@ import {
     CreateWishlistItemRequestParams,
     DeleteWishlistItemRequestParams,
     GetCollectorWishlistRequestParams,
+    GetWishlistAvailabilityRequestParams,
     UpdateWishlistItemRequestParams
 } from './wishlist.serviceInterface';
 
@@ -54,7 +57,7 @@ export class WishlistService extends BaseService implements WishlistServiceInter
 
     /**
      * Add a card to the wishlist
-     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
+     * Which copy (cardId for any printing, optionally with a rarity of the card\&#39;s printings, or printingId), a public note, nearMintOnly and a price term. When a collector of the caller\&#39;s platform region later lists a fitting public item, the caller gets a WISHLIST_ALERT (notification settings: wishlistAlerts). 409 CONFLICT for the same selection twice; 429 LIMIT_REACHED beyond wishlist.items.max (20 for everyone by default; an admin setting). Unknown members (such as the removed maxPrice or tradePreference) are ignored.
      * @endpoint post /api/v1/wishlist
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -247,6 +250,77 @@ export class WishlistService extends BaseService implements WishlistServiceInter
     }
 
     /**
+     * Which of the caller\&#39;s wishes are available in a region
+     * The ids of the caller\&#39;s wishes that &#x60;available&#x60; would mark in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north): the phone\&#39;s Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as &#x60;available&#x60; on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+     * @endpoint get /api/v1/wishlist/availability
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<WishlistAvailability>;
+    public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<WishlistAvailability>>;
+    public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<WishlistAvailability>>;
+    public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const region = requestParameters?.region;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'region',
+            <any>region,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/wishlist/availability`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<WishlistAvailability>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * The price terms a wish may choose
      * Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
      * @endpoint get /api/v1/wishlist/price-terms
@@ -305,6 +379,7 @@ export class WishlistService extends BaseService implements WishlistServiceInter
 
     /**
      * The caller\&#39;s wishlist items (newest first)
+     * Each item says whether it is &#x60;available&#x60; in the caller\&#39;s home region (stage R5; GET /wishlist/availability answers for any region): at least one public, fresh (ACTIVE or AGING) copy that fits the wish (its printing, or any printing of its card in its rarity; Near Mint or a condition not stated when the wish asks for Near Mint only, as for the wishlist alert), a card listed on its own or in a public deck core, held by a discoverable collector of the region who is not the caller and with no block either way. One grouped query for the whole list. No count.
      * @endpoint get /api/v1/wishlist
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.

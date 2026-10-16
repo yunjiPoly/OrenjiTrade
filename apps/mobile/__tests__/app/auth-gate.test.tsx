@@ -158,6 +158,24 @@ describe('auth gate (RootNavigator)', () => {
     );
     expect(resumableHref(['(tabs)', 'wishlist'], '/wishlist', {})).toBe('/wishlist');
     expect(resumableHref(['(tabs)'], '/', {})).toBeNull();
+    // The Map tab is the home: only a map link (a region, a state or province) is reopened.
+    expect(resumableHref(['(tabs)'], '/', { region: 'europe', subdivision: 'FR-IDF' })).toBe(
+      '/?region=europe&subdivision=FR-IDF'
+    );
+    expect(resumableHref(['(tabs)'], '/', { region: 'europe' })).toBe('/?region=europe');
+    expect(resumableHref(['(tabs)'], '/', { tab: 'cards' })).toBeNull();
+    // Search is the first tab since stage R5: only a link into it is reopened (the onboarding
+    // was left the moment the profile was saved when Search itself was remembered).
+    expect(resumableHref(['(tabs)', 'search'], '/search', {})).toBeNull();
+    expect(resumableHref(['(tabs)', 'search'], '/search', { segment: 'wishlist' })).toBe(
+      '/search?segment=wishlist'
+    );
+    expect(
+      resumableHref(['regions', '[region]', '[code]'], '/regions/europe/FR-IDF', {
+        region: 'europe',
+        code: 'FR-IDF',
+      })
+    ).toBe('/regions/europe/FR-IDF');
     expect(resumableHref(['(auth)', 'sign-in'], '/sign-in', {})).toBeNull();
     expect(resumableHref(['legal', '[key]'], '/legal/terms', { key: 'terms' })).toBeNull();
     expect(

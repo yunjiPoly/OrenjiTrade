@@ -100,7 +100,11 @@ public class ConversationController {
                         + " direction or, for a new conversation, when the recipient's messaging"
                         + " permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the"
                         + " caller has no saved profile). 404 for unknown, suspended or deleted"
-                        + " recipients; 400 for oneself.")
+                        + " recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or"
+                        + " `subjectBinderId` (a deck core) pins what the chat is about, the latest"
+                        + " wins; it must be the recipient's and public, or the caller's own (404"
+                        + " when private, deleted or sold; 400 for both at once, for someone"
+                        + " else's, and for a binder that is not a deck core).")
     @ApiResponse(responseCode = "200", description = "The existing conversation")
     @ApiResponse(responseCode = "201", description = "The new conversation")
     @ApiResponse(
@@ -121,11 +125,36 @@ public class ConversationController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody StartConversationRequest body) {
         ConversationService.Started started =
-                conversationService.start(principal.userId(), body.recipientId());
+                conversationService.start(
+                        principal.userId(),
+                        body.recipientId(),
+                        body.subjectItemId(),
+                        body.subjectBinderId());
         URI location = URI.create("/api/v1/conversations/" + started.conversation().id());
         return ResponseEntity.status(started.created() ? HttpStatus.CREATED : HttpStatus.OK)
                 .location(location)
                 .body(started.conversation());
+    }
+
+    @GetMapping("/{id}")
+    @Operation(
+            operationId = "getConversation",
+            summary = "One conversation of the caller",
+            description =
+                    "Stage R4: the conversation as in the list, with its subject (the card or deck"
+                        + " core it is about). 404 for non-participants and conversations hidden by"
+                        + " a block.")
+    @ApiResponse(responseCode = "200", description = "The conversation")
+    @ApiResponse(
+            responseCode = "404",
+            description = "Unknown conversation (or not a participant, or hidden by a block)",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public ConversationSummary get(
+            @AuthenticationPrincipal AuthenticatedUser principal, @PathVariable UUID id) {
+        return conversationService.get(principal.userId(), id);
     }
 
     @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -186,15 +215,17 @@ public class ConversationController {
             operationId = "sendMessage",
             summary = "Send a message",
             description =
-                    "TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`; BINDER_LINK"
-                        + " `binderId` of a public binder; IMAGE `imageUploadId` of POST"
-                        + " /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer between"
-                        + " the two participants (Phase 8). SYSTEM is refused (400). Moderation:"
-                        + " 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG"
-                        + " rules store the message as FLAGGED; 429 RATE_LIMITED above the rate"
-                        + " rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the"
-                        + " other participant cannot receive messages. Pushed to both participants"
-                        + " on /user/queue/messages.")
+                    "TEXT needs `body` (≤ 4000 characters); CARD_LINK `cardPrintingId`, or"
+                        + " `inventoryItemId` of one of the caller's own cards (stage R4: its"
+                        + " picture, code and price as typed, and it becomes the chat's subject);"
+                        + " BINDER_LINK `binderId` of a public binder; IMAGE `imageUploadId` of"
+                        + " POST /uploads/images (within 1 h); OFFER_LINK `offerId` of an offer"
+                        + " between the two participants (Phase 8). SYSTEM is refused (400)."
+                        + " Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic"
+                        + " reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED"
+                        + " above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block"
+                        + " exists or the other participant cannot receive messages. Pushed to both"
+                        + " participants on /user/queue/messages.")
     @ApiResponse(responseCode = "201", description = "The stored message")
     @ApiResponse(
             responseCode = "400",
@@ -237,7 +268,8 @@ public class ConversationController {
                         body.cardPrintingId(),
                         body.binderId(),
                         body.offerId(),
-                        body.imageUploadId()));
+                        body.imageUploadId(),
+                        body.inventoryItemId()));
     }
 
     @PostMapping(path = "/{id}/read", consumes = MediaType.APPLICATION_JSON_VALUE)

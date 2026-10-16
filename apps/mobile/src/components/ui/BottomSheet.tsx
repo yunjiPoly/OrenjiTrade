@@ -2,17 +2,28 @@ import { useEffect, useState, type ReactNode } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/src/components/ui/Text';
 import { useReducedMotion } from '@/src/hooks/useReducedMotion';
-import { elevation, fontWeight, motion, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  elevation,
+  fontWeight,
+  motion,
+  radius,
+  spacing,
+  textStyle,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { InsideModal, useModalOnScreen, useModalTurn } from './modalTurns';
 
@@ -22,6 +33,11 @@ export interface BottomSheetProps {
   title?: string;
   children: ReactNode;
   testID?: string;
+  /**
+   * The sheet holds a text field: on iOS it rises above the keyboard so its buttons stay in reach
+   * (Android resizes the window itself). Stage R4: Mark as sold, the saved address or email.
+   */
+  avoidKeyboard?: boolean;
 }
 
 /**
@@ -34,6 +50,7 @@ export function BottomSheet({
   title,
   children,
   testID = 'bottom-sheet',
+  avoidKeyboard = false,
 }: BottomSheetProps) {
   // iOS: a sheet asked for while another modal is on screen waits for its turn (modalTurns.tsx).
   const turn = useModalTurn(wanted);
@@ -71,12 +88,17 @@ export function BottomSheet({
 
   return (
     <Modal transparent visible animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.root} testID={testID}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior="padding"
+        enabled={avoidKeyboard && Platform.OS === 'ios'}
+        testID={testID}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
           onPress={onClose}
-          style={[styles.backdrop, { backgroundColor: palette.overlay }]}
+          style={[styles.backdrop, { backgroundColor: palette.scrim }]}
           testID={`${testID}-backdrop`}
         />
         <Animated.View
@@ -92,13 +114,19 @@ export function BottomSheet({
         >
           <View style={[styles.handle, { backgroundColor: palette.borderStrong }]} />
           {title ? (
-            <Text style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}>
+            // A title follows the text size as far as a screen's title does (twice its size), so
+            // at the largest sizes it leaves the sheet room for its rows and its buttons.
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[textStyle('lg', 'heading'), styles.title, { color: palette.ink }]}
+              testID={`${testID}-title`}
+            >
               {title}
             </Text>
           ) : null}
           <InsideModal>{children}</InsideModal>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

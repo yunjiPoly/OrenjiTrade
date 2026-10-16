@@ -7,9 +7,8 @@ import static com.orenjitrade.api.inventory.InventoryTestSupport.privacy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
-import com.orenjitrade.api.auth.domain.Role;
-import com.orenjitrade.api.billing.domain.PlanService;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.limits.domain.UsageLimitService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,16 +21,16 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code binder.views.per_day} on {@code GET /public/binders/{id}} (Phase 4 contract, Phase 10
- * limits): signed-in FREE visitors consume one unit per binder and UTC day; repeated views of the
- * same binder, the owner's own views and signed-out views never count; PREMIUM visitors and
- * entitlements are not limited; beyond the limit the answer is {@code 429 LIMIT_REACHED} with the
- * plan extensions and nothing is consumed.
+ * {@code binder.views.per_day} on {@code GET /public/binders/{id}} (Phase 4 contract, usage
+ * limits): signed-in visitors consume one unit per binder and UTC day; repeated views of the same
+ * binder, the owner's own views and signed-out views never count; beyond the limit the answer is
+ * {@code 429 LIMIT_REACHED} with the limit's extensions (no plan since stage F1) and nothing is
+ * consumed; an unlimited setting lifts it for every visitor.
  */
 class BinderViewLimitIT extends AbstractIntegrationTest {
 
     @Autowired private CatalogImportService importService;
-    @Autowired private PlanService planService;
+    @Autowired private UsageLimitService usageLimits;
 
     private final List<String> binderIds = new ArrayList<>();
     private String owner;
@@ -40,9 +39,8 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
     void binders() {
         InventoryTestSupport.ensureCatalog(importService);
         testUsers.update(
-                "UPDATE usage_limit l SET max_value = 2 FROM plan p WHERE p.id = l.plan_id AND"
-                        + " p.code = 'FREE' AND l.limit_key = 'binder.views.per_day'");
-        planService.invalidate();
+                "UPDATE usage_limit SET max_value = 2 WHERE limit_key = 'binder.views.per_day'");
+        usageLimits.invalidate();
         owner = uniqueUid("views-owner");
         provisionCompliant(owner);
         callJson(
@@ -67,9 +65,8 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
     @AfterEach
     void restoreViewLimit() {
         testUsers.update(
-                "UPDATE usage_limit l SET max_value = 30 FROM plan p WHERE p.id = l.plan_id AND"
-                        + " p.code = 'FREE' AND l.limit_key = 'binder.views.per_day'");
-        planService.invalidate();
+                "UPDATE usage_limit SET max_value = 30 WHERE limit_key = 'binder.views.per_day'");
+        usageLimits.invalidate();
     }
 
     private String view(int index) {
@@ -78,17 +75,17 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
 
     private long used(String uid) {
         for (JsonNode limit :
-                callJson(HttpMethod.GET, "/api/v1/me/plan", uid, null, 200).path("limits")) {
+                callJson(HttpMethod.GET, "/api/v1/me/limits", uid, null, 200).path("limits")) {
             if ("binder.views.per_day".equals(limit.path("key").asString())) {
                 return limit.path("used").asLong();
             }
         }
-        throw new AssertionError("binder.views.per_day missing from /me/plan");
+        throw new AssertionError("binder.views.per_day missing from /me/limits");
     }
 
     @Test
-    void freeVisitorsConsumeOneViewPerBinderAndDay() {
-        String visitor = uniqueUid("views-free");
+    void visitorsConsumeOneViewPerBinderAndDay() {
+        String visitor = uniqueUid("views-visitor");
         provisionCompliant(visitor);
         callJson(HttpMethod.GET, view(0), visitor, null, 200);
         callJson(HttpMethod.GET, view(0), visitor, null, 200);
@@ -101,8 +98,8 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
         assertThat(problem.path("limitKey").asString()).isEqualTo("binder.views.per_day");
         assertThat(problem.path("limit").asInt()).isEqualTo(2);
         assertThat(problem.path("used").asLong()).isEqualTo(2);
-        assertThat(problem.path("planCode").asString()).isEqualTo("FREE");
-        assertThat(problem.path("upgradeUrl").asString()).isEqualTo("/premium");
+        assertThat(problem.has("planCode")).isFalse();
+        assertThat(problem.has("upgradeUrl")).isFalse();
         assertThat(problem.path("resetsAt").asString()).isNotBlank();
         assertThat(used(visitor)).as("a refused view consumes nothing").isEqualTo(2);
         // Binders already seen today stay readable.
@@ -124,26 +121,17 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void premiumAndEntitledVisitorsAreNotLimited() {
-        String premium = uniqueUid("views-premium");
-        UUID premiumId = provisionCompliant(premium);
-        testUsers.update("UPDATE user_account SET plan_code = 'PREMIUM' WHERE id = ?", premiumId);
-        for (int index = 0; index < binderIds.size(); index++) {
-            callJson(HttpMethod.GET, view(index), premium, null, 200);
-        }
-
-        String entitled = uniqueUid("views-entitled");
-        UUID entitledId = provisionCompliant(entitled);
-        String admin = uniqueUid("views-admin");
-        provisionWithRoles(admin, Role.ADMIN);
-        callJson(
-                HttpMethod.POST,
-                "/api/v1/admin/users/" + entitledId + "/entitlements",
-                admin,
-                Map.of("featureKey", "binder.views.per_day", "value", "unlimited"),
-                201);
-        for (int index = 0; index < binderIds.size(); index++) {
-            callJson(HttpMethod.GET, view(index), entitled, null, 200);
+    void anUnlimitedSettingLiftsTheLimitForEveryVisitor() {
+        testUsers.update(
+                "UPDATE usage_limit SET max_value = NULL WHERE limit_key = 'binder.views.per_day'");
+        usageLimits.invalidate();
+        for (String prefix : List.of("views-unlimited-a", "views-unlimited-b")) {
+            String visitor = uniqueUid(prefix);
+            provisionCompliant(visitor);
+            for (int index = 0; index < binderIds.size(); index++) {
+                callJson(HttpMethod.GET, view(index), visitor, null, 200);
+            }
+            assertThat(used(visitor)).isEqualTo(binderIds.size());
         }
     }
 }

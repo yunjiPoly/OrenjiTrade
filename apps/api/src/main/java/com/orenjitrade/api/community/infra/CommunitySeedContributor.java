@@ -26,7 +26,7 @@ import tools.jackson.databind.node.ObjectNode;
 /**
  * Seeds a few fictional community posts and replies in the V041 channels (stable ids {@code
  * 00000000-0000-4000-8e00-0000000001NN} for posts and {@code ...0000000002NN} for replies), dated
- * relative to the first seed run: a meetup post with collector1's public binder, a "looking for"
+ * relative to the first seed run: a trading post with collector1's public binder, a "looking for"
  * post with a card link, a new-listings post with collector5's binder, a welcome thread and a trade
  * report. Inserted once ({@code ON CONFLICT DO NOTHING}); authors that are missing or inactive are
  * skipped.
@@ -78,8 +78,8 @@ public class CommunitySeedContributor implements SeedContributor {
                                 1,
                                 "11",
                                 "01",
-                                "Anyone going to the Friday locals? I will bring my"
-                                        + " trade binder, happy to trade before the tournament.",
+                                "My trade binder is updated: Yu-Gi-Oh! and Pokémon singles,"
+                                        + " shipped with tracking. Happy to trade or sell.",
                                 20 * 60,
                                 null,
                                 "00000000-0000-4000-8b00-000000000101"),
@@ -105,8 +105,8 @@ public class CommunitySeedContributor implements SeedContributor {
                                 4,
                                 "08",
                                 "08",
-                                "Welcome to the OrenjiTrade community! Where do you like to meet"
-                                        + " for trades? A busy food court works well for me.",
+                                "Welcome to the OrenjiTrade community! How do you ship your"
+                                        + " cards? Toploader and a bubble mailer work well for me.",
                                 3 * 60,
                                 null,
                                 null),
@@ -114,8 +114,8 @@ public class CommunitySeedContributor implements SeedContributor {
                                 5,
                                 "07",
                                 "04",
-                                "Traded two Riftbound rares with a collector of my region"
-                                        + " yesterday. Smooth meetup, thanks!",
+                                "Traded two Riftbound rares with a collector of my region by"
+                                        + " mail. Tracked both ways, smooth deal, thanks!",
                                 30 * 60,
                                 null,
                                 null));
@@ -163,19 +163,19 @@ public class CommunitySeedContributor implements SeedContributor {
                                 1,
                                 1,
                                 "03",
-                                "I will be there! Looking for vintage staples, see you Friday.",
+                                "Nice! Looking for vintage staples, sending you a message.",
                                 19 * 60),
                         new SeedReply(
                                 2,
                                 4,
                                 "01",
-                                "The café on Mont-Royal is my go-to, lots of tables.",
+                                "Tracked lettermail is my go-to for singles, cheap and quick.",
                                 2 * 60),
                         new SeedReply(
                                 3,
                                 4,
                                 "05",
-                                "Metro stations with a mall are great for quick trades.",
+                                "Same here, and I ask for tracking above 20 dollars.",
                                 60));
         for (SeedReply reply : replies) {
             UUID authorId = UUID.fromString(USER_PREFIX + reply.author());

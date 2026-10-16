@@ -1,5 +1,6 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
+import { Text } from '@/src/components/ui/Text';
 import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { Button } from './Button';
@@ -48,7 +49,8 @@ export function ConfirmDialog({
           accessibilityRole="button"
           accessibilityLabel={cancelLabel}
           onPress={onCancel}
-          style={[StyleSheet.absoluteFill, { backgroundColor: palette.overlay }]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: palette.scrim }]}
+          testID={`${testID}-backdrop`}
         />
         <View
           testID={testID}

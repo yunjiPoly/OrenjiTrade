@@ -156,8 +156,12 @@ class AnalyticsIT extends AbstractIntegrationTest {
                     .doesNotContain(viewerId.toString())
                     .doesNotContain(ownerId.toString())
                     .doesNotContain(viewerEmail);
-            if (!event.path("event_type").asString().startsWith("search_")) {
-                assertThat(text).as("views carry hashes, not handles").doesNotContain(handle);
+            // Views carry hashes, not handles; searches carry no text at all (stage R5).
+            assertThat(text).as("no handle in %s", text).doesNotContain(handle);
+            if (event.path("event_type").asString().startsWith("search_")) {
+                assertThat(event.path("payload").has("query"))
+                        .as("the search text never enters an event: %s", text)
+                        .isFalse();
             }
             assertThat(DECIMAL.matcher(text).find()).as("decimal number in %s", text).isFalse();
             assertThat(EMAIL.matcher(text).find()).as("e-mail in %s", text).isFalse();
@@ -177,9 +181,8 @@ class AnalyticsIT extends AbstractIntegrationTest {
         assertThat(sawViewer).as("the viewer's events carry the actor hash").isTrue();
 
         JsonNode noResults = first(events, "search_no_results");
-        assertThat(noResults.path("payload").path("query").asString())
-                .contains("[email]")
-                .contains("[number]");
+        assertThat(noResults.path("payload").has("query")).isFalse();
+        assertThat(noResults.path("payload").path("query_length").asInt()).isPositive();
         assertThat(noResults.path("payload").path("surface").asString()).isEqualTo("search");
         assertThat(noResults.path("region_code").asString()).isEqualTo("americas-north");
         JsonNode holders = firstWhere(events, "search_performed", "card_holders");

@@ -1,0 +1,140 @@
+# The region switcher (ADR 0017, mobile stage M9; over Search's map since stage R5): a seed
+# collector of Americas (North) (collector1, Quebec) opens the switcher, a sheet with the three
+# regions, and browses Europe: the map follows and says "Not your region", Search › Binders lists
+# the seed binder of collector8 with her handle and Île-de-France, never "Paris"; the card search
+# finds collector8 by her handle in Europe; one press goes back to the collector's own region; a
+# link of the old Map tab opens Search on a region and one of its states. Seed accounts are only signed in to; what Île-de-France holds is read on
+# the host from the public API (scripts/region-map.js).
+appId: ${APP_ID}
+name: Region switcher over Search's map, Binders and collectors follow, and a map link
+tags:
+  - mobile-m9
+  - map
+  - search
+---
+- runScript:
+    file: scripts/region-map.js
+    env:
+      REGION: europe
+      CODE: FR-IDF
+      BINDER: 'Extras for trade'
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 60000
+
+# The switcher over Search's map: a sheet with the three regions; Europe.
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)'
+    timeout: 30000
+- tapOn:
+    id: 'search-region'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-option-europe'
+    timeout: 15000
+- assertVisible:
+    id: 'search-region-option-americas-north'
+- assertVisible:
+    id: 'search-region-option-americas-south'
+- tapOn:
+    id: 'search-region-option-europe'
+
+# The map follows, and says it is not the collector's region; no province of theirs to show.
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Europe'
+    timeout: 30000
+- assertVisible:
+    id: 'search-region-away-home'
+    text: 'Back to Americas \(North\)'
+- assertVisible:
+    id: 'search-region-map'
+    text: 'Map of Europe: states and provinces shaded by their number of public binders'
+- assertNotVisible:
+    id: 'search-region-map-home'
+- takeScreenshot: region-europe
+
+# Île-de-France through Binders: the seed binder of collector8, her handle and the province (the
+# whole of Europe is listed), never Paris.
+- tapOn:
+    id: 'search-segment-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-input'
+    timeout: 30000
+- tapOn:
+    id: 'binders-input'
+- inputText: ${output.binder.name}
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binder-search-row-${output.binder.id}'
+    timeout: 60000
+- assertVisible:
+    id: 'binder-search-row-${output.binder.id}'
+    text: '${output.binder.name}, ${output.binder.handle} · Île-de-France · .*'
+- assertNotVisible: '.*Paris.*'
+- takeScreenshot: region-europe-binders
+
+# The card search is in Europe too: collector8 by her handle, with her province.
+- tapOn:
+    id: 'search-segment-cards'
+- tapOn:
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: ${output.binder.handle}
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-collector-${output.binder.handle}'
+    timeout: 60000
+- assertVisible:
+    id: 'search-collector-${output.binder.handle}'
+    text: '.*Île-de-France.*'
+
+# One press goes home; the same search finds nobody in Americas (North).
+- tapOn:
+    id: 'search-input-cancel'
+- tapOn:
+    id: 'search-region-away-home'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)'
+    timeout: 30000
+- assertNotVisible:
+    id: 'search-region-away-home'
+
+# A link of the old Map tab opens Search on a region and one of its states (the web's
+# /map?region=&subdivision=).
+- openLink: ${APP_URL}/--/?region=europe&subdivision=FR-IDF
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Île-de-France'
+    timeout: 60000
+- assertVisible:
+    id: 'search-region'
+    text: 'Region: Europe'
+- assertVisible:
+    id: 'search-region-away-home'
+- takeScreenshot: region-link

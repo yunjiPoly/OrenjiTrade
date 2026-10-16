@@ -75,3 +75,11 @@ export const MESSAGING_OPTIONS: readonly {
     help: 'Turn off new conversations. Existing ones stay readable.',
   },
 ];
+
+/** Settings › Privacy › "Remember my searches" (stage R5): a setting of this phone only. */
+export const REMEMBER_SEARCHES = {
+  title: 'Search',
+  description: 'Your recent searches stay on this phone. Nobody else sees them.',
+  label: 'Remember my searches',
+  help: 'Shows your last searches when you search for a card. Turning this off clears them.',
+} as const;

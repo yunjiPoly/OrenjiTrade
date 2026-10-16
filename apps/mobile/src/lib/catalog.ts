@@ -240,17 +240,59 @@ export function printingsWithCode(
   return code ? printings.filter((printing) => printing.printingCode === code) : [];
 }
 
-/** Suggestions without duplicates (the same card or printing code listed twice). */
-export function uniqueSuggestions(items: readonly CardSuggestion[]): CardSuggestion[] {
+/**
+ * Suggestions without duplicates (the same card or printing code listed twice). With `keepTwins`,
+ * the printings that share a code ("GLM-EN002" in 1st Edition and Unlimited) stay apart: Add
+ * cards adds the exact printing tapped, told apart by {@link suggestionVariant}.
+ */
+export function uniqueSuggestions(
+  items: readonly CardSuggestion[],
+  keepTwins = false
+): CardSuggestion[] {
   const seen = new Set<string>();
   return items.filter((item) => {
-    const key = `${item.kind}|${item.id}|${item.printingCode ?? ''}`;
+    const printing = keepTwins && item.kind === 'PRINTING' ? (item.printingId ?? '') : '';
+    const key = `${item.kind}|${item.id}|${item.printingCode ?? ''}|${printing}`;
     if (seen.has(key)) {
       return false;
     }
     seen.add(key);
     return true;
   });
+}
+
+/**
+ * What tells an exact printing apart from the other suggested printings with its code (Add cards,
+ * screen 4): its edition, language or finish where they differ ("Unlimited", "French · Reverse
+ * holo"), as Choose the printing words it; `null` for a code no other suggestion has.
+ */
+export function suggestionVariant(
+  suggestion: CardSuggestion,
+  suggestions: readonly CardSuggestion[]
+): string | null {
+  if (suggestion.kind !== 'PRINTING' || !suggestion.printingCode) {
+    return null;
+  }
+  const twins = suggestions.filter(
+    (other) =>
+      other.kind === 'PRINTING' &&
+      other.printingCode === suggestion.printingCode &&
+      other.printingId !== suggestion.printingId
+  );
+  if (twins.length === 0) {
+    return null;
+  }
+  const parts: string[] = [];
+  if (twins.some((other) => other.edition !== suggestion.edition)) {
+    parts.push(editionLabel(suggestion.edition));
+  }
+  if (twins.some((other) => other.language !== suggestion.language)) {
+    parts.push(languageName(suggestion.language));
+  }
+  if (twins.some((other) => other.finish !== suggestion.finish)) {
+    parts.push(finishLabel(suggestion.finish));
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /** A search text bounded like the API's validation (trimmed, at most 100 characters). */

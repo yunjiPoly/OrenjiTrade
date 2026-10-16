@@ -26,4 +26,25 @@ module.exports = defineConfig([
       'no-fallthrough': 'error',
     },
   },
+  {
+    // Every screen draws text in the theme's typefaces (Sora, Inter, JetBrains Mono) through the
+    // app's own Text and TextInput; React Native's would silently fall back to the system font.
+    files: ['app/**/*.{ts,tsx}', 'src/**/*.{ts,tsx}'],
+    ignores: ['src/components/ui/Text.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-native',
+              importNames: ['Text', 'TextInput'],
+              message:
+                "Import Text and TextInput from '@/src/components/ui/Text' (the theme's fonts).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);

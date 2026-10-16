@@ -248,14 +248,6 @@ public class OpenApiConfig {
                                 "When the window resets (LIMIT_REACHED; absent for totals and"
                                         + " caps)"));
         schema.addProperty(
-                "planCode",
-                new StringSchema().description("The caller's plan (LIMIT_REACHED), e.g. FREE"));
-        schema.addProperty(
-                "upgradeUrl",
-                new StringSchema()
-                        .description(
-                                "Where to send the user to upgrade (LIMIT_REACHED): /premium"));
-        schema.addProperty(
                 "feature",
                 new StringSchema()
                         .description("Feature flag that is off for the caller (FEATURE_DISABLED)"));
@@ -265,29 +257,42 @@ public class OpenApiConfig {
                         .description(
                                 "Current status of the resource when a state conflicts"
                                         + " (INVALID_STATE_TRANSITION, CONFLICT,"
-                                        + " ALREADY_SUBSCRIBED)"));
-        schema.addProperty(
-                "subscriptionId",
-                new StringSchema()
-                        .format("uuid")
-                        .description("The caller's live subscription (ALREADY_SUBSCRIBED)"));
-        schema.addProperty(
-                "balance",
-                new IntegerSchema()
-                        .format("int64")
-                        .description("The caller's credit balance (INSUFFICIENT_CREDITS)"));
-        schema.addProperty(
-                "cost",
-                new IntegerSchema()
-                        .format("int64")
-                        .description("Credits the action needs (INSUFFICIENT_CREDITS)"));
+                                        + " IMPORT_ALREADY_COMMITTED)"));
         schema.addProperty(
                 "reason",
                 new StringSchema()
                         .description(
-                                "Why a referral code cannot be redeemed (REFERRAL_NOT_ALLOWED):"
-                                        + " SELF, ALREADY_REDEEMED, ACCOUNT_TOO_OLD,"
-                                        + " REFERRER_LIMIT"));
+                                "Why an inventory import file was refused (POST"
+                                        + " /inventory/imports): TOO_LARGE,"
+                                        + " NOT_TEXT, EMPTY_FILE, TOO_MANY_LINES, TOO_MANY_ROWS,"
+                                        + " MISSING_COLUMNS, MALFORMED, NO_CARDS"));
+        schema.addProperty(
+                "fileLimit",
+                new IntegerSchema()
+                        .description(
+                                "The limit an inventory import file passed: bytes (reason"
+                                        + " TOO_LARGE), lines (TOO_MANY_LINES) or rows"
+                                        + " (TOO_MANY_ROWS)"));
+        schema.addProperty(
+                "missingColumns",
+                new ArraySchema()
+                        .items(new StringSchema())
+                        .description(
+                                "The columns an inventory import file lacks (reason"
+                                        + " MISSING_COLUMNS), e.g. card name"));
+        schema.addProperty(
+                "unresolved",
+                new IntegerSchema()
+                        .description(
+                                "Rows of an inventory import that still need a printing"
+                                        + " (IMPORT_ROWS_UNRESOLVED)"));
+        schema.addProperty(
+                "requested",
+                new IntegerSchema()
+                        .format("int64")
+                        .description(
+                                "New inventory items an import would add (LIMIT_REACHED with"
+                                        + " limitKey inventory.items.max)"));
         schema.required(
                 List.of(
                         "type",

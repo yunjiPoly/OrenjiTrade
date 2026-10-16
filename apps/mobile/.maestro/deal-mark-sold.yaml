@@ -1,0 +1,245 @@
+# Native flow 4 of the phone redesign (owner spec 2026-10-14, section 14; stage R4, mockup screens
+# 22 to 25): as the seller, send your e-Transfer email from the + sheet, mark the card sold with a
+# tracking number, undo, mark it sold again, and rate. Ada (fresh, fictional, Quebec, the app user)
+# lists one copy at "$32"; Ben (fresh, fictional, Ontario, driven from the host through the
+# isolated API, scripts/deals.js) opens the chat about that card, so it is pinned, and asks "Is it
+# still available?". Ada's inbox shows the card's picture on the row; her chat shows "· your card"
+# with "Mark as sold" and the selling tip. The + sheet offers "Send my e-Transfer email" ("Saved on
+# this phone only"), asks for it the first time and puts it into the message box, sent only when
+# she taps send. Mark as sold (last copy, a tracking number), the toast's Undo, Mark as sold again,
+# then "Rate {Ben}" in the sale message. The host checks what Ben sees through the API: the email
+# message, the sale message with its tracking number and the "sold to you" notice (gone after the
+# undo), and Ada's rating of Ben.
+appId: ${APP_ID}
+name: Seller sends the e-Transfer email, marks the card sold, undoes, sells again and rates
+tags:
+  - mobile-r4
+  - messages
+---
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: seller-setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-messages'
+    timeout: 60000
+- tapOn:
+    id: 'tab-messages'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-row-${output.ben.handle}'
+    timeout: 60000
+# The row carries the picture of the card the chat is about (screen 22).
+- assertVisible:
+    id: 'conversation-subject-${output.ben.handle}'
+- takeScreenshot: r4-inbox
+- tapOn:
+    id: 'conversation-row-${output.ben.handle}'
+
+# The chat about Ada's own card (screen 24): "· your card", "Mark as sold", the selling tip, the
+# selling quick replies.
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-mark-sold'
+    timeout: 60000
+- assertVisible:
+    id: 'pinned-line'
+    text: '.*\$32 · your card'
+- assertVisible:
+    id: 'chat-safety-tip'
+    text: '.*Ship after the e-Transfer arrives, and add the tracking number when you mark it sold\.'
+- assertVisible:
+    id: 'quick-reply-Yes, still available'
+- takeScreenshot: r4-chat-selling
+
+# "+": "Send my e-Transfer email", asked the first time, into the message box only.
+- tapOn:
+    id: 'composer-attach'
+- extendedWaitUntil:
+    visible:
+      id: 'composer-send-etransfer'
+    timeout: 15000
+- assertNotVisible:
+    id: 'composer-send-address'
+- takeScreenshot: r4-plus-sheet-selling
+- tapOn:
+    id: 'composer-send-etransfer'
+- extendedWaitUntil:
+    visible:
+      id: 'saved-detail-input'
+    timeout: 15000
+- tapOn:
+    id: 'saved-detail-input'
+- inputText: 'ada.maestro@example.com'
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
+# The address as typed: a key the simulator dropped under load is typed again here, not found
+# three steps later in the message box (stage R5 review, F2: the step failed once in a full run).
+- runFlow:
+    when:
+      notVisible:
+        id: 'saved-detail-input'
+        text: 'ada.maestro@example.com'
+    commands:
+      - tapOn:
+          id: 'saved-detail-input'
+      - eraseText: 40
+      - inputText: 'ada.maestro@example.com'
+      - runFlow: subflows/hide-keyboard-in-dialog.yaml
+- assertVisible:
+    id: 'saved-detail-input'
+    text: 'ada.maestro@example.com'
+# Save, then the text in the box. A tap made while the sheet still settled can miss it: the sheet
+# is then still up after the wait, and Save is tapped once more (a sheet that took the tap is
+# gone by then, so the detail is never put in twice).
+- retry:
+    maxRetries: 1
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'saved-detail-save'
+          commands:
+            - tapOn:
+                id: 'saved-detail-save'
+      - extendedWaitUntil:
+          visible:
+            id: 'conversation-input'
+            text: 'e-Transfer to ada.maestro@example.com'
+          timeout: 15000
+# The seller checks the text in the box (the keyboard comes up) and sends it; the keyboard stays
+# up for Mark as sold, the order of spec flow 4 (review fix 1, F2: the toast and its Undo were
+# drawn under the keys when the box took the keyboard back).
+- tapOn:
+    id: 'conversation-input'
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    visible: 'e-Transfer to ada\.maestro@example\.com'
+    timeout: 30000
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: expect-body
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_BODY: 'e-Transfer to ada.maestro@example.com'
+
+# Mark as sold (screen 25), the keyboard still up: the last copy, a tracking number.
+- tapOn:
+    id: 'pinned-mark-sold'
+- extendedWaitUntil:
+    visible:
+      id: 'mark-sold-tracking'
+    timeout: 15000
+- assertVisible:
+    id: 'mark-sold-sentence'
+    text: 'Sold to ${output.ben.handle}\. It was your last copy, so the card leaves your inventory\. You can rate each other next\.'
+- tapOn:
+    id: 'mark-sold-tracking'
+- inputText: 'LX123456789CA'
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
+- takeScreenshot: r4-mark-as-sold
+- tapOn:
+    id: 'mark-sold-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'mark-sold-undo'
+    timeout: 30000
+- assertVisible: '.*Marked as sold.*'
+- takeScreenshot: r4-marked-as-sold
+
+# Undo, from the toast: the card is back, the sale message and Ben's notice are gone.
+- tapOn:
+    id: 'mark-sold-undo'
+- extendedWaitUntil:
+    visible: '.*Sale undone\..*'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-mark-sold'
+    timeout: 30000
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: expect-sales
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_SALES: '0'
+
+# Marked sold again: the sale message for the seller, "Tracking …", "Sold" on the bar.
+- tapOn:
+    id: 'pinned-mark-sold'
+- extendedWaitUntil:
+    visible:
+      id: 'mark-sold-tracking'
+    timeout: 15000
+- tapOn:
+    id: 'mark-sold-tracking'
+- inputText: 'LX123456789CA'
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
+- tapOn:
+    id: 'mark-sold-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'sale-message-rate'
+    timeout: 30000
+- assertVisible:
+    id: 'sale-message-text'
+    text: 'You marked ${output.card.name} as sold to ${output.ben.handle}\.'
+- assertVisible:
+    id: 'sale-message-tracking'
+- assertVisible:
+    id: 'pinned-sold'
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: expect-sales
+      EMAIL: ${output.ben.email}
+      PASSWORD: ${output.ben.password}
+      CONVERSATION: ${output.conversation.id}
+      EXPECT_SALES: '1'
+      EXPECT_TRACKING: 'LX123456789CA'
+- extendedWaitUntil:
+    notVisible:
+      id: 'mark-sold-undo'
+    timeout: 20000
+- takeScreenshot: r4-sold-message
+
+# "Rate {Ben}" opens the rating of the sale.
+- tapOn:
+    id: 'sale-message-rate'
+- extendedWaitUntil:
+    visible:
+      id: 'rate-overall-5'
+    timeout: 60000
+- assertVisible: 'Shipping'
+- assertNotVisible: 'Meetup reliability'
+- tapOn:
+    id: 'rate-overall-5'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'rate-submit'
+- tapOn:
+    id: 'rate-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-profile'
+    timeout: 60000
+- runScript:
+    file: scripts/messaging.js
+    env:
+      ACTION: expect-rating
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      HANDLE: ${output.ben.handle}
+      EXPECT_OVERALL: '5'

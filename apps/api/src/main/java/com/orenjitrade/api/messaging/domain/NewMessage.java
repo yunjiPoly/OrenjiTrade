@@ -12,6 +12,8 @@ import org.jspecify.annotations.Nullable;
  * @param binderId public binder of a BINDER_LINK
  * @param offerId offer of an OFFER_LINK (Phase 8)
  * @param imageUploadId upload of an IMAGE
+ * @param inventoryItemId CARD_LINK of the sender's own card (stage R4): shares their item (picture,
+ *     code and price) and pins it as the chat's subject
  */
 public record NewMessage(
         MessageKind kind,
@@ -19,4 +21,5 @@ public record NewMessage(
         @Nullable UUID cardPrintingId,
         @Nullable UUID binderId,
         @Nullable UUID offerId,
-        @Nullable UUID imageUploadId) {}
+        @Nullable UUID imageUploadId,
+        @Nullable UUID inventoryItemId) {}

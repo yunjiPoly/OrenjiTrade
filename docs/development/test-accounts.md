@@ -14,16 +14,18 @@ staging/production environment. Passwords below are development-only values.
 | collector6 | collector6@orenjitrade.test | LocalDev!2026 | USER | Santiago, Santiago Metropolitan Region, Chile (Americas South) | trader, binder hidden until confirmed (50 days) |
 | collector7 | collector7@orenjitrade.test | LocalDev!2026 | USER | Brooklyn, New York, United States (Americas North) | player, private only, not discoverable |
 | collector8 | collector8@orenjitrade.test | LocalDev!2026 | USER | Paris, Île-de-France, France (Europe) | Riftbound, Pokémon |
-| premium_user | premium@orenjitrade.test | LocalDev!2026 | USER, PREMIUM_USER | São Paulo, Brazil (Americas South) | Exercises entitlement overrides |
+| premium_user | premium@orenjitrade.test | LocalDev!2026 | USER | São Paulo, Brazil (Americas South) | An ordinary collector since stage F1 (2026-10-14: no Premium any more); the handle and the sign-in are kept |
 | moderator | moderator@orenjitrade.test | LocalDev!2026 | USER, MODERATOR | Berlin, Germany (Europe) | Reviews collector reports |
 | admin | admin@orenjitrade.test | LocalDev!2026 | USER, ADMIN | England, United Kingdom, no city (Europe) | Full admin console |
-| superadmin | superadmin@orenjitrade.test | LocalDev!2026 | USER, SUPER_ADMIN | Québec, Quebec, Canada (Americas North) | Feature flags, plans, destructive admin actions |
+| superadmin | superadmin@orenjitrade.test | LocalDev!2026 | USER, SUPER_ADMIN | Québec, Quebec, Canada (Americas North) | Feature flags, usage limits, destructive admin actions |
 
 Seeding: `SeedDataRunner` in `apps/api` (profiles `local` and `dev`, idempotent) creates the
 database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider uid
 `seed-<handle>`) and, when `FIREBASE_AUTH_EMULATOR_HOST` is set, the matching Firebase emulator
 users (password from `SEED_EMULATOR_PASSWORD`, default `LocalDev!2026`, email verified).
-Handles must match `[a-z0-9_]{3,24}`, hence `premium_user`.
+Handles must match `[a-z0-9_]{3,24}`, hence `premium_user` (the former Premium account: since
+stage F1, ADR 0019, every collector has the same limits and this one has no plan or role of its
+own; a database seeded before is cleaned by V123).
 
 The table describes a freshly seeded database **and** one seeded before stage S2 and migrated
 since: at the first start after the migration the seed fills collector2's three untouched seed
@@ -49,3 +51,15 @@ Playwright suite uses `@example.test` addresses; the mobile suites (`npm run tes
 `npm run test:mobile:maestro`) use `m-<run id>-...@mobile-e2e.test` and delete the emulator
 accounts of their run at the end; they only sign in to seed accounts, never modify them in the
 emulator.
+
+**Deck cards for the inventory import (stage S5, 2026-10-13), in the mobile test database only:**
+a Yu-Gi-Oh! deck file (.ydk) names cards by passcode, matched through the provider `ygoprodeck`,
+which the sample catalog of the seed does not have. The isolated API of the mobile suites
+therefore starts with `SEED_IMPORT_FIXTURES=true` (`scripts/lib/mobile-e2e-guard.mjs`,
+`ImportFixtureSeedContributor`), which adds three fictional things to `orenjitrade_mobile_e2e`:
+the card `910000001` "Fixture Lantern Wisp" (one printing, `YDKF-EN001`), the card `910000002`
+"Fixture Clockwork Heron" (two printings, `YDKF-EN002` and the more recent `YDKR-EN002`) and
+`910000003`, an alternate artwork of the Heron; any other passcode is unknown. The switch is off
+everywhere else and refuses to run while `YGOPRODECK_ENABLED` is true: a developer database, which
+can import the real catalog, never gets an invented passcode. The API's own tests create their
+cards themselves. The Collectr CSV of the suites names cards of the sample catalog.

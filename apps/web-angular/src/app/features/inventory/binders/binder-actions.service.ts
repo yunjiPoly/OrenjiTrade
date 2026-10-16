@@ -31,7 +31,7 @@ export function publishedMessage(binder: Pick<BinderResponse, 'name'>, mode: Pub
 /**
  * Binder actions shared by the page and the binder manager: create/edit dialogs, publish,
  * unpublish, confirm and delete (with a confirmation), each with a snack bar outcome. Errors are
- * explained in the snack bar, except a reached plan limit (the global dialog explains it).
+ * explained in the snack bar, except a reached usage limit (the global dialog explains it).
  */
 @Injectable()
 export class BinderActionsService {

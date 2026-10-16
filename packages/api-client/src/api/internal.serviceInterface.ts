@@ -12,21 +12,18 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { AccountDeletionJobResponse } from '../model/models';
-import { AdConversionRequest } from '../model/models';
-import { AdConversionResult } from '../model/models';
 import { CardImageCacheClearResponse } from '../model/models';
 import { CardImageCacheReconcileResult } from '../model/models';
 import { CatalogSyncRequest } from '../model/models';
 import { CatalogSyncRun } from '../model/models';
-import { CreditsReconcileJobResult } from '../model/models';
 import { DelistJobResponse } from '../model/models';
 import { FreshnessJobResponse } from '../model/models';
 import { InternalCardImageCacheStatus } from '../model/models';
+import { InventoryImportPurgeJobResponse } from '../model/models';
 import { OfferExpiryJobResponse } from '../model/models';
 import { PaymentsAutoReleaseJobResult } from '../model/models';
 import { PingJobResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
-import { SubscriptionsPeriodJobResult } from '../model/models';
 import { UploadCleanupJobResponse } from '../model/models';
 
 
@@ -39,11 +36,6 @@ export interface ClearCardImageCacheJobRequestParams {
 
 export interface GetCatalogImportJobRequestParams {
     id: string;
-}
-
-export interface RecordAdConversionRequestParams {
-    clickId: string;
-    adConversionRequest: AdConversionRequest;
 }
 
 export interface RunCatalogImportJobRequestParams {
@@ -93,14 +85,6 @@ export interface InternalServiceInterface {
     reconcileCardImageCacheJob(extraHttpRequestParams?: any): Observable<CardImageCacheReconcileResult>;
 
     /**
-     * Record a conversion of an ad click (service auth)
-     * Once per click and kind (recorded&#x3D;false for a repeat); 404 for unknown clicks.
-     * @endpoint post /internal/ads/clicks/{clickId}/conversions
-* @param requestParameters
-     */
-    recordAdConversion(requestParameters: RecordAdConversionRequestParams, extraHttpRequestParams?: any): Observable<AdConversionResult>;
-
-    /**
      * Process due account deletions (service auth)
      * Anonymises every account whose grace period is over, purges module data, deletes the identity-provider user and records a job run. Consents, audit entries and ledgers are kept.
      * @endpoint post /internal/jobs/account-deletion
@@ -116,13 +100,6 @@ export interface InternalServiceInterface {
     runCatalogImportJob(requestParameters: RunCatalogImportJobRequestParams, extraHttpRequestParams?: any): Observable<CatalogSyncRun>;
 
     /**
-     * Compare cached credit balances with the ledger (service auth)
-     * Hourly. Repairs cached balances that differ from SUM(amount) and reports accounts whose latest running balance differs from the sum (never edits the ledger). Records a job run.
-     * @endpoint post /internal/jobs/credits-reconcile
-*/
-    runCreditsReconcileJob(extraHttpRequestParams?: any): Observable<CreditsReconcileJobResult>;
-
-    /**
      * Pause listings of unresponsive owners (service auth)
      * Nightly. Counts the conversations waiting for each collector\&#39;s answer (the other participant\&#39;s last message of the last 30 days, older than the policy\&#39;s unansweredAfterHours), stores the strikes (unanswered conversations since the owner\&#39;s last resume) and pauses the public listings of owners who reached the policy\&#39;s maxStrikes (they resume by confirming, POST /me/listings/resume). Also ends timed pauses. Never deletes. Records a job run.
      * @endpoint post /internal/jobs/delist
@@ -131,10 +108,17 @@ export interface InternalServiceInterface {
 
     /**
      * Recompute listing freshness (service auth)
-     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes. Records a job run.
+     * Hourly. Expired temporary publications become PRIVATE; freshness states of items and binders are re-derived from confirmedAt and the active delist policy; public listings entering the warning window are warned once; hidden listings stop being public (InventoryItemUnpublished). Never deletes a listing. Records a job run. The same trigger then runs the inventory-import-purge job (expired import previews), as a job run of its own.
      * @endpoint post /internal/jobs/freshness
 */
     runFreshnessJob(extraHttpRequestParams?: any): Observable<FreshnessJobResponse>;
+
+    /**
+     * Delete expired inventory import previews (service auth)
+     * Deletes the import previews past their time to live (inventory.import.preview_ttl_minutes), the results of finished imports past the same time, and commits nobody finished for 7 days. Never touches the inventory. Records a job run. The hourly freshness job runs it too; this route is for a run on request.
+     * @endpoint post /internal/jobs/inventory-import-purge
+*/
+    runInventoryImportPurgeJob(extraHttpRequestParams?: any): Observable<InventoryImportPurgeJobResponse>;
 
     /**
      * Expire offers past their expiry (service auth)
@@ -149,13 +133,6 @@ export interface InternalServiceInterface {
      * @endpoint post /internal/jobs/payments-auto-release
 */
     runPaymentsAutoReleaseJob(extraHttpRequestParams?: any): Observable<PaymentsAutoReleaseJobResult>;
-
-    /**
-     * End, renew or expire subscriptions whose period ended (service auth)
-     * Hourly. Cancellations at the period end take effect (FREE); fake-provider subscriptions are renewed through a synthetic signed webhook; other providers\&#39; subscriptions without a renewal expire after orenji.billing.renewal-grace. Records a job run.
-     * @endpoint post /internal/jobs/subscriptions-period
-*/
-    runSubscriptionsPeriodJob(extraHttpRequestParams?: any): Observable<SubscriptionsPeriodJobResult>;
 
     /**
      * Delete unattached image uploads (service auth)

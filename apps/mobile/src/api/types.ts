@@ -82,6 +82,24 @@ export type PublicInventoryItem = Schemas['PublicInventoryItem'];
 export type PublicInventoryPage = Schemas['PageResponsePublicInventoryItem'];
 export type ListingStatus = Schemas['ListingStatus'];
 
+// --- Inventory import (stage S5: a YDK deck file or a Collectr CSV export) ----------------------
+export type InventoryImport = Schemas['InventoryImportResponse'];
+export type ImportSource = InventoryImport['source'];
+export type ImportStatus = InventoryImport['status'];
+export type ImportSummary = Schemas['InventoryImportSummary'];
+export type ImportSections = Schemas['InventoryImportSections'];
+export type ImportResult = Schemas['InventoryImportResult'];
+export type ImportRow = Schemas['InventoryImportRow'];
+export type ImportRowStatus = ImportRow['status'];
+export type ImportUnmatchedReason = NonNullable<ImportRow['unmatchedReason']>;
+export type ImportRowPage = Schemas['PageResponseInventoryImportRow'];
+export type ImportRowChange = Schemas['InventoryImportRowChange'];
+export type ImportBulkResponse = Schemas['InventoryImportBulkResponse'];
+export type ImportLimits = Schemas['InventoryImportLimits'];
+export type UpdateImportRequest = Schemas['UpdateInventoryImportRequest'];
+export type UpdateImportRowRequest = Schemas['UpdateInventoryImportRowRequest'];
+export type BulkImportRequest = Schemas['BulkInventoryImportRequest'];
+
 // --- Collectors, search and holders (Phase 4; region-scoped since ADR 0017) ---------------------
 export type CollectorMarker = Schemas['CollectorMarker'];
 export type MatchingItem = Schemas['MatchingItem'];
@@ -92,12 +110,19 @@ export type RatingSummaryResponse = Schemas['RatingSummaryResponse'];
 export type CollectorRatingsPage = Schemas['CollectorRatingsPage'];
 export type ReferenceResponse = Schemas['ReferenceResponse'];
 export type ReferencePage = Schemas['CursorPageReferenceResponse'];
-export type MyPlan = Schemas['MyPlan'];
+export type MyLimits = Schemas['MyLimits'];
 export type LimitStatus = Schemas['LimitStatus'];
 export type UnifiedSearchResponse = Schemas['UnifiedSearchResponse'];
 export type CardHolderResult = Schemas['CardHolderResult'];
 export type CardHoldersPage = Schemas['PageResponseCardHolderResult'];
+/** A collector found by handle or name while a card is typed (stage R5). */
+export type CollectorByName = Schemas['CollectorByName'];
+/** The wishes a public holder of a region has (stage R5, `GET /wishlist/availability`). */
+export type WishlistAvailability = Schemas['WishlistAvailability'];
 export type PublicBinderOwner = Schemas['PublicBinderOwner'];
+export type RegionBinderCounts = Schemas['RegionBinderCounts'];
+export type SubdivisionBinderCount = Schemas['SubdivisionBinderCount'];
+export type PublicBinderCursorPage = Schemas['CursorPagePublicBinderSummary'];
 export type SetDetail = Schemas['SetDetail'];
 export type PrintingPage = Schemas['PageResponsePrintingSummary'];
 
@@ -115,6 +140,13 @@ export type CardLink = Schemas['CardLink'];
 export type BinderLink = Schemas['BinderLink'];
 export type OfferLink = Schemas['OfferLink'];
 export type MessageImage = Schemas['MessageImage'];
+// --- Chat subjects and Mark as sold (stage R4 of the phone redesign) ---------------------------
+export type ConversationSubject = Schemas['ConversationSubject'];
+export type SaleNotice = Schemas['SaleNotice'];
+export type SharedItem = Schemas['SharedItem'];
+export type SaleResponse = Schemas['SaleResponse'];
+export type MarkSoldRequest = Schemas['MarkSoldRequest'];
+export type StartConversationRequest = Schemas['StartConversationRequest'];
 export type ImageUploadResponse = Schemas['ImageUploadResponse'];
 export type BlockedUser = Schemas['BlockedUser'];
 
@@ -159,64 +191,6 @@ export type ReportConfirmation = Schemas['ReportConfirmation'];
 export type MyReport = Schemas['MyReport'];
 export type ReportStatus = MyReport['status'];
 
-// --- Offers and trades (Phase 8) ----------------------------------------------------------------
-export type OfferResponse = Schemas['OfferResponse'];
-export type OfferSummary = Schemas['OfferSummary'];
-export type OfferPage = Schemas['CursorPageOfferSummary'];
-export type OfferParty = Schemas['OfferParty'];
-export type OfferTradeItem = Schemas['OfferTradeItem'];
-export type OfferEvent = Schemas['OfferEvent'];
-export type OfferTerms = Schemas['OfferTerms'];
-export type OfferKind = OfferResponse['kind'];
-export type OfferStatus = OfferResponse['status'];
-export type OfferRole = OfferResponse['viewerRole'];
-export type OfferAction = OfferResponse['allowedActions'][number];
-export type CreateOfferRequest = Schemas['CreateOfferRequest'];
-export type CounterOfferRequest = Schemas['CounterOfferRequest'];
-export type OfferTradeItemRequest = Schemas['OfferTradeItemRequest'];
-export type OfferSettings = Schemas['OfferSettings'];
-export type TradeResponse = Schemas['TradeResponse'];
-export type TradeSummary = Schemas['TradeSummary'];
-export type TradePage = Schemas['CursorPageTradeSummary'];
-export type TradeEvent = Schemas['TradeEvent'];
-export type TradeNextAction = Schemas['TradeNextAction'];
-export type TradeStatus = TradeResponse['status'];
-export type TradeOperation = TradeResponse['allowedOperations'][number];
-
-// --- Payment protection and disputes (Phase 9) --------------------------------------------------
-export type PaymentSummary = Schemas['PaymentSummary'];
-export type ShipmentSummary = Schemas['ShipmentSummary'];
-export type DisputeSummary = Schemas['DisputeSummary'];
-export type ProtectedPayment = Schemas['ProtectedPayment'];
-export type ShipTradeRequest = Schemas['ShipTradeRequest'];
-export type OpenDisputeRequest = Schemas['OpenDisputeRequest'];
-export type Dispute = Schemas['Dispute'];
-export type DisputeEvidence = Schemas['DisputeEvidence'];
-export type DisputeMessage = Schemas['DisputeMessage'];
-export type DisputeEvent = Schemas['DisputeEvent'];
-export type SellerAccount = Schemas['SellerAccount'];
-export type SellerOnboarding = Schemas['SellerOnboarding'];
-export type FakeCheckout = Schemas['FakeCheckout'];
-
-// --- Premium, credits, ads and donations (Phase 10) ---------------------------------------------
-export type Plan = Schemas['Plan'];
-export type PlanLimit = Schemas['PlanLimit'];
-export type PlanFeature = Schemas['PlanFeature'];
-export type MySubscription = Schemas['MySubscription'];
-export type MyEntitlement = Schemas['MyEntitlement'];
-export type SubscriptionCheckout = Schemas['SubscriptionCheckout'];
-export type FakeBillingCheckout = Schemas['FakeBillingCheckout'];
-export type MyCredits = Schemas['MyCredits'];
-export type CreditEntry = Schemas['CreditEntry'];
-export type CreditProduct = Schemas['CreditProduct'];
-export type CreditSpend = Schemas['CreditSpend'];
-export type MyReferral = Schemas['MyReferral'];
-export type ReferralRedemption = Schemas['ReferralRedemption'];
-export type Ad = Schemas['Ad'];
-export type AdPlacement = NonNullable<Ad['placement']>;
-export type DonationCheckoutRequest = Schemas['DonationCheckoutRequest'];
-export type DonationCheckout = Schemas['DonationCheckout'];
-export type Donation = Schemas['Donation'];
-export type FakeDonationCheckout = Schemas['FakeDonationCheckout'];
-export type Supporters = Schemas['Supporters'];
-export type Supporter = Schemas['Supporter'];
+// Offers, trades, protected payments and disputes (Phases 8 and 9) left the phone (ADR 0018): the
+// API keeps them for the paused web; old conversations still carry `OfferLink` payloads. Premium,
+// credits, ads and donations (Phase 10) left the app and the API (ADR 0019).

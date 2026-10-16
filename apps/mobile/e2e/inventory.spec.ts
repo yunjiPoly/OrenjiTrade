@@ -3,9 +3,14 @@ import type { APIRequestContext } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import {
   API_URL,
+  PHOTO_PNG,
+  apiAddItem,
   authHeader,
   createOnboardedCollector,
+  openInApp,
   openTab,
+  PLACES,
+  printingIdOf,
   requireStack,
   screen,
   signInThroughUi,
@@ -16,12 +21,16 @@ interface Item {
   id: string;
   quantity: number;
   condition: string;
+  conditionStated: boolean;
   finish: string;
   availability: string;
   acceptsOffers: boolean;
   askingPrice: number | null;
+  askingPriceText: string | null;
+  currency: string;
   visibility: string;
   publicNotes: string;
+  images: { id: string }[];
   card: { name: string };
 }
 
@@ -34,177 +43,278 @@ async function items(request: APIRequestContext, token: string): Promise<Item[]>
 }
 
 /**
- * Mobile Phase 3 (inventory) against the real stack: a fresh collector adds a card through the
- * catalog search → printing → details flow, edits it and deletes it; the API holds every step.
+ * Stage R2 of the phone redesign (owner spec 2026-10-14, section 6, mockup screens 1 to 9) against
+ * the real stack: a fresh collector adds a card with a price in "% TCG" and a photo (Add cards →
+ * typing → Choose the printing → Add to inventory), sees "Saved" and the row's Public tag, edits
+ * it (the price switched to "$"; a save confirms it), deletes it and undoes the delete; then the
+ * filter sheet narrows and sorts the list. The price switch and the tag are the owner's change of
+ * 2026-10-16 (mockup v43).
  */
-test.describe('mobile inventory', () => {
+test.describe('mobile inventory (stage R2)', () => {
   requireStack();
 
-  test('add a card to the inventory, edit it and delete it', async ({ page, request }) => {
-    test.setTimeout(180_000);
-    const collector = await createOnboardedCollector(request, 'inv', 'Mobile Inventory');
+  test('add a card with a price and a photo, see Saved, edit it, delete it and undo', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(240_000);
+    // On the map, so that collectors of the region can really find a public card (the form's hint
+    // says so only then).
+    const collector = await createOnboardedCollector(request, 'inv', 'Mobile Inventory', {
+      location: PLACES.quebec,
+      discoverable: true,
+    });
     await signInThroughUi(page, collector.email, collector.password);
 
     await openTab(page, 'Inventory');
     const inventory = screen(page, 'inventory');
     await expect(inventory.getByText('Your inventory is empty')).toBeVisible({ timeout: 30_000 });
-    await inventory.getByRole('button', { name: 'Add card' }).click();
+    await inventory.getByRole('button', { name: 'Add cards' }).first().click();
 
-    // Step 1: catalog autocomplete.
-    const add = screen(page, 'add-item');
-    await add.getByLabel('Card name or printing code').fill('tidal otter');
-    // A card suggestion (a printing suggestion would preselect that printing).
-    await add
-      .getByRole('button', { name: /^Tidal Otterling(, SVX-025)?$/ })
-      .first()
+    // Screen 3, then 4: the search first.
+    const start = screen(page, 'add-cards-start');
+    await expect(
+      start.getByText('New cards start private. You choose what to publish.')
+    ).toBeVisible();
+    await expect(start.getByText('Coming later')).toBeVisible();
+    await start.getByRole('search', { name: 'Card name or code' }).click();
+    const typing = screen(page, 'add-cards-typing');
+    await typing.getByLabel('Card name or code').fill('tidal otter');
+    await expect(typing.getByText('CARDS', { exact: true })).toBeVisible({ timeout: 30_000 });
+    await typing
+      .getByRole('button', { name: /^Tidal Otterling, Pokémon · \d+ printings$/ })
       .click();
 
-    // Step 2: the printing (the reverse holo).
-    await expect(add.getByText('Step 2 of 3 · Choose the printing')).toBeVisible();
-    await add.getByRole('radio', { name: /Reverse holo/ }).click();
-    await add.getByRole('button', { name: 'Continue' }).click();
+    // Screen 5: the reverse holo printing.
+    const printing = screen(page, 'add-cards-printing');
+    await expect(printing.getByText(/printings\. Pick the one on your card\./)).toBeVisible({
+      timeout: 30_000,
+    });
+    await printing.getByRole('button', { name: /^SVX-025, .*Reverse Holo/i }).click();
 
-    // Step 3: details. Defaults: 1 copy, Near Mint, private.
-    await expect(add.getByText('Step 3 of 3 · Add details')).toBeVisible();
-    await expect(add.getByRole('radio', { name: 'Near Mint' })).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    // Screen 6: the fields of the spec; the fixed values are not shown.
+    const add = screen(page, 'add-item');
+    await expect(add.getByTestId('card-header-name')).toHaveText('Tidal Otterling');
+    await expect(add.getByLabel('Copies')).toHaveValue('1');
     await expect(add.getByRole('radio', { name: 'Private' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
-    await add.getByLabel('Copies').fill('0');
-    await add.getByRole('button', { name: 'Add to inventory' }).click();
-    await expect(add.getByText('At least 1 copy.')).toBeVisible();
-    await add.getByLabel('Copies').fill('2');
-    await add.getByRole('radio', { name: 'Lightly Played' }).click();
-    await add.getByRole('radio', { name: 'Trade', exact: true }).click();
-    await add.getByRole('switch', { name: 'Accepts offers' }).click();
-    await add.getByLabel('Asking price (optional)').fill('3.50');
-    await add.getByRole('radio', { name: 'Public', exact: true }).click();
-    await add.getByLabel('Public notes').fill('Sleeved since opening.');
-    await add.getByRole('button', { name: 'Add to inventory' }).click();
-    await expect(snackbar(page)).toHaveText('Tidal Otterling added to your inventory.', {
-      timeout: 30_000,
-    });
+    await expect(add.getByText('Condition')).toHaveCount(0);
+    await expect(add.getByText('Accepts offers')).toHaveCount(0);
+    await add.getByRole('button', { name: 'One more' }).click();
+    // The price: "$" the first time; "% TCG" takes a whole number.
+    await expect(add.getByRole('radio', { name: 'Dollars' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await add.getByRole('radio', { name: 'Percent of the TCGplayer price' }).click();
+    await expect(add.getByText('Percent of the TCGplayer market price.')).toBeVisible();
+    await add.getByLabel('Asking price').fill('85');
+    await add.getByRole('radio', { name: 'Public' }).click();
+    await expect(add.getByText('Collectors in Americas (North) can find it.')).toBeVisible();
+    await add.getByLabel('Public note').fill('NM, English, 1st, for trade');
+    const chooser = page.waitForEvent('filechooser');
+    await add.getByRole('button', { name: 'Add photos' }).click();
+    await (await chooser).setFiles({ name: 'front.png', mimeType: 'image/png', buffer: PHOTO_PNG });
+    await expect(add.getByTestId('card-photos-count')).toHaveText('1 / 4');
 
-    // Back on the Inventory tab: the new card, as the API holds it.
-    const list = screen(page, 'inventory');
-    const row = list.getByRole('button', { name: /^Tidal Otterling, SVX-025/ });
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    await expect(row).toContainText('×2');
-    await expect(row).toContainText('Trade');
-    await expect(row).toContainText('Offers');
+    const upload = page.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.url().endsWith('/images')
+    );
+    await add.getByRole('button', { name: 'Add to inventory' }).click();
+    expect((await upload).status()).toBe(201);
+    await expect(snackbar(page)).toContainText('Saved', { timeout: 30_000 });
+    await expect(snackbar(page)).toContainText('Tidal Otterling');
+    await expect(snackbar(page).getByRole('button', { name: /^View/ })).toBeVisible();
+
     const [created] = await items(request, collector.idToken);
     expect(created).toMatchObject({
       quantity: 2,
-      condition: 'LIGHTLY_PLAYED',
+      askingPriceText: '85% TCG',
+      askingPrice: null,
+      currency: 'CAD',
+      condition: '',
+      conditionStated: false,
+      availability: 'TRADE_OR_SALE',
+      acceptsOffers: false,
       finish: 'REVERSE_HOLO',
-      availability: 'TRADE',
-      acceptsOffers: true,
-      askingPrice: 3.5,
       visibility: 'PUBLIC',
-      publicNotes: 'Sleeved since opening.',
+      publicNotes: 'NM, English, 1st, for trade',
     });
+    expect(created?.images).toHaveLength(1);
 
-    // Edit: three copies, for sale; only the changed fields are sent.
+    // Screen 8: the row shows only the picture, name, code, who can see it, price and copies.
+    const list = screen(page, 'inventory');
+    const row = list.getByRole('button', {
+      name: /^Tidal Otterling, SVX-025, Public, 85% TCG, 2 copies$/,
+    });
+    await expect(row).toBeVisible({ timeout: 30_000 });
+    await expect(row).toContainText('85% TCG');
+    await expect(row).toContainText('×2');
+    await expect(row.getByTestId(/-visibility$/)).toContainText('Public');
+    await expect(row).not.toContainText(/Trade|Offers|Near Mint|not visible/);
+    await expect(list.getByTestId('inventory-summary-totals')).toHaveText(
+      '1 card · 2 copies · 1 public'
+    );
+
+    // Screen 7: Edit card, "No changes yet" until a change; a save confirms the card.
     await row.click();
     const edit = screen(page, 'edit-item');
-    await expect(edit.getByTestId('edit-item-name')).toHaveText('Tidal Otterling', {
+    await expect(edit.getByTestId('card-header-name')).toHaveText('Tidal Otterling', {
       timeout: 30_000,
     });
-    await expect(edit.getByLabel('Copies')).toHaveValue('2');
-    const patch = page.waitForRequest(
-      (request) => request.method() === 'PATCH' && request.url().includes('/inventory/items/')
+    await expect(edit.getByLabel('Asking price')).toHaveValue('85');
+    await expect(
+      edit.getByRole('radio', { name: 'Percent of the TCGplayer price' })
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect(edit.getByTestId('card-photos-count')).toHaveText('1 / 4');
+    const save = edit.getByTestId('edit-item-save');
+    await expect(save).toHaveText('No changes yet');
+    await expect(save).toHaveAttribute('aria-disabled', 'true');
+    // The answer, not the toast: the "Saved" of the add may still be on screen.
+    const patch = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'PATCH' && response.url().includes('/inventory/items/')
     );
-    await edit.getByLabel('Copies').fill('3');
-    await edit.getByRole('radio', { name: 'Sale', exact: true }).click();
-    await edit.getByRole('button', { name: 'Save changes' }).click();
-    expect((await patch).postDataJSON()).toEqual({ quantity: 3, availability: 'SALE' });
-    await expect(snackbar(page)).toHaveText('Card saved.', { timeout: 30_000 });
+    // "$" clears the number (85% is not $85), then 12.50.
+    await edit.getByRole('radio', { name: 'Dollars' }).click();
+    await expect(edit.getByLabel('Asking price')).toHaveValue('');
+    await edit.getByLabel('Asking price').fill('12.50');
+    await expect(save).toHaveText('Save changes');
+    await save.click();
+    const patched = await patch;
+    expect(patched.request().postDataJSON()).toEqual({ askingPriceText: '$12.50', confirm: true });
+    expect(patched.status()).toBe(200);
+    await expect(snackbar(page)).toContainText('Saved', { timeout: 30_000 });
     const [edited] = await items(request, collector.idToken);
-    expect(edited).toMatchObject({ quantity: 3, availability: 'SALE' });
+    expect(edited).toMatchObject({ askingPriceText: '$12.50', askingPrice: 12.5 });
 
-    // Delete, after a confirmation (cancel first).
-    await edit.getByRole('button', { name: 'Delete card' }).click();
-    const dialog = page.getByTestId('edit-item-delete-dialog');
-    await expect(dialog).toContainText('Delete Tidal Otterling?');
-    await dialog.getByRole('button', { name: 'Cancel' }).click();
-    expect(await items(request, collector.idToken)).toHaveLength(1);
-    await edit.getByRole('button', { name: 'Delete card' }).click();
-    await page
-      .getByTestId('edit-item-delete-dialog')
-      .getByRole('button', { name: 'Delete card' })
+    // Delete, asked in a sheet (Keep it first), then undone from the toast (screen 9).
+    await screen(page, 'inventory')
+      .getByRole('button', { name: /^Tidal Otterling, SVX-025, Public, \$12\.50, 2 copies$/ })
       .click();
-    await expect(snackbar(page)).toHaveText('Tidal Otterling deleted from your inventory.', {
-      timeout: 30_000,
-    });
+    const again = screen(page, 'edit-item');
+    await again.getByRole('button', { name: 'Delete this card' }).click();
+    const sheet = page.getByTestId('edit-item-delete-sheet');
+    await expect(sheet).toContainText('Delete Tidal Otterling?');
+    await expect(sheet).toContainText(
+      'It leaves your inventory and any binder. Its photos are deleted too.'
+    );
+    await sheet.getByRole('button', { name: 'Keep it' }).click();
+    expect(await items(request, collector.idToken)).toHaveLength(1);
+    await again.getByRole('button', { name: 'Delete this card' }).click();
+    await page
+      .getByTestId('edit-item-delete-sheet')
+      .getByRole('button', { name: 'Delete' })
+      .click();
+    await expect(snackbar(page)).toContainText('Card deleted', { timeout: 30_000 });
     await expect(screen(page, 'inventory').getByText('Your inventory is empty')).toBeVisible({
       timeout: 30_000,
     });
     expect(await items(request, collector.idToken)).toHaveLength(0);
+    const restore = page.waitForResponse((response) => response.url().endsWith('/restore'));
+    await snackbar(page).getByRole('button', { name: /^Undo/ }).click();
+    expect((await restore).status()).toBe(200);
+    await expect(snackbar(page)).toContainText('Card restored', { timeout: 30_000 });
+    const [restored] = await items(request, collector.idToken);
+    expect(restored).toMatchObject({
+      quantity: 2,
+      askingPriceText: '$12.50',
+      publicNotes: 'NM, English, 1st, for trade',
+      visibility: 'PUBLIC',
+    });
+    expect(restored?.images).toHaveLength(1);
+    await expect(
+      screen(page, 'inventory').getByRole('button', { name: /^Tidal Otterling, SVX-025/ })
+    ).toBeVisible({ timeout: 30_000 });
   });
 
-  test('add a card from its card detail, filter and sort the inventory', async ({
+  test('add a card from its card page, filter and sort the inventory in the sheet', async ({
     page,
     request,
   }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(180_000);
     const collector = await createOnboardedCollector(request, 'inv2', 'Mobile Filters');
+    // Two cards of another game, one with a plain amount, one with a text price.
+    const fox = await printingIdOf(request, collector.idToken, 'PFT-002');
+    await apiAddItem(request, collector, fox, {
+      condition: undefined,
+      conditionStated: false,
+      askingPriceText: '$20',
+    });
+    await apiAddItem(request, collector, fox, {
+      condition: undefined,
+      conditionStated: false,
+      askingPriceText: '90% TCG',
+    });
     await signInThroughUi(page, collector.email, collector.password);
 
-    await openTab(page, 'Search');
-    const search = screen(page, 'search');
-    await search.getByLabel('Find a card').fill('Azure-Eyes');
-    await search.getByRole('link', { name: 'Azure-Eyes Sky Dragon' }).click();
-    const card = screen(page, 'card');
-    await card.getByRole('button', { name: 'Add to inventory' }).click();
-    // The first printing comes preselected from the card detail.
+    // Add cards with an exact printing code: the details open on that printing (the card page
+    // of stage R5, Who has this card, adds nothing: it lists the holders).
+    await openTab(page, 'Inventory');
+    await screen(page, 'inventory').getByRole('button', { name: 'Add cards' }).first().click();
+    await screen(page, 'add-cards-start')
+      .getByRole('search', { name: 'Card name or code' })
+      .click();
+    const typing = screen(page, 'add-cards-typing');
+    await typing.getByLabel('Card name or code').fill('AZR-EN001');
+    await typing.getByTestId('add-printing-AZR-EN001').click({ timeout: 30_000 });
     const add = screen(page, 'add-item');
-    await add.getByRole('button', { name: 'Continue' }).click();
-    await add.getByRole('button', { name: 'Add to inventory' }).click();
-    await expect(snackbar(page)).toHaveText('Azure-Eyes Sky Dragon added to your inventory.', {
+    await expect(add.getByTestId('card-header-name')).toHaveText('Azure-Eyes Sky Dragon', {
       timeout: 30_000,
     });
-    // Back on the card detail.
-    await expect(screen(page, 'card').getByTestId('card-name')).toBeVisible();
+    // The comma is a decimal point: saved as "$12.50".
+    await add.getByLabel('Asking price').fill('12,50');
+    await add.getByRole('button', { name: 'Add to inventory' }).click();
+    await expect(snackbar(page)).toContainText('Azure-Eyes Sky Dragon', { timeout: 30_000 });
 
-    await page.goto('/inventory');
+    await openInApp(page, '/inventory');
     const inventory = screen(page, 'inventory');
-    await expect(
-      inventory.getByRole('button', { name: /^Azure-Eyes Sky Dragon, AZR-EN001/ })
-    ).toBeVisible({ timeout: 30_000 });
     await expect(inventory.getByTestId('inventory-summary-totals')).toHaveText(
-      '1 card · 1 copy · 0 public now'
+      '3 cards · 3 copies · 0 public',
+      { timeout: 30_000 }
     );
 
-    // Intent filter: nothing for sale only.
-    await inventory.getByRole('button', { name: 'Intent: Any intent' }).click();
-    await page.getByTestId('inventory-filter-intent-option-SALE').click();
-    await expect(inventory.getByText('No cards match')).toBeVisible({ timeout: 30_000 });
-    await inventory.getByRole('button', { name: 'Clear filters' }).click();
-    await expect(
-      inventory.getByRole('button', { name: /^Azure-Eyes Sky Dragon, AZR-EN001/ })
-    ).toBeVisible();
+    // Price, highest first: the plain amounts, then the text price.
+    await inventory.getByRole('button', { name: 'Filter and sort' }).click();
+    const sheet = page.getByTestId('inventory-filters');
+    await expect(sheet.getByRole('button', { name: 'Show 3 cards' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await sheet.getByRole('radio', { name: 'Price' }).click();
+    await sheet.getByRole('button', { name: 'Show 3 cards' }).click();
+    const rows = inventory.getByRole('button', { name: /, (AZR|PFT)-/ });
+    await expect(rows.first()).toHaveAccessibleName(/, \$20, 1 copy$/, { timeout: 30_000 });
+    await expect(rows.nth(1)).toHaveAccessibleName(/, \$12\.50, 1 copy$/);
+    await expect(rows.nth(2)).toHaveAccessibleName(/90% TCG/);
 
-    // Game filter and sort reach the API.
+    // Game: Yu-Gi-Oh! only; the count is known before the list changes.
+    await inventory.getByRole('button', { name: 'Filter and sort' }).click();
+    await sheet.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
+    await expect(sheet.getByRole('button', { name: 'Show 1 card' })).toBeVisible({
+      timeout: 30_000,
+    });
     const listed = page.waitForRequest(
       (request) =>
-        request.url().includes('/api/v1/inventory/items?') && request.url().includes('game=yugioh')
+        request.url().includes('/api/v1/inventory/items?') &&
+        request.url().includes('game=yugioh') &&
+        request.url().includes('size=24')
     );
-    await inventory.getByRole('button', { name: 'Game: All games' }).click();
-    await page.getByTestId('inventory-filter-game-option-yugioh').click();
-    expect(new URL((await listed).url()).searchParams.get('game')).toBe('yugioh');
-    const sorted = page.waitForRequest(
-      (request) =>
-        request.url().includes('/api/v1/inventory/items?') && request.url().includes('sort=name')
-    );
-    await inventory.getByRole('button', { name: 'Sort: Recently updated' }).click();
-    await page.getByTestId('inventory-sort-option-name').click();
-    await sorted;
+    await sheet.getByRole('button', { name: 'Show 1 card' }).click();
+    expect(new URL((await listed).url()).searchParams.get('sort')).toBe('price');
     await expect(
-      inventory.getByRole('button', { name: /^Azure-Eyes Sky Dragon, AZR-EN001/ })
+      inventory.getByRole('button', { name: 'Filter and sort, 1 filter on' })
     ).toBeVisible();
+    await expect(rows).toHaveCount(1, { timeout: 30_000 });
+
+    // No binder, then Clear all.
+    await inventory.getByRole('button', { name: 'Filter and sort, 1 filter on' }).click();
+    await sheet.getByRole('button', { name: 'Clear all' }).click();
+    await expect(sheet.getByRole('button', { name: 'Show 3 cards' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await sheet.getByRole('button', { name: 'Show 3 cards' }).click();
+    await expect(rows).toHaveCount(3, { timeout: 30_000 });
   });
 });

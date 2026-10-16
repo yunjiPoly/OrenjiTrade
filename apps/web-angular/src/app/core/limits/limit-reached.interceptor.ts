@@ -6,8 +6,8 @@ import { isLimitReached } from './limit-reached';
 import { LimitReachedService } from './limit-reached.service';
 
 /**
- * Global handler for freemium limits: any API answer 429 `LIMIT_REACHED` opens the
- * limit-reached dialog (limit, usage, reset time, premium benefit). The error still reaches the
+ * Global handler for the usage limits: any API answer 429 `LIMIT_REACHED` opens the
+ * limit-reached dialog (limit, usage, reset time; the same limits for everyone, nothing to buy). The error still reaches the
  * caller so the screen can restore its state. Opt out with `SKIP_LIMIT_DIALOG`.
  *
  * Runs outside `errorInterceptor`, so it sees normalised `ApiError`s.

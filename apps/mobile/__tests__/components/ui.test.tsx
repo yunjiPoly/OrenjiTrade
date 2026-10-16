@@ -1,6 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
-import { KeyboardAvoidingView, ScrollView, Text } from 'react-native';
+import { useEffect } from 'react';
+import {
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+} from 'react-native';
 
 import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
@@ -18,7 +27,22 @@ import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Stepper } from '@/src/components/ui/Stepper';
 
+import { darkPalette } from '@/src/theme/palette';
+
 import { renderWithProviders } from '../test-utils';
+
+/** WCAG contrast of two `#RRGGBB` colours. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const channel = (offset: number) => {
+      const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (light + 0.05) / (dark + 0.05);
+}
 
 describe('CardImage', () => {
   it('renders an API picture with a skeleton until it loads', () => {
@@ -198,6 +222,20 @@ describe('form controls', () => {
     expect(onSwitch).toHaveBeenCalledWith(false);
   });
 
+  it('draws a switch that is off so it can be seen in dark (a white thumb on the off track)', () => {
+    renderWithProviders(
+      <SwitchRow label="Show me on the map" value={false} onChange={jest.fn()} />,
+      {
+        scheme: 'dark',
+      }
+    );
+    const native = screen.UNSAFE_getByType(Switch);
+    expect(native.props.thumbColor).toBe('#FFFFFF');
+    expect(native.props.trackColor.false).toBe(darkPalette.borderStrong);
+    expect(contrast(native.props.thumbColor, darkPalette.borderStrong)).toBeGreaterThan(3);
+    expect(contrast(native.props.thumbColor, darkPalette.surface)).toBeGreaterThan(3);
+  });
+
   it('selects a radio option', () => {
     const onChange = jest.fn();
     renderWithProviders(
@@ -326,8 +364,122 @@ describe('Snackbar', () => {
       });
       expect(screen.queryByTestId('snackbar')).toBeNull();
       fireEvent.press(screen.getByText('show'));
-      fireEvent.press(screen.getByTestId('snackbar'));
+      fireEvent.press(screen.getByTestId('snackbar-message'));
       expect(screen.queryByTestId('snackbar')).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  function FormScreenTrigger() {
+    const snackbar = useSnackbar();
+    useEffect(() => snackbar.keepClear(120), [snackbar]);
+    return <Text onPress={() => snackbar.show('Card saved.')}>save</Text>;
+  }
+
+  it('sits above the bottom bar of a form screen while it is mounted (stage R2)', () => {
+    const { unmount } = renderWithProviders(<FormScreenTrigger />);
+    fireEvent.press(screen.getByText('save'));
+    let node = screen.getByTestId('snackbar').parent;
+    while (node && StyleSheet.flatten(node.props.style)?.bottom === undefined) {
+      node = node.parent;
+    }
+    // The tab bar's place (the bottom inset + 64) is lower than the bar's 120 + 8.
+    expect(StyleSheet.flatten(node?.props.style).bottom).toBe(128);
+    unmount();
+  });
+
+  /** The `bottom` of the toast's positioned wrapper. */
+  function toastBottom(): number | undefined {
+    let node = screen.getByTestId('snackbar').parent;
+    while (node && StyleSheet.flatten(node.props.style)?.bottom === undefined) {
+      node = node.parent;
+    }
+    return StyleSheet.flatten(node?.props.style)?.bottom as number | undefined;
+  }
+
+  it('sits above the iOS keyboard, which the window does not make room for (R4 review F2)', () => {
+    expect(Platform.OS).toBe('ios');
+    const listeners = new Map<string, (event: { endCoordinates: { height: number } }) => void>();
+    const addListener = jest.spyOn(Keyboard, 'addListener').mockImplementation((name, listener) => {
+      listeners.set(name, listener as never);
+      return { remove: () => listeners.delete(name) } as never;
+    });
+    try {
+      renderWithProviders(<FormScreenTrigger />);
+      fireEvent.press(screen.getByText('save'));
+      expect(toastBottom()).toBe(128);
+      // The message box takes the keyboard back while the toast shows: the toast rises above it.
+      act(() => listeners.get('keyboardWillShow')?.({ endCoordinates: { height: 336 } }));
+      expect(toastBottom()).toBe(344);
+      act(() => listeners.get('keyboardWillHide')?.({ endCoordinates: { height: 0 } }));
+      expect(toastBottom()).toBe(128);
+    } finally {
+      addListener.mockRestore();
+    }
+  });
+
+  it('starts above a keyboard that is already up (R4 review F2)', () => {
+    const visible = jest.spyOn(Keyboard, 'isVisible').mockReturnValue(true);
+    const metrics = jest
+      .spyOn(Keyboard, 'metrics')
+      .mockReturnValue({ height: 300, screenX: 0, screenY: 512, width: 402 });
+    try {
+      renderWithProviders(<FormScreenTrigger />);
+      fireEvent.press(screen.getByText('save'));
+      expect(toastBottom()).toBe(308);
+    } finally {
+      visible.mockRestore();
+      metrics.mockRestore();
+    }
+  });
+
+  function ActionTrigger({ onUndo }: { onUndo: () => void }) {
+    const snackbar = useSnackbar();
+    return (
+      <Text
+        onPress={() =>
+          snackbar.show('Ash Blossom & Joyous Spring', {
+            title: 'Card deleted',
+            icon: 'deleted',
+            action: { label: 'Undo', onPress: onUndo, testID: 'snackbar-undo' },
+          })
+        }
+      >
+        delete
+      </Text>
+    );
+  }
+
+  it('stays about five seconds with a title, the card and one action (stage R2)', () => {
+    jest.useFakeTimers();
+    const onUndo = jest.fn();
+    try {
+      renderWithProviders(<ActionTrigger onUndo={onUndo} />);
+      fireEvent.press(screen.getByText('delete'));
+      expect(screen.getByTestId('snackbar')).toHaveTextContent(
+        /Card deletedAsh Blossom & Joyous SpringUndo$/
+      );
+      expect(screen.getByTestId('snackbar-message').props.accessibilityLabel).toBe(
+        'Card deleted, Ash Blossom & Joyous Spring'
+      );
+      expect(screen.getByTestId('snackbar-undo').props.accessibilityLabel).toBe(
+        'Undo, Card deleted, Ash Blossom & Joyous Spring'
+      );
+      act(() => {
+        jest.advanceTimersByTime(4900);
+      });
+      expect(screen.getByTestId('snackbar')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('snackbar-undo'));
+      expect(onUndo).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+
+      fireEvent.press(screen.getByText('delete'));
+      act(() => {
+        jest.advanceTimersByTime(5000);
+      });
+      expect(screen.queryByTestId('snackbar')).toBeNull();
+      expect(onUndo).toHaveBeenCalledTimes(1);
     } finally {
       jest.useRealTimers();
     }

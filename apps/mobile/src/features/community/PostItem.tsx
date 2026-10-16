@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import {
@@ -17,6 +17,7 @@ import { Button } from '@/src/components/ui/Button';
 import { ListRow } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { SharedLinkCard } from '@/src/features/messages/LinkCards';
 import { reportParams } from '@/src/features/reports/reportLabels';

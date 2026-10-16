@@ -1,8 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
+import { meKeys } from '@/src/api/queryKeys';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
-import { offerTargetFor } from '@/src/features/offers/offerTargetStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -71,7 +71,7 @@ describe('Collector profile', () => {
     expect(screen.getByTestId('collector-last-active')).toHaveTextContent('Active this week');
     expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
     expect(screen.getByText('Magic and Pokémon in Verdun.')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Local pickup');
+    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Tracked shipping');
     expect(screen.queryByTestId('public-preview-banner')).toBeNull();
 
     // The location card: the state or province only, no map, no zone, no distance (ADR 0017).
@@ -95,6 +95,30 @@ describe('Collector profile', () => {
     expect(await screen.findByTestId('collector-location')).toHaveTextContent(
       'Ottawa, Ontario, Canada'
     );
+  });
+
+  it('lists a deck core with its tag and price, never “0 cards”', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}/binders': ok([
+          publicBinderSummaryFixture({
+            name: 'Lantern core',
+            kind: 'DECK',
+            itemCount: 0,
+            games: ['yugioh'],
+            sellsAsCore: true,
+            askingPriceText: 'Trade only',
+          }),
+        ]),
+      })
+    );
+    render();
+    const binder = await screen.findByTestId(`collector-binder-${PUBLIC_BINDER_ID}`);
+    expect(screen.getByTestId(`collector-binder-tag-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
+      'Deck core · Trade only'
+    );
+    expect(binder).not.toHaveTextContent(/0 cards/);
+    expect(binder.props.accessibilityLabel).toBe('Lantern core, Deck core · Trade only');
   });
 
   it('lists the public binders and cards and opens the first binder', async () => {
@@ -127,28 +151,19 @@ describe('Collector profile', () => {
         source: 'PROFILE',
       },
     });
-    const item = publicItemFixture();
-    fireEvent.press(await screen.findByTestId(`make-offer-${item.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/offers/new',
-      params: { item: item.id },
-    });
-    expect(offerTargetFor(item.id)).toMatchObject({
-      cardName: 'Azure-Eyes Sky Dragon',
-      seller: { id: OTHER.id, displayName: 'Noé Verdun', placeLabel: 'Ontario, Canada' },
-    });
   });
 
-  it('offers no offer on cards that refuse them', async () => {
-    const item = publicItemFixture({ acceptsOffers: false });
+  it('lists the public cards without "Make an offer" (offers left the phone, ADR 0018)', async () => {
+    const item = publicItemFixture();
     mockApi(
       routes({
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
       })
     );
     render();
-    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
+    expect(await screen.findByTestId(`collector-card-${item.id}`)).toBeOnTheScreen();
     expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
+    expect(screen.queryByText('Make an offer')).not.toBeOnTheScreen();
   });
 
   it('shows empty binders, and a retry when they fail', async () => {
@@ -191,7 +206,7 @@ describe('Collector profile', () => {
     render();
     expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
     expect(screen.getByTestId('rating-count')).toHaveTextContent('12 ratings');
-    expect(screen.getByText('Smooth trade at the café.')).toBeOnTheScreen();
+    expect(screen.getByText('Well packed, shipped with tracking.')).toBeOnTheScreen();
     expect(screen.getByText('Communication')).toBeOnTheScreen();
     expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('ratings-more'));
@@ -400,6 +415,86 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
     await waitFor(() => expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1));
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+  });
+
+  it('reads the region map again after a block and after an unblock', async () => {
+    // A blocked collector's binder is neither counted on the map nor listed under its state:
+    // what the map already read (kept for a minute otherwise) is out of date at once.
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
+        'POST /api/v1/users/{id}/block': { status: 204 },
+        'DELETE /api/v1/users/{id}/block': { status: 204 },
+      })
+    );
+    const { queryClient } = render();
+    const counts = meKeys.regionBinderCounts('uid-maika', 'americas-north');
+    const binders = meKeys.regionBinderSearch('uid-maika', { region: 'americas-north' });
+    queryClient.setQueryData(counts, { region: 'americas-north', total: 1, subdivisions: [] });
+    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
+    const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;
+    expect([stale(counts), stale(binders)]).toEqual([false, false]);
+
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    fireEvent.press(
+      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
+    );
+    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
+
+    queryClient.setQueryData(counts, { region: 'americas-north', total: 0, subdivisions: [] });
+    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
+    expect([stale(counts), stale(binders)]).toEqual([false, false]);
+    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
+    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
+  });
+
+  it('reads search results and card holders again after a block and after an unblock', async () => {
+    // A blocked collector is no longer found, nor their binders or their copies of a card: what
+    // the Search tab and a card's holders already read (kept for a minute otherwise) is out of
+    // date at once, in whatever region it was read.
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
+        'POST /api/v1/users/{id}/block': { status: 204 },
+        'DELETE /api/v1/users/{id}/block': { status: 204 },
+      })
+    );
+    const { queryClient } = render();
+    const collectors = meKeys.search('uid-maika', {
+      q: 'noe',
+      types: ['collectors'],
+      region: 'americas-north',
+      limit: 20,
+    });
+    const binders = meKeys.search('uid-maika', {
+      q: 'extras',
+      types: ['binders'],
+      region: 'europe',
+      limit: 20,
+    });
+    const holders = meKeys.cardHolders('uid-maika', { cardId: 'card-1', region: 'americas-north' });
+    const read = () => {
+      queryClient.setQueryData(collectors, { collectors: [], binders: [] });
+      queryClient.setQueryData(binders, { collectors: [], binders: [] });
+      queryClient.setQueryData(holders, { pages: [], pageParams: [] });
+    };
+    const stale = () =>
+      [collectors, binders, holders].map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    read();
+    expect(stale()).toEqual([false, false, false]);
+
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
+    fireEvent.press(
+      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
+    );
+    await waitFor(() => expect(stale()).toEqual([true, true, true]));
+
+    read();
+    expect(stale()).toEqual([false, false, false]);
+    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
+    await waitFor(() => expect(stale()).toEqual([true, true, true]));
   });
 
   it("never offers Block on the collector's own profile", async () => {

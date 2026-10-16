@@ -1,14 +1,15 @@
-import { Slot } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import TabLayout from '@/app/(tabs)/_layout';
-import MapScreen from '@/app/(tabs)/index';
+import MapRedirect from '@/app/(tabs)/index';
 import InventoryScreen from '@/app/(tabs)/inventory';
 import MessagesScreen from '@/app/(tabs)/messages';
 import ProfileScreen from '@/app/(tabs)/profile';
 import SearchScreen from '@/app/(tabs)/search';
-import WishlistScreen from '@/app/(tabs)/wishlist';
-import { TABS } from '@/src/navigation/tabs';
+import WishlistRedirect from '@/app/(tabs)/wishlist';
+import PlaceBindersRedirect from '@/app/regions/[region]/[code]';
+import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { conversationFixture, conversationPage } from '../support/fixtures';
@@ -24,14 +25,23 @@ function TestRootLayout() {
   );
 }
 
+/** The root of the app: a stack over the tabs, as `RootNavigator` draws it. */
+function TestRootStack() {
+  return (
+    <TestProviders port={new FakeAuthPort(testUser())}>
+      <Stack />
+    </TestProviders>
+  );
+}
+
 const routes = {
   _layout: TestRootLayout,
   '(tabs)/_layout': TabLayout,
-  '(tabs)/index': MapScreen,
+  '(tabs)/index': MapRedirect,
   '(tabs)/inventory': InventoryScreen,
   '(tabs)/search': SearchScreen,
   '(tabs)/messages': MessagesScreen,
-  '(tabs)/wishlist': WishlistScreen,
+  '(tabs)/wishlist': WishlistRedirect,
   '(tabs)/profile': ProfileScreen,
 };
 
@@ -41,36 +51,60 @@ describe('(tabs) layout', () => {
     mockApi(signedInRoutes());
   });
 
-  it('declares the six product tabs in order', () => {
-    expect(TABS.map((tab) => tab.title)).toEqual([
-      'Map',
-      'Inventory',
-      'Search',
-      'Messages',
-      'Wishlist',
-      'Profile',
-    ]);
+  it('declares the four product tabs of stage R5 in order (Home comes with R7)', () => {
+    expect(TABS.map((tab) => tab.title)).toEqual(['Search', 'Inventory', 'Messages', 'Profile']);
+    // The old Map and Wishlist tabs are routes that redirect into Search, not tabs.
+    expect(HIDDEN_TAB_ROUTES).toEqual(['index', 'wishlist']);
   });
 
-  it('renders all six tab buttons and the map screen first', async () => {
+  it('opens on Search, with the map, and shows exactly the four tab buttons', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    expect(await screen.findByTestId('screen-map')).toBeOnTheScreen();
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
     for (const tab of TABS) {
       expect(screen.getByLabelText(`${tab.title} tab`)).toBeOnTheScreen();
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
-    // The Map tab: a placeholder until the region map reaches the app (ADR 0017).
-    expect(await screen.findByTestId('map-placeholder')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Map tab')).toBeNull();
+    expect(screen.queryByLabelText('Wishlist tab')).toBeNull();
+    // Search draws its own title with the bell, and the map is its default view (ADR 0017).
+    expect(screen.getByTestId('search-title')).toHaveTextContent('Search');
+    expect(await screen.findByTestId('notification-bell-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
   });
 
-  it('shows the notification bell and the unread messages on the Messages tab', async () => {
+  it('sends the old Wishlist tab to the Wishlist segment of Search', async () => {
+    renderRouter(routes, { initialUrl: '/wishlist' });
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('search-wishlist')).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: /^Wishlist/ })).toBeSelected();
+  });
+
+  it('sends the old binders of a state, a screen of the root stack, to Search › Binders on that state', async () => {
+    // A link of the root stack into a tab went through every navigator with its parameters: one
+    // named like a navigator's own (`state`) crashed the tabs (stage R5 review, P1).
+    renderRouter(
+      {
+        ...routes,
+        _layout: TestRootStack,
+        'regions/[region]/[code]': PlaceBindersRedirect,
+      },
+      { initialUrl: '/regions/americas-north/CA-QC' }
+    );
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('binders-state-chip')).toHaveTextContent(/Quebec/);
+    expect(screen.getByTestId('search-segment-binders')).toBeSelected();
+  });
+
+  it('shows the notification bell and the unread chats on the Messages tab', async () => {
     mockApi(
       signedInRoutes({
         'GET /api/v1/conversations': ok(
           conversationPage([
             conversationFixture({ unreadCount: 3 }),
+            conversationFixture({ id: 'second', unreadCount: 1 }),
+            conversationFixture({ id: 'read', unreadCount: 0 }),
             conversationFixture({ id: 'muted', unreadCount: 7, muted: true }),
           ])
         ),
@@ -78,15 +112,16 @@ describe('(tabs) layout', () => {
       })
     );
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-map');
-    expect(await screen.findByLabelText('Messages tab, 3 unread')).toBeOnTheScreen();
+    await screen.findByTestId('screen-search');
+    // Unread chats, not messages (spec section 4), muted ones left out.
+    expect(await screen.findByLabelText('Messages tab, 2 unread chats')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
-    expect(screen.getByTestId('notification-bell-index-badge')).toHaveTextContent('5');
+    expect(screen.getByTestId('notification-bell-search-badge')).toHaveTextContent('5');
   });
 
   it('navigates to the Profile tab', async () => {
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-map');
+    await screen.findByTestId('screen-search');
 
     fireEvent.press(screen.getByLabelText('Profile tab'));
 

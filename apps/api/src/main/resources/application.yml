@@ -271,38 +271,6 @@ orenji:
       secret-key: ${STRIPE_SECRET_KEY:}
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
       web-base-url: ${WEB_BASE_URL:https://www.orenjitrade.com}
-  billing:
-    # Phase 10 subscriptions: fake | stripe. fake needs no credentials; stripe needs
-    # STRIPE_SECRET_KEY, STRIPE_BILLING_WEBHOOK_SECRET and a Stripe price id per paid plan.
-    provider: ${BILLING_PROVIDER:fake}
-    # A real provider's subscription without a renewal webhook expires this long after its period.
-    renewal-grace: 3d
-    fake:
-      # HMAC key of the fake billing provider's synthetic webhooks; not a real secret.
-      webhook-secret: ${FAKE_BILLING_WEBHOOK_SECRET:local-fake-billing-webhook-secret}
-      # Empty: checkout URLs are the web path /checkout/fake-billing/<ref>.
-      checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
-      period: 30d
-    stripe:
-      secret-key: ${STRIPE_SECRET_KEY:}
-      webhook-secret: ${STRIPE_BILLING_WEBHOOK_SECRET:}
-      web-base-url: ${WEB_BASE_URL:https://www.orenjitrade.com}
-      price-ids:
-        "[PREMIUM]": ${STRIPE_PRICE_PREMIUM:}
-  donations:
-    # Phase 10 voluntary donations: only fake exists (no credentials, no money).
-    provider: ${DONATION_PROVIDER:fake}
-    fake:
-      webhook-secret: ${FAKE_DONATIONS_WEBHOOK_SECRET:local-fake-donations-webhook-secret}
-      # Empty: checkout URLs are the web path /checkout/fake-donation/<ref>.
-      checkout-base-url: ${FAKE_CHECKOUT_BASE_URL:}
-  ads:
-    # HMAC key of the ad serve tokens (impressions and clicks). The development default is refused
-    # outside the local, test and dev profiles.
-    token-secret: ${ADS_TOKEN_SECRET:local-ads-token-secret}
-    token-max-age: 24h
-    # Origin of relative house-ad landing paths (e.g. /premium) on click redirects.
-    web-base-url: ${ADS_WEB_BASE_URL:http://localhost:4200}
   push:
     # log | fcm
     provider: ${PUSH_PROVIDER:log}
@@ -317,6 +285,10 @@ orenji:
     # SeedDataRunner: fictional accounts (+ emulator users) for local/dev only.
     enabled: false
     emulator-password: ${SEED_EMULATOR_PASSWORD:LocalDev!2026}
+    # End-to-end suites only: fictional Yu-Gi-Oh! cards under the provider ygoprodeck, so a YDK
+    # deck file has something to match (ImportFixtureSeedContributor). Never in a database that
+    # imports the real catalog: the seed refuses to run while YGOPRODECK_ENABLED is true.
+    import-fixtures: ${SEED_IMPORT_FIXTURES:false}
   ratelimit:
     # Fixed windows in Redis. First matching policy wins, so specific ones come first.
     # Contract table: docs/api/contracts/phase1-auth-users.md#rate-limiting
@@ -332,6 +304,27 @@ orenji:
         path-patterns: ["/api/v1/inventory/items/*/images"]
         methods: [POST]
         limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: binder-image-upload
+        # The photos of a deck core (stage R3), the same pace as the photos of a card.
+        path-patterns: ["/api/v1/binders/*/images"]
+        methods: [POST]
+        limit: 60
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-upload
+        # An upload is parsed, matched to the catalog and stored: 30 files an hour is a collector
+        # importing every deck they own, not a script.
+        path-patterns: ["/api/v1/inventory/imports"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_UPLOADS_PER_HOUR:30}
+        window-seconds: 3600
+        key-by: USER
+      - name: inventory-import-commit
+        path-patterns: ["/api/v1/inventory/imports/*/commit"]
+        methods: [POST]
+        limit: ${RATE_LIMIT_IMPORT_COMMITS_PER_HOUR:30}
         window-seconds: 3600
         key-by: USER
       - name: image-upload
@@ -360,17 +353,6 @@ orenji:
       - name: payment-webhooks
         path-patterns: ["/api/v1/webhooks/payments/*"]
         methods: [POST]
-        limit: 600
-        window-seconds: 60
-        key-by: IP
-      - name: billing-webhooks
-        path-patterns: ["/api/v1/webhooks/billing/*", "/api/v1/webhooks/donations/*"]
-        methods: [POST]
-        limit: 600
-        window-seconds: 60
-        key-by: IP
-      - name: ad-events
-        path-patterns: ["/api/v1/ads/*/impression", "/api/v1/ads/*/click"]
         limit: 600
         window-seconds: 60
         key-by: IP

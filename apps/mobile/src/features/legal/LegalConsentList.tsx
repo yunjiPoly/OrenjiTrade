@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Checkbox } from '@/src/components/ui/FormControls';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 import type { ConsentItem } from './legalDocs';

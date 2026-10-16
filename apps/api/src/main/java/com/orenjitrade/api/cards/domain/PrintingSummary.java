@@ -1,6 +1,7 @@
 package com.orenjitrade.api.cards.domain;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -21,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * @param finish finish code
  * @param images images (at least the placeholder FRONT)
  * @param marketPrice indicative market price
+ * @param setReleaseDate release date of the set, {@code null} when unknown (stage R2: "{set} ·
+ *     {year}" when choosing the printing)
  */
 @Schema(name = "PrintingSummary", description = "Printing of a card")
 public record PrintingSummary(
@@ -36,4 +39,5 @@ public record PrintingSummary(
         @Schema(example = "en") String language,
         @Schema(example = "NORMAL") String finish,
         List<PrintingImage> images,
-        @Nullable MarketPrice marketPrice) {}
+        @Nullable MarketPrice marketPrice,
+        @Schema(example = "2002-03-08", nullable = true) @Nullable LocalDate setReleaseDate) {}

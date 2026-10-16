@@ -49,11 +49,12 @@ test.describe('mobile blocked users', () => {
     await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-block').click();
     const dialog = page.getByTestId('block-dialog');
-    await expect(dialog).toContainText(`Block ${ben.displayName}?`);
+    // The chat names the collector by handle (stage R4).
+    await expect(dialog).toContainText(`Block ${ben.handle}?`);
     await expect(dialog).toContainText('Settings → Blocked users');
     await dialog.getByRole('button', { name: 'Block' }).click();
     await expect(thread.getByTestId('conversation-blocked-banner')).toContainText(
-      `You blocked ${ben.displayName}`,
+      `You blocked ${ben.handle}`,
       { timeout: 30_000 }
     );
     expect((await apiMyBlocks(request, ada)).map((user) => user.handle)).toEqual([ben.handle]);

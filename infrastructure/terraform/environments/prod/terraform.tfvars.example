@@ -26,8 +26,6 @@ firebase_web_app_id  = "1:123456789012:web:0123456789abcdef012345"
 
 # Payments: enable only after adding versions to stripe-secret-key and stripe-webhook-secret.
 stripe_secrets_enabled = false
-# billing_provider     = "stripe"          # also needs stripe-billing-webhook-secret + the price id
-# stripe_price_premium = "price_0ExampleExample"
 
 # Edge: Cloud Armor admits only Cloudflare edge ranges; certificate through Certificate Manager
 # DNS authorization (create the `certificate_dns_authorizations` output as DNS-only CNAMEs).

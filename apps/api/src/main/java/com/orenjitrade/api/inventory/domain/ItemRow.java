@@ -19,11 +19,12 @@ import org.jspecify.annotations.Nullable;
  * @param cardName card name
  * @param game game slug
  * @param quantity copies (1-9 999)
- * @param condition condition code
+ * @param condition condition code, {@code null} when not stated (cards added on the phone)
  * @param language ISO 639-1 code
  * @param edition edition code
  * @param finish finish code
- * @param askingPrice asking price
+ * @param askingPrice asking price (the amount of a plain-amount text)
+ * @param askingPriceText the asking price as the owner typed it (stage R2), {@code null} when none
  * @param currency ISO 4217 code
  * @param availability what the owner offers
  * @param acceptsOffers whether offers are welcome
@@ -47,11 +48,12 @@ public record ItemRow(
         String cardName,
         String game,
         int quantity,
-        String condition,
+        @Nullable String condition,
         String language,
         String edition,
         String finish,
         @Nullable BigDecimal askingPrice,
+        @Nullable String askingPriceText,
         String currency,
         Availability availability,
         boolean acceptsOffers,
@@ -63,4 +65,15 @@ public record ItemRow(
         Instant confirmedAt,
         Instant createdAt,
         Instant updatedAt,
-        boolean effectivePublic) {}
+        boolean effectivePublic) {
+
+    /** Whether the owner stated a condition (cards added on the phone state none). */
+    public boolean conditionStated() {
+        return condition != null;
+    }
+
+    /** The condition code for clients that read one: empty when not stated. */
+    public String conditionCode() {
+        return condition == null ? "" : condition;
+    }
+}

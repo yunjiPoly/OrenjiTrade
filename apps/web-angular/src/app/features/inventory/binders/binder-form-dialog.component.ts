@@ -158,7 +158,7 @@ export class BinderFormDialogComponent {
       const apiError = error as ApiError;
       this.error.set(
         isLimitReached(apiError)
-          ? 'You reached the number of binders your plan allows.'
+          ? 'You reached the number of binders you can have.'
           : friendlyError(apiError).message,
       );
     } finally {

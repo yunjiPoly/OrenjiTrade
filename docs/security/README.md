@@ -45,7 +45,7 @@ data centres (covered by Google's compliance), mobile OS compromise.
 | V8 Data protection | Classification, minimisation, secure deletion | Section 3; account deletion job anonymises and removes; `tmp/` uploads purged in 2 days; analytics without PII | planned |
 | V9 Communications | TLS, HSTS, certificate validation | Cloudflare Full (strict), HSTS 1 year, Google-managed certs, `MODERN` SSL policy on the LB, `sslmode=require` to Cloud SQL | infra |
 | V10 Malicious code | Dependency integrity, no backdoors | Dependabot, Trivy, CodeQL, review required on `main`, WIF instead of keys | infra |
-| V11 Business logic | Anti-automation, sequencing, limits | Offer/trade state machines with authorization per transition, freemium limits as data (ADR 0014), rate limits, dedup keys on notifications | planned |
+| V11 Business logic | Anti-automation, sequencing, limits | Offer/trade state machines with authorization per transition, usage limits as data, the same for every collector (ADR 0014, ADR 0019), rate limits, dedup keys on notifications | planned |
 | V12 Files & resources | Upload validation, no path traversal, private storage | Section 5 | planned |
 | V13 API & web services | Auth on every endpoint, JSON schema validation, CORS allow-list | Bearer token filter, OpenAPI generated from code and used to generate clients, CORS only for `https://www.<domain>` + dev origins, `X-Request-Id` on every request | planned |
 | V14 Configuration | Hardened defaults, no debug in prod, security headers, dependency inventory | Swagger only in `local`, actuator limited to health, headers (`CSP`, `X-Content-Type-Options`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` for geolocation/camera) served by nginx and API, Terraform-managed config | infra/planned |
@@ -74,7 +74,7 @@ audited and never includes another collector's city.
   (generated) or by an operator with `gcloud secrets versions add` — never through tfvars,
   git, chat or CI logs. `version_destroy_ttl` keeps destroyed versions recoverable for 7 days.
 - **Who**: runtime service accounts get access to exactly the secrets they need
-  (`api-run`: db-password, service-token, analytics-actor-salt, ads-token-secret, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
+  (`api-run`: db-password, service-token, analytics-actor-salt, consent-ip-salt, stripe-*; `ml-run`: service-token; no `redis-url` in the sidecar profile of ADR 0016). No
   project-wide `secretmanager.secretAccessor`.
 - **CI/CD**: GitHub Actions authenticates with **Workload Identity Federation** (OIDC) to the
   `github-deployer` SA; the provider trusts only `assertion.repository == "<owner/repo>"` (and
@@ -108,6 +108,16 @@ object becomes referenced.
 | Scanning | Card photos sent to the ML service are processed in memory; the ML service never writes originals; moderation hooks flag reported images for review |
 | Client hints | Web/mobile compress client-side before upload to reduce size, but server rules are authoritative |
 
+**Inventory import files (stage S5, 2026-10-13; `docs/api/contracts/s5-inventory-import.md`).** A
+Yu-Gi-Oh! deck file (.ydk) or a Collectr CSV export is a text upload, not an image, and follows its
+own rules: the content decides (UTF-8 text or `415 UNSUPPORTED_MEDIA_TYPE`, never the extension or
+the client's type); the size and line limits are admin settings read at every upload (YDK 100 kB
+and 500 lines, CSV 2 MB and 5,000 rows by default; the server takes at most 10 MB for any upload);
+the file itself is never stored, logged or exported: a preview row keeps a passcode, or the name,
+set, number and rarity as written, and the copies, and a price column is never read; the preview
+belongs to its collector (404 for anyone else) and is purged once expired (60 minutes by default);
+30 uploads and 30 commits an hour per collector (Redis). OrenjiTrade never calls Collectr.
+
 ## 6. Rate-limiting plan
 
 Two layers: coarse edge limits in Cloudflare (`infrastructure/cloudflare/README.md` section 6.3)
@@ -117,7 +127,7 @@ buckets** (`Lua` script for atomic take/refill, key TTL = window).
 | Scope | Key | Default budget (configurable in `usage_limit`, ADR 0014) |
 | --- | --- | --- |
 | Per IP (anonymous) | `rl:ip:<ip>:<route-group>` | 120 req/min default (`RATE_LIMIT_DEFAULT_PER_MINUTE`), 20 req/min for auth routes |
-| Per user | `rl:user:<id>:<route-group>` | 600 req/min general; premium plans higher |
+| Per user | `rl:user:<id>:<route-group>` | 600 req/min general, the same for everyone |
 | Route groups | `auth`, `search` (search, regions, cards), `messaging` (send message, create conversation, community post), `uploads`, `offers`, `reports`, `admin` | search 60/min, messaging 30/min + 200/day, uploads 30/h, offers 20/h, reports 10/day |
 | WebSocket | connect attempts 10/min per user; outbound STOMP frames 60/min per session | |
 | Notifications | dedup key type+subject+recipient+day; max 50 push/day per user | |

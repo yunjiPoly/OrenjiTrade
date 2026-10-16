@@ -44,7 +44,6 @@ function me(onboarding: MeResponse['onboarding']): MeResponse {
     createdAt: '2026-09-01T00:00:00Z',
     onboarding,
     requiredConsents: [],
-    plan: 'FREE',
   };
 }
 

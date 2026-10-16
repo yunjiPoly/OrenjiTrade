@@ -1,5 +1,7 @@
 package com.orenjitrade.api.inventory.infra;
 
+import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.common.AskingPriceText;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.seed.SeedContributor;
 import com.orenjitrade.api.delisting.domain.DelistPolicyService;
@@ -51,6 +53,7 @@ public class InventorySeedContributor implements SeedContributor {
     private final JdbcClient jdbc;
     private final TimeProvider timeProvider;
     private final DelistPolicyService policies;
+    private final BinderService binderService;
     private final ListingReconciler reconciler;
     private final SeedFile seed;
 
@@ -58,11 +61,13 @@ public class InventorySeedContributor implements SeedContributor {
             JdbcClient jdbc,
             TimeProvider timeProvider,
             DelistPolicyService policies,
+            BinderService binderService,
             ListingReconciler reconciler,
             JsonMapper jsonMapper) {
         this.jdbc = jdbc;
         this.timeProvider = timeProvider;
         this.policies = policies;
+        this.binderService = binderService;
         this.reconciler = reconciler;
         try (InputStream in = new ClassPathResource(RESOURCE).getInputStream()) {
             this.seed = jsonMapper.readValue(in, SeedFile.class);
@@ -84,6 +89,8 @@ public class InventorySeedContributor implements SeedContributor {
     @Override
     @Transactional
     public void seed() {
+        // Like every write to binders and items: the owner locks first, all in one call.
+        binderService.lockOwners(seedOwners());
         Instant now = timeProvider.now();
         FreshnessPolicy policy = policies.active();
         Set<UUID> owners = new LinkedHashSet<>();
@@ -105,9 +112,11 @@ public class InventorySeedContributor implements SeedContributor {
                                     """
                                     INSERT INTO binder (id, owner_id, name, description, kind,
                                         visibility, public_until, sort_order, freshness_state,
-                                        created_at, updated_at, confirmed_at, last_owner_activity_at)
+                                        created_at, updated_at, confirmed_at, last_owner_activity_at,
+                                        sells_as_core, asking_price_text, asking_price)
                                     VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
-                                        :publicUntil, :sortOrder, :state, :at, :at, :at, :at)
+                                        :publicUntil, :sortOrder, :state, :at, :at, :at, :at,
+                                        :sellsAsCore, :priceText, :price)
                                     ON CONFLICT (id) DO NOTHING
                                     """)
                             .param("id", UUID.fromString(binder.id()))
@@ -121,6 +130,12 @@ public class InventorySeedContributor implements SeedContributor {
                                     publicUntil == null ? null : Timestamp.from(publicUntil),
                                     Types.TIMESTAMP)
                             .param("sortOrder", binder.sortOrder())
+                            .param("sellsAsCore", Boolean.TRUE.equals(binder.sellsAsCore()))
+                            .param("priceText", binder.askingPriceText(), Types.VARCHAR)
+                            .param(
+                                    "price",
+                                    AskingPriceText.amountOf(binder.askingPriceText()).orElse(null),
+                                    Types.NUMERIC)
                             .param("state", policy.stateAt(confirmedAt, now).name())
                             .param("at", Timestamp.from(confirmedAt))
                             .update();
@@ -159,6 +174,20 @@ public class InventorySeedContributor implements SeedContributor {
             reconciler.owner(owner, false);
         }
         log.info("Inventory seed: {} binder(s) and {} item(s) inserted", binders, items);
+    }
+
+    /** Every collector the seed file names (whether or not the account is active). */
+    private Set<UUID> seedOwners() {
+        Set<UUID> owners = new LinkedHashSet<>();
+        for (SeedBinder binder : seed.binders()) {
+            owners.add(UUID.fromString(SEED_ID_PREFIX + binder.owner()));
+        }
+        for (SeedItem item : seed.unfiled()) {
+            if (item.owner() != null) {
+                owners.add(UUID.fromString(SEED_ID_PREFIX + item.owner()));
+            }
+        }
+        return owners;
     }
 
     private int insertItem(
@@ -237,7 +266,9 @@ public class InventorySeedContributor implements SeedContributor {
             @Nullable Integer publicForHours,
             int confirmedDaysAgo,
             int sortOrder,
-            List<SeedItem> items) {}
+            List<SeedItem> items,
+            @Nullable Boolean sellsAsCore,
+            @Nullable String askingPriceText) {}
 
     /** A seeded item (owner only for unfiled items). */
     record SeedItem(

@@ -201,7 +201,7 @@ public class AdminListingController {
                     item.binderId(),
                     item.binderName(),
                     item.quantity(),
-                    item.condition(),
+                    item.conditionCode(),
                     item.availability(),
                     item.askingPrice(),
                     item.currency(),

@@ -1,33 +1,39 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import type { BinderLink, CardLink, OfferLink } from '@/src/api/types';
+import type { BinderLink, CardLink, SharedItem } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
-import { offerStatusInfo } from '@/src/features/offers/offerLabels';
+import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+
+import { OFFER_UNAVAILABLE_TEXT } from './messageText';
 
 /**
  * A card or binder shared in a message or a community post (the web's `app-shared-link-card`):
  * thumbnail, name and a link to the card page (with the shared printing selected) or the public
- * binder.
+ * binder. A card shared from the sender's inventory in a chat (stage R4, `item`) shows its code
+ * and its price as typed (mockup screen 24).
  */
 export function SharedLinkCard({
   card,
+  item,
   binder,
   testID,
 }: {
   card?: CardLink | null;
+  item?: SharedItem | null;
   binder?: BinderLink | null;
   testID?: string;
 }) {
   const { palette } = useTheme();
   const router = useRouter();
   if (card) {
+    const line = [card.printingCode, item?.askingPriceText].filter(Boolean).join(' · ');
     return (
       <Pressable
         accessibilityRole="link"
-        accessibilityLabel={`Card: ${card.name}${card.printingCode ? `, ${card.printingCode}` : ''}`}
+        accessibilityLabel={`Card: ${card.name}${line ? `, ${line}` : ''}`}
         onPress={() =>
           router.push({
             pathname: '/cards/[id]',
@@ -36,24 +42,22 @@ export function SharedLinkCard({
         }
         testID={testID ?? 'shared-card-link'}
         style={({ pressed }) => [
-          styles.link,
-          { backgroundColor: palette.surface, borderColor: palette.border },
+          styles.cardLink,
+          { backgroundColor: palette.surface, borderColor: palette.borderStrong },
           pressed && styles.pressed,
         ]}
       >
         <CardImage src={card.imageUrl} alt="" size="xs" />
         <View style={styles.text}>
-          <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.textMuted }]}>Card</Text>
-          <Text numberOfLines={2} style={[textStyle('sm'), styles.name, { color: palette.ink }]}>
+          <Text numberOfLines={1} style={[styles.cardName, { color: palette.ink }]}>
             {card.name}
           </Text>
-          {card.printingCode ? (
-            <Text style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}>
-              {card.printingCode}
+          {line ? (
+            <Text numberOfLines={1} style={[styles.cardLine, { color: palette.textMuted }]}>
+              {line}
             </Text>
           ) : null}
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
       </Pressable>
     );
   }
@@ -95,58 +99,40 @@ export function SharedLinkCard({
   return null;
 }
 
-/** Human status of an offer (`OfferLink.status`). */
-export function offerStatusLabel(status: string): string {
-  return offerStatusInfo(status).label;
-}
-
 /**
- * An offer shared in a conversation (OFFER_LINK message, or the SYSTEM message the API posts on
- * every offer transition; web: `app-offer-link-card`): the card picture, the live proposal's
- * summary and status. A tap opens the offer.
+ * An offer that a conversation still holds (an OFFER_LINK message, or the SYSTEM message the API
+ * posted on an offer or trade update): offers, trades and protected payments left the phone (ADR
+ * 0018), so it reads as one grey line and opens nothing. Old conversations keep their place.
  */
-export function OfferLinkCard({ offer }: { offer: OfferLink }) {
+export function OfferUnavailableLine({ testID = 'offer-unavailable' }: { testID?: string }) {
   const { palette } = useTheme();
-  const router = useRouter();
-  const status = offerStatusLabel(offer.status);
   return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={`Open the offer: ${offer.summary}, ${status}`}
-      onPress={() => router.push({ pathname: '/offers/[id]', params: { id: offer.id } })}
-      testID="offer-link-card"
-      style={({ pressed }) => [
-        styles.link,
-        { backgroundColor: palette.surface, borderColor: palette.border },
-        pressed && styles.pressed,
-      ]}
-    >
-      {offer.imageUrl ? (
-        <CardImage src={offer.imageUrl} alt="" size="xs" />
-      ) : (
-        <View style={[styles.icon, { backgroundColor: palette.surfaceVariant }]}>
-          <MaterialCommunityIcons
-            name="tag-outline"
-            size={22}
-            color={palette.availability.offers}
-          />
-        </View>
-      )}
-      <View style={styles.text}>
-        <Text style={[textStyle('xs'), styles.eyebrow, { color: palette.textMuted }]}>Offer</Text>
-        <Text numberOfLines={3} style={[textStyle('sm'), styles.name, { color: palette.ink }]}>
-          {offer.summary}
-        </Text>
-        <Text style={[textStyle('xs'), styles.status, { color: palette.availability.offers }]}>
-          {status}
-        </Text>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
-    </Pressable>
+    <View style={styles.unavailable} testID={testID}>
+      <MaterialCommunityIcons
+        name="tag-off-outline"
+        size={16}
+        color={palette.textMuted}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{OFFER_UNAVAILABLE_TEXT}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    width: 250,
+    maxWidth: '100%',
+  },
+  cardName: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  cardLine: { fontSize: 12, lineHeight: 16 },
   link: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -166,7 +152,13 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 1 },
   eyebrow: { textTransform: 'uppercase', letterSpacing: 0.5 },
   name: { fontWeight: fontWeight.semibold },
-  status: { fontWeight: fontWeight.semibold },
   mono: { fontFamily: fontFamily.mono },
+  unavailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacing[1],
+    paddingVertical: spacing[1],
+  },
   pressed: { opacity: 0.8 },
 });

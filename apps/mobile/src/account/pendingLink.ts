@@ -17,7 +17,7 @@ export const usePendingLink = create<PendingLinkStore>()((set) => ({
   clear: () => set({ href: null }),
 }));
 
-/** Route roots that never come back after sign-in (auth, account states, legal, the map home). */
+/** Route roots that never come back after sign-in (auth, account states, legal). */
 const NOT_RESUMED = new Set([
   '(auth)',
   '(account)',
@@ -28,10 +28,21 @@ const NOT_RESUMED = new Set([
 ]);
 
 /**
+ * The tabs' home: `/` (the old Map tab, which redirects) and `/search` (the first tab since stage
+ * R5). Reopened only with link parameters (`/?region=&subdivision=`, `/search?segment=…`): without
+ * them they are where the app starts anyway, and remembered they took a collector out of the
+ * onboarding the moment their profile was saved.
+ */
+const HOME_LINK_PARAMS: Readonly<Record<string, readonly string[]>> = {
+  '/': ['region', 'subdivision'],
+  '/search': ['region', 'subdivision', 'segment', 'tab', 'q', 'game', 'typing', 'place'],
+};
+
+/**
  * The href to reopen after sign-in for the route the visitor is on (`pathname` from
  * `usePathname()`, `params` from `useGlobalSearchParams()`), or null when there is nothing worth
- * reopening (the tabs' home, auth and account screens). Dynamic segments already in the path are
- * not repeated as query parameters.
+ * reopening (the tabs' home without a map link, auth and account screens). Dynamic segments
+ * already in the path are not repeated as query parameters.
  */
 export function resumableHref(
   segments: readonly string[],
@@ -39,7 +50,11 @@ export function resumableHref(
   params: Readonly<Record<string, string | string[] | undefined>>
 ): string | null {
   const root = segments[0] ?? '(tabs)';
-  if (NOT_RESUMED.has(root) || !pathname.startsWith('/') || pathname === '/') {
+  if (NOT_RESUMED.has(root) || !pathname.startsWith('/')) {
+    return null;
+  }
+  const homeParams = HOME_LINK_PARAMS[pathname];
+  if (homeParams && !homeParams.some((key) => params[key])) {
     return null;
   }
   const pathParts = new Set(pathname.split('/').filter(Boolean).map(decodeURIComponent));

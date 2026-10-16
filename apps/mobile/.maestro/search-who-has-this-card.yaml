@@ -1,0 +1,87 @@
+# Native flow 3 of the phone redesign in full (owner spec 2026-10-14, section 14; stage R5): search
+# a card, open Who has this card, message a holder, and see the card pinned with the buying tip.
+# Ben (fresh, fictional, in Wyoming, the same platform region; scripts/parity.js) lists Emberfang
+# Fox twice in a public binder; Ada (fresh, fictional, in Quebec, the app user) types the card on
+# Search, opens its page, finds Ben's copies under Wyoming (his state only, never a distance or a
+# count) and taps Message on the 45 CAD copy: the chat opens with that card pinned. The whole
+# region is listed, so the flow follows Ben's copies.
+appId: ${APP_ID}
+name: Search a card, Who has this card, message a holder with the card pinned
+tags:
+  - mobile-r5
+  - search
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: holders
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 60000
+
+# Search (screen 11): the field opens the card search (screen 12), the keyboard up.
+- tapOn:
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: ${output.card.name}
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-result-${output.card.id}'
+    timeout: 60000
+- takeScreenshot: r5-search-typing
+- tapOn:
+    id: 'search-result-${output.card.id}'
+
+# Who has this card (screen 13): the card, then the holders grouped by province.
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 60000
+- assertVisible:
+    id: 'card-tcgplayer'
+- assertVisible:
+    id: 'card-printing'
+    text: 'Any printing.*'
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holders-group-US-WY'
+- assertVisible:
+    id: 'holders-group-US-WY'
+    text: 'Wyoming'
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.offers}-message'
+- assertVisible:
+    id: 'holder-${output.items.offers}-price'
+    text: '.*45.*'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: r5-who-has-this-card
+- tapOn:
+    id: 'holder-${output.items.offers}-message'
+
+# The chat about Ben's card (screen 23): pinned, the buying tip.
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-bar'
+      text: '${output.card.name}.*'
+    timeout: 60000
+- assertVisible:
+    id: 'chat-safety-tip'
+    text: '.*Check their rating before you send an e-Transfer, and ask for tracking\.'
+- assertVisible:
+    id: 'quick-reply-Is it still available\?'
+- takeScreenshot: r5-chat-pinned-card

@@ -91,9 +91,46 @@ const METRO_PORT = 8082;
 const METRO_URL = `http://localhost:${METRO_PORT}`;
 const EXPO_GO = 'host.exp.exponent';
 const MAESTRO_DIR = path.join(MOBILE_DIR, '.maestro');
+const MAESTRO_MEDIA = path.join(MAESTRO_DIR, 'media');
 const MAESTRO_OUTPUT = path.join(WORK_DIR, 'maestro');
 const SEED_EMAIL = 'collector1@orenjitrade.test';
 const SEED_PASSWORD = 'LocalDev!2026';
+
+/**
+ * Makes the flows' fictional pictures (apps/mobile/.maestro/media) new files, before Maestro runs.
+ * Their `addMedia` (`xcrun simctl addmedia`) dates a photo by the file's creation date (its
+ * birthtime: the photo library's ZDATECREATED), and the photo pickers of the flows take the newest
+ * photo of the library: a checkout's date made the copy of this run older than any photo added to
+ * the device since (a reviewer's fictional 9000 px picture was taken instead, and refused by the
+ * API; one of the device owner's own photos would have been uploaded to the local API). A new
+ * modification date alone is not enough (review fix 2 of stage R2: `utimes` leaves the birthtime,
+ * so the photo kept the checkout's date): each picture is written again as a new file with the
+ * same bytes and mode (a sibling, renamed over it), so it is created, and modified, now. Only the
+ * dates change, never the content.
+ *
+ * @returns the files renewed
+ */
+export function freshenFlowMedia(dir = MAESTRO_MEDIA) {
+  if (!fs.existsSync(dir)) {
+    return [];
+  }
+  const dated = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && !entry.name.startsWith('.')) {
+      const file = path.join(dir, entry.name);
+      const fresh = path.join(dir, `.${entry.name}.fresh-${process.pid}`);
+      try {
+        fs.writeFileSync(fresh, fs.readFileSync(file));
+        fs.chmodSync(fresh, fs.statSync(file).mode & 0o777);
+        fs.renameSync(fresh, file);
+      } finally {
+        fs.rmSync(fresh, { force: true });
+      }
+      dated.push(file);
+    }
+  }
+  return dated;
+}
 
 /** App id, host and URLs of a platform (Android: the machine is 10.0.2.2; iOS: localhost). */
 export function targetFor(platform) {
@@ -457,6 +494,7 @@ export async function testMobileMaestro(argv) {
     }
 
     fs.mkdirSync(MAESTRO_OUTPUT, { recursive: true });
+    freshenFlowMedia();
     // Flow paths are relative to where npm was invoked (INIT_CWD), Maestro runs in apps/mobile.
     const invokedFrom = process.env.INIT_CWD ?? process.cwd();
     const targets = rest.length > 0 ? rest.map((flow) => path.resolve(invokedFrom, flow)) : [MAESTRO_DIR];

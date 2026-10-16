@@ -46,6 +46,7 @@ import {
     DeleteInventoryItemImageRequestParams,
     GetInventoryItemRequestParams,
     ListInventoryItemsRequestParams,
+    RestoreInventoryItemRequestParams,
     UpdateInventoryItemRequestParams,
     UploadInventoryItemImageRequestParams
 } from './inventory.serviceInterface';
@@ -63,7 +64,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * Bulk operation on the caller\&#39;s items
-     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE. Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
+     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
      * @endpoint post /api/v1/inventory/items/bulk
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -197,7 +198,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * Add an item
-     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead.
+     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
      * @endpoint post /api/v1/inventory/items
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -269,7 +270,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * Delete an item
-     * Soft delete: the item disappears everywhere; its photos are removed.
+     * Soft delete: the item disappears everywhere. For 10 minutes &#x60;POST .../restore&#x60; brings it back with its photos; the photos are deleted after that.
      * @endpoint delete /api/v1/inventory/items/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -512,7 +513,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * The caller\&#39;s items (filters, sort, pages)
-     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder. &#x60;sort&#x60;: updated (default, newest first), name (A-Z) or price (highest first); &#x60;direction&#x60; overrides the order.
+     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder. &#x60;sort&#x60;: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); &#x60;direction&#x60; overrides the order.
      * @endpoint get /api/v1/inventory/items
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -528,6 +529,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
         const binderId = requestParameters?.binderId;
         const unfiled = requestParameters?.unfiled;
         const visibility = requestParameters?.visibility;
+        const markedPublic = requestParameters?.markedPublic;
         const availability = requestParameters?.availability;
         const condition = requestParameters?.condition;
         const freshness = requestParameters?.freshness;
@@ -578,6 +580,15 @@ export class InventoryService extends BaseService implements InventoryServiceInt
             localVarQueryParameters,
             'visibility',
             <any>visibility,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'markedPublic',
+            <any>markedPublic,
             QueryParamStyle.Form,
             true,
         );
@@ -692,8 +703,70 @@ export class InventoryService extends BaseService implements InventoryServiceInt
     }
 
     /**
+     * Undo the delete of an item
+     * Within 10 minutes of the caller\&#39;s own delete (one item or a bulk delete), brings the item back exactly as it was: copies, prices, notes, photos, binder and visibility. A live item is answered as it is (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes, or for an item that left otherwise (a trade, its binder deleted with it); 429 LIMIT_REACHED when &#x60;inventory.items.max&#x60; was reached meanwhile.
+     * @endpoint post /api/v1/inventory/items/{id}/restore
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public restoreInventoryItem(requestParameters: RestoreInventoryItemRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<InventoryItemResponse>;
+    public restoreInventoryItem(requestParameters: RestoreInventoryItemRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<InventoryItemResponse>>;
+    public restoreInventoryItem(requestParameters: RestoreInventoryItemRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<InventoryItemResponse>>;
+    public restoreInventoryItem(requestParameters: RestoreInventoryItemRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling restoreInventoryItem.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/inventory/items/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}/restore`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<InventoryItemResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
      * Update an item (any subset of the fields)
-     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it.
+     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;askingPriceText&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. &#x60;askingPriceText&#x60; sets the price as typed (and &#x60;askingPrice&#x60; when it is a plain amount); &#x60;askingPrice&#x60; without it clears the text. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it, and so does &#x60;confirm: true&#x60; (the phone\&#39;s Edit card: a save counts as still available).
      * @endpoint patch /api/v1/inventory/items/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

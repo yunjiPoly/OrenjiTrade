@@ -212,3 +212,15 @@ export const DEFAULT_CURRENCY = 'CAD';
 export function cardCount(count: number): string {
   return `${count} ${count === 1 ? 'card' : 'cards'}`;
 }
+
+/** The values a game allows for a field, keeping the current value when the schema lacks it. */
+export function withCurrent(
+  values: readonly string[] | null | undefined,
+  current: string
+): string[] {
+  const list = [...(values ?? [])];
+  if (current && !list.includes(current)) {
+    list.push(current);
+  }
+  return list;
+}

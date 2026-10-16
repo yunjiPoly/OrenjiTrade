@@ -22,19 +22,12 @@ import { renderWithProviders, resetAppState } from '../test-utils';
 
 jest.mock('expo-router', () => require('../support/router').expoRouterMock());
 
-/** The launch configuration: every money feature off (`protectedPayments`, `premiumPlans`, ...). */
-const MONEY_OFF = flags({
-  premiumPlans: false,
-  credits: false,
-  donations: false,
-  protectedPayments: false,
-  advertising: false,
-});
+/** The launch configuration: protected payments off (Premium, credits, donations and ads left). */
+const MONEY_OFF = flags({ protectedPayments: false });
 
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
     'GET /api/v1/public/feature-flags': ok(MONEY_OFF),
-    'GET /api/v1/ads': ok([]),
     'GET /api/v1/collectors/{handle}/binders': ok([publicBinderSummaryFixture()]),
     'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
     'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture()),
@@ -63,38 +56,38 @@ describe('launch configuration: every money flag off', () => {
   it('shows no pay, subscribe, credits or donate entry point on the Profile tab', async () => {
     mockApi(routes());
     renderWithProviders(<ProfileScreen />, { port: port() });
-    expect(await screen.findByTestId('profile-trades')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-settings')).toBeOnTheScreen();
+    expect(screen.queryByTestId('profile-money')).toBeNull();
     expect(screen.queryByTestId('profile-premium')).toBeNull();
     expect(screen.queryByTestId('profile-credits')).toBeNull();
     expect(screen.queryByTestId('profile-support')).toBeNull();
     expect(screen.queryByText(MONEY_WORDS)).toBeNull();
   });
 
-  it('lists no Payouts section in Settings', async () => {
+  it('lists no Payouts or Offers section in Settings', async () => {
     const api = mockApi(routes());
     renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-sign-out')).toBeOnTheScreen();
     expect(api.callsTo('GET /api/v1/public/feature-flags').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('settings-link-payouts')).toBeNull();
     expect(screen.queryByText(/payout/i)).toBeNull();
+    expect(screen.queryByTestId('settings-link-offers')).toBeNull();
   });
 
-  it('explains a reached plan limit without naming Premium', async () => {
+  it('explains a reached limit without naming a plan or Premium', async () => {
     const limit = new ApiError({
       status: 429,
       errorCode: 'LIMIT_REACHED',
       message: 'Limit',
-      problem: { limitKey: 'binders.max', limit: 5, used: 5, planCode: 'FREE' },
+      problem: { limitKey: 'binders.max', limit: 5, used: 5 },
     });
-    const api = mockApi(routes());
+    mockApi(routes());
     renderWithProviders(<LimitReachedNotice error={limit} />, { port: port() });
     expect(await screen.findByTestId('limit-reached-message')).toHaveTextContent(
-      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
+      'You have used 5 of 5 binders. Delete a binder you no longer need.'
     );
-    // The flags answered: the Premium action stays hidden (never a flash of it before).
-    expect(api.callsTo('GET /api/v1/public/feature-flags').length).toBeGreaterThan(0);
     expect(screen.queryByTestId('limit-reached-premium')).toBeNull();
-    expect(screen.queryByText(/Premium/)).toBeNull();
+    expect(screen.queryByText(/Premium|plan/)).toBeNull();
     expect(mockRouter.push).not.toHaveBeenCalled();
   });
 

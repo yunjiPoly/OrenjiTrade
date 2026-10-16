@@ -66,6 +66,48 @@ public class InteractionRepository {
                 .optional();
     }
 
+    /**
+     * Reads an interaction and holds it {@code FOR KEY SHARE} until the transaction ends: a rating
+     * of it and the removal of an unrated interaction ({@link #lockBySubjectForRemoval}) then never
+     * overlap. A removed interaction is absent.
+     */
+    public Optional<InteractionView> findLockedShared(UUID id) {
+        return jdbc.sql("SELECT " + COLUMNS + " FROM interaction WHERE id = :id FOR KEY SHARE")
+                .param("id", id)
+                .query(InteractionRepository::map)
+                .optional();
+    }
+
+    /**
+     * Locks the interaction of a kind and subject {@code FOR UPDATE} (it waits for a rating of it
+     * in progress, which holds it {@code FOR KEY SHARE}) and returns it, with whether anybody rated
+     * it, read after the lock.
+     */
+    public Optional<InteractionView> lockBySubjectForRemoval(InteractionKind kind, UUID subjectId) {
+        return jdbc.sql(
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM interaction WHERE kind = :kind AND subject_id ="
+                                + " :subjectId FOR UPDATE")
+                .param("kind", kind.name())
+                .param("subjectId", subjectId)
+                .query(InteractionRepository::map)
+                .optional();
+    }
+
+    /** Whether a rating of the interaction exists (any moderation state). */
+    public boolean isRated(UUID interactionId) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM rating WHERE interaction_id = :id)")
+                .param("id", interactionId)
+                .query(Boolean.class)
+                .single();
+    }
+
+    /** Deletes an interaction (its ratings would go with it: callers check {@link #isRated}). */
+    public void delete(UUID id) {
+        jdbc.sql("DELETE FROM interaction WHERE id = :id").param("id", id).update();
+    }
+
     public Optional<InteractionView> findBySubject(InteractionKind kind, UUID subjectId) {
         return jdbc.sql(
                         "SELECT "

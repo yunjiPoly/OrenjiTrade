@@ -13,7 +13,8 @@ import { useIsAuthenticated, useUid } from './useUid';
 
 /**
  * `GET /api/v1/wishlist`: the caller's wishes, newest first (stage S2: which copy, public note,
- * Near Mint only, price term; no matches). Every realtime reconnection re-reads it.
+ * Near Mint only, price term; no matches; stage R5: `available` in the home region, see
+ * `useWishlistAvailability` for the browsed one). Every realtime reconnection re-reads it.
  */
 export function useWishlist() {
   const uid = useUid();
@@ -50,10 +51,16 @@ function useWishWrite<V>(write: (variables: V) => Promise<WishlistItemResponse>)
           ? items.map((item) => (item.id === saved.id ? saved : item))
           : [saved, ...items];
       });
-      // Usage of `wishlist.items.max`.
-      void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
+      // Usage of `wishlist.items.max`, and "Available" (stage R5) of the changed selection.
+      void queryClient.invalidateQueries({ queryKey: meKeys.limits(uid) });
+      void queryClient.invalidateQueries({ queryKey: availabilityPrefix(uid) });
     },
   });
+}
+
+/** Every "Available" answer of the caller, whatever the region (prefix). */
+function availabilityPrefix(uid: string | null) {
+  return [...meKeys.wishlist(uid), 'availability'];
 }
 
 /**
@@ -85,7 +92,8 @@ export function useDeleteWish() {
       queryClient.setQueryData<WishlistItemResponse[]>(meKeys.wishlistItems(uid), (items) =>
         items?.filter((item) => item.id !== id)
       );
-      void queryClient.invalidateQueries({ queryKey: meKeys.plan(uid) });
+      void queryClient.invalidateQueries({ queryKey: meKeys.limits(uid) });
+      void queryClient.invalidateQueries({ queryKey: availabilityPrefix(uid) });
     },
   });
 }

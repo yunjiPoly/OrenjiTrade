@@ -10,9 +10,14 @@
 // ACTION=send sends BODY as Ben (EMAIL / PASSWORD = Ben's) in CONVERSATION.
 // ACTION=expect checks, as Ben, that the conversation holds a message with body EXPECT_BODY
 //   (Ada's reply sent from the app) and, with EXPECT_READ=true, that Ben's messages are read.
+// ACTION=qualify sends, in CONVERSATION, three more messages as Ben (EMAIL / PASSWORD) and three
+//   as Ada (ADA_EMAIL / ADA_PASSWORD), so each side sent at least three (rating eligibility,
+//   Phase 7), then waits until Ada may rate Ben (the ratings module records it after commit).
+// ACTION=expect-rating checks, as Ada (EMAIL / PASSWORD), that Ben (HANDLE) holds her rating with
+//   EXPECT_OVERALL stars and no meetup score (collectors don't meet, ADR 0018).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
-// CONVERSATION, BODY, EXPECT_BODY, EXPECT_READ.
+// ADA_EMAIL, ADA_PASSWORD, CONVERSATION, BODY, EXPECT_BODY, EXPECT_READ, HANDLE, EXPECT_OVERALL.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -185,6 +190,59 @@ if (action === 'setup') {
   }
   if (typeof EXPECT_READ !== 'undefined' && EXPECT_READ === 'true' && unread > 0) {
     throw new Error(unread + ' message(s) of Ben are still unread by Ada.');
+  }
+} else if (action === 'qualify') {
+  var benToken = signIn(EMAIL, PASSWORD);
+  var adaToken = signIn(ADA_EMAIL, ADA_PASSWORD);
+  var lines = [
+    ['How much with shipping?', 'Twelve plus three for tracking.'],
+    ['Deal. e-Transfer sent.', 'Got it, shipping tomorrow.'],
+    ['Thanks!', 'Thanks for buying!'],
+  ];
+  for (var q = 0; q < lines.length; q++) {
+    send(benToken, CONVERSATION, lines[q][0]);
+    send(adaToken, CONVERSATION, lines[q][1]);
+  }
+  var me = check(http.get(api + '/api/v1/me', { headers: jsonHeaders(benToken) }), 'GET /me');
+  var eligible = false;
+  var deadline = Date.now() + 30000;
+  while (!eligible && Date.now() < deadline) {
+    var answer = check(
+      http.get(api + '/api/v1/ratings/eligibility?userId=' + me.id, {
+        headers: jsonHeaders(adaToken),
+      }),
+      'GET /ratings/eligibility'
+    );
+    var interactions = answer.interactions || [];
+    for (var e = 0; e < interactions.length; e++) {
+      if (!interactions[e].alreadyRated) {
+        eligible = true;
+      }
+    }
+    var until = Date.now() + 500;
+    while (!eligible && Date.now() < until) {
+      // Busy wait: host scripts have no timer.
+    }
+  }
+  if (!eligible) {
+    throw new Error('Ada still cannot rate Ben after the qualifying messages.');
+  }
+} else if (action === 'expect-rating') {
+  var ratings = check(
+    http.get(api + '/api/v1/collectors/' + HANDLE + '/ratings', {
+      headers: jsonHeaders(signIn(EMAIL, PASSWORD)),
+    }),
+    'GET ratings'
+  );
+  var rated = ratings.items || [];
+  if (rated.length !== 1 || String(rated[0].overall) !== String(EXPECT_OVERALL)) {
+    throw new Error(
+      'Expected one ' + EXPECT_OVERALL + '-star rating, got ' + JSON.stringify(rated)
+    );
+  }
+  var breakdown = rated[0].breakdown || {};
+  if (breakdown.meetupReliability !== null && breakdown.meetupReliability !== undefined) {
+    throw new Error('The rating holds a meetup score: ' + JSON.stringify(breakdown));
   }
 } else {
   throw new Error('Unknown ACTION ' + action);

@@ -97,6 +97,16 @@ public class ModerationService {
      * blocked and which flags to record once it is stored.
      */
     public ModerationDecision check(ModerationScope scope, @Nullable String text, UUID authorId) {
+        return check(scope, text, authorId, false);
+    }
+
+    /**
+     * {@link #check(ModerationScope, String, UUID)}; {@code repeatExempt} leaves the text out of
+     * the repeated-content thresholds only (a fixed quick reply of the chat, stage R4): the rate
+     * limits and the banned-term rules still apply.
+     */
+    public ModerationDecision check(
+            ModerationScope scope, @Nullable String text, UUID authorId, boolean repeatExempt) {
         Snapshot current = snapshot();
         for (RateRule rule : current.rates().getOrDefault(scope, List.of())) {
             OptionalLong count =
@@ -129,7 +139,7 @@ public class ModerationService {
             }
             pending.add(new PendingFlag(FlagReason.BANNED_TERM, match.ruleId()));
         }
-        if (text != null && !text.isBlank()) {
+        if (text != null && !text.isBlank() && !repeatExempt) {
             String digest = digest(text);
             for (RateRule rule : current.thresholds().getOrDefault(scope, List.of())) {
                 OptionalLong count =

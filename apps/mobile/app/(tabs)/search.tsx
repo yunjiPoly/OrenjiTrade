@@ -1,415 +1,250 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { EMPTY_CARD_SEARCH, useCardSearch, type CardSearchQuery } from '@/src/api/hooks/catalog';
-import { useGames } from '@/src/api/hooks/profile';
-import { useUid } from '@/src/api/hooks/useUid';
-import type { CardSummary } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
-import { EmptyState } from '@/src/components/ui/EmptyState';
-import { ErrorState } from '@/src/components/ui/ErrorState';
-import { ListFooter } from '@/src/components/ui/ListFooter';
-import { Screen } from '@/src/components/ui/Screen';
-import { Segmented } from '@/src/components/ui/Segmented';
-import { Skeleton } from '@/src/components/ui/Skeleton';
-import { TextField } from '@/src/components/ui/TextField';
-import { SponsoredSlot } from '@/src/features/ads/SponsoredSlot';
-import { CardFiltersSheet } from '@/src/features/catalog/CardFiltersSheet';
-import { CardRow } from '@/src/features/catalog/CardRow';
-import {
-  extraFilterCount,
-  hasCriteria,
-  withFilter,
-  withoutFilters,
-  type CardFilterKey,
-} from '@/src/features/catalog/cardSearch';
-import { RecentSearches } from '@/src/features/catalog/RecentSearches';
-import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
+import { useWishlist } from '@/src/api/hooks/wishlist';
+import { Text } from '@/src/components/ui/Text';
+import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
+import { NotificationBell } from '@/src/features/notifications/NotificationBell';
+import { placeCodeFrom } from '@/src/features/map/places';
+import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
+import { BindersSegment } from '@/src/features/search/BindersSegment';
+import { CardTyping } from '@/src/features/search/CardTyping';
+import { SearchMap } from '@/src/features/search/SearchMap';
+import { SEARCH_COPY } from '@/src/features/search/searchCopy';
 import {
   SEARCH_SEGMENTS,
-  SEGMENT_FIELDS,
-  isSearchSegment,
+  segmentLabel,
+  segmentOfLink,
   type SearchSegment,
 } from '@/src/features/search/searchSegments';
-import { UnifiedResults } from '@/src/features/search/UnifiedResults';
-import {
-  boundedQuery,
-  PRINTING_CODE,
-  QUERY_MAX_LENGTH,
-  SEARCH_DEBOUNCE_MS,
-} from '@/src/lib/catalog';
-import { gamesFrom } from '@/src/lib/profile';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { WishlistSegment } from '@/src/features/search/WishlistSegment';
+import { isRegionCode } from '@/src/lib/place';
+import { TITLE_MAX_FONT_SCALE, fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
 
-const ALL_GAMES = '__all__';
+type SearchParams = {
+  segment?: string;
+  /** The `?tab=` of the links before stage R5. */
+  tab?: string;
+  /** Opens the card search with this text. */
+  q?: string;
+  game?: string;
+  /** `1`: opens the card search with the keyboard up (Home's field, stage R7). */
+  typing?: string;
+  /** A region to browse (the old Map tab's links). */
+  region?: string;
+  /** A state or province to show on the map (the old Map tab's links). */
+  subdivision?: string;
+  /**
+   * The state or province of the Binders segment. Not `state`: React Navigation reads a `state`
+   * parameter as a navigator's own state, and a link from a screen of the root stack hands its
+   * parameters to the tabs too (the tabs crashed, stage R5 review P1).
+   */
+  place?: string;
+};
 
-type SearchParams = { q?: string; game?: string; set?: string; tab?: string };
+/** The state a link names, on the region it names (or the browsed one), once per link. */
+export interface LinkedPlace {
+  region: string | null;
+  code: string;
+  nonce: number;
+}
+
+function linkedPlaceOf(params: SearchParams, nonce: number): LinkedPlace | null {
+  const code = placeCodeFrom(params.subdivision);
+  if (!code) {
+    return null;
+  }
+  const region =
+    typeof params.region === 'string' && isRegionCode(params.region) ? params.region : null;
+  return { region, code, nonce };
+}
+
+const LINK_KEYS: readonly (keyof SearchParams)[] = [
+  'segment',
+  'tab',
+  'q',
+  'game',
+  'typing',
+  'region',
+  'subdivision',
+  'place',
+];
 
 /**
- * Search tab (the web's `/search` tabs): Cards | Collectors | Binders. Cards: the card catalog
- * across games (the web's `/cards`): live, typo-tolerant search (names, text, printing codes)
- * with game pills and set / rarity / language / edition filters, an infinite list of results with
- * API pictures. Collectors (by name or handle, with their state or province) and public binders
- * (by name) come from `GET /search`. Recent searches are kept per segment. A result opens the
- * card detail, the collector profile or the public binder.
+ * Search (owner spec 2026-10-14, sections 4 and 8; mockup screens 11 to 15): the title "Search"
+ * with the bell, then the segments Cards | Binders | Wishlist (Wishlist with the number of wishes).
+ * Cards opens on the region map (the old Map tab) and turns into the card search while a card is
+ * typed; Binders lists the binders and deck cores of the region or of the state the map chose;
+ * Wishlist is the old Wishlist tab. No Filters button and no counts beyond the map's and the
+ * number of wishes.
+ *
+ * Links: `?segment=cards|binders|wishlist` (and the old `?tab=`), `?q=` and `?typing=1` (the card
+ * search), `?region=` and `?subdivision=` (the old Map tab: the region browsed, the state shown),
+ * `?segment=binders&place=` (the old public binders of a state). A link is used up once followed:
+ * its parameters are cleared, so the same link opens the same place every time it is tapped.
  */
 export default function SearchScreen() {
   const params = useLocalSearchParams<SearchParams>();
-  const [segment, setSegment] = useState<SearchSegment>(
-    isSearchSegment(params.tab) ? params.tab : 'cards'
-  );
-  // A link into the tab (`?tab=collectors`) switches the segment once per new parameter.
-  const [linkedTab, setLinkedTab] = useState(params.tab);
-  if (params.tab !== linkedTab) {
-    setLinkedTab(params.tab);
-    if (isSearchSegment(params.tab)) {
-      setSegment(params.tab);
-    }
-  }
-  return (
-    <Screen testID="screen-search" style={styles.screen}>
-      <Segmented<SearchSegment>
-        label="Search"
-        options={SEARCH_SEGMENTS}
-        value={segment}
-        onChange={setSegment}
-        style={styles.segments}
-        testID="search-segment"
-      />
-      {segment === 'cards' ? <CardsSegment params={params} /> : <OtherSegment segment={segment} />}
-    </Screen>
-  );
-}
-
-/** The Collectors and Binders segments: one debounced field, the recent searches, the results. */
-function OtherSegment({ segment }: { segment: Exclude<SearchSegment, 'cards'> }) {
-  const uid = useUid();
-  const remember = useRecentSearchesStore((state) => state.remember);
-  const [text, setText] = useState('');
-  const [query, setQuery] = useState('');
-
-  useEffect(() => {
-    const q = boundedQuery(text);
-    if (q === query) {
-      return undefined;
-    }
-    const timer = setTimeout(() => setQuery(q), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [text, query]);
-
-  const search = (value: string) => {
-    const q = boundedQuery(value);
-    setText(value);
-    setQuery(q);
-    if (uid && q) {
-      remember(uid, q, segment);
-    }
-  };
-
-  return (
-    <>
-      <View style={styles.controls}>
-        <TextField
-          label={SEGMENT_FIELDS[segment].label}
-          placeholder={SEGMENT_FIELDS[segment].placeholder}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={() => search(text)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          maxLength={QUERY_MAX_LENGTH}
-          testID={`search-${segment}-input`}
-        />
-      </View>
-      <View style={styles.fill}>
-        <UnifiedResults segment={segment} query={query} onSearch={search} />
-      </View>
-    </>
-  );
-}
-
-function CardsSegment({ params }: { params: SearchParams }) {
+  const navigation = useNavigation<{ setParams: (params: Partial<SearchParams>) => void }>();
   const { palette } = useTheme();
-  const router = useRouter();
-  const uid = useUid();
-  const remember = useRecentSearchesStore((state) => state.remember);
-  const gamesQuery = useGames();
-  const games = useMemo(() => gamesQuery.data ?? [], [gamesQuery.data]);
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
+  const { select, knows, ready } = useBrowsingRegion();
+  const wishlist = useWishlist();
+  const [segment, setSegment] = useState<SearchSegment>(() => segmentOfLink(params) ?? 'cards');
+  const [typing, setTyping] = useState<{ text: string; game: string | null } | null>(() =>
+    params.q || params.typing === '1' ? { text: params.q ?? '', game: params.game || null } : null
+  );
+  const [state, setState] = useState<string | null>(() => placeCodeFrom(params.place));
+  // The state a link names, on the region it names (applied once per link: `nonce`).
+  const [linkCount, setLinkCount] = useState(0);
+  const [linkedPlace, setLinkedPlace] = useState<LinkedPlace | null>(() =>
+    linkedPlaceOf(params, 0)
+  );
 
-  const [text, setText] = useState(params.q ?? '');
-  const [query, setQuery] = useState<CardSearchQuery>(() => fromParams(params));
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  // Links into the tab (a set on the card detail) replace the search, once per new link.
-  const linkKey = `${params.q ?? ''}|${params.game ?? ''}|${params.set ?? ''}`;
-  const [linked, setLinked] = useState(linkKey);
-  if (linkKey !== linked) {
-    setLinked(linkKey);
-    setText(params.q ?? '');
-    setQuery(fromParams(params));
+  // A new link into the tab: its segment, text, region and place, once (then its parameters go).
+  const link = LINK_KEYS.map((key) => params[key] ?? '').join('|');
+  const [followed, setFollowed] = useState(link);
+  if (link !== followed) {
+    setFollowed(link);
+    if (link.replace(/\|/g, '') !== '') {
+      const linkedSegment = segmentOfLink(params);
+      if (params.q || params.typing === '1') {
+        setSegment('cards');
+        setTyping({ text: params.q ?? '', game: params.game || null });
+      } else if (linkedSegment) {
+        setSegment(linkedSegment);
+        if (linkedSegment === 'cards') {
+          setTyping(null);
+        }
+      }
+      if (params.place !== undefined) {
+        setState(placeCodeFrom(params.place));
+      }
+      const place = linkedPlaceOf(params, linkCount + 1);
+      setLinkCount(linkCount + 1);
+      if (place) {
+        setSegment('cards');
+        setTyping(null);
+        setLinkedPlace(place);
+      }
+    }
   }
-
-  // Live results while typing (debounced like the web's search field).
+  const linkedRegion = typeof params.region === 'string' ? params.region : undefined;
   useEffect(() => {
-    const q = boundedQuery(text);
-    if (q === query.q) {
-      return undefined;
+    if (!ready || link.replace(/\|/g, '') === '') {
+      return;
     }
-    const timer = setTimeout(() => setQuery((current) => ({ ...current, q })), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [text, query.q]);
-
-  const results = useCardSearch(query);
-  const cards = useMemo(
-    () => results.data?.pages.flatMap((page) => page.items ?? []) ?? [],
-    [results.data]
-  );
-  const total = results.data?.pages[0]?.totalItems ?? 0;
-
-  const search = (value: string) => {
-    const q = boundedQuery(value);
-    setText(value);
-    setQuery((current) => ({ ...current, q }));
-    if (uid && q) {
-      remember(uid, q);
+    if (linkedRegion && isRegionCode(linkedRegion) && knows(linkedRegion)) {
+      select(linkedRegion);
     }
-  };
+    const cleared: Partial<SearchParams> = {};
+    for (const key of LINK_KEYS) {
+      cleared[key] = undefined;
+    }
+    navigation.setParams(cleared);
+  }, [knows, link, linkedRegion, navigation, ready, select]);
 
-  const openCard = useCallback(
-    (card: CardSummary) => {
-      if (uid && query.q) {
-        remember(uid, query.q);
-      }
-      if (card.id) {
-        router.push({ pathname: '/cards/[id]', params: { id: card.id } });
-      }
-    },
-    [query.q, remember, router, uid]
-  );
-
-  const onFilter = (key: CardFilterKey, value: string | null) =>
-    setQuery((current) => withFilter(current, key, value, games));
-
-  const clearAll = () => {
-    setText('');
-    setQuery(EMPTY_CARD_SEARCH);
-  };
-
-  const extra = extraFilterCount(query);
-  const showRecent = text.trim().length === 0;
-
-  const header = (
-    <View style={styles.header}>
-      {showRecent ? <RecentSearches uid={uid} onPick={search} /> : null}
-      {results.data ? (
-        <View style={styles.summary}>
-          <Text
-            testID="search-count"
-            accessibilityLiveRegion="polite"
-            style={[textStyle('sm'), { color: palette.textMuted }]}
-          >
-            {total} {total === 1 ? 'card' : 'cards'}
-            {query.q ? ` for “${query.q}”` : ''}
-            {results.isFetching && !results.isFetchingNextPage ? ' · updating…' : ''}
-          </Text>
-          {PRINTING_CODE.test(query.q) && total === 1 ? (
-            <View style={[styles.badge, { backgroundColor: palette.accentContainer }]}>
-              <MaterialCommunityIcons name="qrcode" size={14} color={palette.onAccentContainer} />
-              <Text
-                style={[textStyle('xs'), styles.badgeText, { color: palette.onAccentContainer }]}
-              >
-                Printing code match
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-      {query.q ? (
-        <SponsoredSlot placement="SEARCH_SPONSORED" game={query.game ?? null} variant="compact" />
-      ) : null}
-    </View>
-  );
+  const wishes = wishlist.data?.length ?? null;
+  const tabs = SEARCH_SEGMENTS.map((value) => ({
+    value,
+    label: segmentLabel(value),
+    count: value === 'wishlist' ? wishes : undefined,
+  }));
 
   let body;
-  if (!results.data && results.error) {
+  if (segment === 'binders') {
     body = (
-      <ErrorState
-        testID="search-error"
-        error={results.error}
-        title="Cards could not load"
-        onRetry={() => void results.refetch()}
+      <BindersSegment
+        state={state}
+        onClearState={() => setState(null)}
+        onPickOnMap={() => {
+          setTyping(null);
+          setSegment('cards');
+        }}
       />
     );
-  } else if (!results.data) {
-    body = <SearchSkeleton />;
+  } else if (segment === 'wishlist') {
+    body = <WishlistSegment />;
+  } else if (typing) {
+    body = (
+      <CardTyping
+        initialText={typing.text}
+        initialGame={typing.game}
+        onCancel={() => setTyping(null)}
+      />
+    );
   } else {
     body = (
-      <FlatList
-        testID="search-results"
-        data={cards}
-        keyExtractor={(card, index) => card.id ?? String(index)}
-        renderItem={({ item }) => <CardRow card={item} onPress={openCard} />}
-        ItemSeparatorComponent={Separator}
-        ListHeaderComponent={header}
-        ListEmptyComponent={
-          <EmptyState
-            testID="search-empty"
-            icon="magnify-close"
-            title="No cards match"
-            description={
-              query.q
-                ? `Nothing matches “${query.q}”. Check the spelling, try fewer words or a printing code like AZR-EN001.`
-                : 'No card matches these filters. Try another set or rarity.'
-            }
-            actionLabel={hasCriteria(query) ? 'Clear search and filters' : undefined}
-            onAction={hasCriteria(query) ? clearAll : undefined}
-          />
-        }
-        ListFooterComponent={
-          <ListFooter
-            loading={results.isFetchingNextPage}
-            failed={!!results.error && results.hasNextPage}
-            onRetry={() => void results.fetchNextPage()}
-          />
-        }
-        onEndReached={() => {
-          if (results.hasNextPage && !results.isFetchingNextPage && !results.error) {
-            void results.fetchNextPage();
-          }
+      <SearchMap
+        onType={() => setTyping({ text: '', game: null })}
+        onSeeBinders={(code) => {
+          setState(code);
+          setSegment('binders');
         }}
-        onEndReachedThreshold={0.5}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        refreshControl={
-          <RefreshControl
-            refreshing={results.isRefetching && !results.isFetchingNextPage}
-            onRefresh={() => void results.refetch()}
-          />
-        }
-        contentContainerStyle={styles.listContent}
+        linkedPlace={linkedPlace}
       />
     );
   }
 
   return (
-    <>
-      <View style={styles.controls}>
-        <TextField
-          label={SEGMENT_FIELDS.cards.label}
-          placeholder={SEGMENT_FIELDS.cards.placeholder}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={() => search(text)}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          maxLength={QUERY_MAX_LENGTH}
-          testID="search-input"
-        />
-        <ChoiceChips
-          label="Game"
-          hideLabel
-          scroll
-          options={[
-            { value: ALL_GAMES, label: 'All games' },
-            ...gamesFrom(gamesQuery.data).map((game) => ({ value: game.slug, label: game.label })),
-          ]}
-          value={query.game ?? ALL_GAMES}
-          onChange={(value) => onFilter('game', value === ALL_GAMES ? null : value)}
-          testID="search-game"
-        />
-        <View style={styles.filterRow}>
-          <Button
-            label={extra > 0 ? `Filters (${extra})` : 'Filters'}
-            icon="filter-variant"
-            variant="secondary"
-            onPress={() => setFiltersOpen(true)}
-            style={styles.filterButton}
-            testID="search-filters"
-          />
-          {hasCriteria(query) ? (
-            <Button
-              label="Clear"
-              variant="ghost"
-              onPress={clearAll}
-              style={styles.filterButton}
-              testID="search-clear"
-            />
-          ) : null}
-        </View>
-      </View>
-      <View style={styles.fill}>{body}</View>
-      <CardFiltersSheet
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        query={query}
-        games={games}
-        onFilter={onFilter}
-        onClear={() => setQuery((current) => ({ ...withoutFilters(current), game: current.game }))}
-      />
-    </>
-  );
-}
-
-function fromParams(params: SearchParams): CardSearchQuery {
-  return {
-    ...EMPTY_CARD_SEARCH,
-    q: boundedQuery(params.q ?? ''),
-    game: params.game || null,
-    set: params.game && params.set ? params.set : null,
-  };
-}
-
-function Separator() {
-  return <View style={styles.separator} />;
-}
-
-function SearchSkeleton() {
-  return (
     <View
-      testID="search-loading"
-      accessibilityLabel="Loading cards"
-      aria-busy
-      style={styles.skeleton}
+      key={`text-size-${fontScale}`}
+      testID="screen-search"
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
     >
-      {[0, 1, 2, 3].map((index) => (
-        <View key={index} style={styles.skeletonRow}>
-          <Skeleton width={56} height={78} radius={radius.sm} />
-          <View style={styles.fill}>
-            <Skeleton width="70%" height={16} />
-            <Skeleton width="45%" height={12} style={styles.skeletonGap} />
-          </View>
+      <View style={styles.top}>
+        <View style={styles.titleRow}>
+          <Text
+            accessibilityRole="header"
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.title, { color: palette.ink }]}
+            testID="search-title"
+          >
+            {SEARCH_COPY.title}
+          </Text>
+          <NotificationBell testID="notification-bell-search" variant="round" />
         </View>
-      ))}
+        <UnderlineTabs<SearchSegment>
+          label={SEARCH_COPY.segmentsLabel}
+          tabs={tabs}
+          value={segment}
+          onChange={(next) => {
+            setSegment(next);
+            if (next === 'cards') {
+              setTyping(null);
+            }
+          }}
+          testID="search-segment"
+        />
+      </View>
+      <View style={styles.body}>{body}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { paddingBottom: 0 },
-  segments: { marginBottom: spacing[3] },
-  controls: { gap: spacing[3], marginBottom: spacing[2] },
-  filterRow: { flexDirection: 'row', gap: spacing[2] },
-  filterButton: { minHeight: 40, paddingVertical: spacing[2], paddingHorizontal: spacing[4] },
   fill: { flex: 1 },
-  header: { gap: spacing[3], marginBottom: spacing[2] },
-  summary: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] },
-  badge: {
+  top: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[5],
+    gap: spacing[3],
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1],
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-    borderRadius: radius.pill,
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing[3],
   },
-  badgeText: { fontWeight: fontWeight.semibold },
-  listContent: { paddingBottom: spacing[6] },
-  separator: { height: spacing[2] },
-  skeleton: { gap: spacing[3], paddingTop: spacing[2] },
-  skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  skeletonGap: { marginTop: spacing[2] },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.4,
+  },
+  body: { flex: 1, paddingHorizontal: spacing[4], paddingTop: spacing[3] },
 });

@@ -41,6 +41,7 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     MessagingServiceInterface,
+    GetConversationRequestParams,
     ListConversationsRequestParams,
     ListMessagesRequestParams,
     MarkConversationReadRequestParams,
@@ -58,6 +59,68 @@ export class MessagingService extends BaseService implements MessagingServiceInt
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * One conversation of the caller
+     * Stage R4: the conversation as in the list, with its subject (the card or deck core it is about). 404 for non-participants and conversations hidden by a block.
+     * @endpoint get /api/v1/conversations/{id}
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getConversation(requestParameters: GetConversationRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ConversationSummary>;
+    public getConversation(requestParameters: GetConversationRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ConversationSummary>>;
+    public getConversation(requestParameters: GetConversationRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ConversationSummary>>;
+    public getConversation(requestParameters: GetConversationRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const id = requestParameters?.id;
+        if (id === null || id === undefined) {
+            throw new Error('Required parameter id was null or undefined when calling getConversation.');
+        }
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/conversations/${this.configuration.encodeParam({name: "id", value: id, in: "path", style: "simple", explode: false, dataType: "string", dataFormat: "uuid"})}`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<ConversationSummary>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**
@@ -313,7 +376,7 @@ export class MessagingService extends BaseService implements MessagingServiceInt
 
     /**
      * Send a message
-     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;; BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h); OFFER_LINK &#x60;offerId&#x60; of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;, or &#x60;inventoryItemId&#x60; of one of the caller\&#39;s own cards (stage R4: its picture, code and price as typed, and it becomes the chat\&#39;s subject); BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h); OFFER_LINK &#x60;offerId&#x60; of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
      * @endpoint post /api/v1/conversations/{id}/messages
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -389,7 +452,7 @@ export class MessagingService extends BaseService implements MessagingServiceInt
 
     /**
      * Start (or reopen) a conversation with a collector
-     * Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient\&#39;s messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself.
+     * Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient\&#39;s messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: &#x60;subjectItemId&#x60; (a card) or &#x60;subjectBinderId&#x60; (a deck core) pins what the chat is about, the latest wins; it must be the recipient\&#39;s and public, or the caller\&#39;s own (404 when private, deleted or sold; 400 for both at once, for someone else\&#39;s, and for a binder that is not a deck core).
      * @endpoint post /api/v1/conversations
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

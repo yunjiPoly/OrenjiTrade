@@ -10,7 +10,7 @@
 
 
 /**
- * Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it.
+ * Any subset of the fields; absent fields are unchanged. binderId null unfiles the item (it becomes PRIVATE unless its binder was PUBLIC without an end date and no visibility is sent). Making the item public confirms it, and so does confirm: true.
  */
 export interface UpdateInventoryItemRequest { 
     printingId?: string;
@@ -31,6 +31,14 @@ export interface UpdateInventoryItemRequest {
     visibility?: UpdateInventoryItemRequestVisibilityEnum;
     publicUntil?: string | null;
     binderId?: string | null;
+    /**
+     * The asking price as typed (at most 40 characters); null clears the price. A plain amount also sets askingPrice; sending askingPrice without it clears the text. Not both.
+     */
+    askingPriceText?: string | null;
+    /**
+     * true: the save also confirms the item is still available, as POST .../confirm does (the phone\'s Edit card).
+     */
+    confirm?: boolean;
 }
 export enum UpdateInventoryItemRequestAvailabilityEnum {
     CollectionOnly = 'COLLECTION_ONLY',

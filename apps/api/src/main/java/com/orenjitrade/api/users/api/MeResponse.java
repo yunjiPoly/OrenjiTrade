@@ -37,7 +37,6 @@ public record MeResponse(
                                 "Current legal document versions still to accept; while non-empty"
                                         + " every non-exempt route answers 428")
                 List<RequiredConsent> requiredConsents,
-        @Schema(requiredMode = RequiredMode.REQUIRED, example = "FREE") String plan,
         @Schema(
                         nullable = true,
                         example = "americas-north",

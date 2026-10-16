@@ -76,16 +76,17 @@ export function useCardSearch(query: CardSearchQuery, enabled = true) {
 }
 
 /** `GET /api/v1/cards/suggest`: card and printing suggestions (debounce `q` in the caller). */
-export function useCardSuggestions(q: string, limit = 10) {
+export function useCardSuggestions(q: string, limit = 10, keepTwins = false) {
   const trimmed = q.trim();
   return useQuery<CardSuggestion[], ApiError>({
-    queryKey: catalogKeys.suggest(`${trimmed}|${limit}`),
+    queryKey: catalogKeys.suggest(`${trimmed}|${limit}${keepTwins ? '|twins' : ''}`),
     queryFn: async () =>
       uniqueSuggestions(
         required(
           (await api.GET('/api/v1/cards/suggest', { params: { query: { q: trimmed, limit } } }))
             .data
-        )
+        ),
+        keepTwins
       ),
     enabled: trimmed.length >= SUGGEST_MIN_CHARS,
     staleTime: 5 * 60_000,

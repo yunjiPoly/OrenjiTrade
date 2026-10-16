@@ -8,8 +8,10 @@ import org.jspecify.annotations.Nullable;
  * Which public items fit a wish (stage S2), as pure Java (unit-tested) beside the SQL of {@code
  * WishlistAlertRepository}: the wished printing, or any printing of the wished card of the wished
  * rarity (when one is set); with "Near Mint only", a Near Mint or better condition in the game's
- * {@code GameSchema} order (conditions are ordered best first: MINT, NEAR_MINT, ...). The region
- * rule (same platform region) and the visibility rules live in the SQL only.
+ * {@code GameSchema} order (conditions are ordered best first: MINT, NEAR_MINT, ...), or a
+ * condition the owner did not state (cards added on the phone since stage R2: a possible match, the
+ * buyer checks in the chat; owner spec 2026-10-14, section 16, default 5). The region rule (same
+ * platform region) and the visibility rules live in the SQL only.
  */
 public final class WishlistAlertRules {
 
@@ -21,7 +23,8 @@ public final class WishlistAlertRules {
      * = the game's ordered conditions).
      */
     public static final String NEAR_MINT_SQL =
-            "(NOT w.near_mint_only OR array_position(gc.conditions, i.condition)"
+            "(NOT w.near_mint_only OR i.condition IS NULL"
+                    + " OR array_position(gc.conditions, i.condition)"
                     + " <= array_position(gc.conditions, '"
                     + NEAR_MINT
                     + "'))";
@@ -30,11 +33,11 @@ public final class WishlistAlertRules {
 
     /**
      * Whether an item in {@code condition} fits a wish asking (or not) for Near Mint only; unknown
-     * codes never fit a Near Mint wish.
+     * codes never fit a Near Mint wish, a condition that is not stated ({@code null}) may.
      */
     public static boolean conditionFits(
-            List<String> conditions, String condition, boolean nearMintOnly) {
-        if (!nearMintOnly) {
+            List<String> conditions, @Nullable String condition, boolean nearMintOnly) {
+        if (!nearMintOnly || condition == null) {
             return true;
         }
         int rank = conditions.indexOf(condition);

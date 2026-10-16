@@ -12,13 +12,17 @@ export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Readonly<Record<string, { label: string; help: string }>> = {
   MESSAGE: { label: 'Messages', help: 'New private messages.' },
-  OFFER: { label: 'Offers', help: 'Offers you receive and their answers.' },
-  TRADE: { label: 'Trades', help: 'Progress of your trades.' },
-  RATING: { label: 'Ratings', help: 'When someone rates a trade with you.' },
+  RATING: { label: 'Ratings', help: 'When someone rates you.' },
   BINDER_FRESHNESS: { label: 'Binder reminders', help: 'When your listings need a refresh.' },
   REPORT_DECISION: { label: 'Report decisions', help: 'Outcome of reports you filed.' },
   MARKETING: { label: 'News and tips', help: 'Occasional product news.' },
 };
+
+/**
+ * Categories the phone does not list: offers and trades left the phone (ADR 0018). The API keeps
+ * them for the paused web; saving the settings sends their stored values back unchanged.
+ */
+export const HIDDEN_CATEGORIES: ReadonlySet<string> = new Set(['OFFER', 'TRADE']);
 
 export function categoriesOf(settings: NotificationSettingsResponse) {
   const order = Object.keys(CATEGORY_LABELS);
@@ -27,6 +31,7 @@ export function categoriesOf(settings: NotificationSettingsResponse) {
     return index === -1 ? order.length : index;
   };
   return Object.keys(settings.categories)
+    .filter((key) => !HIDDEN_CATEGORIES.has(key))
     .sort((a, b) => rank(a) - rank(b))
     .map((key) => ({
       key,

@@ -1,0 +1,172 @@
+# Search's map under a finger (mobile stage M9, review fix 1; Search's default view since stage
+# R5): a collector without a location (no province of theirs, so no state card and no "My
+# province") scrolls the page with a finger dragged over the whole region, picks a place by a tap
+# on the map and by holding it (its card each time), and moves a zoomed-in map while the page
+# stands still. A link of the old Map tab opens a region and one of its states every time it is
+# opened, and a link to a region that does not exist changes nothing. The old links of before
+# stage R5 land in Search: the public binders of a state (/regions/<region>/<code>) on Search ›
+# Binders on that state, the Wishlist tab (/wishlist) on Search › Wishlist.
+# The collector is created for the run (no location, never a seed account).
+appId: ${APP_ID}
+name: Search's map, a finger on the map scrolls the page, a place's card, links work twice
+tags:
+  - mobile-m9
+  - mobile-r5
+  - map
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: mapdrag
+      DISPLAY_NAME: 'Map Dragger'
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)'
+    timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-map'
+    timeout: 30000
+- assertNotVisible:
+    id: 'search-state-card'
+- assertNotVisible:
+    id: 'search-region-map-home'
+
+# A finger dragged up from the middle of the whole region: the page scrolls to its end (the map
+# used to swallow the drag, and the note under it could not be reached from there).
+- swipe:
+    from:
+      id: 'search-region-map'
+    direction: UP
+    duration: 600
+- swipe:
+    from:
+      id: 'search-region-map'
+    direction: UP
+    duration: 600
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: 'search-map-privacy'
+    timeout: 15000
+- takeScreenshot: map-scrolled-by-a-drag-on-the-map
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'search-field'
+
+# A tap on the map itself picks the place under the finger: the middle of the first view of
+# Americas (North) is in Canada whatever the shape of the screen.
+- tapOn:
+    id: 'search-region-map'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-sub'
+      text: 'Canada'
+    timeout: 30000
+- takeScreenshot: map-place-card
+- tapOn:
+    id: 'search-state-close'
+- extendedWaitUntil:
+    notVisible:
+      id: 'search-state-card'
+    timeout: 10000
+
+# Holding a place picks it while the finger is still down.
+- longPressOn:
+    id: 'search-region-map'
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-sub'
+      text: 'Canada'
+    timeout: 10000
+- tapOn:
+    id: 'search-state-close'
+
+# Zoomed in, the finger moves the map and the page stands still: the field stays where it is.
+- tapOn:
+    id: 'search-region-map-zoom-in'
+- swipe:
+    from:
+      id: 'search-region-map'
+    direction: UP
+    duration: 600
+- assertVisible:
+    id: 'search-field'
+- tapOn:
+    id: 'search-region-map-zoom-out'
+
+# A link of the old Map tab, twice in one visit: it opens its state both times (it used to do
+# nothing the second time). The region of the link is browsed.
+- openLink: ${APP_URL}/--/?region=americas-south&subdivision=UY-MO
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Montevideo'
+    timeout: 60000
+- assertVisible:
+    id: 'search-region'
+    text: 'Region: Americas \(South\)'
+- tapOn:
+    id: 'search-state-close'
+- tapOn:
+    id: 'search-region'
+- tapOn:
+    id: 'search-region-option-americas-north'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(North\)'
+    timeout: 30000
+- openLink: ${APP_URL}/--/?region=americas-south&subdivision=UY-MO
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Montevideo'
+    timeout: 60000
+- takeScreenshot: map-link-twice
+
+# A link to a region that does not exist changes nothing.
+- openLink: ${APP_URL}/--/?region=asia
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-region'
+      text: 'Region: Americas \(South\)'
+    timeout: 30000
+- assertNotVisible:
+    id: 'search-map-counts-error'
+- takeScreenshot: map-after-a-link-to-no-region
+
+# The old public binders of a state (stage M9): Search › Binders on that state, on the link's
+# region (the link crashed the tabs: stage R5 review, P1).
+- openLink: ${APP_URL}/--/regions/americas-north/CA-QC
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binders-state-chip'
+      text: 'Showing Quebec.*'
+    timeout: 60000
+- assertVisible:
+    id: 'search-segment-binders'
+    selected: true
+- assertNotVisible: 'Something went wrong'
+- takeScreenshot: old-link-place-binders
+
+# The old Wishlist tab: Search › Wishlist.
+- openLink: ${APP_URL}/--/wishlist
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-wishlist'
+    timeout: 60000
+- assertNotVisible: 'Something went wrong'

@@ -25,7 +25,7 @@ export default function EditWishScreen() {
         title="This wish no longer exists"
         description="It may have been removed."
         actionLabel="Back to your wishlist"
-        onAction={() => router.navigate('/wishlist')}
+        onAction={() => router.navigate({ pathname: '/search', params: { segment: 'wishlist' } })}
       />
     );
   } else if (wishlist.error) {

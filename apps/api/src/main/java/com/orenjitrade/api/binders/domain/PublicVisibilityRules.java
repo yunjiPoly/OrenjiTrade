@@ -16,15 +16,16 @@ import org.jspecify.annotations.Nullable;
  * item is public ⇔ its visibility is PUBLIC or TEMPORARILY_PUBLIC not yet expired ∧ its binder is
  * public (or it has none) ∧ its freshness is not HIDDEN ∧ the owner is listed. A binder is public ⇔
  * its visibility is PUBLIC or TEMPORARILY_PUBLIC not yet expired ∧ its freshness is not HIDDEN ∧
- * the owner is listed. The owner is listed ⇔ the account is ACTIVE (or its temporary suspension has
- * ended) ∧ the collector is discoverable or has a PUBLIC profile ∧ the profile is not PRIVATE ∧
- * (for listings, Phase 7) no pause of the owner's listings is in force ({@link ListingPauseRules};
- * a paused collector stays on the map without public listings).
+ * the owner is listed ∧ (V126) it is not sold. The owner is listed ⇔ the account is ACTIVE (or its
+ * temporary suspension has ended) ∧ the collector is discoverable or has a PUBLIC profile ∧ the
+ * profile is not PRIVATE ∧ (for listings, Phase 7) no pause of the owner's listings is in force
+ * ({@link ListingPauseRules}; a paused collector stays on the map without public listings).
  *
  * <p>The SQL fragments below (aliases {@code u} = {@code user_account}, {@code ps} = {@code
  * privacy_settings}, parameter {@code :now}) and the pure Java predicates express the same rules;
- * {@code VisibilityRulesTest} and {@code VisibilityIT} keep them aligned. Every public read
- * re-evaluates them; nothing trusts a stored flag alone.
+ * {@code VisibilityRulesTest} and {@code VisibilityIT} keep them aligned (a sold binder is decided
+ * in SQL only: no Java code decides a binder's visibility). Every public read re-evaluates them;
+ * nothing trusts a stored flag alone.
  */
 public final class PublicVisibilityRules {
 
@@ -57,7 +58,10 @@ public final class PublicVisibilityRules {
 
     private PublicVisibilityRules() {}
 
-    /** The binder aliased {@code alias} is itself public (visibility, expiry, freshness). */
+    /**
+     * The binder aliased {@code alias} is itself public (visibility, expiry, freshness, not sold).
+     * A sold deck core (V126, stage R4 sells it) is never public, and neither are its cards.
+     */
     public static String binderListed(String alias) {
         return "(("
                 + alias
@@ -67,7 +71,9 @@ public final class PublicVisibilityRules {
                 + alias
                 + ".public_until > :now)) AND "
                 + alias
-                + ".freshness_state <> 'HIDDEN')";
+                + ".freshness_state <> 'HIDDEN' AND "
+                + alias
+                + ".sold_at IS NULL)";
     }
 
     /** The binder aliased {@code alias} is effectively public (needs {@link #ownerJoins}). */

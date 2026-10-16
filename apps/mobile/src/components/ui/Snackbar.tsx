@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   createContext,
   useCallback,
@@ -8,45 +9,127 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Keyboard,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { Text } from '@/src/components/ui/Text';
+import { elevation, fontWeight, lightPalette, spacing, textStyle, useTheme } from '@/src/theme';
 
-export interface SnackbarOptions {
-  /** Milliseconds before it hides (default 4000). */
-  duration?: number;
-  tone?: 'default' | 'error';
+/** How long a toast stays (owner spec 2026-10-14, section 3: "about 5 seconds"). */
+export const SNACKBAR_DURATION_MS = 5000;
+
+/**
+ * How long a toast with an action stays while a screen reader runs: reaching "Undo" by swiping
+ * takes longer than a glance and a tap (WCAG 2.2.1, timing adjustable).
+ */
+export const SNACKBAR_SCREEN_READER_ACTION_MS = 15000;
+
+export interface SnackbarAction {
+  /** "Undo", "View". */
+  label: string;
+  onPress: () => void;
+  testID?: string;
 }
 
-interface SnackbarMessage extends Required<SnackbarOptions> {
+export interface SnackbarOptions {
+  /** Milliseconds before it hides (default {@link SNACKBAR_DURATION_MS}). */
+  duration?: number;
+  tone?: 'default' | 'error';
+  /** A bold first line ("Saved"); the text is then the second line (the card's name). */
+  title?: string;
+  /** A round icon before the words: a check ("Saved") or a bin ("Card deleted"). */
+  icon?: 'success' | 'deleted';
+  /** One action on the right ("Undo", "View"); the toast hides when it is pressed. */
+  action?: SnackbarAction;
+}
+
+interface SnackbarMessage {
   id: number;
   text: string;
+  duration: number;
+  tone: 'default' | 'error';
+  title: string | null;
+  icon: 'success' | 'deleted' | null;
+  action: SnackbarAction | null;
 }
 
 export interface Snackbar {
   show: (text: string, options?: SnackbarOptions) => void;
   hide: () => void;
+  /**
+   * A screen with a bar at its bottom (the main button of a form) keeps the toast above it while
+   * the screen is mounted: the bar's height in points; returns the release.
+   */
+  keepClear: (height: number) => () => void;
 }
 
 const SnackbarContext = createContext<Snackbar | null>(null);
+/** How far up from the bottom of the screen the toast showing now reaches; 0 without one. */
+const SnackbarCoverContext = createContext(0);
 
 /**
- * App-wide toast (the web's MatSnackBar): one message at a time at the bottom of the screen,
- * announced politely to screen readers, dismissible with a tap.
+ * App-wide toast (the web's MatSnackBar; owner spec 2026-10-14, section 3): one message at a time
+ * at the bottom of the screen, about five seconds, with an optional action ("Undo", "View").
+ * Announced to screen readers; the message itself dismisses it with a tap.
  */
 export function SnackbarProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<SnackbarMessage | null>(null);
+  // The toast's top, in points from the bottom of the screen, once laid out.
+  const [cover, setCover] = useState(0);
   const nextId = useRef(1);
+  // The bottom bars that asked for room, the latest last (a screen on top of another).
+  const [clearances, setClearances] = useState<readonly { id: number; height: number }[]>([]);
+  const nextClearance = useRef(1);
+  const screenReader = useRef(false);
+
+  useEffect(() => {
+    // react-native-web answers "yes" for every visitor (a browser cannot tell): the web keeps the
+    // usual duration.
+    if (Platform.OS === 'web') {
+      return undefined;
+    }
+    let active = true;
+    void Promise.resolve(AccessibilityInfo.isScreenReaderEnabled?.())
+      .then((enabled) => {
+        if (active) {
+          screenReader.current = enabled === true;
+        }
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener?.('screenReaderChanged', (enabled) => {
+      screenReader.current = enabled;
+    });
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, []);
 
   const hide = useCallback(() => setMessage(null), []);
   const show = useCallback((text: string, options: SnackbarOptions = {}) => {
+    const action = options.action ?? null;
+    const duration =
+      options.duration ??
+      (action && screenReader.current ? SNACKBAR_SCREEN_READER_ACTION_MS : SNACKBAR_DURATION_MS);
     setMessage({
       id: nextId.current++,
       text,
-      duration: options.duration ?? 4000,
+      duration,
       tone: options.tone ?? 'default',
+      title: options.title ?? null,
+      icon: options.icon ?? null,
+      action,
     });
+    const spoken = [options.title, text, action?.label].filter(Boolean).join('. ');
+    AccessibilityInfo.announceForAccessibility?.(spoken);
   }, []);
 
   useEffect(() => {
@@ -57,39 +140,205 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, [message]);
 
-  const value = useMemo<Snackbar>(() => ({ show, hide }), [show, hide]);
+  const keepClear = useCallback((height: number) => {
+    const id = nextClearance.current++;
+    setClearances((current) => [...current, { id, height }]);
+    return () => setClearances((current) => current.filter((entry) => entry.id !== id));
+  }, []);
+
+  const value = useMemo<Snackbar>(() => ({ show, hide, keepClear }), [show, hide, keepClear]);
+  const clearance = clearances[clearances.length - 1]?.height ?? 0;
 
   return (
     <SnackbarContext.Provider value={value}>
-      {children}
-      {message ? <SnackbarView key={message.id} message={message} onDismiss={hide} /> : null}
+      <SnackbarCoverContext.Provider value={message ? cover : 0}>
+        {children}
+      </SnackbarCoverContext.Provider>
+      {message ? (
+        <SnackbarView
+          key={message.id}
+          message={message}
+          clearance={clearance}
+          onDismiss={hide}
+          onCover={setCover}
+        />
+      ) : null}
     </SnackbarContext.Provider>
   );
 }
 
-function SnackbarView({ message, onDismiss }: { message: SnackbarMessage; onDismiss: () => void }) {
+/** The keyboard's height on iOS now (0 when it is down), from the keyboard's own metrics. */
+function iosKeyboardHeight(): number {
+  if (Platform.OS !== 'ios') {
+    return 0;
+  }
+  try {
+    return Keyboard.isVisible?.() ? (Keyboard.metrics?.()?.height ?? 0) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * How much of the bottom of the screen the keyboard covers on iOS, where the window does not
+ * resize for it (stage R4, review fix 1, F2: a toast and its "Undo" were drawn under the keys).
+ * Android resizes the window for the keyboard (adjustResize), so the toast's place already clears
+ * it there, as the bottom sheets assume.
+ */
+function useKeyboardCover(): number {
+  const [height, setHeight] = useState(iosKeyboardHeight);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return undefined;
+    }
+    // iOS sends "will show" again when the keyboard changes size while it is up.
+    const shown = Keyboard.addListener('keyboardWillShow', (event) =>
+      setHeight(event.endCoordinates.height)
+    );
+    const hidden = Keyboard.addListener('keyboardWillHide', () => setHeight(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+  return height;
+}
+
+function SnackbarView({
+  message,
+  clearance,
+  onDismiss,
+  onCover,
+}: {
+  message: SnackbarMessage;
+  clearance: number;
+  onDismiss: () => void;
+  /** Where the toast's top is, in points from the bottom of the screen. */
+  onCover: (cover: number) => void;
+}) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  // At large text sizes the action goes under the text, which keeps the width of the toast
+  // (side by side, "Saved" broke in the middle of the word).
+  const stacked = useWindowDimensions().fontScale > 1.3;
+  // Above the tab bar, or above the bottom bar of a form screen, and above the keyboard.
+  const keyboard = useKeyboardCover();
+  const bottom = Math.max(
+    insets.bottom + spacing[16],
+    clearance + spacing[2],
+    keyboard > 0 ? keyboard + spacing[2] : 0
+  );
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    onCover(height > 0 ? bottom + height : 0);
+  }, [bottom, height, onCover]);
+  const error = message.tone === 'error';
+  const ink = error ? palette.background : palette.ink;
+  const muted = error ? palette.background : palette.textMuted;
+  const spoken = [message.title, message.text].filter(Boolean).join(', ');
   return (
-    <View pointerEvents="box-none" style={[styles.wrap, { bottom: insets.bottom + spacing[16] }]}>
-      <Pressable
+    <View
+      pointerEvents="box-none"
+      onLayout={(event) => setHeight(Math.ceil(event.nativeEvent.layout.height))}
+      testID="snackbar-area"
+      style={[styles.wrap, { bottom }]}
+    >
+      <View
         testID="snackbar"
-        accessibilityRole="alert"
-        accessibilityLiveRegion="polite"
-        accessibilityHint="Tap to dismiss"
-        onPress={onDismiss}
         style={[
           styles.bar,
+          stacked && styles.barStacked,
           elevation.menu,
-          { backgroundColor: message.tone === 'error' ? palette.danger : palette.ink },
+          error
+            ? { backgroundColor: palette.danger, borderColor: palette.danger }
+            : { backgroundColor: palette.surfaceElevated, borderColor: palette.borderStrong },
         ]}
       >
-        <Text style={[textStyle('sm'), styles.text, { color: palette.background }]}>
-          {message.text}
-        </Text>
-      </Pressable>
+        <Pressable
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={spoken}
+          accessibilityHint="Tap to dismiss"
+          onPress={onDismiss}
+          testID="snackbar-message"
+          style={[styles.message, stacked && styles.messageStacked]}
+        >
+          {message.icon ? <ToastIcon icon={message.icon} /> : null}
+          <View style={styles.texts}>
+            {message.title ? (
+              <Text style={[textStyle('md'), styles.title, { color: ink }]}>{message.title}</Text>
+            ) : null}
+            <Text
+              numberOfLines={message.title ? (stacked ? 3 : 1) : undefined}
+              style={[
+                textStyle('sm'),
+                message.title ? null : styles.only,
+                { color: message.title ? muted : ink },
+              ]}
+            >
+              {message.text}
+            </Text>
+          </View>
+        </Pressable>
+        {message.action ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${message.action.label}, ${spoken}`}
+            onPress={() => {
+              const action = message.action;
+              onDismiss();
+              action?.onPress();
+            }}
+            hitSlop={8}
+            testID={message.action.testID ?? 'snackbar-action'}
+            style={({ pressed }) => [
+              styles.action,
+              stacked && styles.actionStacked,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[
+                textStyle('sm'),
+                styles.actionLabel,
+                { color: error ? palette.background : palette.primary },
+              ]}
+            >
+              {message.action.label}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
+}
+
+function ToastIcon({ icon }: { icon: 'success' | 'deleted' }) {
+  const { palette } = useTheme();
+  // The check sits on the same green in both schemes (white on it reads at 3.3 : 1, enough for a
+  // symbol); the bin on the strong border colour, like the mockup.
+  const background = icon === 'success' ? lightPalette.success : palette.borderStrong;
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.icon, { backgroundColor: background }]}
+    >
+      <MaterialCommunityIcons
+        name={icon === 'success' ? 'check-bold' : 'trash-can-outline'}
+        size={16}
+        color={icon === 'success' ? '#FFFFFF' : palette.ink}
+      />
+    </View>
+  );
+}
+
+/**
+ * How far up from the bottom of the screen the toast showing now reaches, in points (0 without a
+ * toast, or before it is laid out): a screen keeps the end of its content clear of it.
+ */
+export function useSnackbarCover(): number {
+  return useContext(SnackbarCoverContext);
 }
 
 export function useSnackbar(): Snackbar {
@@ -111,9 +360,43 @@ const styles = StyleSheet.create({
   bar: {
     maxWidth: 560,
     width: '100%',
-    borderRadius: radius.md,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[3],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingLeft: spacing[3],
+    paddingRight: spacing[2],
+    paddingVertical: spacing[1],
   },
-  text: { fontWeight: fontWeight.medium },
+  barStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 0 },
+  message: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    minHeight: 44,
+    paddingVertical: spacing[2],
+  },
+  messageStacked: { flex: 0 },
+  texts: { flex: 1, gap: 2 },
+  title: { fontWeight: fontWeight.bold },
+  only: { fontWeight: fontWeight.medium },
+  icon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  action: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: spacing[2],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionStacked: { alignSelf: 'flex-end' },
+  actionLabel: { fontWeight: fontWeight.bold },
+  pressed: { opacity: 0.7 },
 });

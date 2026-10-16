@@ -1,9 +1,10 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
 import { usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
+import { useUid } from '@/src/api/hooks/useUid';
 import type { PrivacySettings } from '@/src/api/types';
 import { Divider, SectionCard } from '@/src/components/ui/Layout';
 import { RadioGroup, SwitchRow } from '@/src/components/ui/FormControls';
@@ -11,10 +12,16 @@ import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
+import {
+  useRecentSearchesStore,
+  useRemembersSearches,
+} from '@/src/features/catalog/recentSearchesStore';
 import {
   MESSAGING_OPTIONS,
   PRIVACY_TOGGLES,
   PROFILE_VISIBILITY_OPTIONS,
+  REMEMBER_SEARCHES,
 } from '@/src/features/settings/privacyOptions';
 import { spacing, textStyle, useTheme } from '@/src/theme';
 
@@ -23,6 +30,8 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 /**
  * Settings → Privacy (web: `/settings/privacy`). Every change is saved at once; the endpoint
  * replaces the whole document, so saves run in order and a failure restores the last saved state.
+ * "Let others see what you want" lives here since stage R5 (it left the Wishlist tab), and so does
+ * "Remember my searches", a setting of this phone only (the recent searches never leave it).
  */
 export default function PrivacySettingsScreen() {
   const privacy = usePrivacySettings();
@@ -36,7 +45,36 @@ export default function PrivacySettingsScreen() {
       >
         {(data) => <PrivacyForm initial={data} />}
       </QueryState>
+      <View style={styles.after}>
+        <RememberSearches />
+      </View>
     </Screen>
+  );
+}
+
+/**
+ * "Remember my searches" (owner spec 2026-10-14, sections 9, 12 and 16): on by default; off clears
+ * the recent searches of this account on this phone and stops them until it is on again.
+ */
+function RememberSearches() {
+  const uid = useUid();
+  const remembering = useRemembersSearches(uid);
+  const setRemembering = useRecentSearchesStore((state) => state.setRemembering);
+  return (
+    <SectionCard title={REMEMBER_SEARCHES.title} description={REMEMBER_SEARCHES.description}>
+      <SwitchRow
+        label={REMEMBER_SEARCHES.label}
+        help={REMEMBER_SEARCHES.help}
+        value={remembering}
+        onChange={(on) => {
+          if (uid) {
+            setRemembering(uid, on);
+          }
+        }}
+        disabled={!uid}
+        testID="privacy-remember-searches"
+      />
+    </SectionCard>
   );
 }
 
@@ -143,5 +181,6 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
+  after: { marginTop: spacing[4] },
   status: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], minHeight: 20 },
 });

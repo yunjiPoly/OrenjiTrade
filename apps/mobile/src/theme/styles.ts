@@ -1,15 +1,18 @@
-import { Platform, type TextStyle, type ViewStyle } from 'react-native';
+import { type TextStyle, type ViewStyle } from 'react-native';
 
+import { FONT_FAMILIES } from './fonts';
 import { tokens } from './tokens';
 
 /**
- * Font families. Sora/Inter are not bundled yet (Phase 1 loads them with `expo-font`); until
- * then the system font is used so iOS never throws "Unrecognized font family".
+ * Font families (spec 2026-10-14, section 3): Sora for screen titles and big numbers, Inter for
+ * everything else, JetBrains Mono for card codes and tracking numbers. Styles name a family and a
+ * weight; the app's `Text` and `TextInput` (src/components/ui/Text.tsx) render the bundled face
+ * (src/theme/fonts.ts), or the system font until the fonts are loaded.
  */
 export const fontFamily = {
-  display: undefined as string | undefined,
-  body: undefined as string | undefined,
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) as string,
+  display: FONT_FAMILIES.display as string,
+  body: FONT_FAMILIES.body as string,
+  mono: FONT_FAMILIES.mono as string,
 };
 
 export const fontWeight = {
@@ -54,6 +57,23 @@ export const motion = {
   base: 200,
   slow: 320,
 } as const;
+
+/**
+ * How far the large title of a screen follows the system text size: up to twice its size, which
+ * is still larger than body text at the largest accessibility size. Beyond that a single word of
+ * a title ("Americas") no longer fits the width of a phone and is cut in two.
+ */
+export const TITLE_MAX_FONT_SCALE = 2;
+
+/**
+ * How far the controls that stay on screen above a scrolling list follow the system text size
+ * (the segments of a tab, the region switcher of the Search tab): a little, like the tab bar and
+ * the navigation header of the system, which do not grow with it either. At the largest
+ * accessibility sizes they otherwise broke their words over five lines and took the whole
+ * screen, leaving the list under them out of reach. On iOS a long press shows them enlarged
+ * (the system's large content viewer).
+ */
+export const PINNED_MAX_FONT_SCALE = 1.35;
 
 export function textStyle(
   size: keyof typeof fontSize,

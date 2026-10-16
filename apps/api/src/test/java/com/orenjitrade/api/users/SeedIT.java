@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.common.seed.SeedDataRunner;
+import com.orenjitrade.api.common.seed.SeedWordingTest;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -86,7 +89,13 @@ class SeedIT extends AbstractIntegrationTest {
                                         + " WHERE pt.profile_user_id = ? ORDER BY t.slug",
                                 seedId("01")))
                 .extracting(row -> row.get("slug"))
-                .containsExactly("collector", "english", "french", "local-meetups", "trader");
+                .containsExactly("collector", "english", "french", "shipping", "trader");
+        // Deals ship by mail (ADR 0018): no seed profile carries the hidden meetup tag (V115).
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM profile_tag pt JOIN tag t ON t.id ="
+                                        + " pt.tag_id WHERE t.slug = 'local-meetups'"))
+                .isZero();
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM tag t WHERE usage_count <> (SELECT count(*)"
@@ -118,5 +127,61 @@ class SeedIT extends AbstractIntegrationTest {
         JsonNode moderator = me("seed-moderator:moderator@orenjitrade.test");
         assertThat(moderator.path("onboarding").path("profileComplete").asBoolean()).isTrue();
         assertThat(moderator.path("onboarding").path("interestsSet").asBoolean()).isFalse();
+    }
+
+    /**
+     * Deals ship by mail (ADR 0018, spec 2026-10-14 section 11): what the seed writes for its
+     * collectors (bios, binder descriptions, card notes, messages and inbox previews, community
+     * posts and replies, offers and their history, ratings) never speaks of meeting, a game store,
+     * a café or the locals. (The seeded donation left with its table, stage F1, ADR 0019.) Only the
+     * seed accounts' rows are read, since other test classes share this database; {@link
+     * SeedWordingTest} reads the seed's own sources.
+     */
+    @Test
+    void seedsShippingWordingOnly() {
+        seedDataRunner.seedAll();
+        String seed = "::text LIKE '00000000-0000-4000-8000-%'";
+        Map<String, String> texts = new LinkedHashMap<>();
+        texts.put("bio", "SELECT bio AS text FROM profile WHERE user_id" + seed);
+        texts.put("binder", "SELECT description AS text FROM binder WHERE owner_id" + seed);
+        texts.put(
+                "card notes",
+                "SELECT notes || ' ' || public_notes AS text FROM inventory_item WHERE owner_id"
+                        + seed);
+        texts.put("message", "SELECT body AS text FROM message WHERE sender_id" + seed);
+        texts.put(
+                "inbox preview",
+                "SELECT coalesce(last_message_preview, '') AS text FROM conversation WHERE"
+                        + " created_by"
+                        + seed);
+        texts.put("post", "SELECT body AS text FROM community_post WHERE author_id" + seed);
+        texts.put("reply", "SELECT body AS text FROM community_reply WHERE author_id" + seed);
+        texts.put(
+                "offer",
+                "SELECT coalesce(message, '') AS text FROM offer WHERE buyer_id"
+                        + seed
+                        + " AND seller_id"
+                        + seed);
+        texts.put(
+                "offer history",
+                "SELECT e.snapshot::text AS text FROM offer_event e JOIN offer o ON o.id ="
+                        + " e.offer_id WHERE o.buyer_id"
+                        + seed
+                        + " AND o.seller_id"
+                        + seed);
+        texts.put(
+                "rating", "SELECT coalesce(comment, '') AS text FROM rating WHERE rater_id" + seed);
+        List<String> found = new ArrayList<>();
+        texts.forEach(
+                (what, sql) -> {
+                    List<Map<String, Object>> rows = testUsers.query(sql);
+                    assertThat(rows).as("seeded %s", what).isNotEmpty();
+                    for (Map<String, Object> row : rows) {
+                        String text = String.valueOf(row.get("text"));
+                        SeedWordingTest.findings(text)
+                                .forEach(word -> found.add(what + ": " + word + " in " + text));
+                    }
+                });
+        assertThat(found).isEmpty();
     }
 }

@@ -97,7 +97,7 @@ export function openWishlistDialog(
  * note, "Near Mint only", one optional price term (`GET /wishlist/price-terms`) and which copy
  * (the shared printing picker: any printing by default, any printing of one rarity, or one
  * printing). Wishlist alerts come from collectors of the same platform region (ADR 0017). Saves
- * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and plan limits
+ * with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409) and usage limits
  * (429, the limit dialog opens too) are explained next to the buttons, outside the scrolling
  * content, so the message is in view whatever the scroll position; an invalid field also gets the
  * focus. Once a card is chosen, focus moves to its name (the autocomplete it came from is gone).
@@ -468,13 +468,13 @@ export class WishlistItemDialogComponent {
       this.keepFocusInDialog();
     }
     if (error.errorCode === 'LIMIT_REACHED') {
-      // The limit dialog explains the plan limit as well (global interceptor).
+      // The limit dialog explains the usage limit as well (global interceptor).
       const info = limitReachedInfo(error);
       if (info.limitKey === WISH_ITEMS_LIMIT_KEY) {
         this.error.set(
           info.limit !== null
-            ? `Your wishlist is full: your plan allows ${info.limit} wishes. Remove one or upgrade to add more.`
-            : 'Your wishlist is full on your current plan. Remove a wish or upgrade to add more.',
+            ? `Your wishlist is full: it holds up to ${info.limit} wishes. Remove one to add another.`
+            : 'Your wishlist is full. Remove a wish to add another.',
         );
       } else {
         this.error.set(friendlyMessage(error));
@@ -531,7 +531,7 @@ export class WishlistItemDialogComponent {
   /**
    * After the next render: when a refused save left the focus nowhere (on the page's body), the
    * save button takes it, so the keyboard stays in the dialog next to the error. A focus held
-   * elsewhere (a field, or the plan-limit dialog that opens on top) is left alone.
+   * elsewhere (a field, or the limit dialog that opens on top) is left alone.
    */
   private keepFocusInDialog(): void {
     afterNextRender(

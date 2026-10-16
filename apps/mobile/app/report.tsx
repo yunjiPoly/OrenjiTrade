@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { newRequestId } from '@/src/api/client';
@@ -14,6 +14,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, RadioGroup } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import {
   REPORT_DETAILS_MAX,

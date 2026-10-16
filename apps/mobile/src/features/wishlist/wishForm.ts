@@ -17,7 +17,7 @@ import { printingOptionLabel } from './wishlistLabels';
  * price, currency, trade preference, distance, private note, language or condition.
  */
 export const WISH_NOTE_MAX = 280;
-/** The plan limit on the number of wishes. */
+/** The usage limit on the number of wishes (the same for every collector). */
 export const WISH_ITEMS_LIMIT_KEY = 'wishlist.items.max';
 
 export interface WishFormValue {
@@ -213,8 +213,8 @@ export function wishSaveError(error: ApiError): { message: string; fields: WishF
         fields: {},
         message:
           info.limit !== null
-            ? `Your wishlist is full: your plan allows ${info.limit} wishes. Remove one or upgrade to add more.`
-            : 'Your wishlist is full on your current plan. Remove a wish or upgrade to add more.',
+            ? `Your wishlist is full: it holds up to ${info.limit} wishes. Remove one to add another.`
+            : 'Your wishlist is full. Remove a wish to add another.',
       };
     }
     return { fields: {}, message: friendlyError(error).message };

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { needsAgeConfirmation } from '@/src/account/accountStatus';
@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { Text } from '@/src/components/ui/Text';
 import { ageConfirmationOf, ageConsentFor } from '@/src/features/legal/ageConfirmation';
 import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
 import { LegalConsentList } from '@/src/features/legal/LegalConsentList';

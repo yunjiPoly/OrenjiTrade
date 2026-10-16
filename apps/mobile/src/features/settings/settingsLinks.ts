@@ -32,23 +32,16 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     icon: 'shield-account-outline',
   },
   {
+    href: '/settings/shipping',
+    label: 'Shipping details',
+    detail: 'Your address and e-Transfer email, saved on this phone only',
+    icon: 'truck-delivery-outline',
+  },
+  {
     href: '/settings/notifications',
     label: 'Notifications',
     detail: 'Channels, topics, quiet hours',
     icon: 'bell-outline',
-  },
-  {
-    href: '/settings/offers',
-    label: 'Offers',
-    detail: 'Which offers collectors can make on your cards',
-    icon: 'tag-outline',
-  },
-  {
-    href: '/settings/payouts',
-    label: 'Payouts',
-    detail: 'Where the money of your protected sales goes',
-    icon: 'bank-outline',
-    feature: 'protectedPayments',
   },
   {
     href: '/settings/blocked',

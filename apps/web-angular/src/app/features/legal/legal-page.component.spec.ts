@@ -124,7 +124,7 @@ describe('LegalPageComponent', () => {
     const element = await render('trading-safely', 'fr');
     expect(language.language()).toBe('fr');
     expect(element.querySelector('h1')?.textContent).toBe('Échanger en toute sécurité');
-    expect(element.textContent).toContain('zones d’échange sécuritaires');
+    expect(element.textContent).toContain('les cartes sont expédiées par la poste');
   });
 
   it('renders an error state for an unknown key', async () => {

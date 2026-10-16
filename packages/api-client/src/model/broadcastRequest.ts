@@ -17,7 +17,7 @@ export interface BroadcastRequest {
      */
     audience?: BroadcastRequestAudienceEnum | null;
     /**
-     * App path, e.g. /premium
+     * App path, e.g. /wishlist
      */
     deepLink?: string | null;
 }

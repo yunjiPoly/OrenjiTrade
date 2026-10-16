@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
@@ -11,6 +11,7 @@ import { useSession } from '@/src/auth/session';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { Screen } from '@/src/components/ui/Screen';
+import { Text } from '@/src/components/ui/Text';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export const RESEND_COOLDOWN_S = 30;

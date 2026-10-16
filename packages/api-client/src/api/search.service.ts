@@ -17,9 +17,13 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { CollectorByName } from '../model/collectorByName';
+// @ts-ignore
 import { PageResponseCardHolderResult } from '../model/pageResponseCardHolderResult';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { PublicBinderSummary } from '../model/publicBinderSummary';
 // @ts-ignore
 import { SearchSuggestion } from '../model/searchSuggestion';
 // @ts-ignore
@@ -33,6 +37,8 @@ import {
     SearchServiceInterface,
     SearchRequestParams,
     SearchCardHoldersRequestParams,
+    SearchCollectorsByNameRequestParams,
+    SearchDeckCoresRequestParams,
     SuggestSearchRequestParams
 } from './search.serviceInterface';
 
@@ -49,7 +55,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
 
     /**
      * Unified search (auth optional)
-     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60;; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north; 400 for an unknown code). Binders carry their owner block. Emits the analytics events search_performed / search_no_results.
+     * Cards (full text + trigram), printings (printing-code prefix, or the printings of the resolved card), sets, collectors and public binders, at most &#x60;limit&#x60; per section (&#x60;types&#x60; narrows the sections). When &#x60;q&#x60; designates a printing (an exact code carried by one printing) or a card (an exact code of one card, an exact card name or a single card hit), &#x60;resolved&#x60; is set and &#x60;collectors&#x60; lists the holders of it with &#x60;matchingItems&#x60;; otherwise collectors matching the text. Collectors and binders belong to discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north; 400 for an unknown code). Binders match their name or description, their owner\&#39;s handle and, for a deck core, its card names; deck cores show without cards, &#x60;deckCore&#x60; keeps only them (true) or only the other binders (false). Binders carry their owner block and, for a deck core, its price, photos and key cards. Emits the analytics events search_performed / search_no_results.
      * @endpoint get /api/v1/search
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -68,6 +74,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
         const game = requestParameters?.game;
         const region = requestParameters?.region;
         const limit = requestParameters?.limit;
+        const deckCore = requestParameters?.deckCore;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -111,6 +118,15 @@ export class SearchService extends BaseService implements SearchServiceInterface
             localVarQueryParameters,
             'limit',
             <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'deckCore',
+            <any>deckCore,
             QueryParamStyle.Form,
             true,
         );
@@ -160,7 +176,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
 
     /**
      * Collectors of a region holding a card (auth optional)
-     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
+     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first), price, or province (grouped by state or province for \&quot;Who has this card\&quot;: the caller\&#39;s own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
      * @endpoint get /api/v1/search/card-holders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -185,6 +201,8 @@ export class SearchService extends BaseService implements SearchServiceInterface
         const sort = requestParameters?.sort;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
+        const excludeDeckCoreItems = requestParameters?.excludeDeckCoreItems;
+        const rarity = requestParameters?.rarity;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -314,6 +332,24 @@ export class SearchService extends BaseService implements SearchServiceInterface
         );
 
 
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'excludeDeckCoreItems',
+            <any>excludeDeckCoreItems,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'rarity',
+            <any>rarity,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
@@ -343,6 +379,188 @@ export class SearchService extends BaseService implements SearchServiceInterface
         let localVarPath = `/api/v1/search/card-holders`;
         const { basePath, withCredentials } = this.configuration;
         return this.httpClient.request<PageResponseCardHolderResult>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Collectors of a region by handle or name (auth optional)
+     * The \&quot;Collectors\&quot; section of the phone\&#39;s card search (stage R5): discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains &#x60;q&#x60; (accent- and case-insensitive), a handle that starts with it first, at most &#x60;limit&#x60;. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+     * @endpoint get /api/v1/search/collectors
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public searchCollectorsByName(requestParameters: SearchCollectorsByNameRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<CollectorByName>>;
+    public searchCollectorsByName(requestParameters: SearchCollectorsByNameRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<CollectorByName>>>;
+    public searchCollectorsByName(requestParameters: SearchCollectorsByNameRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<CollectorByName>>>;
+    public searchCollectorsByName(requestParameters: SearchCollectorsByNameRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const q = requestParameters?.q;
+        if (q === null || q === undefined) {
+            throw new Error('Required parameter q was null or undefined when calling searchCollectorsByName.');
+        }
+        const region = requestParameters?.region;
+        const limit = requestParameters?.limit;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'q',
+            <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'region',
+            <any>region,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'limit',
+            <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/search/collectors`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<Array<CollectorByName>>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Public deck cores of a region holding a card (auth optional)
+     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a copy of &#x60;cardId&#x60; among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+     * @endpoint get /api/v1/search/deck-cores
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public searchDeckCores(requestParameters: SearchDeckCoresRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<Array<PublicBinderSummary>>;
+    public searchDeckCores(requestParameters: SearchDeckCoresRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<Array<PublicBinderSummary>>>;
+    public searchDeckCores(requestParameters: SearchDeckCoresRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<Array<PublicBinderSummary>>>;
+    public searchDeckCores(requestParameters: SearchDeckCoresRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const cardId = requestParameters?.cardId;
+        if (cardId === null || cardId === undefined) {
+            throw new Error('Required parameter cardId was null or undefined when calling searchDeckCores.');
+        }
+        const region = requestParameters?.region;
+        const limit = requestParameters?.limit;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'cardId',
+            <any>cardId,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'region',
+            <any>region,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'limit',
+            <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/search/deck-cores`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<Array<PublicBinderSummary>>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),

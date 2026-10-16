@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   MyLocationResponse,
-  PlansService,
+  LimitsService,
   PrivacySettings,
   WishlistItemResponse,
   WishlistService,
@@ -85,13 +85,10 @@ describe('WishlistStore', () => {
         WishlistStore,
         { provide: WishlistService, useValue: api },
         {
-          provide: PlansService,
+          provide: LimitsService,
           useValue: {
-            getMyPlan: vi.fn(() =>
-              of({
-                plan: { code: 'FREE', name: 'Free' },
-                limits: [{ key: 'wishlist.items.max', used: 2, limit: 20 }],
-              }),
+            getMyLimits: vi.fn(() =>
+              of({ limits: [{ key: 'wishlist.items.max', used: 2, limit: 20 }] }),
             ),
           },
         },
@@ -102,14 +99,14 @@ describe('WishlistStore', () => {
     store = TestBed.inject(WishlistStore);
   });
 
-  it('loads the wishes, the plan usage, the alert readiness and the visibility', async () => {
+  it('loads the wishes, the usage, the alert readiness and the visibility', async () => {
     expect(store.readiness()).toBe('unknown');
     expect(store.visible()).toBeNull();
     store.init();
     await flush();
     expect(store.status()).toBe('ready');
     expect(store.items().map((item) => item.id)).toEqual(['a', 'b']);
-    expect(store.usage()).toEqual({ used: 2, limit: 20, planName: 'Free' });
+    expect(store.usage()).toEqual({ used: 2, limit: 20 });
     expect(store.readiness()).toBe('no-location');
     expect(store.visible()).toBe(false);
     location.set({ discoverable: true, location: QUEBEC });

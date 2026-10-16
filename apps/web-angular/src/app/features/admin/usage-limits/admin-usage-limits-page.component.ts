@@ -2,9 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import {
-  AdminPlan,
-  AdminPlansService,
   AdminUsageLimit,
+  AdminUsageLimitsService,
   UpdateUsageLimitRequestWindowEnum,
 } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
@@ -12,18 +11,18 @@ import { SessionService } from '../../../core/auth/session.service';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { friendlyMessage } from '../../../core/http/api-error-messages';
 import { silentErrors } from '../../../core/http/http-context';
-import { windowLabel } from '../../../shared/plans/plan-labels';
-import { PlansStore } from '../../../shared/plans/plans.store';
+import { limitLabel, windowLabel } from '../../../shared/limits/limit-labels';
 import { EmptyStateComponent } from '../../../shared/ui/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/ui/error-state/error-state.component';
 import { PageHeaderComponent } from '../../../shared/ui/page-header/page-header.component';
 import { SkeletonComponent } from '../../../shared/ui/skeleton/skeleton.component';
 import { LimitCellComponent, LimitEdit } from './limit-cell.component';
-import { buildLimitMatrix, replaceLimit } from './limit-matrix';
+import { replaceLimit, sortLimits } from './limit-rows';
 
 /**
- * `/admin/usage-limits`: plans x limits with inline editing (SUPER_ADMIN). A saved value applies
- * to every instance at once (cache evicted) and is audited; counters keep their usage.
+ * `/admin/usage-limits`: one usage limit per key, the same for every collector (stage F1: no
+ * plans), with inline editing (SUPER_ADMIN). A saved value applies to every collector at once
+ * (cache evicted) and is audited; counters keep their usage.
  */
 @Component({
   selector: 'app-admin-usage-limits-page',
@@ -39,7 +38,7 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
     <div class="admin-page">
       <app-page-header
         title="Usage limits"
-        subtitle="What each plan allows. Edits apply live to every collector and are audited."
+        subtitle="What every collector can do. Edits apply live to everyone and are audited."
       />
 
       @if (!session.isSuperAdmin()) {
@@ -56,8 +55,8 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
           [requestId]="error.requestId"
           (retry)="load()"
         />
-      } @else if (matrix(); as matrix) {
-        @if (matrix.rows.length === 0) {
+      } @else if (rows(); as rows) {
+        @if (rows.length === 0) {
           <app-empty-state icon="speed" title="No usage limits are configured" />
         } @else {
           <div
@@ -66,26 +65,19 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
             role="region"
             aria-label="Usage limits (scrollable)"
           >
-            <table class="limits" aria-label="Usage limits by plan">
+            <table class="limits" aria-label="Usage limits">
               <thead>
                 <tr>
                   <th scope="col">Limit</th>
-                  @for (plan of matrix.plans; track plan.code) {
-                    <th scope="col">
-                      {{ plan.name }}
-                      @if (!plan.active) {
-                        <span class="limits__inactive">inactive</span>
-                      }
-                    </th>
-                  }
+                  <th scope="col">Every collector</th>
                 </tr>
               </thead>
               <tbody>
-                @for (row of matrix.rows; track row.key) {
+                @for (row of rows; track row.id) {
                   <tr [attr.data-limit]="row.key">
                     <th scope="row">
                       <div class="limits__rowhead">
-                        <span class="limits__description">{{ row.description || row.key }}</span>
+                        <span class="limits__description">{{ name(row) }}</span>
                         <span class="limits__key mono">{{ row.key }}</span>
                         <span class="limits__tags">
                           <span class="limits__tag">{{
@@ -95,17 +87,15 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
                         </span>
                       </div>
                     </th>
-                    @for (plan of matrix.plans; track plan.code) {
-                      <td>
-                        <app-limit-cell
-                          [limit]="row.cells[plan.code]"
-                          [planName]="plan.code"
-                          [canEdit]="session.isSuperAdmin()"
-                          [saving]="savingId() === row.cells[plan.code]?.id"
-                          (edit)="save($event)"
-                        />
-                      </td>
-                    }
+                    <td>
+                      <app-limit-cell
+                        [limit]="row"
+                        [label]="name(row)"
+                        [canEdit]="session.isSuperAdmin()"
+                        [saving]="savingId() === row.id"
+                        (edit)="save($event)"
+                      />
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -184,8 +174,7 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
       display: flex;
       gap: 4px;
     }
-    .limits__tag,
-    .limits__inactive {
+    .limits__tag {
       padding: 0 6px;
       border-radius: var(--radius-pill);
       background: var(--color-surface-variant);
@@ -198,19 +187,16 @@ import { buildLimitMatrix, replaceLimit } from './limit-matrix';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminUsageLimitsPageComponent {
-  private readonly api = inject(AdminPlansService);
+  private readonly api = inject(AdminUsageLimitsService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly publicPlans = inject(PlansStore);
   protected readonly session = inject(SessionService);
 
-  private readonly plans = signal<AdminPlan[] | null>(null);
   private readonly limits = signal<AdminUsageLimit[] | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly savingId = signal<string | null>(null);
-  protected readonly matrix = computed(() => {
-    const plans = this.plans();
+  protected readonly rows = computed(() => {
     const limits = this.limits();
-    return plans && limits ? buildLimitMatrix(plans, limits) : null;
+    return limits ? sortLimits(limits) : null;
   });
   protected readonly windowName = windowLabel;
 
@@ -222,14 +208,17 @@ export class AdminUsageLimitsPageComponent {
     return friendlyMessage(error);
   }
 
+  /** The row's description, else the readable name of its key. */
+  protected name(limit: AdminUsageLimit): string {
+    return limit.description || limitLabel(limit.key ?? '');
+  }
+
   protected async load(): Promise<void> {
     this.error.set(null);
     try {
-      const [plans, limits] = await Promise.all([
-        firstValueFrom(this.api.listAdminPlans('body', false, { context: silentErrors() })),
-        firstValueFrom(this.api.listUsageLimits({}, 'body', false, { context: silentErrors() })),
-      ]);
-      this.plans.set(plans ?? []);
+      const limits = await firstValueFrom(
+        this.api.listUsageLimits('body', false, { context: silentErrors() }),
+      );
       this.limits.set(limits ?? []);
     } catch (error) {
       this.error.set(toApiError(error));
@@ -261,10 +250,9 @@ export class AdminUsageLimitsPageComponent {
       );
       this.limits.update((limits) => replaceLimit(limits ?? [], updated));
       const value = updated.unlimited ? 'unlimited' : String(updated.maxValue);
-      this.snackBar.open(`${updated.planCode} ${updated.key} is now ${value}.`, 'OK', {
+      this.snackBar.open(`${updated.key} is now ${value} for every collector.`, 'OK', {
         duration: 4000,
       });
-      void this.publicPlans.load(true);
     } catch (error) {
       this.snackBar.open(friendlyMessage(toApiError(error)), 'OK', { duration: 6000 });
     } finally {
