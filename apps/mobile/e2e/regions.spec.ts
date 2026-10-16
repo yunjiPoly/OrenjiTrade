@@ -289,6 +289,32 @@ test.describe('mobile regions and the region map', () => {
       timeout: 30_000,
     });
 
+    // The old public binders of a state (`/regions/<region>/<code>`, stage M9), opened inside the
+    // app from the map: Search › Binders on that state, on the link's region (the link crashed
+    // the tabs: stage R5 review, P1).
+    await search.getByTestId('search-segment-cards').click();
+    await search.getByTestId('search-region').click();
+    await page.getByTestId('search-region-option-americas-north').click();
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible();
+    await followLink(page, '/regions/americas-south/UY-MO');
+    await expect(search.getByTestId('binders-state-chip')).toContainText('Montevideo', {
+      timeout: 30_000,
+    });
+    await expect(search.getByTestId('search-segment-binders')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    await expect(search.getByTestId(`binder-search-row-${binderId}`)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+    // As a full page load (an old shared link): the same.
+    await page.goto('/regions/americas-north/CA-QC');
+    await expect(screen(page, 'search').getByTestId('binders-state-chip')).toContainText('Quebec', {
+      timeout: 30_000,
+    });
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
+
     // As a full page load (a link opened from outside the app): the region alone.
     await page.goto('/?region=europe');
     await expect(

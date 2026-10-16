@@ -141,6 +141,8 @@ tags:
     visible: 'Added when you save'
     timeout: 30000
 - takeScreenshot: r3-new-deck-core
+- runFlow:
+    file: subflows/keyboard-down.yaml
 - tapOn:
     id: 'edit-binder-save'
 
@@ -236,6 +238,8 @@ tags:
     notVisible:
       id: 'card-picker-submit'
     timeout: 15000
+- runFlow:
+    file: subflows/keyboard-down.yaml
 - tapOn:
     id: 'edit-binder-save'
 - extendedWaitUntil:

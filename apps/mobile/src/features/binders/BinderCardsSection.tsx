@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import type { InventoryItemResponse } from '@/src/api/types';
@@ -85,7 +85,12 @@ export function BinderCardsSection({
           accessibilityRole="button"
           accessibilityLabel={EDIT_BINDER_COPY.addCards}
           disabled={disabled}
-          onPress={onAdd}
+          onPress={() => {
+            // The field typed in last lets go first: iOS gives the keyboard back to it when the
+            // card picker leaves, over "Create binder" (stage R5 review, F2).
+            Keyboard.dismiss();
+            onAdd();
+          }}
           hitSlop={6}
           testID="binder-add-cards"
           style={({ pressed }) => [styles.add, pressed && styles.pressed]}

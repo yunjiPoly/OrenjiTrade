@@ -30,6 +30,22 @@ tags:
       id: 'screen-search'
     timeout: 60000
 
+# The old card holders list of before stage R5 (/holders?card=<id>): the card page.
+- openLink: ${APP_URL}/--/holders?card=${output.card.id}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 60000
+- assertNotVisible: 'Something went wrong'
+- tapOn:
+    id: 'BackButton'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 30000
+
 # The card (deep link, like a shared https://www.orenjitrade.com/cards/<id>): since stage R5 the
 # one card page, Who has this card.
 - openLink: ${APP_URL}/--/cards/${output.card.id}

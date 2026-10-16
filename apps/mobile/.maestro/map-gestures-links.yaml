@@ -3,7 +3,9 @@
 # province") scrolls the page with a finger dragged over the whole region, picks a place by a tap
 # on the map and by holding it (its card each time), and moves a zoomed-in map while the page
 # stands still. A link of the old Map tab opens a region and one of its states every time it is
-# opened, and a link to a region that does not exist changes nothing.
+# opened, and a link to a region that does not exist changes nothing. The old links of before
+# stage R5 land in Search: the public binders of a state (/regions/<region>/<code>) on Search ›
+# Binders on that state, the Wishlist tab (/wishlist) on Search › Wishlist.
 # The collector is created for the run (no location, never a seed account).
 appId: ${APP_ID}
 name: Search's map, a finger on the map scrolls the page, a place's card, links work twice
@@ -144,3 +146,27 @@ tags:
 - assertNotVisible:
     id: 'search-map-counts-error'
 - takeScreenshot: map-after-a-link-to-no-region
+
+# The old public binders of a state (stage M9): Search › Binders on that state, on the link's
+# region (the link crashed the tabs: stage R5 review, P1).
+- openLink: ${APP_URL}/--/regions/americas-north/CA-QC
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'binders-state-chip'
+      text: 'Showing Quebec.*'
+    timeout: 60000
+- assertVisible:
+    id: 'search-segment-binders'
+    selected: true
+- assertNotVisible: 'Something went wrong'
+- takeScreenshot: old-link-place-binders
+
+# The old Wishlist tab: Search › Wishlist.
+- openLink: ${APP_URL}/--/wishlist
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-wishlist'
+    timeout: 60000
+- assertNotVisible: 'Something went wrong'
