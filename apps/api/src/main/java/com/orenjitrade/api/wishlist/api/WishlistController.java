@@ -5,6 +5,7 @@ import com.orenjitrade.api.common.PartialUpdate;
 import com.orenjitrade.api.wishlist.api.WishlistRequests.CreateWishlistItemRequest;
 import com.orenjitrade.api.wishlist.api.WishlistRequests.UpdateWishlistItemRequest;
 import com.orenjitrade.api.wishlist.api.WishlistResponses.PriceTermsResponse;
+import com.orenjitrade.api.wishlist.api.WishlistResponses.WishlistAvailabilityResponse;
 import com.orenjitrade.api.wishlist.api.WishlistResponses.WishlistItemResponse;
 import com.orenjitrade.api.wishlist.domain.WishlistChanges.WishlistPatch;
 import com.orenjitrade.api.wishlist.domain.WishlistItemView;
@@ -67,7 +68,8 @@ public class WishlistController {
             operationId = "listWishlist",
             summary = "The caller's wishlist items (newest first)",
             description =
-                    "Each item says whether it is `available` in `region` (stage R5): at least one"
+                    "Each item says whether it is `available` in the caller's home region (stage"
+                        + " R5; GET /wishlist/availability answers for any region): at least one"
                         + " public, fresh (ACTIVE or AGING) copy that fits the wish (its printing,"
                         + " or any printing of its card in its rarity; Near Mint or a condition not"
                         + " stated when the wish asks for Near Mint only, as for the wishlist"
@@ -75,6 +77,28 @@ public class WishlistController {
                         + " discoverable collector of the region who is not the caller and with no"
                         + " block either way. One grouped query for the whole list. No count.")
     @ApiResponse(responseCode = "200", description = "Every item of the caller")
+    public List<WishlistItemResponse> list(@AuthenticationPrincipal AuthenticatedUser principal) {
+        WishlistService.Listing listing =
+                wishlistService.listWithAvailability(principal.userId(), null);
+        return listing.items().stream()
+                .map(
+                        view ->
+                                WishlistItemResponse.from(
+                                        view, listing.available().contains(view.row().id())))
+                .toList();
+    }
+
+    @GetMapping("/availability")
+    @Operation(
+            operationId = "getWishlistAvailability",
+            summary = "Which of the caller's wishes are available in a region",
+            description =
+                    "The ids of the caller's wishes that `available` would mark in `region`"
+                        + " (default: the caller's home region, else americas-north): the phone's"
+                        + " Wishlist segment of Search asks it for the region it browses (stage"
+                        + " R5). The same rules as `available` on GET /wishlist, one grouped query."
+                        + " Ids only: no count, no holder, no place.")
+    @ApiResponse(responseCode = "200", description = "The available wishes")
     @ApiResponse(
             responseCode = "400",
             description = "VALIDATION_FAILED: unknown region",
@@ -82,23 +106,23 @@ public class WishlistController {
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = PROBLEM_REF)))
-    public List<WishlistItemResponse> list(
+    public WishlistAvailabilityResponse availability(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Parameter(
                             description =
-                                    "Platform region of `available` (GET /regions); default: the"
-                                            + " caller's home region, else americas-north")
+                                    "Platform region code (GET /regions); default: the caller's"
+                                            + " home region, else americas-north")
                     @RequestParam(required = false)
                     @Size(max = 32)
                     @Nullable String region) {
         WishlistService.Listing listing =
                 wishlistService.listWithAvailability(principal.userId(), region);
-        return listing.items().stream()
-                .map(
-                        view ->
-                                WishlistItemResponse.from(
-                                        view, listing.available().contains(view.row().id())))
-                .toList();
+        return new WishlistAvailabilityResponse(
+                listing.region(),
+                listing.items().stream()
+                        .map(view -> view.row().id())
+                        .filter(listing.available()::contains)
+                        .toList());
     }
 
     /** A written item with its availability in the caller's home region. */

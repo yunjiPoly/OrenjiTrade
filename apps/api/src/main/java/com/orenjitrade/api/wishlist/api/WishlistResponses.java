@@ -85,9 +85,9 @@ public final class WishlistResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) Instant updatedAt,
             @Schema(
                             description =
-                                    "At least one public holder of the region has a copy that"
-                                            + " fits (stage R5; always sent; GET /wishlist?region=,"
-                                            + " the caller's home region on a write)")
+                                    "At least one public holder of the caller's home region has"
+                                            + " a copy that fits (stage R5; always sent; GET"
+                                            + " /wishlist/availability answers for any region)")
                     boolean available) {
 
         static WishlistItemResponse from(WishlistItemView view, boolean available) {
@@ -106,6 +106,17 @@ public final class WishlistResponses {
                     available);
         }
     }
+
+    /** {@code GET /wishlist/availability}. */
+    @Schema(
+            name = "WishlistAvailability",
+            description = "The caller's wishes a public holder of the region has right now")
+    public record WishlistAvailabilityResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "americas-north") String region,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            description = "Ids of the available wishes, newest wish first")
+                    List<UUID> available) {}
 
     /** One entry of a collector's public wishlist. */
     @Schema(

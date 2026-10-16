@@ -722,7 +722,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The caller's wishlist items (newest first) */
+        /**
+         * The caller's wishlist items (newest first)
+         * @description Each item says whether it is `available` in the caller's home region (stage R5; GET /wishlist/availability answers for any region): at least one public, fresh (ACTIVE or AGING) copy that fits the wish (its printing, or any printing of its card in its rarity; Near Mint or a condition not stated when the wish asks for Near Mint only, as for the wishlist alert), a card listed on its own or in a public deck core, held by a discoverable collector of the region who is not the caller and with no block either way. One grouped query for the whole list. No count.
+         */
         get: operations["listWishlist"];
         put?: never;
         /**
@@ -2644,6 +2647,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/wishlist/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which of the caller's wishes are available in a region
+         * @description The ids of the caller's wishes that `available` would mark in `region` (default: the caller's home region, else americas-north): the phone's Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as `available` on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+         */
+        get: operations["getWishlistAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trades": {
         parameters: {
             query?: never;
@@ -2804,6 +2827,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search/collectors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Collectors of a region by handle or name (auth optional)
+         * @description The "Collectors" section of the phone's card search (stage R5): discoverable collectors of `region` (default: the caller's home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains `q` (accent- and case-insensitive), a handle that starts with it first, at most `limit`. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+         */
+        get: operations["searchCollectorsByName"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/search/card-holders": {
         parameters: {
             query?: never;
@@ -2813,7 +2856,7 @@ export interface paths {
         };
         /**
          * Collectors of a region holding a card (auth optional)
-         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
+         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first), price, or province (grouped by state or province for "Who has this card": the caller's own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
          */
         get: operations["searchCardHolders"];
         put?: never;
@@ -5719,6 +5762,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** @description At least one public holder of the caller's home region has a copy that fits (stage R5; always sent; GET /wishlist/availability answers for any region) */
+            available?: boolean;
         };
         BlockUserRequest: {
             /** @description Private note (never shown to the blocked collector) */
@@ -8219,6 +8264,13 @@ export interface components {
             /** @description In display order */
             terms: components["schemas"]["WishPriceTerm"][];
         };
+        /** @description The caller's wishes a public holder of the region has right now */
+        WishlistAvailability: {
+            /** @example americas-north */
+            region: string;
+            /** @description Ids of the available wishes, newest wish first */
+            available: string[];
+        };
         /** @description Cursor-paginated list */
         CursorPageTradeSummary: {
             /** @description Items of the current slice */
@@ -8494,6 +8546,18 @@ export interface components {
              * @description Card of a PRINTING entry
              */
             cardId?: string | null;
+        };
+        /** @description A discoverable collector whose handle or name matches the text, with their state/province and country (never a city, a coordinate or a distance) */
+        CollectorByName: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+            place: components["schemas"]["Place"];
         };
         /** @description A collector of the region holding the card */
         CardHolderResult: {
@@ -22094,6 +22158,83 @@ export interface operations {
             };
         };
     };
+    getWishlistAvailability: {
+        parameters: {
+            query?: {
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north */
+                region?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The available wishes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WishlistAvailability"];
+                };
+            };
+            /** @description VALIDATION_FAILED: unknown region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     listTrades: {
         parameters: {
             query?: {
@@ -22575,6 +22716,59 @@ export interface operations {
             };
         };
     };
+    searchCollectorsByName: {
+        parameters: {
+            query: {
+                /** @description Typed text */
+                q: string;
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
+                region?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collectors */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectorByName"][];
+                };
+            };
+            /** @description Invalid query, limit or region */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     searchCardHolders: {
         parameters: {
             query?: {
@@ -22594,8 +22788,8 @@ export interface operations {
                 /** @description ISO 639-1 code */
                 language?: string;
                 acceptsOffers?: boolean;
-                /** @description freshness (newest listing first) or price */
-                sort?: "freshness" | "price";
+                /** @description freshness (newest listing first), price, or province (the caller's own state or province first, then the other ones of their country, then the rest of the region by country and province name; newest listing first in each) */
+                sort?: "freshness" | "price" | "province";
                 page?: number;
                 size?: number;
                 /** @description Leave out the cards filed in a deck core: they sell only with it (GET /search/deck-cores lists the cores) */

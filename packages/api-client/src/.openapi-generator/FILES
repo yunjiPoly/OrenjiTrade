@@ -171,6 +171,7 @@ model/catalogSyncRun.ts
 model/channelPreferences.ts
 model/channelPreferencesRequest.ts
 model/closeOfferRequest.ts
+model/collectorByName.ts
 model/collectorMarker.ts
 model/collectorProfileResponse.ts
 model/collectorRating.ts
@@ -435,6 +436,7 @@ model/uploadCleanupJobResponse.ts
 model/visibilityCounts.ts
 model/wishPriceTerm.ts
 model/wishPriceTermsResponse.ts
+model/wishlistAvailability.ts
 model/wishlistCardRef.ts
 model/wishlistItemResponse.ts
 model/wishlistSettingsResponse.ts

@@ -3686,6 +3686,7 @@
           "wishlist"
         ],
         "summary": "The caller's wishlist items (newest first)",
+        "description": "Each item says whether it is `available` in the caller's home region (stage R5; GET /wishlist/availability answers for any region): at least one public, fresh (ACTIVE or AGING) copy that fits the wish (its printing, or any printing of its card in its rarity; Near Mint or a condition not stated when the wish asks for Near Mint only, as for the wishlist alert), a card listed on its own or in a public deck core, held by a discoverable collector of the region who is not the caller and with no block either way. One grouped query for the whole list. No count.",
         "operationId": "listWishlist",
         "responses": {
           "200": {
@@ -15384,6 +15385,101 @@
         }
       }
     },
+    "/api/v1/wishlist/availability": {
+      "get": {
+        "tags": [
+          "wishlist"
+        ],
+        "summary": "Which of the caller's wishes are available in a region",
+        "description": "The ids of the caller's wishes that `available` would mark in `region` (default: the caller's home region, else americas-north): the phone's Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as `available` on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.",
+        "operationId": "getWishlistAvailability",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The available wishes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WishlistAvailability"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: unknown region",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/trades": {
       "get": {
         "tags": [
@@ -16217,13 +16313,105 @@
         "security": []
       }
     },
+    "/api/v1/search/collectors": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Collectors of a region by handle or name (auth optional)",
+        "description": "The \"Collectors\" section of the phone's card search (stage R5): discoverable collectors of `region` (default: the caller's home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains `q` (accent- and case-insensitive), a handle that starts with it first, at most `limit`. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.",
+        "operationId": "searchCollectorsByName",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Typed text",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 3,
+              "maximum": 10,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collectors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CollectorByName"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query, limit or region",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/search/card-holders": {
       "get": {
         "tags": [
           "search"
         ],
         "summary": "Collectors of a region holding a card (auth optional)",
-        "description": "Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.",
+        "description": "Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first), price, or province (grouped by state or province for \"Who has this card\": the caller's own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.",
         "operationId": "searchCardHolders",
         "parameters": [
           {
@@ -16349,14 +16537,15 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "freshness (newest listing first) or price",
+            "description": "freshness (newest listing first), price, or province (the caller's own state or province first, then the other ones of their country, then the rest of the region by country and province name; newest listing first in each)",
             "required": false,
             "schema": {
               "type": "string",
               "default": "freshness",
               "enum": [
                 "freshness",
-                "price"
+                "price",
+                "province"
               ]
             }
           },
@@ -27267,6 +27456,10 @@
           "updatedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "available": {
+            "type": "boolean",
+            "description": "At least one public holder of the caller's home region has a copy that fits (stage R5; always sent; GET /wishlist/availability answers for any region)"
           }
         },
         "required": [
@@ -34115,6 +34308,28 @@
           "terms"
         ]
       },
+      "WishlistAvailability": {
+        "type": "object",
+        "description": "The caller's wishes a public holder of the region has right now",
+        "properties": {
+          "region": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "available": {
+            "type": "array",
+            "description": "Ids of the available wishes, newest wish first",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "available",
+          "region"
+        ]
+      },
       "CursorPageTradeSummary": {
         "type": "object",
         "description": "Cursor-paginated list",
@@ -34815,6 +35030,40 @@
           "id",
           "label",
           "type"
+        ]
+      },
+      "CollectorByName": {
+        "type": "object",
+        "description": "A discoverable collector whose handle or name matches the text, with their state/province and country (never a city, a coordinate or a distance)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "place": {
+            "$ref": "#/components/schemas/Place"
+          }
+        },
+        "required": [
+          "displayName",
+          "handle",
+          "id",
+          "place"
         ]
       },
       "CardHolderResult": {

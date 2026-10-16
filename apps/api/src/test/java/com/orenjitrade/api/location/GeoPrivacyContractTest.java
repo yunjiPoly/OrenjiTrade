@@ -442,12 +442,16 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 assertPlaces(jsonMapper.createArrayNode().add(row.path("collector")));
             }
         }
+        JsonNode wishes = fetch("/api/v1/wishlist", collector2);
+        assertThat(wishes.size()).isPositive();
+        for (JsonNode wish : wishes) {
+            assertThat(wish.path("available").isBoolean()).as("%s", wish).isTrue();
+        }
         for (String region : List.of("americas-north", "americas-south", "europe")) {
-            JsonNode wishes = fetch("/api/v1/wishlist?region=" + region, collector2);
-            assertThat(wishes.size()).isPositive();
-            for (JsonNode wish : wishes) {
-                assertThat(wish.path("available").isBoolean()).as("%s", wish).isTrue();
-            }
+            JsonNode available =
+                    fetch("/api/v1/wishlist/availability?region=" + region, collector2);
+            assertThat(available.path("region").asString()).isEqualTo(region);
+            assertThat(available.path("available").isArray()).isTrue();
         }
         fetch("/api/v1/wishlist", viewer);
         for (Fetched document : fetched) {

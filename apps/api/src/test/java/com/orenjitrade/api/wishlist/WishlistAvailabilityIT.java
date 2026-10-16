@@ -14,31 +14,43 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * {@code GET /wishlist?region=}: "Available" on the Wishlist segment of Search (stage R5, owner
- * spec 2026-10-14, sections 8 and 12). A wish is available while at least one public, fresh copy
- * that fits it (the wishlist alert's fit) is held by a discoverable collector of the region who is
- * not the wisher and with no block either way; a card of a public deck core counts. The answer is a
- * boolean per wish: no count.
+ * {@code GET /wishlist} and {@code GET /wishlist/availability?region=}: "Available" on the Wishlist
+ * segment of Search (stage R5, owner spec 2026-10-14, sections 8 and 12). A wish is available while
+ * at least one public, fresh copy that fits it (the wishlist alert's fit) is held by a discoverable
+ * collector of the region who is not the wisher and with no block either way; a card of a public
+ * deck core counts. The answer is a boolean per wish: no count.
  */
 class WishlistAvailabilityIT extends AbstractWishlistIT {
 
     private static final String PATH = "/api/v1/wishlist";
 
-    /** {@code available} per wish id of the caller's list. */
+    /**
+     * {@code available} per wish id: from {@code GET /wishlist} (the caller's home region) without
+     * a query, otherwise from {@code GET /wishlist/availability?<query>}, which must agree with the
+     * list for the home region.
+     */
     private Map<String, Boolean> availability(Collector owner, String query) {
-        JsonNode list =
-                callJson(
-                        HttpMethod.GET,
-                        PATH + (query.isEmpty() ? "" : "?" + query),
-                        owner.uid(),
-                        null,
-                        200);
-        Map<String, Boolean> result = new HashMap<>();
+        JsonNode list = callJson(HttpMethod.GET, PATH, owner.uid(), null, 200);
+        Map<String, Boolean> home = new HashMap<>();
         list.forEach(
                 wish -> {
                     assertThat(wish.has("available")).as("always sent: %s", wish).isTrue();
-                    result.put(wish.path("id").asString(), wish.path("available").asBoolean());
+                    home.put(wish.path("id").asString(), wish.path("available").asBoolean());
                 });
+        if (query.isEmpty()) {
+            JsonNode answer =
+                    callJson(HttpMethod.GET, PATH + "/availability", owner.uid(), null, 200);
+            Map<String, Boolean> same = new HashMap<>();
+            home.keySet().forEach(id -> same.put(id, false));
+            answer.path("available").forEach(id -> same.put(id.asString(), true));
+            assertThat(same).as("the list and the home region agree").isEqualTo(home);
+            return home;
+        }
+        JsonNode answer =
+                callJson(HttpMethod.GET, PATH + "/availability?" + query, owner.uid(), null, 200);
+        Map<String, Boolean> result = new HashMap<>();
+        home.keySet().forEach(id -> result.put(id, false));
+        answer.path("available").forEach(id -> result.put(id.asString(), true));
         return result;
     }
 
@@ -228,7 +240,12 @@ class WishlistAvailabilityIT extends AbstractWishlistIT {
         assertThat(updated.path("available").asBoolean()).isTrue();
 
         JsonNode problem =
-                callJson(HttpMethod.GET, PATH + "?region=atlantis", owner.uid(), null, 400);
+                callJson(
+                        HttpMethod.GET,
+                        PATH + "/availability?region=atlantis",
+                        owner.uid(),
+                        null,
+                        400);
         assertThat(problem.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
     }
 }

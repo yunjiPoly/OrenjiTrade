@@ -15,6 +15,7 @@ import { CreateWishlistItemRequest } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { UpdateWishlistItemRequest } from '../model/models';
 import { WishPriceTermsResponse } from '../model/models';
+import { WishlistAvailability } from '../model/models';
 import { WishlistItemResponse } from '../model/models';
 import { WishlistSummaryEntry } from '../model/models';
 
@@ -32,6 +33,10 @@ export interface DeleteWishlistItemRequestParams {
 
 export interface GetCollectorWishlistRequestParams {
     handle: string;
+}
+
+export interface GetWishlistAvailabilityRequestParams {
+    region?: string;
 }
 
 export interface UpdateWishlistItemRequestParams {
@@ -69,6 +74,14 @@ export interface WishlistServiceInterface {
     getCollectorWishlist(requestParameters: GetCollectorWishlistRequestParams, extraHttpRequestParams?: any): Observable<Array<WishlistSummaryEntry>>;
 
     /**
+     * Which of the caller\&#39;s wishes are available in a region
+     * The ids of the caller\&#39;s wishes that &#x60;available&#x60; would mark in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north): the phone\&#39;s Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as &#x60;available&#x60; on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+     * @endpoint get /api/v1/wishlist/availability
+* @param requestParameters
+     */
+    getWishlistAvailability(requestParameters: GetWishlistAvailabilityRequestParams, extraHttpRequestParams?: any): Observable<WishlistAvailability>;
+
+    /**
      * The price terms a wish may choose
      * Admin-configured (platform setting wishlist.price_terms), in display order. Terms are relative to the TCG market price of the printing.
      * @endpoint get /api/v1/wishlist/price-terms
@@ -77,7 +90,7 @@ export interface WishlistServiceInterface {
 
     /**
      * The caller\&#39;s wishlist items (newest first)
-     * 
+     * Each item says whether it is &#x60;available&#x60; in the caller\&#39;s home region (stage R5; GET /wishlist/availability answers for any region): at least one public, fresh (ACTIVE or AGING) copy that fits the wish (its printing, or any printing of its card in its rarity; Near Mint or a condition not stated when the wish asks for Near Mint only, as for the wishlist alert), a card listed on its own or in a public deck core, held by a discoverable collector of the region who is not the caller and with no block either way. One grouped query for the whole list. No count.
      * @endpoint get /api/v1/wishlist
 */
     listWishlist(extraHttpRequestParams?: any): Observable<Array<WishlistItemResponse>>;
