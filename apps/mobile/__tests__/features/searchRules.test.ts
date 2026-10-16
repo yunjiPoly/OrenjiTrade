@@ -112,7 +112,7 @@ describe('the old links of the Map and Wishlist tabs and the holders list', () =
     expect(wishlistLinkTarget()).toEqual({ pathname: '/search', params: { segment: 'wishlist' } });
     expect(placeBindersTarget({ region: 'americas-north', code: 'CA-QC' })).toEqual({
       pathname: '/search',
-      params: { segment: 'binders', region: 'americas-north', state: 'CA-QC' },
+      params: { segment: 'binders', region: 'americas-north', place: 'CA-QC' },
     });
   });
 
