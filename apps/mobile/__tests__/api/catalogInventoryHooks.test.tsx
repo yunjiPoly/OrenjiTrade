@@ -355,6 +355,44 @@ describe('binder hooks', () => {
     expect(await outOfDate(() => remove.result.current.mutateAsync(BINDER_ID))).toEqual(every);
   });
 
+  it('cards moved, made public or private, or deleted at once refresh those lists too (R3 leftover R2-2)', async () => {
+    // Edit binder's "Save changes": its PATCH first, then the cards it moves in or out with the
+    // bulk request. The owner's profile row (card count, games, card pictures) must follow the
+    // moves, not only the PATCH that landed before them.
+    const api = mockApi(
+      signedInRoutes({
+        'POST /api/v1/inventory/items/bulk': ok({ updated: 1, skipped: [] }),
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    const listings = [
+      meKeys.collector(uid, 'maika'),
+      meKeys.collectorPart(uid, 'maika', 'binders'),
+      meKeys.regionBinderCounts(uid, 'americas-north'),
+      meKeys.search(uid, { q: 'core', types: ['binders'], region: 'americas-north' }),
+    ];
+    const bulk = renderHook(() => useBulkInventory(), { wrapper });
+    for (const body of [
+      { action: 'MOVE_TO_BINDER' as const, itemIds: [ITEM_ID], binderId: BINDER_ID },
+      // Without a binder id the cards become unfiled (taken out of the binder).
+      { action: 'MOVE_TO_BINDER' as const, itemIds: [ITEM_ID] },
+      { action: 'SET_VISIBILITY' as const, itemIds: [ITEM_ID], visibility: 'PUBLIC' as const },
+      { action: 'DELETE' as const, itemIds: [ITEM_ID] },
+    ]) {
+      for (const key of listings) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      await act(async () => {
+        await bulk.result.current.mutateAsync(body);
+      });
+      expect(listings.map((key) => queryClient.getQueryState(key)?.isInvalidated)).toEqual(
+        listings.map(() => true)
+      );
+    }
+    expect(api.callsTo('POST /api/v1/inventory/items/bulk')).toHaveLength(4);
+  });
+
   it('reads public binders with the token when signed in', async () => {
     const api = mockApi(
       signedInRoutes({

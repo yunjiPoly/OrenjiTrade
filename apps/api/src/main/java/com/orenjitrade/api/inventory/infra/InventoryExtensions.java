@@ -68,6 +68,11 @@ public class InventoryExtensions {
             }
 
             @Override
+            public Map<UUID, String> soldDeckCorePicturesOf(Collection<UUID> binderIds) {
+                return inventoryService.soldDeckCorePictures(binderIds);
+            }
+
+            @Override
             public Map<UUID, List<KeyCard>> keyCardsOf(
                     Collection<UUID> binderIds, boolean publicOnly, int max) {
                 return inventoryService.binderKeyCards(binderIds, publicOnly, max);

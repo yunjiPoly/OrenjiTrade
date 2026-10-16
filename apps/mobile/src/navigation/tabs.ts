@@ -11,7 +11,7 @@ export interface TabDefinition {
   iconFocused: TabIconName;
   /**
    * The screen draws its own header (a large title, the bell and its main button: the Inventory
-   * of the 2026-10-14 redesign); the tab bar shows no navigation header over it.
+   * and the Messages of the 2026-10-14 redesign); the tab bar shows no navigation header over it.
    */
   ownHeader?: boolean;
 }
@@ -37,6 +37,7 @@ export const TABS: readonly TabDefinition[] = [
     title: 'Messages',
     icon: 'message-text-outline',
     iconFocused: 'message-text',
+    ownHeader: true,
   },
   { name: 'wishlist', title: 'Wishlist', icon: 'heart-outline', iconFocused: 'heart' },
   {

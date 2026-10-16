@@ -1,6 +1,5 @@
 import {
   keepPreviousData,
-  type QueryClient,
   useInfiniteQuery,
   useMutation,
   useMutationState,
@@ -8,6 +7,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { liveBinders } from '@/src/features/binders/binderForm';
 import { boundedQuery } from '@/src/lib/catalog';
 
 import { ApiError, isApiError } from '../ApiError';
@@ -26,23 +26,10 @@ import type {
 } from '../types';
 import { nextPage } from './catalog';
 import { refreshInventory } from './inventory';
+import { refreshBinderListings } from './listingRefresh';
 import { useIsAuthenticated, useUid } from './useUid';
 
 export const BINDER_ITEMS_PAGE_SIZE = 24;
-
-/**
- * The lists that show a binder to other collectors, as this viewer reads them: profiles (the
- * owner's "Public binders" rows, with a deck core's price and photo, and the binder counts), the
- * map's counts and state lists, and search. A binder write or delete marks them out of date (the
- * ones on screen read again now, the others when next shown), so the owner's own rows never keep
- * an old price, an old photo or a deleted binder (review fix 2 of stage R3). Not awaited: a save
- * does not wait for lists that are not its own.
- */
-function refreshBinderListings(queryClient: QueryClient, uid: string | null) {
-  void queryClient.invalidateQueries({ queryKey: meKeys.collectors(uid) });
-  void queryClient.invalidateQueries({ queryKey: meKeys.regionMap(uid) });
-  void queryClient.invalidateQueries({ queryKey: meKeys.searches(uid) });
-}
 
 /** The mutation key of {@link useDeleteBinder}. */
 const DELETE_BINDER_KEY = ['binders', 'delete'] as const;
@@ -65,12 +52,17 @@ export function useDeletingBinder(id: string | null | undefined): boolean {
   );
 }
 
-/** `GET /api/v1/binders`: the caller's binders in their order. */
+/**
+ * `GET /api/v1/binders`: the caller's binders in their order, without the deck cores they sold
+ * (`liveBinders`: a sold core is in no list, count or picker of the phone; R3 leftover U10). The
+ * cache keeps the server's whole list.
+ */
 export function useMyBinders() {
   const uid = useUid();
   return useQuery<BinderResponse[], ApiError>({
     queryKey: meKeys.binderList(uid),
     queryFn: async () => required((await api.GET('/api/v1/binders')).data),
+    select: liveBinders,
     enabled: useIsAuthenticated(),
   });
 }

@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { SaleNotice } from './saleNotice';
 
 
 /**
@@ -18,6 +19,8 @@ export interface LastMessage {
     kind: LastMessageKindEnum;
     createdAt: string;
     senderId?: string | null;
+    systemTopic?: LastMessageSystemTopicEnum | null;
+    sale?: SaleNotice;
 }
 export enum LastMessageKindEnum {
     Text = 'TEXT',
@@ -26,6 +29,10 @@ export enum LastMessageKindEnum {
     OfferLink = 'OFFER_LINK',
     Image = 'IMAGE',
     System = 'SYSTEM'
+};
+export enum LastMessageSystemTopicEnum {
+    Offer = 'OFFER',
+    Sale = 'SALE'
 };
 
 

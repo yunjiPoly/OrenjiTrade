@@ -1,5 +1,7 @@
 import type { ConversationSummary, LastMessage, MessageResponse } from '@/src/api/types';
 
+import { saleSentence } from './dealRules';
+
 /** What an old offer reads as in a conversation and in the inbox (offers left the phone, ADR 0018). */
 export const OFFER_UNAVAILABLE_TEXT = 'Offer (no longer available)';
 
@@ -12,13 +14,12 @@ export function isOfferMessage(message: Pick<MessageResponse, 'kind' | 'payload'
 }
 
 /**
- * True for a conversation's last message about an old offer or trade. The summary carries the
- * kind and not the payload: an OFFER_LINK, or a SYSTEM message, which only the offers and trades
- * modules post today (`ConversationService.postSystemMessage`); stage R4 narrows SYSTEM when the
- * sale messages of Mark as sold arrive.
+ * True for a conversation's last message about an old offer or trade: an OFFER_LINK, or a SYSTEM
+ * message that is not a sale (stage R4 marks a sale's SYSTEM message with `systemTopic: 'SALE'`;
+ * the offers and trades modules post the others).
  */
-function isOfferLastMessage(last: Pick<LastMessage, 'kind'>): boolean {
-  return last.kind === 'OFFER_LINK' || last.kind === 'SYSTEM';
+function isOfferLastMessage(last: Pick<LastMessage, 'kind' | 'systemTopic'>): boolean {
+  return last.kind === 'OFFER_LINK' || (last.kind === 'SYSTEM' && last.systemTopic !== 'SALE');
 }
 
 /** Longest conversation preview, like the server's `MessagePreviews.MAX`. */
@@ -64,12 +65,17 @@ export function messagePreview(
 
 /** A realtime message as the conversation's `lastMessage`. */
 export function toLastMessage(message: MessageResponse): LastMessage {
+  const sale = message.payload?.sale;
   return {
     id: message.id,
     preview: messagePreview(message),
     kind: message.kind,
     createdAt: message.createdAt,
     senderId: message.senderId ?? null,
+    ...(message.kind === 'SYSTEM'
+      ? { systemTopic: sale ? 'SALE' : message.payload?.offer ? 'OFFER' : null }
+      : {}),
+    ...(sale ? { sale } : {}),
   };
 }
 
@@ -94,6 +100,10 @@ export function listPreview(conversation: ConversationSummary, selfId: string | 
   if (!last) {
     return 'No messages yet. Say hello!';
   }
+  if (last.kind === 'SYSTEM' && last.systemTopic === 'SALE' && last.sale) {
+    // Worded for the reader, as in the chat (stage R4).
+    return saleSentence(last.sale, selfId, conversation.other.handle);
+  }
   const preview = isOfferLastMessage(last) ? OFFER_UNAVAILABLE_TEXT : last.preview;
   const own = !!selfId && last.senderId === selfId;
   return own ? `You: ${preview}` : preview;
@@ -104,7 +114,13 @@ export function badgeCount(count: number): string {
   return count > 99 ? '99+' : String(count);
 }
 
-/** Unread messages across conversations that are not muted (the Messages tab badge). */
+/**
+ * Unread chats that are not muted (the Messages tab badge; owner spec 2026-10-14, section 4:
+ * "unread chats", stage R4).
+ */
 export function totalUnread(conversations: readonly ConversationSummary[]): number {
-  return conversations.reduce((sum, item) => sum + (item.muted ? 0 : item.unreadCount), 0);
+  return conversations.reduce(
+    (sum, item) => sum + (!item.muted && item.unreadCount > 0 ? 1 : 0),
+    0
+  );
 }

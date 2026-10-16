@@ -95,13 +95,13 @@ test.describe('mobile map tab and places', () => {
       .first()
       .click();
     const thread = screen(page, 'conversation');
-    await expect(thread.getByTestId('conversation-profile')).toContainText('Devon Okafor', {
+    await expect(thread.getByTestId('conversation-profile')).toContainText('collector2', {
       timeout: 30_000,
     });
     await expect(thread.getByTestId('conversation-messages')).toBeVisible();
     const text = `Hello from the mobile places E2E ${Date.now().toString(36)}`;
     await thread.getByLabel('Message', { exact: true }).fill(text);
-    await thread.getByRole('button', { name: 'Send message' }).click();
+    await thread.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(thread.getByText(text)).toBeVisible({ timeout: 30_000 });
   });
 });

@@ -21,6 +21,12 @@ public final class RealtimeDestinations {
     /** Presence changes of conversation partners who show their online status. */
     public static final String PRESENCE = "/queue/presence";
 
+    /**
+     * What a conversation is about changed (stage R4): {@code {conversationId}}; the client reads
+     * the conversation again (its pinned card or deck core, and whether it is sold).
+     */
+    public static final String CONVERSATIONS = "/queue/conversations";
+
     /** Reserved for Phase 6 notifications. */
     public static final String NOTIFICATIONS = "/queue/notifications";
 
@@ -29,7 +35,7 @@ public final class RealtimeDestinations {
 
     /** Every destination a server-side publisher may target. */
     public static final List<String> ALL =
-            List.of(MESSAGES, RECEIPTS, TYPING, PRESENCE, NOTIFICATIONS, ERRORS);
+            List.of(MESSAGES, RECEIPTS, TYPING, PRESENCE, CONVERSATIONS, NOTIFICATIONS, ERRORS);
 
     /** User destination prefix of subscriptions ({@code /user/queue/messages}). */
     public static final String USER_PREFIX = "/user";

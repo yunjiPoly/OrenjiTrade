@@ -731,6 +731,19 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BINDER_DECK_CORE,
         BINDER_PHOTO_ADD,
         BINDER_PHOTO_DELETE,
+        /** Stage R4: Mark as sold of a card (its last copy), from the chat. */
+        SALE,
+        /** Stage R4: the undo of that sale (the card comes back into its binder). */
+        SALE_UNDO,
+        /** Stage R4: Mark as sold of a deck core (sold_at, its cards leave with it). */
+        DECK_CORE_SALE,
+        /** Stage R4: the undo of a deck core's sale. */
+        DECK_CORE_SALE_UNDO,
+        /**
+         * Stage R4, review fix 1 (F4): the undo of a sale that left copies, after a later sale took
+         * the last ones (the card comes back with the older sale's copies).
+         */
+        SALE_UNDO_BEFORE_LATER_SALE,
         OWNER_RECONCILIATION,
         ITEM_PURGE,
         BINDER_PURGE,
@@ -779,6 +792,37 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                 .id()
                         : null;
 
+        // Stage R4: the chat a sale is marked in (the owner pins the card or the deck core), and
+        // the sale an undo takes back, made before the owner lock is held.
+        @Nullable String chatId = null;
+        @Nullable String saleId = null;
+        if (write == OwnerWrite.SALE_UNDO_BEFORE_LATER_SALE) {
+            callJson(HttpMethod.PATCH, ITEMS + "/" + filed, uid, Map.of("quantity", 2), 200);
+            chatId = chatOfOwnerAbout(uid, filed, null);
+            saleId = markSold(uid, chatId);
+            markSold(uid, chatOfOwnerAbout(uid, filed, null));
+        } else if (write == OwnerWrite.SALE
+                || write == OwnerWrite.SALE_UNDO
+                || write == OwnerWrite.DECK_CORE_SALE
+                || write == OwnerWrite.DECK_CORE_SALE_UNDO) {
+            boolean core =
+                    write == OwnerWrite.DECK_CORE_SALE || write == OwnerWrite.DECK_CORE_SALE_UNDO;
+            if (core) {
+                callJson(
+                        HttpMethod.PATCH,
+                        "/api/v1/binders/" + binderId,
+                        uid,
+                        Map.of("sellsAsCore", true, "askingPriceText", "$95"),
+                        200);
+            }
+            chatId = chatOfOwnerAbout(uid, core ? null : filed, core ? binderId : null);
+            if (write == OwnerWrite.SALE_UNDO || write == OwnerWrite.DECK_CORE_SALE_UNDO) {
+                saleId = markSold(uid, chatId);
+            }
+        }
+        @Nullable String saleChat = chatId;
+        @Nullable String saleToUndo = saleId;
+
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             CompletableFuture<Integer> holderPid = new CompletableFuture<>();
@@ -800,7 +844,17 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 int pid = holderPid.get(STEP.toSeconds(), TimeUnit.SECONDS);
                 writing =
                         pool.submit(
-                                () ->
+                                () -> {
+                                    if (saleChat != null && saleToUndo == null) {
+                                        markSold(uid, saleChat);
+                                    } else if (saleToUndo != null) {
+                                        callJson(
+                                                HttpMethod.POST,
+                                                "/api/v1/sales/" + saleToUndo + "/undo",
+                                                uid,
+                                                null,
+                                                200);
+                                    } else {
                                         perform(
                                                 write,
                                                 uid,
@@ -810,7 +864,9 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                                 filed,
                                                 unfiled,
                                                 importId,
-                                                photoId));
+                                                photoId);
+                                    }
+                                });
                 awaitWaiterOf(pid, writing);
                 assertThatCode(() -> lockEveryRowOf(ownerId))
                         .as("no row is held while the write waits for the owner lock")
@@ -935,6 +991,13 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 assertThat(photoId).isNotNull();
                 binderService.deletePhoto(ownerId, uuid(binderId), photoId);
             }
+            // Stage R4: run by everyWriteStartsWithTheOwnerLock through the chat (see there).
+            case SALE,
+                    SALE_UNDO,
+                    DECK_CORE_SALE,
+                    DECK_CORE_SALE_UNDO,
+                    SALE_UNDO_BEFORE_LATER_SALE ->
+                    throw new IllegalStateException(write + " runs through the chat");
             case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
             case ITEM_PURGE -> inventoryService.purge(ownerId);
             case BINDER_PURGE -> binderService.purge(ownerId);
@@ -943,6 +1006,46 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             case ACCOUNT_PURGE ->
                     transaction.executeWithoutResult(status -> inventoryDeletion.purge(ownerId));
         }
+    }
+
+    /**
+     * A chat the owner of {@code uid} starts with a new buyer about their own card or deck core
+     * (stage R4: its subject); returns its id.
+     */
+    private String chatOfOwnerAbout(
+            String uid, @Nullable String itemId, @Nullable String binderId) {
+        String handle = me(uid).path("handle").asString();
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("handle", handle);
+        profile.put("displayName", "Collector " + handle);
+        profile.put("games", List.of("yugioh"));
+        profile.put("languages", List.of("en"));
+        callJson(HttpMethod.PUT, "/api/v1/me/profile", uid, profile, 200);
+        String buyer = uniqueUid("lock-buyer");
+        UUID buyerId = collector(buyer);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("recipientId", buyerId.toString());
+        if (itemId != null) {
+            body.put("subjectItemId", itemId);
+        }
+        if (binderId != null) {
+            body.put("subjectBinderId", binderId);
+        }
+        return callJson(HttpMethod.POST, "/api/v1/conversations", uid, body, 201)
+                .path("id")
+                .asString();
+    }
+
+    /** Marks the chat's subject sold (stage R4); returns the sale id. */
+    private String markSold(String uid, String chatId) {
+        return callJson(
+                        HttpMethod.POST,
+                        "/api/v1/conversations/" + chatId + "/sales",
+                        uid,
+                        Map.of("quantity", 1),
+                        201)
+                .path("id")
+                .asString();
     }
 
     /**

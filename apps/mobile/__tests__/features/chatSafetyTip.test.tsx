@@ -13,9 +13,12 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CONVERSATION_ID,
   SELF_ID,
+  conversationFixture,
   conversationPage,
+  deckCoreSubjectFixture,
   eligibilityFixture,
   messagePage,
+  subjectFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -29,6 +32,7 @@ const port = () => new FakeAuthPort(testUser());
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
     'GET /api/v1/conversations': ok(conversationPage()),
+    'GET /api/v1/conversations/{id}': ok(conversationFixture()),
     'GET /api/v1/conversations/{id}/messages': ok(messagePage()),
     'POST /api/v1/conversations/{id}/read': noContent,
     'GET /api/v1/notifications/unread-count': ok({ count: 0 }),
@@ -94,7 +98,7 @@ describe('the tip in a conversation', () => {
     mockApi(routes());
     renderWithProviders(<ConversationScreen />, { port: port() });
     expect(await screen.findByText('Hi! Still have the Lantern Fox?')).toBeOnTheScreen();
-    // Chats have no pinned card until stage R4: every chat reads the "none" tip.
+    // A chat without a pinned card reads the "none" tip.
     expect(screen.getByTestId('chat-safety-tip-text')).toHaveTextContent(CHAT_SAFETY_TIPS.none);
     expect(screen.getByTestId('conversation-start')).toBeOnTheScreen();
     expect(screen.queryByText(MEETUP_WORDS)).toBeNull();
@@ -108,7 +112,7 @@ describe('the tip in a conversation', () => {
     mockApi(routes({ 'GET /api/v1/conversations/{id}/messages': ok(messagePage([])) }));
     renderWithProviders(<ConversationScreen />, { port: port() });
     expect(await screen.findByTestId('conversation-empty')).toHaveTextContent(
-      /Ask about a card, share one from the catalog or one of your public binders\./
+      /Ask about a card, or share one of yours with the \+ button\./
     );
     expect(screen.getByTestId('chat-safety-tip')).toBeOnTheScreen();
     expect(screen.queryByText(/Meetup details/)).toBeNull();
@@ -125,4 +129,19 @@ describe('the tip in a conversation', () => {
     expect(await screen.findByTestId('conversation-blocked-banner')).toBeOnTheScreen();
     expect(screen.queryByTestId('chat-safety-tip')).toBeNull();
   });
+
+  it.each([
+    ['buying', subjectFixture(), CHAT_SAFETY_TIPS.buying],
+    ['selling', subjectFixture({ ownerId: SELF_ID, copies: 1 }), CHAT_SAFETY_TIPS.selling],
+    ['buying a deck core', deckCoreSubjectFixture(), CHAT_SAFETY_TIPS.buying],
+  ])(
+    'reads the tip of the reader’s side when the chat is about a card (%s)',
+    async (_, subject, text) => {
+      mockParams.current = { id: CONVERSATION_ID };
+      mockApi(routes({ 'GET /api/v1/conversations/{id}': ok(conversationFixture({ subject })) }));
+      renderWithProviders(<ConversationScreen />, { port: port() });
+      expect(await screen.findByTestId('pinned-bar')).toBeOnTheScreen();
+      expect(await screen.findByTestId('chat-safety-tip-text')).toHaveTextContent(text);
+    }
+  );
 });

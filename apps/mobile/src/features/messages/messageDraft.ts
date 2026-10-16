@@ -18,6 +18,20 @@ export interface CardLinkChoice {
   game: string | null;
 }
 
+/**
+ * One of the caller's own cards shared from their inventory in a chat (stage R4: `CARD_LINK` with
+ * `inventoryItemId`): its picture, code and price as typed go with it, and it becomes the chat's
+ * subject.
+ */
+export interface OwnCardChoice {
+  itemId: string;
+  name: string;
+  printingCode: string | null;
+  imageUrl: string | null;
+  game: string | null;
+  askingPriceText: string | null;
+}
+
 /** One of the caller's public binders chosen to share (`binderId`). */
 export interface BinderLinkChoice {
   binderId: string;
@@ -40,6 +54,7 @@ export interface PickedPhoto {
 
 export type DraftAttachment =
   | { kind: 'card'; card: CardLinkChoice }
+  | { kind: 'item'; item: OwnCardChoice }
   | { kind: 'binder'; binder: BinderLinkChoice }
   | { kind: 'image'; photo: PickedPhoto };
 
@@ -102,6 +117,8 @@ export function sendRequest(draft: MessageDraft, imageUploadId?: string): SendMe
   switch (attachment?.kind) {
     case 'card':
       return { kind: 'CARD_LINK', body, cardPrintingId: attachment.card.printingId };
+    case 'item':
+      return { kind: 'CARD_LINK', body, inventoryItemId: attachment.item.itemId };
     case 'binder':
       return { kind: 'BINDER_LINK', body, binderId: attachment.binder.binderId };
     case 'image':

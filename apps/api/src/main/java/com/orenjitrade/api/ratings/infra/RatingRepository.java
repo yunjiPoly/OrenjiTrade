@@ -275,16 +275,31 @@ public class RatingRepository {
     // Summary
     // ---------------------------------------------------------------------------------------
 
-    /** Recomputes {@code rating_summary} of a collector from their OK ratings. */
+    /**
+     * Recomputes {@code rating_summary} of a collector from their OK ratings. Of the ratings one
+     * collector gave them for sales (interaction kind SALE, stage R4), only the newest counts: a
+     * pair cannot stack ratings through many one-copy sales (review fix 1, F10); every rating stays
+     * listed.
+     */
     public void refreshSummary(UUID userId, Instant now) {
         jdbc.sql(
                         """
                         INSERT INTO rating_summary (user_id, average, count, communication_avg,
                             condition_accuracy_avg, shipping_avg, meetup_reliability_avg, updated_at)
-                        SELECT :id, round(avg(overall), 2), count(*), round(avg(communication), 2),
-                               round(avg(condition_accuracy), 2), round(avg(shipping), 2),
-                               round(avg(meetup_reliability), 2), :now
-                          FROM rating WHERE ratee_id = :id AND moderation_state = 'OK'
+                        SELECT :id, round(avg(r.overall), 2), count(*),
+                               round(avg(r.communication), 2), round(avg(r.condition_accuracy), 2),
+                               round(avg(r.shipping), 2), round(avg(r.meetup_reliability), 2), :now
+                          FROM rating r
+                         WHERE r.ratee_id = :id AND r.moderation_state = 'OK'
+                           AND NOT EXISTS (
+                               SELECT 1
+                                 FROM interaction i
+                                 JOIN rating newer ON newer.rater_id = r.rater_id
+                                                  AND newer.ratee_id = r.ratee_id
+                                 JOIN interaction ni ON ni.id = newer.interaction_id
+                                WHERE i.id = r.interaction_id AND i.kind = 'SALE'
+                                  AND ni.kind = 'SALE' AND newer.moderation_state = 'OK'
+                                  AND (newer.created_at, newer.id) > (r.created_at, r.id))
                         ON CONFLICT (user_id) DO UPDATE
                            SET average = EXCLUDED.average, count = EXCLUDED.count,
                                communication_avg = EXCLUDED.communication_avg,

@@ -172,6 +172,8 @@ function DeckCoreTip() {
     <View
       testID="binders-tip"
       accessible
+      // The words only: the icon's glyph was read first (R3 leftover U8).
+      accessibilityLabel={`${INVENTORY_BINDERS_COPY.tipTitle} ${INVENTORY_BINDERS_COPY.tipBody}`}
       style={[styles.tip, { borderColor: palette.borderStrong }]}
     >
       <MaterialCommunityIcons
@@ -179,6 +181,8 @@ function DeckCoreTip() {
         size={20}
         color={palette.deckCore.tagText}
         style={styles.tipIcon}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
       />
       <Text style={[styles.tipText, { color: palette.textMuted }]}>
         <Text style={[styles.tipStrong, { color: palette.ink }]}>

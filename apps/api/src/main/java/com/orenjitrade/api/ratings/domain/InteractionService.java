@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
  * (unique {@code (kind, subject_id)}), so callers may repeat it safely; Phase 8 records {@link
  * InteractionKind#OFFER_ACCEPTED} and {@link InteractionKind#TRADE}, this module records {@link
  * InteractionKind#CONVERSATION_QUALIFIED} from the messaging module's events ({@link
- * #QUALIFYING_MESSAGES_PER_SIDE} messages from each side).
+ * #QUALIFYING_MESSAGES_PER_SIDE} messages from each side), and the deals module records {@link
+ * InteractionKind#SALE} for each sale (stage R4) and removes it on an undo while it is unrated
+ * ({@link #removeIfUnrated}).
  */
 @Service
 public class InteractionService {
@@ -88,6 +90,45 @@ public class InteractionService {
         return repository
                 .findBySubject(kind, subjectId)
                 .orElseThrow(() -> new IllegalStateException("Interaction vanished: " + subjectId));
+    }
+
+    /**
+     * Removes the interaction of a kind and subject while nobody has rated it (the undo of a sale,
+     * stage R4). It locks the interaction first: a rating in progress finishes before the check,
+     * and a rating that starts afterwards waits and then finds the interaction gone ({@link
+     * #findForRating}). Joins the caller's transaction.
+     *
+     * @return {@link Removal#REMOVED}, {@link Removal#RATED} (kept: somebody rated it) or {@link
+     *     Removal#ABSENT}
+     */
+    @Transactional
+    public Removal removeIfUnrated(InteractionKind kind, UUID subjectId) {
+        Optional<InteractionView> found = repository.lockBySubjectForRemoval(kind, subjectId);
+        if (found.isEmpty()) {
+            return Removal.ABSENT;
+        }
+        if (repository.isRated(found.get().id())) {
+            return Removal.RATED;
+        }
+        repository.delete(found.get().id());
+        log.info("Interaction {} removed for subject {}", kind, subjectId);
+        return Removal.REMOVED;
+    }
+
+    /**
+     * The interaction a rating is about, held {@code FOR KEY SHARE} until the rating's transaction
+     * ends, so the undo of a sale ({@link #removeIfUnrated}) cannot remove it in between.
+     */
+    @Transactional
+    public Optional<InteractionView> findForRating(UUID id) {
+        return repository.findLockedShared(id);
+    }
+
+    /** Outcome of {@link #removeIfUnrated}. */
+    public enum Removal {
+        REMOVED,
+        RATED,
+        ABSENT
     }
 
     /** Whether an interaction of {@code kind} exists for the subject. */

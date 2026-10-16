@@ -1,7 +1,14 @@
-import type { InfiniteData } from '@tanstack/react-query';
+import { QueryClient, type InfiniteData } from '@tanstack/react-query';
 
 import { ApiError } from '@/src/api/ApiError';
-import type { ConversationPage, MessagePage, MessageResponse } from '@/src/api/types';
+import { applyMessageToCaches, withMessageFields } from '@/src/api/hooks/messaging';
+import { meKeys } from '@/src/api/queryKeys';
+import type {
+  ConversationPage,
+  ConversationSummary,
+  MessagePage,
+  MessageResponse,
+} from '@/src/api/types';
 import {
   applyMessageToInbox,
   applyOwnReceipt,
@@ -47,7 +54,15 @@ import {
   type MessageItem,
 } from '@/src/features/messages/threadItems';
 
-import { SELF_ID, binderFixture, conversationFixture, messageFixture } from '../support/fixtures';
+import {
+  ONTARIO,
+  SELF_ID,
+  binderFixture,
+  conversationFixture,
+  deckCoreSubjectFixture,
+  messageFixture,
+  subjectFixture,
+} from '../support/fixtures';
 
 const OTHER = '00000000-0000-4000-8000-0000000000b1';
 
@@ -112,7 +127,7 @@ describe('message text', () => {
     expect(long.endsWith('…')).toBe(true);
   });
 
-  it('builds inbox lines, badges and the unread total (muted conversations excluded)', () => {
+  it('builds inbox lines, badges and the unread chats (muted conversations excluded)', () => {
     const own = conversationFixture({
       lastMessage: { id: 'm', preview: 'Hello', kind: 'TEXT', createdAt: 'x', senderId: SELF_ID },
     });
@@ -125,8 +140,9 @@ describe('message text', () => {
         conversationFixture({ unreadCount: 2 }),
         conversationFixture({ id: 'b', unreadCount: 5, muted: true }),
         conversationFixture({ id: 'c', unreadCount: 1 }),
+        conversationFixture({ id: 'd', unreadCount: 0 }),
       ])
-    ).toBe(3);
+    ).toBe(2);
     const older = conversationFixture({ id: 'old', createdAt: '2026-09-01T00:00:00Z' });
     const newer = conversationFixture({ id: 'new', createdAt: '2026-10-01T00:00:00Z' });
     expect(sortByActivity([older, newer]).map((item) => item.id)).toEqual(['new', 'old']);
@@ -168,7 +184,7 @@ describe('message text', () => {
     ).toBe('Offer (no longer available)');
     expect(
       rowLabel(last('SYSTEM', 'Devon Okafor cancelled the trade: 18.00 CAD.', null), SELF_ID)
-    ).toBe('Noé Verdun, 1 unread message, Offer (no longer available)');
+    ).toBe('collector2, 1 unread message, Offer (no longer available)');
     // Any other message keeps the server's line.
     expect(listPreview(last('TEXT', 'Shipped with tracking', OTHER), SELF_ID)).toBe(
       'Shipped with tracking'
@@ -182,12 +198,27 @@ describe('message text', () => {
       other: { ...conversationFixture().other, onlineStatus: 'ONLINE' },
     });
     expect(rowLabel(conversation, SELF_ID)).toBe(
-      'Noé Verdun, online, 2 unread messages, muted, No messages yet. Say hello!'
+      'collector2, online, 2 unread messages, muted, No messages yet. Say hello!'
     );
-    expect(threadStatus(conversation, false, false)).toBe('Online now');
+    // "Online · {province}" or "{province}", never a city (stage R4, ADR 0017).
+    expect(threadStatus(conversation, false, false)).toBe('Online · Muted');
+    expect(
+      threadStatus(
+        { ...conversation, muted: false, other: { ...conversation.other, place: ONTARIO } },
+        false,
+        false
+      )
+    ).toBe('Online · Ontario');
+    expect(
+      threadStatus(
+        conversationFixture({ other: { ...conversationFixture().other, place: ONTARIO } }),
+        false,
+        false
+      )
+    ).toBe('Ontario');
     expect(threadStatus(conversation, true, false)).toBe('typing…');
     expect(threadStatus(conversation, true, true)).toBe('Blocked');
-    expect(threadStatus(conversationFixture(), false, false)).toBe('@collector2');
+    expect(threadStatus(conversationFixture(), false, false)).toBe('');
     expect(realtimeStatusLabel('connected')).toBe('Live');
     expect(realtimeStatusLabel('reconnecting')).toBe('Reconnecting…');
     expect(realtimeStatusLabel('disabled')).toBeNull();
@@ -403,6 +434,44 @@ describe('conversation cache', () => {
         .onlineStatus
     ).toBe('ONLINE');
     expect(patchConversation(undefined, 'a', {})).toBeUndefined();
+  });
+
+  it('a message keeps the conversation’s own subject, never the inbox’s older copy (F1)', () => {
+    const queryClient = new QueryClient();
+    const uid = 'uid-seller';
+    const card = subjectFixture({ ownerId: SELF_ID, copies: 3 });
+    const core = deckCoreSubjectFixture({ ownerId: SELF_ID, name: 'Lantern core' });
+    // The inbox was read while the chat was about the card; the conversation since (a pin).
+    queryClient.setQueryData(meKeys.conversationList(uid), inbox([{ ...a, subject: card }]));
+    queryClient.setQueryData(meKeys.conversation(uid, 'a'), { ...a, subject: core });
+    const pushed = messageFixture({
+      id: 'pushed',
+      conversationId: 'a',
+      senderId: OTHER,
+      createdAt: '2026-10-05T00:00:00Z',
+    });
+    applyMessageToCaches(queryClient, uid, SELF_ID, pushed);
+    const conversation = queryClient.getQueryData<ConversationSummary>(
+      meKeys.conversation(uid, 'a')
+    );
+    expect(conversation?.subject?.name).toBe('Lantern core');
+    expect(conversation?.lastMessage?.id).toBe('pushed');
+    expect(conversation?.unreadCount).toBe(1);
+    expect(withMessageFields({ ...a, subject: core }, { ...a, subject: card }).subject).toBe(core);
+
+    // A card shared by its owner pins it: the conversation and the inbox are read again.
+    const shared = messageFixture({
+      id: 'shared',
+      conversationId: 'a',
+      senderId: OTHER,
+      kind: 'CARD_LINK',
+      createdAt: '2026-10-05T00:01:00Z',
+      payload: { item: { itemId: 'item-x', ownerId: OTHER } },
+    } as Parameters<typeof messageFixture>[0]);
+    applyMessageToCaches(queryClient, uid, SELF_ID, shared);
+    expect(queryClient.getQueryState(meKeys.conversation(uid, 'a'))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(meKeys.conversationList(uid))?.isInvalidated).toBe(true);
+    queryClient.clear();
   });
 
   it('puts messages into the newest page and marks own messages seen', () => {

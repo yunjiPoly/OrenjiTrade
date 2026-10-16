@@ -24,6 +24,7 @@ import type {
   UpdateInventoryItemRequest,
 } from '../types';
 import { nextPage } from './catalog';
+import { refreshBinderListings } from './listingRefresh';
 import { useIsAuthenticated, useUid } from './useUid';
 
 /**
@@ -373,6 +374,10 @@ export function useBulkInventory() {
     mutationFn: async (body) =>
       required((await api.POST('/api/v1/inventory/items/bulk', { body })).data),
     onSuccess: async () => {
+      // Cards moved, made public or private, or deleted change what others see of their binders
+      // (the card counts, games and pictures of the profile rows, the map, search; R3 leftover
+      // R2-2: Edit binder's "Save changes" moves its cards with this request after its own PATCH).
+      refreshBinderListings(queryClient, uid);
       await Promise.all([
         refreshInventory(queryClient, uid),
         // Cards moved between binders change the cards (and key cards) their public pages show.

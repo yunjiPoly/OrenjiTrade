@@ -1,0 +1,88 @@
+# Native flow 3 of the phone redesign (owner spec 2026-10-14, section 14) as far as stage R4
+# reaches: open the chat about a deck core and see it pinned, with the buying tip and the buying
+# quick replies; then "Send my address" from the + sheet (asked the first time, into the message
+# box, sent only when the buyer taps send). Ben (fresh, fictional, Ontario, scripts/deals.js) sells
+# a public deck core; Ada (fresh, fictional, Quebec, the app user) opens its page from a link
+# (like a shared https://www.orenjitrade.com/binders/<id>) and taps "Message {Ben}".
+#
+# Not in this flow yet: searching the card and messaging a holder from "Who has this card" (screen
+# 13) comes with stage R5, which builds that page and the Message button on its rows (the API of
+# stage R4 already pins a card from `POST /conversations` with `subjectItemId`).
+appId: ${APP_ID}
+name: Buyer opens the chat about a deck core and sends the address
+tags:
+  - mobile-r4
+  - messages
+---
+- runScript:
+    file: scripts/deals.js
+    env:
+      ACTION: buyer-setup
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-index'
+    timeout: 60000
+- openLink: ${APP_URL}/--/binders/${output.core.id}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'deck-core-name'
+      text: ${output.core.name}
+    timeout: 60000
+- tapOn:
+    id: 'deck-core-message'
+
+# The chat about the deck core (screen 23): its name, "Deck core", the price; the buying tip and
+# the buying quick replies.
+# (The bar is one link for VoiceOver: its name, "about this deck core", "Deck core" and the price.)
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-bar'
+      text: '${output.core.name}, about this deck core, Deck core, \$95'
+    timeout: 60000
+- assertVisible:
+    id: 'chat-safety-tip'
+    text: '.*Check their rating before you send an e-Transfer, and ask for tracking\.'
+- assertVisible:
+    id: 'quick-reply-Is it still available\?'
+- takeScreenshot: r4-chat-buying
+
+# "+": "Send my address", asked the first time (several lines), into the message box.
+- tapOn:
+    id: 'composer-attach'
+- extendedWaitUntil:
+    visible:
+      id: 'composer-send-address'
+    timeout: 15000
+- assertNotVisible:
+    id: 'composer-send-etransfer'
+- tapOn:
+    id: 'composer-send-address'
+- extendedWaitUntil:
+    visible:
+      id: 'saved-detail-input'
+    timeout: 15000
+- tapOn:
+    id: 'saved-detail-input'
+- inputText: 'Ada Maestro'
+- runFlow: subflows/hide-keyboard-in-dialog.yaml
+- tapOn:
+    id: 'saved-detail-save'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-input'
+      text: 'Ship to:\sAda Maestro'
+    timeout: 15000
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    visible: '.*Ada Maestro.*'
+    timeout: 30000
+- takeScreenshot: r4-address-sent

@@ -25,6 +25,10 @@ import { UpdateConversationRequest } from '../model/models';
 import { Configuration }                                     from '../configuration';
 
 
+export interface GetConversationRequestParams {
+    id: string;
+}
+
 export interface ListConversationsRequestParams {
     cursor?: string;
     limit?: number;
@@ -62,6 +66,14 @@ export interface MessagingServiceInterface {
     configuration: Configuration;
 
     /**
+     * One conversation of the caller
+     * Stage R4: the conversation as in the list, with its subject (the card or deck core it is about). 404 for non-participants and conversations hidden by a block.
+     * @endpoint get /api/v1/conversations/{id}
+* @param requestParameters
+     */
+    getConversation(requestParameters: GetConversationRequestParams, extraHttpRequestParams?: any): Observable<ConversationSummary>;
+
+    /**
      * The caller\&#39;s conversations
      * Most recent activity first, cursor-paginated. Conversations hidden by a block in either direction are omitted, as are empty conversations started by the other participant. &#x60;archived&#x3D;true&#x60; lists the archive instead of the inbox. &#x60;other.onlineStatus&#x60; is HIDDEN unless the participant shows their online status.
      * @endpoint get /api/v1/conversations
@@ -87,7 +99,7 @@ export interface MessagingServiceInterface {
 
     /**
      * Send a message
-     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;; BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h); OFFER_LINK &#x60;offerId&#x60; of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
+     * TEXT needs &#x60;body&#x60; (≤ 4000 characters); CARD_LINK &#x60;cardPrintingId&#x60;, or &#x60;inventoryItemId&#x60; of one of the caller\&#39;s own cards (stage R4: its picture, code and price as typed, and it becomes the chat\&#39;s subject); BINDER_LINK &#x60;binderId&#x60; of a public binder; IMAGE &#x60;imageUploadId&#x60; of POST /uploads/images (within 1 h); OFFER_LINK &#x60;offerId&#x60; of an offer between the two participants (Phase 8). SYSTEM is refused (400). Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block exists or the other participant cannot receive messages. Pushed to both participants on /user/queue/messages.
      * @endpoint post /api/v1/conversations/{id}/messages
 * @param requestParameters
      */
@@ -95,7 +107,7 @@ export interface MessagingServiceInterface {
 
     /**
      * Start (or reopen) a conversation with a collector
-     * Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient\&#39;s messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself.
+     * Idempotent: returns the existing conversation of the pair (200) or creates it (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either direction or, for a new conversation, when the recipient\&#39;s messaging permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the caller has no saved profile). 404 for unknown, suspended or deleted recipients; 400 for oneself. Stage R4: &#x60;subjectItemId&#x60; (a card) or &#x60;subjectBinderId&#x60; (a deck core) pins what the chat is about, the latest wins; it must be the recipient\&#39;s and public, or the caller\&#39;s own (404 when private, deleted or sold; 400 for both at once, for someone else\&#39;s, and for a binder that is not a deck core).
      * @endpoint post /api/v1/conversations
 * @param requestParameters
      */

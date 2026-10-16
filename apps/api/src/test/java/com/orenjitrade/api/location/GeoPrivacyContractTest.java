@@ -457,6 +457,131 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Stage R4: the chat's subject (a card or a seeded deck core), the other collector's place in
+     * the chat ("Online · {province}"), the sale's SYSTEM message and the buyer's notification, for
+     * both collectors: a state and a country, never a city, a coordinate or a private note. The
+     * sale is undone and the card deleted at the end, so the seed stays as it was.
+     */
+    @Test
+    void chatSubjectsAndSalesCarryThePlaceOnly(CapturedOutput output) {
+        String buyer = "seed-collector1:collector1@orenjitrade.test";
+        String seller = "seed-collector5:collector5@orenjitrade.test";
+        String seededCore = "00000000-0000-4000-8b00-000000000202";
+        // The chat needs the buyer's 18+ confirmation; the seed holds none, so it is taken back.
+        UUID buyerId = idOf("collector1");
+        boolean confirmed =
+                testUsers.count(
+                                "SELECT count(*) FROM user_consent WHERE user_id = ? AND"
+                                        + " document_type = 'AGE_CONFIRMATION'",
+                                buyerId)
+                        > 0;
+        testUsers.confirmAge(buyerId);
+        UUID printing =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT id FROM card_printing WHERE external_ref ->> 'id'"
+                                                + " = 'ygo-p012a'")
+                                .get(0)
+                                .get("id");
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("printingId", printing.toString());
+        item.put("quantity", 2);
+        item.put("visibility", "PUBLIC");
+        item.put("askingPriceText", "$14");
+        item.put("notes", "geo-r4-private-note");
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", seller, item, 201)
+                        .path("id")
+                        .asString();
+        JsonNode started =
+                callJson(
+                        HttpMethod.POST,
+                        "/api/v1/conversations",
+                        buyer,
+                        Map.of(
+                                "recipientId",
+                                idOf("collector5").toString(),
+                                "subjectItemId",
+                                itemId),
+                        201);
+        fetched.add(new Fetched("/api/v1/conversations (card)", buyer, started));
+        String chatId = started.path("id").asString();
+        try {
+            JsonNode sale =
+                    callJson(
+                            HttpMethod.POST,
+                            "/api/v1/conversations/" + chatId + "/sales",
+                            seller,
+                            Map.of("quantity", 1, "trackingNumber", "LX123456789CA"),
+                            201);
+            fetched.add(new Fetched("/api/v1/conversations/{id}/sales", seller, sale));
+            for (String caller : List.of(buyer, seller)) {
+                JsonNode chat = fetch("/api/v1/conversations/" + chatId, caller);
+                assertThat(chat.path("subject").path("id").asString()).isEqualTo(itemId);
+                String other = caller.equals(buyer) ? "collector5" : "collector1";
+                assertThat(chat.path("other").path("place").path("label").asString())
+                        .as("place of %s", other)
+                        .isEqualTo(PLACES.get(other));
+                JsonNode messages = fetch("/api/v1/conversations/" + chatId + "/messages", caller);
+                assertThat(messages.toString()).contains("LX123456789CA");
+                fetch("/api/v1/conversations", caller);
+                fetch("/api/v1/notifications", caller);
+            }
+            // A seeded deck core as the subject, with its photo or card picture.
+            JsonNode core =
+                    callJson(
+                            HttpMethod.POST,
+                            "/api/v1/conversations",
+                            buyer,
+                            Map.of(
+                                    "recipientId",
+                                    idOf("collector2").toString(),
+                                    "subjectBinderId",
+                                    seededCore),
+                            200);
+            fetched.add(new Fetched("/api/v1/conversations (deck core)", buyer, core));
+            assertThat(core.path("subject").path("kind").asString()).isEqualTo("DECK_CORE");
+            assertThat(core.path("other").path("place").path("label").asString())
+                    .isEqualTo(PLACES.get("collector2"));
+            fetched.add(
+                    new Fetched(
+                            "/api/v1/sales/{id}/undo",
+                            seller,
+                            callJson(
+                                    HttpMethod.POST,
+                                    "/api/v1/sales/" + sale.path("id").asString() + "/undo",
+                                    seller,
+                                    null,
+                                    200)));
+        } finally {
+            testUsers.update(
+                    "UPDATE conversation SET subject_item_id = NULL, subject_binder_id = NULL,"
+                            + " subject_set_at = NULL, subject_set_by = NULL WHERE id IN (?, ?)",
+                    UUID.fromString(chatId),
+                    UUID.fromString("00000000-0000-4000-8d00-000000000001"));
+            callJson(HttpMethod.DELETE, "/api/v1/inventory/items/" + itemId, seller, null, 204);
+            if (!confirmed) {
+                testUsers.update(
+                        "DELETE FROM user_consent WHERE user_id = ? AND document_type ="
+                                + " 'AGE_CONFIRMATION'",
+                        buyerId);
+            }
+        }
+        for (Fetched document : fetched) {
+            assertThat(document.body().toString())
+                    .as("private note in %s", document.path())
+                    .doesNotContain("geo-r4-private-note");
+            assertNoPrivateNotes(document.body(), document.path());
+        }
+        // Spec section 13: the tracking number is the two collectors' only, never in the logs.
+        assertThat(output.getAll())
+                .as("tracking number in the logs")
+                .doesNotContain("LX123456789CA");
+        assertContract(output);
+    }
+
+    /**
      * Phase 6 / stage S2: the seeded wishlist of collector2 (items, public summary, price terms)
      * and the notification centre: the wishlist alert about collector1's listing names the
      * state/province + country, never a distance or a city.
