@@ -66,6 +66,7 @@ describe('RealtimeClient', () => {
       Authorization: 'Bearer id-token/with+chars',
     });
     expect([...session.handlers.keys()].sort()).toEqual([
+      '/user/queue/conversations',
       '/user/queue/messages',
       '/user/queue/notifications',
       '/user/queue/presence',
@@ -79,6 +80,11 @@ describe('RealtimeClient', () => {
     rt.client.on('message', (message) => messages.push(message));
     rt.client.on('receipt', (receipt) => receipts.push(receipt));
     rt.client.on('notification', (notification) => notifications.push(notification));
+    const changed: string[] = [];
+    rt.client.on('conversation', (notice) => changed.push(notice.conversationId));
+    session.push('/user/queue/conversations', { conversationId: 'c1' });
+    session.push('/user/queue/conversations', { nonsense: true });
+    expect(changed).toEqual(['c1']);
     session.push('/user/queue/messages', {
       id: 'm1',
       conversationId: 'c1',

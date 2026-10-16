@@ -22,7 +22,11 @@ import {
 } from '@/src/api/hooks/messaging';
 import { useRatingEligibility } from '@/src/api/hooks/ratings';
 import { useUid } from '@/src/api/hooks/useUid';
-import type { ConversationParticipant, ConversationSummary } from '@/src/api/types';
+import type {
+  ConversationParticipant,
+  ConversationSubject,
+  ConversationSummary,
+} from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -64,7 +68,7 @@ const UNKNOWN_PARTICIPANT: ConversationParticipant = {
 };
 
 /** Why Mark as sold or its undo was refused, in the chat's words. */
-function saleErrorMessage(error: unknown): string {
+function saleErrorMessage(error: unknown, handle: string): string {
   if (!isApiError(error)) {
     return 'Something went wrong. Please try again.';
   }
@@ -75,6 +79,8 @@ function saleErrorMessage(error: unknown): string {
       return MARK_SOLD_COPY.undoClosed;
     case 'SALE_ALREADY_RATED':
       return MARK_SOLD_COPY.undoRated;
+    case 'SUBJECT_CHANGED':
+      return MARK_SOLD_COPY.subjectChanged(handle);
     case 'VALIDATION_FAILED':
       return error.message || friendlyMessage(error);
     default:
@@ -123,6 +129,9 @@ export default function ConversationScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [selling, setSelling] = useState(false);
+  // What the Mark as sold sheet shows, kept from the moment it opened: the sale names it, and the
+  // server refuses it once the chat is about something else (review fix 1, F1).
+  const [saleSubject, setSaleSubject] = useState<ConversationSubject | null>(null);
   const [saleError, setSaleError] = useState<string | null>(null);
   const summary = conversation.data ?? null;
   const other = summary?.other ?? null;
@@ -296,16 +305,23 @@ export default function ConversationScreen() {
       await undoSale.mutateAsync({ saleId, conversationId });
       snackbar.show(MARK_SOLD_COPY.undone);
     } catch (error) {
-      snackbar.show(saleErrorMessage(error), { tone: 'error', duration: 6000 });
+      snackbar.show(saleErrorMessage(error, handle), { tone: 'error', duration: 6000 });
     }
   };
 
   const confirmSale = async (sale: { quantity: number; trackingNumber: string | null }) => {
+    const shown = saleSubject ?? subject;
+    if (!shown) {
+      return;
+    }
     setSaleError(null);
     try {
       const created = await markSold.mutateAsync({
         quantity: sale.quantity,
         ...(sale.trackingNumber ? { trackingNumber: sale.trackingNumber } : {}),
+        ...(shown.kind === 'DECK_CORE'
+          ? { subjectBinderId: shown.id }
+          : { subjectItemId: shown.id }),
       });
       setSelling(false);
       snackbar.show(MARK_SOLD_COPY.toast, {
@@ -317,7 +333,14 @@ export default function ConversationScreen() {
         },
       });
     } catch (error) {
-      setSaleError(saleErrorMessage(error));
+      if (isApiError(error) && error.errorCode === 'SUBJECT_CHANGED') {
+        // The buyer pinned another listing: the bar shows it once read again.
+        setSelling(false);
+        void conversation.refetch();
+        snackbar.show(saleErrorMessage(error, handle), { tone: 'error', duration: 6000 });
+        return;
+      }
+      setSaleError(saleErrorMessage(error, handle));
     }
   };
 
@@ -440,6 +463,7 @@ export default function ConversationScreen() {
           onOpen={openSubject}
           onMarkSold={() => {
             setSaleError(null);
+            setSaleSubject(subject);
             setSelling(true);
           }}
         />
@@ -499,7 +523,7 @@ export default function ConversationScreen() {
       {subject && side === 'selling' ? (
         <MarkSoldSheet
           visible={selling}
-          subject={subject}
+          subject={saleSubject ?? subject}
           buyer={handle}
           busy={markSold.isPending}
           error={saleError}

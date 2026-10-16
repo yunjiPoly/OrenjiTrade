@@ -2,11 +2,13 @@ import type { MessageResponse, NotificationResponse } from '@/src/api/types';
 
 import {
   REALTIME_DESTINATIONS,
+  isConversationChanged,
   isMessageResponse,
   isNotificationResponse,
   isPresenceNotice,
   isReadReceipt,
   isTypingNotice,
+  type ConversationChangedNotice,
   type PresenceNotice,
   type ReadReceiptNotice,
   type TypingNotice,
@@ -78,6 +80,8 @@ export interface RealtimeEventMap {
   receipt: ReadReceiptNotice;
   typing: TypingNotice;
   presence: PresenceNotice;
+  /** Stage R4: the card or deck core a conversation is about was pinned (again). */
+  conversation: ConversationChangedNotice;
   /** New in-app notifications of the caller (Phase 6 notification centre). */
   notification: NotificationResponse;
   /** After each successful (re)connection: re-read over REST what may have been missed. */
@@ -113,7 +117,8 @@ function parseJson(body: string): unknown {
  * - {@link follow} connects for a signed-in collector with a ready account and disconnects on
  *   sign-out or when another account signs in.
  * - Subscribes to the caller's own queues only
- *   (`/user/queue/messages|receipts|typing|presence|notifications`) and sends nothing but
+ *   (`/user/queue/messages|receipts|typing|presence|conversations|notifications`) and sends
+ *   nothing but
  *   `/app/typing`.
  * - Reconnects with exponential backoff (1 s → 30 s, jitter), and right away when the network
  *   comes back ({@link reconnectNow}). A connection that fails before STOMP CONNECTED may be a
@@ -332,6 +337,12 @@ export class RealtimeClient {
       const body = parseJson(frame.body);
       if (isPresenceNotice(body)) {
         this.emit('presence', body);
+      }
+    });
+    connection.subscribe(REALTIME_DESTINATIONS.conversations, (frame) => {
+      const body = parseJson(frame.body);
+      if (isConversationChanged(body)) {
+        this.emit('conversation', body);
       }
     });
     connection.subscribe(REALTIME_DESTINATIONS.notifications, (frame) => {

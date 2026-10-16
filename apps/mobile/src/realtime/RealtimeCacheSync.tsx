@@ -23,8 +23,9 @@ import { useRealtimeEvent } from './RealtimeProvider';
 /**
  * Applies realtime pushes to the react-query caches (the web's stores subscribing to
  * `RealtimeService`): messages into their thread and the inbox, read receipts ("Seen", unread
- * counts), presence dots, notifications (badge once per push, feeds, the ratings and reports
- * they announce), and after every (re)connection a quiet
+ * counts), presence dots, pins of a chat's card (the conversation is read again), notifications
+ * (badge once per push, feeds, the ratings and reports they announce), and after every
+ * (re)connection a quiet
  * re-read of what may have been missed. Renders nothing.
  */
 export function RealtimeCacheSync() {
@@ -75,6 +76,15 @@ export function RealtimeCacheSync() {
     }
   });
 
+  useRealtimeEvent('conversation', (notice) => {
+    // A card or deck core was pinned (stage R4, review fix 1): the pinned bar, Mark as sold and
+    // the inbox thumbnail come from the server again.
+    void queryClient.invalidateQueries({
+      queryKey: meKeys.conversation(uid, notice.conversationId),
+    });
+    void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
+  });
+
   useRealtimeEvent('notification', (notification) => {
     if (!applyPushedNotification(queryClient, uid, notification, seen.current)) {
       return;
@@ -92,6 +102,7 @@ export function RealtimeCacheSync() {
     // Pushes sent while the socket was down are lost: re-read what screens show (only the
     // queries on screen refetch now; the others when they are next used).
     void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
+    void queryClient.invalidateQueries({ queryKey: [...meKeys.conversations(uid), 'one'] });
     void queryClient.invalidateQueries({ queryKey: meKeys.allMessages(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.notificationCentre(uid) });
     void queryClient.invalidateQueries({ queryKey: meKeys.wishlist(uid) });

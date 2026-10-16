@@ -164,6 +164,8 @@ export const MARK_SOLD_COPY = {
   nothingLeft: 'Nothing left to sell: this card is no longer in your inventory.',
   undoClosed: 'This sale can no longer be undone.',
   undoRated: 'This sale was already rated, so it stays.',
+  subjectChanged: (other: string) =>
+    `${other} opened another of your listings. Check the card above, then mark it sold.`,
 } as const;
 
 /** The sale message both collectors read, worded for each side. */

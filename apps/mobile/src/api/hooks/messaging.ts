@@ -48,6 +48,22 @@ export { MESSAGE_MAX_LENGTH } from '@/src/features/messages/messageText';
 
 type Uid = string | null;
 
+/**
+ * The fields of a conversation a new message changes (the last message, archived, unread), taken
+ * from the inbox's updated copy; everything else (the subject first) stays the conversation's own.
+ */
+export function withMessageFields(
+  current: ConversationSummary,
+  updated: ConversationSummary
+): ConversationSummary {
+  return {
+    ...current,
+    lastMessage: updated.lastMessage,
+    archived: updated.archived,
+    unreadCount: updated.unreadCount,
+  };
+}
+
 /** Keeps the inbox and the conversation's own cache entry in step. */
 function patchEverywhere(
   queryClient: QueryClient,
@@ -93,9 +109,21 @@ export function applyMessageToCaches(
     queryClient.setQueryData(meKeys.conversationList(uid), result.data);
     const updated = findConversation(result.data, message.conversationId);
     if (updated) {
-      queryClient.setQueryData(meKeys.conversation(uid, updated.id), updated);
+      // Only what a message changes: the inbox's copy of the subject may be older than the
+      // conversation's own (review fix 1, F1: the pinned bar went back to an earlier card).
+      queryClient.setQueryData<ConversationSummary>(
+        meKeys.conversation(uid, updated.id),
+        (current) => (current ? withMessageFields(current, updated) : current)
+      );
     }
   } else {
+    void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
+  }
+  if (message.payload?.item) {
+    // A card shared by its owner becomes what the chat is about.
+    void queryClient.invalidateQueries({
+      queryKey: meKeys.conversation(uid, message.conversationId),
+    });
     void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
   }
 }
@@ -173,6 +201,9 @@ export function useConversation(id: string | null | undefined) {
         : undefined,
     // The inbox's copy is shown at once and the conversation read again behind it.
     initialDataUpdatedAt: 0,
+    // Read again whenever the chat opens or the app comes back (review fix 1, F1): what it is
+    // about may have changed while it was closed; pins pushed while it is open invalidate it.
+    staleTime: 0,
     enabled: !!id && authenticated,
   });
 }

@@ -28,12 +28,22 @@ export interface PresenceNotice {
   status: 'ONLINE' | 'OFFLINE' | 'HIDDEN';
 }
 
+/**
+ * `/user/queue/conversations` (stage R4): the card or deck core `conversationId` is about was
+ * pinned (again) by one of its two collectors; the conversation is read again.
+ */
+export interface ConversationChangedNotice {
+  conversationId: string;
+}
+
 /** STOMP destinations of the Phase 5 / Phase 6 realtime contract. */
 export const REALTIME_DESTINATIONS = {
   messages: '/user/queue/messages',
   receipts: '/user/queue/receipts',
   typing: '/user/queue/typing',
   presence: '/user/queue/presence',
+  /** Stage R4: what a conversation is about changed (`ConversationChangedNotice`). */
+  conversations: '/user/queue/conversations',
   /** Phase 6: every new in-app notification (payload = `NotificationResponse`). */
   notifications: '/user/queue/notifications',
   sendTyping: '/app/typing',
@@ -57,6 +67,10 @@ export function isTypingNotice(value: unknown): value is TypingNotice {
 
 export function isPresenceNotice(value: unknown): value is PresenceNotice {
   return hasStrings(value, ['userId', 'status']);
+}
+
+export function isConversationChanged(value: unknown): value is ConversationChangedNotice {
+  return hasStrings(value, ['conversationId']);
 }
 
 export function isMessageResponse(value: unknown): value is MessageResponse {

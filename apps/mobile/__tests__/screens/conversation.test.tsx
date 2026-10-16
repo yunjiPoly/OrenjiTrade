@@ -881,6 +881,8 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       expect(api.callsTo('POST /api/v1/conversations/{id}/sales')[0]?.body).toEqual({
         quantity: 2,
         trackingNumber: '7023 2109 8876 5432',
+        // The card the sheet shows (review fix 1, F1).
+        subjectItemId: ITEM_ID,
       })
     );
     const toast = await screen.findByTestId('snackbar');
@@ -918,6 +920,114 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     expect(await within(sheet).findByTestId('mark-sold-error')).toHaveTextContent(
       'Nothing left to sell: this card is no longer in your inventory.'
     );
+  });
+
+  it('names the card it shows; a listing the buyer pinned meanwhile is refused and read again (F1)', async () => {
+    const mine = subjectFixture({ ownerId: SELF_ID, copies: 3, askingPriceText: '85% TCG' });
+    const core = deckCoreSubjectFixture({
+      ownerId: SELF_ID,
+      name: 'Lantern core',
+      askingPriceText: '$150',
+    });
+    let current = mine;
+    const api = mockApi(
+      chatRoutes(null, {
+        'GET /api/v1/conversations/{id}': () =>
+          ok(conversationFixture({ other: OTHER, subject: current })),
+        'POST /api/v1/conversations/{id}/sales': problem(
+          409,
+          'SUBJECT_CHANGED',
+          'What this chat is about changed: check it before you mark it sold'
+        ),
+      })
+    );
+    render();
+    const bar = await screen.findByTestId('pinned-bar');
+    expect(within(bar).getByTestId('pinned-name')).toHaveTextContent('Emberfang Fox VMAX');
+    fireEvent.press(within(bar).getByTestId('pinned-mark-sold'));
+    const sheet = await screen.findByTestId('mark-sold-sheet');
+    expect(within(sheet).getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 3 copies');
+
+    // The buyer opens the seller's deck core from its page while the sheet is open.
+    current = core;
+    const reads = api.callsTo('GET /api/v1/conversations/{id}').length;
+    fireEvent.press(within(sheet).getByTestId('mark-sold-confirm'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/sales')[0]?.body).toEqual({
+        quantity: 1,
+        subjectItemId: ITEM_ID,
+      })
+    );
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'collector2 opened another of your listings. Check the card above, then mark it sold.'
+    );
+    await waitFor(() => expect(screen.queryByTestId('mark-sold-sheet')).toBeNull());
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/conversations/{id}').length).toBeGreaterThan(reads)
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('pinned-name')).toHaveTextContent('Lantern core')
+    );
+
+    // Opened again, the sheet shows the deck core and names it.
+    fireEvent.press(screen.getByTestId('pinned-mark-sold'));
+    const again = await screen.findByTestId('mark-sold-sheet');
+    expect(within(again).getByTestId('mark-sold-line')).toHaveTextContent(/^Deck core$/);
+    fireEvent.press(within(again).getByTestId('mark-sold-confirm'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/sales')[1]?.body).toEqual({
+        quantity: 1,
+        subjectBinderId: BINDER_ID,
+      })
+    );
+  });
+
+  it('the pinned bar follows a pin the other collector made without writing (F1)', async () => {
+    jest.useFakeTimers();
+    try {
+      const rt = fakeRealtime();
+      let current = subjectFixture({ ownerId: SELF_ID, copies: 3 });
+      const api = mockApi(
+        chatRoutes(null, {
+          'GET /api/v1/conversations/{id}': () =>
+            ok(conversationFixture({ other: OTHER, subject: current })),
+        })
+      );
+      render(rt);
+      expect(await screen.findByTestId('pinned-name')).toHaveTextContent('Emberfang Fox VMAX');
+      await waitFor(() => expect(rt.client.state).toBe('connected'));
+      // The re-read after connecting is over before the buyer pins anything.
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(500);
+      });
+      const reads = api.callsTo('GET /api/v1/conversations/{id}').length;
+
+      current = deckCoreSubjectFixture({ ownerId: SELF_ID, name: 'Lantern core' });
+      act(() =>
+        rt.current().push('/user/queue/conversations', { conversationId: CONVERSATION_ID })
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('pinned-name')).toHaveTextContent('Lantern core')
+      );
+      expect(api.callsTo('GET /api/v1/conversations/{id}').length).toBe(reads + 1);
+      // A message pushed afterwards keeps the conversation's own subject, never the inbox's
+      // older copy.
+      act(() =>
+        rt.current().push(
+          '/user/queue/messages',
+          messageFixture({
+            id: 'pushed-1',
+            senderId: OTHER_ID,
+            body: 'Is it still available?',
+            createdAt: '2026-10-05T12:30:00Z',
+          })
+        )
+      );
+      expect(await screen.findByText('Is it still available?')).toBeOnTheScreen();
+      expect(screen.getByTestId('pinned-name')).toHaveTextContent('Lantern core');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('the sale message reads for each side, with the tracking number and Rate', async () => {

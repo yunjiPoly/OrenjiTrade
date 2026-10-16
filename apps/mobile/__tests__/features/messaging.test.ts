@@ -1,7 +1,14 @@
-import type { InfiniteData } from '@tanstack/react-query';
+import { QueryClient, type InfiniteData } from '@tanstack/react-query';
 
 import { ApiError } from '@/src/api/ApiError';
-import type { ConversationPage, MessagePage, MessageResponse } from '@/src/api/types';
+import { applyMessageToCaches, withMessageFields } from '@/src/api/hooks/messaging';
+import { meKeys } from '@/src/api/queryKeys';
+import type {
+  ConversationPage,
+  ConversationSummary,
+  MessagePage,
+  MessageResponse,
+} from '@/src/api/types';
 import {
   applyMessageToInbox,
   applyOwnReceipt,
@@ -52,7 +59,9 @@ import {
   SELF_ID,
   binderFixture,
   conversationFixture,
+  deckCoreSubjectFixture,
   messageFixture,
+  subjectFixture,
 } from '../support/fixtures';
 
 const OTHER = '00000000-0000-4000-8000-0000000000b1';
@@ -425,6 +434,44 @@ describe('conversation cache', () => {
         .onlineStatus
     ).toBe('ONLINE');
     expect(patchConversation(undefined, 'a', {})).toBeUndefined();
+  });
+
+  it('a message keeps the conversation’s own subject, never the inbox’s older copy (F1)', () => {
+    const queryClient = new QueryClient();
+    const uid = 'uid-seller';
+    const card = subjectFixture({ ownerId: SELF_ID, copies: 3 });
+    const core = deckCoreSubjectFixture({ ownerId: SELF_ID, name: 'Lantern core' });
+    // The inbox was read while the chat was about the card; the conversation since (a pin).
+    queryClient.setQueryData(meKeys.conversationList(uid), inbox([{ ...a, subject: card }]));
+    queryClient.setQueryData(meKeys.conversation(uid, 'a'), { ...a, subject: core });
+    const pushed = messageFixture({
+      id: 'pushed',
+      conversationId: 'a',
+      senderId: OTHER,
+      createdAt: '2026-10-05T00:00:00Z',
+    });
+    applyMessageToCaches(queryClient, uid, SELF_ID, pushed);
+    const conversation = queryClient.getQueryData<ConversationSummary>(
+      meKeys.conversation(uid, 'a')
+    );
+    expect(conversation?.subject?.name).toBe('Lantern core');
+    expect(conversation?.lastMessage?.id).toBe('pushed');
+    expect(conversation?.unreadCount).toBe(1);
+    expect(withMessageFields({ ...a, subject: core }, { ...a, subject: card }).subject).toBe(core);
+
+    // A card shared by its owner pins it: the conversation and the inbox are read again.
+    const shared = messageFixture({
+      id: 'shared',
+      conversationId: 'a',
+      senderId: OTHER,
+      kind: 'CARD_LINK',
+      createdAt: '2026-10-05T00:01:00Z',
+      payload: { item: { itemId: 'item-x', ownerId: OTHER } },
+    } as Parameters<typeof messageFixture>[0]);
+    applyMessageToCaches(queryClient, uid, SELF_ID, shared);
+    expect(queryClient.getQueryState(meKeys.conversation(uid, 'a'))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(meKeys.conversationList(uid))?.isInvalidated).toBe(true);
+    queryClient.clear();
   });
 
   it('puts messages into the newest page and marks own messages seen', () => {
