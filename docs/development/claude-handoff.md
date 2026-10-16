@@ -150,7 +150,9 @@ native flow 1 of the redesign; R3 added `deck-core.yaml`, native flow 2; R4 adde
 `deal-deck-core-chat.yaml` and `deal-mark-sold.yaml`, native flows 3 and 4; R5 replaced
 `holders-filters.yaml` with `search-who-has-this-card.yaml`, native flow 3 in full, and extended
 `deck-core.yaml`, native flow 2 in full), about 55 minutes) on
-the owner's simulator (section 4). While the web is paused its checks are regression checks: a web failure is
+the owner's simulator (section 4). Since Xcode 27.1 (on this Mac since 2026-10-16) iOS's
+accessibility tree no longer lists the texts inside an accessible view apart: a flow matches such a
+view (a banner, a form message) by its whole name, as `legal-french.yaml` now does. While the web is paused its checks are regression checks: a web failure is
 recorded, not fixed.
 
 **What still needs an Android emulator** (none on this Mac): the Android half of every change to
