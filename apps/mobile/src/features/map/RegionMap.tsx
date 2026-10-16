@@ -194,8 +194,10 @@ export function RegionMap({
     [base, outline, homeShape]
   );
 
-  // The view starts over on another region or another frame (a rotation, a resized window).
-  const key = size ? `${region}|${size.width}x${size.height}` : '';
+  // The view starts over on another region or another frame (a rotation, a resized window), and
+  // once the collector's province is known: a declared location that arrives after the map was
+  // drawn still opens it on the province, as when it was known first.
+  const key = size ? `${region}|${size.width}x${size.height}|${homeShape?.code ?? ''}` : '';
   const [stored, setStored] = useState<MapView | null>(null);
   const view: MapView | null =
     base && start

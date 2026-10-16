@@ -8,6 +8,7 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   ONTARIO,
   binderCountsFixture,
+  locationFixture,
   cardPage,
   cardSummaryFixture,
   collectorByNameFixture,
@@ -16,7 +17,7 @@ import {
   searchBinderFixture,
   wishFixture,
 } from '../support/fixtures';
-import { mockApi, ok, problem } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -174,6 +175,44 @@ describe('Search: the map (screen 11)', () => {
     } finally {
       textSize(window.fontScale);
     }
+  });
+
+  it("opens on the collector's province also when their location arrives after the map", async () => {
+    const counts = { 'GET /api/v1/regions/{region}/binder-counts': ok(binderCountsFixture()) };
+    // The window of the drawing (react-native-svg passes the viewBox on as minX, minY, vbWidth
+    // and vbHeight).
+    const viewBox = () => {
+      const { minX, minY, vbWidth, vbHeight } = screen.getByTestId('map-drawing').props;
+      return [minX, minY, vbWidth, vbHeight].join(' ');
+    };
+    // The location known first: the map opens on Quebec.
+    mockApi(signedInRoutes(counts));
+    const first = render();
+    await layOutMap();
+    await screen.findByTestId('map-shape-CA-QC');
+    await screen.findByTestId('search-state-card');
+    const onQuebec = viewBox();
+    first.unmount();
+    // The location answered after the map was drawn on the whole region.
+    let answer: (value: MockAnswer) => void = () => undefined;
+    mockApi(
+      signedInRoutes({
+        ...counts,
+        'GET /api/v1/me/location': () =>
+          new Promise<MockAnswer>((resolve) => {
+            answer = resolve;
+          }),
+      })
+    );
+    render();
+    await layOutMap();
+    await screen.findByTestId('map-shape-CA-QC');
+    expect(viewBox()).not.toBe(onQuebec);
+    await act(async () => {
+      answer(ok(locationFixture()));
+    });
+    await screen.findByTestId('search-state-card');
+    await waitFor(() => expect(viewBox()).toBe(onQuebec));
   });
 
   it('a state without binders says so, has no See binders, and the card closes', async () => {
