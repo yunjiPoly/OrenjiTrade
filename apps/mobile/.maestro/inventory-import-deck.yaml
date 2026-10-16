@@ -177,11 +177,11 @@ tags:
       EXPECT_ITEMS: 'YDKF-EN001:NEAR_MINT:2:PRIVATE,YDKF-EN002:NEAR_MINT:2:PRIVATE,YDKR-EN002:NEAR_MINT:1:PRIVATE'
       EXPECT_IMPORT_STATUS: 'COMMITTED'
 
-# The way to the inventory: the cards, private.
+# The way to the inventory: the cards, private (each row's tag says so).
 - tapOn:
     id: 'import-result-inventory'
 - extendedWaitUntil:
-    visible: 'Fixture Lantern Wisp, YDKF-EN001, 2 copies'
+    visible: 'Fixture Lantern Wisp, YDKF-EN001, Private, 2 copies'
     timeout: 60000
 - assertVisible: '3 cards · 5 copies · 0 public'
 - takeScreenshot: import-deck-inventory

@@ -44,14 +44,16 @@ async function items(request: APIRequestContext, token: string): Promise<Item[]>
 
 /**
  * Stage R2 of the phone redesign (owner spec 2026-10-14, section 6, mockup screens 1 to 9) against
- * the real stack: a fresh collector adds a card with a text price and a photo (Add cards → typing →
- * Choose the printing → Add to inventory), sees "Saved", edits it (a save confirms it), deletes it
- * and undoes the delete; then the filter sheet narrows and sorts the list.
+ * the real stack: a fresh collector adds a card with a price in "% TCG" and a photo (Add cards →
+ * typing → Choose the printing → Add to inventory), sees "Saved" and the row's Public tag, edits
+ * it (the price switched to "$"; a save confirms it), deletes it and undoes the delete; then the
+ * filter sheet narrows and sorts the list. The price switch and the tag are the owner's change of
+ * 2026-10-16 (mockup v43).
  */
 test.describe('mobile inventory (stage R2)', () => {
   requireStack();
 
-  test('add a card with a text price and a photo, see Saved, edit it, delete it and undo', async ({
+  test('add a card with a price and a photo, see Saved, edit it, delete it and undo', async ({
     page,
     request,
   }) => {
@@ -101,7 +103,14 @@ test.describe('mobile inventory (stage R2)', () => {
     await expect(add.getByText('Condition')).toHaveCount(0);
     await expect(add.getByText('Accepts offers')).toHaveCount(0);
     await add.getByRole('button', { name: 'One more' }).click();
-    await add.getByLabel('Asking price').fill('85% TCG');
+    // The price: "$" the first time; "% TCG" takes a whole number.
+    await expect(add.getByRole('radio', { name: 'Dollars' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await add.getByRole('radio', { name: 'Percent of the TCGplayer price' }).click();
+    await expect(add.getByText('Percent of the TCGplayer market price.')).toBeVisible();
+    await add.getByLabel('Asking price').fill('85');
     await add.getByRole('radio', { name: 'Public' }).click();
     await expect(add.getByText('Collectors in Americas (North) can find it.')).toBeVisible();
     await add.getByLabel('Public note').fill('NM, English, 1st, for trade');
@@ -135,13 +144,16 @@ test.describe('mobile inventory (stage R2)', () => {
     });
     expect(created?.images).toHaveLength(1);
 
-    // Screen 8: the row shows only the picture, name, code, price and copies.
+    // Screen 8: the row shows only the picture, name, code, who can see it, price and copies.
     const list = screen(page, 'inventory');
-    const row = list.getByRole('button', { name: /^Tidal Otterling, SVX-025, 85% TCG, 2 copies$/ });
+    const row = list.getByRole('button', {
+      name: /^Tidal Otterling, SVX-025, Public, 85% TCG, 2 copies$/,
+    });
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText('85% TCG');
     await expect(row).toContainText('×2');
-    await expect(row).not.toContainText(/Trade|Offers|Public|Near Mint/);
+    await expect(row.getByTestId(/-visibility$/)).toContainText('Public');
+    await expect(row).not.toContainText(/Trade|Offers|Near Mint|not visible/);
     await expect(list.getByTestId('inventory-summary-totals')).toHaveText(
       '1 card · 2 copies · 1 public'
     );
@@ -152,7 +164,10 @@ test.describe('mobile inventory (stage R2)', () => {
     await expect(edit.getByTestId('card-header-name')).toHaveText('Tidal Otterling', {
       timeout: 30_000,
     });
-    await expect(edit.getByLabel('Asking price')).toHaveValue('85% TCG');
+    await expect(edit.getByLabel('Asking price')).toHaveValue('85');
+    await expect(
+      edit.getByRole('radio', { name: 'Percent of the TCGplayer price' })
+    ).toHaveAttribute('aria-checked', 'true');
     await expect(edit.getByTestId('card-photos-count')).toHaveText('1 / 4');
     const save = edit.getByTestId('edit-item-save');
     await expect(save).toHaveText('No changes yet');
@@ -162,7 +177,10 @@ test.describe('mobile inventory (stage R2)', () => {
       (response) =>
         response.request().method() === 'PATCH' && response.url().includes('/inventory/items/')
     );
-    await edit.getByLabel('Asking price').fill('$12.50');
+    // "$" clears the number (85% is not $85), then 12.50.
+    await edit.getByRole('radio', { name: 'Dollars' }).click();
+    await expect(edit.getByLabel('Asking price')).toHaveValue('');
+    await edit.getByLabel('Asking price').fill('12.50');
     await expect(save).toHaveText('Save changes');
     await save.click();
     const patched = await patch;
@@ -174,7 +192,7 @@ test.describe('mobile inventory (stage R2)', () => {
 
     // Delete, asked in a sheet (Keep it first), then undone from the toast (screen 9).
     await screen(page, 'inventory')
-      .getByRole('button', { name: /^Tidal Otterling, SVX-025, \$12\.50/ })
+      .getByRole('button', { name: /^Tidal Otterling, SVX-025, Public, \$12\.50, 2 copies$/ })
       .click();
     const again = screen(page, 'edit-item');
     await again.getByRole('button', { name: 'Delete this card' }).click();
@@ -243,7 +261,8 @@ test.describe('mobile inventory (stage R2)', () => {
     await expect(add.getByTestId('card-header-name')).toHaveText('Azure-Eyes Sky Dragon', {
       timeout: 30_000,
     });
-    await add.getByLabel('Asking price').fill('12,50 $');
+    // The comma is a decimal point: saved as "$12.50".
+    await add.getByLabel('Asking price').fill('12,50');
     await add.getByRole('button', { name: 'Add to inventory' }).click();
     await expect(snackbar(page)).toContainText('Azure-Eyes Sky Dragon', { timeout: 30_000 });
     // Back on the card page.
@@ -266,7 +285,7 @@ test.describe('mobile inventory (stage R2)', () => {
     await sheet.getByRole('button', { name: 'Show 3 cards' }).click();
     const rows = inventory.getByRole('button', { name: /, (AZR|PFT)-/ });
     await expect(rows.first()).toHaveAccessibleName(/, \$20, 1 copy$/, { timeout: 30_000 });
-    await expect(rows.nth(1)).toHaveAccessibleName(/12,50 \$/);
+    await expect(rows.nth(1)).toHaveAccessibleName(/, \$12\.50, 1 copy$/);
     await expect(rows.nth(2)).toHaveAccessibleName(/90% TCG/);
 
     // Game: Yu-Gi-Oh! only; the count is known before the list changes.
