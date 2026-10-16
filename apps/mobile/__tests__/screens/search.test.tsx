@@ -501,7 +501,7 @@ describe('Search › Binders (screen 14)', () => {
         'GET /api/v1/regions/{region}/binders': ok(placeBindersPage([])),
       })
     );
-    mockParams.current = { segment: 'binders', state: 'CA-ON' };
+    mockParams.current = { segment: 'binders', place: 'CA-ON' };
     render();
     expect(await screen.findByTestId('binders-empty')).toHaveTextContent(
       'No public binders here yet.'

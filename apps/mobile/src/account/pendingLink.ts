@@ -35,7 +35,7 @@ const NOT_RESUMED = new Set([
  */
 const HOME_LINK_PARAMS: Readonly<Record<string, readonly string[]>> = {
   '/': ['region', 'subdivision'],
-  '/search': ['region', 'subdivision', 'segment', 'tab', 'q', 'game', 'typing', 'state'],
+  '/search': ['region', 'subdivision', 'segment', 'tab', 'q', 'game', 'typing', 'place'],
 };
 
 /**

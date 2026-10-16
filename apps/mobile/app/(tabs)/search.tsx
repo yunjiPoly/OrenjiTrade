@@ -36,8 +36,12 @@ type SearchParams = {
   region?: string;
   /** A state or province to show on the map (the old Map tab's links). */
   subdivision?: string;
-  /** The state or province of the Binders segment. */
-  state?: string;
+  /**
+   * The state or province of the Binders segment. Not `state`: React Navigation reads a `state`
+   * parameter as a navigator's own state, and a link from a screen of the root stack hands its
+   * parameters to the tabs too (the tabs crashed, stage R5 review P1).
+   */
+  place?: string;
 };
 
 /** The state a link names, on the region it names (or the browsed one), once per link. */
@@ -65,7 +69,7 @@ const LINK_KEYS: readonly (keyof SearchParams)[] = [
   'typing',
   'region',
   'subdivision',
-  'state',
+  'place',
 ];
 
 /**
@@ -78,7 +82,7 @@ const LINK_KEYS: readonly (keyof SearchParams)[] = [
  *
  * Links: `?segment=cards|binders|wishlist` (and the old `?tab=`), `?q=` and `?typing=1` (the card
  * search), `?region=` and `?subdivision=` (the old Map tab: the region browsed, the state shown),
- * `?segment=binders&state=` (the old public binders of a state). A link is used up once followed:
+ * `?segment=binders&place=` (the old public binders of a state). A link is used up once followed:
  * its parameters are cleared, so the same link opens the same place every time it is tapped.
  */
 export default function SearchScreen() {
@@ -93,7 +97,7 @@ export default function SearchScreen() {
   const [typing, setTyping] = useState<{ text: string; game: string | null } | null>(() =>
     params.q || params.typing === '1' ? { text: params.q ?? '', game: params.game || null } : null
   );
-  const [state, setState] = useState<string | null>(() => placeCodeFrom(params.state));
+  const [state, setState] = useState<string | null>(() => placeCodeFrom(params.place));
   // The state a link names, on the region it names (applied once per link: `nonce`).
   const [linkCount, setLinkCount] = useState(0);
   const [linkedPlace, setLinkedPlace] = useState<LinkedPlace | null>(() =>
@@ -116,8 +120,8 @@ export default function SearchScreen() {
           setTyping(null);
         }
       }
-      if (params.state !== undefined) {
-        setState(placeCodeFrom(params.state));
+      if (params.place !== undefined) {
+        setState(placeCodeFrom(params.place));
       }
       const place = linkedPlaceOf(params, linkCount + 1);
       setLinkCount(linkCount + 1);

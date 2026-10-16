@@ -35,7 +35,10 @@ export function wishlistLinkTarget(): SearchHref {
   return { pathname: '/search', params: { segment: 'wishlist' } };
 }
 
-/** The old public binders of a state (`/regions/<region>/<code>`): Binders, on that state. */
+/**
+ * The old public binders of a state (`/regions/<region>/<code>`): Binders, on that state. The state
+ * goes as `place`: no link parameter of the app may take a name React Navigation keeps for itself.
+ */
 export function placeBindersTarget(params: { region?: unknown; code?: unknown }): SearchHref {
   const out: Record<string, string> = { segment: 'binders' };
   if (typeof params.region === 'string' && isRegionCode(params.region)) {
@@ -43,7 +46,7 @@ export function placeBindersTarget(params: { region?: unknown; code?: unknown })
   }
   const code = placeCodeFrom(typeof params.code === 'string' ? params.code : null);
   if (code) {
-    out.state = code;
+    out.place = code;
   }
   return { pathname: '/search', params: out };
 }

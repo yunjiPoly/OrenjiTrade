@@ -2,6 +2,11 @@ import { screen, waitFor } from '@testing-library/react-native';
 
 import HoldersRedirect from '@/app/holders';
 import PlaceBindersRedirect from '@/app/regions/[region]/[code]';
+import {
+  mapLinkTarget,
+  placeBindersTarget,
+  wishlistLinkTarget,
+} from '@/src/features/search/searchLinks';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { CARD_ID, PRINTING_A } from '../support/fixtures';
@@ -19,7 +24,25 @@ beforeEach(() => {
 
 const port = () => new FakeAuthPort(testUser());
 
+/**
+ * Parameter names React Navigation reads as its own on any route (`state` is a navigator's state,
+ * `screen` / `params` / `initial` a nested navigation, `path` the link). expo-router hands a link's
+ * parameters to every navigator on its way: `/search?state=` crashed the tabs (stage R5 review P1).
+ */
+const RESERVED = ['state', 'screen', 'params', 'initial', 'path'];
+
 describe('the screens of before stage R5 send their links on', () => {
+  it('never names a link parameter like one of React Navigation', () => {
+    const targets = [
+      mapLinkTarget({ region: 'americas-north', subdivision: 'CA-QC' }),
+      wishlistLinkTarget(),
+      placeBindersTarget({ region: 'americas-north', code: 'CA-QC' }),
+    ];
+    for (const target of targets) {
+      expect(Object.keys(target.params).filter((key) => RESERVED.includes(key))).toEqual([]);
+    }
+  });
+
   it('the public binders of a state open Search › Binders on that state', async () => {
     mockApi(signedInRoutes());
     mockParams.current = { region: 'americas-south', code: 'uy-mo' };
@@ -27,7 +50,7 @@ describe('the screens of before stage R5 send their links on', () => {
     await waitFor(() =>
       expect(mockRouter.replace).toHaveBeenCalledWith({
         pathname: '/search',
-        params: { segment: 'binders', region: 'americas-south', state: 'UY-MO' },
+        params: { segment: 'binders', region: 'americas-south', place: 'UY-MO' },
       })
     );
   });

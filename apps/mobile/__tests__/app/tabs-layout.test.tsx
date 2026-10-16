@@ -1,4 +1,4 @@
-import { Slot } from 'expo-router';
+import { Slot, Stack } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import TabLayout from '@/app/(tabs)/_layout';
@@ -8,6 +8,7 @@ import MessagesScreen from '@/app/(tabs)/messages';
 import ProfileScreen from '@/app/(tabs)/profile';
 import SearchScreen from '@/app/(tabs)/search';
 import WishlistRedirect from '@/app/(tabs)/wishlist';
+import PlaceBindersRedirect from '@/app/regions/[region]/[code]';
 import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -20,6 +21,15 @@ function TestRootLayout() {
   return (
     <TestProviders port={new FakeAuthPort(testUser())}>
       <Slot />
+    </TestProviders>
+  );
+}
+
+/** The root of the app: a stack over the tabs, as `RootNavigator` draws it. */
+function TestRootStack() {
+  return (
+    <TestProviders port={new FakeAuthPort(testUser())}>
+      <Stack />
     </TestProviders>
   );
 }
@@ -69,6 +79,22 @@ describe('(tabs) layout', () => {
     expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
     expect(await screen.findByTestId('search-wishlist')).toBeOnTheScreen();
     expect(screen.getByRole('tab', { name: /^Wishlist/ })).toBeSelected();
+  });
+
+  it('sends the old binders of a state, a screen of the root stack, to Search › Binders on that state', async () => {
+    // A link of the root stack into a tab went through every navigator with its parameters: one
+    // named like a navigator's own (`state`) crashed the tabs (stage R5 review, P1).
+    renderRouter(
+      {
+        ...routes,
+        _layout: TestRootStack,
+        'regions/[region]/[code]': PlaceBindersRedirect,
+      },
+      { initialUrl: '/regions/americas-north/CA-QC' }
+    );
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('binders-state-chip')).toHaveTextContent(/Quebec/);
+    expect(screen.getByTestId('search-segment-binders')).toBeSelected();
   });
 
   it('shows the notification bell and the unread chats on the Messages tab', async () => {
