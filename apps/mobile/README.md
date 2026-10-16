@@ -1,10 +1,11 @@
 # OrenjiTrade mobile (`apps/mobile`)
 
-React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Six tabs today,
-as decided in `CLAUDE.md`: **Map | Inventory | Search | Messages | Wishlist | Profile**. The phone
-redesign the owner approved on 2026-10-14 (stages R1 to R8,
-`docs/product/specs/2026-10-14-phone-redesign.md`) changes them to five (Home, Search, Inventory,
-Messages, Profile) and takes offers, trades, payment protection and disputes off the phone. **Stage
+React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Four tabs since
+stage R5, as decided in `CLAUDE.md`: **Search | Inventory | Messages | Profile** (the Map tab is
+Search's default view, the Wishlist tab its Wishlist segment). The phone redesign the owner
+approved on 2026-10-14 (stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`) adds
+Home as the first of five with stage R7, and took offers, trades, payment protection and disputes
+off the phone. **Stage
 R1 is built** ("Offers out, shipping wording, look"; ADR 0018 "Deals happen in the chat"): the
 offer, trade, protected-payment, payout and dispute screens are gone (the API keeps them for the
 paused web), every chat opens with a shipping safety tip, ratings no longer ask about meetups, the
@@ -31,8 +32,18 @@ as typed and the public note, "Key cards · optional" or "Cards inside" with car
 inventory, "Save changes" disabled until a change, "Delete binder" asked in a sheet); the deck core
 page (photo pager, tag, game, name and price, the seller row, the note, key card chips, "Message
 {handle}"); the plain public binder restyled. A public deck core shows every card in it as a key
-card; the cards keep the visibility their collector gave them (none is made public to join a core). Stages R4 to R8 are not built: the rest of this
-README describes the app as it is (six tabs until R5).
+card; the cards keep the visibility their collector gave them (none is made public to join a core).
+**Stage R4 is built** ("Messages and Mark as sold", contract `docs/api/contracts/r4-messages-sales.md`).
+**Stage R5 is built** ("Search", mockup screens 11 to 15, contract `docs/api/contracts/r5-search.md`):
+Search opens on the region map (the region pill, "My province", zoom, the legend; the card of a
+state with "{n} binders · {n} deck cores" and "See binders"), the field opens the card search
+(game chips, the typed part highlighted, "Collectors" by handle or name, the recent searches of
+this phone), a card opens Who has this card (the one card page: "Check TCGplayer price", "Any
+printing ▾", "Also in a deck core", the holders grouped by province with Message pinning the
+card), Search › Binders (binders and deck cores of the region or of a state) and Search › Wishlist
+(the alert switch, "Add a wish", "Available" or "None yet"); Settings › Privacy › "Remember my
+searches". Stages R6 to R8 are not built: the rest of this README describes the app as it is (the
+route list below is R5's; some older prose still names the Map and Wishlist tabs of before).
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
@@ -256,18 +267,25 @@ app/                       expo-router routes
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
   onboarding.tsx           (age, for an account that never confirmed being 18+) -> profile ->
                            interests -> "Where are you?" (+ map opt-in, off by default)
-  (tabs)/                  Map | Inventory | Search | Messages | Wishlist | Profile
+  (tabs)/                  Search | Inventory | Messages | Profile (+ hidden index and wishlist,
+                           which redirect into Search)
   settings/                profile, location, privacy, notifications, account, delete-account,
                            appearance (screens of the root stack, no nested stack)
   legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
-  (tabs)/index.tsx         the Map tab: the region map and its list of states and provinces
-                           (`/?region=&subdivision=` opens it on a region and a state; ADR 0017)
-  regions/[region]/[code]  the public binders of one state or province
+  (tabs)/search.tsx        Search (stage R5): Cards (the region map, then the card search while
+                           typing), Binders, Wishlist; `?segment=`, `?q=`, `?typing=1`, `?region=`,
+                           `?subdivision=`, `?state=`
+  (tabs)/index.tsx         the old Map tab: redirects to Search (`/?region=&subdivision=` on that
+                           region and state; ADR 0017)
+  cards/[id].tsx           Who has this card, the one card page (`?printing=<id>|any`)
+  holders.tsx              the old card holders list: redirects to the card page
+  regions/[region]/[code]  the old public binders of a state: redirects to Search › Binders
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
   community/[slug].tsx     a public channel (posts, replies, own edits)
-  (tabs)/wishlist.tsx      wishes; wishlist/new (`?cardId=&printingId=&rarity=`), edit (`?id=`)
+  (tabs)/wishlist.tsx      the old Wishlist tab: redirects to Search › Wishlist; wishlist/new
+                           (`?cardId=&printingId=&rarity=`), edit (`?id=`, with Remove)
   notifications.tsx        the notification centre (the bell in every tab header opens it)
   report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
   ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),

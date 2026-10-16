@@ -6565,47 +6565,47 @@ there were not measured on a device).
 > while a pushed pin re-reads the chat, and the quick reply row's padding that gives the chips their
 > 44 pt touch targets on iOS (no migration, no API change).
 >
-> **The owner's inventory change of 2026-10-16 is built** (mockup v43, screens 1 and 6 to 9; the
-> "Last updated" lines at the top of this file; the dated note at the end of
-> `docs/product/specs/2026-10-14-phone-redesign.md`; branch `feature/inventory-visibility-price`,
-> reviewed, fix rounds 1 and 2 done, merged with the `main` that holds R4, not pushed): the Public /
-> Private tag on every Inventory row, the asking price typed in "$" or "% TCG", Copies on its own
-> row; phone only, no migration, no API change.
+> **The owner's inventory change of 2026-10-16 is on `main`** (#77, `b92710cf`; mockup v43,
+> screens 1 and 6 to 9; the "Last updated" lines at the top of this file; the dated note at the end
+> of `docs/product/specs/2026-10-14-phone-redesign.md`): the Public / Private tag on every Inventory
+> row, the asking price typed in "$" or "% TCG", Copies on its own row; phone only, no migration, no
+> API change.
 >
-> **R5 acceptance items left by R3** (its review, U5 and U3): Who has this card passes
-> `excludeDeckCoreItems=true` **together with** the "Also in a deck core" banner (`GET
-> /search/deck-cores`), so a deck core's cards never show as separate rows; the map's state list
-> and Search › Binders show deck cores as the mockup's rows (R3 shows the tag and the photo in
-> today's rows meanwhile).
+> **Stage R5 of the phone redesign is built** ("Search", mockup screens 11 to 15; section "Phone
+> redesign R5: search (2026-10-16)" above; branch `feature/r5-search`, builder done, not pushed):
+> four tabs (Search | Inventory | Messages | Profile), Search's map with the state card, typing a
+> card with the collectors, Who has this card (the one card page, holders by province, Message
+> pinning the card, "Also in a deck core" with `excludeDeckCoreItems=true`), Search › Binders with
+> Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy ›
+> "Remember my searches"; the old routes and links redirect. API: `GET /search/collectors`,
+> `sort=province`, `available` and `GET /wishlist/availability`; two hardening items closed (blocked
+> collectors in the collectors section of search, the search text in the search analytics events).
+> No migration: the next one is still **V128** (V124 is kept for another branch). R3's and R4's R5
+> items are done (the banner with `excludeDeckCoreItems`, the deck cores as rows on the map's state
+> card and in Search › Binders, "Message" on a holder row with `subjectItemId`, native flows 2 and
+> 3 in full).
 >
-> **Exact next task: the pull request of the owner's inventory change of 2026-10-16** (branch
-> `feature/inventory-visibility-price`, merged with `main` after R4 and the handoff's full check
-> list run on the merged code; merge `main` first if it moved again, and run the list again if it
-> did), then **stage R5 of the phone redesign, "Search"** (mockup screens 11 to 15).
-> R5, on a new branch from the `main` that holds R4 and that change, as
-> [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
-> says in sections 4 and 8 (the Map and Wishlist tabs move into Search, which leaves four tabs; the
-> map with deck core counts and typing with collectors; the one card page, Who has this card with
-> Message on its rows and "Also in a deck core"; Binders with Deck cores; Wishlist with Available;
-> recent searches on the phone), 12 (wishlist availability), 13, 14 (native flows 2 and 3 in full)
-> and 15. R4 leaves for R5: "Message" on a holder row opens the chat with `subjectItemId` (the API
-> pins the card; R4 pins only from the deck core page, and native flow 3 starts there); the R5
-> acceptance items of R3 above. Its migration, if it needs one, is **V128** (V124 is kept for
-> another branch). Then R6 to R8 in order, one branch and one PR each, each with its builder, at
-> least two independent reviewers and at most two fix rounds; none of them builds a paid feature
-> (ADR 0019); "I have it" (Home and profiles) uses R4's `CARD_LINK` with `inventoryItemId`. Read
-> first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where things stand, the working
-> agreements, the check list, the simulator rules and lock); this section; the spec (the owner's
-> prompt, verbatim; sections 0 to 4, 8, 12 to 17); ADR 0017, ADR 0018 and ADR 0019; R2's, R3's and
-> R4's sections of this file; `docs/api/contracts/r3-binders-deck-cores.md` and
-> `r4-messages-sales.md`.
+> **Exact next task: the reviews of stage R5** (a functional verifier and two second lenses, privacy
+> and product / UX as a collector, as section 15 of the spec asks), at most two fix rounds, then the
+> ship step (merge `main`, the handoff's full check list, the pull request, the merge on green).
+> **Then stage R6** (profiles, mockup screens 19 to 21, and Settings behind the gear), then R7 (Home,
+> the first of five tabs, and the feed endpoint) and R8, one branch and one PR each, each with its
+> builder, at least two independent reviewers and at most two fix rounds; none of them builds a paid
+> feature (ADR 0019); "I have it" (Home and profiles) uses R4's `CARD_LINK` with `inventoryItemId`.
+> R6 moves Settings behind the gear (Settings › Privacy keeps "Remember my searches" and "Let others
+> see what you want"); R7 makes the hidden `index` route of the tabs Home (today it redirects to
+> Search) and points Home's field "Search cards or collectors" at `/search?typing=1`. Read first:
+> `CLAUDE.md`; `docs/development/claude-handoff.md`; this section; the spec (sections 0 to 4, 9, 12
+> to 17); ADR 0017, ADR 0018 and ADR 0019; R2's to R5's sections of this file;
+> `docs/api/contracts/r3-binders-deck-cores.md`, `r4-messages-sales.md` and `r5-search.md`.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
 > it", "Wanted by N" and holder counts and keeps recent searches on the phone; S4 stays skipped);
 > the Android SDK on the Mac; the hardening list (a lock timeout on inventory writes, the
-> after-commit analytics listeners, blocked collectors in the collectors section of search, the
-> search text in the search analytics events, the photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
+> after-commit analytics listeners, the photo orientation on upload, Phase 13; stage R5 closed
+> "blocked collectors in the collectors section of search" and "the search text in the search
+> analytics events"); the open launch decisions of the handoff's section 6
 > (an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
 > placeholders, OrbStack's licence, VoiceOver on a real iPhone). Proposed CLAUDE.md sentences wait
 > for the owner (the end of the delivery report).

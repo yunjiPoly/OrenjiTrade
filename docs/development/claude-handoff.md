@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-16 after stages R1, F1, R2, R3 and R4, and the owner's inventory change of 2026-10-16 merged with R4): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-16 after stages R1, F1, R2, R3 and R4, the owner's inventory change of 2026-10-16 (#77) and the builder of stage R5): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -40,9 +40,10 @@ API, the phone and the web, ADR 0019; the same usage limits for everyone; merged
 Inventory, its filter sheet, Add cards, Choose the printing, Add to inventory with photos, Edit
 card, the toasts with "View" and "Undo"; the asking price as typed, a condition not stated, the
 undo of a delete for 10 minutes; merged with F1 on 2026-10-15, then its own pull request, #74),
-**stage R3** (binders and deck cores, #75) and **stage R4** (messages and Mark as sold, #76). Merged
-PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61 #67
-#68 #69 #70 #71 #72 #73 #74 #75 #76.
+**stage R3** (binders and deck cores, #75), **stage R4** (messages and Mark as sold, #76) and the
+owner's inventory change of 2026-10-16 (the Public / Private tag and the "$" / "% TCG" price, #77).
+Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 #59 #60 #61
+#67 #68 #69 #70 #71 #72 #73 #74 #75 #76 #77.
 
 **Not on `main`:**
 
@@ -52,7 +53,7 @@ PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #57 #58 
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 | Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | merged as #75 (`2f9c5506`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done; on `main`. |
 | Stage R4 of the phone redesign (messages and Mark as sold, mockup screens 22 to 25) | merged as #76 (`f26d531f`), from branch `feature/r4-messages-mark-as-sold` | Builder done (V127, the `deals` module; IMPLEMENTATION_STATUS.md, "Phone redesign R4"): the R3 leftovers R2-1, R2-2, U10 (and U8) fixed first; the chat's subject, `GET /conversations/{id}`, sharing one's own card, `POST /conversations/{id}/sales` and `POST /sales/{id}/undo`, the SALE interaction, the buyer's notification; on the phone the inbox, the chat with its pinned bar, tips, quick replies and + sheet, Settings › Shipping details, Mark as sold with its toast and Undo; native flows 3 (as far as R4 reaches) and 4; walked on the iPhone 18 Pro in dark and light at the default and the largest text size (three large-text fixes); the full check list run (the native suite 32 / 33, the one stale flow fixed and passing alone). Reviewed (a functional verifier and a privacy lens); **review fix 1 done** (IMPLEMENTATION_STATUS.md, R4 section, "Review fix 1"): Mark as sold names the card the seller saw (409 `SUBJECT_CHANGED`) and pins are pushed on `/user/queue/conversations`; the toast's Undo stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has its test; nine minor fixes. **Review fix 2 done** ("Review fix 2"): a jest test that the open Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS (the row's padding). On `main`. |
-| The owner's inventory change dated 2026-10-16 (mockup v43, screens 1 and 6 to 9: a Public / Private tag on every Inventory row, the asking price in "$" or "% TCG", Copies on its own row; phone only, no migration, no API change) | branch `feature/inventory-visibility-price` (worktree `OrenjiTrade-s2-ux`) | Builder done, review fix rounds 1 and 2 done (IMPLEMENTATION_STATUS.md, the "Last updated" lines; the dated note at the end of the redesign spec); merged with `main` after R4 (2026-10-16) and the whole check list run again on the merged code; its pull request next. Not pushed. |
+| Stage R5 of the phone redesign (Search, mockup screens 11 to 15) | branch `feature/r5-search` (worktree `OrenjiTrade-r2`) | Builder done (no migration; IMPLEMENTATION_STATUS.md, "Phone redesign R5: search"): four tabs (Search \| Inventory \| Messages \| Profile), Search's map with the state card, typing a card with the collectors, Who has this card (holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy › "Remember my searches", the old routes and links redirected; API `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out in SQL from the collectors of search, no search text in analytics; native flows 2 and 3 in full. Not pushed; its reviews next. |
 
 **Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
 with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
@@ -67,9 +68,10 @@ verbatim). **R1 and R2 are on `main`** (#72; R2, mockup screens 1 to 9, by its o
 after it merged F1 on 2026-10-15); **R3 is on `main`** (#75, binders and deck cores,
 mockup screens 16 to 18); **R4 is on `main`** (#76, messages and Mark as sold, mockup screens
 22 to 25); the owner's inventory change of 2026-10-16 (mockup v43: the Public / Private tag, the
-price in "$" or "% TCG") is built on its branch, merged with R4, waiting for its pull request; R5
-to R8 are not built. The documents describe the phone as R1
-to R4 leave it: six tabs until R5, no offers, trades, protected payments or disputes on the phone
+price in "$" or "% TCG") is on `main` (#77); **R5 is built on its branch** (Search, mockup screens
+11 to 15), waiting for its reviews; R6 to R8 are not built. The documents describe the phone as R1
+to R5 leave it: four tabs (Search, Inventory, Messages, Profile) until R7 adds Home, no offers,
+trades, protected payments or disputes on the phone
 (ADR 0018), deals in the chat by mail with Mark as sold and its undo, nothing to buy (ADR 0019),
 the Inventory and the adding of cards, the binders and deck cores, and the Messages of the
 redesign.
@@ -115,18 +117,15 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-1. **The pull request of the owner's inventory change of 2026-10-16** (branch
-   `feature/inventory-visibility-price`, builder done, reviewed, fix rounds 1 and 2 done; merged
-   with `main` after R4, #76, and the full check list run on the merged code; IMPLEMENTATION_STATUS.md,
-   its "Last updated" lines): merge `main` first if it moved again.
-   **Then stage R5** (Search, mockup screens 11 to 15), from the `main` that holds R4 and that
-   change; R6 to R8
-   follow in order, one branch and one PR each, none of them bringing back a paid feature (ADR
-   0019). R5 must pass `excludeDeckCoreItems=true` with the "Also in a deck core" banner, and put
-   "Message" on the rows of "Who has this card" with `subjectItemId` (the API of R4 pins it).
-   Migrations: the newest is R4's V127 (R3's V126, R2's V125), and V124 is kept for another
-   branch, so R5 starts at **V128** (Flyway, without `outOfOrder`, refuses a version older than the
-   database's newest one).
+1. **The reviews of stage R5** (branch `feature/r5-search`, builder done; IMPLEMENTATION_STATUS.md,
+   "Phone redesign R5: search"): a functional verifier, a privacy lens and a product / UX lens (as
+   a collector), at most two fix rounds, then the ship step (merge `main`, the full check list
+   below, the pull request, the merge on green). **Then stage R6** (profiles, mockup screens 19 to
+   21, and Settings behind the gear), R7 (Home, the first of five tabs; it turns the hidden `index`
+   route of the tabs, which redirects to Search today, into Home) and R8, in order, one branch and
+   one PR each, none of them bringing back a paid feature (ADR 0019). Migrations: the newest is
+   R4's V127 (R5 has none), and V124 is kept for another branch, so the next is **V128** (Flyway,
+   without `outOfOrder`, refuses a version older than the database's newest one).
 2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
    (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
    `main` (IMPLEMENTATION_STATUS.md, "Phone redesign R2", "Merged with free for all
@@ -148,7 +147,9 @@ apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobil
 `apps/mobile` changed, the full Maestro set (`npm run test:mobile:maestro -- --platform ios`,
 33 flows since R4 (R2 renamed `inventory-add-edit-delete.yaml` to `inventory-add-edit-undo.yaml`,
 native flow 1 of the redesign; R3 added `deck-core.yaml`, native flow 2; R4 added
-`deal-deck-core-chat.yaml` and `deal-mark-sold.yaml`, native flows 3 and 4), about 55 minutes) on
+`deal-deck-core-chat.yaml` and `deal-mark-sold.yaml`, native flows 3 and 4; R5 replaced
+`holders-filters.yaml` with `search-who-has-this-card.yaml`, native flow 3 in full, and extended
+`deck-core.yaml`, native flow 2 in full), about 55 minutes) on
 the owner's simulator (section 4). While the web is paused its checks are regression checks: a web failure is
 recorded, not fixed.
 
