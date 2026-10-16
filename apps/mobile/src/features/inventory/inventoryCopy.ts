@@ -74,6 +74,11 @@ export const ADD_CARDS_COPY = {
   scanTitle: 'Scan with camera',
   scanBody: 'Point at a card to add it',
   comingLater: 'Coming later',
+  // The card scan's two rows (owner spec 2026-10-15, screen 26), when the scan is available.
+  scanNew: 'New',
+  scanCameraBody: 'Snap cards one after another. Yu-Gi-Oh! for now',
+  photosTitle: 'Choose from photos',
+  photosBody: 'Pick photos you already took, one card per photo',
   footer: 'New cards start private. You choose what to publish.',
   clear: 'Clear',
   cancel: 'Cancel',
