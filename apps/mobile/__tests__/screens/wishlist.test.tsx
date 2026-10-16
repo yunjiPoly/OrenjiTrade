@@ -140,7 +140,7 @@ describe('Search › Wishlist (screen 15)', () => {
     expect(await screen.findByText('Wishlist alerts are off.')).toBeOnTheScreen();
   });
 
-  it('puts the alert sentence under the bell and the switch at the largest text size', async () => {
+  it("puts the alert sentence under the bell and the switch, and a wish's status under it, at the largest text size", async () => {
     mockApi(routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()) }));
     const window = Dimensions.get('window');
     const textSize = (fontScale: number) =>
@@ -166,6 +166,9 @@ describe('Search › Wishlist (screen 15)', () => {
       expect(order()).toEqual(['wishlist-alerts-switch', 'wishlist-alerts-text']);
       expect(screen.getByTestId('wishlist-alerts-text')).toHaveStyle({ width: '100%' });
       expect(screen.getByTestId('wishlist-alerts-row')).toHaveStyle({ flexWrap: 'wrap' });
+      // A wish: "Available" or "None yet" under the card, not beside it.
+      await screen.findByTestId(`wish-${WISH_ID}-none`);
+      expect(screen.getByTestId(`wish-${WISH_ID}`)).toHaveStyle({ flexDirection: 'column' });
     } finally {
       textSize(window.fontScale);
     }
@@ -191,6 +194,8 @@ describe('Search › Wishlist (screen 15)', () => {
         .filter((id) => id === 'wishlist-alerts-switch' || id === 'wishlist-alerts-text');
       expect(ids).toEqual(['wishlist-alerts-text', 'wishlist-alerts-switch']);
       expect(screen.getByTestId('wishlist-alerts-text')).not.toHaveStyle({ width: '100%' });
+      await screen.findByTestId(`wish-${WISH_ID}-none`);
+      expect(screen.getByTestId(`wish-${WISH_ID}`)).toHaveStyle({ flexDirection: 'row' });
     } finally {
       textSize(window.fontScale);
     }

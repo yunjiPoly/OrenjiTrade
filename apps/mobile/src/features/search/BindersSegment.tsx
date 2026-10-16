@@ -21,6 +21,7 @@ import {
   radius,
   spacing,
   textStyle,
+  useStackedRows,
   useTheme,
 } from '@/src/theme';
 
@@ -219,6 +220,9 @@ export const BinderSearchRow = memo(function BinderSearchRow({
   onPress: (binder: PublicBinderSummary) => void;
 }) {
   const { palette } = useTheme();
+  // Large text: the picture, the name and its line, then the price, one under the other (beside
+  // the price the name broke in the middle of a word).
+  const stacked = useStackedRows();
   const core = binder.sellsAsCore ?? false;
   const handle = binder.owner?.handle ?? '';
   const province = wholeRegion
@@ -238,6 +242,7 @@ export const BinderSearchRow = memo(function BinderSearchRow({
       testID={`binder-search-row-${binder.id}`}
       style={({ pressed }) => [
         styles.row,
+        stacked && styles.rowStacked,
         { borderBottomColor: palette.border },
         pressed && styles.pressed,
       ]}
@@ -247,18 +252,23 @@ export const BinderSearchRow = memo(function BinderSearchRow({
       ) : (
         <CardFan urls={binder.previewImages ?? []} />
       )}
-      <View style={styles.text}>
+      <View style={[styles.text, stacked && styles.textStacked]}>
         <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>{binder.name}</Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{line}</Text>
       </View>
       {price ? (
         <Text
-          style={[textStyle('md'), styles.bold, styles.price, { color: palette.ink }]}
+          style={[
+            textStyle('md'),
+            styles.bold,
+            stacked ? styles.priceStacked : styles.price,
+            { color: palette.ink },
+          ]}
           testID={`binder-search-price-${binder.id}`}
         >
           {price}
         </Text>
-      ) : (
+      ) : stacked ? null : (
         <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
       )}
     </Pressable>
@@ -299,5 +309,8 @@ const styles = StyleSheet.create({
   },
   text: { flex: 1, minWidth: 0, gap: 2 },
   price: { maxWidth: '32%', textAlign: 'right' },
+  rowStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: spacing[2] },
+  textStacked: { flex: 0, alignSelf: 'stretch' },
+  priceStacked: { maxWidth: '100%' },
   pressed: { opacity: 0.75 },
 });

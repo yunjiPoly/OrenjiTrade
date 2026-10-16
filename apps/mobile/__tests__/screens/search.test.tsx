@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
@@ -370,6 +371,43 @@ describe('Search › Binders (screen 14)', () => {
     );
     fireEvent.press(screen.getByRole('link', { name: 'Pick on the map' }));
     expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
+  });
+
+  it("puts a deck core's price under its name at large text sizes, beside it otherwise", async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binders': ok(placeBindersPage([CORE])),
+      })
+    );
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    mockParams.current = { segment: 'binders' };
+    try {
+      textSize(1);
+      const first = render();
+      await screen.findByTestId('binder-search-price-core-1');
+      expect(screen.getByTestId('binder-search-row-core-1')).toHaveStyle({ flexDirection: 'row' });
+      expect(screen.getByTestId('binder-search-price-core-1')).toHaveStyle({ textAlign: 'right' });
+      first.unmount();
+      // The largest size: beside the price the name broke in the middle of a word.
+      textSize(3.1);
+      render();
+      await screen.findByTestId('binder-search-price-core-1');
+      expect(screen.getByTestId('binder-search-row-core-1')).toHaveStyle({
+        flexDirection: 'column',
+      });
+      expect(screen.getByTestId('binder-search-price-core-1')).not.toHaveStyle({
+        textAlign: 'right',
+      });
+    } finally {
+      textSize(window.fontScale);
+    }
   });
 
   it('says when a state has no binders or no deck cores, and the chip goes back to the region', async () => {

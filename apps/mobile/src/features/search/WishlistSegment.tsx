@@ -1,15 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { memo, useMemo } from 'react';
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Switch,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Switch, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -41,6 +33,7 @@ import {
   radius,
   spacing,
   textStyle,
+  useStackedRows,
   useTheme,
 } from '@/src/theme';
 
@@ -55,9 +48,6 @@ import { WISHLIST_COPY } from './searchCopy';
  * that fits (it opens Who has this card on that printing) or "None yet". A row edits the wish. No
  * counts; a usage line only near the cap. "Let others see what you want" is in Settings › Privacy.
  */
-/** Above this text size the alert switch's sentence goes under the bell and the switch. */
-export const STACKED_FONT_SCALE = 1.3;
-
 export function WishlistSegment() {
   const { palette } = useTheme();
   const router = useRouter();
@@ -68,7 +58,7 @@ export function WishlistSegment() {
   const limits = useMyLimits();
   // From the larger text sizes on, the sentence takes the row's whole width under the bell and
   // the switch: beside them it broke "someone" in the middle at the largest size.
-  const stacked = useWindowDimensions().fontScale > STACKED_FONT_SCALE;
+  const stacked = useStackedRows();
   const settings = useNotificationSettings();
   const saveSettings = useSaveNotificationSettings();
   const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
@@ -227,11 +217,16 @@ const WishRow = memo(function WishRow({
   onOpenCard: () => void;
 }) {
   const { palette } = useTheme();
+  const stacked = useStackedRows();
   const name = item.card?.name ?? 'Card';
   const terms = wishTerms(item);
   return (
     <View
-      style={[styles.row, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      style={[
+        styles.row,
+        stacked && styles.rowStacked,
+        { backgroundColor: palette.surface, borderColor: palette.border },
+      ]}
       testID={`wish-${item.id}`}
     >
       <Pressable
@@ -240,7 +235,11 @@ const WishRow = memo(function WishRow({
         accessibilityHint="Edits this wish"
         onPress={onEdit}
         testID={`wish-${item.id}-edit`}
-        style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.rowMain,
+          stacked && styles.rowMainStacked,
+          pressed && styles.pressed,
+        ]}
       >
         <CardImage src={item.card?.imageUrl} alt="" game={item.game} size="xs" />
         <View style={styles.grow}>
@@ -260,14 +259,21 @@ const WishRow = memo(function WishRow({
           onPress={onOpenCard}
           hitSlop={8}
           testID={`wish-${item.id}-available`}
-          style={({ pressed }) => [styles.status, pressed && styles.pressed]}
+          style={({ pressed }) => [
+            styles.status,
+            stacked && styles.statusStacked,
+            pressed && styles.pressed,
+          ]}
         >
           <Text style={[textStyle('sm'), styles.bold, { color: palette.accent }]}>
             {WISHLIST_COPY.available}
           </Text>
         </Pressable>
       ) : available === false ? (
-        <View style={styles.status} testID={`wish-${item.id}-none`}>
+        <View
+          style={[styles.status, stacked && styles.statusStacked]}
+          testID={`wish-${item.id}-none`}
+        >
           <Text style={[textStyle('sm'), styles.bold, { color: palette.textMuted }]}>
             {WISHLIST_COPY.none}
           </Text>
@@ -321,6 +327,10 @@ const styles = StyleSheet.create({
     minHeight: 72,
   },
   status: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end' },
+  // Large text: "Available" or "None yet" under the card instead of beside it.
+  rowStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 0, paddingRight: 0 },
+  rowMainStacked: { flex: 0, paddingBottom: 0 },
+  statusStacked: { alignItems: 'flex-start', paddingHorizontal: spacing[3] },
   grow: { flex: 1 },
   bold: { fontWeight: fontWeight.semibold },
   pressed: { opacity: 0.75 },

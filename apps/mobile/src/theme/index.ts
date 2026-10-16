@@ -13,5 +13,6 @@ export {
   spacing,
   textStyle,
 } from './styles';
+export { STACKED_ROW_FONT_SCALE, useStackedRows } from './stackedRows';
 export { ThemeProvider, ThemeContext, type Theme } from './ThemeProvider';
 export { useTheme } from './useTheme';

@@ -8,7 +8,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
 import { itemPriceText } from '@/src/features/inventory/itemPrice';
 import { printingCode } from '@/src/lib/catalog';
-import { fontFamily, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontFamily, fontWeight, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 import { CARD_PAGE_COPY } from '../search/searchCopy';
 
@@ -30,6 +30,9 @@ export interface HolderRowProps {
 export const HolderRow = memo(function HolderRow({ result, onMessage, starting }: HolderRowProps) {
   const { palette } = useTheme();
   const router = useRouter();
+  // Large text: the avatar, the handle and its line, then the price, one under the other (beside
+  // the price the handle kept a third of the row and broke in the middle of a word).
+  const stacked = useStackedRows();
   const { collector, item } = result;
   const code = printingCode(item.printing);
   const line = CARD_PAGE_COPY.printingLine(code, item.printing.rarity);
@@ -46,30 +49,41 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
           router.push({ pathname: '/collectors/[id]', params: { id: collector.handle } })
         }
         testID={`holder-${item.id}-collector`}
-        style={({ pressed }) => [styles.who, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.who,
+          stacked && styles.whoStacked,
+          pressed && styles.pressed,
+        ]}
       >
         <Avatar
           src={collector.avatarUrl}
           name={collector.displayName || collector.handle}
           size={44}
         />
-        <View style={styles.text}>
+        <View style={[styles.text, stacked && styles.stackedPart]}>
           <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
             {collector.handle}
           </Text>
           <Text style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}>{line}</Text>
         </View>
-        <View style={styles.price}>
+        <View style={[styles.price, stacked && styles.priceStacked]}>
           {price ? (
             <Text
-              style={[textStyle('md'), styles.bold, styles.right, { color: palette.ink }]}
+              style={[
+                textStyle('md'),
+                styles.bold,
+                stacked ? null : styles.right,
+                { color: palette.ink },
+              ]}
               numberOfLines={2}
               testID={`holder-${item.id}-price`}
             >
               {price}
             </Text>
           ) : null}
-          <Text style={[textStyle('xs'), styles.right, { color: palette.textMuted }]}>
+          <Text
+            style={[textStyle('xs'), stacked ? null : styles.right, { color: palette.textMuted }]}
+          >
             {copies}
           </Text>
         </View>
@@ -111,6 +125,9 @@ const styles = StyleSheet.create({
   bold: { fontWeight: fontWeight.semibold },
   mono: { fontFamily: fontFamily.mono },
   price: { maxWidth: '38%', alignItems: 'flex-end', gap: 2 },
+  whoStacked: { flexDirection: 'column', alignItems: 'flex-start', paddingVertical: spacing[1] },
+  stackedPart: { flex: 0, alignSelf: 'stretch' },
+  priceStacked: { maxWidth: '100%', alignItems: 'flex-start' },
   right: { textAlign: 'right' },
   message: {
     width: 44,

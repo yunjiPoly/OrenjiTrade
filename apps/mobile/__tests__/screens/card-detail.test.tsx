@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, Linking } from 'react-native';
 
 import CardScreen from '@/app/cards/[id]';
 
@@ -120,6 +120,36 @@ describe('Who has this card (screen 13)', () => {
       pathname: '/collectors/[id]',
       params: { id: 'northstar' },
     });
+  });
+
+  it("puts a holder's price under the handle at large text sizes, beside it otherwise", async () => {
+    mockApi(routes());
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    try {
+      textSize(1);
+      const first = render();
+      await screen.findByTestId('holder-i2-price');
+      expect(screen.getByTestId('holder-i2-collector')).toHaveStyle({ flexDirection: 'row' });
+      expect(screen.getByTestId('holder-i2-price')).toHaveStyle({ textAlign: 'right' });
+      first.unmount();
+      // The largest size: beside the price, "leo_cards" kept a third of the row and broke in the
+      // middle of the word; now the avatar, the handle and the price go one under the other.
+      textSize(3.1);
+      render();
+      await screen.findByTestId('holder-i2-price');
+      expect(screen.getByTestId('holder-i2-collector')).toHaveStyle({ flexDirection: 'column' });
+      expect(screen.getByTestId('holder-i2-price')).not.toHaveStyle({ textAlign: 'right' });
+      expect(screen.getByTestId('holder-i2-price')).toHaveTextContent('Trade only');
+    } finally {
+      textSize(window.fontScale);
+    }
   });
 
   it('Message opens or reuses the chat with that card pinned', async () => {
