@@ -597,7 +597,8 @@ PK `(user_id, limit_key, window_start)`; index `ix_usage_counter_window_start` (
 `Limits.consume` increments with one atomic `INSERT ... ON CONFLICT DO UPDATE ... WHERE count < max
 RETURNING count`, so concurrent requests can never pass the limit; the value is mirrored in Redis
 (`orenji:usage:<user>:<key>:<window epoch>`, TTL ≤ 10 min, written after commit) for the `check` fast
-path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders,
+path. TOTAL counters owned by another module (e.g. `binders.max` = number of binders that are not
+sold deck cores (stage R4, review fix 1: the phone neither shows nor deletes a sold core),
 `inventory.items.max` = number of non-deleted items) are read through a `LimitUsageSource` bean
 instead.
 

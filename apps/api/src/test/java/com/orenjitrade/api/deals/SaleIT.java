@@ -369,6 +369,55 @@ class SaleIT extends AbstractDealsIT {
                 .isFalse();
     }
 
+    /**
+     * Review fix 1, F3: a sold deck core leaves the owner's binder count (binders.max, the same cap
+     * for everyone): the phone hides it and cannot delete it, so it must not keep a slot.
+     */
+    @Test
+    void aSoldDeckCoreFreesItsBinderSlot() {
+        Collector seller = collector("r4-slot-seller");
+        Collector buyer = collector("r4-slot-buyer");
+        long cap =
+                testUsers.count(
+                        "SELECT max_value FROM usage_limit WHERE limit_key = 'binders.max'");
+        assertThat(cap).isPositive();
+        String coreId = deckCore(seller, "Sold core", "$70");
+        String chatId = startAbout(buyer, seller, null, coreId, 201).path("id").asString();
+        markSold(seller, chatId, null, null, 201);
+        assertThat(bindersMaxUsed(seller)).isZero();
+
+        for (int index = 0; index < cap; index++) {
+            callJson(
+                    HttpMethod.POST,
+                    BINDERS,
+                    seller.uid(),
+                    Map.of("name", "Binder " + index, "visibility", "PRIVATE"),
+                    201);
+        }
+        assertThat(bindersMaxUsed(seller)).isEqualTo(cap);
+        assertThat(
+                        callJson(
+                                        HttpMethod.POST,
+                                        BINDERS,
+                                        seller.uid(),
+                                        Map.of("name", "One too many", "visibility", "PRIVATE"),
+                                        429)
+                                .path("errorCode")
+                                .asString())
+                .isEqualTo("LIMIT_REACHED");
+    }
+
+    private long bindersMaxUsed(Collector member) {
+        for (JsonNode limit :
+                callJson(HttpMethod.GET, "/api/v1/me/limits", member.uid(), null, 200)
+                        .path("limits")) {
+            if ("binders.max".equals(limit.path("key").asString())) {
+                return limit.path("used").asLong();
+            }
+        }
+        throw new AssertionError("binders.max is missing from /me/limits");
+    }
+
     @Test
     void twoSalesOfTheLastCopyAtOnceSellItOnce() throws Exception {
         Collector seller = collector("r4-race-seller");

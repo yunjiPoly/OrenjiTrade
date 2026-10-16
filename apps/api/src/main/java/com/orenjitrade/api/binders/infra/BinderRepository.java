@@ -277,8 +277,13 @@ public class BinderRepository {
         return ids.stream().filter(id -> !owned.contains(id)).toList();
     }
 
+    /**
+     * The owner's binders that count toward {@code binders.max}: a sold deck core (stage R4) is
+     * left out, as the owner can neither see nor delete it on the phone (review fix 1, F3); its
+     * undo may take the owner past the cap, like every undo.
+     */
     public long countByOwner(UUID ownerId) {
-        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId")
+        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId AND sold_at IS NULL")
                 .param("ownerId", ownerId)
                 .query(Long.class)
                 .single();

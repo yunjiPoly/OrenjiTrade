@@ -549,7 +549,7 @@ public class BinderService {
         return result;
     }
 
-    /** Number of binders of an owner ({@code binders.max} usage). */
+    /** Number of binders of an owner that count toward {@code binders.max} (sold ones do not). */
     @Transactional(readOnly = true)
     public long countOf(UUID ownerId) {
         return repository.countByOwner(ownerId);
