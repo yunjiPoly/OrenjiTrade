@@ -4,7 +4,14 @@ import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, PINNED_MAX_FONT_SCALE, type Palette, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  type Palette,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { REVIEW_COPY, SCAN_COPY, TILE_STATUS_TEXT } from './scanCopy';
 import { ScanPhotoImage } from './ScanPhotoImage';
@@ -16,6 +23,11 @@ const PICTURE = { width: 44, height: 64 };
 /** The small buttons of a row are drawn 36 points wide; their touch reaches 44. */
 const SMALL = 36;
 const SLOP = { top: 4, bottom: 4, left: 4, right: 4 };
+/**
+ * A row's words follow the text size up to twice their size, like a screen's title: past it, a
+ * long word of a card's name ("Majespecter") no longer fits its column and would be broken.
+ */
+const ROW_TEXT_SCALE = TITLE_MAX_FONT_SCALE;
 
 export interface ReviewRowProps {
   tile: ScanTile;
@@ -82,7 +94,9 @@ export function ReviewRow({ tile, onOpen, onSearch, onCopies, onRemove }: Review
 
   const texts = (
     <View style={styles.texts}>
-      <Text style={[styles.name, { color: palette.ink }]}>{name}</Text>
+      <Text maxFontSizeMultiplier={ROW_TEXT_SCALE} style={[styles.name, { color: palette.ink }]}>
+        {name}
+      </Text>
       <Details tile={tile} kind={kind} onOpen={onOpen} onSearch={onSearch} />
     </View>
   );
@@ -163,7 +177,14 @@ function Details({
 }) {
   const { palette } = useTheme();
   const code = (value: string | null | undefined): ReactNode =>
-    value ? <Text style={[styles.code, { color: palette.textMuted }]}>{value}</Text> : null;
+    value ? (
+      <Text
+        maxFontSizeMultiplier={ROW_TEXT_SCALE}
+        style={[styles.code, { color: palette.textMuted }]}
+      >
+        {value}
+      </Text>
+    ) : null;
   switch (kind) {
     case 'READY':
       return (
@@ -171,6 +192,7 @@ function Details({
           {code(tile.printing?.printingCode ?? tile.printing?.setCode)}
           {tile.printing?.rarity ? (
             <Text
+              maxFontSizeMultiplier={ROW_TEXT_SCALE}
               style={[
                 styles.rarity,
                 { backgroundColor: palette.surfaceVariant, color: palette.ink },
@@ -195,7 +217,10 @@ function Details({
     case 'PICK_PRINTING':
       return (
         <View style={styles.details}>
-          <Text style={[styles.unreadable, { color: palette.textMuted }]}>
+          <Text
+            maxFontSizeMultiplier={ROW_TEXT_SCALE}
+            style={[styles.unreadable, { color: palette.textMuted }]}
+          >
             {REVIEW_COPY.codeUnreadable}
           </Text>
           <FixButton
@@ -214,7 +239,10 @@ function Details({
           style={({ pressed }) => [styles.search, pressed && styles.pressed]}
           testID={`review-row-${tile.id}-search`}
         >
-          <Text style={[styles.searchLabel, { color: palette.primary }]}>
+          <Text
+            maxFontSizeMultiplier={ROW_TEXT_SCALE}
+            style={[styles.searchLabel, { color: palette.primary }]}
+          >
             {REVIEW_COPY.searchByNameOrCode}
           </Text>
         </Pressable>
@@ -248,7 +276,12 @@ function FixButton({
       ]}
       testID={testID}
     >
-      <Text style={[styles.fixLabel, { color: palette.warning }]}>{label}</Text>
+      <Text
+        maxFontSizeMultiplier={ROW_TEXT_SCALE}
+        style={[styles.fixLabel, { color: palette.warning }]}
+      >
+        {label}
+      </Text>
       <MaterialCommunityIcons name="chevron-down" size={14} color={palette.warning} />
     </Pressable>
   );

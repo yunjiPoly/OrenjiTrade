@@ -257,6 +257,7 @@ export function ScanReviewScreen() {
           {groups.toCheck.length > 0 ? (
             <Text
               accessibilityRole="header"
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
               style={[styles.section, { color: palette.warning }]}
               testID="review-to-check"
             >
@@ -267,6 +268,7 @@ export function ScanReviewScreen() {
           {groups.ready.length > 0 ? (
             <Text
               accessibilityRole="header"
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
               style={[styles.section, styles.readySection, { color: palette.textMuted }]}
               testID="review-ready"
             >
