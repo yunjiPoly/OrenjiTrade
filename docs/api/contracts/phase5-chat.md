@@ -60,7 +60,10 @@ heartbeat; exposed only when `showOnlineStatus`.
 `ModerationService.check(scope, text, authorId)` applies active `moderation_rule`s (banned
 terms → FLAG or BLOCK), per-user rate thresholds (Redis), and repeated-content detection;
 BLOCK returns `422 MESSAGE_BLOCKED`/`POST_BLOCKED`; FLAG stores a `moderation_flag` for review.
-No automatic permanent bans; thresholds create flags/strikes only.
+No automatic permanent bans; thresholds create flags/strikes only. Stage R4 (review fix 1): the
+ten fixed quick replies of the phone's chat (`messaging.domain.QuickReplies`, the same texts as
+`QUICK_REPLIES` in the phone's `chatCopy.ts`), sent as TEXT exactly, skip the repeated-content
+thresholds only; rate limits and banned terms apply to them like any message.
 
 ## Web
 

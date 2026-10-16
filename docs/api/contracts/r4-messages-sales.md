@@ -171,3 +171,6 @@ waits for that conversation in turn.
 - The buyer's address and the seller's e-Transfer email are never stored by the API: the phone
   keeps them in its secure storage and puts them into the message box; they reach the server only
   inside a message the collector sends (moderated and rate-limited like any message).
+- Quick replies (review fix 1, P2): the ten fixed texts repeat by design (one seller answering six
+  buyers "Yes, still available" was flagged for repeated content), so an exact quick reply skips
+  the repeated-content threshold; rate limits and banned terms still apply (spec section 13).

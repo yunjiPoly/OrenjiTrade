@@ -434,8 +434,13 @@ public class ConversationService {
             }
         }
 
+        // A quick reply repeats by design: the repeated-content thresholds skip it (P2).
         ModerationDecision decision =
-                moderation.check(ModerationScope.MESSAGE, body.isEmpty() ? null : body, me);
+                moderation.check(
+                        ModerationScope.MESSAGE,
+                        body.isEmpty() ? null : body,
+                        me,
+                        input.kind() == MessageKind.TEXT && QuickReplies.isQuickReply(body));
         if (decision.blocked()) {
             throw new ApiException(
                     ErrorCode.MESSAGE_BLOCKED,
