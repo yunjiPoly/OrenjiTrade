@@ -6385,10 +6385,24 @@ two `wip(...)` commit subjects of the builder.
 | `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
 | `npm run test:mobile` | passed: jest **94 suites / 1010 tests** (+1 suite `features/quickRepliesServer`, +9 tests) + 28 guard tests |
 | `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
-| `npm run test:mobile:e2e -- --retries=0` | MOBILE_E2E |
-| `npm run test:mobile:maestro -- --platform ios` | MAESTRO |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` | **33 / 33** in 52 min 27 s on the owner's iPhone 18 Pro (under the lock), native flow 4 `deal-mark-sold.yaml` in its new order (the keyboard up through send and Mark as sold; 1 min 30 s) |
 | `npm run test:scripts` | **135 / 135** |
 | `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**Walked on the simulator** (scratch Maestro flows on the suite's kept stack, a fictional seller in
+Quebec with "Lantern Fox Spirit" at "85% TCG", 3 copies, and a deck core at "$150", and a buyer in
+Ontario driven through the API): the buyer pins the deck core without writing and the seller's bar
+follows at once; the seller writes in the box, sends with the keyboard up and taps Mark as sold: the
+sheet shows the deck core, the keyboard is put away, the toast shows with its Undo above the message
+box and Undo works; with the sheet open on the deck core the buyer pins the card: Mark as sold
+answers "{buyer} opened another of your listings. Check the card above, then mark it sold.", the bar
+shows the card and nothing was sold (the API: 3 copies, the core unsold); the card's sheet with 3
+copies shows "Copies sold" once. Dark, default size; the owner's appearance (light) and text size
+(Large) were not changed; the walk's two accounts were deleted.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the toast relies on Android
+resizing the window for the keyboard, as the sheets do).
 
 Every fix was also checked by putting its defect back: the tracking number logged (P1: both tests
 fail), the old `setSubject` and no subject check (F1, F5, F6: four tests fail), the binder count, the
