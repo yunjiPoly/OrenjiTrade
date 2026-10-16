@@ -3,7 +3,6 @@ import { Dimensions, Pressable, StyleSheet, Text } from 'react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
 import { useSavePrivacy } from '@/src/api/hooks/location';
-import { visibilityTagColors } from '@/src/features/inventory/visibilityTag';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { lightPalette, PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
@@ -156,10 +155,13 @@ describe('Inventory (screen 1)', () => {
     expect(screen.getByTestId('item-pending-1-visibility')).toHaveTextContent(
       /Public · not visible$/
     );
-    // Amber (in the light theme of the tests: the ink on a faint amber, for contrast).
+    // Amber (in the light theme of the tests: a dark amber on an amber fill, for contrast).
     expect(screen.getByTestId('item-pending-1-visibility')).toHaveStyle({
-      backgroundColor: visibilityTagColors('pending', lightPalette).background,
+      backgroundColor: '#F7E1C8',
     });
+    expect(
+      within(screen.getByTestId('item-pending-1-visibility')).getByText('Public · not visible')
+    ).toHaveStyle({ color: '#8D510D' });
     expect(screen.getByTestId('item-none-1-visibility')).toHaveTextContent(/Private$/);
     expect(within(screen.getByTestId('item-none-1-visibility')).getByText('Private')).toHaveStyle({
       color: lightPalette.textMuted,

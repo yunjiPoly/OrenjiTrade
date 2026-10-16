@@ -350,7 +350,12 @@ describe('the Public or Private tag of an Inventory row', () => {
       spoken: 'Public, not visible',
       icon: 'eye-off-outline',
     });
-    // A temporary publication (set on the paused web) that ended is not visible either.
+  });
+
+  it('keeps the tag of a temporary publication one short chip, ended or not (fix round 1)', () => {
+    // Set on the paused web and ended: nobody sees it (Edit card offers it as Private, "Its
+    // temporary publication has ended"); not the status's long "Public · ended 1 day ago · not
+    // visible", which wrapped.
     expect(
       itemVisibilityTag(
         itemFixture({
@@ -360,7 +365,23 @@ describe('the Public or Private tag of an Inventory row', () => {
         }),
         NOW
       )
-    ).toMatchObject({ kind: 'pending', label: 'Public · ended 1 day ago · not visible' });
+    ).toEqual({
+      kind: 'pending',
+      label: 'Public · ended',
+      spoken: 'Public, ended',
+      icon: 'eye-off-outline',
+    });
+    // Running, but nobody can see it (a private binder): the plain "not visible".
+    expect(
+      itemVisibilityTag(
+        itemFixture({
+          visibility: 'TEMPORARILY_PUBLIC',
+          publicUntil: '2026-10-17T12:00:00Z',
+          effectivePublic: false,
+        }),
+        NOW
+      )
+    ).toMatchObject({ kind: 'pending', label: 'Public · not visible' });
   });
 
   it('mixes a faint fill as one solid colour', () => {
@@ -389,6 +410,30 @@ describe('the Public or Private tag of an Inventory row', () => {
     expect(visibilityTagColors('public', darkPalette).background).toBe(
       mixColors('#2DD4BF', darkPalette.surface, 0.14)
     );
-    expect(visibilityTagColors('pending', darkPalette).color).toBe(darkPalette.warning);
+  });
+
+  it('draws the pending tag amber in both themes, never like Private or Public (fix round 1)', () => {
+    // Dark: the theme's amber on a faint amber, as the mockup.
+    expect(darkPalette.warning).toBe('#FBBF24');
+    expect(visibilityTagColors('pending', darkPalette)).toEqual({
+      background: mixColors('#FBBF24', darkPalette.surface, 0.14),
+      color: '#FBBF24',
+    });
+    // Light: the light amber ("#D97706") is 2.7 : 1 on white, so a dark amber (60 % of it over
+    // the ink) on a stronger amber fill; it was the ink on a pale peach, read as the Private chip.
+    expect(lightPalette.warning).toBe('#D97706');
+    expect(visibilityTagColors('pending', lightPalette)).toEqual({
+      background: '#F7E1C8',
+      color: '#8D510D',
+    });
+    for (const palette of [darkPalette, lightPalette]) {
+      const pending = visibilityTagColors('pending', palette);
+      for (const other of ['private', 'public'] as const) {
+        const colors = visibilityTagColors(other, palette);
+        expect(pending.color).not.toBe(colors.color);
+        expect(pending.background).not.toBe(colors.background);
+      }
+      expect(pending.color).not.toBe(palette.ink);
+    }
   });
 });
