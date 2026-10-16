@@ -576,6 +576,7 @@ them (section 6, screens 1, 6 and 7):
    "% TCG" a whole number from 1 to 200; empty means no price. Switching clears the number. A new
    card starts in the mode used last on the phone, the mode of the last price saved ("$" the
    first time). A card saves one text, "$12.50" or "85% TCG", shown everywhere as it is. Edit card
-   reads a saved price back into its mode; any other old text ("Trade only") shows as "Was:
-   {text}" and is kept until a price is typed. Copies moves to its own row above the price. Deck
+   reads a saved price back into its mode, and any save writes it that one way ("85 % tcg" becomes
+   "85% TCG"); any other old text ("Trade only") shows as "Was: {text}" and is kept until a price
+   is typed. Copies moves to its own row above the price. Deck
    cores keep their free text. No migration and no API change.
