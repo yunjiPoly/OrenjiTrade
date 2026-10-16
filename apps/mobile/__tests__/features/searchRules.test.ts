@@ -99,14 +99,15 @@ describe('holders grouped by province (screen 13)', () => {
 
 describe('the old links of the Map and Wishlist tabs and the holders list', () => {
   it('land on Search, on the region and the state they name', () => {
-    expect(mapLinkTarget({})).toEqual({ pathname: '/search', params: { segment: 'cards' } });
+    // `/` alone is Search alone (nothing for the sign-in gate to reopen).
+    expect(mapLinkTarget({})).toEqual({ pathname: '/search', params: {} });
     expect(mapLinkTarget({ region: 'europe', subdivision: 'fr-idf' })).toEqual({
       pathname: '/search',
       params: { segment: 'cards', region: 'europe', subdivision: 'FR-IDF' },
     });
     expect(mapLinkTarget({ region: '../x', subdivision: '<b>' })).toEqual({
       pathname: '/search',
-      params: { segment: 'cards' },
+      params: {},
     });
     expect(wishlistLinkTarget()).toEqual({ pathname: '/search', params: { segment: 'wishlist' } });
     expect(placeBindersTarget({ region: 'americas-north', code: 'CA-QC' })).toEqual({

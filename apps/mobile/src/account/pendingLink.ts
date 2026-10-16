@@ -17,7 +17,7 @@ export const usePendingLink = create<PendingLinkStore>()((set) => ({
   clear: () => set({ href: null }),
 }));
 
-/** Route roots that never come back after sign-in (auth, account states, legal, the map home). */
+/** Route roots that never come back after sign-in (auth, account states, legal). */
 const NOT_RESUMED = new Set([
   '(auth)',
   '(account)',
@@ -27,8 +27,16 @@ const NOT_RESUMED = new Set([
   '_sitemap',
 ]);
 
-/** The Map tab's link parameters (`/?region=&subdivision=`): the only reason to reopen `/`. */
-const MAP_LINK_PARAMS = ['region', 'subdivision'] as const;
+/**
+ * The tabs' home: `/` (the old Map tab, which redirects) and `/search` (the first tab since stage
+ * R5). Reopened only with link parameters (`/?region=&subdivision=`, `/search?segment=…`): without
+ * them they are where the app starts anyway, and remembered they took a collector out of the
+ * onboarding the moment their profile was saved.
+ */
+const HOME_LINK_PARAMS: Readonly<Record<string, readonly string[]>> = {
+  '/': ['region', 'subdivision'],
+  '/search': ['region', 'subdivision', 'segment', 'tab', 'q', 'game', 'typing', 'state'],
+};
 
 /**
  * The href to reopen after sign-in for the route the visitor is on (`pathname` from
@@ -45,7 +53,8 @@ export function resumableHref(
   if (NOT_RESUMED.has(root) || !pathname.startsWith('/')) {
     return null;
   }
-  if (pathname === '/' && !MAP_LINK_PARAMS.some((key) => params[key])) {
+  const homeParams = HOME_LINK_PARAMS[pathname];
+  if (homeParams && !homeParams.some((key) => params[key])) {
     return null;
   }
   const pathParts = new Set(pathname.split('/').filter(Boolean).map(decodeURIComponent));

@@ -11,9 +11,12 @@ export type SearchHref = { pathname: '/search'; params: Record<string, string> }
 
 const ID = /^[\w-]{1,64}$/;
 
-/** The old Map tab (`/?region=&subdivision=`): the map, on that region and that state. */
+/**
+ * The old Map tab (`/?region=&subdivision=`): the map, on that region and that state. `/` alone is
+ * Search alone: a link with nothing to reopen (the sign-in gate remembers only real links).
+ */
 export function mapLinkTarget(params: { region?: unknown; subdivision?: unknown }): SearchHref {
-  const out: Record<string, string> = { segment: 'cards' };
+  const out: Record<string, string> = {};
   if (typeof params.region === 'string' && isRegionCode(params.region)) {
     out.region = params.region;
   }
@@ -21,7 +24,10 @@ export function mapLinkTarget(params: { region?: unknown; subdivision?: unknown 
   if (code) {
     out.subdivision = code;
   }
-  return { pathname: '/search', params: out };
+  return {
+    pathname: '/search',
+    params: Object.keys(out).length > 0 ? { segment: 'cards', ...out } : {},
+  };
 }
 
 /** The old Wishlist tab (`/wishlist`). */
