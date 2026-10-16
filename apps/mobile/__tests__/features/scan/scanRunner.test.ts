@@ -1,5 +1,6 @@
 import { ApiError } from '@/src/api/ApiError';
 import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fakeOcrProvider';
+import { memoryScanPhotoJournal } from '@/src/features/scan/scanPhotoJournal';
 import { createScanRunner, type PhotoToRead } from '@/src/features/scan/scanRunner';
 import { findTile, removeTile, type ScanTile } from '@/src/features/scan/scanSession';
 import { useScanStore } from '@/src/features/scan/scanStore';
@@ -196,5 +197,50 @@ describe('ending the scan', () => {
     answer(FOUND_YEW);
     await runner.idle();
     expect(tiles()).toEqual([]);
+  });
+});
+
+describe('a scan lost when the app was closed', () => {
+  it('writes down the photo files it owns while it runs, and forgets them when it ends', async () => {
+    const journal = memoryScanPhotoJournal();
+    const deleted: string[] = [];
+    const runner = createScanRunner({
+      provider: () => new FakeOcrProvider({ 'file:///a.jpg': YEW_TEXT }),
+      matcher: async () => FOUND_YEW,
+      deleteFile: (uri) => deleted.push(uri),
+      journal,
+    });
+    runner.addPhotos([
+      library('file:///a.jpg'),
+      {
+        photo: { uri: 'file:///not-mine.jpg', width: 1, height: 1, owned: false },
+        source: 'LIBRARY',
+      },
+    ]);
+    await runner.idle();
+    expect(journal.uris).toEqual(['file:///a.jpg']);
+    runner.endScan();
+    await runner.idle();
+    expect(deleted).toEqual(['file:///a.jpg']);
+    expect(journal.uris).toEqual([]);
+  });
+
+  it('deletes the files an earlier run wrote down, once, keeping the files of this scan', async () => {
+    const journal = memoryScanPhotoJournal(['file:///earlier-1.jpg', 'file:///earlier-2.jpg']);
+    const deleted: string[] = [];
+    const runner = createScanRunner({
+      provider: () => new FakeOcrProvider({ 'file:///a.jpg': YEW_TEXT }),
+      matcher: async () => FOUND_YEW,
+      deleteFile: (uri) => deleted.push(uri),
+      journal,
+    });
+    // A photo added before the first sweep: the earlier files are deleted all the same.
+    runner.addPhotos([library('file:///a.jpg')]);
+    await runner.sweepLeftovers();
+    await runner.idle();
+    expect(deleted).toEqual(['file:///earlier-1.jpg', 'file:///earlier-2.jpg']);
+    expect(journal.uris).toEqual(['file:///a.jpg']);
+    await runner.sweepLeftovers();
+    expect(deleted).toHaveLength(2);
   });
 });

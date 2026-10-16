@@ -11,9 +11,14 @@ import { scanRunner as appScanRunner, type ScanRunner } from './scanRunner';
  * - the tiles waiting for the connection are matched again as soon as the phone is online again
  *   ("Waiting for connection" resolves by itself);
  * - each photo's result is said by the screen reader when it lands in the tray ("Ash Blossom &
- *   Joyous Spring, found").
+ *   Joyous Spring, found");
+ * - the photo files of a scan an earlier run of the app lost (closed before the scan ended) are
+ *   deleted.
  */
 export function useScanEffects(runner: ScanRunner = appScanRunner): void {
+  useEffect(() => {
+    void runner.sweepLeftovers();
+  }, [runner]);
   useEffect(
     () =>
       onlineManager.subscribe((online) => {

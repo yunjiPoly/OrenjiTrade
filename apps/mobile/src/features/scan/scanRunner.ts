@@ -6,6 +6,7 @@ import { matchScannedCard } from '@/src/api/hooks/cardScan';
 import type { CardCrops } from './frameMapping';
 import { getDeviceOcrProvider } from './ocr/deviceOcr';
 import type { OcrProvider } from './ocr/types';
+import { storedScanPhotoJournal, type ScanPhotoJournal } from './scanPhotoJournal';
 import { readCardText, type PhotoSource } from './readCardText';
 import { applyOutcome, matchRead, type CardMatcher, type PhotoOutcome } from './scanPipeline';
 import {
@@ -30,6 +31,8 @@ import { useScanStore, type ScanStore } from './scanStore';
  *   (`retryWaiting`: called when the app is online again, and after any match that got through).
  * - Ending the scan (cards added, or the scan left) deletes every photo file it made or copied and
  *   empties the tray; what the reader or the API answers later for that scan is dropped.
+ * - The scan's photo files are written down while it runs (`scanPhotoJournal.ts`): a scan lost
+ *   when the app was closed has its files deleted by the first scan screen of a later run.
  * - Nothing of a photo leaves the phone: only the text read goes to the API.
  */
 
@@ -46,6 +49,8 @@ export interface ScanRunnerDeps {
   matcher: CardMatcher;
   /** Deletes one photo file the scan made or copied (never throws). */
   deleteFile: (uri: string) => void;
+  /** Where the scan's photo files are written down while it runs (none: not written down). */
+  journal?: ScanPhotoJournal;
   store?: Pick<typeof useScanStore, 'getState'>;
 }
 
@@ -58,7 +63,12 @@ export interface ScanRunner {
   endScan: () => void;
   /** Called with each tile once its photo is matched (or found unreadable): its result. */
   onLanded: (listener: (tile: ScanTile) => void) => () => void;
-  /** Resolves once every photo added so far is read and matched (tests). */
+  /**
+   * Deletes the photo files an earlier run of the app wrote down and never deleted (its scan was
+   * lost when the app was closed). Done once per run, before anything else is written down.
+   */
+  sweepLeftovers: () => Promise<void>;
+  /** Resolves once every photo added so far is read and matched, and written down (tests). */
   idle: () => Promise<void>;
 }
 
@@ -68,6 +78,8 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   const pending = new Set<Promise<unknown>>();
   let reading: Promise<void> = Promise.resolve();
   let retrying = false;
+  let journaling: Promise<void> = Promise.resolve();
+  let swept = false;
 
   const state = (): ScanStore => store.getState();
   const track = <T>(work: Promise<T>): Promise<T> => {
@@ -75,6 +87,32 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     void work.finally(() => pending.delete(work)).catch(() => undefined);
     return work;
   };
+
+  /**
+   * Writes down the scan's photo files as they are now; the first time in this run, first deletes
+   * the files an earlier run wrote down that this scan does not hold.
+   */
+  function writeDown(): Promise<void> {
+    const journal = deps.journal;
+    if (!journal) {
+      return Promise.resolve();
+    }
+    journaling = journaling
+      .then(async () => {
+        if (!swept) {
+          swept = true;
+          const current = new Set(photoFilesToDelete(state().session));
+          for (const uri of await journal.read()) {
+            if (!current.has(uri)) {
+              deps.deleteFile(uri);
+            }
+          }
+        }
+        await journal.write(photoFilesToDelete(state().session));
+      })
+      .catch(() => undefined);
+    return track(journaling);
+  }
 
   /** The tile a landed photo now lives in: its own, or the tile its repeat was grouped into. */
   function landedTile(session: ScanSession, tileId: string, photoUri: string | null) {
@@ -144,6 +182,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
       reading = reading.then(() => readOne(generation, tileId, input)).catch(() => undefined);
       void track(reading);
     }
+    void writeDown();
     return ids;
   }
 
@@ -176,6 +215,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     for (const uri of files) {
       deps.deleteFile(uri);
     }
+    void writeDown();
   }
 
   async function idle(): Promise<void> {
@@ -188,6 +228,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     addPhotos,
     retryWaiting,
     endScan,
+    sweepLeftovers: writeDown,
     onLanded: (listener) => {
       listeners.add(listener);
       return () => {
@@ -222,4 +263,5 @@ export const scanRunner: ScanRunner = createScanRunner({
   provider: () => getDeviceOcrProvider(),
   matcher: (read) => matchScannedCard(read),
   deleteFile: deleteScanPhotoFile,
+  journal: storedScanPhotoJournal,
 });
