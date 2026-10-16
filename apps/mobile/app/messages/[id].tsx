@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Keyboard, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
@@ -462,6 +462,9 @@ export default function ConversationScreen() {
           side={side}
           onOpen={openSubject}
           onMarkSold={() => {
+            // The message box gives up the keyboard for good: iOS would hand it back when the
+            // sheet closes, over the "Marked as sold" toast and its Undo (review fix 1, F2).
+            Keyboard.dismiss();
             setSaleError(null);
             setSaleSubject(subject);
             setSelling(true);

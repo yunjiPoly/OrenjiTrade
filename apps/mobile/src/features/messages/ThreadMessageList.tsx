@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, View } from 'react-native';
 
 import type { ConversationParticipant, MessageResponse } from '@/src/api/types';
 import { ListFooter } from '@/src/components/ui/ListFooter';
@@ -103,6 +103,8 @@ export function ThreadMessageList({
       renderItem={renderItem}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
+      // Dragging the thread puts the keyboard away (review fix 1, F2), as in other chat apps.
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       onEndReached={() => {
         if (hasOlder && !loadingOlder && !olderFailed) {
           onLoadOlder();

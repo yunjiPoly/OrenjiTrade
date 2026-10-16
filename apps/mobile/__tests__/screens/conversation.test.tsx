@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Dimensions, ScrollView } from 'react-native';
+import { Dimensions, Keyboard, ScrollView } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
 import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
@@ -94,6 +94,10 @@ describe('Conversation', () => {
     expect(screen.getByTestId('conversation-status')).toHaveTextContent(/^Ontario$/);
     expect(screen.getByTestId('conversation-start')).toHaveTextContent(
       'This is the beginning of your conversation with collector2.'
+    );
+    // Dragging the thread puts the keyboard away (review fix 1, F2).
+    expect(screen.getByTestId('conversation-messages').props.keyboardDismissMode).toBe(
+      'interactive'
     );
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/conversations/{id}/read')[0]?.body).toEqual({
@@ -854,7 +858,12 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     expect(screen.getByTestId('quick-reply-Yes, still available')).toBeOnTheScreen();
     expect(screen.getByTestId('quick-reply-Send me your address')).toBeOnTheScreen();
 
+    // Mark as sold takes the keyboard from the message box for good: iOS would bring it back
+    // over the toast and its Undo when the sheet closes (review fix 1, F2).
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
     fireEvent.press(within(bar).getByTestId('pinned-mark-sold'));
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
     const sheet = await screen.findByTestId('mark-sold-sheet');
     expect(within(sheet).getByTestId('mark-sold-sheet-title')).toHaveTextContent('Mark as sold?');
     expect(within(sheet).getByTestId('mark-sold-line')).toHaveTextContent('SVX-001 · 3 copies');

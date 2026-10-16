@@ -86,7 +86,11 @@ tags:
       id: 'conversation-input'
       text: 'e-Transfer to ada.maestro@example.com'
     timeout: 15000
-- runFlow: subflows/hide-keyboard.yaml
+# The seller checks the text in the box (the keyboard comes up) and sends it; the keyboard stays
+# up for Mark as sold, the order of spec flow 4 (review fix 1, F2: the toast and its Undo were
+# drawn under the keys when the box took the keyboard back).
+- tapOn:
+    id: 'conversation-input'
 - tapOn:
     id: 'conversation-send'
 - extendedWaitUntil:
@@ -101,7 +105,7 @@ tags:
       CONVERSATION: ${output.conversation.id}
       EXPECT_BODY: 'e-Transfer to ada.maestro@example.com'
 
-# Mark as sold (screen 25): the last copy, a tracking number.
+# Mark as sold (screen 25), the keyboard still up: the last copy, a tracking number.
 - tapOn:
     id: 'pinned-mark-sold'
 - extendedWaitUntil:
