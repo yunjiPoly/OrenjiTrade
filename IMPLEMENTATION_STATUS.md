@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
+**Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches; review fix 1: a public deck core shows every card in it as a key card and the cards keep their own visibility, Edit binder follows saves made elsewhere; review fix 2: the sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms — branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
 **Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 (V125 since the merge with F1) — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
@@ -6414,6 +6414,57 @@ the phone (F1: two jest tests fail), the Rate button's hit slop removed (F11).
 fixed quick replies exempt from the repeated-content threshold) are defaults to confirm; F5 means a
 buyer opening the same card again re-arms Mark as sold.
 
+### Review fix 2 (2026-10-16)
+
+A second review round (a functional verifier who ran the API attack scripts and the stress soak
+again, put the defect of every fix back, and walked the fixes on the owner's iPhone 18 Pro) found
+every finding of round 1 fixed except F11 in part, no blocker and no major finding, and two minor
+findings. Each is fixed at its cause with a test that would have caught it, one commit each; nothing
+was widened, and there is no migration and no API change.
+
+- **R1-1 Nothing tested that the Mark as sold sheet keeps the card it opened with.** With the
+  freeze removed (`setSaleSubject` when the sheet opens), the sheet follows the live subject and
+  sells it, and every jest test still passed: the F1 test changed the subject without reading the
+  chat again while the sheet was open. A new jest test pushes a pin on `/user/queue/conversations`
+  while the sheet is open: the bar under it follows the deck core, the sheet still shows the card
+  ("SVX-001 · 3 copies" and its stepper) and the sale names `subjectItemId` (the server answers
+  `SUBJECT_CHANGED`). With the freeze removed, the test fails (the sheet shows "Deck core").
+  (`df4de8ce`)
+- **R1-2 The quick reply chips were still 38 pt to the finger.** Their 5 pt hit slop reached
+  outside the sideways row, which padded the 34 pt chips by 2 pt only, and iOS (Fabric) drops a
+  touch outside a scroll view's frame before it reaches a chip: taps 4 pt above or under a chip sent
+  nothing. The row now pads 5 pt above and under the chips (44 pt tall) and takes the room back
+  with a negative margin, so it looks and sits as before. The jest test checks that the row holds
+  the chips' slop, is 44 pt tall and keeps its 2 pt around the chips; it fails with the old padding.
+  (`c0abb279`)
+
+Not changed (outside the findings of this round): the verifier's nit R1-3 (the `SUBJECT_CHANGED`
+toast says "Check the card above" when the new subject is a deck core) and the nits listed under
+review fix 1.
+
+**Checks of review fix 2** (retries off, the real numbers; this Mac, 2026-10-16)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 58 s: **169 classes / 1052 tests**, 0 failures, 0 skipped, + 12 catalog tests in 2 classes |
+| `./gradlew exportOpenApi` + `npm run generate:api` | nothing changed (no API change); git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **94 suites / 1011 tests** (+1, R1-1) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (60 s) |
+| `npm run test:mobile:maestro -- --platform ios` | NATIVE_RESULT |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+WALK_RESULT
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the chips' touch targets
+there were not measured on a device).
+
 ## NEXT TASK
 
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
@@ -6502,7 +6553,10 @@ buyer opening the same card again re-arms Mark as sold.
 > done** (2026-10-16, "Review fix 1" in the R4 section): Mark as sold names the card the seller saw
 > (409 `SUBJECT_CHANGED`) and every pin is pushed on `/user/queue/conversations`; the toast's Undo
 > stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has
-> its test; nine minor fixes (no migration).
+> its test; nine minor fixes (no migration). **Its review fix 2 is done** (2026-10-16, "Review fix
+> 2" in the R4 section): a jest test that the open Mark as sold sheet keeps the card it opened with
+> while a pushed pin re-reads the chat, and the quick reply row's padding that gives the chips their
+> 44 pt touch targets on iOS (no migration, no API change).
 >
 > **R5 acceptance items left by R3** (its review, U5 and U3): Who has this card passes
 > `excludeDeckCoreItems=true` **together with** the "Also in a deck core" banner (`GET
@@ -6510,9 +6564,8 @@ buyer opening the same card again re-arms Mark as sold.
 > and Search › Binders show deck cores as the mockup's rows (R3 shows the tag and the photo in
 > today's rows meanwhile).
 >
-> **Exact next task: finish the review of stage R4** (one fix round used of two: a second review
-> round if the lead wants one, the handoff's full check list, then its pull request; merge `main`
-> first if it moved), then **stage R5 of the phone redesign, "Search"** (mockup screens 11 to 15).
+> **Exact next task: the pull request of stage R4** (both fix rounds used; merge `main` first if it
+> moved, run the handoff's full check list again if it did), then **stage R5 of the phone redesign, "Search"** (mockup screens 11 to 15).
 > R5, on a new branch from the `main` that holds R4, as
 > [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
 > says in sections 4 and 8 (the Map and Wishlist tabs move into Search, which leaves four tabs; the
