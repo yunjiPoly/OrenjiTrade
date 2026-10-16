@@ -10,7 +10,14 @@ import { SHADE_LEGEND, SHADE_OPACITY } from './shading';
  * and the credit of the borders. Hidden from screen readers like on the web: the map's name says
  * what the shading means and the list gives every number.
  */
-export function MapLegend({ testID = 'map-legend' }: { testID?: string }) {
+export function MapLegend({
+  testID = 'map-legend',
+  maxFontSizeMultiplier,
+}: {
+  testID?: string;
+  /** How far the legend follows the system text size (over the map: a little only). */
+  maxFontSizeMultiplier?: number;
+}) {
   const { palette } = useTheme();
   return (
     <View
@@ -19,7 +26,12 @@ export function MapLegend({ testID = 'map-legend' }: { testID?: string }) {
       style={styles.legend}
       testID={testID}
     >
-      <Text style={[textStyle('xs'), { color: palette.textMuted }]}>Public binders</Text>
+      <Text
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+        style={[textStyle('xs'), { color: palette.textMuted }]}
+      >
+        Public binders
+      </Text>
       <View style={styles.steps}>
         {SHADE_LEGEND.map((step) => (
           <View key={step.level} style={styles.step}>
@@ -36,11 +48,19 @@ export function MapLegend({ testID = 'map-legend' }: { testID?: string }) {
                 ]}
               />
             </View>
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{step.label}</Text>
+            <Text
+              maxFontSizeMultiplier={maxFontSizeMultiplier}
+              style={[textStyle('xs'), { color: palette.textMuted }]}
+            >
+              {step.label}
+            </Text>
           </View>
         ))}
       </View>
-      <Text style={[textStyle('xs'), styles.credit, { color: palette.textMuted }]}>
+      <Text
+        maxFontSizeMultiplier={maxFontSizeMultiplier}
+        style={[textStyle('xs'), styles.credit, { color: palette.textMuted }]}
+      >
         Made with Natural Earth
       </Text>
     </View>

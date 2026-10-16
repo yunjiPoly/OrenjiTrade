@@ -238,7 +238,7 @@ const CardResult = memo(function CardResult({
     >
       <CardImage src={card.primaryImageUrl} alt="" game={card.game} size="xs" />
       <View style={styles.fill}>
-        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]} numberOfLines={2}>
+        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
           {parts.before}
           {parts.match ? <Text style={{ color: palette.primary }}>{parts.match}</Text> : null}
           {parts.after}
@@ -281,12 +281,10 @@ function CollectorResult({
         size={40}
       />
       <View style={styles.fill}>
-        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]} numberOfLines={1}>
+        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
           {collector.handle}
         </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} numberOfLines={1}>
-          {place}
-        </Text>
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{place}</Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textDisabled} />
     </Pressable>

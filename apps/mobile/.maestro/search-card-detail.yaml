@@ -40,12 +40,12 @@ tags:
     timeout: 30000
 - assertVisible: 'Emberfang Fox, Pokémon'
 
-# The game chips are the only filter: Yu-Gi-Oh! has no Emberfang, All games brings it back.
+# The game chips are the only filter: Yu-Gi-Oh! has no Emberfang (its typo-tolerant search may
+# still find another card), All games brings it back.
 - tapOn:
     id: 'search-game-yugioh'
 - extendedWaitUntil:
-    visible:
-      id: 'search-no-match'
+    notVisible: 'Emberfang Fox VMAX, Pokémon'
     timeout: 30000
 - tapOn:
     id: 'search-game-__all__'

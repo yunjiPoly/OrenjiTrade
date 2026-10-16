@@ -248,17 +248,12 @@ export const BinderSearchRow = memo(function BinderSearchRow({
         <CardFan urls={binder.previewImages ?? []} />
       )}
       <View style={styles.text}>
-        <Text numberOfLines={2} style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
-          {binder.name}
-        </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} numberOfLines={2}>
-          {line}
-        </Text>
+        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>{binder.name}</Text>
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{line}</Text>
       </View>
       {price ? (
         <Text
           style={[textStyle('md'), styles.bold, styles.price, { color: palette.ink }]}
-          numberOfLines={2}
           testID={`binder-search-price-${binder.id}`}
         >
           {price}
@@ -290,7 +285,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   pick: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], minHeight: 44 },
-  kinds: { minWidth: 200, flexShrink: 1 },
+  kinds: { minWidth: 200, flexGrow: 1 },
   bold: { fontWeight: fontWeight.semibold },
   list: { flexGrow: 1, paddingBottom: spacing[6] },
   empty: { paddingVertical: spacing[6], textAlign: 'center' },

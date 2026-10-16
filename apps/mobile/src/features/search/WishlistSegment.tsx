@@ -216,9 +216,7 @@ const WishRow = memo(function WishRow({
       >
         <CardImage src={item.card?.imageUrl} alt="" game={item.game} size="xs" />
         <View style={styles.grow}>
-          <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]} numberOfLines={2}>
-            {name}
-          </Text>
+          <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>{name}</Text>
           <Text
             style={[textStyle('sm'), { color: palette.textMuted }]}
             testID={`wish-${item.id}-terms`}

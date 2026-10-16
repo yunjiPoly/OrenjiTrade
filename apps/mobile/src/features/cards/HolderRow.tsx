@@ -54,15 +54,10 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
           size={44}
         />
         <View style={styles.text}>
-          <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]} numberOfLines={1}>
+          <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
             {collector.handle}
           </Text>
-          <Text
-            style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}
-            numberOfLines={1}
-          >
-            {line}
-          </Text>
+          <Text style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}>{line}</Text>
         </View>
         <View style={styles.price}>
           {price ? (

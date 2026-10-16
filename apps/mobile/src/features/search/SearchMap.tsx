@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
@@ -20,7 +20,15 @@ import { RegionAwayNote, RegionBar } from '@/src/features/regions/RegionBar';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { useScreenReader } from '@/src/hooks/useScreenReader';
 import { regionName } from '@/src/lib/place';
-import { elevation, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  elevation,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { SearchFieldButton } from './SearchField';
 import { MAP_COPY } from './searchCopy';
@@ -41,6 +49,12 @@ export interface SearchMapProps {
 const SEARCH_MAP_MIN_HEIGHT = Math.max(MIN_MAP_HEIGHT, 380);
 
 /**
+ * Above this system text size the state card leaves the map and stands under it (over the map it
+ * covered the whole drawing at the accessibility sizes); the legend follows the size a little only.
+ */
+const OVERLAY_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
+
+/**
  * Search's default view (owner spec 2026-10-14, section 8, mockup screen 11): the field "Card name
  * or code, like LOB-EN001" and the M9 region map, shaded by public binders, with the region pill
  * top left, "My province" (the declared state or province, never a device location) and zoom on
@@ -57,6 +71,8 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
   const counts = useRegionBinderCounts(region, ready);
   const location = useMyLocation();
   const screenReader = useScreenReader();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > OVERLAY_MAX_FONT_SCALE;
   const platformRegion = regionOf(regions.data, region);
   const name = platformRegion?.name ?? regionName(region);
   const byCode = useMemo(() => countsByCode(counts.data?.subdivisions), [counts.data]);
@@ -188,20 +204,24 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
         topLeft={<RegionBar variant="pill" testID="search-region" />}
         bottom={
           <View style={styles.overlay} pointerEvents="box-none">
-            {card}
+            {stacked ? null : card}
             <View
               style={[
                 styles.legend,
                 { backgroundColor: palette.background, borderColor: palette.border },
               ]}
             >
-              <MapLegend testID="search-map-legend" />
+              <MapLegend
+                testID="search-map-legend"
+                maxFontSizeMultiplier={OVERLAY_MAX_FONT_SCALE}
+              />
             </View>
           </View>
         }
         style={{ height }}
         testID="search-region-map"
       />
+      {stacked ? card : null}
       <Text style={[textStyle('xs'), { color: palette.textMuted }]} testID="search-map-privacy">
         {MAP_COPY.privacy}
       </Text>

@@ -1,7 +1,5 @@
 import type { PrintingSummary } from '@/src/api/types';
-import { languageName, printingCode } from '@/src/lib/catalog';
-
-import { specialEdition, specialFinish } from '../wishlist/wishlistLabels';
+import { editionLabel, finishLabel, languageName, printingCode } from '@/src/lib/catalog';
 import { CARD_PAGE_COPY } from '../search/searchCopy';
 
 /** One choice of the "Any printing ▾" sheet. */
@@ -25,8 +23,8 @@ export function printingOptions(printings: readonly PrintingSummary[]): Printing
   // What tells twins apart: only the attributes whose values differ among them.
   const parts: readonly ((printing: PrintingSummary) => string | null)[] = [
     (printing) => (printing.language ? languageName(printing.language) : null),
-    (printing) => specialEdition(printing.edition),
-    (printing) => specialFinish(printing.finish),
+    (printing) => (printing.edition ? editionLabel(printing.edition) : null),
+    (printing) => (printing.finish ? finishLabel(printing.finish) : null),
   ];
   return printings
     .filter((printing): printing is PrintingSummary & { id: string } => !!printing.id)
