@@ -38,10 +38,18 @@ import { HolderRow } from './HolderRow';
 import { printingOptions } from './printingOptions';
 import { tcgplayerSearchUrl } from './tcgplayer';
 
+/** The sheet's "Any printing · <rarity>" choice (never a printing id: those are UUIDs). */
+const RARITY_CHOICE = 'rarity';
+
 export interface WhoHasThisCardProps {
   card: CardDetail;
   /** The printing the link named (`?printing=<id>`), or null for any printing. */
   initialPrinting: string | null;
+  /**
+   * The rarity the link named (`?rarity=`, a wish of any printing in one rarity): any printing of
+   * the card in it. Ignored when a printing is named or when no printing of the card has it.
+   */
+  initialRarity?: string | null;
 }
 
 /**
@@ -54,7 +62,11 @@ export interface WhoHasThisCardProps {
  * collector's own first ("Quebec · your province"), the newest listing first in each, with Message
  * pinning the card. No card text, no type line, no market price, no filters and no counts.
  */
-export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
+export function WhoHasThisCard({
+  card,
+  initialPrinting,
+  initialRarity = null,
+}: WhoHasThisCardProps) {
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -69,8 +81,16 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
   const [printing, setPrinting] = useState<string | null>(
     known(initialPrinting) ? initialPrinting : null
   );
+  // "Any printing · <rarity>": a choice of the sheet only when the link named a rarity of the card.
+  const linkedRarity =
+    !known(initialPrinting) &&
+    initialRarity &&
+    (card.printings ?? []).some((candidate) => candidate.rarity === initialRarity)
+      ? initialRarity
+      : null;
+  const [rarity, setRarity] = useState<string | null>(linkedRarity);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const holders = useWhoHasThisCard(cardId, printing);
+  const holders = useWhoHasThisCard(cardId, printing, printing ? null : rarity);
   const cores = useDeckCoresWithCard(cardId);
   const { message, startingId } = useMessageCollector();
   const rows = useMemo(
@@ -82,9 +102,15 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
     () => groupHolders(rows, mySubdivision).map((group) => ({ ...group, data: group.rows })),
     [rows, mySubdivision]
   );
+  const rarityChoice = linkedRarity
+    ? [{ id: RARITY_CHOICE, label: CARD_PAGE_COPY.anyPrintingIn(linkedRarity) }]
+    : [];
+  const choice = printing ?? (rarity ? RARITY_CHOICE : '');
   const printingLabel = printing
     ? (options.find((option) => option.id === printing)?.label ?? CARD_PAGE_COPY.anyPrinting)
-    : CARD_PAGE_COPY.anyPrinting;
+    : rarity
+      ? CARD_PAGE_COPY.anyPrintingIn(rarity)
+      : CARD_PAGE_COPY.anyPrinting;
   const back = () =>
     router.canGoBack() ? router.back() : router.replace({ pathname: '/search', params: {} });
   const openCore = (core: PublicBinderSummary) =>
@@ -184,7 +210,11 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
     empty = (
       <View style={styles.empty} testID="holders-empty">
         <Text style={[textStyle('md'), styles.center, { color: palette.textMuted }]}>
-          {printing ? CARD_PAGE_COPY.emptyPrinting(where) : CARD_PAGE_COPY.empty(where)}
+          {printing
+            ? CARD_PAGE_COPY.emptyPrinting(where)
+            : rarity
+              ? CARD_PAGE_COPY.emptyRarity(where, rarity)
+              : CARD_PAGE_COPY.empty(where)}
         </Text>
         <WishlistToggle card={card} testID="holders-empty-wishlist" />
       </View>
@@ -272,41 +302,45 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
         title={CARD_PAGE_COPY.printingSheet}
         testID="card-printing-sheet"
       >
-        {[{ id: '', label: CARD_PAGE_COPY.anyPrinting }, ...options].map((option) => {
-          const chosen = (printing ?? '') === option.id;
-          return (
-            <Pressable
-              key={option.id || 'any'}
-              accessibilityRole="radio"
-              accessibilityLabel={option.label}
-              aria-checked={chosen}
-              onPress={() => {
-                setPrinting(option.id || null);
-                setSheetOpen(false);
-              }}
-              testID={`card-printing-${option.id || 'any'}`}
-              style={({ pressed }) => [
-                styles.option,
-                { borderBottomColor: palette.border },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text
-                style={[
-                  textStyle('md'),
-                  styles.shrink,
-                  option.id ? styles.mono : null,
-                  { color: palette.ink },
+        {[{ id: '', label: CARD_PAGE_COPY.anyPrinting }, ...rarityChoice, ...options].map(
+          (option) => {
+            const chosen = choice === option.id;
+            const isPrinting = option.id !== '' && option.id !== RARITY_CHOICE;
+            return (
+              <Pressable
+                key={option.id || 'any'}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                aria-checked={chosen}
+                onPress={() => {
+                  setPrinting(isPrinting ? option.id : null);
+                  setRarity(option.id === RARITY_CHOICE ? linkedRarity : null);
+                  setSheetOpen(false);
+                }}
+                testID={`card-printing-${option.id || 'any'}`}
+                style={({ pressed }) => [
+                  styles.option,
+                  { borderBottomColor: palette.border },
+                  pressed && styles.pressed,
                 ]}
               >
-                {option.label}
-              </Text>
-              {chosen ? (
-                <MaterialCommunityIcons name="check" size={20} color={palette.primary} />
-              ) : null}
-            </Pressable>
-          );
-        })}
+                <Text
+                  style={[
+                    textStyle('md'),
+                    styles.shrink,
+                    isPrinting ? styles.mono : null,
+                    { color: palette.ink },
+                  ]}
+                >
+                  {option.label}
+                </Text>
+                {chosen ? (
+                  <MaterialCommunityIcons name="check" size={20} color={palette.primary} />
+                ) : null}
+              </Pressable>
+            );
+          }
+        )}
       </BottomSheet>
     </View>
   );

@@ -80,14 +80,25 @@ export const HOLDERS_PAGE_SIZE = 20;
  * in each), paged for an infinite list. The cards of a deck core are left out: the page shows the
  * core in "Also in a deck core" instead (`useDeckCoresWithCard`).
  */
-export function useWhoHasThisCard(cardId: string | null, printingId: string | null) {
+export function useWhoHasThisCard(
+  cardId: string | null,
+  printingId: string | null,
+  /** Any printing of the card in this rarity (a wish of any printing in one rarity). */
+  rarity: string | null = null
+) {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
   const { region, ready } = useSearchRegion();
   const base = printingId
     ? { printingId, region, sort: 'province' as const, excludeDeckCoreItems: true }
     : cardId
-      ? { cardId, region, sort: 'province' as const, excludeDeckCoreItems: true }
+      ? {
+          cardId,
+          region,
+          sort: 'province' as const,
+          excludeDeckCoreItems: true,
+          ...(rarity ? { rarity } : {}),
+        }
       : null;
   return useInfiniteQuery<CardHoldersPage, ApiError>({
     queryKey: meKeys.cardHolders(uid, base ?? {}),

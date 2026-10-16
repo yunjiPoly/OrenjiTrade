@@ -18,22 +18,36 @@ import { radius, spacing, useTheme } from '@/src/theme';
  * one page for the card and its holders since stage R5 (the card detail and the card holders list
  * of before are gone; `/holders` links land here). Deep-link target:
  * https://www.orenjitrade.com/cards/<id> and orenjitrade://cards/<id>. `?printing=<id>` (a
- * wishlist alert, an "Available" wish) starts on that printing; `?printing=any` and `?rarity=`
- * start on "Any printing".
+ * wishlist alert, an "Available" wish) starts on that printing, `?rarity=` (a wish of any printing
+ * in one rarity) on "Any printing · <rarity>" and `?printing=any` on "Any printing". A new link to
+ * the page on screen starts it again on what that link names.
  */
 export default function CardScreen() {
-  const { id, printing } = useLocalSearchParams<{ id: string; printing?: string }>();
+  const { id, printing, rarity } = useLocalSearchParams<{
+    id: string;
+    printing?: string;
+    rarity?: string;
+  }>();
   const card = useCard(id);
   const notFound =
     !!card.error && (card.error.status === 404 || card.error.errorCode === 'VALIDATION_FAILED');
   const initialPrinting = printing && printing !== ANY_PRINTING_PARAM ? printing : null;
+  // `?printing=any` says "every printing", whatever the rarity says.
+  const initialRarity = !printing && rarity ? rarity : null;
 
   if (card.data) {
     return (
       <>
         <Stack.Screen options={{ headerShown: false, title: card.data.name ?? 'Card' }} />
         <View testID="screen-card" style={styles.fill}>
-          <WhoHasThisCard card={card.data} initialPrinting={initialPrinting} />
+          {/* Keyed on the link: the route stays when a link to the card on screen opens with
+              other parameters, and the page must follow it (stage R5 review, F4). */}
+          <WhoHasThisCard
+            key={`${id}|${initialPrinting ?? ''}|${initialRarity ?? ''}`}
+            card={card.data}
+            initialPrinting={initialPrinting}
+            initialRarity={initialRarity}
+          />
         </View>
       </>
     );

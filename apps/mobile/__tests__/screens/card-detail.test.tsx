@@ -207,6 +207,113 @@ describe('Who has this card (screen 13)', () => {
     expect(screen.getByTestId('card-printing')).toHaveTextContent(/LAVD-EN008 · Ultra Rare/);
   });
 
+  it('starts on "Any printing · <rarity>" when a wish of one rarity opens it, and back to any printing', async () => {
+    // "Available" and the alert of a wish of any printing in one rarity (stage R5 review, F3).
+    mockParams.current = { id: CARD_ID, rarity: 'Secret Rare' };
+    const api = mockApi(routes());
+    render();
+    await screen.findByTestId('card-name');
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/search/card-holders')[0]?.query.get('rarity')).toBe(
+        'Secret Rare'
+      )
+    );
+    const first = api.callsTo('GET /api/v1/search/card-holders')[0];
+    expect(first?.query.get('cardId')).toBe(CARD_ID);
+    expect(first?.query.get('printingId')).toBeNull();
+    expect(screen.getByTestId('card-printing')).toHaveTextContent(/Any printing · Secret Rare/);
+    fireEvent.press(screen.getByTestId('card-printing'));
+    const sheet = await screen.findByTestId('card-printing-sheet');
+    expect(within(sheet).getByRole('radio', { name: 'Any printing · Secret Rare' })).toBeChecked();
+    fireEvent.press(within(sheet).getByRole('radio', { name: 'Any printing' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('card-printing')).toHaveTextContent(/^Any printing\W*$/)
+    );
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/search/card-holders').at(-1)?.query.get('rarity')).toBeNull()
+    );
+  });
+
+  it('ignores a rarity none of the printings has', async () => {
+    mockParams.current = { id: CARD_ID, rarity: 'Mythic' };
+    const api = mockApi(routes());
+    render();
+    await screen.findByTestId('card-name');
+    await waitFor(() => expect(api.callsTo('GET /api/v1/search/card-holders')).not.toEqual([]));
+    expect(api.callsTo('GET /api/v1/search/card-holders')[0]?.query.get('rarity')).toBeNull();
+    expect(screen.getByTestId('card-printing')).toHaveTextContent(/^Any printing\W*$/);
+  });
+
+  it('follows a new link to the card on screen with another printing', async () => {
+    // The route stays and only its parameters change (a link opened while the page shows).
+    mockParams.current = { id: CARD_ID, printing: PRINTING_A };
+    mockApi(routes());
+    const view = render();
+    await waitFor(() =>
+      expect(screen.getByTestId('card-printing')).toHaveTextContent(/LAVD-EN008 · Ultra Rare/)
+    );
+    mockParams.current = { id: CARD_ID, printing: 'any' };
+    view.rerender(<CardScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('card-printing')).toHaveTextContent(/^Any printing\W*$/)
+    );
+    mockParams.current = { id: CARD_ID, printing: PRINTING_B };
+    view.rerender(<CardScreen />);
+    await waitFor(() =>
+      expect(screen.getByTestId('card-printing')).toHaveTextContent(/RA01-EN008 · Secret Rare/)
+    );
+  });
+
+  it('says when a copy is a 1st Edition or of a special finish, so twins of one code read apart', async () => {
+    // Two printings of one code and rarity, a 1st Edition and an Unlimited one (stage R5 review,
+    // U3): under "Any printing" each row says which it is.
+    mockApi(
+      routes({
+        'GET /api/v1/search/card-holders': ok(
+          cardHoldersPage([
+            cardHolderFixture({
+              collector: markerFixture({ id: 'c-first', handle: 'first_ed', place: QUEBEC }),
+              item: publicItemFixture({
+                id: 'first',
+                edition: 'FIRST_EDITION',
+                finish: 'NORMAL',
+                printing: printingFixture({ printingCode: 'GLM-EN022', rarity: 'Rare' }),
+              }),
+            }),
+            cardHolderFixture({
+              collector: markerFixture({ id: 'c-unl', handle: 'unlimited', place: QUEBEC }),
+              item: publicItemFixture({
+                id: 'unl',
+                edition: 'UNLIMITED',
+                finish: 'NORMAL',
+                printing: printingFixture({ printingCode: 'GLM-EN022', rarity: 'Rare' }),
+              }),
+            }),
+            cardHolderFixture({
+              collector: markerFixture({ id: 'c-rev', handle: 'reverse', place: QUEBEC }),
+              item: publicItemFixture({
+                id: 'rev',
+                edition: 'UNLIMITED',
+                finish: 'REVERSE_HOLO',
+                printing: printingFixture({ printingCode: 'SVX-001', rarity: 'Rare' }),
+              }),
+            }),
+          ])
+        ),
+      })
+    );
+    render();
+    expect(await screen.findByTestId('holder-first')).toHaveTextContent(
+      /GLM-EN022 · Rare · 1st Edition/
+    );
+    expect(screen.getByTestId('holder-unl')).toHaveTextContent(/GLM-EN022 · Rare(?! ·)/);
+    expect(screen.getByTestId('holder-rev')).toHaveTextContent(/SVX-001 · Rare · Reverse holo/);
+    expect(screen.getByTestId('holder-first-collector')).toHaveProp(
+      'accessibilityLabel',
+      expect.stringContaining('GLM-EN022 · Rare · 1st Edition')
+    );
+  });
+
   it('shows "Also in a deck core" with the public cores of the region, each opening its page', async () => {
     const core = publicBinderSummaryFixture({
       id: 'core-1',

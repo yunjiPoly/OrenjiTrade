@@ -7,6 +7,7 @@ import type { CardHolderResult } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
 import { itemPriceText } from '@/src/features/inventory/itemPrice';
+import { specialEdition, specialFinish } from '@/src/features/wishlist/wishlistLabels';
 import { printingCode } from '@/src/lib/catalog';
 import { fontFamily, fontWeight, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
@@ -22,7 +23,8 @@ export interface HolderRowProps {
 
 /**
  * One holder of "Who has this card" (owner spec 2026-10-14, section 8, mockup screen 13): avatar
- * and handle (they open the profile), "{code} · {rarity}", the asking price as typed, "×{copies}",
+ * and handle (they open the profile), "{code} · {rarity}" (and "1st Edition" or a finish such as
+ * "Reverse holo" when the copy is not the usual one), the asking price as typed, "×{copies}",
  * and a round Message button that opens the chat with this card pinned. Gone from the phone's row:
  * the set, condition, availability, note, freshness, "Make an offer" and "View binder". The place
  * is the group's title above (a state or province, ADR 0017).
@@ -35,7 +37,15 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
   const stacked = useStackedRows();
   const { collector, item } = result;
   const code = printingCode(item.printing);
-  const line = CARD_PAGE_COPY.printingLine(code, item.printing.rarity);
+  // The copy's edition or finish when it is not the usual one: under "Any printing" a 1st Edition
+  // and an Unlimited copy of one code and rarity read apart (stage R5 review, U3).
+  const line = [
+    CARD_PAGE_COPY.printingLine(code, item.printing.rarity),
+    specialEdition(item.edition),
+    specialFinish(item.finish),
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const price = itemPriceText(item);
   const copies = `×${item.quantity}`;
   return (

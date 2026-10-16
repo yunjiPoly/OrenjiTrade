@@ -96,6 +96,8 @@ export const CARD_PAGE_COPY = {
   tcgplayer: 'Check TCGplayer price',
   tcgplayerLabel: 'Check the TCGplayer price, opens in your browser',
   anyPrinting: 'Any printing',
+  /** A wish of any printing in one rarity ("Available", its alert): the wish's own words. */
+  anyPrintingIn: (rarity: string) => `Any printing · ${rarity}`,
   printingSheet: 'Printing',
   printingLine: (code: string, rarity: string | null | undefined) =>
     rarity ? `${code} · ${rarity}` : code,
@@ -112,6 +114,8 @@ export const CARD_PAGE_COPY = {
   openProfile: (handle: string) => `${handle}, open profile`,
   empty: (region: string) => `Nobody in ${region} lists this card yet.`,
   emptyPrinting: (region: string) => `Nobody in ${region} lists this printing yet.`,
+  emptyRarity: (region: string, rarity: string) =>
+    `Nobody in ${region} lists this card in ${rarity} yet.`,
   loading: 'Loading the card',
   error: 'This card could not load',
   holdersError: 'The holders could not load',
