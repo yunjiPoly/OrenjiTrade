@@ -81,11 +81,17 @@ export function CardTyping({ initialText = '', initialGame = null, onCancel }: C
   const collectors = useCollectorsByName(query);
   const people = query.length >= COLLECTORS_MIN_CHARS ? (collectors.data ?? []) : [];
 
+  // What the field holds, not the debounced query: the Search key pressed right after typing
+  // kept nothing, or a word cut where the collector paused (stage R5 review, U2).
   const keep = () => {
-    if (uid && query) {
-      remember(uid, query);
+    const kept = boundedQuery(text);
+    if (uid && kept) {
+      remember(uid, kept);
     }
+    return kept;
   };
+  // The Search key also searches at once.
+  const submit = () => setQuery(keep());
   const openCard = (card: CardSummary) => {
     keep();
     if (card.id) {
@@ -105,7 +111,7 @@ export function CardTyping({ initialText = '', initialGame = null, onCancel }: C
     <SearchInput
       value={text}
       onChangeText={setText}
-      onSubmitEditing={keep}
+      onSubmitEditing={submit}
       label={TYPING_COPY.fieldLabel}
       placeholder={TYPING_COPY.placeholder}
       onCancel={onCancel}
