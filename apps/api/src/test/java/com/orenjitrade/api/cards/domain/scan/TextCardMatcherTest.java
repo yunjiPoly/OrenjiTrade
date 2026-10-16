@@ -402,6 +402,14 @@ class TextCardMatcherTest {
         }
         assertThat(match(List.of("ZBM1-EN"), List.of("Brinemoss Warden")).status())
                 .isEqualTo(ScanStatus.PICK_PRINTING);
+        // Its number begun with a look-alike letter, read as the digit it stands for: of the two in
+        // ZBM1, the one whose number starts with it (O is 0: ZBM1-EN098; I is 1: ZBM1-EN137).
+        assertThat(match(List.of("ZBM1-ENO"), List.of("Brinemoss Warden")).printing())
+                .extracting(ScanMatch.Printing::printingCode)
+                .isEqualTo("ZBM1-EN098");
+        assertThat(match(List.of("ZBM1-ENI"), List.of("Brinemoss Warden")).printing())
+                .extracting(ScanMatch.Printing::printingCode)
+                .isEqualTo("ZBM1-EN137");
         // With a whole code too (the phone never sends both), the codes decide as for any code
         // read: the cut one takes no printing in its set, and a whole code none of the card's
         // printings leaves its printing to pick.

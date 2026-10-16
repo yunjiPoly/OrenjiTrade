@@ -285,6 +285,10 @@ class ScanCodesTest {
         assertThat(ScanCodes.fragmentFits("ZR04-ENO", "ZR04-EN015")).isTrue();
         assertThat(ScanCodes.fragmentFits("ZRO2-ENOT", "ZR02-EN013")).isTrue();
         assertThat(ScanCodes.fragmentFits("ZR04-EN1", "ZR04-EN015")).isFalse();
+        // Folded, the number begun with a look-alike letter is a digit: O is 0, I is 1.
+        assertThat(ScanCodes.fragmentFits("ZR04-ENO", "ZR04-EN115")).isFalse();
+        assertThat(ScanCodes.fragmentFits("ZR04-ENI", "ZR04-EN115")).isTrue();
+        assertThat(ScanCodes.fragmentFits("ZR04-ENI", "ZR04-EN015")).isFalse();
         assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR05-EN015")).isFalse();
         assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-DE015")).isFalse();
         assertThat(ScanCodes.fragmentFits("ZR04-EN", "ZR04-015")).isFalse();
