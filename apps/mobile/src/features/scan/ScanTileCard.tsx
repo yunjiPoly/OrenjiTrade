@@ -14,7 +14,10 @@ import {
 import { ScanPhotoImage } from './ScanPhotoImage';
 import { tileAction, tileText } from './scanCopy';
 import type { ScanTile, TileStatus } from './scanSession';
+import { useTextScale } from './useTextScale';
 
+/** A tile is 160 points wide at the usual text size (the mockup's). */
+const TILE_WIDTH = 160;
 /** The picture of a tile (the mockup's 40 × 58 card). */
 const PICTURE = { width: 40, height: 58 };
 
@@ -47,6 +50,7 @@ export interface ScanTileCardProps {
  */
 export function ScanTileCard({ tile, onPress }: ScanTileCardProps) {
   const { palette } = useTheme();
+  const scale = useTextScale();
   const text = tileText(tile);
   const tappable = tileAction(tile) !== null;
   const tone = tileTone(tile.status, palette);
@@ -126,7 +130,10 @@ export function ScanTileCard({ tile, onPress }: ScanTileCardProps) {
       </View>
     </>
   );
-  const frame = [styles.tile, { backgroundColor: palette.surface, borderColor: tone.border }];
+  const frame = [
+    styles.tile,
+    { width: TILE_WIDTH * scale, backgroundColor: palette.surface, borderColor: tone.border },
+  ];
   if (!tappable) {
     return (
       <View
@@ -154,7 +161,6 @@ export function ScanTileCard({ tile, onPress }: ScanTileCardProps) {
 
 const styles = StyleSheet.create({
   tile: {
-    width: 160,
     minHeight: 82,
     borderRadius: 14,
     borderWidth: 1,

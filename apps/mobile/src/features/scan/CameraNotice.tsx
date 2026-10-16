@@ -95,5 +95,5 @@ export function CameraNotice({
 const styles = StyleSheet.create({
   root: { alignItems: 'center', justifyContent: 'center', gap: spacing[3], padding: spacing[4] },
   card: { borderRadius: 16, borderWidth: 1, alignSelf: 'stretch' },
-  text: { textAlign: 'center' },
+  text: { textAlign: 'center', alignSelf: 'stretch' },
 });

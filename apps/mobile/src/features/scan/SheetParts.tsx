@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, spacing, textStyle, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 import { SCAN_COPY } from './scanCopy';
 
@@ -65,13 +65,17 @@ export function SheetHeader({ title, onRemove, onClose, testID }: SheetHeaderPro
         style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
         testID={`${testID}-remove`}
       >
-        <Text style={[textStyle('md'), styles.removeLabel, { color: palette.danger }]}>
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[textStyle('md'), styles.removeLabel, { color: palette.danger }]}
+        >
           {SCAN_COPY.remove}
         </Text>
       </Pressable>
       <Text
         accessibilityRole="header"
-        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        // The header stays on top of a sheet that scrolls: it follows the text size a little.
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         style={[textStyle('md'), styles.title, { color: palette.ink }]}
       >
         {title}

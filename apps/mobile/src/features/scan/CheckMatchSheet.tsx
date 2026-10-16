@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { CardImage } from '@/src/components/ui/CardImage';
@@ -11,6 +11,7 @@ import {
   PINNED_MAX_FONT_SCALE,
   spacing,
   textStyle,
+  TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
 
@@ -19,10 +20,13 @@ import { ScanPhotoImage } from './ScanPhotoImage';
 import { matchRail, readText, type MatchRailItem } from './scanPrintings';
 import { MAX_COPIES, MIN_COPIES, type ScanTile } from './scanSession';
 import { SheetHeader, useLastValue } from './SheetParts';
+import { useTextScale } from './useTextScale';
 
 /** "Your photo" and "Our match" (the mockup's 104 × 152). */
 const PICTURE = { width: 104, height: 152 };
-/** A tile of "Other matches" (the mockup's 60 × 86). */
+/** A tile of "Other matches" is 64 points wide at the usual text size (the mockup's). */
+const RAIL_ITEM_WIDTH = 64;
+/** Its picture (the mockup's 60 × 86, its 2-point ring inside). */
 const RAIL_PICTURE = { width: 56, height: 82 };
 
 export interface CheckMatchSheetProps {
@@ -66,6 +70,11 @@ function CheckMatch({
   onSearch,
 }: CheckMatchSheetProps & { tile: ScanTile }) {
   const { palette } = useTheme();
+  const scale = useTextScale();
+  // Past the sizes the pinned labels follow, the copies go under the name (the name keeps the
+  // sheet's width, so its words are not broken).
+  const stacked = useWindowDimensions().fontScale > PINNED_MAX_FONT_SCALE;
+  const railItem = [styles.railItem, { width: RAIL_ITEM_WIDTH * scale }];
   const card = tile.card;
   const printing = tile.printing ?? null;
   const shownPrinting = printing ?? tile.rarities[0] ?? null;
@@ -89,7 +98,10 @@ function CheckMatch({
         <View style={styles.pictures}>
           <View style={styles.picture}>
             <ScanPhotoImage uri={tile.photos[0]?.uri} style={PICTURE} testID="scan-check-photo" />
-            <Text style={[styles.caption, { color: palette.textMuted }]}>
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[styles.caption, { color: palette.textMuted }]}
+            >
               {SCAN_COPY.yourPhoto}
             </Text>
           </View>
@@ -102,11 +114,16 @@ function CheckMatch({
               style={PICTURE}
               testID="scan-check-match"
             />
-            <Text style={[styles.caption, { color: palette.textMuted }]}>{SCAN_COPY.ourMatch}</Text>
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[styles.caption, { color: palette.textMuted }]}
+            >
+              {SCAN_COPY.ourMatch}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.match}>
+        <View style={[styles.match, stacked && styles.stacked]}>
           <View style={styles.matchTexts}>
             <Text style={[styles.name, { color: palette.ink }]} testID="scan-check-name">
               {card?.name}
@@ -209,13 +226,16 @@ function CheckMatch({
               accessibilityRole="button"
               accessibilityLabel={SCAN_COPY.notHereLabel}
               onPress={onSearch}
-              style={({ pressed }) => [styles.railItem, pressed && styles.pressed]}
+              style={({ pressed }) => [railItem, pressed && styles.pressed]}
               testID="scan-check-search"
             >
               <View style={[styles.searchTile, { borderColor: palette.textDisabled }]}>
                 <MaterialCommunityIcons name="magnify" size={22} color={palette.primary} />
               </View>
-              <Text style={[styles.railSearch, { color: palette.ink }]}>
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[styles.railSearch, { color: palette.ink }]}
+              >
                 {`${SCAN_COPY.notHere}\n${SCAN_COPY.notHereSearch}`}
               </Text>
             </Pressable>
@@ -226,7 +246,7 @@ function CheckMatch({
                 accessibilityLabel={[item.name, item.code, item.sub].filter(Boolean).join(', ')}
                 aria-checked={item.checked}
                 onPress={() => (item.checked ? undefined : onChoose(item))}
-                style={({ pressed }) => [styles.railItem, pressed && styles.pressed]}
+                style={({ pressed }) => [railItem, pressed && styles.pressed]}
                 testID={`scan-check-option-${item.key}`}
               >
                 <View
@@ -245,6 +265,7 @@ function CheckMatch({
                 </View>
                 <Text
                   numberOfLines={1}
+                  maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                   style={[
                     styles.railCode,
                     { color: item.checked ? palette.ink : palette.textMuted },
@@ -252,7 +273,11 @@ function CheckMatch({
                 >
                   {item.code}
                 </Text>
-                <Text numberOfLines={2} style={[styles.railSub, { color: palette.textMuted }]}>
+                <Text
+                  numberOfLines={2}
+                  maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                  style={[styles.railSub, { color: palette.textMuted }]}
+                >
                   {item.sub}
                 </Text>
               </Pressable>
@@ -303,6 +328,7 @@ function Copies({ value, onChange }: { value: number; onChange: (copies: number)
       <Text
         accessibilityLabel={`${SCAN_COPY.copies}: ${value}`}
         accessibilityLiveRegion="polite"
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         style={[styles.copyValue, { color: palette.ink }]}
         testID="scan-check-copies"
       >
@@ -319,9 +345,16 @@ const styles = StyleSheet.create({
   content: { gap: spacing[3] },
   pictures: { flexDirection: 'row', justifyContent: 'center', gap: spacing[4] },
   picture: { alignItems: 'center', gap: 6 },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
+  caption: {
+    width: PICTURE.width,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+  },
   match: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  matchTexts: { flex: 1, minWidth: 0, gap: 3 },
+  stacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  matchTexts: { flexGrow: 1, flexShrink: 1, alignSelf: 'stretch', minWidth: 0, gap: 3 },
   name: { fontSize: 17, lineHeight: 21, fontWeight: fontWeight.bold },
   code: { fontFamily: fontFamily.mono, fontSize: 12, lineHeight: 17 },
   tags: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 2 },
@@ -352,7 +385,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  copyValue: { minWidth: 28, textAlign: 'center', fontSize: 16, fontWeight: fontWeight.bold },
+  copyValue: {
+    minWidth: 28,
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: fontWeight.bold,
+  },
   section: { gap: 8 },
   sectionTitle: {
     fontSize: 12,
@@ -370,7 +409,7 @@ const styles = StyleSheet.create({
   },
   chipLabel: { fontSize: 13, lineHeight: 17, fontWeight: fontWeight.semibold },
   rail: { gap: 10, paddingVertical: 2 },
-  railItem: { width: 64, alignItems: 'center', gap: 4 },
+  railItem: { alignItems: 'center', gap: 4 },
   searchTile: {
     width: 60,
     height: 86,

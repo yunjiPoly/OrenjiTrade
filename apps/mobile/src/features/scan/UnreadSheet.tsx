@@ -11,6 +11,7 @@ import {
   PINNED_MAX_FONT_SCALE,
   spacing,
   textStyle,
+  TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
 
@@ -75,7 +76,10 @@ function Unread({
         <View style={styles.pictures}>
           <View style={styles.picture}>
             <ScanPhotoImage uri={tile.photos[0]?.uri} style={PICTURE} testID="scan-unread-photo" />
-            <Text style={[styles.caption, { color: palette.textMuted }]}>
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[styles.caption, { color: palette.textMuted }]}
+            >
               {SCAN_COPY.yourPhoto}
             </Text>
           </View>
@@ -87,15 +91,24 @@ function Unread({
               <Text
                 importantForAccessibility="no"
                 accessibilityElementsHidden
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
                 style={[styles.question, { color: palette.textDisabled }]}
               >
                 ?
               </Text>
-              <Text style={[styles.emptyText, { color: palette.textMuted }]}>
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[styles.emptyText, { color: palette.textMuted }]}
+              >
                 {SCAN_COPY.noMatchYet}
               </Text>
             </View>
-            <Text style={[styles.caption, { color: palette.textMuted }]}>{SCAN_COPY.ourMatch}</Text>
+            <Text
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[styles.caption, { color: palette.textMuted }]}
+            >
+              {SCAN_COPY.ourMatch}
+            </Text>
           </View>
         </View>
         <Text style={[textStyle('sm'), styles.text, { color: palette.textMuted }]}>
@@ -112,7 +125,12 @@ function Unread({
               >
                 <MaterialCommunityIcons name={tip.icon} size={22} color={palette.ink} />
               </View>
-              <Text style={[styles.tipLabel, { color: palette.ink }]}>{tip.label}</Text>
+              <Text
+                maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+                style={[styles.tipLabel, { color: palette.ink }]}
+              >
+                {tip.label}
+              </Text>
             </View>
           ))}
         </View>
@@ -155,7 +173,13 @@ const styles = StyleSheet.create({
   content: { gap: spacing[3] },
   pictures: { flexDirection: 'row', justifyContent: 'center', gap: spacing[4] },
   picture: { alignItems: 'center', gap: 6 },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
+  caption: {
+    width: PICTURE.width,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+  },
   empty: {
     ...PICTURE,
     borderRadius: 6,
