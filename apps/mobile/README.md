@@ -277,9 +277,12 @@ app/                       expo-router routes
                            `?subdivision=`, `?state=`
   (tabs)/index.tsx         the old Map tab: redirects to Search (`/?region=&subdivision=` on that
                            region and state; ADR 0017)
-  cards/[id].tsx           Who has this card, the one card page (`?printing=<id>|any`)
+  cards/[id].tsx           Who has this card, the one card page (`?printing=<id>|any`, `?rarity=`)
   holders.tsx              the old card holders list: redirects to the card page
   regions/[region]/[code]  the old public binders of a state: redirects to Search › Binders
+                           (`/search?segment=binders&region=&place=`: never a parameter named
+                           `state`, `screen`, `params`, `initial` or `path`, which React
+                           Navigation reads as its own and which crashed the tabs)
   collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
@@ -296,8 +299,10 @@ app/                       expo-router routes
                            offers, trades, disputes, the payment checkout, offer and payout
                            settings (stage R1) on Messages or Settings; Premium, credits, support
                            and their checkouts (stage F1) on the Profile tab
-  cards/[id].tsx           card detail (`?printing=<id>` selects a printing, `?rarity=` any printing of
-                           it, `?printing=any` any printing: neither picks one)
+  cards/[id].tsx           the card page, Who has this card (`?printing=<id>` that printing,
+                           `?rarity=` "Any printing · <rarity>" (the holders of that rarity),
+                           `?printing=any` any printing; a new link to the page on screen
+                           starts it again on what it names)
   items/new.tsx, [id].tsx  add a card (search -> printing -> details), edit / delete a card
   items/import.tsx         import cards from a deck file or a CSV export (stage S5): source ->
                            file or pasted text -> preview -> result
