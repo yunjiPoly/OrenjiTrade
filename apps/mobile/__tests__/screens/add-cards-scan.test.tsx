@@ -97,6 +97,18 @@ describe('Add cards with the card scan (screen 26)', () => {
     expect(screen.queryByText('Coming later')).toBeNull();
   });
 
+  it('deletes the photos of a scan an earlier run of the app lost, on the way into a scan', async () => {
+    const sweep = jest.spyOn(scanRunner, 'sweepLeftovers');
+    try {
+      readerOf({});
+      renderAddCards();
+      await screen.findByRole('button', { name: 'Choose from photos' });
+      expect(sweep).toHaveBeenCalled();
+    } finally {
+      sweep.mockRestore();
+    }
+  });
+
   it('keeps "Coming later" in a build without the reader (Expo Go, the web)', async () => {
     mockReader.provider = null;
     const { api } = renderAddCards();
@@ -143,6 +155,22 @@ describe('Add cards with the card scan (screen 26)', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Choose from photos' }));
     expect(await screen.findByText("Your photos couldn't be opened. Try again.")).toBeOnTheScreen();
     expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('"Choose from photos" starts a new scan: a scan left from before goes with its photo', async () => {
+    readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
+    seedScan([{ photo: 'old', unread: READ_BLUR }]);
+    pickLibrary.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ ...libraryPhoto('yew'), type: 'image' }],
+    });
+    renderAddCards();
+    fireEvent.press(await screen.findByRole('button', { name: 'Choose from photos' }));
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalled());
+    expect(mockFiles.deleted).toEqual([libraryPhoto('old').uri]);
+    expect(useScanStore.getState().session.tiles.map((tile) => tile.photos[0]?.uri)).toEqual([
+      libraryPhoto('yew').uri,
+    ]);
   });
 });
 

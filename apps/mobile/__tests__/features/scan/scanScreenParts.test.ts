@@ -1,6 +1,7 @@
 import { NAME_AREA, SET_CODE_AREA } from '@/src/features/scan/cardAreas';
 import { areaRect } from '@/src/features/scan/CameraFrameOverlay';
 import { fitCardFrame, FRAME_WIDTH_SHARE } from '@/src/features/scan/cameraLayout';
+import { reviewPillFit } from '@/src/features/scan/ScanBottomBar';
 import { manyRaritiesText, raritiesCount, tileAnnouncement } from '@/src/features/scan/scanCopy';
 import { matchRail, printingsOfCard, readText, rowRarity } from '@/src/features/scan/scanPrintings';
 import {
@@ -37,6 +38,24 @@ function tileOf(match = FOUND_YEW): ScanTile {
   });
   return findTile(applyMatch(session, tileId, match.read, match), tileId) as ScanTile;
 }
+
+describe('"Review {n}" in the bottom bar', () => {
+  it('keeps the mockup pill while it fits, then drops its arrow, then its word', () => {
+    // iPhone 17 (402 points), default size: 136 points of room beside the shutter, "Review 3"
+    // needs 135.
+    expect(reviewPillFit(135, 136)).toBe('FULL');
+    expect(reviewPillFit(136, 136)).toBe('FULL');
+    // A count of two digits: "Review 12" without its arrow.
+    expect(reviewPillFit(142, 136)).toBe('NO_ARROW');
+    // The largest standard size with "Review 4" (155 points; it reached 17 over the shutter).
+    expect(reviewPillFit(155, 136)).toBe('NO_ARROW');
+    // A 375-point phone at that size: 114 points of room, the count and arrow only.
+    expect(reviewPillFit(155, 114)).toBe('COUNT');
+    // Not laid out yet: the mockup's pill.
+    expect(reviewPillFit(null, 136)).toBe('FULL');
+    expect(reviewPillFit(155, null)).toBe('FULL');
+  });
+});
 
 describe("the camera's frame", () => {
   it('is as tall as its space allows, card-shaped, never wider than the mockup share', () => {
@@ -158,43 +177,40 @@ describe('what was read', () => {
 
 describe("the printings of a card picked by hand (the catalog's)", () => {
   it('keeps the English ones, newest set first, a set without a date last', () => {
-    const printings = printingsOfCard({
-      id: 'card-x',
-      printings: [
-        {
-          id: 'a',
-          setCode: 'ZOLD',
-          setName: 'Old',
-          printingCode: 'ZOLD-EN001',
-          setReleaseDate: '2002-03-08',
-          language: 'EN',
-        },
-        {
-          id: 'b',
-          setCode: 'ZNEW',
-          setName: 'New',
-          printingCode: 'ZNEW-EN010',
-          setReleaseDate: '2024-11-01',
-          rarity: 'Ultra Rare',
-        },
-        {
-          id: 'c',
-          setCode: 'ZNEW',
-          setName: 'New',
-          printingCode: 'ZNEW-FR010',
-          setReleaseDate: '2024-11-01',
-          language: 'FR',
-        },
-        {
-          id: 'd',
-          setCode: 'ZUND',
-          setName: 'Undated',
-          printingCode: 'ZUND-EN001',
-          language: 'English',
-        },
-        { setCode: 'ZNOID', setName: 'No id' },
-      ],
-    });
+    const printings = printingsOfCard([
+      {
+        id: 'a',
+        setCode: 'ZOLD',
+        setName: 'Old',
+        printingCode: 'ZOLD-EN001',
+        setReleaseDate: '2002-03-08',
+        language: 'EN',
+      },
+      {
+        id: 'b',
+        setCode: 'ZNEW',
+        setName: 'New',
+        printingCode: 'ZNEW-EN010',
+        setReleaseDate: '2024-11-01',
+        rarity: 'Ultra Rare',
+      },
+      {
+        id: 'c',
+        setCode: 'ZNEW',
+        setName: 'New',
+        printingCode: 'ZNEW-FR010',
+        setReleaseDate: '2024-11-01',
+        language: 'FR',
+      },
+      {
+        id: 'd',
+        setCode: 'ZUND',
+        setName: 'Undated',
+        printingCode: 'ZUND-EN001',
+        language: 'English',
+      },
+      { setCode: 'ZNOID', setName: 'No id' },
+    ]);
     expect(printings.map((printing) => printing.id)).toEqual(['b', 'a', 'd']);
     expect(printings[0]).toEqual({
       id: 'b',
@@ -206,6 +222,6 @@ describe("the printings of a card picked by hand (the catalog's)", () => {
   });
 
   it('has none for a card without printings', () => {
-    expect(printingsOfCard({ id: 'card-y' })).toEqual([]);
+    expect(printingsOfCard([])).toEqual([]);
   });
 });

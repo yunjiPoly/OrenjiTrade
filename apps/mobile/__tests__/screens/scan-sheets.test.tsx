@@ -4,6 +4,7 @@ import { AccessibilityInfo } from 'react-native';
 
 import ScanCameraRoute from '@/app/scan/index';
 import { scanRunner } from '@/src/features/scan/scanRunner';
+import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
@@ -34,47 +35,47 @@ jest.mock('expo-file-system', () => require('../support/scanScreen').fileSystemM
 jest.mock('expo-image-picker', () => ({ launchImageLibraryAsync: jest.fn() }));
 
 const pickLibrary = ImagePicker.launchImageLibraryAsync as jest.Mock;
+const announced = () =>
+  (AccessibilityInfo.announceForAccessibility as jest.Mock).mock.calls.map((call) => call[0]);
 
 const FOUND_LABEL = `${YEW.name}, ZACR-EN036, found`;
 const RARITY_LABEL = `${LANTERN.name}, ZRA1-EN075, pick rarity`;
 const PRINTING_LABEL = `${FOX.name}, set code unreadable, pick printing`;
 const UNREAD_LABEL = "Couldn't read this card, tap to search";
 
-/** The catalog's page of the fictional fox (`GET /cards/{id}`), for a card picked by its name. */
-const FOX_DETAIL = {
-  id: FOX.id,
-  game: 'yugioh',
-  name: FOX.name,
-  printings: [
-    {
-      id: 'p-zold-002',
-      setCode: 'ZOLD',
-      setName: 'Old Paper Pack',
-      printingCode: 'ZOLD-EN002',
-      rarity: 'Common',
-      language: 'EN',
-      setReleaseDate: '2009-05-01',
-    },
-    {
-      id: 'p-zpap-001',
-      setCode: 'ZPAP',
-      setName: 'Paper Pack',
-      printingCode: 'ZPAP-EN001',
-      rarity: 'Super Rare',
-      language: 'EN',
-      setReleaseDate: '2024-02-01',
-    },
-    {
-      id: 'p-zpap-fr-001',
-      setCode: 'ZPAP',
-      setName: 'Paper Pack',
-      printingCode: 'ZPAP-FR001',
-      rarity: 'Super Rare',
-      language: 'FR',
-      setReleaseDate: '2024-02-01',
-    },
-  ],
-};
+/**
+ * The catalog's printings of the fictional fox (`GET /cards/{id}/printings`), for a card picked by
+ * its name.
+ */
+const FOX_PRINTINGS = [
+  {
+    id: 'p-zold-002',
+    setCode: 'ZOLD',
+    setName: 'Old Paper Pack',
+    printingCode: 'ZOLD-EN002',
+    rarity: 'Common',
+    language: 'EN',
+    setReleaseDate: '2009-05-01',
+  },
+  {
+    id: 'p-zpap-001',
+    setCode: 'ZPAP',
+    setName: 'Paper Pack',
+    printingCode: 'ZPAP-EN001',
+    rarity: 'Super Rare',
+    language: 'EN',
+    setReleaseDate: '2024-02-01',
+  },
+  {
+    id: 'p-zpap-fr-001',
+    setCode: 'ZPAP',
+    setName: 'Paper Pack',
+    printingCode: 'ZPAP-FR001',
+    rarity: 'Super Rare',
+    language: 'FR',
+    setReleaseDate: '2024-02-01',
+  },
+];
 
 /** Opens the camera and adds the four fictional photos: one tile of each status. */
 async function scanFour(routes: MockRoutes = {}) {
@@ -160,22 +161,27 @@ describe('28 Check the match', () => {
     expect(within(sheet).getByLabelText('Pick a rarity')).toBeTruthy();
     expect(tile(`${YEW.name}, ZRA4-EN025, pick rarity`)).toBeTruthy();
 
+    // Each change of the match is said by the screen reader, as the search's are.
+    expect(announced()).toContain(`${YEW.name}, pick rarity`);
+
     fireEvent.press(within(sheet).getByRole('radio', { name: 'Ultra Rare' }));
     expect(within(sheet).getByLabelText('Done')).toBeEnabled();
     expect(within(sheet).getByText('ZRA4-EN025 · Stampede of Lanterns')).toBeTruthy();
     expect(tile(`${YEW.name}, ZRA4-EN025, found`)).toBeTruthy();
+    expect(announced()).toContain(`${YEW.name}, found`);
 
     // A code one look-alike away that belongs to another card.
     fireEvent.press(within(sheet).getByLabelText('Fable Tide - Lyra, ZACR-EN038, Super Rare'));
     expect(within(sheet).getByTestId('scan-check-name')).toHaveTextContent('Fable Tide - Lyra');
     expect(tile('Fable Tide - Lyra, ZACR-EN038, found')).toBeTruthy();
+    expect(announced()).toContain('Fable Tide - Lyra, found');
   });
 
   it('a card with a close name opens the printing list, read from the catalog', async () => {
     const api = await scanFour({
-      'GET /api/v1/cards/{id}': [
+      'GET /api/v1/cards/{id}/printings': [
         problem(500, 'INTERNAL_ERROR', 'Something went wrong'),
-        ok(FOX_DETAIL),
+        ok(FOX_PRINTINGS),
       ],
     });
     fireEvent.press(tile(FOUND_LABEL));
@@ -191,11 +197,16 @@ describe('28 Check the match', () => {
       .getAllByTestId(/^scan-printing-row-/)
       .map((row) => row.props.testID as string);
     expect(codes).toEqual(['scan-printing-row-ZPAP-EN001', 'scan-printing-row-ZOLD-EN002']);
-    expect(api.callsTo('GET /api/v1/cards/{id}')[0]?.path).toBe('/api/v1/cards/card-fox');
+    expect(api.callsTo('GET /api/v1/cards/{id}/printings')[0]?.path).toBe(
+      '/api/v1/cards/card-fox/printings'
+    );
+    // Not the card's page: fixing a scanned card records no "card viewed" event.
+    expect(api.callsTo('GET /api/v1/cards/{id}')).toEqual([]);
 
     fireEvent.press(within(list).getByTestId('scan-printing-row-ZOLD-EN002'));
     await sheetGone('scan-printing-sheet');
     expect(tile(`${FOX.name}, ZOLD-EN002, found`)).toBeTruthy();
+    expect(announced()).toContain(`${FOX.name}, found`);
   });
 
   it('"Not here? Search" opens the search inside the scan; "Remove" takes the card out', async () => {
@@ -227,8 +238,8 @@ describe('the rarity list', () => {
     expect(
       within(sheet).getByText(
         `${LANTERN.name} · ZRA1-EN075. This code comes in 3 rarities: pick the one on your card.`
-      )
-    ).toBeTruthy();
+      ).props.maxFontSizeMultiplier
+    ).toBe(TITLE_MAX_FONT_SCALE);
     expect(
       within(sheet)
         .getAllByRole('radio')
@@ -243,6 +254,22 @@ describe('the rarity list', () => {
     fireEvent.press(within(sheet).getByRole('radio', { name: 'Ultra Rare' }));
     await sheetGone('scan-rarity-sheet');
     expect(tile(`${LANTERN.name}, ZRA1-EN075, found`)).toBeTruthy();
+    // The fix is said by the screen reader.
+    expect(announced()).toContain(`${LANTERN.name}, found`);
+  });
+
+  it('keeps the search one tap away: the card itself may be the wrong one', async () => {
+    await scanFour();
+    fireEvent.press(tile(RARITY_LABEL));
+    const sheet = await screen.findByTestId('scan-rarity-sheet');
+    const link = within(sheet).getByRole('link', { name: 'Search by name or code' });
+    fireEvent.press(link);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/scan/search',
+      params: { tileId: 'scan-2' },
+    });
+    await sheetGone('scan-rarity-sheet');
+    expect(tile(RARITY_LABEL)).toBeTruthy();
   });
 });
 
@@ -252,25 +279,43 @@ describe('the printing list', () => {
     fireEvent.press(tile(PRINTING_LABEL));
     const sheet = await screen.findByTestId('scan-printing-sheet');
     expect(within(sheet).getByRole('header', { name: 'Pick the printing' })).toBeTruthy();
-    expect(
-      within(sheet).getByText(
-        `${FOX.name}. We couldn’t read its set code: type it from your card, or pick it below.`
-      )
-    ).toBeTruthy();
-    expect(within(sheet).getByText('3 PRINTINGS, NEWEST FIRST')).toBeTruthy();
+    const text = within(sheet).getByText(
+      `${FOX.name}. We couldn’t read its set code: type it from your card, or pick it below.`
+    );
+    // At the largest text sizes the field, the rows, the link and Cancel keep their room: the
+    // text grows like a title at most, the buttons at the bottom like a footer.
+    expect(text.props.maxFontSizeMultiplier).toBe(TITLE_MAX_FONT_SCALE);
+    expect(within(sheet).getByText('Cancel').props.maxFontSizeMultiplier).toBe(
+      PINNED_MAX_FONT_SCALE
+    );
+    expect(within(sheet).getByText('Search by name or code').props.maxFontSizeMultiplier).toBe(
+      PINNED_MAX_FONT_SCALE
+    );
+    // Counted in printings, like the search: ZRA5-EN091 comes in 2 rarities.
+    expect(within(sheet).getByText('4 PRINTINGS, NEWEST FIRST')).toBeTruthy();
     expect(within(sheet).getByLabelText('ZDUP-EN077, Paper Power, Ultra Rare')).toBeTruthy();
     expect(within(sheet).getByLabelText('ZRA5-EN091, Paper Rarity 5, 2 rarities')).toBeTruthy();
     expect(within(sheet).getByLabelText('ZLOB-EN005, Legend of Paper Foxes, Common')).toBeTruthy();
 
     const field = within(sheet).getByLabelText('Set code on your card');
     expect(field.props.placeholder).toBe('Code on your card, like MACR');
+    // The search is one tap away while rows are listed too.
+    expect(within(sheet).getByTestId('scan-printing-search-link')).toHaveTextContent(
+      'Search by name or code'
+    );
     fireEvent.changeText(field, 'zra5');
-    expect(within(sheet).getByText('1 OF 3 PRINTINGS')).toBeTruthy();
+    expect(within(sheet).getByText('2 OF 4 PRINTINGS')).toBeTruthy();
     fireEvent.changeText(field, 'QQ');
-    expect(within(sheet).getByText('0 OF 3 PRINTINGS')).toBeTruthy();
+    expect(within(sheet).getByText('0 OF 4 PRINTINGS')).toBeTruthy();
     expect(
       within(sheet).getByText(/No printing of this card has that code. Check it, or/)
     ).toBeTruthy();
+    // The mockup's sentence holds the link, and the whole sentence is its target (44 points).
+    const sentence = within(sheet).getByRole('link', {
+      name: 'No printing of this card has that code. Check it, or search by name or code.',
+    });
+    expect(sentence).toHaveStyle({ minHeight: 44 });
+    expect(within(sheet).queryByTestId('scan-printing-search-link')).toBeNull();
     fireEvent.press(within(sheet).getByText('search by name or code'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/scan/search',
@@ -309,8 +354,9 @@ describe("29 Couldn't read this card", () => {
         "We couldn't read the name or the set code. Search for the card, or take the photo again."
       )
     ).toBeTruthy();
+    // Each tip is one element for the screen reader (its icon is decorative).
     for (const tip of ['Fill the frame', 'No glare', 'Hold still']) {
-      expect(within(sheet).getByText(tip)).toBeTruthy();
+      expect(within(sheet).getByLabelText(tip)).toHaveTextContent(tip, { exact: false });
     }
     fireEvent.press(within(sheet).getByLabelText('Search by name or code'));
     expect(mockRouter.push).toHaveBeenCalledWith({

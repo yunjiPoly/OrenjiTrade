@@ -133,7 +133,7 @@ describe('a tile in the tray', () => {
     });
   });
 
-  it('says "Reading…" while the photo is read, and "Waiting for connection" offline', () => {
+  it('says "Reading…" while the photo is read, and "Waiting for connection" offline (tap to try again)', () => {
     expect(tileText(tileFor('READING'))).toEqual({
       title: 'Reading…',
       code: '',
@@ -144,13 +144,13 @@ describe('a tile in the tray', () => {
     expect(tileText(tileFor('WAITING'))).toEqual({
       title: 'Waiting for connection',
       code: '',
-      status: '',
+      status: 'Tap to try again',
       badge: null,
-      accessibilityLabel: 'A card waiting for connection',
+      accessibilityLabel: 'A card waiting for connection, tap to try again',
     });
   });
 
-  it('opens what fixes it', () => {
+  it('opens what fixes it; a tile waiting for the connection is tried again', () => {
     expect(tileAction(tileFor({ status: 'FOUND', card: YEW, printing: ZACR_036 }))).toBe('DETAILS');
     expect(tileAction(tileFor({ status: 'PICK_RARITY', card: YEW, rarities: ZA01_075 }))).toBe(
       'RARITY_LIST'
@@ -158,7 +158,7 @@ describe('a tile in the tray', () => {
     expect(tileAction(tileFor({ status: 'PICK_PRINTING', card: YEW }))).toBe('PRINTING_LIST');
     expect(tileAction(tileFor({ status: 'NOT_FOUND' }))).toBe('UNREAD');
     expect(tileAction(tileFor('READING'))).toBeNull();
-    expect(tileAction(tileFor('WAITING'))).toBeNull();
+    expect(tileAction(tileFor('WAITING'))).toBe('RETRY');
   });
 });
 
@@ -204,8 +204,10 @@ describe('the tray and the review', () => {
     );
   });
 
-  it('count the printing list', () => {
+  it('count the printing list, one printing in the singular', () => {
     expect(printingListCount(21, 21, false)).toBe('21 printings, newest first');
     expect(printingListCount(2, 21, true)).toBe('2 of 21 printings');
+    expect(printingListCount(1, 1, false)).toBe('1 printing, newest first');
+    expect(printingListCount(0, 1, true)).toBe('0 of 1 printing');
   });
 });

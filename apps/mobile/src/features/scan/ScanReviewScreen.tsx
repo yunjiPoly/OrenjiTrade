@@ -36,7 +36,6 @@ import { REVIEW_FROM_PHOTOS, SCAN_CAMERA_ROUTE, SCAN_SEARCH_ROUTE } from './scan
 import { scanRunner } from './scanRunner';
 import {
   batchAddRequest,
-  removeTile,
   reviewGroups,
   scanCounts,
   setCopies,
@@ -105,6 +104,17 @@ export function ScanReviewScreen() {
   // asks first, like the camera's Close.
   const hasCards = live.tiles.length > 0;
   const guard = useLeaveGuard(fromPhotos && hasCards && !toCamera && saved === null);
+
+  // A scan left with nothing in it ends here, like the camera's (every row removed, then back):
+  // the photos of the removed rows are deleted.
+  useEffect(
+    () => () => {
+      if (useScanStore.getState().session.tiles.length === 0) {
+        scanRunner.endScan();
+      }
+    },
+    []
+  );
 
   const backToScanning = () => {
     if (!fromPhotos && router.canGoBack()) {
@@ -182,8 +192,10 @@ export function ScanReviewScreen() {
       onSearch={(target) =>
         router.push({ pathname: SCAN_SEARCH_ROUTE, params: { tileId: target.id } })
       }
+      onRetry={() => void scanRunner.retryWaiting()}
       onCopies={(target, copies) => apply((current) => setCopies(current, target.id, copies))}
-      onRemove={(target) => apply((current) => removeTile(current, target.id))}
+      // Its photo files are deleted at once.
+      onRemove={(target) => scanRunner.removeTile(target.id)}
     />
   );
 
@@ -205,7 +217,8 @@ export function ScanReviewScreen() {
           maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[styles.title, { color: palette.ink }]}
         >
-          {reviewTitle(counts)}
+          {/* While photos are read, they count too ("Review 12 cards", "Reading 8 of 12…"). */}
+          {reviewTitle({ ...counts, cards: counts.cards + counts.reading })}
         </Text>
         <Text
           accessibilityLiveRegion="polite"

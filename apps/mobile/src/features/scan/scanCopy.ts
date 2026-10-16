@@ -19,6 +19,9 @@ export const TILE_STATUS_TEXT: Readonly<Record<TileStatus, string>> = {
   WAITING: 'Waiting for connection',
 };
 
+/** "Tap to try again": a tile waiting for the connection is matched again when tapped. */
+export const TAP_TO_TRY_AGAIN = 'Tap to try again';
+
 /** What a screen reader hears for a status ("Ash Blossom & Joyous Spring, found"). */
 const STATUS_SPOKEN: Readonly<Record<TileStatus, string>> = {
   READING: 'reading',
@@ -51,14 +54,22 @@ function codeOf(tile: ScanTile): string {
 export function tileText(tile: ScanTile): TileText {
   const badge = tile.copies > 1 ? `×${tile.copies}` : null;
   // A photo not matched yet shows its state in place of a name, like the mockup's "Reading…" tile.
-  if (tile.status === 'READING' || tile.status === 'WAITING') {
+  if (tile.status === 'READING') {
     return {
-      title: TILE_STATUS_TEXT[tile.status],
+      title: TILE_STATUS_TEXT.READING,
       code: '',
       status: '',
       badge,
-      accessibilityLabel:
-        tile.status === 'READING' ? 'Reading a card' : 'A card waiting for connection',
+      accessibilityLabel: 'Reading a card',
+    };
+  }
+  if (tile.status === 'WAITING') {
+    return {
+      title: TILE_STATUS_TEXT.WAITING,
+      code: '',
+      status: TAP_TO_TRY_AGAIN,
+      badge,
+      accessibilityLabel: 'A card waiting for connection, tap to try again',
     };
   }
   if (tile.status === 'NOT_FOUND' || !tile.card) {
@@ -158,15 +169,26 @@ export function rarityListText(tile: ScanTile): string {
   return `${tile.card?.name ?? ''} · ${code}. This code comes in ${tile.rarities.length} rarities: pick the one on your card.`;
 }
 
-/** The printing list's count: "{n} printings, newest first", or "{n} of {total} printings". */
-export function printingListCount(shown: number, total: number, filtering: boolean): string {
-  return filtering ? `${shown} of ${total} printings` : `${total} printings, newest first`;
+function printings(count: number): string {
+  return `${count} ${count === 1 ? 'printing' : 'printings'}`;
 }
 
-/** Whether a tile opens screen 28 (found), a list (pick), or the search (couldn't read). */
+/**
+ * The printing list's count, in printings (a code in several rarities counts each one, like the
+ * search's "{n} printings"): "{n} printings, newest first", or "{n} of {total} printings".
+ */
+export function printingListCount(shown: number, total: number, filtering: boolean): string {
+  return filtering ? `${shown} of ${printings(total)}` : `${printings(total)}, newest first`;
+}
+
+/**
+ * What tapping a tile does: a found card opens 28, a pick opens its list, a card that could not be
+ * read opens 29, and a tile waiting for the connection is matched again. A photo being read does
+ * nothing.
+ */
 export function tileAction(
   tile: ScanTile
-): 'DETAILS' | 'RARITY_LIST' | 'PRINTING_LIST' | 'UNREAD' | null {
+): 'DETAILS' | 'RARITY_LIST' | 'PRINTING_LIST' | 'UNREAD' | 'RETRY' | null {
   if (isReady(tile)) {
     return 'DETAILS';
   }
@@ -177,6 +199,8 @@ export function tileAction(
       return 'PRINTING_LIST';
     case 'NOT_FOUND':
       return 'UNREAD';
+    case 'WAITING':
+      return 'RETRY';
     default:
       return null;
   }
@@ -266,6 +290,8 @@ export const SCAN_COPY = {
   printingsList: 'Printings',
   noPrintingStart: 'No printing of this card has that code. Check it, or ',
   noPrintingLink: 'search by name or code',
+  // The rarity and printing lists: the search is always one tap away.
+  searchLink: 'Search by name or code',
   printingsLoadFailed: "We couldn't load this card's printings.",
   // 28: Check the match.
   checkTitle: 'Check the match',
@@ -311,6 +337,9 @@ export const REVIEW_COPY = {
   searchByNameOrCode: 'Search by name or code',
   couldntRead: "Couldn't read",
   remove: (name: string) => `Remove ${name}`,
+  // A row with no card yet (couldn't read, waiting for the connection).
+  removeThisCard: 'Remove this card',
+  tryAgain: 'Try again',
   // The two pills.
   private: 'Private',
   public: 'Public',
@@ -353,5 +382,6 @@ export const REVIEW_COPY = {
   failed: (message: string) => `${message} Nothing was added: try again.`,
   // The search inside the scan.
   searchTitle: 'Search by name or code',
+  searchHint: 'Tap a card to pick its printing, or an exact printing to use it for this photo.',
   tileGone: 'This card is no longer in the scan.',
 } as const;

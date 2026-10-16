@@ -94,6 +94,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  jest.useRealTimers();
   await scanRunner.idle();
   scanRunner.endScan();
   onlineManager.setOnline(true);
@@ -112,7 +113,8 @@ describe('the camera', () => {
     expect(screen.getByText('Name')).toBeTruthy();
     expect(screen.getByText('Set code')).toBeTruthy();
     expect(screen.getByText('THIS SCAN · 0')).toBeTruthy();
-    expect(screen.getByText('Photos stay on your phone')).toBeTruthy();
+    // One element for the screen reader: the lock beside it is decorative.
+    expect(screen.getByLabelText('Photos stay on your phone')).toBeTruthy();
     expect(screen.getByTestId('scan-tray-empty')).toBeTruthy();
     expect(screen.getByLabelText('Add photos you already took')).toBeTruthy();
     expect(screen.getByLabelText('Take the photo')).toBeEnabled();
@@ -145,6 +147,38 @@ describe('the camera', () => {
     // Each result is said by the screen reader.
     expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
     expect(announce).toHaveBeenCalledWith(`${YEW.name}, found, 2 copies`);
+  });
+
+  it('keeps "Review {n}" beside the shutter: past its side of the bar, its arrow then its word go', async () => {
+    readerOf({});
+    await openCamera();
+    const layout = (testID: string, width: number) =>
+      fireEvent(screen.getByTestId(testID, { includeHiddenElements: true }), 'layout', {
+        nativeEvent: { layout: { x: 0, y: 0, width, height: 48 } },
+      });
+    // The pill measured out of sight is never seen nor heard.
+    expect(screen.queryByTestId('scan-review-measure')).toBeNull();
+    expect(screen.getByTestId('scan-review-word')).toHaveTextContent('Review');
+    expect(screen.getByTestId('scan-review-arrow')).toBeTruthy();
+
+    // A 375-point phone: its side of the bar is 116 points, 114 once the shutter's room is kept.
+    layout('scan-review-side', 116);
+    // At the default size the pill as drawn needs 133 points: the arrow goes.
+    layout('scan-review-measure', 133);
+    expect(screen.getByTestId('scan-review-word')).toHaveTextContent('Review');
+    expect(screen.queryByTestId('scan-review-arrow')).toBeNull();
+    // At the largest standard size it needs 155 (it reached 17 points over the shutter): the
+    // word goes too, the count and arrow stay, and a screen reader still hears "Review 0".
+    layout('scan-review-measure', 155);
+    expect(screen.queryByTestId('scan-review-word')).toBeNull();
+    expect(screen.getByTestId('scan-review-arrow')).toBeTruthy();
+    expect(screen.getByLabelText('Review 0')).toBeTruthy();
+    expect(screen.getByTestId('scan-review-count')).toHaveTextContent('0');
+    expect(screen.getByLabelText('Take the photo')).toBeTruthy();
+    // Room enough again: the mockup's pill.
+    layout('scan-review-measure', 108);
+    expect(screen.getByTestId('scan-review-word')).toHaveTextContent('Review');
+    expect(screen.getByTestId('scan-review-arrow')).toBeTruthy();
   });
 
   it('turns the light on and off', async () => {
@@ -222,9 +256,12 @@ describe('the tray', () => {
     onlineManager.setOnline(false);
     fireEvent.press(screen.getByLabelText('Add photos you already took'));
     await waitFor(() =>
-      expect(screen.getAllByLabelText('A card waiting for connection')).toHaveLength(2)
+      expect(
+        screen.getAllByLabelText('A card waiting for connection, tap to try again')
+      ).toHaveLength(2)
     );
     expect(screen.getAllByText('Waiting for connection')).toHaveLength(2);
+    expect(screen.getAllByText('Tap to try again')).toHaveLength(2);
   });
 
   it('resolves the tiles waiting for the connection when it is back', async () => {
@@ -244,11 +281,68 @@ describe('the tray', () => {
     await screen.findByTestId('screen-scan-camera');
     onlineManager.setOnline(false);
     fireEvent.press(screen.getByLabelText('Add photos you already took'));
-    await screen.findByLabelText('A card waiting for connection');
+    await screen.findByLabelText('A card waiting for connection, tap to try again');
     expect(announce).toHaveBeenCalledWith('A card is waiting for connection');
     online = true;
     await act(async () => {
       onlineManager.setOnline(true);
+    });
+    await screen.findByLabelText(`${YEW.name}, ZACR-EN036, found`);
+  });
+
+  it('tries a waiting tile again when tapped, while the phone stayed online all along', async () => {
+    readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
+    pickerGives(['yew']);
+    // The phone is online: only the API could not be reached (a server outage, a match that
+    // timed out). The phone never says the connection is back.
+    let reachable = false;
+    const { api } = render(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': (request) => {
+          if (!reachable) {
+            throw new TypeError('Network request failed');
+          }
+          return ok({ ...FOUND_YEW, read: request.body });
+        },
+      })
+    );
+    await screen.findByTestId('screen-scan-camera');
+    fireEvent.press(screen.getByLabelText('Add photos you already took'));
+    const waiting = await screen.findByLabelText('A card waiting for connection, tap to try again');
+    expect(waiting.props.accessibilityRole).toBe('button');
+    expect(onlineManager.isOnline()).toBe(true);
+    reachable = true;
+    fireEvent.press(waiting);
+    await screen.findByLabelText(`${YEW.name}, ZACR-EN036, found`);
+    expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
+  });
+
+  it('tries the waiting tiles again by itself on a timer, without a new photo', async () => {
+    jest.useFakeTimers();
+    readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
+    pickerGives(['yew']);
+    let reachable = false;
+    render(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': (request) => {
+          if (!reachable) {
+            throw new TypeError('Network request failed');
+          }
+          return ok({ ...FOUND_YEW, read: request.body });
+        },
+      })
+    );
+    await screen.findByTestId('screen-scan-camera');
+    fireEvent.press(screen.getByLabelText('Add photos you already took'));
+    await screen.findByLabelText('A card waiting for connection, tap to try again');
+    reachable = true;
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(4_000);
+    });
+    expect(screen.getByLabelText('A card waiting for connection, tap to try again')).toBeTruthy();
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1_000);
     });
     await screen.findByLabelText(`${YEW.name}, ZACR-EN036, found`);
   });
@@ -325,6 +419,63 @@ describe('leaving', () => {
     fireEvent.press(screen.getByLabelText('Close the scanner'));
     expect(mockRouter.back).toHaveBeenCalled();
     expect(screen.queryByText('Leave without adding?')).toBeNull();
+  });
+
+  it('counts the photos still being read in the question', async () => {
+    readerOf({
+      [libraryPhoto('one').uri]: PHOTO_TEXT.yew,
+      [libraryPhoto('two').uri]: PHOTO_TEXT.yew,
+    });
+    pickerGives(['one', 'two']);
+    // The matcher holds its answers: both photos stay "Reading…".
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    render(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': async (request) => {
+          await held;
+          return ok({ ...FOUND_YEW, read: request.body });
+        },
+      })
+    );
+    await screen.findByTestId('screen-scan-camera');
+    fireEvent.press(screen.getByLabelText('Add photos you already took'));
+    await waitFor(() => expect(screen.getAllByLabelText('Reading a card')).toHaveLength(2));
+    expect(screen.getByText('THIS SCAN · 0')).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Close the scanner'));
+    expect(
+      await screen.findByText("The 2 cards in this scan won't be added to your inventory.")
+    ).toBeTruthy();
+    fireEvent.press(screen.getByLabelText('Leave'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    release();
+    await scanRunner.idle();
+    // What the API answers for the scan that was left is dropped.
+    expect(useScanStore.getState().session.tiles).toEqual([]);
+  });
+
+  it('deletes a photo still being taken when the scanner closes, and never reads it', async () => {
+    const reader = readerOf({ [cameraPhoto('late').uri]: PHOTO_TEXT.yewInFrame });
+    let hand: (picture: ReturnType<typeof cameraPhoto>) => void = () => undefined;
+    mockCamera.pictures = [new Promise((resolve) => (hand = resolve))];
+    const { api } = render();
+    await screen.findByTestId('screen-scan-camera');
+    layOut();
+    await screen.findByTestId('scan-frame-overlay');
+    fireEvent.press(screen.getByLabelText('Take the photo'));
+    // The tray is still empty: Close leaves at once, and the scan ends.
+    fireEvent.press(screen.getByLabelText('Close the scanner'));
+    expect(mockRouter.back).toHaveBeenCalled();
+
+    // The camera hands the photo over afterwards.
+    await act(async () => {
+      hand(cameraPhoto('late'));
+    });
+    await scanRunner.idle();
+    expect(mockFiles.deleted).toEqual([cameraPhoto('late').uri]);
+    expect(useScanStore.getState().session.tiles).toEqual([]);
+    expect(reader.calls).toEqual([]);
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toEqual([]);
   });
 });
 

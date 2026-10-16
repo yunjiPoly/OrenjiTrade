@@ -27,6 +27,7 @@ export function ScanPhotoImage({ uri, blurred = false, style, testID }: ScanPhot
     <View
       testID={testID}
       accessible={false}
+      accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       style={[styles.frame, { backgroundColor: palette.surfaceVariant }, style]}
     >

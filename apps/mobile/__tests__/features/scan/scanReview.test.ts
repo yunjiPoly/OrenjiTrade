@@ -140,20 +140,38 @@ describe('the search inside the scan', () => {
   });
 
   it('turns a suggestion into the card and printing a tile holds', () => {
-    expect(scanCardOf({ kind: 'CARD', name: 'No id' })).toBeNull();
-    expect(scanCardOf({ kind: 'CARD', id: 'card-1', name: 'Paper Fox' })).toEqual({
+    expect(scanCardOf({ kind: 'CARD', name: 'No id', game: 'yugioh' })).toBeNull();
+    expect(scanCardOf({ kind: 'CARD', id: 'card-1', name: 'Paper Fox', game: 'yugioh' })).toEqual({
       id: 'card-1',
       name: 'Paper Fox',
     });
-    expect(scanPrintingOf({ kind: 'CARD', id: 'card-1' })).toBeNull();
+    expect(scanPrintingOf({ kind: 'CARD', id: 'card-1', game: 'yugioh' })).toBeNull();
     expect(
       scanPrintingOf({
         kind: 'PRINTING',
         id: 'card-1',
         printingId: 'p-1',
+        game: 'yugioh',
         printingCode: 'ZPAP-EN001',
         setName: 'Paper Pack',
+        language: 'EN',
       })
     ).toEqual({ id: 'p-1', printingCode: 'ZPAP-EN001', setCode: 'ZPAP', setName: 'Paper Pack' });
+  });
+
+  it('never takes a card of another game, nor a printing in another language (Yu-Gi-Oh! English only)', () => {
+    const other = { kind: 'CARD' as const, id: 'card-mtg', name: 'Cinder Drake', game: 'mtg' };
+    expect(scanCardOf(other)).toBeNull();
+    expect(scanCardOf({ ...other, game: undefined })).toBeNull();
+    const printing = {
+      kind: 'PRINTING' as const,
+      id: 'card-1',
+      printingId: 'p-1',
+      printingCode: 'ZPAP-FR001',
+      setName: 'Paper Pack',
+    };
+    expect(scanPrintingOf({ ...printing, game: 'mtg', language: 'EN' })).toBeNull();
+    expect(scanPrintingOf({ ...printing, game: 'yugioh', language: 'FR' })).toBeNull();
+    expect(scanPrintingOf({ ...printing, game: 'yugioh', language: 'English' })).not.toBeNull();
   });
 });

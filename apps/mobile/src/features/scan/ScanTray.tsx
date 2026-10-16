@@ -30,7 +30,8 @@ export function ScanTray({ tiles, counts, onTile }: ScanTrayProps) {
         >
           {trayTitle(counts).toUpperCase()}
         </Text>
-        <View style={styles.privacy}>
+        {/* One element for the screen reader: the lock is decorative. */}
+        <View accessible accessibilityLabel={SCAN_COPY.trayPrivacy} style={styles.privacy}>
           <MaterialCommunityIcons name="lock-outline" size={13} color={palette.textMuted} />
           <Text
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}

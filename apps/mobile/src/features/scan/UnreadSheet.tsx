@@ -116,7 +116,8 @@ function Unread({
         </Text>
         <View style={styles.tips}>
           {TIPS.map((tip) => (
-            <View key={tip.label} style={styles.tip}>
+            // One element per tip for the screen reader: its icon is decorative.
+            <View key={tip.label} accessible accessibilityLabel={tip.label} style={styles.tip}>
               <View
                 style={[
                   styles.tipIcon,

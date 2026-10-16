@@ -59,8 +59,8 @@ export const mockCamera = {
   /** iOS lenses of the back camera: none on a phone without a camera (the simulator). */
   lenses: ['Back Camera'] as string[],
   mountError: false,
-  /** The pictures the next taps give, in order. */
-  pictures: [] as Picture[],
+  /** The pictures the next taps give, in order (a promise: a picture the camera is still taking). */
+  pictures: [] as (Picture | Promise<Picture>)[],
   /** The options of every `takePictureAsync`. */
   taken: [] as unknown[],
   torch: false,
@@ -85,7 +85,7 @@ export function expoCameraMock() {
         if (!next) {
           throw new Error('The camera gave no picture');
         }
-        return next;
+        return await next;
       },
       getAvailableLensesAsync: async () => mockCamera.lenses,
     }));

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   MAX_CODE_CANDIDATES,
@@ -15,6 +15,8 @@ import {
 
 import { ApiError } from '../ApiError';
 import { api, required } from '../client';
+import { catalogKeys } from '../queryKeys';
+import type { PrintingSummary } from '../types';
 import { refreshInventory } from './inventory';
 import { useUid } from './useUid';
 
@@ -98,5 +100,26 @@ export function useAddScannedCards() {
   return useMutation<AddInventoryItemsBatchResponse, ApiError, AddInventoryItemsBatchRequest>({
     mutationFn: addInventoryItemsBatch,
     onSuccess: async () => refreshInventory(queryClient, uid),
+  });
+}
+
+/**
+ * `GET /api/v1/cards/{id}/printings`: the printings of a card picked by hand in the scan (the
+ * printing list), public. Unlike `GET /cards/{id}`, it records no "card viewed" event: fixing a
+ * scanned card is not viewing it.
+ */
+export function useScanCardPrintings(cardId: string | null | undefined) {
+  return useQuery<PrintingSummary[], ApiError>({
+    queryKey: [...catalogKeys.card(cardId ?? ''), 'printings'],
+    queryFn: async () =>
+      required(
+        (
+          await api.GET('/api/v1/cards/{id}/printings', {
+            params: { path: { id: cardId ?? '' } },
+          })
+        ).data
+      ),
+    enabled: !!cardId,
+    staleTime: 10 * 60_000,
   });
 }

@@ -185,6 +185,9 @@ export function ScanCameraScreen() {
     if (!view || !frame || !screen) {
       return;
     }
+    // The scan this tap is for: a photo the camera hands over after that scan ended (Close or
+    // Leave while it was being taken) is deleted, never read nor sent, nor put in the next scan.
+    const scan = scanRunner.currentScan();
     // Taps queue their photos: the shutter never waits for a reading, only for the camera.
     capturing.current = capturing.current.then(async () => {
       try {
@@ -195,11 +198,14 @@ export function ScanCameraScreen() {
           height: picture.height,
           owned: true,
         };
-        scanRunner.addPhotos([
-          { photo, source: 'CAMERA', crops: cropsUnderFrame(frame, screen, photo) },
-        ]);
+        scanRunner.addPhotos(
+          [{ photo, source: 'CAMERA', crops: cropsUnderFrame(frame, screen, photo) }],
+          scan
+        );
       } catch {
-        snackbar.show(SCAN_COPY.shotFailed, { tone: 'error' });
+        if (scanRunner.currentScan() === scan) {
+          snackbar.show(SCAN_COPY.shotFailed, { tone: 'error' });
+        }
       }
     });
   };

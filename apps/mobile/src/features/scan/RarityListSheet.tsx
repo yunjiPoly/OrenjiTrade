@@ -6,20 +6,23 @@ import { fontWeight, spacing, textStyle, TITLE_MAX_FONT_SCALE, useTheme } from '
 
 import { rarityListText, SCAN_COPY } from './scanCopy';
 import type { ScanTile } from './scanSession';
-import { SheetCancel, useLastValue } from './SheetParts';
+import { SheetCancel, SheetSearchLink, useLastValue } from './SheetParts';
 
 export interface RarityListSheetProps {
   /** The tile whose code comes in several rarities; null: the sheet is closed. */
   tile: ScanTile | null;
   onPick: (printingId: string) => void;
+  /** "Search by name or code": the card itself is not the right one. */
+  onSearch: () => void;
   onClose: () => void;
 }
 
 /**
  * The rarity list (mockup screen 27, a sheet): "Pick the rarity", "{name} · {code}. This code
- * comes in {n} rarities: pick the one on your card.", one row per rarity, and Cancel.
+ * comes in {n} rarities: pick the one on your card.", one row per rarity, "Search by name or code"
+ * (the search is always one tap away, spec section 5) and Cancel.
  */
-export function RarityListSheet({ tile, onPick, onClose }: RarityListSheetProps) {
+export function RarityListSheet({ tile, onPick, onSearch, onClose }: RarityListSheetProps) {
   const { palette } = useTheme();
   const visible = tile !== null && tile.rarities.length > 1;
   const shown = useLastValue(visible ? tile : null);
@@ -34,7 +37,11 @@ export function RarityListSheet({ tile, onPick, onClose }: RarityListSheetProps)
           >
             {SCAN_COPY.rarityTitle}
           </Text>
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
+          {/* Twice its size at most, like a title: the rows and Cancel keep their room. */}
+          <Text
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[textStyle('sm'), { color: palette.textMuted }]}
+          >
             {rarityListText(shown)}
           </Text>
           <ScrollView
@@ -70,13 +77,17 @@ export function RarityListSheet({ tile, onPick, onClose }: RarityListSheetProps)
                       <View style={[styles.dot, { backgroundColor: palette.primary }]} />
                     ) : null}
                   </View>
-                  <Text style={[textStyle('md'), styles.label, { color: palette.ink }]}>
+                  <Text
+                    maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+                    style={[textStyle('md'), styles.label, { color: palette.ink }]}
+                  >
                     {label}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
+          <SheetSearchLink onPress={onSearch} testID="scan-rarity-search" />
           <SheetCancel onPress={onClose} testID="scan-rarity-cancel" />
         </View>
       ) : null}

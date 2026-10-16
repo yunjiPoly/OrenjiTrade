@@ -22,14 +22,15 @@ import {
 } from './scanSession';
 import { scanCardOf, scanPrintingOf, searchTextOf } from './scanSearch';
 import { useScanStore } from './scanStore';
-import type { CardScanCard, CardScanPrinting } from './types';
+import { SCAN_GAME, type CardScanCard, type CardScanPrinting } from './types';
 
 /**
  * Search by name or code, inside the scan (owner spec 2026-10-15, section 4; opened by 28's "Not
  * here? Search", 29's "Search by name or code", a review row and the printing list): R2's "Add
- * cards, typing" screen (its screen 4), opened with what was read. An exact printing fixes the tile
- * at once; a card opens the printing list (and the rarity list next for a code in several
- * rarities). Every pick goes back to where the search was opened: the scan and its tray are kept.
+ * cards, typing" screen (its screen 4), opened with what was read, with Yu-Gi-Oh! cards only and
+ * its own hint. An exact printing fixes the tile at once; a card opens the printing list (and the
+ * rarity list next for a code in several rarities). Every pick goes back to where the search was
+ * opened: the scan and its tray are kept.
  */
 export function ScanSearchScreen() {
   const router = useRouter();
@@ -134,6 +135,8 @@ export function ScanSearchScreen() {
           onCancel={back}
           onCard={pickCard}
           onPrinting={pickExact}
+          game={SCAN_GAME}
+          hint={REVIEW_COPY.searchHint}
         />
       </InventoryFormScreen>
       <PrintingListSheet
@@ -150,6 +153,8 @@ export function ScanSearchScreen() {
           setRarityOpen(false);
           void finish();
         }}
+        // "Search by name or code": not this card after all, back to this search.
+        onSearch={() => setRarityOpen(false)}
         onClose={() => {
           // The card and its code are picked: the tile asks for its rarity where it was opened.
           setRarityOpen(false);

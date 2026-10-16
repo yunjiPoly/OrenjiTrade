@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { matchScannedCard } from '@/src/api/hooks/cardScan';
+import { afterModals } from '@/src/components/ui/modalTurns';
 
 import type { CardCrops } from './frameMapping';
 import { getDeviceOcrProvider } from './ocr/deviceOcr';
@@ -12,8 +13,10 @@ import { applyOutcome, matchRead, type CardMatcher, type PhotoOutcome } from './
 import {
   addPhoto,
   findTile,
+  forgetPhotos,
   markReading,
   photoFilesToDelete,
+  removeTile as removeTileFrom,
   tilesWaiting,
   type ScanPhoto,
   type ScanSession,
@@ -28,11 +31,18 @@ import { useScanStore, type ScanStore } from './scanStore';
  *
  * - A tile whose match could not reach the API waits for the connection ("Waiting for
  *   connection"); the waiting tiles are matched again when the connection is back
- *   (`retryWaiting`: called when the app is online again, and after any match that got through).
+ *   (`retryWaiting`): when the phone is online again, after any match that got through, when a
+ *   scan screen comes back or the app returns to the front, when the collector taps "Try again",
+ *   and on a timer that waits longer each time (5 s, 10 s, 20 s, 40 s, then every minute) while a
+ *   scan screen is open (`watchWaiting`). The phone can be online while the API cannot be
+ *   reached, so the timer does not wait for the phone to say it is back.
+ * - A removed tile's photo files are deleted once no sheet shows them any more (`removeTile`).
  * - Ending the scan (cards added, or the scan left) deletes every photo file it made or copied and
- *   empties the tray; what the reader or the API answers later for that scan is dropped.
+ *   empties the tray; what the reader or the API answers later for that scan is dropped, and so is
+ *   a photo the camera hands over after its scan ended (its file is deleted).
  * - The scan's photo files are written down while it runs (`scanPhotoJournal.ts`): a scan lost
- *   when the app was closed has its files deleted by the first scan screen of a later run.
+ *   when the app was closed has its files deleted in a later run, as soon as Add cards or a scan
+ *   screen opens.
  * - Nothing of a photo leaves the phone: only the text read goes to the API.
  */
 
@@ -52,13 +62,33 @@ export interface ScanRunnerDeps {
   /** Where the scan's photo files are written down while it runs (none: not written down). */
   journal?: ScanPhotoJournal;
   store?: Pick<typeof useScanStore, 'getState'>;
+  /** Resolves once no sheet is on screen (a removed tile's photo may show in a sheet sliding away). */
+  afterSheets?: () => Promise<void>;
+  /** How long the waiting tiles wait before each new try, in ms (the last one repeats). */
+  retryDelaysMs?: readonly number[];
 }
 
+/** The waiting tiles are tried again after 5 s, 10 s, 20 s, 40 s, then every minute. */
+export const RETRY_DELAYS_MS: readonly number[] = [5_000, 10_000, 20_000, 40_000, 60_000];
+
 export interface ScanRunner {
-  /** Adds photos to the tray ("Reading…" tiles, newest first) and reads them in turn. */
-  addPhotos: (photos: readonly PhotoToRead[]) => string[];
+  /** The scan going on now (it changes when a scan ends). */
+  currentScan: () => number;
+  /**
+   * Adds photos to the tray ("Reading…" tiles, newest first) and reads them in turn. Given the
+   * scan they were taken for (`currentScan()` before the camera took them), photos that arrive
+   * after that scan ended are deleted instead, and nothing of them is read or sent.
+   */
+  addPhotos: (photos: readonly PhotoToRead[], forScan?: number) => string[];
   /** Matches the tiles that wait for the connection again, oldest first. */
   retryWaiting: () => Promise<void>;
+  /**
+   * While a scan screen is open: the tiles that wait for the connection are tried again on a
+   * timer that waits longer each time. Returns the function to call when the screen closes.
+   */
+  watchWaiting: () => () => void;
+  /** "Remove": the tile leaves the tray, and its photo files are deleted once no sheet shows them. */
+  removeTile: (tileId: string) => void;
   /** Ends the scan: its photo files are deleted and the tray is emptied. */
   endScan: () => void;
   /** Called with each tile once its photo is matched (or found unreadable): its result. */
@@ -80,6 +110,10 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   let retrying = false;
   let journaling: Promise<void> = Promise.resolve();
   let swept = false;
+  const retryDelays = deps.retryDelaysMs ?? RETRY_DELAYS_MS;
+  let watchers = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retries = 0;
 
   const state = (): ScanStore => store.getState();
   const track = <T>(work: Promise<T>): Promise<T> => {
@@ -125,6 +159,34 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     );
   }
 
+  function stopRetryTimer(): void {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  /**
+   * Plans the next try of the waiting tiles while a scan screen is open: each one waits longer than
+   * the one before. Nothing waits any more: the delays start again from the shortest.
+   */
+  function planRetry(): void {
+    if (tilesWaiting(state().session).length === 0) {
+      stopRetryTimer();
+      retries = 0;
+      return;
+    }
+    if (watchers === 0 || retryTimer !== null) {
+      return;
+    }
+    const delay = retryDelays[Math.min(retries, retryDelays.length - 1)] ?? 60_000;
+    retries += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      void retryWaiting().finally(planRetry);
+    }, delay);
+  }
+
   function land(generation: number, tileId: string, outcome: PhotoOutcome): void {
     if (state().generation !== generation) {
       return;
@@ -142,6 +204,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
       // The API answered: tiles that waited for the connection can be matched now.
       void retryWaiting();
     }
+    planRetry();
   }
 
   async function readOne(generation: number, tileId: string, input: PhotoToRead): Promise<void> {
@@ -168,8 +231,17 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     void track(outcome.then((answer) => land(generation, tileId, answer)));
   }
 
-  function addPhotos(photos: readonly PhotoToRead[]): string[] {
+  function addPhotos(photos: readonly PhotoToRead[], forScan?: number): string[] {
     const generation = state().generation;
+    if (forScan !== undefined && forScan !== generation) {
+      // Taken for a scan that ended meanwhile: it never joins the next one.
+      for (const { photo } of photos) {
+        if (photo.owned) {
+          deps.deleteFile(photo.uri);
+        }
+      }
+      return [];
+    }
     const ids: string[] = [];
     for (const input of photos) {
       let tileId = '';
@@ -209,8 +281,54 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     }
   }
 
+  function removeTile(tileId: string): void {
+    const generation = state().generation;
+    const tile = findTile(state().session, tileId);
+    if (!tile) {
+      return;
+    }
+    state().apply((session) => removeTileFrom(session, tileId));
+    planRetry();
+    const files = tile.photos.filter((photo) => photo.owned).map((photo) => photo.uri);
+    if (files.length === 0) {
+      return;
+    }
+    void track(
+      (deps.afterSheets ?? (() => Promise.resolve()))()
+        .then(() => {
+          if (state().generation !== generation) {
+            return undefined; // The scan ended: its files are already deleted.
+          }
+          for (const uri of files) {
+            deps.deleteFile(uri);
+          }
+          state().apply((session) => forgetPhotos(session, files));
+          return writeDown();
+        })
+        .catch(() => undefined)
+    );
+  }
+
+  function watchWaiting(): () => void {
+    watchers += 1;
+    planRetry();
+    let watching = true;
+    return () => {
+      if (!watching) {
+        return;
+      }
+      watching = false;
+      watchers -= 1;
+      if (watchers === 0) {
+        stopRetryTimer();
+      }
+    };
+  }
+
   function endScan(): void {
     const files = photoFilesToDelete(state().session);
+    stopRetryTimer();
+    retries = 0;
     state().reset();
     for (const uri of files) {
       deps.deleteFile(uri);
@@ -225,8 +343,11 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   }
 
   return {
+    currentScan: () => state().generation,
     addPhotos,
     retryWaiting,
+    watchWaiting,
+    removeTile,
     endScan,
     sweepLeftovers: writeDown,
     onLanded: (listener) => {
@@ -264,4 +385,5 @@ export const scanRunner: ScanRunner = createScanRunner({
   matcher: (read) => matchScannedCard(read),
   deleteFile: deleteScanPhotoFile,
   journal: storedScanPhotoJournal,
+  afterSheets: afterModals,
 });

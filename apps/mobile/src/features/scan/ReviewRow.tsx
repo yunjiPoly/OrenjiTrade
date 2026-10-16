@@ -35,6 +35,8 @@ export interface ReviewRowProps {
   onOpen: (tile: ScanTile) => void;
   /** "Search by name or code" (a card that could not be read). */
   onSearch: (tile: ScanTile) => void;
+  /** "Try again" (a card waiting for the connection): its match is asked for again. */
+  onRetry: (tile: ScanTile) => void;
   onCopies: (tile: ScanTile, copies: number) => void;
   onRemove: (tile: ScanTile) => void;
 }
@@ -58,9 +60,10 @@ function rowBorder(kind: ReviewRowKind, palette: Palette): string {
  * One card of the review (mockup screen 30): its picture, name, code and rarity, "− copies +" and
  * Remove. A ready row opens 28 (Check the match); a row to check shows its fix: "Pick rarity",
  * "Pick printing" under "Set code not readable", or "Search by name or code". A row still waiting
- * for the connection says so. Past the pinned text size, the copies go under the name.
+ * for the connection says so and offers "Try again". Past the pinned text size, the copies go
+ * under the name.
  */
-export function ReviewRow({ tile, onOpen, onSearch, onCopies, onRemove }: ReviewRowProps) {
+export function ReviewRow({ tile, onOpen, onSearch, onRetry, onCopies, onRemove }: ReviewRowProps) {
   const { palette } = useTheme();
   const { fontScale } = useWindowDimensions();
   const kind = reviewRowKind(tile);
@@ -97,7 +100,7 @@ export function ReviewRow({ tile, onOpen, onSearch, onCopies, onRemove }: Review
       <Text maxFontSizeMultiplier={ROW_TEXT_SCALE} style={[styles.name, { color: palette.ink }]}>
         {name}
       </Text>
-      <Details tile={tile} kind={kind} onOpen={onOpen} onSearch={onSearch} />
+      <Details tile={tile} kind={kind} onOpen={onOpen} onSearch={onSearch} onRetry={onRetry} />
     </View>
   );
 
@@ -129,7 +132,12 @@ export function ReviewRow({ tile, onOpen, onSearch, onCopies, onRemove }: Review
   const remove = (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={REVIEW_COPY.remove(name)}
+      // A row with no card yet is not named after its status ("Remove Couldn't read").
+      accessibilityLabel={
+        kind === 'UNREAD' || kind === 'WAITING'
+          ? REVIEW_COPY.removeThisCard
+          : REVIEW_COPY.remove(name)
+      }
       onPress={() => onRemove(tile)}
       hitSlop={SLOP}
       style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
@@ -169,11 +177,13 @@ function Details({
   kind,
   onOpen,
   onSearch,
+  onRetry,
 }: {
   tile: ScanTile;
   kind: ReviewRowKind;
   onOpen: (tile: ScanTile) => void;
   onSearch: (tile: ScanTile) => void;
+  onRetry: (tile: ScanTile) => void;
 }) {
   const { palette } = useTheme();
   const code = (value: string | null | undefined): ReactNode =>
@@ -232,24 +242,52 @@ function Details({
       );
     case 'UNREAD':
       return (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={REVIEW_COPY.searchByNameOrCode}
+        <TextButton
+          label={REVIEW_COPY.searchByNameOrCode}
           onPress={() => onSearch(tile)}
-          style={({ pressed }) => [styles.search, pressed && styles.pressed]}
           testID={`review-row-${tile.id}-search`}
-        >
-          <Text
-            maxFontSizeMultiplier={ROW_TEXT_SCALE}
-            style={[styles.searchLabel, { color: palette.primary }]}
-          >
-            {REVIEW_COPY.searchByNameOrCode}
-          </Text>
-        </Pressable>
+        />
+      );
+    case 'WAITING':
+      return (
+        <TextButton
+          label={REVIEW_COPY.tryAgain}
+          onPress={() => onRetry(tile)}
+          testID={`review-row-${tile.id}-retry`}
+        />
       );
     default:
       return null;
   }
+}
+
+/** "Search by name or code" / "Try again": a word in the accent colour, 44 points tall. */
+function TextButton({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  const { palette } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.search, pressed && styles.pressed]}
+      testID={testID}
+    >
+      <Text
+        maxFontSizeMultiplier={ROW_TEXT_SCALE}
+        style={[styles.searchLabel, { color: palette.primary }]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
 }
 
 /** "Pick rarity" / "Pick printing": the amber pill with its chevron. */

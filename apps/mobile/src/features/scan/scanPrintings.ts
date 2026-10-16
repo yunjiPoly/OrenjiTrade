@@ -1,4 +1,4 @@
-import type { CardDetail, PrintingSummary } from '@/src/api/types';
+import type { PrintingSummary } from '@/src/api/types';
 
 import { raritiesCount } from './scanCopy';
 import { printingRows, type PrintingRow, type ScanTile } from './scanSession';
@@ -11,17 +11,22 @@ import type { CardScanOtherMatch, CardScanPrinting, ScanRead } from './types';
 
 const ENGLISH = new Set(['EN', 'ENGLISH']);
 
+/** Whether a printing's language is English (a printing without one is taken as English). */
+export function isEnglishLanguage(language: string | null | undefined): boolean {
+  return !language || ENGLISH.has(language.toUpperCase());
+}
+
 function isEnglish(printing: PrintingSummary): boolean {
-  return !printing.language || ENGLISH.has(printing.language.toUpperCase());
+  return isEnglishLanguage(printing.language);
 }
 
 /**
- * A card's English printings from the catalog (`GET /cards/{id}`), newest set first, as the scan's
- * printing list shows them: for a card picked by hand (an "Other match" found by its name), whose
- * printings the matcher did not send.
+ * A card's English printings from the catalog (`GET /cards/{id}/printings`), newest set first, as
+ * the scan's printing list shows them: for a card picked by hand (an "Other match" found by its
+ * name, or a card of the search), whose printings the matcher did not send.
  */
-export function printingsOfCard(card: CardDetail): CardScanPrinting[] {
-  const printings = (card.printings ?? []).filter(
+export function printingsOfCard(catalog: readonly PrintingSummary[]): CardScanPrinting[] {
+  const printings = catalog.filter(
     (printing): printing is PrintingSummary & { id: string } =>
       typeof printing.id === 'string' && isEnglish(printing)
   );

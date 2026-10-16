@@ -30,7 +30,8 @@ const LANTERN_TEXT: FakeCardText = { whole: ['Endless Lantern', 'ZRA1-EN075'], t
 function setup(
   cards: Record<string, FakeCardText>,
   matcher: (read: ScanRead) => Promise<CardScanMatch>,
-  provider: FakeOcrProvider | null = new FakeOcrProvider(cards)
+  provider: FakeOcrProvider | null = new FakeOcrProvider(cards),
+  extra: Partial<Parameters<typeof createScanRunner>[0]> = {}
 ) {
   const deleted: string[] = [];
   const match = jest.fn(matcher);
@@ -38,9 +39,12 @@ function setup(
     provider: () => provider,
     matcher: match,
     deleteFile: (uri) => deleted.push(uri),
+    ...extra,
   });
   return { runner, match, deleted, provider };
 }
+
+const offline = () => ApiError.network(new TypeError('Network request failed'));
 
 function tiles(): ScanTile[] {
   return useScanStore.getState().session.tiles;
@@ -144,6 +148,75 @@ describe('waiting for the connection', () => {
     expect(match).toHaveBeenCalledTimes(3);
   });
 
+  it('tries the waiting tiles again on a timer while a scan screen is open, the phone online all along', async () => {
+    jest.useFakeTimers();
+    try {
+      // The phone stays online: only the API could not be reached for a while.
+      let reachable = false;
+      const { runner, match } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
+        if (!reachable) {
+          throw offline();
+        }
+        return FOUND_YEW;
+      });
+      const stop = runner.watchWaiting();
+      runner.addPhotos([library('file:///a.jpg')]);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(tiles()[0]?.status).toBe('WAITING');
+      expect(match).toHaveBeenCalledTimes(1);
+
+      // First try after 5 s: still unreachable, the tile waits again.
+      await jest.advanceTimersByTimeAsync(4_999);
+      expect(match).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(match).toHaveBeenCalledTimes(2);
+      expect(tiles()[0]?.status).toBe('WAITING');
+
+      // The next try waits longer (10 s); the API is back meanwhile: no new photo needed.
+      reachable = true;
+      await jest.advanceTimersByTimeAsync(9_999);
+      expect(match).toHaveBeenCalledTimes(2);
+      await jest.advanceTimersByTimeAsync(1);
+      expect(match).toHaveBeenCalledTimes(3);
+      expect(tiles()[0]?.status).toBe('FOUND');
+
+      // Nothing waits any more: no more tries.
+      await jest.advanceTimersByTimeAsync(120_000);
+      expect(match).toHaveBeenCalledTimes(3);
+      stop();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('stops trying on its timer once no scan screen is open, and when the scan ends', async () => {
+    jest.useFakeTimers();
+    try {
+      const { runner, match } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
+        throw offline();
+      });
+      const stop = runner.watchWaiting();
+      runner.addPhotos([library('file:///a.jpg')]);
+      await jest.advanceTimersByTimeAsync(5_000);
+      expect(match).toHaveBeenCalledTimes(2);
+      stop();
+      await jest.advanceTimersByTimeAsync(300_000);
+      expect(match).toHaveBeenCalledTimes(2);
+
+      // Open again: the delays start again from the shortest, until the scan ends.
+      const again = runner.watchWaiting();
+      runner.addPhotos([library('file:///a.jpg')]);
+      await jest.advanceTimersByTimeAsync(0);
+      const before = match.mock.calls.length;
+      runner.endScan();
+      await jest.advanceTimersByTimeAsync(300_000);
+      expect(match).toHaveBeenCalledTimes(before);
+      again();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('matches the waiting tiles again when asked (the connection is back)', async () => {
     let online = false;
     const { runner } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
@@ -185,6 +258,52 @@ describe('ending the scan', () => {
     expect(tiles()).toEqual([]);
   });
 
+  it("never lands a late answer of an ended scan on the next scan's tile of the same id", async () => {
+    // Tile ids start again at scan-1 in every scan: only the scan's generation tells them apart.
+    const answers: ((match: CardScanMatch) => void)[] = [];
+    const { runner } = setup(
+      { 'file:///a.jpg': YEW_TEXT, 'file:///b.jpg': LANTERN_TEXT },
+      () => new Promise<CardScanMatch>((resolve) => answers.push(resolve))
+    );
+    const [first] = runner.addPhotos([library('file:///a.jpg')]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(answers).toHaveLength(1);
+    runner.endScan();
+
+    const [second] = runner.addPhotos([library('file:///b.jpg')]);
+    expect(second).toBe(first);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(answers).toHaveLength(2);
+
+    // The ended scan's answer comes back late: the new tile is not touched.
+    answers[0]?.(FOUND_YEW);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(findTile(useScanStore.getState().session, second ?? '')?.status).toBe('READING');
+    expect(findTile(useScanStore.getState().session, second ?? '')?.card).toBeNull();
+
+    answers[1]?.(PICK_RARITY_LANTERN);
+    await runner.idle();
+    expect(findTile(useScanStore.getState().session, second ?? '')?.card?.name).toBe(
+      'Endless Lantern'
+    );
+  });
+
+  it('deletes a photo the camera hands over after its scan ended, and reads nothing of it', async () => {
+    const { runner, deleted, provider } = setup(
+      { 'file:///late.jpg': YEW_TEXT },
+      async () => FOUND_YEW
+    );
+    const scan = runner.currentScan();
+    runner.endScan();
+    expect(runner.addPhotos([library('file:///late.jpg')], scan)).toEqual([]);
+    await runner.idle();
+    expect(deleted).toEqual(['file:///late.jpg']);
+    expect(tiles()).toEqual([]);
+    expect(provider?.calls).toEqual([]);
+    // A photo for the scan going on is added as usual.
+    expect(runner.addPhotos([library('file:///late.jpg')], runner.currentScan())).toHaveLength(1);
+  });
+
   it('drops what the reader and the API answer for a scan that ended', async () => {
     let answer: (match: CardScanMatch) => void = () => undefined;
     const { runner } = setup(
@@ -197,6 +316,58 @@ describe('ending the scan', () => {
     answer(FOUND_YEW);
     await runner.idle();
     expect(tiles()).toEqual([]);
+  });
+});
+
+describe('removing a tile', () => {
+  it('deletes its photo files once no sheet shows them, and the scan forgets them', async () => {
+    let sheetsGone: () => void = () => undefined;
+    const sheets = new Promise<void>((resolve) => (sheetsGone = resolve));
+    const journal = memoryScanPhotoJournal();
+    const { runner, deleted } = setup(
+      { 'file:///a.jpg': YEW_TEXT, 'file:///b.jpg': LANTERN_TEXT },
+      async (read) => (read.codes[0] === 'ZACR-EN036' ? FOUND_YEW : PICK_RARITY_LANTERN),
+      undefined,
+      { afterSheets: () => sheets, journal }
+    );
+    const [yew] = runner.addPhotos([library('file:///a.jpg'), library('file:///b.jpg')]);
+    await runner.idle();
+    runner.removeTile(yew ?? '');
+    expect(tiles()).toHaveLength(1);
+    // Its sheet is still sliding away: the file waits.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(deleted).toEqual([]);
+
+    sheetsGone();
+    await runner.idle();
+    expect(deleted).toEqual(['file:///a.jpg']);
+    expect(useScanStore.getState().session.discarded).toEqual([]);
+    expect(journal.uris).toEqual(['file:///b.jpg']);
+
+    // The scan ends: the other photo is deleted, the removed one is not deleted twice.
+    runner.endScan();
+    expect(deleted).toEqual(['file:///a.jpg', 'file:///b.jpg']);
+  });
+
+  it('leaves the files to the end of the scan when it ended before the sheets left', async () => {
+    let sheetsGone: () => void = () => undefined;
+    const sheets = new Promise<void>((resolve) => (sheetsGone = resolve));
+    const { runner, deleted } = setup(
+      { 'file:///a.jpg': YEW_TEXT },
+      async () => FOUND_YEW,
+      undefined,
+      {
+        afterSheets: () => sheets,
+      }
+    );
+    const [yew] = runner.addPhotos([library('file:///a.jpg')]);
+    await runner.idle();
+    runner.removeTile(yew ?? '');
+    runner.endScan();
+    expect(deleted).toEqual(['file:///a.jpg']);
+    sheetsGone();
+    await runner.idle();
+    expect(deleted).toEqual(['file:///a.jpg']);
   });
 });
 

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 
@@ -22,13 +22,20 @@ export interface AddCardsScanRows {
 /**
  * The two rows Add cards shows for the card scan (owner spec 2026-10-15, screen 26), or null where
  * the scan is not available (the flag `cardTextScan` off, or a build without the reader: Expo Go,
- * the web), so R2's "Coming later" row stays. Each row starts a new scan.
+ * the web), so R2's "Coming later" row stays. Each row starts a new scan (a scan left in memory is
+ * dropped with its photos). Add cards also deletes the photo files of a scan an earlier run of the
+ * app lost (closed in the middle of a scan), without waiting for a scan screen to open.
  */
 export function useAddCardsScanRows(): AddCardsScanRows | null {
   const router = useRouter();
   const snackbar = useSnackbar();
   const { available } = useCardScanAvailability();
   const picking = useRef(false);
+  useEffect(() => {
+    if (available) {
+      void scanRunner.sweepLeftovers();
+    }
+  }, [available]);
   if (!available) {
     return null;
   }

@@ -4,14 +4,14 @@ import { AccessibilityInfo } from 'react-native';
 import ScanReviewRoute from '@/app/scan/review';
 import { scanRunner } from '@/src/features/scan/scanRunner';
 import { resetScanReviewOptions } from '@/src/features/scan/scanReviewOptions';
-import { findTile } from '@/src/features/scan/scanSession';
+import { findTile, removeTile, setCopies } from '@/src/features/scan/scanSession';
 import { useScanStore } from '@/src/features/scan/scanStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { binderFixture } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { mockDispatch, mockParams, mockRouter, resetRouterMock } from '../support/router';
-import { FOUND_YEW, LANTERN, LYRA, YEW } from '../support/scanFixtures';
+import { FOUND_YEW, LANTERN, LYRA, READ_YEW, YEW } from '../support/scanFixtures';
 import { libraryPhoto, mockFiles, resetScanMocks, scanRoutes } from '../support/scanScreen';
 import { FOUND_LYRA, READ_BLUR, seedMockupScan, seedScan } from '../support/scanSeed';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -119,7 +119,11 @@ describe('the review', () => {
     // Copies and remove on every row with a card; none on the photo that could not be read.
     expect(screen.getAllByLabelText('One more')).toHaveLength(4);
     expect(screen.getByLabelText(`Remove ${YEW.name}`)).toBeOnTheScreen();
-    expect(screen.getByLabelText("Remove Couldn't read")).toBeOnTheScreen();
+    // A row with no card yet is not named after its status.
+    expect(screen.getByTestId('review-row-scan-6-remove')).toHaveProp(
+      'accessibilityLabel',
+      'Remove this card'
+    );
     expect(screen.getByTestId('review-row-scan-1-copies')).toHaveTextContent('2');
 
     expect(screen.getByTestId('review-warning')).toHaveTextContent(
@@ -201,12 +205,47 @@ describe('the review', () => {
     fireEvent.press(screen.getByTestId(`review-row-${ids.lyra}-less`));
     expect(screen.getByTestId(`review-row-${ids.lyra}-less`)).toBeDisabled();
 
-    fireEvent.press(screen.getByLabelText("Remove Couldn't read"));
+    fireEvent.press(screen.getByTestId(`review-row-${ids.blur}-remove`));
     expect(screen.queryByTestId(`review-row-${ids.blur}`)).toBeNull();
+    // Its photo is deleted at once, not at the end of the scan.
+    await waitFor(() => expect(mockFiles.deleted).toEqual([libraryPhoto('blur').uri]));
     expect(screen.getByTestId('review-summary')).toHaveTextContent('3 ready · 2 to check');
     expect(screen.getByTestId('review-warning')).toHaveTextContent(
       "The 2 cards to check won't be added."
     );
+  });
+});
+
+describe('a row', () => {
+  it('stops at 99 copies: "One more" is off', async () => {
+    const ids = seedMockupScan();
+    act(() => {
+      useScanStore.getState().apply((session) => setCopies(session, ids.lyra, 98));
+    });
+    render();
+    await screen.findByRole('header', { name: /^Review \d+ cards$/ });
+    const more = screen.getByTestId(`review-row-${ids.lyra}-more`);
+    expect(more).toBeEnabled();
+    fireEvent.press(more);
+    expect(screen.getByTestId(`review-row-${ids.lyra}-copies`)).toHaveTextContent('99');
+    expect(screen.getByTestId(`review-row-${ids.lyra}-more`)).toBeDisabled();
+  });
+
+  it('waiting for the connection offers "Try again", and resolves with the phone online all along', async () => {
+    const [waiting = ''] = seedScan([{ photo: 'yew-1', waiting: READ_YEW }]);
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': ok({ ...FOUND_YEW, read: READ_YEW }),
+    });
+    await screen.findByRole('header', { name: 'Review 1 card' });
+    expect(screen.getByTestId(`review-row-${waiting}`)).toHaveTextContent(/Waiting for connection/);
+    expect(screen.getByTestId(`review-row-${waiting}-remove`)).toHaveProp(
+      'accessibilityLabel',
+      'Remove this card'
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(screen.getByTestId('review-summary')).toHaveTextContent('1 ready'));
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
+    expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
   });
 });
 
@@ -391,6 +430,43 @@ describe('leaving the review', () => {
     expect(useScanStore.getState().session.tiles).toEqual([]);
   });
 
+  it('opened from the photos, every row removed then back: the scan ends and its photos are deleted', async () => {
+    mockParams.current = { from: 'photos' };
+    const [first = '', second = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'blur', unread: READ_BLUR },
+    ]);
+    const view = render();
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    fireEvent.press(screen.getByTestId(`review-row-${first}-remove`));
+    fireEvent.press(screen.getByTestId(`review-row-${second}-remove`));
+    await waitFor(() =>
+      expect(mockFiles.deleted.sort()).toEqual(
+        [libraryPhoto('yew-1').uri, libraryPhoto('blur').uri].sort()
+      )
+    );
+    // Nothing is left to lose: the back gesture leaves without asking.
+    expect(mockLeave.held).toBe(false);
+    const scan = scanRunner.currentScan();
+    view.unmount();
+    expect(scanRunner.currentScan()).not.toBe(scan);
+    expect(useScanStore.getState().session.discarded).toEqual([]);
+  });
+
+  it('left with nothing in the scan, ends it: photos still waiting to be deleted go too', async () => {
+    mockParams.current = { from: 'photos' };
+    const [only = ''] = seedScan([{ photo: 'yew-1', match: FOUND_YEW }]);
+    // Removed while no screen deleted its file yet.
+    act(() => {
+      useScanStore.getState().apply((session) => removeTile(session, only));
+    });
+    const view = render();
+    await screen.findByRole('header', { name: 'Review 0 cards' });
+    expect(mockFiles.deleted).toEqual([]);
+    view.unmount();
+    expect(mockFiles.deleted).toEqual([libraryPhoto('yew-1').uri]);
+  });
+
   it('opened from the photos, "Back to scanning" opens the camera', async () => {
     mockParams.current = { from: 'photos' };
     seedMockupScan();
@@ -415,6 +491,9 @@ describe('while photos are read', () => {
     expect(await screen.findByTestId('review-summary')).toHaveTextContent('Reading 2 of 3…');
     expect(screen.getByTestId('review-reading')).toBeOnTheScreen();
     expect(addButton()).toBeDisabled();
+    // The button says why it waits, and the title counts the photos being read too.
+    expect(addButton()).toHaveTextContent(/Wait until every photo is read/);
+    expect(screen.getByRole('header', { name: 'Review 3 cards' })).toBeOnTheScreen();
     expect(findTile(useScanStore.getState().session, found ?? '')?.status).toBe('FOUND');
   });
 });

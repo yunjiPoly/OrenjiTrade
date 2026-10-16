@@ -93,7 +93,7 @@ function render(routes: MockRoutes = {}) {
   const api = mockApi(
     scanRoutes({
       'GET /api/v1/cards/suggest': ok(SUGGESTIONS),
-      'GET /api/v1/cards/{id}': ok(WYVERN_DETAIL),
+      'GET /api/v1/cards/{id}/printings': ok(WYVERN_DETAIL.printings),
       ...routes,
     })
   );
@@ -136,7 +136,37 @@ describe('the search inside the scan', () => {
     const results = await screen.findByTestId('add-search-results');
     expect(results).toHaveTextContent(/CARDS.*Smudged Wyvern.*Yu-Gi-Oh!.*3 printings/);
     expect(results).toHaveTextContent(/EXACT PRINTINGS.*ZWYV-EN001.*Wyvern Wings.*Ultra Rare/);
-    expect(api.callsTo('GET /api/v1/cards/suggest')[0]?.query.get('q')).toBe('Smudged Wyvern');
+    const asked = api.callsTo('GET /api/v1/cards/suggest')[0]?.query;
+    expect(asked?.get('q')).toBe('Smudged Wyvern');
+    // The scan reads Yu-Gi-Oh! cards only: the suggestions are that game's.
+    expect(asked?.get('game')).toBe('yugioh');
+    // Its own hint: inside the scan, an exact printing fixes the photo's card.
+    expect(screen.getByTestId('add-search-hint')).toHaveTextContent(
+      'Tap a card to pick its printing, or an exact printing to use it for this photo.'
+    );
+  });
+
+  it('never takes a card of another game for the photo', async () => {
+    const tileId = openForUnread();
+    render({
+      'GET /api/v1/cards/suggest': ok([
+        { ...SUGGESTIONS[0], id: 'card-drake', name: 'Cinder Drake', game: 'mtg' },
+        {
+          ...SUGGESTIONS[1],
+          id: 'card-drake',
+          printingId: 'p-drake',
+          name: 'Cinder Drake',
+          game: 'mtg',
+          printingCode: 'ZTDX-076',
+        },
+      ]),
+    });
+    fireEvent.press(await screen.findByTestId('add-card-card-drake'));
+    fireEvent.press(screen.getByTestId('add-printing-ZTDX-076'));
+    expect(screen.queryByTestId('scan-printing-sheet')).toBeNull();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(tileOf(tileId)?.status).toBe('NOT_FOUND');
+    expect(tileOf(tileId)?.card).toBeNull();
   });
 
   it('opens with the code when no name was read, and empty when nothing was', async () => {
@@ -181,7 +211,7 @@ describe('the search inside the scan', () => {
     expect(sheet).toHaveTextContent(/Pick the printing.*Smudged Wyvern\./);
     // The catalog's English printings, newest set first, one row per code.
     expect(await within(sheet).findByTestId('scan-printing-count')).toHaveTextContent(
-      '2 PRINTINGS, NEWEST FIRST'
+      '3 PRINTINGS, NEWEST FIRST'
     );
     expect(within(sheet).getByTestId('scan-printing-list')).toHaveTextContent(
       /ZWYV-EN001.*Wyvern Wings.*Ultra Rare.*ZRAR-EN010.*Wyvern Rarity.*2 rarities/
@@ -214,6 +244,20 @@ describe('the search inside the scan', () => {
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(tileOf(tileId)?.status).toBe('FOUND');
     expect(tileOf(tileId)?.printing?.id).toBe('p-zrar-010-s');
+  });
+
+  it('"Search by name or code" on the rarity list goes back to this search', async () => {
+    openForUnread();
+    render();
+    fireEvent.press(await screen.findByTestId(`add-card-${WYVERN.id}`));
+    const sheet = await screen.findByTestId('scan-printing-sheet');
+    fireEvent.press(await within(sheet).findByTestId('scan-printing-row-ZRAR-EN010'));
+    const rarities = await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(within(rarities).getByRole('link', { name: 'Search by name or code' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+    expect(screen.getByTestId('add-search-input')).toBeOnTheScreen();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
   it('Cancel on the printing list changes nothing and stays; Cancel goes back', async () => {

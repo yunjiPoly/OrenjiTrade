@@ -19,7 +19,7 @@ export interface ReviewFooterProps {
   /** The binder chosen, by name; null: no binder. */
   binderName: string | null;
   onBinder: () => void;
-  /** Photos are still read: the add waits for them. */
+  /** Photos are still read: the add waits for them, and its button says so. */
   reading: boolean;
   saving: boolean;
   onAdd: () => void;
@@ -28,8 +28,9 @@ export interface ReviewFooterProps {
 /**
  * The bottom of the review (mockup screen 30): the line about the cards to check, the two pills
  * ("Private"/"Public" and "No binder"), "Add {n} cards to inventory" (off, "Nothing ready to add",
- * when nothing is ready) and "Add prices and photos later by tapping a card in Inventory." It
- * stays on screen: its words follow the text size as far as the pinned scale.
+ * when nothing is ready; off, "Wait until every photo is read", while photos are read) and "Add
+ * prices and photos later by tapping a card in Inventory." It stays on screen: its words follow
+ * the text size as far as the pinned scale.
  */
 export function ReviewFooter({
   counts,
@@ -74,11 +75,10 @@ export function ReviewFooter({
         />
       </View>
       <PillButton
-        label={addButtonLabel(counts)}
+        label={reading ? REVIEW_COPY.waitForReading : addButtonLabel(counts)}
         loading={saving}
         loadingLabel={REVIEW_COPY.adding}
         disabled={counts.ready === 0 || reading}
-        accessibilityHint={reading && counts.ready > 0 ? REVIEW_COPY.waitForReading : undefined}
         onPress={onAdd}
         maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         testID="review-add"

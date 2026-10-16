@@ -8,8 +8,8 @@ import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from 
 import { SCAN_COPY } from './scanCopy';
 
 /**
- * Small parts the scan's sheets share (mockup screens 27 to 29): the outlined Cancel, and the
- * header with "Remove", the title and Close.
+ * Small parts the scan's sheets share (mockup screens 27 to 29): the outlined Cancel, the link to
+ * the search, and the header with "Remove", the title and Close.
  */
 
 /**
@@ -38,8 +38,37 @@ export function SheetCancel({ onPress, testID }: { onPress: () => void; testID?:
       ]}
       testID={testID}
     >
-      <Text style={[textStyle('md'), styles.cancelLabel, { color: palette.ink }]}>
+      {/* At the bottom of a sheet, like a screen's footer: it follows the text size a little. */}
+      <Text
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        style={[textStyle('md'), styles.cancelLabel, { color: palette.ink }]}
+      >
         {SCAN_COPY.cancel}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * "Search by name or code" under a list's rows, above Cancel (the rarity and printing lists): the
+ * search is always one tap away, also when the card itself is wrong. The mockup's link look, with
+ * a 44-point target.
+ */
+export function SheetSearchLink({ onPress, testID }: { onPress: () => void; testID?: string }) {
+  const { palette } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={SCAN_COPY.searchLink}
+      onPress={onPress}
+      style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+      testID={testID}
+    >
+      <Text
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        style={[textStyle('sm'), styles.linkLabel, { color: palette.primary }]}
+      >
+        {SCAN_COPY.searchLink}
       </Text>
     </Pressable>
   );
@@ -108,6 +137,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[4],
   },
   cancelLabel: { fontWeight: fontWeight.semibold },
+  link: { minHeight: 44, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  linkLabel: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
   header: {
     minHeight: 44,
     flexDirection: 'row',

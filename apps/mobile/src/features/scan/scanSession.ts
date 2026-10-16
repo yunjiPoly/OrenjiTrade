@@ -409,7 +409,10 @@ export function setCopies(session: ScanSession, tileId: string, copies: number):
   return updateTile(session, tileId, (tile) => ({ ...tile, copies: clampCopies(copies) }));
 }
 
-/** "Remove" (or "Take it again"): the tile leaves the tray; its photos are deleted at the end. */
+/**
+ * "Remove" (or "Take it again"): the tile leaves the tray. Its photos wait in `discarded` until
+ * they are deleted (`scanRunner.removeTile`, once nothing shows them; else when the scan ends).
+ */
 export function removeTile(session: ScanSession, tileId: string): ScanSession {
   const tile = findTile(session, tileId);
   if (!tile) {
@@ -420,6 +423,13 @@ export function removeTile(session: ScanSession, tileId: string): ScanSession {
     tiles: session.tiles.filter((other) => other.id !== tileId),
     discarded: [...session.discarded, ...tile.photos],
   };
+}
+
+/** Removed tiles' photos whose files were deleted: the scan no longer holds them. */
+export function forgetPhotos(session: ScanSession, uris: readonly string[]): ScanSession {
+  const gone = new Set(uris);
+  const discarded = session.discarded.filter((photo) => !gone.has(photo.uri));
+  return discarded.length === session.discarded.length ? session : { ...session, discarded };
 }
 
 export interface ScanCounts {
