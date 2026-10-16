@@ -239,18 +239,25 @@ function cutCode(text: string): { cleaned: string; tail: string } | null {
  * a word of that shape (`cutCode`) the API reads as a fragment too (`ScanCodes.isFragment`), not as
  * an English code with look-alike digits ("ZR04-E01", "ZR04-ENOO": the phone takes neither for a
  * code, sends neither and takes neither for a name). The scan sends it as a code only when no read
- * of the photo holds a code (`readCardText`), and the API takes the named card's printing in that
- * set. Returns it cleaned, or null.
+ * of the photo holds a code (`readCardText`), the one on the card's text column (`codeFragments`),
+ * and the API takes the named card's printing in that set. Returns it cleaned, or null.
  */
 export function codeFragment(text: string): string | null {
   const cut = cutCode(text);
   return cut && !ENGLISH_FOR_THE_API.test(cut.tail) ? cut.cleaned : null;
 }
 
-/** The code fragment of a read (`codeFragment`), the highest one; none when no row holds one. */
+/**
+ * The code fragment of a read (`codeFragment`): the highest one on the photographed card, that is
+ * starting within its text column when the read shows one (`withinColumn`, the code band's rule).
+ * A card lying beside or behind it shows its own code cut short elsewhere: sent, it would take the
+ * named card's printing in that other card's set. None when no row holds one.
+ */
 export function codeFragments(lines: readonly OcrLine[]): string[] {
+  const column = textColumn(lines);
   return firstDistinct(
     rowsOf(lines)
+      .filter((row) => withinColumn(row.box, column))
       .map((row) => codeFragment(row.text))
       .filter((fragment): fragment is string => fragment !== null),
     1
@@ -546,6 +553,14 @@ function startsWithinColumn(box: FractionRect, column: TextColumn): boolean {
 }
 
 /**
+ * Where a code cut short may lie on the photographed card: within its text column
+ * (`startsWithinColumn`) when the read shows one (`textColumn`), anywhere when it shows none.
+ */
+function withinColumn(box: FractionRect, column: TextColumn | null): boolean {
+  return column === null || startsWithinColumn(box, column);
+}
+
+/**
  * The part of a row that starts on the text column: the row from its first line whose left edge
  * lies within `NAME_ALIGNMENT` of the column's (a name the reader joined to a mark at its left
  * keeps the name); null when none does.
@@ -637,10 +652,7 @@ export function codeBand(lines: readonly OcrLine[], size: PixelSize): FractionRe
   const rows = rowsOf(lines);
   const column = textColumn(lines);
   const fragment = rows.find(
-    (row) =>
-      codeFragment(row.text) !== null &&
-      wide(row.box) &&
-      (column === null || startsWithinColumn(row.box, column))
+    (row) => codeFragment(row.text) !== null && wide(row.box) && withinColumn(row.box, column)
   );
   if (fragment) {
     const { x, y, width, height } = fragment.box;

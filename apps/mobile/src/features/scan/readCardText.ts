@@ -41,8 +41,9 @@ import type { ScanRead } from './types';
  *   like the camera's set code area: twice its size, without language correction, turned the way
  *   the read it was placed on stood;
  * - a whole-photo read that still ends without a code sends the code cut short after its region
- *   one of its reads held (`codeFragment`, "ZR04-EN"), decided after the turns so that a turned
- *   read can still find the whole code.
+ *   one of its reads held (`codeFragments`, "ZR04-EN"), on the card's text column like the code
+ *   band (never the cut code of a card beside it), decided after the turns so that a turned read
+ *   can still find the whole code.
  *
  * A failure of the reader is passed on (the tile then says "Couldn't read").
  */

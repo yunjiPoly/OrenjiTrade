@@ -373,6 +373,29 @@ describe('reading a library photo', () => {
     ]);
   });
 
+  it('never sends the code cut short of a card lying beside the photographed one', async () => {
+    // A card beside it, right or left of its text column and higher in the photo, shows its code
+    // cut short ("ZQ11-EN"); the code band reads nothing. The photographed card's own cut code is
+    // sent, or none: the API would take the named card's printing in that other card's set.
+    const own = CODE_CUT_SHORT;
+    const none = CODE_CUT_SHORT.filter((line) => line.text !== 'ZR04-EN');
+    for (const x of [0.9, 0.02]) {
+      const beside = at('ZQ11-EN', x, 0.3, 0.09, 0.013);
+      for (const [lines, codes] of [
+        [own, ['ZR04-EN']],
+        [none, []],
+      ] as const) {
+        const fake = new FakeOcrProvider({
+          [PHOTO.uri]: { whole: [beside, ...lines], setCode: ['~~'] },
+        });
+        await expect(readCardText(fake, { photo: PHOTO, source: 'LIBRARY' })).resolves.toEqual({
+          codes,
+          names: ['QUILLFEATHER MAGE', 'A quiet scholar who writes the winds into old books'],
+        });
+      }
+    }
+  });
+
   it('reads the code band of a read without a code, like the set code area, and keeps its code', async () => {
     const fake = new FakeOcrProvider({
       [PHOTO.uri]: { whole: CODE_CUT_SHORT, setCode: ['ZR04-EN015'] },

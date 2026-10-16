@@ -118,9 +118,10 @@ five grouped queries whatever the number of variants (a sixth for a code read in
    digits or look-alike letters (`ZR04-E01`, `ZR04-ENOO`) is an English code read with look-alikes
    (rules 1 to 4), no fragment. The phone uses the same shape (`codeFragment`, the same table of
    words in both test suites) and sends one only when none of its reads of the photo held a whole
-   code; a word the server would read as an English code but the phone does not (3 digits after
-   `E`, a real digit in the number) it sends neither way. It never finds a card by itself
-   (NO_MATCH without a name). When the name wins and every code read is cut short, the card's
+   code, and only one on the card's text column (a card lying beside the photographed one shows its
+   own code cut short elsewhere); a word the server would read as an English code but the phone
+   does not (3 digits after `E`, a real digit in the number) it sends neither way. It never finds a
+   card by itself (NO_MATCH without a name). When the name wins and every code read is cut short, the card's
    printing in that set is its printing when exactly one of its English printings fits: the same
    set and an `EN` code whose number starts with the characters read after the region when those
    are digits, the look-alikes O and D 0, I and L 1, S 5, B 8, Z 2, G 6 folded on both sides

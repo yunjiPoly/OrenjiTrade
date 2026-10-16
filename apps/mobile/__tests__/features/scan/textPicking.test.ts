@@ -248,6 +248,24 @@ describe('a code cut short', () => {
     ]);
     expect(codeFragments(linesOf(['Quillfeather Mage', 'ZR04-EN015']))).toEqual([]);
   });
+
+  it("is only on the photographed card's text column, never a card's beside it", () => {
+    // A card beside it, left or right of its text column and higher in the photo, shows its own
+    // code cut short: sent, the API would take the named card's printing in that card's set.
+    const noFragment = CARD_BEFORE_ANOTHER.filter((line) => line.text !== 'ZR04-EN');
+    for (const x of [0.02, 0.9]) {
+      const beside = at('ZQ11-EN', x, 0.3, 0.09, 0.013);
+      expect(codeFragments([beside, ...CARD_BEFORE_ANOTHER])).toEqual(['ZR04-EN']);
+      expect(codeFragments([beside, ...noFragment])).toEqual([]);
+    }
+    // The column runs from 0.178 to 0.76: a code starting up to 0.12 of its width outside it
+    // (0.07) is the card's own.
+    for (const x of [0.13, 0.8]) {
+      expect(codeFragments([at('ZR04-EN', x, 0.75, 0.09, 0.013), ...noFragment])).toEqual([
+        'ZR04-EN',
+      ]);
+    }
+  });
 });
 
 describe('code candidates', () => {
