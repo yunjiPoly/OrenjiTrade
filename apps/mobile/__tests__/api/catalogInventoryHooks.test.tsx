@@ -31,6 +31,7 @@ import {
   useInventoryItems,
   useResumeListings,
 } from '@/src/api/hooks/inventory';
+import { useRemoveLocation, useSaveLocation, useSavePrivacy } from '@/src/api/hooks/location';
 import { meKeys } from '@/src/api/queryKeys';
 import { DEFAULT_INVENTORY_FILTERS } from '@/src/lib/inventoryFilters';
 
@@ -45,6 +46,8 @@ import {
   ITEM_ID,
   itemFixture,
   listingStatusFixture,
+  locationFixture,
+  privacyFixture,
   publicBinderFixture,
   publicItemFixture,
   SETS,
@@ -353,6 +356,59 @@ describe('binder hooks', () => {
     expect(await outOfDate(() => reorder.result.current.mutateAsync([BINDER_ID]))).toEqual(every);
     const remove = renderHook(() => useDeleteBinder(), { wrapper });
     expect(await outOfDate(() => remove.result.current.mutateAsync(BINDER_ID))).toEqual(every);
+  });
+
+  it('a write that changes who sees the cards refreshes the Inventory (its Public or Private tags)', async () => {
+    mockApi(
+      signedInRoutes({
+        'PATCH /api/v1/binders/{id}': ok(binderFixture({ visibility: 'PRIVATE' })),
+        'PUT /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+        'PUT /api/v1/me/location': ok(locationFixture({ discoverable: true })),
+        'DELETE /api/v1/me/location': noContent,
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    // The Inventory tab stays mounted: its list, the summary and the binders' cards.
+    const lists = [
+      meKeys.inventoryItems(uid, DEFAULT_INVENTORY_FILTERS),
+      meKeys.inventorySummary(uid),
+      meKeys.binderItems(uid, BINDER_ID, { q: '' }),
+    ];
+    const outOfDate = async (write: () => Promise<unknown>) => {
+      for (const key of lists) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      await act(async () => {
+        await write();
+      });
+      return lists.map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    };
+    const every = lists.map(() => true);
+
+    // A binder made private: its public cards are "Public · not visible" now.
+    const update = renderHook(() => useUpdateBinder(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        update.result.current.mutateAsync({ id: BINDER_ID, patch: { visibility: 'PRIVATE' } })
+      )
+    ).toEqual(every);
+    // "Show me on the map" turned off (Settings › Location or Privacy).
+    const privacy = renderHook(() => useSavePrivacy(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        privacy.result.current.mutateAsync(privacyFixture({ discoverable: false }))
+      )
+    ).toEqual(every);
+    // The location saved (onboarding, Settings › Location) or removed (discoverability goes off).
+    const save = renderHook(() => useSaveLocation(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        save.result.current.mutateAsync({ countryCode: 'CA', subdivisionCode: 'CA-QC' })
+      )
+    ).toEqual(every);
+    const remove = renderHook(() => useRemoveLocation(), { wrapper });
+    expect(await outOfDate(() => remove.result.current.mutateAsync())).toEqual(every);
   });
 
   it('reads public binders with the token when signed in', async () => {

@@ -139,14 +139,12 @@ export function useCreateBinder() {
 }
 
 /**
- * Writes answering the updated binder: it replaces the cached one, then everything refreshes, its
- * public page too (the deck core page an owner opened from Edit binder shows the new price), and
- * the lists that show it to others (the owner's profile rows, the map, search).
+ * Writes answering the updated binder: it replaces the cached one, then everything refreshes (the
+ * owner's cards and binders, its public page too: the deck core page an owner opened from Edit
+ * binder shows the new price), and the lists that show it to others (the owner's profile rows, the
+ * map, search).
  */
-function useBinderWrite<TInput>(
-  request: (input: TInput) => Promise<BinderResponse>,
-  refreshItems: boolean
-) {
+function useBinderWrite<TInput>(request: (input: TInput) => Promise<BinderResponse>) {
   const uid = useUid();
   const queryClient = useQueryClient();
   return useMutation<BinderResponse, ApiError, TInput>({
@@ -158,10 +156,10 @@ function useBinderWrite<TInput>(
       );
       refreshBinderListings(queryClient, uid);
       await Promise.all([
-        // Publishing confirms the binder and its items; visibility changes their effective state.
-        refreshItems
-          ? refreshInventory(queryClient, uid)
-          : queryClient.invalidateQueries({ queryKey: meKeys.binders(uid) }),
+        // A save or a publication confirms the binder and its items; its visibility and "Sell as
+        // a deck core" change whether others see them (each Inventory card's Public or Private
+        // tag), and every item carries its binder's name.
+        refreshInventory(queryClient, uid),
         queryClient.invalidateQueries({ queryKey: publicKeys.publicBinderAll(binder.id) }),
       ]);
     },
@@ -175,15 +173,16 @@ export interface UpdateBinderInput {
 
 /**
  * `PATCH /api/v1/binders/{id}`: name, visibility, "Sell as a deck core", the price, the note
- * (absent fields unchanged; `confirm` also confirms the binder and its cards).
+ * (absent fields unchanged; `confirm` also confirms the binder and its cards). The owner's cards
+ * are read again too: a binder made private hides its public cards, which the Inventory then tags
+ * "Public · not visible" without a pull to refresh (fix round 1 of the owner's change of
+ * 2026-10-16).
  */
 export function useUpdateBinder() {
-  return useBinderWrite<UpdateBinderInput>(
-    async ({ id, patch }) =>
-      required(
-        (await api.PATCH('/api/v1/binders/{id}', { params: { path: { id } }, body: patch })).data
-      ),
-    false
+  return useBinderWrite<UpdateBinderInput>(async ({ id, patch }) =>
+    required(
+      (await api.PATCH('/api/v1/binders/{id}', { params: { path: { id } }, body: patch })).data
+    )
   );
 }
 
@@ -194,37 +193,29 @@ export interface PublishBinderInput {
 
 /** `POST /api/v1/binders/{id}/publish` (1 hour, 24 hours or until disabled). */
 export function usePublishBinder() {
-  return useBinderWrite<PublishBinderInput>(
-    async ({ id, mode }) =>
-      required(
-        (
-          await api.POST('/api/v1/binders/{id}/publish', {
-            params: { path: { id } },
-            body: { mode },
-          })
-        ).data
-      ),
-    true
+  return useBinderWrite<PublishBinderInput>(async ({ id, mode }) =>
+    required(
+      (
+        await api.POST('/api/v1/binders/{id}/publish', {
+          params: { path: { id } },
+          body: { mode },
+        })
+      ).data
+    )
   );
 }
 
 /** `POST /api/v1/binders/{id}/unpublish`: private again. */
 export function useUnpublishBinder() {
-  return useBinderWrite<string>(
-    async (id) =>
-      required(
-        (await api.POST('/api/v1/binders/{id}/unpublish', { params: { path: { id } } })).data
-      ),
-    true
+  return useBinderWrite<string>(async (id) =>
+    required((await api.POST('/api/v1/binders/{id}/unpublish', { params: { path: { id } } })).data)
   );
 }
 
 /** `POST /api/v1/binders/{id}/confirm`: the binder and its cards are still up to date. */
 export function useConfirmBinder() {
-  return useBinderWrite<string>(
-    async (id) =>
-      required((await api.POST('/api/v1/binders/{id}/confirm', { params: { path: { id } } })).data),
-    true
+  return useBinderWrite<string>(async (id) =>
+    required((await api.POST('/api/v1/binders/{id}/confirm', { params: { path: { id } } })).data)
   );
 }
 

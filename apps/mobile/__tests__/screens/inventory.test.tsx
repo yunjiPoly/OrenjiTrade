@@ -1,9 +1,10 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, Text } from 'react-native';
 
 import InventoryScreen from '@/app/(tabs)/inventory';
-import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
+import { useSavePrivacy } from '@/src/api/hooks/location';
 import { visibilityTagColors } from '@/src/features/inventory/visibilityTag';
+import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { lightPalette, PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -16,6 +17,7 @@ import {
   ITEM_ID,
   itemFixture,
   listingStatusFixture,
+  privacyFixture,
   summaryFixture,
 } from '../support/fixtures';
 import { mockApi, ok, problem } from '../support/mockApi';
@@ -175,6 +177,54 @@ describe('Inventory (screen 1)', () => {
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Called by the Grave, SVX-001, Private, 4 copies' })
+    ).toBeOnTheScreen();
+  });
+
+  it('follows "Show me on the map" at once, without a pull to refresh (fix round 1)', async () => {
+    const shown = itemFixture({
+      id: 'shown-1',
+      card: { id: 'c5', name: 'Frostbite Sorceress', game: 'yugioh' },
+      visibility: 'PUBLIC',
+      effectivePublic: true,
+    });
+    mockApi(
+      signedInRoutes({
+        // Read again once the collector is hidden from the map: nobody sees the card now.
+        'GET /api/v1/inventory/items': [
+          ok(inventoryPage([shown])),
+          ok(inventoryPage([{ ...shown, effectivePublic: false }])),
+        ],
+        'GET /api/v1/inventory/summary': ok(summaryFixture({ totalItems: 1 })),
+        'PUT /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+      })
+    );
+    // Settings › Location's switch, while the Inventory tab stays mounted behind it.
+    function HideFromMap() {
+      const save = useSavePrivacy();
+      return (
+        <Pressable onPress={() => save.mutate(privacyFixture({ discoverable: false }))}>
+          <Text>Hide me from the map</Text>
+        </Pressable>
+      );
+    }
+    renderWithProviders(
+      <>
+        <InventoryScreen />
+        <HideFromMap />
+      </>,
+      { port: new FakeAuthPort(testUser()) }
+    );
+    expect(await screen.findByTestId('item-shown-1-visibility')).toHaveTextContent(/Public$/);
+    fireEvent.press(screen.getByText('Hide me from the map'));
+    await waitFor(() =>
+      expect(screen.getByTestId('item-shown-1-visibility')).toHaveTextContent(
+        /Public · not visible$/
+      )
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Frostbite Sorceress, SVX-001, Public, not visible, $40.00, 2 copies',
+      })
     ).toBeOnTheScreen();
   });
 
