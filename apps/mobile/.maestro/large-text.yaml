@@ -3,8 +3,8 @@
 # (subflows/relaunch-large-text.yaml; an Android device keeps its own size and walks the same
 # paths). On Search the title, the segments and the field stay within reach above the map, and a
 # finger dragged over the map scrolls the page down to the note under it; a card that is typed is
-# scrolled to and opened; in Europe the "Not your region" line stands under the field, and a
-# collector who is typed is found and opened; one press goes home.
+# narrowed to its game and opened; in Europe the "Not your region" line stands under the field,
+# and a collector who is typed is found and opened; one press goes home.
 # Seed accounts are only signed in to; who lives in Île-de-France is read on the host from the
 # public API (scripts/region-map.js).
 appId: ${APP_ID}
@@ -84,7 +84,11 @@ tags:
     env:
       ID: 'search-field'
 
-# A card that is typed can be scrolled to and opened.
+# A card that is typed can be narrowed to its game and opened. At this size a result is about a
+# third of the screen tall (its name wraps) and the list scrolls under the field and the game
+# chips: a row scrolled half under them is still "on screen" for iOS's accessibility tree, and a
+# tap at its middle would land on a chip. The game chip (the card search's only filter) puts the
+# card first, in full view.
 - tapOn:
     id: 'search-field'
 - extendedWaitUntil:
@@ -93,10 +97,12 @@ tags:
     timeout: 30000
 - inputText: 'emberfang'
 - runFlow: subflows/hide-keyboard.yaml
-- runFlow:
-    file: subflows/scroll-down-to-text.yaml
-    env:
-      TEXT: 'Emberfang Fox, Pokémon'
+- tapOn:
+    id: 'search-game-pokemon'
+- extendedWaitUntil:
+    visible: 'Emberfang Fox, Pokémon'
+    timeout: 30000
+- takeScreenshot: large-text-typing
 - tapOn: 'Emberfang Fox, Pokémon'
 - extendedWaitUntil:
     visible:

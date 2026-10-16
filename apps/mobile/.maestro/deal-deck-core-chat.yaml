@@ -1,13 +1,12 @@
-# Native flow 3 of the phone redesign (owner spec 2026-10-14, section 14) as far as stage R4
-# reaches: open the chat about a deck core and see it pinned, with the buying tip and the buying
+# Native flow 3 of the phone redesign (owner spec 2026-10-14, section 14), the deck core part of
+# stage R4: open the chat about a deck core and see it pinned, with the buying tip and the buying
 # quick replies; then "Send my address" from the + sheet (asked the first time, into the message
 # box, sent only when the buyer taps send). Ben (fresh, fictional, Ontario, scripts/deals.js) sells
 # a public deck core; Ada (fresh, fictional, Quebec, the app user) opens its page from a link
 # (like a shared https://www.orenjitrade.com/binders/<id>) and taps "Message {Ben}".
 #
-# Not in this flow yet: searching the card and messaging a holder from "Who has this card" (screen
-# 13) comes with stage R5, which builds that page and the Message button on its rows (the API of
-# stage R4 already pins a card from `POST /conversations` with `subjectItemId`).
+# The rest of native flow 3 (stage R5): searching the card and messaging a holder from "Who has
+# this card" (screen 13), the card pinned with the buying tip, is search-who-has-this-card.yaml.
 appId: ${APP_ID}
 name: Buyer opens the chat about a deck core and sends the address
 tags:
