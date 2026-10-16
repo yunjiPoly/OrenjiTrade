@@ -167,11 +167,14 @@ public class ConversationRepository {
 
     /**
      * Pins the chat's subject (stage R4): a card ({@code itemId}) or a deck core ({@code
-     * binderId}), the latest wins. Pinning the subject the chat already has changes nothing (its
-     * time and who pinned it stay, so a sale of it still counts). The caller holds the item or the
-     * binder {@code FOR KEY SHARE} before this update takes the conversation row.
+     * binderId}), the latest wins. Pinning the subject the chat already has pins it again: its time
+     * and who pinned it are those of this pin, so an earlier sale of it no longer marks the chat
+     * "Sold" (the seller can record a sale of the copies left) and a card its owner shares is shown
+     * to the other collector even when it is private (review fix 1, findings F5 and F6). The caller
+     * holds the item or the binder {@code FOR KEY SHARE} before this update takes the conversation
+     * row.
      *
-     * @return whether the subject changed
+     * @return whether the conversation exists
      */
     public boolean setSubject(
             UUID conversationId,
@@ -185,8 +188,6 @@ public class ConversationRepository {
                                    SET subject_item_id = :itemId, subject_binder_id = :binderId,
                                        subject_set_at = :at, subject_set_by = :setBy
                                  WHERE id = :id
-                                   AND (subject_item_id IS DISTINCT FROM :itemId
-                                        OR subject_binder_id IS DISTINCT FROM :binderId)
                                 """)
                         .param("id", conversationId)
                         .param("itemId", itemId, Types.OTHER)

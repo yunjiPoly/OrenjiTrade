@@ -254,6 +254,79 @@ class ChatSubjectIT extends AbstractDealsIT {
                 400);
     }
 
+    /**
+     * Review fix 1, F6: the owner shares the very card the buyer pinned, after making it private:
+     * the share pins it again as the owner's, so the buyer sees it listed with its price, as the
+     * bubble just sent shows it.
+     */
+    @Test
+    void theOwnerSharingTheCardTheBuyerPinnedShowsItAgainEvenPrivate() {
+        Collector seller = collector("r4-reshare-seller");
+        Collector buyer = collector("r4-reshare-buyer");
+        String itemId = card(seller, 2, "PUBLIC", "$18");
+        String chatId = chatAbout(buyer, seller, itemId);
+        callJson(
+                HttpMethod.PATCH,
+                ITEMS + "/" + itemId,
+                seller.uid(),
+                Map.of("visibility", "PRIVATE"),
+                200);
+        assertThat(conversation(buyer, chatId, 200).path("subject").path("listed").asBoolean())
+                .isFalse();
+
+        callJson(
+                HttpMethod.POST,
+                CONVERSATIONS + "/" + chatId + "/messages",
+                seller.uid(),
+                Map.of("kind", "CARD_LINK", "inventoryItemId", itemId),
+                201);
+        JsonNode subject = conversation(buyer, chatId, 200).path("subject");
+        assertThat(subject.path("id").asString()).isEqualTo(itemId);
+        assertThat(subject.path("listed").asBoolean()).isTrue();
+        assertThat(subject.path("askingPriceText").asString()).isEqualTo("$18");
+        assertNoPrivateData(subject);
+    }
+
+    /**
+     * Review fix 1, F5: after a sale of some copies the chat is "Sold"; the same card pinned again
+     * (the seller shares it, or the buyer opens it again) counts from that pin, so the seller can
+     * record a sale of the copies left to the same buyer.
+     */
+    @Test
+    void theSameCardPinnedAgainAfterASaleCanBeSoldAgain() {
+        Collector seller = collector("r4-again-seller");
+        Collector buyer = collector("r4-again-buyer");
+        String itemId = card(seller, 3, "PUBLIC", "$7");
+        String chatId = chatAbout(buyer, seller, itemId);
+        markSold(seller, chatId, 1, null, 201);
+        assertThat(conversation(seller, chatId, 200).path("subject").path("sold").asBoolean())
+                .isTrue();
+
+        // The seller shares the card again: Mark as sold comes back.
+        callJson(
+                HttpMethod.POST,
+                CONVERSATIONS + "/" + chatId + "/messages",
+                seller.uid(),
+                Map.of("kind", "CARD_LINK", "inventoryItemId", itemId),
+                201);
+        for (Collector member : java.util.List.of(seller, buyer)) {
+            assertThat(conversation(member, chatId, 200).path("subject").path("sold").asBoolean())
+                    .isFalse();
+        }
+        markSold(seller, chatId, 1, null, 201);
+        assertThat(conversation(buyer, chatId, 200).path("subject").path("sold").asBoolean())
+                .isTrue();
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(1);
+
+        // The buyer opens the card again from its page: the last copy can be sold too.
+        startAbout(buyer, seller, itemId, null, 200);
+        assertThat(conversation(seller, chatId, 200).path("subject").path("sold").asBoolean())
+                .isFalse();
+        markSold(seller, chatId, 1, null, 201);
+        item(seller, itemId, 404);
+        assertThat(saleMessages(buyer, chatId)).hasSize(3);
+    }
+
     @Test
     void blockedPairsNeitherPinNorReadTheChat() {
         Collector seller = collector("r4-block-seller");
