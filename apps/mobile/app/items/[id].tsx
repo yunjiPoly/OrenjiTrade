@@ -45,7 +45,6 @@ import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScree
 import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
 import { ITEM_PHOTO_MAX_COUNT, photoRefusal } from '@/src/features/inventory/itemPhotoRules';
-import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
@@ -274,9 +273,10 @@ function CardEditor({
     }
     setMessage(null);
     setSaving(true);
+    const patch = toPatch(form, item);
     try {
       // A save counts as "still available", photos alone included.
-      await update.mutateAsync({ id: item.id, patch: toPatch(form, item) ?? { confirm: true } });
+      await update.mutateAsync({ id: item.id, patch: patch ?? { confirm: true } });
     } catch (error) {
       const apiError = error as ApiError;
       setErrors(serverCardErrors(apiError));
@@ -289,7 +289,9 @@ function CardEditor({
       setSaving(false);
       return;
     }
-    if (form.priceWas === null && askingPriceTextOf(form.priceMode, form.price)) {
+    // The mode used last is the one of a price saved here: not of a price read back and left as
+    // it was (fix round 1 of the owner's change of 2026-10-16), nor of a cleared one.
+    if (patch?.askingPriceText) {
       updatePrefs({ priceMode: form.priceMode });
     }
     const failed =

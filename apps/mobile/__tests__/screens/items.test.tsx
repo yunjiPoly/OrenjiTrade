@@ -1342,6 +1342,46 @@ describe('Edit card (screen 7)', () => {
     expect(screen.getByTestId('edit-item-save')).toBeDisabled();
   });
 
+  it('remembers the mode only when a price is saved, not a price left as it was (fix round 1)', async () => {
+    // The last price typed on this phone was in "$".
+    useAppStore.getState().updatePrefs({ priceMode: 'usd' });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: '85% TCG', askingPrice: null, quantity: 1 })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    const { unmount } = renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
+    // Only the copies change: the price read back is no price typed in "% TCG".
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      quantity: 2,
+      confirm: true,
+    });
+    expect(useAppStore.getState().prefs.priceMode).toBe('usd');
+    unmount();
+
+    // A new price typed in "% TCG" and saved: the next card starts in "% TCG".
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    fireEvent.changeText(screen.getByTestId('card-price'), '90');
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')).toHaveLength(2));
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[1]?.body).toEqual({
+      askingPriceText: '90% TCG',
+      confirm: true,
+    });
+    await waitFor(() => expect(useAppStore.getState().prefs.priceMode).toBe('pct'));
+  });
+
   it('says when the card is gone, and shows errors with retry', async () => {
     mockApi(
       signedInRoutes({
