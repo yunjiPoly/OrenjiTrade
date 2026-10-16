@@ -27,7 +27,6 @@ import {
 } from '@orenji/api-client';
 import { Subscription, debounceTime, distinctUntilChanged, filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
-import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { ReportActionsService } from '../../shared/reports/report-actions.service';
 import { SessionService } from '../../core/auth/session.service';
 import { ApiError, toApiError } from '../../core/http/api-error';
@@ -116,13 +115,9 @@ type BinderState =
           <app-empty-state
             icon="speed"
             title="You reached today's binder views"
-            description="Your plan limits how many public binders you can open per day. It resets tomorrow."
+            description="Every collector can open a set number of public binders per day. It resets tomorrow."
           >
-            @if (premiumEnabled()) {
-              <a actions matButton="filled" routerLink="/premium">See plans</a>
-            } @else {
-              <a actions matButton="filled" routerLink="/map">Back to the map</a>
-            }
+            <a actions matButton="filled" routerLink="/map">Back to the map</a>
           </app-empty-state>
         }
         @case ('error') {
@@ -350,8 +345,6 @@ export class PublicBinderPageComponent {
   private readonly session = inject(SessionService);
   private readonly reports = inject(ReportActionsService);
   protected readonly signedIn = this.auth.isAuthenticated;
-  /** "See plans" in the daily-views limit state only while Premium is offered. */
-  protected readonly premiumEnabled = inject(FeatureFlagsService).enabled(FEATURE.premiumPlans);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
 

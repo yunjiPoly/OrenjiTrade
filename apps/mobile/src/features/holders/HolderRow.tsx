@@ -9,13 +9,8 @@ import { Badge, type CardCondition } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import {
-  editionLabel,
-  formatMoney,
-  languageName,
-  printingCode,
-  printingImageUrl,
-} from '@/src/lib/catalog';
+import { itemPriceText, statedCondition } from '@/src/features/inventory/itemPrice';
+import { editionLabel, languageName, printingCode, printingImageUrl } from '@/src/lib/catalog';
 import {
   availabilityLabel,
   badgeFreshness,
@@ -27,19 +22,18 @@ import { fontFamily, fontWeight, radius, spacing, textStyle, useTheme } from '@/
 
 /**
  * One "who has this card in my region" result (the web's `app-holder-row`): the listed copy
- * (picture, printing, set, language, edition, copies, condition, availability, offers, public
- * note, price, freshness) and its holder (name and state or province only, ADR 0017), with "View
- * binder" when it sits in a public binder. Deals happen in the chat (ADR 0018): the holder's
- * profile has "Message".
+ * (picture, printing, set, language, edition, copies, condition when stated, availability, public
+ * note, the asking price as typed, freshness) and its holder (name and state or province only, ADR
+ * 0017), with "View binder" when it sits in a public binder. Deals happen in the chat (ADR 0018):
+ * the holder's profile has "Message".
  */
 export const HolderRow = memo(function HolderRow({ result }: { result: CardHolderResult }) {
   const { palette } = useTheme();
   const router = useRouter();
   const { collector, item } = result;
   const code = printingCode(item.printing);
-  const price =
-    formatMoney(item.askingPrice ?? null, item.currency) ??
-    (item.acceptsOffers ? 'Open to offers' : 'No price');
+  const price = itemPriceText(item);
+  const condition = statedCondition(item);
   const place = placeLabel(collector.place) ?? GENERIC_PLACE_LABEL;
   const meta = [item.printing.setName, languageName(item.language), editionLabel(item.edition)]
     .filter((part) => part && part !== '—')
@@ -66,15 +60,14 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
             {item.quantity > 1 ? ` · ×${item.quantity}` : ''}
           </Text>
           <View style={styles.badges}>
-            {isKnownCondition(item.condition) ? (
-              <Badge variant="condition" value={item.condition as CardCondition} />
+            {condition === null ? null : isKnownCondition(condition) ? (
+              <Badge variant="condition" value={condition as CardCondition} />
             ) : (
               <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-                {conditionLabel(item.condition)}
+                {conditionLabel(condition)}
               </Text>
             )}
             <Tag label={availabilityLabel(item.availability)} />
-            {item.acceptsOffers ? <Tag label="Offers" tone="offers" /> : null}
             <Badge variant="freshness" value={badgeFreshness(item.freshness.state)} />
           </View>
           {item.publicNotes ? (
@@ -83,12 +76,19 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
             </Text>
           ) : null}
         </View>
-        <Text
-          testID={`holder-${item.id}-price`}
-          style={[textStyle('lg', 'heading'), styles.strong, { color: palette.ink }]}
-        >
-          {price}
-        </Text>
+        {price ? (
+          <Text
+            testID={`holder-${item.id}-price`}
+            style={[
+              textStyle('lg', 'heading'),
+              styles.strong,
+              styles.price,
+              { color: palette.ink },
+            ]}
+          >
+            {price}
+          </Text>
+        ) : null}
       </View>
       <Pressable
         accessibilityRole="link"
@@ -131,11 +131,11 @@ export const HolderRow = memo(function HolderRow({ result }: { result: CardHolde
   );
 });
 
-function Tag({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'offers' }) {
+function Tag({ label }: { label: string }) {
   const { palette } = useTheme();
-  const color = tone === 'offers' ? palette.availability.offers : palette.textMuted;
+  const color = palette.textMuted;
   return (
-    <View style={[styles.tag, { borderColor: tone === 'offers' ? color : palette.border }]}>
+    <View style={[styles.tag, { borderColor: palette.border }]}>
       <Text style={[textStyle('xs'), { color }]}>{label}</Text>
     </View>
   );
@@ -147,6 +147,7 @@ const styles = StyleSheet.create({
   text: { flex: 1, gap: 4 },
   mono: { fontFamily: fontFamily.mono },
   strong: { fontWeight: fontWeight.semibold },
+  price: { maxWidth: '40%', textAlign: 'right' },
   note: { fontStyle: 'italic' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[1] },
   tag: {

@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -193,7 +194,9 @@ public class CollectorSearchRepository {
                                             Availability.valueOf(rs.getString("availability")),
                                             rs.getBigDecimal("asking_price"),
                                             rs.getString("currency").trim(),
-                                            rs.getString("condition"),
+                                            // Empty when not stated (stage R2).
+                                            Objects.requireNonNullElse(
+                                                    rs.getString("condition"), ""),
                                             rs.getString("language"),
                                             rs.getString("edition"),
                                             rs.getBoolean("accepts_offers"),

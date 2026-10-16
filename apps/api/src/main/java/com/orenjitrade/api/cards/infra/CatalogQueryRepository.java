@@ -16,6 +16,7 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -64,7 +65,8 @@ public class CatalogQueryRepository {
 
     private static final String PRINTING_COLUMNS =
             """
-            p.id, p.card_id, p.set_id, s.code AS set_code, s.name AS set_name, p.collector_number,
+            p.id, p.card_id, p.set_id, s.code AS set_code, s.name AS set_name,
+            s.release_date AS set_release_date, p.collector_number,
             p.printing_code, p.rarity, p.edition, p.language, p.finish, p.market_price,
             p.market_price_currency, p.market_price_updated_at,
             p.external_ref ->> 'provider' AS price_provider, p.metadata::text AS metadata,
@@ -541,10 +543,13 @@ public class CatalogQueryRepository {
                                     suggestion.setCode(),
                                     suggestion.printingCode(),
                                     imageUrl(
-                                            row.imageId(),
-                                            refs,
-                                            suggestion.game(),
-                                            row.cardSlug()));
+                                            row.imageId(), refs, suggestion.game(), row.cardSlug()),
+                                    suggestion.setName(),
+                                    suggestion.rarity(),
+                                    suggestion.printingCount(),
+                                    suggestion.edition(),
+                                    suggestion.language(),
+                                    suggestion.finish());
                         })
                 .toList();
     }
@@ -559,7 +564,8 @@ public class CatalogQueryRepository {
                 .sql(
                         """
                         SELECT p.id AS printing_id, c.id AS card_id, c.name, c.slug AS card_slug,
-                               g.slug AS game, s.code AS set_code, p.printing_code,
+                               g.slug AS game, s.code AS set_code, s.name AS set_name,
+                               p.printing_code, p.rarity, p.edition, p.language, p.finish,
                                coalesce(p.image_id, c.image_id) AS image_id
                           FROM card_printing p
                           JOIN card c ON c.id = p.card_id
@@ -584,7 +590,13 @@ public class CatalogQueryRepository {
                                                 rs.getString("game"),
                                                 rs.getString("set_code"),
                                                 rs.getString("printing_code"),
-                                                null),
+                                                null,
+                                                rs.getString("set_name"),
+                                                rs.getString("rarity"),
+                                                null,
+                                                rs.getString("edition"),
+                                                rs.getString("language"),
+                                                rs.getString("finish")),
                                         rs.getString("card_slug"),
                                         rs.getObject("image_id", UUID.class)))
                 .list()
@@ -601,7 +613,9 @@ public class CatalogQueryRepository {
                         """
                         SELECT c.id, c.name, c.slug, g.slug AS game,
                                pp.set_code, pp.printing_code,
-                               coalesce(pp.image_id, c.image_id) AS image_id
+                               coalesce(pp.image_id, c.image_id) AS image_id,
+                               (SELECT count(*) FROM card_printing pc WHERE pc.card_id = c.id)
+                                   AS printing_count
                           FROM card c
                           JOIN game g ON g.id = c.game_id
                           LEFT JOIN LATERAL (
@@ -641,6 +655,12 @@ public class CatalogQueryRepository {
                                                 rs.getString("game"),
                                                 rs.getString("set_code"),
                                                 rs.getString("printing_code"),
+                                                null,
+                                                null,
+                                                null,
+                                                rs.getInt("printing_count"),
+                                                null,
+                                                null,
                                                 null),
                                         rs.getString("slug"),
                                         rs.getObject("image_id", UUID.class)))
@@ -1002,6 +1022,7 @@ public class CatalogQueryRepository {
                 rs.getObject("set_id", UUID.class),
                 rs.getString("set_code"),
                 rs.getString("set_name"),
+                localDate(rs.getDate("set_release_date")),
                 rs.getString("collector_number"),
                 rs.getString("printing_code"),
                 rs.getString("rarity"),
@@ -1013,6 +1034,10 @@ public class CatalogQueryRepository {
                 rs.getString("game"),
                 rs.getString("card_slug"),
                 rs.getObject("card_image_id", UUID.class));
+    }
+
+    private static @Nullable LocalDate localDate(@Nullable Date date) {
+        return date == null ? null : date.toLocalDate();
     }
 
     private SetSummary mapSet(ResultSet rs) throws SQLException {
@@ -1058,6 +1083,7 @@ public class CatalogQueryRepository {
             UUID setId,
             String setCode,
             String setName,
+            @Nullable LocalDate setReleaseDate,
             String collectorNumber,
             @Nullable String printingCode,
             @Nullable String rarity,
@@ -1084,7 +1110,8 @@ public class CatalogQueryRepository {
                     language,
                     finish,
                     images,
-                    marketPrice);
+                    marketPrice,
+                    setReleaseDate);
         }
     }
 }

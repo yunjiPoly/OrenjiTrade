@@ -7,7 +7,7 @@
   { "nn": "06", "bio": "High-end Magic and Yu-Gi-Oh trades.", "games": ["mtg", "yugioh"], "languages": ["en"], "tags": ["trader", "high-end"], "discoverable": true },
   { "nn": "07", "bio": "Pokémon league regular. Private collection only for now.", "games": ["pokemon"], "languages": ["fr", "en"], "tags": ["player", "competitive", "shipping"], "discoverable": false },
   { "nn": "08", "bio": "Riftbound and Pokémon, small binder of extras.", "games": ["riftbound", "pokemon"], "languages": ["en"], "tags": ["collector", "casual"], "discoverable": true },
-  { "nn": "09", "bio": "Collector and trader across all four games. Premium member.", "games": ["yugioh", "pokemon", "mtg", "riftbound"], "languages": ["fr", "en"], "tags": ["collector", "trader"], "discoverable": true },
+  { "nn": "09", "bio": "Collector and trader across all four games.", "games": ["yugioh", "pokemon", "mtg", "riftbound"], "languages": ["fr", "en"], "tags": ["collector", "trader"], "discoverable": true },
   { "nn": "10", "bio": "Community moderator.", "games": [], "languages": ["fr", "en"], "tags": [], "discoverable": false },
   { "nn": "11", "bio": "OrenjiTrade administrator (local seed account).", "games": [], "languages": ["en", "fr"], "tags": [], "discoverable": false },
   { "nn": "12", "bio": "OrenjiTrade super administrator (local seed account).", "games": [], "languages": ["en", "fr"], "tags": [], "discoverable": false }

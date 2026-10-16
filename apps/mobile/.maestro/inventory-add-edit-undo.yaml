@@ -1,0 +1,220 @@
+# Native flow 1 of the phone redesign (owner spec 2026-10-14, section 14; stage R2, mockup screens
+# 1 to 9): a fresh collector adds a card with a text price and a photo (Add cards → typing →
+# Choose the printing → Add to inventory), sees "Saved", edits it (Edit card, "No changes yet"
+# until a change), deletes it after the sheet and undoes the delete from the toast.
+# scripts/check-inventory.js checks on the host what the isolated API holds after each step.
+#
+# The photo is a fictional picture of a card (media/fictional-card-photo.jpg), put in the
+# simulator's photo library by `addMedia` (`xcrun simctl addmedia`): each run adds one more copy
+# there, nothing else of the device is touched. The system photo picker lives outside the app's
+# accessibility tree, so subflows/pick-newest-photo.yaml taps the newest photo by its place: the
+# photo library dates a photo by its file's creation date, and the harness writes the picture
+# again as a new file before every run (`freshenFlowMedia`), so this run's copy is the newest
+# photo of the library. The flow checks the upload worked before it goes on, and that the saved
+# photo is this picture (600 × 800, kept as it is by the API), not another photo of the device.
+appId: ${APP_ID}
+name: Add a card with a text price and a photo, see Saved, edit it, delete it and undo
+tags:
+  - mobile-r2
+  - inventory
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: inv
+      DISPLAY_NAME: Maestro Inventory
+- addMedia:
+    - media/fictional-card-photo.jpg
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+- extendedWaitUntil:
+    visible:
+      id: 'tab-inventory'
+    timeout: 60000
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-empty'
+    timeout: 60000
+
+# Add cards (screen 3), then the search (screen 4).
+- tapOn:
+    id: 'inventory-add-card'
+- extendedWaitUntil:
+    visible:
+      id: 'add-cards-search'
+    timeout: 30000
+- assertVisible: 'New cards start private. You choose what to publish.'
+- takeScreenshot: r2-add-cards
+- tapOn:
+    id: 'add-cards-search'
+- extendedWaitUntil:
+    visible:
+      id: 'add-search-input'
+    timeout: 30000
+- inputText: 'tidal otter'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'add-search-results'
+    timeout: 30000
+- takeScreenshot: r2-add-cards-typing
+- tapOn: 'Tidal Otterling, Pokémon · .* printings'
+
+# Choose the printing (screen 5): the reverse holo.
+- extendedWaitUntil:
+    visible:
+      id: 'printing-count'
+    timeout: 30000
+- takeScreenshot: r2-choose-printing
+- tapOn: 'SVX-025, .*Reverse holo.*'
+
+# Add to inventory (screen 6): two copies, a text price, a photo.
+- extendedWaitUntil:
+    visible:
+      id: 'card-header-name'
+      text: 'Tidal Otterling'
+    timeout: 30000
+- tapOn:
+    id: 'card-quantity-more'
+- tapOn:
+    id: 'card-price'
+- inputText: '85% TCG'
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-photos-add'
+- tapOn:
+    id: 'card-photos-add'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-library'
+    timeout: 30000
+- tapOn:
+    id: 'card-photos-library'
+- runFlow:
+    file: subflows/pick-newest-photo.yaml
+    env:
+      BEHIND: 'card-photos-count'
+- extendedWaitUntil:
+    visible:
+      id: 'card-photos-count'
+      text: '1 of 4 photos'
+    timeout: 60000
+- takeScreenshot: r2-add-to-inventory
+- tapOn:
+    id: 'add-item-submit'
+
+# Saved (screen 8): the toast, the row as the API holds it. A photo that failed (the picker took
+# another photo of the library, refused by the API) reads "Saved · 1 photo wasn't saved" and opens
+# Edit card: the flow stops here and says so.
+- extendedWaitUntil:
+    visible: 'Saved.*, Tidal Otterling'
+    timeout: 60000
+- assertNotVisible: ".*photo wasn't saved.*"
+- assertVisible: 'Saved, Tidal Otterling'
+- assertVisible:
+    id: 'snackbar-view'
+- takeScreenshot: r2-inventory-saved
+- extendedWaitUntil:
+    visible: 'Tidal Otterling, SVX-025, 85% TCG, 2 copies'
+    timeout: 60000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '1'
+      EXPECT_QUANTITY: '2'
+      EXPECT_FINISH: 'REVERSE_HOLO'
+      EXPECT_PRICE_TEXT: '85% TCG'
+      EXPECT_PRICE: 'null'
+      EXPECT_CONDITION_STATED: 'false'
+      EXPECT_AVAILABILITY: 'TRADE_OR_SALE'
+      EXPECT_IMAGES: '1'
+      EXPECT_IMAGE_SIZE: '600x800'
+
+# Edit card (screen 7): "No changes yet" until a change; a new price.
+- tapOn: 'Tidal Otterling, SVX-025, 85% TCG, 2 copies'
+- extendedWaitUntil:
+    visible:
+      id: 'card-header-name'
+      text: 'Tidal Otterling'
+    timeout: 60000
+- assertVisible:
+    id: 'edit-item-save'
+    text: 'No changes yet'
+    enabled: false
+- takeScreenshot: r2-edit-card
+- tapOn:
+    id: 'card-price'
+- eraseText: 12
+- inputText: '$12.50'
+- runFlow: subflows/hide-keyboard.yaml
+- assertVisible:
+    id: 'edit-item-save'
+    text: 'Save changes'
+- tapOn:
+    id: 'edit-item-save'
+- extendedWaitUntil:
+    visible: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+    timeout: 60000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '1'
+      EXPECT_PRICE_TEXT: '$12.50'
+      EXPECT_PRICE: '12.5'
+      EXPECT_IMAGES: '1'
+
+# Delete after the sheet, then Undo (screen 9).
+- tapOn: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-delete'
+    timeout: 60000
+- tapOn:
+    id: 'edit-item-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'edit-item-delete-sheet-confirm'
+    timeout: 30000
+- assertVisible: 'Delete Tidal Otterling\?'
+- takeScreenshot: r2-delete-sheet
+- tapOn:
+    id: 'edit-item-delete-sheet-confirm'
+- extendedWaitUntil:
+    visible: 'Card deleted, Tidal Otterling'
+    timeout: 60000
+- takeScreenshot: r2-inventory-deleted
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '0'
+- tapOn:
+    id: 'snackbar-undo'
+- extendedWaitUntil:
+    visible: 'Card restored, Tidal Otterling'
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 'Tidal Otterling, SVX-025, \$12\.50, 2 copies'
+    timeout: 60000
+- runScript:
+    file: scripts/check-inventory.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      EXPECT_COUNT: '1'
+      EXPECT_QUANTITY: '2'
+      EXPECT_PRICE_TEXT: '$12.50'
+      EXPECT_IMAGES: '1'

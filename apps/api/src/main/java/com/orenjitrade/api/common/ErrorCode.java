@@ -43,6 +43,11 @@ public enum ErrorCode {
     ALREADY_RATED(HttpStatus.CONFLICT, "Already rated"),
     /** A rating can only be edited within 14 days of its creation (Phase 7). */
     RATING_EDIT_WINDOW_CLOSED(HttpStatus.CONFLICT, "Rating edit window closed"),
+    /**
+     * A deleted inventory item can only be restored within 10 minutes of its delete, and only after
+     * its owner's own delete (stage R2 of the phone redesign).
+     */
+    RESTORE_WINDOW_CLOSED(HttpStatus.CONFLICT, "Restore window closed"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */
@@ -94,21 +99,6 @@ public enum ErrorCode {
     /** A payment provider webhook failed signature verification (Phase 9; stored as IGNORED). */
     WEBHOOK_SIGNATURE_INVALID(HttpStatus.BAD_REQUEST, "Invalid webhook signature"),
     /**
-     * The caller already holds a live subscription (Phase 10; extensions {@code subscriptionId},
-     * {@code currentStatus}); cancel it or wait for the end of its period first.
-     */
-    ALREADY_SUBSCRIBED(HttpStatus.CONFLICT, "Already subscribed"),
-    /**
-     * The credit balance does not cover a spend or a negative adjustment (Phase 10; extensions
-     * {@code balance}, {@code cost}). Credits are never bought with money through this API.
-     */
-    INSUFFICIENT_CREDITS(HttpStatus.CONFLICT, "Insufficient credits"),
-    /**
-     * A referral code cannot be redeemed by the caller (Phase 10; extension {@code reason}: SELF,
-     * ALREADY_REDEEMED, ACCOUNT_TOO_OLD, REFERRER_LIMIT).
-     */
-    REFERRAL_NOT_ALLOWED(HttpStatus.CONFLICT, "Referral not allowed"),
-    /**
      * An inventory import preview is older than its time to live (stage S5): upload the file again.
      * Once the purge job removed it, the same request answers {@link #NOT_FOUND}.
      */
@@ -146,17 +136,14 @@ public enum ErrorCode {
     LOCATION_REQUIRED(HttpStatus.CONFLICT, "Location required"),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "Rate limited"),
     /**
-     * A freemium usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used},
-     * {@code resetsAt}, {@code upgradeUrl}).
+     * A usage limit was reached (extensions {@code limitKey}, {@code limit}, {@code used}, {@code
+     * resetsAt}); the limits are the same for every collector (ADR 0019).
      */
     LIMIT_REACHED(HttpStatus.TOO_MANY_REQUESTS, "Limit reached"),
     PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "Payload too large"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported media type"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error"),
-    /**
-     * The route is reserved for a capability that does not exist yet (Phase 10: App Store / Google
-     * Play receipt validation).
-     */
+    /** The route is reserved for a capability that does not exist yet. */
     NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "Not implemented"),
     SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Service unavailable");
 

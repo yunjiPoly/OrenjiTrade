@@ -108,7 +108,7 @@ public class InventoryBatchController {
                         + " copies to the caller's equal item (same printing, language, condition,"
                         + " edition and finish, same visibility and binder) or creates one with the"
                         + " defaults of a card added on the phone (the printing's language, edition"
-                        + " and finish, the game's NEAR_MINT, TRADE_OR_SALE, offers off, CAD, no"
+                        + " and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no"
                         + " price). The items count as confirmed. `inventory.items.max` is checked"
                         + " for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing"
                         + " written. 404 when `binderId` is not one of the caller's binders, 404"

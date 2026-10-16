@@ -45,6 +45,7 @@ export default function TabLayout() {
             name={tab.name}
             options={{
               title: tab.title,
+              headerShown: !tab.ownHeader,
               tabBarAccessibilityLabel: badge
                 ? `${tab.title} tab, ${unreadMessages} unread`
                 : `${tab.title} tab`,

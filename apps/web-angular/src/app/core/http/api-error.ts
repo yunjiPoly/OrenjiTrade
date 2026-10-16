@@ -6,7 +6,7 @@ import type { ProblemDetail } from '@orenji/api-client';
  * (every field optional because a proxy or an older server may send less). Extensions include
  * `requiredConsents` (428), `suspendedUntil` (403 ACCOUNT_SUSPENDED), `retryAfterSeconds`
  * (429 RATE_LIMITED), `blockers` (409 DELETION_BLOCKED), `limitKey`/`limit`/`used`/`resetsAt`/
- * `planCode`/`upgradeUrl` (429 LIMIT_REACHED) and `feature` (404 FEATURE_DISABLED).
+ * `limitKey`/`limit`/`used`/`resetsAt` (429 LIMIT_REACHED) and `feature` (404 FEATURE_DISABLED).
  * `errorCode` stays a plain string so codes added by a newer server still flow through.
  */
 export type ProblemDetailBody = Partial<Omit<ProblemDetail, 'errorCode'>> & { errorCode?: string };

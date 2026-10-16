@@ -12,12 +12,8 @@ import { useUid } from './useUid';
  * web's `FEATURE`). Unknown keys are allowed: the server's map is the source of truth.
  */
 export const FEATURE = {
-  premiumPlans: 'premiumPlans',
   publicChat: 'publicChat',
   protectedPayments: 'protectedPayments',
-  advertising: 'advertising',
-  donations: 'donations',
-  credits: 'credits',
   mlScanning: 'mlScanning',
   cardTextScan: 'cardTextScan',
 } as const;

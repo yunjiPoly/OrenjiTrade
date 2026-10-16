@@ -97,6 +97,30 @@ describe('Collector profile', () => {
     );
   });
 
+  it('lists a deck core with its tag and price, never “0 cards”', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}/binders': ok([
+          publicBinderSummaryFixture({
+            name: 'Lantern core',
+            kind: 'DECK',
+            itemCount: 0,
+            games: ['yugioh'],
+            sellsAsCore: true,
+            askingPriceText: 'Trade only',
+          }),
+        ]),
+      })
+    );
+    render();
+    const binder = await screen.findByTestId(`collector-binder-${PUBLIC_BINDER_ID}`);
+    expect(screen.getByTestId(`collector-binder-tag-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
+      'Deck core · Trade only'
+    );
+    expect(binder).not.toHaveTextContent(/0 cards/);
+    expect(binder.props.accessibilityLabel).toBe('Lantern core, Deck core · Trade only');
+  });
+
   it('lists the public binders and cards and opens the first binder', async () => {
     mockApi(routes());
     render();

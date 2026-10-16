@@ -33,14 +33,15 @@ tags:
       id: 'inventory-empty'
     timeout: 60000
 
+# Add cards (stage R2 of the phone redesign), then the import it opens on its source.
 - tapOn:
-    id: 'inventory-import'
+    id: 'inventory-add-card'
 - extendedWaitUntil:
     visible:
-      id: 'import-source-COLLECTR_CSV'
+      id: 'add-cards-import-collectr'
     timeout: 30000
 - tapOn:
-    id: 'import-source-COLLECTR_CSV'
+    id: 'add-cards-import-collectr'
 - extendedWaitUntil:
     visible:
       id: 'import-choose-file'
@@ -181,6 +182,6 @@ tags:
 - tapOn:
     id: 'import-result-inventory'
 - extendedWaitUntil:
-    visible: 'Obsidian Magician Adept, GLM-EN002, Near Mint, 2 copies.*'
+    visible: 'Obsidian Magician Adept, GLM-EN002, 2 copies'
     timeout: 60000
-- assertVisible: '3 cards · 4 copies · 0 public now'
+- assertVisible: '3 cards · 4 copies · 0 public'

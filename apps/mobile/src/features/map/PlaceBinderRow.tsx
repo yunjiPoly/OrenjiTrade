@@ -6,10 +6,22 @@ import type { PublicBinderSummary } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Badge } from '@/src/components/ui/Badge';
 import { Text } from '@/src/components/ui/Text';
+import { deckCoreTag } from '@/src/features/binders/binderCopy';
+import { CoreThumb, DeckCoreTag } from '@/src/features/binders/BinderRows';
 import { badgeFreshness, binderKindLabel, cardCount } from '@/src/lib/inventory';
 import { placeLabel } from '@/src/lib/place';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+
+/**
+ * What a screen reader says of a public binder's kind in today's lists: "Deck core · $60" for a
+ * deck core (its cards sell only with it, and it may have none), else "Collection", "9 cards".
+ */
+export function publicBinderKindParts(binder: PublicBinderSummary): string[] {
+  return binder.sellsAsCore
+    ? [deckCoreTag(binder.askingPriceText)]
+    : [binderKindLabel(binder.kind), cardCount(binder.itemCount)];
+}
 
 /** What a screen reader says for a binder of a state or province. */
 export function placeBinderLabel(binder: PublicBinderSummary): string {
@@ -17,8 +29,7 @@ export function placeBinderLabel(binder: PublicBinderSummary): string {
   const place = placeLabel(owner?.place);
   return [
     binder.name,
-    binderKindLabel(binder.kind),
-    cardCount(binder.itemCount),
+    ...publicBinderKindParts(binder),
     owner ? `by ${owner.displayName}, @${owner.handle}` : null,
     place,
     binder.freshness.label,
@@ -31,7 +42,8 @@ export function placeBinderLabel(binder: PublicBinderSummary): string {
  * A public binder in the list of a state or province (the web's `app-subdivision-panel` rows):
  * its name, kind, number of cards and games, its owner by name and handle, the owner's state or
  * province and country (the API's `place`; a city is never part of it, ADR 0017) and when it was
- * last updated. Opens the public binder.
+ * last updated. A deck core shows its first photo and the purple tag "Deck core · {price}" instead
+ * of a card count (until stage R5 rebuilds these lists). Opens the public binder.
  */
 export const PlaceBinderRow = memo(function PlaceBinderRow({
   binder,
@@ -44,6 +56,7 @@ export const PlaceBinderRow = memo(function PlaceBinderRow({
   const owner = binder.owner;
   const place = placeLabel(owner?.place);
   const games = binder.games.map(gameLabel).join(', ');
+  const core = binder.sellsAsCore ?? false;
   return (
     <Pressable
       accessibilityRole="link"
@@ -57,19 +70,35 @@ export const PlaceBinderRow = memo(function PlaceBinderRow({
         pressed && styles.pressed,
       ]}
     >
-      <View style={[styles.icon, { backgroundColor: palette.primaryContainer }]}>
-        <MaterialCommunityIcons
-          name="book-open-page-variant-outline"
-          size={24}
-          color={palette.onPrimaryContainer}
-        />
-      </View>
+      {core ? (
+        <CoreThumb url={binder.previewImages?.[0]} size={44} />
+      ) : (
+        <View style={[styles.icon, { backgroundColor: palette.primaryContainer }]}>
+          <MaterialCommunityIcons
+            name="book-open-page-variant-outline"
+            size={24}
+            color={palette.onPrimaryContainer}
+          />
+        </View>
+      )}
       <View style={styles.text}>
         <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]}>{binder.name}</Text>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {binderKindLabel(binder.kind)} · {cardCount(binder.itemCount)}
-          {games ? ` · ${games}` : ''}
-        </Text>
+        {core ? (
+          <View style={styles.line}>
+            <DeckCoreTag
+              label={deckCoreTag(binder.askingPriceText)}
+              testID={`place-binder-tag-${binder.id}`}
+            />
+            {games ? (
+              <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{games}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
+            {binderKindLabel(binder.kind)} · {cardCount(binder.itemCount)}
+            {games ? ` · ${games}` : ''}
+          </Text>
+        )}
         {owner ? (
           <View style={styles.line}>
             <Avatar src={owner.avatarUrl} name={owner.displayName} size={20} />

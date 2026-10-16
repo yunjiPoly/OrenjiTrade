@@ -141,12 +141,12 @@ describe('a line of an import preview', () => {
     const row = screen.getByTestId('import-row-3');
     expect(row.props.accessible).toBe(true);
     expect(row.props.accessibilityLabel).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     // On screen: the section of the deck that holds it, why, and what can be done next.
     expect(screen.getByText('Side 1')).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-3-next')).toHaveTextContent(
-      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
@@ -195,7 +195,7 @@ describe('a line of an import preview', () => {
 });
 
 describe('the top of an import preview', () => {
-  function renderHeader(overrides = {}, planRoom: string | null = null) {
+  function renderHeader(overrides = {}, limitRoom: string | null = null) {
     const handlers = {
       onFilter: jest.fn(),
       onSections: jest.fn(),
@@ -209,7 +209,7 @@ describe('the top of an import preview', () => {
         leaveOut={false}
         busy={false}
         lowestGrades={['DAMAGED']}
-        planRoom={planRoom}
+        limitRoom={limitRoom}
         {...handlers}
       />
     );
@@ -288,11 +288,11 @@ describe('the top of an import preview', () => {
     expect(screen.queryByTestId('import-assumed')).toBeNull();
   });
 
-  it('says on top when the plan has no room for the import', () => {
+  it('says on top when the inventory limit has no room for the import', () => {
     const room =
-      'Your plan has room for 1 more card and this import adds 2 new cards: leave 1 out.';
+      'Your inventory has room for 1 more card and this import adds 2 new cards: leave 1 out.';
     renderHeader({}, room);
-    expect(within(screen.getByTestId('import-plan-room')).getByText(room)).toBeOnTheScreen();
+    expect(within(screen.getByTestId('import-limit-room')).getByText(room)).toBeOnTheScreen();
   });
 
   it('hides what does not apply: nothing to choose, every condition known, a CSV', () => {
@@ -304,7 +304,7 @@ describe('the top of an import preview', () => {
     expect(screen.queryByTestId('import-unchosen')).toBeNull();
     expect(screen.queryByTestId('import-default-conditions')).toBeNull();
     expect(screen.queryByTestId('import-sections')).toBeNull();
-    expect(screen.queryByTestId('import-plan-room')).toBeNull();
+    expect(screen.queryByTestId('import-limit-room')).toBeNull();
     // A count of zero is no button: there is nothing to show.
     expect(screen.queryByRole('button', { name: '0 need a printing' })).toBeNull();
   });

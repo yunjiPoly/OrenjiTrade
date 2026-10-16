@@ -3,6 +3,7 @@ package com.orenjitrade.api.wishlist;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.wishlist.domain.WishlistService;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -176,7 +177,14 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         String played = publicItem(seller, azure, offered("LIGHTLY_PLAYED", "20.00", "SALE"));
         String nearMintCopy = publicItem(seller, azure, offered("NEAR_MINT", "20.00", "SALE"));
         String mintSecret = publicItem(seller, secret, offered("MINT", "90.00", "SALE"));
-        for (String id : List.of(played, nearMintCopy, mintSecret)) {
+        // A card added on the phone states no condition (stage R2): a possible match, the buyer
+        // checks in the chat (owner spec 2026-10-14, section 16, default 5).
+        Map<String, Object> notStated = new LinkedHashMap<>();
+        notStated.put("conditionStated", false);
+        notStated.put("askingPriceText", "85% TCG");
+        notStated.put("availability", "TRADE_OR_SALE");
+        String phoneCopy = publicItem(seller, azure, notStated);
+        for (String id : List.of(played, nearMintCopy, mintSecret, phoneCopy)) {
             awaitEventsProcessed(id);
         }
 
@@ -184,8 +192,8 @@ class WishlistAlertsIT extends AbstractWishlistIT {
                         notificationsOfType(nmWisher, "WISHLIST_ALERT").stream()
                                 .map(n -> n.path("data").path("inventoryItemId").asString())
                                 .toList())
-                .as("Near Mint or better only")
-                .containsExactlyInAnyOrder(nearMintCopy, mintSecret);
+                .as("Near Mint or better, or not stated")
+                .containsExactlyInAnyOrder(nearMintCopy, mintSecret, phoneCopy);
         List<JsonNode> rarityAlerts = notificationsOfType(rarityWisher, "WISHLIST_ALERT");
         assertThat(rarityAlerts).hasSize(1);
         JsonNode alert = rarityAlerts.get(0);

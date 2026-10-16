@@ -12,6 +12,7 @@ import {
 } from '@/src/lib/inventory';
 import {
   activeInventoryFilterCount,
+  clearedFilters,
   DEFAULT_INVENTORY_FILTERS,
   inventoryListQuery,
   isFiltered,
@@ -61,10 +62,10 @@ describe('inventory labels', () => {
   });
 });
 
-describe('inventory filters', () => {
-  it('builds the list query like the web (binder, unfiled, price ascending)', () => {
+describe('inventory filters (Filter and sort, stage R2)', () => {
+  it('builds the list query: Recently added by default, binder, unfiled, who can see it', () => {
     expect(inventoryListQuery(DEFAULT_INVENTORY_FILTERS, 0)).toEqual({
-      sort: 'updated',
+      sort: 'created',
       page: 0,
       size: 24,
     });
@@ -73,46 +74,63 @@ describe('inventory filters', () => {
         {
           q: '  fox ',
           game: 'pokemon',
-          availability: 'TRADE',
           binder: 'b-1',
           visibility: 'PUBLIC',
           freshness: 'STALE',
-          sort: 'price-asc',
+          sort: 'price',
         },
         2
       )
     ).toEqual({
       query: 'fox',
       game: 'pokemon',
-      availability: 'TRADE',
-      visibility: 'PUBLIC',
+      // Public is every card set to public, a temporary publication included: the cards that
+      // "{n} public" counts.
+      markedPublic: true,
       freshness: 'STALE',
       binderId: 'b-1',
       sort: 'price',
-      direction: 'asc',
       page: 2,
       size: 24,
     });
-    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED }, 0)).toEqual({
-      sort: 'updated',
+    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED }, 0, 1)).toEqual({
+      sort: 'created',
       unfiled: true,
+      page: 0,
+      size: 1,
+    });
+    expect(inventoryListQuery({ ...DEFAULT_INVENTORY_FILTERS, visibility: 'PRIVATE' }, 0)).toEqual({
+      sort: 'created',
+      visibility: 'PRIVATE',
       page: 0,
       size: 24,
     });
   });
 
-  it('counts filters', () => {
+  it('counts the filters that are on (the sort is no filter) and clears them all', () => {
     expect(activeInventoryFilterCount(DEFAULT_INVENTORY_FILTERS)).toBe(0);
     expect(isFiltered(DEFAULT_INVENTORY_FILTERS)).toBe(false);
+    expect(activeInventoryFilterCount({ ...DEFAULT_INVENTORY_FILTERS, sort: 'price' })).toBe(0);
     expect(
       activeInventoryFilterCount({
         ...DEFAULT_INVENTORY_FILTERS,
         game: 'mtg',
-        availability: 'SALE',
+        binder: UNFILED,
+        visibility: 'PRIVATE',
       })
-    ).toBe(2);
+    ).toBe(3);
     expect(isFiltered({ ...DEFAULT_INVENTORY_FILTERS, q: 'x' })).toBe(true);
     expect(isFiltered({ ...DEFAULT_INVENTORY_FILTERS, binder: UNFILED })).toBe(true);
+    expect(
+      clearedFilters({
+        q: 'fox',
+        game: 'mtg',
+        binder: 'b-1',
+        visibility: 'PUBLIC',
+        freshness: null,
+        sort: 'name',
+      })
+    ).toEqual({ ...DEFAULT_INVENTORY_FILTERS, q: 'fox' });
   });
 });
 
@@ -126,6 +144,7 @@ describe('freemium limits', () => {
     });
 
   it('reads the LIMIT_REACHED extensions', () => {
+    // An old server may still send planCode: it is not read any more (stage F1).
     const error = limit({ limitKey: 'binders.max', limit: 5, used: 5, planCode: 'FREE' });
     expect(isLimitReached(error)).toBe(true);
     expect(isLimitReached(new Error('x'))).toBe(false);
@@ -134,7 +153,6 @@ describe('freemium limits', () => {
       limit: 5,
       used: 5,
       resetsAt: null,
-      planCode: 'FREE',
       requested: null,
     });
     // An import says how many new cards it asked room for: the notice can say what to leave out.
@@ -142,12 +160,9 @@ describe('freemium limits', () => {
       limitReachedInfo(limit({ limitKey: 'inventory.items.max', limit: 6, used: 5, requested: 2 }))
         .requested
     ).toBe(2);
-    // No Premium pitch unless premium plans are sold (launch configuration: every money flag off).
+    // The same limits for every collector: no plan, no Premium pitch.
     expect(limitReachedMessage(limitReachedInfo(error))).toBe(
-      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need.'
-    );
-    expect(limitReachedMessage(limitReachedInfo(error), NOW, { premiumOffered: true })).toBe(
-      'You have used 5 of 5 binders on the Free plan. Delete a binder you no longer need, or Premium raises the limit.'
+      'You have used 5 of 5 binders. Delete a binder you no longer need.'
     );
   });
 
@@ -164,10 +179,7 @@ describe('freemium limits', () => {
       'You have used 30 of 30 public binder views today. It resets in 12 hours.'
     );
     expect(limitReachedMessage(limitReachedInfo(limit({})), NOW)).toBe(
-      'You reached the uses of this feature your plan allows.'
-    );
-    expect(limitReachedMessage(limitReachedInfo(limit({})), NOW, { premiumOffered: true })).toBe(
-      'You reached the uses of this feature your plan allows. Premium raises the limit.'
+      'You reached the limit of uses of this feature.'
     );
   });
 });

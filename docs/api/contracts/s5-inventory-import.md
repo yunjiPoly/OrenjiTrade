@@ -234,15 +234,16 @@ Every edit answers with the new counts. Edits are refused once a commit started 
   500 items in file order, each its own transaction, all in the one request. If the request is cut
   between two chunks the import is `COMMITTING` (`result.chunksDone < result.totalChunks`): commit
   again and it continues after the last chunk written.
-- **Limit.** The plan's `inventory.items.max` is checked for the whole import, every chunk of it,
+- **Limit.** The usage limit `inventory.items.max` (the same for every collector since stage F1) is
+  checked for the whole import, every chunk of it,
   before the first item: 429 `LIMIT_REACHED` with `limitKey` `inventory.items.max`, `limit`,
   `used`, `requested` (the new items the import would add; rows that only raise a quantity add
-  none), `planCode`, `upgradeUrl`; nothing is written and the preview stays editable. No plan has a
-  number for this limit today (V113 seeds it unlimited), so the answer only appears once an admin
-  sets one.
+  none); nothing is written and the preview stays editable. The limit has no number today (V113
+  seeds it unlimited), so the answer only appears once an admin sets one. (Before stage F1 the
+  problem also carried `planCode` and `upgradeUrl`.)
 - **Reserved room.** From the moment a commit starts, the new items of its chunks still to write
   count as used (`inventory_import.chunk_new_items`): `POST /inventory/items`, a second import and
-  `GET /me/plan` all see `used` = the collector's items + what the commits in progress have still
+  `GET /me/limits` all see `used` = the collector's items + what the commits in progress have still
   to write. Nothing takes the room of a chunk that is still to come, so an import of several
   chunks ends at the limit, never beyond it. A commit that was cut keeps its room until it is
   finished (commit again) or purged (7 days).
@@ -274,7 +275,7 @@ Problem Details (`application/problem+json`) with `errorCode`; the extensions ar
 | a change of an `UNMATCHED` row | 409 | `CONFLICT` | |
 | a commit with rows to choose | 409 | `IMPORT_ROWS_UNRESOLVED` | `unresolved` |
 | a commit with nothing ready | 409 | `IMPORT_EMPTY` | |
-| a commit beyond the plan's inventory size (`used` includes what the collector's commits in progress have still to write) | 429 | `LIMIT_REACHED` | `limitKey`, `limit`, `used`, `requested`, `planCode`, `upgradeUrl` |
+| a commit beyond the inventory size limit (`used` includes what the collector's commits in progress have still to write) | 429 | `LIMIT_REACHED` | `limitKey`, `limit`, `used`, `requested` |
 | more than 30 uploads, or 30 commits, in an hour | 429 | `RATE_LIMITED` | `limit`, `windowSeconds`, `retryAfterSeconds`, header `Retry-After` |
 
 The `message` of a file refusal is written for the collector ("The file has more than 500 lines")
@@ -323,7 +324,7 @@ Learned from the review of the phone (review fix 1); a second client does the sa
 - **The lines that were not added stay readable.** After the commit `GET /{id}/rows?status=`
   (`UNMATCHED`, `CHOOSE_PRINTING`) still answers until the import is purged: the result lists
   them, with what the file said and what can be done about each.
-- **The plan limit before the commit.** `GET /me/plan` gives `remaining` for
+- **The limit before the commit.** `GET /me/limits` gives `remaining` for
   `inventory.items.max`; `summary.items - summary.mergedItems` (plus `toChoose` at most) is what
   the import adds. After a refusal, `requested`, `limit` and `used` say how many to leave out.
 - **A picked file is not kept.** On a device the system picker hands the app a copy of the file in

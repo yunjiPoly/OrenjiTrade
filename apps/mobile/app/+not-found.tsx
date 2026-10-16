@@ -8,8 +8,9 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { removedRouteTarget } from '@/src/navigation/removedRoutes';
 
 /**
- * Unknown links. A link to a screen that left the phone (offers, trades, protected payments,
- * disputes; ADR 0018) is sent on to Messages or Settings with a short note instead.
+ * Unknown links. A link to a screen that left the phone is sent on with a short note instead:
+ * offers, trades, protected payments and disputes (ADR 0018) to Messages or Settings; Premium,
+ * credits, "Support OrenjiTrade" and their checkouts (ADR 0019) to the Profile tab.
  */
 export default function NotFoundScreen() {
   const router = useRouter();

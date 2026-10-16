@@ -325,6 +325,80 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * Deck cores (stage R3): the deck core page, its key cards, the deck cores of a card, binder
+     * search and the state and region lists filtered to deck cores, and the map's deck core counts,
+     * anonymous and signed in. The seeded deck core of collector2 carries Ontario, Canada, never a
+     * city or a private note.
+     */
+    @Test
+    void deckCoresCarryThePlaceOnly(CapturedOutput output) {
+        String viewer = uniqueUid("geo-cores");
+        provisionCompliant(viewer);
+        UUID cardId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT card_id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'ygo-p012a'")
+                                .get(0)
+                                .get("card_id");
+        String seededCore = "00000000-0000-4000-8b00-000000000202";
+        for (String caller : Arrays.asList(null, viewer)) {
+            JsonNode page = fetch("/api/v1/public/binders/" + seededCore, caller);
+            assertThat(page.path("sellsAsCore").asBoolean()).isTrue();
+            assertThat(page.path("askingPriceText").asString()).isEqualTo("$95");
+            assertThat(page.path("keyCards").size()).isPositive();
+            assertThat(page.path("owner").path("place").path("label").asString())
+                    .isEqualTo(PLACES.get("collector2"));
+            JsonNode list = fetch("/api/v1/collectors/collector2/binders", caller);
+            assertThat(list.toString()).contains(seededCore);
+            JsonNode cores =
+                    fetch(
+                            "/api/v1/search/deck-cores?region=americas-north&limit=10&cardId="
+                                    + cardId,
+                            caller);
+            assertThat(cores.toString()).contains(seededCore);
+            for (JsonNode core : cores) {
+                assertPlaces(jsonMapper.createArrayNode().add(core.path("owner")));
+            }
+            JsonNode search =
+                    fetch(
+                            "/api/v1/search?q=Verdant&types=binders&deckCore=true"
+                                    + "&region=americas-north",
+                            caller);
+            assertThat(search.path("binders").toString()).contains(seededCore);
+            fetch("/api/v1/regions/americas-north/binders?deckCore=true", caller);
+            JsonNode ontario =
+                    fetch(
+                            "/api/v1/regions/americas-north/subdivisions/CA-ON/binders"
+                                    + "?deckCore=true&q=Moth",
+                            caller);
+            assertThat(ontario.toString()).contains(seededCore);
+            for (JsonNode binder : ontario.path("items")) {
+                assertThat(binder.path("owner").path("place").path("label").asString())
+                        .isEqualTo(PLACES.get("collector2"));
+            }
+            JsonNode counts = fetch("/api/v1/regions/americas-north/binder-counts", caller);
+            long ontarioCores = 0;
+            for (JsonNode entry : counts.path("subdivisions")) {
+                if ("CA-ON".equals(entry.path("code").asString())) {
+                    ontarioCores = entry.path("deckCoreCount").asLong();
+                }
+            }
+            assertThat(ontarioCores).isPositive();
+            fetch(
+                    "/api/v1/search/card-holders?region=americas-north&excludeDeckCoreItems=true"
+                            + "&cardId="
+                            + cardId,
+                    caller);
+        }
+        for (Fetched document : fetched) {
+            assertNoPrivateNotes(document.body(), document.path());
+        }
+        assertContract(output);
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {
@@ -566,95 +640,41 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * The usage limits (stage F1: the same caps for everyone, no plans) never carry a place, a plan
+     * or a provider reference, for a member nor in the admin list.
+     */
     @Test
-    void subscriptionsCreditsAdsAndDonationsNeverCarryGeography(CapturedOutput output) {
-        String premium = "seed-premium-user:premium@orenjitrade.test";
+    void usageLimitsNeverCarryGeography(CapturedOutput output) {
+        String formerPremium = "seed-premium-user:premium@orenjitrade.test";
         String collector1 = "seed-collector1:collector1@orenjitrade.test";
-        String collector2 = "seed-collector2:collector2@orenjitrade.test";
-        String subscription = "00000000-0000-4000-a000-000000000001";
-        String sleeves = "00000000-0000-4000-a200-000000000101";
-
-        JsonNode plan;
-        JsonNode credits;
-        JsonNode supporters;
-        List<JsonNode> ads = new ArrayList<>();
-        // Every money flag is off by the migrations (V105 launch configuration): switch on the
-        // four this test reads through, and put them back afterwards.
-        testUsers.update(
-                "UPDATE feature_flag SET enabled = true, rollout_percent = 100 WHERE key IN"
-                        + " ('premiumPlans', 'credits', 'advertising', 'donations')");
-        featureFlags.invalidate();
-        try {
-            plan = fetch("/api/v1/me/plan", premium);
-            credits = fetch("/api/v1/me/credits", collector1);
-            fetch("/api/v1/me/referrals", collector1);
-            fetch("/api/v1/me/donations", collector2);
-            supporters = fetch("/api/v1/public/donations/supporters", null);
-            for (String placement :
-                    List.of(
-                            "SEARCH_SPONSORED",
-                            "MAP_PANEL",
-                            "INVENTORY_SIDEBAR",
-                            "COLLECTOR_PROFILE",
-                            "MOBILE_FEED")) {
-                for (String viewer : Arrays.asList(null, collector1)) {
-                    ads.add(
-                            fetch(
-                                    "/api/v1/ads?placement="
-                                            + placement
-                                            + "&game=pokemon&region=americas-north",
-                                    viewer));
-                }
-            }
-            assertThat(fetch("/api/v1/ads?placement=MAP_PANEL", premium).size())
-                    .as("no ads for PREMIUM")
-                    .isZero();
-        } finally {
-            testUsers.update(
-                    "UPDATE feature_flag SET enabled = false WHERE key IN ('premiumPlans',"
-                            + " 'credits', 'advertising', 'donations')");
-            featureFlags.invalidate();
-        }
-        for (String path :
-                List.of(
-                        "/api/v1/admin/subscriptions?size=100",
-                        "/api/v1/admin/subscriptions/" + subscription,
-                        "/api/v1/admin/credits/ledger?size=100",
-                        "/api/v1/admin/credits/products",
-                        "/api/v1/admin/credits/settings",
-                        "/api/v1/admin/ads/advertisers",
-                        "/api/v1/admin/ads/placements",
-                        "/api/v1/admin/ads/campaigns?size=100",
-                        "/api/v1/admin/ads/campaigns/" + sleeves,
-                        "/api/v1/admin/ads/campaigns/" + sleeves + "/stats",
-                        "/api/v1/admin/donations?size=100",
-                        "/api/v1/admin/donations/settings",
-                        "/api/v1/plans")) {
-            fetch(path, SEED_ADMIN);
-        }
-        assertThat(plan.path("subscription").path("status").asString()).isEqualTo("ACTIVE");
-        assertThat(credits.path("balance").asLong()).isGreaterThanOrEqualTo(300);
-        assertThat(supporters.path("supporters").size()).isPositive();
-        assertThat(ads.stream().mapToInt(JsonNode::size).sum())
-                .as("seeded campaigns serve")
-                .isPositive();
+        JsonNode mine = fetch("/api/v1/me/limits", formerPremium);
+        JsonNode theirs = fetch("/api/v1/me/limits", collector1);
+        JsonNode staff = fetch("/api/v1/me/limits", SEED_ADMIN);
+        fetch("/api/v1/admin/usage-limits", SEED_ADMIN);
+        // The same numbers for the former Premium account, a collector and a staff member.
+        assertThat(limitNumbers(theirs)).isNotEmpty().containsKey("binders.max");
+        assertThat(limitNumbers(mine)).isEqualTo(limitNumbers(theirs));
+        assertThat(limitNumbers(staff)).isEqualTo(limitNumbers(theirs));
         for (Fetched document : fetched) {
-            String text = document.body().toString();
-            assertThat(text)
-                    .as("provider references never reach members or admin lists")
+            assertThat(document.body().toString())
+                    .as("no plan, perk or provider reference")
+                    .doesNotContain("planCode")
+                    .doesNotContain("upgradeUrl")
                     .doesNotContain("fake_sub_")
-                    .doesNotContain("fake_acct_")
-                    .doesNotContain("user_hash")
-                    .doesNotContain("userHash")
-                    .doesNotContain("map.radius")
-                    .doesNotContain("map_radius_day");
-        }
-        for (JsonNode list : ads) {
-            for (JsonNode ad : list) {
-                assertThat(ad.path("label").asString()).isEqualTo("Sponsored");
-            }
+                    .doesNotContain("map.radius");
         }
         assertContract(output);
+    }
+
+    /** Key to number ({@code null}: unlimited) of a {@code GET /me/limits} answer. */
+    private static Map<String, @Nullable Integer> limitNumbers(JsonNode myLimits) {
+        Map<String, @Nullable Integer> numbers = new LinkedHashMap<>();
+        for (JsonNode limit : myLimits.path("limits")) {
+            JsonNode max = limit.path("limit");
+            numbers.put(limit.path("key").asString(), max.isNumber() ? max.asInt() : null);
+        }
+        return numbers;
     }
 
     /** No private notes of the seeded items in a document. */

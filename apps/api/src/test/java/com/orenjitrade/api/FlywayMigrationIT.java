@@ -31,6 +31,80 @@ class FlywayMigrationIT extends AbstractIntegrationTest {
                 .contains("extensions", "event publication", "users");
     }
 
+    /**
+     * Stage F1 ("free for all", V120 to V123) on a database migrated from scratch: no table, flag,
+     * setting, column or role of Premium, credits, donations or ads is left, and one usage limit
+     * per key holds today's numbers for everyone. {@link PaidFeaturesRemovalMigrationIT} covers a
+     * database that held their data.
+     */
+    @Test
+    void thePaidFeaturesLeftTheSchema() {
+        for (String relation :
+                List.of(
+                        "plan",
+                        "plan_feature",
+                        "entitlement",
+                        "subscription",
+                        "subscription_event",
+                        "billing_webhook_event",
+                        "credit_ledger_entry",
+                        "credit_balance",
+                        "credit_product",
+                        "referral_code",
+                        "referral_redemption",
+                        "advertiser",
+                        "ad_placement",
+                        "ad_campaign",
+                        "ad_creative",
+                        "ad_targeting_rule",
+                        "ad_impression",
+                        "ad_click",
+                        "ad_conversion",
+                        "ad_campaign_daily",
+                        "donation",
+                        "donation_webhook_event")) {
+            assertThat(
+                            jdbc.queryForObject(
+                                    "SELECT to_regclass(?) IS NULL", Boolean.class, relation))
+                    .as(relation)
+                    .isTrue();
+        }
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT column_name FROM information_schema.columns WHERE"
+                                        + " (table_name = 'user_account' AND column_name ="
+                                        + " 'plan_code') OR (table_name = 'usage_limit' AND"
+                                        + " column_name = 'plan_id')",
+                                String.class))
+                .isEmpty();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM feature_flag WHERE key IN ('premiumPlans',"
+                                        + " 'credits', 'donations', 'advertising')",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM platform_settings WHERE key LIKE 'credits.%'"
+                                        + " OR key LIKE 'donations.%'",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) = count(DISTINCT limit_key) AND count(*) = 6 FROM"
+                                        + " usage_limit WHERE limit_key NOT LIKE 'test.%'",
+                                Boolean.class))
+                .as("one usage limit per key")
+                .isTrue();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname"
+                                        + " = 'ck_user_role_role'",
+                                String.class))
+                .doesNotContain("PREMIUM_USER")
+                .contains("SUPER_ADMIN");
+    }
+
     @Test
     void installsRequiredExtensions() {
         List<String> extensions =

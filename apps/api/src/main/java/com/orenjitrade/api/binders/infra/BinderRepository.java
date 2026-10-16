@@ -6,6 +6,7 @@ import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -51,7 +52,8 @@ public class BinderRepository {
             """
             b.id, b.owner_id, b.name, b.description, b.kind, b.visibility, b.public_until,
             b.sort_order, b.cover_printing_id, b.item_count, b.freshness_state, b.confirmed_at,
-            b.created_at, b.updated_at, b.last_owner_activity_at,
+            b.created_at, b.updated_at, b.last_owner_activity_at, b.sells_as_core,
+            b.asking_price_text, b.asking_price, b.currency, b.sold_at,
             """
                     + PublicVisibilityRules.binderEffectivelyPublic("b")
                     + " AS effective_public";
@@ -329,14 +331,17 @@ public class BinderRepository {
             @Nullable Instant publicUntil,
             int sortOrder,
             @Nullable UUID coverPrintingId,
+            CoreFields core,
             Instant now) {
         jdbc.sql(
                         """
                         INSERT INTO binder (id, owner_id, name, description, kind, visibility,
                             public_until, sort_order, cover_printing_id, freshness_state, created_at,
-                            updated_at, confirmed_at, last_owner_activity_at)
+                            updated_at, confirmed_at, last_owner_activity_at, sells_as_core,
+                            asking_price_text, asking_price)
                         VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
-                            :publicUntil, :sortOrder, :cover, 'ACTIVE', :now, :now, :now, :now)
+                            :publicUntil, :sortOrder, :cover, 'ACTIVE', :now, :now, :now, :now,
+                            :sellsAsCore, :priceText, :price)
                         """)
                 .param("id", id)
                 .param("ownerId", ownerId)
@@ -347,6 +352,9 @@ public class BinderRepository {
                 .param("publicUntil", timestamp(publicUntil), Types.TIMESTAMP)
                 .param("sortOrder", sortOrder)
                 .param("cover", coverPrintingId, Types.OTHER)
+                .param("sellsAsCore", core.sellsAsCore())
+                .param("priceText", core.askingPriceText(), Types.VARCHAR)
+                .param("price", core.askingPrice(), Types.NUMERIC)
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -359,13 +367,15 @@ public class BinderRepository {
             ListingVisibility visibility,
             @Nullable Instant publicUntil,
             @Nullable UUID coverPrintingId,
+            CoreFields core,
             Instant now) {
         jdbc.sql(
                         """
                         UPDATE binder SET name = :name, description = :description, kind = :kind,
                                visibility = :visibility, public_until = :publicUntil,
-                               cover_printing_id = :cover, updated_at = :now,
-                               last_owner_activity_at = :now
+                               cover_printing_id = :cover, sells_as_core = :sellsAsCore,
+                               asking_price_text = :priceText, asking_price = :price,
+                               updated_at = :now, last_owner_activity_at = :now
                          WHERE id = :id
                         """)
                 .param("id", id)
@@ -375,6 +385,22 @@ public class BinderRepository {
                 .param("visibility", visibility.name())
                 .param("publicUntil", timestamp(publicUntil), Types.TIMESTAMP)
                 .param("cover", coverPrintingId, Types.OTHER)
+                .param("sellsAsCore", core.sellsAsCore())
+                .param("priceText", core.askingPriceText(), Types.VARCHAR)
+                .param("price", core.askingPrice(), Types.NUMERIC)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * An owner write that changes nothing of the row but its activity (a photo added or removed):
+     * {@code updated_at} and {@code last_owner_activity_at}. The caller holds the binder.
+     */
+    public void touch(UUID id, Instant now) {
+        jdbc.sql(
+                        "UPDATE binder SET updated_at = :now, last_owner_activity_at = :now WHERE"
+                                + " id = :id")
+                .param("id", id)
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -611,7 +637,16 @@ public class BinderRepository {
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
                 rs.getTimestamp("last_owner_activity_at").toInstant(),
-                rs.getBoolean("effective_public"));
+                rs.getBoolean("effective_public"),
+                rs.getBoolean("sells_as_core"),
+                rs.getString("asking_price_text"),
+                rs.getBigDecimal("asking_price"),
+                rs.getString("currency"),
+                instant(rs.getTimestamp("sold_at")));
+    }
+
+    private static @Nullable Instant instant(@Nullable Timestamp timestamp) {
+        return timestamp == null ? null : timestamp.toInstant();
     }
 
     private static StateChange mapStateChange(ResultSet rs, int rowNum) throws SQLException {
@@ -631,4 +666,19 @@ public class BinderRepository {
 
     /** A flip of the materialised effective visibility. */
     public record ListingChange(UUID binderId, UUID ownerId, boolean listed) {}
+
+    /**
+     * The deck core columns of a write (V126).
+     *
+     * @param sellsAsCore "Sell as a deck core"
+     * @param askingPriceText the price as typed, {@code null} for none
+     * @param askingPrice the amount of a plain-amount text
+     */
+    public record CoreFields(
+            boolean sellsAsCore,
+            @Nullable String askingPriceText,
+            @Nullable BigDecimal askingPrice) {
+
+        public static final CoreFields NONE = new CoreFields(false, null, null);
+    }
 }

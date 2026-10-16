@@ -18,7 +18,7 @@ import {
 /**
  * Inventory, binders and public binders (Phase 3) against the real local stack: the add-card
  * flow, binders, moving and editing cards, publishing, bulk actions with a temporary
- * publication, a second collector viewing a public binder, and the `binders.max` plan limit.
+ * publication, a second collector viewing a public binder, and the `binders.max` usage limit.
  * Every collector is fresh (unique emails); items and binders come from the seed catalog.
  */
 
@@ -342,13 +342,13 @@ test.describe('inventory', () => {
     await binderForm.getByLabel('Binder name').fill('One binder too many');
     await binderForm.getByRole('button', { name: 'Create binder' }).click();
 
-    const limit = page.getByRole('alertdialog', { name: 'You reached a plan limit' });
+    const limit = page.getByRole('alertdialog', { name: 'You reached a limit' });
     await expect(limit).toBeVisible();
     await expect(limit.getByTestId('limit-summary')).toContainText('5 of 5');
-    await limit.getByRole('button', { name: 'Not now' }).click();
+    await limit.getByRole('button', { name: 'OK' }).click();
     await expect(limit).toBeHidden();
     await expect(binderForm.getByRole('alert')).toHaveText(
-      'You reached the number of binders your plan allows.',
+      'You reached the number of binders you can have.',
     );
     await binderForm.getByRole('button', { name: 'Cancel' }).click();
 

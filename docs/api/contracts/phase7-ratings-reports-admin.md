@@ -39,7 +39,7 @@ Sections and their backing endpoints:
 | Collector Reports / Moderation | above + `GET /admin/moderation/rules`, `PUT /admin/moderation/rules/{id}`, flags |
 | Transactions / Disputes / Payments | Phases 8–9 |
 | Ratings | above |
-| Ads / Subscriptions / Usage Limits / Credits | Phase 10 |
+| Ads / Subscriptions / Usage Limits / Credits | Phase 10 (only Usage Limits remain since stage F1, ADR 0019) |
 | Notifications | `GET /admin/notifications/stats`, `POST /admin/notifications/broadcast` (SUPER_ADMIN, audited) |
 | Analytics | `GET /admin/analytics/summary` (from BigQuery adapter or local aggregate stub) |
 | Auto-Delist Rules | above |

@@ -73,11 +73,35 @@ public class InventoryItemRepository {
                     + PublicVisibilityRules.OWNER_LISTINGS_PUBLIC
                     + ")";
 
+    /**
+     * The item is a live card of an effectively public deck core (aliases of {@link #LISTED}): a
+     * buyer sees it as one of the core's key cards whatever the card's own visibility, because the
+     * cards of a deck core sell only together (owner spec 2026-10-14, section 7; stage R3 review).
+     * It never lists the card alone: {@link #LISTED} still decides the card's own listings (who has
+     * this card, public item lists and counts), so a private card filed in a deck core stays
+     * private when it leaves the core, when the core is deleted, or when the switch is turned off.
+     */
+    public static final String IN_PUBLIC_CORE =
+            "(i.deleted_at IS NULL AND g.status = 'ACTIVE' AND i.freshness_state <> 'HIDDEN'"
+                    + " AND b.id IS NOT NULL AND b.sells_as_core AND "
+                    + PublicVisibilityRules.binderListed("b")
+                    + " AND "
+                    + PublicVisibilityRules.OWNER_LISTINGS_PUBLIC
+                    + ")";
+
+    /**
+     * Buyers see the item: listed on its own ({@link #LISTED}) or as a key card of a public deck
+     * core ({@link #IN_PUBLIC_CORE}). For what a binder shows of its cards: key cards, games, card
+     * pictures and the cards a binder search matches; never an item's own data.
+     */
+    public static final String SHOWN_PUBLICLY = "(" + LISTED + " OR " + IN_PUBLIC_CORE + ")";
+
     private static final String COLUMNS =
             """
             i.id, i.owner_id, i.binder_id, b.name AS binder_name, i.printing_id, c.id AS card_id,
             c.name AS card_name, g.slug AS game, i.quantity, i.condition, i.language, i.edition,
-            i.finish, i.asking_price, i.currency, i.availability, i.accepts_offers, i.notes,
+            i.finish, i.asking_price, i.asking_price_text, i.currency, i.availability,
+            i.accepts_offers, i.notes,
             i.public_notes, i.visibility, i.public_until, i.freshness_state, i.confirmed_at,
             i.created_at, i.updated_at,
             """
@@ -231,6 +255,9 @@ public class InventoryItemRepository {
             where.append(" AND i.visibility = :visibility");
             params.put("visibility", query.visibility().name());
         }
+        if (query.markedPublic()) {
+            where.append(" AND i.visibility IN ('PUBLIC', 'TEMPORARILY_PUBLIC')");
+        }
         if (query.availability() != null) {
             where.append(" AND i.availability = :availability");
             params.put("availability", query.availability().name());
@@ -251,10 +278,14 @@ public class InventoryItemRepository {
                             " ORDER BY c.normalized_name"
                                     + direction
                                     + ", s.code, p.collector_number, i.id";
+                    // A price that is no plain amount ("85% TCG") has no asking_price: it sorts
+                    // after every amount, before the cards without any price (stage R2).
                     case PRICE ->
                             " ORDER BY i.asking_price"
                                     + direction
-                                    + " NULLS LAST, c.normalized_name, i.id";
+                                    + " NULLS LAST, (i.asking_price_text IS NULL),"
+                                    + " c.normalized_name, i.id";
+                    case CREATED -> " ORDER BY i.created_at" + direction + ", i.id";
                 };
         return page(where.toString(), order, params, query.page(), query.size());
     }
@@ -424,7 +455,11 @@ public class InventoryItemRepository {
     // Statistics
     // ---------------------------------------------------------------------------------------
 
-    /** Counts and games per binder. */
+    /**
+     * Counts and games per binder. The public count is the cards listed on their own; the public
+     * games are those of the cards buyers see, a public deck core's cards included ({@link
+     * #SHOWN_PUBLICLY}).
+     */
     public List<BinderStatsRow> binderStats(Collection<UUID> binderIds, Instant now) {
         if (binderIds.isEmpty()) {
             return List.of();
@@ -436,7 +471,7 @@ public class InventoryItemRepository {
                                 + ") AS public_count,"
                                 + " array_agg(DISTINCT g.slug) AS games,"
                                 + " array_agg(DISTINCT g.slug) FILTER (WHERE "
-                                + LISTED
+                                + SHOWN_PUBLICLY
                                 + ") AS public_games"
                                 + FROM
                                 + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
@@ -477,6 +512,70 @@ public class InventoryItemRepository {
                                         rs.getObject("binder_id", UUID.class),
                                         rs.getObject("printing_id", UUID.class),
                                         rs.getString("image_key")))
+                .list();
+    }
+
+    /**
+     * The first {@code max} printings per binder, one row each, in the order the items were added
+     * (a binder's preview pictures, stage R3), optionally among the cards buyers see ({@link
+     * #SHOWN_PUBLICLY}: catalog pictures only, never an item's own photo).
+     */
+    public List<PreviewRow> binderPreviews(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, printing_id FROM (SELECT i.binder_id, i.printing_id,"
+                                + " row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " min(i.created_at), i.printing_id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + SHOWN_PUBLICLY : "")
+                                + " GROUP BY i.binder_id, i.printing_id) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
+     * The cards of each binder with their copies (every printing of a card together), most copies
+     * first, then by name, at most {@code max} per binder (a deck core's key cards, stage R3),
+     * optionally among the cards buyers see ({@link #SHOWN_PUBLICLY}: every live card of a public
+     * deck core, whatever its own visibility).
+     */
+    public List<KeyCardRow> binderKeyCards(
+            Collection<UUID> binderIds, boolean publicOnly, int max, Instant now) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        "SELECT binder_id, card_id, card_name, copies FROM (SELECT i.binder_id,"
+                                + " c.id AS card_id, c.name AS card_name, sum(i.quantity) AS"
+                                + " copies, row_number() OVER (PARTITION BY i.binder_id ORDER BY"
+                                + " sum(i.quantity) DESC, c.name, c.id) AS position"
+                                + FROM
+                                + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
+                                + (publicOnly ? " AND " + SHOWN_PUBLICLY : "")
+                                + " GROUP BY i.binder_id, c.id, c.name) ranked"
+                                + " WHERE position <= :max ORDER BY binder_id, position")
+                .param("ids", binderIds)
+                .param("max", max)
+                .param("now", Timestamp.from(now))
+                .query(
+                        (rs, rowNum) ->
+                                new KeyCardRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("card_id", UUID.class),
+                                        rs.getString("card_name"),
+                                        rs.getLong("copies")))
                 .list();
     }
 
@@ -597,14 +696,14 @@ public class InventoryItemRepository {
         jdbc.sql(
                         """
                         INSERT INTO inventory_item (id, owner_id, binder_id, printing_id, quantity,
-                            condition, language, edition, finish, asking_price, currency,
-                            availability, accepts_offers, notes, public_notes, visibility,
-                            public_until, freshness_state, created_at, updated_at, confirmed_at,
-                            last_owner_activity_at)
+                            condition, language, edition, finish, asking_price, asking_price_text,
+                            currency, availability, accepts_offers, notes, public_notes,
+                            visibility, public_until, freshness_state, created_at, updated_at,
+                            confirmed_at, last_owner_activity_at)
                         VALUES (:id, :ownerId, :binderId, :printingId, :quantity, :condition,
-                            :language, :edition, :finish, :askingPrice, :currency, :availability,
-                            :acceptsOffers, :notes, :publicNotes, :visibility, :publicUntil,
-                            'ACTIVE', :now, :now, :now, :now)
+                            :language, :edition, :finish, :askingPrice, :askingPriceText,
+                            :currency, :availability, :acceptsOffers, :notes, :publicNotes,
+                            :visibility, :publicUntil, 'ACTIVE', :now, :now, :now, :now)
                         """)
                 .param("id", id)
                 .param("ownerId", ownerId)
@@ -620,6 +719,7 @@ public class InventoryItemRepository {
                            SET binder_id = :binderId, printing_id = :printingId,
                                quantity = :quantity, condition = :condition, language = :language,
                                edition = :edition, finish = :finish, asking_price = :askingPrice,
+                               asking_price_text = :askingPriceText,
                                currency = :currency, availability = :availability,
                                accepts_offers = :acceptsOffers, notes = :notes,
                                public_notes = :publicNotes, visibility = :visibility,
@@ -684,15 +784,124 @@ public class InventoryItemRepository {
     }
 
     public void softDelete(UUID id, Instant now) {
+        softDelete(id, null, now);
+    }
+
+    /**
+     * Soft-deletes a live item; {@code restorableUntil} set (an owner's own delete, stage R2) keeps
+     * it restorable, and its photos, until then.
+     */
+    public void softDelete(UUID id, @Nullable Instant restorableUntil, Instant now) {
         jdbc.sql(
                         """
                         UPDATE inventory_item SET deleted_at = :now, updated_at = :now,
-                               last_owner_activity_at = :now
+                               last_owner_activity_at = :now, restorable_until = :restorableUntil
                          WHERE id = :id AND deleted_at IS NULL
+                        """)
+                .param("id", id)
+                .param("restorableUntil", timestamp(restorableUntil), Types.TIMESTAMP)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * The binder an item of the owner is filed in, read without a lock, whether the item is live or
+     * deleted (the restore of a deleted item locks that binder first). The caller holds the owner
+     * lock. Empty for unknown and other owners' items; an empty optional inside for an unfiled one.
+     */
+    public Optional<Optional<UUID>> binderOfAnyState(UUID ownerId, UUID id) {
+        return jdbc.sql(
+                        "SELECT binder_id FROM inventory_item WHERE id = :id AND owner_id ="
+                                + " :ownerId")
+                .param("id", id)
+                .param("ownerId", ownerId)
+                .query((rs, rowNum) -> Optional.ofNullable(rs.getObject("binder_id", UUID.class)))
+                .optional();
+    }
+
+    /**
+     * Locks one item of the owner, live or deleted, and returns its delete state (restore). {@code
+     * FOR NO KEY UPDATE}, like every item write.
+     */
+    public Optional<DeleteState> lockDeleteState(UUID ownerId, UUID id) {
+        return jdbc.sql(
+                        "SELECT id, binder_id, deleted_at, restorable_until FROM inventory_item"
+                                + " WHERE id = :id AND owner_id = :ownerId FOR NO KEY UPDATE")
+                .param("id", id)
+                .param("ownerId", ownerId)
+                .query(
+                        (rs, rowNum) -> {
+                            Timestamp deletedAt = rs.getTimestamp("deleted_at");
+                            Timestamp until = rs.getTimestamp("restorable_until");
+                            return new DeleteState(
+                                    rs.getObject("id", UUID.class),
+                                    rs.getObject("binder_id", UUID.class),
+                                    deletedAt == null ? null : deletedAt.toInstant(),
+                                    until == null ? null : until.toInstant());
+                        })
+                .optional();
+    }
+
+    /** Brings a soft-deleted item back (restore); the binder count trigger counts it again. */
+    public void restore(UUID id, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET deleted_at = NULL, restorable_until = NULL,
+                               updated_at = :now, last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NOT NULL
                         """)
                 .param("id", id)
                 .param("now", Timestamp.from(now))
                 .update();
+    }
+
+    /**
+     * Closes the restore windows that have passed (at most {@code limit} items, skipping the rows
+     * another transaction holds, like every job statement) and returns the items: the caller
+     * deletes their photos.
+     */
+    public List<UUID> closeRestoreWindows(Instant now, int limit) {
+        return jdbc.sql(
+                        """
+                        WITH due AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE restorable_until IS NOT NULL AND restorable_until <= :now
+                             ORDER BY id
+                             LIMIT :limit
+                               FOR NO KEY UPDATE SKIP LOCKED)
+                        UPDATE inventory_item i SET restorable_until = NULL
+                          FROM due d
+                         WHERE i.id = d.id
+                        RETURNING i.id
+                        """)
+                .param("now", Timestamp.from(now))
+                .param("limit", limit)
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Ends the restore windows of the owner's deleted items filed in a binder that is being deleted
+     * (its row goes, so such an item could no longer come back where it was) and returns them: the
+     * caller deletes their photos. The caller holds the owner lock and the binder.
+     */
+    public List<UUID> endRestoreWindowsInBinder(UUID ownerId, UUID binderId) {
+        return jdbc.sql(
+                        """
+                        WITH ended AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND restorable_until IS NOT NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET restorable_until = NULL
+                          FROM ended e
+                         WHERE i.id = e.id
+                        RETURNING i.id
+                        """)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .query(UUID.class)
+                .list();
     }
 
     /** Soft-deletes every item of a binder; returns their ids. */
@@ -1041,6 +1250,7 @@ public class InventoryItemRepository {
                 rs.getString("edition"),
                 rs.getString("finish"),
                 rs.getBigDecimal("asking_price"),
+                rs.getString("asking_price_text"),
                 rs.getString("currency").trim(),
                 Availability.valueOf(rs.getString("availability")),
                 rs.getBoolean("accepts_offers"),
@@ -1061,11 +1271,12 @@ public class InventoryItemRepository {
      * @param binderId binder
      * @param printingId printing
      * @param quantity copies
-     * @param condition condition code
+     * @param condition condition code, {@code null} when not stated
      * @param language ISO 639-1
      * @param edition edition code
      * @param finish finish code
      * @param askingPrice price
+     * @param askingPriceText the price as typed
      * @param currency ISO 4217
      * @param availability availability
      * @param acceptsOffers offers welcome
@@ -1078,11 +1289,12 @@ public class InventoryItemRepository {
             @Nullable UUID binderId,
             UUID printingId,
             int quantity,
-            String condition,
+            @Nullable String condition,
             String language,
             String edition,
             String finish,
             @Nullable BigDecimal askingPrice,
+            @Nullable String askingPriceText,
             String currency,
             Availability availability,
             boolean acceptsOffers,
@@ -1091,16 +1303,53 @@ public class InventoryItemRepository {
             ListingVisibility visibility,
             @Nullable Instant publicUntil) {
 
+        /** An item without the stage R2 fields (no price text). */
+        public Values(
+                @Nullable UUID binderId,
+                UUID printingId,
+                int quantity,
+                @Nullable String condition,
+                String language,
+                String edition,
+                String finish,
+                @Nullable BigDecimal askingPrice,
+                String currency,
+                Availability availability,
+                boolean acceptsOffers,
+                String notes,
+                String publicNotes,
+                ListingVisibility visibility,
+                @Nullable Instant publicUntil) {
+            this(
+                    binderId,
+                    printingId,
+                    quantity,
+                    condition,
+                    language,
+                    edition,
+                    finish,
+                    askingPrice,
+                    null,
+                    currency,
+                    availability,
+                    acceptsOffers,
+                    notes,
+                    publicNotes,
+                    visibility,
+                    publicUntil);
+        }
+
         Map<String, Object> params() {
             Map<String, Object> params = new LinkedHashMap<>();
             params.put("binderId", new SqlParameterValue(Types.OTHER, binderId));
             params.put("printingId", printingId);
             params.put("quantity", quantity);
-            params.put("condition", condition);
+            params.put("condition", new SqlParameterValue(Types.VARCHAR, condition));
             params.put("language", language);
             params.put("edition", edition);
             params.put("finish", finish);
             params.put("askingPrice", new SqlParameterValue(Types.NUMERIC, askingPrice));
+            params.put("askingPriceText", new SqlParameterValue(Types.VARCHAR, askingPriceText));
             params.put("currency", currency);
             params.put("availability", availability.name());
             params.put("acceptsOffers", acceptsOffers);
@@ -1146,6 +1395,20 @@ public class InventoryItemRepository {
     /** A page of rows and the total. */
     public record Page(List<ItemRow> rows, long total) {}
 
+    /**
+     * The delete state of an item (restore).
+     *
+     * @param id item
+     * @param binderId binder, {@code null} when unfiled
+     * @param deletedAt soft delete, {@code null} for a live item
+     * @param restorableUntil end of the restore window, {@code null} when it cannot be restored
+     */
+    public record DeleteState(
+            UUID id,
+            @Nullable UUID binderId,
+            @Nullable Instant deletedAt,
+            @Nullable Instant restorableUntil) {}
+
     /** An admin row: the item, its owner's handle, printing code and warning time. */
     public record AdminRow(
             ItemRow item,
@@ -1166,6 +1429,12 @@ public class InventoryItemRepository {
 
     /** First item of a binder. */
     public record CoverRow(UUID binderId, UUID printingId, @Nullable String imageKey) {}
+
+    /** A printing among the first items of a binder (its preview pictures). */
+    public record PreviewRow(UUID binderId, UUID printingId) {}
+
+    /** A card of a binder with its copies (a deck core's key card). */
+    public record KeyCardRow(UUID binderId, UUID cardId, String cardName, long copies) {}
 
     /** Summary counters of an owner. */
     public record SummaryRow(

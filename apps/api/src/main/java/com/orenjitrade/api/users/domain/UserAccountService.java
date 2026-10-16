@@ -231,12 +231,6 @@ public class UserAccountService {
         return repository.findWithRolesById(userId).map(UserAccount::toSnapshot);
     }
 
-    /** The plan code of an account ({@code user_account.plan_code}); empty for unknown ids. */
-    @Transactional(readOnly = true)
-    public Optional<String> findPlanCode(UUID userId) {
-        return repository.findPlanCodeById(userId);
-    }
-
     /**
      * The account when it may act, otherwise {@code 404} (unknown) or {@code 403 ACCOUNT_SUSPENDED}
      * (suspended, deletion pending, deleted).
@@ -421,38 +415,6 @@ public class UserAccountService {
     public UserAccountSnapshot anonymise(UUID userId) {
         UserAccount account = load(userId);
         account.anonymise(timeProvider.now());
-        return account.toSnapshot();
-    }
-
-    @Transactional
-    public UserAccountSnapshot changePlan(UUID userId, String planCode) {
-        UserAccount account = load(userId);
-        account.changePlan(planCode, timeProvider.now());
-        return account.toSnapshot();
-    }
-
-    /**
-     * Applies a billing decision (Phase 10 subscriptions): sets {@code plan_code} and grants or
-     * revokes {@link Role#PREMIUM_USER}. Publishes {@link UserRolesChangedEvent} when the roles
-     * change. Callers (the billing module) record the reason in their own history.
-     */
-    @Transactional
-    public UserAccountSnapshot applyPlan(UUID userId, String planCode, boolean premiumRole) {
-        UserAccount account = load(userId);
-        Set<Role> previous = account.roleSet();
-        Instant now = timeProvider.now();
-        if (!planCode.equals(account.getPlanCode())) {
-            account.changePlan(planCode, now);
-        }
-        if (premiumRole) {
-            account.grantRole(Role.PREMIUM_USER, null, now);
-        } else {
-            account.revokeRole(Role.PREMIUM_USER, now);
-        }
-        Set<Role> current = account.roleSet();
-        if (!previous.equals(current)) {
-            events.publishEvent(new UserRolesChangedEvent(userId, previous, current, now));
-        }
         return account.toSnapshot();
     }
 

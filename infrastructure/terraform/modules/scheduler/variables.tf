@@ -84,16 +84,6 @@ variable "jobs" {
       path        = "/internal/jobs/payments-auto-release"
       description = "Hourly auto-release of protected payments (PaymentJobController, local @Scheduled PT1H; no-op while payments.auto_release_enabled is off)."
     }
-    credits-reconcile = {
-      schedule    = "35 * * * *"
-      path        = "/internal/jobs/credits-reconcile"
-      description = "Hourly credit balance reconciliation against the ledger (CreditJobController, local @Scheduled PT1H)."
-    }
-    subscriptions-period = {
-      schedule    = "40 * * * *"
-      path        = "/internal/jobs/subscriptions-period"
-      description = "Hourly subscription period roll-over / expiry (BillingJobController, local @Scheduled PT1H)."
-    }
     upload-cleanup = {
       schedule    = "2/15 * * * *"
       path        = "/internal/jobs/upload-cleanup"

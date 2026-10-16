@@ -61,13 +61,18 @@ export interface ListInventoryItemsRequestParams {
     binderId?: string;
     unfiled?: boolean;
     visibility?: 'PRIVATE' | 'PUBLIC' | 'TEMPORARILY_PUBLIC';
+    markedPublic?: boolean;
     availability?: 'COLLECTION_ONLY' | 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'NOT_AVAILABLE';
     condition?: string;
     freshness?: 'ACTIVE' | 'AGING' | 'STALE' | 'HIDDEN';
-    sort?: 'updated' | 'name' | 'price';
+    sort?: 'updated' | 'created' | 'name' | 'price';
     direction?: 'asc' | 'desc';
     page?: number;
     size?: number;
+}
+
+export interface RestoreInventoryItemRequestParams {
+    id: string;
 }
 
 export interface UpdateInventoryItemRequestParams {
@@ -87,7 +92,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Add several cards at once (camera scan)
-     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, the game\&#39;s NEAR_MINT, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off.
+     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off.
      * @endpoint post /api/v1/inventory/items/batch
 * @param requestParameters
      */
@@ -95,7 +100,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Bulk operation on the caller\&#39;s items
-     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE. Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
+     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
      * @endpoint post /api/v1/inventory/items/bulk
 * @param requestParameters
      */
@@ -111,7 +116,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Add an item
-     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions); currency to CAD. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the plan\&#39;s inventory size; no plan has a number for it today.
+     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
      * @endpoint post /api/v1/inventory/items
 * @param requestParameters
      */
@@ -119,7 +124,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Delete an item
-     * Soft delete: the item disappears everywhere; its photos are removed.
+     * Soft delete: the item disappears everywhere. For 10 minutes &#x60;POST .../restore&#x60; brings it back with its photos; the photos are deleted after that.
      * @endpoint delete /api/v1/inventory/items/{id}
 * @param requestParameters
      */
@@ -150,15 +155,23 @@ export interface InventoryServiceInterface {
 
     /**
      * The caller\&#39;s items (filters, sort, pages)
-     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder. &#x60;sort&#x60;: updated (default, newest first), name (A-Z) or price (highest first); &#x60;direction&#x60; overrides the order.
+     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder. &#x60;sort&#x60;: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); &#x60;direction&#x60; overrides the order.
      * @endpoint get /api/v1/inventory/items
 * @param requestParameters
      */
     listInventoryItems(requestParameters: ListInventoryItemsRequestParams, extraHttpRequestParams?: any): Observable<PageResponseInventoryItemResponse>;
 
     /**
+     * Undo the delete of an item
+     * Within 10 minutes of the caller\&#39;s own delete (one item or a bulk delete), brings the item back exactly as it was: copies, prices, notes, photos, binder and visibility. A live item is answered as it is (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes, or for an item that left otherwise (a trade, its binder deleted with it); 429 LIMIT_REACHED when &#x60;inventory.items.max&#x60; was reached meanwhile.
+     * @endpoint post /api/v1/inventory/items/{id}/restore
+* @param requestParameters
+     */
+    restoreInventoryItem(requestParameters: RestoreInventoryItemRequestParams, extraHttpRequestParams?: any): Observable<InventoryItemResponse>;
+
+    /**
      * Update an item (any subset of the fields)
-     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it.
+     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;askingPriceText&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. &#x60;askingPriceText&#x60; sets the price as typed (and &#x60;askingPrice&#x60; when it is a plain amount); &#x60;askingPrice&#x60; without it clears the text. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it, and so does &#x60;confirm: true&#x60; (the phone\&#39;s Edit card: a save counts as still available).
      * @endpoint patch /api/v1/inventory/items/{id}
 * @param requestParameters
      */

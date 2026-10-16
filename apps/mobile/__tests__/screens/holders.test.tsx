@@ -55,6 +55,33 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 
 const render = () => renderWithProviders(<HoldersScreen />, { port: new FakeAuthPort(testUser()) });
 
+describe('Card holders: the price as typed and a condition not stated (stage R2)', () => {
+  it('shows the text price and no condition chip for a card added on the phone', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'GET /api/v1/search/card-holders': ok(
+          cardHoldersPage([
+            cardHolderFixture({
+              item: publicItemFixture({
+                id: HOLDER_ITEM_ID,
+                askingPrice: null,
+                askingPriceText: '85% TCG',
+                condition: '',
+                conditionStated: false,
+              }),
+            }),
+          ])
+        ),
+      })
+    );
+    render();
+    const row = await screen.findByTestId(`holder-${HOLDER_ITEM_ID}`);
+    expect(within(row).getByTestId(`holder-${HOLDER_ITEM_ID}-price`)).toHaveTextContent('85% TCG');
+    expect(row).not.toHaveTextContent(/Near Mint|NM|—/);
+  });
+});
+
 describe('Card holders ("who has this in my region" as a list)', () => {
   it('shows a skeleton, then the card, the count and the listings with their holders', async () => {
     const api = mockApi(routes());
@@ -83,9 +110,13 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     expect(first).toHaveTextContent(/“Pack fresh\.”/);
     expect(within(first).getByTestId(`holder-${HOLDER_ITEM_ID}-binder`)).toBeOnTheScreen();
     const second = screen.getByTestId(`holder-${OTHER_ITEM}`);
-    expect(within(second).getByTestId(`holder-${OTHER_ITEM}-price`)).toHaveTextContent('No price');
+    // No price: nothing in its place (stage R2), never "Open to offers".
+    expect(within(second).queryByTestId(`holder-${OTHER_ITEM}-price`)).toBeNull();
+    expect(second).not.toHaveTextContent(/No price|Open to offers|Offers/);
     // Offers left the phone (ADR 0018): no "Make an offer" on any row.
     expect(screen.queryByRole('button', { name: /Make an offer/ })).toBeNull();
+    // No sponsored row among the holders (stage F1: no ads).
+    expect(screen.queryByText(/Sponsored/i)).toBeNull();
     // The home region (ADR 0017): no position; the card id, the default sort and page.
     const query = api.callsTo('GET /api/v1/search/card-holders')[0]?.query;
     expect(Object.fromEntries(query ?? [])).toEqual({
@@ -308,7 +339,7 @@ describe('Card holders ("who has this in my region" as a list)', () => {
     ).toBeOnTheScreen();
   });
 
-  it('shows an error with retry, and the plan limit', async () => {
+  it('shows an error with retry, and the usage limit', async () => {
     const api = mockApi(
       routes({
         'GET /api/v1/search/card-holders': [

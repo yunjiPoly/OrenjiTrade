@@ -20,7 +20,6 @@ export interface AdminUserSummary {
     emailVerified: boolean;
     status: AdminUserSummaryStatusEnum;
     roles: Set<AdminUserSummaryRolesEnum>;
-    plan: string;
     avatarUrl?: string | null;
     createdAt: string;
     lastActiveAt?: string | null;
@@ -34,7 +33,6 @@ export enum AdminUserSummaryStatusEnum {
 };
 export enum AdminUserSummaryRolesEnum {
     User = 'USER',
-    PremiumUser = 'PREMIUM_USER',
     Moderator = 'MODERATOR',
     Admin = 'ADMIN',
     SuperAdmin = 'SUPER_ADMIN'

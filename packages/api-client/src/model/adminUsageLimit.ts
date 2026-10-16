@@ -10,11 +10,10 @@
 
 
 /**
- * Usage limit of a plan (admin view)
+ * Usage limit, the same for every collector (admin view)
  */
 export interface AdminUsageLimit { 
     id?: string;
-    planCode?: string;
     key?: string;
     kind?: AdminUsageLimitKindEnum;
     window?: AdminUsageLimitWindowEnum;

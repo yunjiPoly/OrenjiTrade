@@ -14,7 +14,6 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
-import { SeePremiumButton } from '@/src/features/limits/SeePremiumButton';
 import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -50,7 +49,7 @@ export type WishEditorProps =
  * only when exactly one printing of the card has it; a code several printings share starts on
  * "Any printing" and "Which copy" lists those printings first (never a silent pick). Wishlist alerts come from collectors of the same region (ADR
  * 0017). Saves with `POST /wishlist` or `PATCH /wishlist/{id}`; the same selection twice (409)
- * and plan limits (429) are explained in place.
+ * and usage limits (429, the same for every collector) are explained in place.
  */
 export function WishEditor(props: WishEditorProps) {
   const { palette } = useTheme();
@@ -75,8 +74,6 @@ export function WishEditor(props: WishEditorProps) {
   );
   const [errors, setErrors] = useState<WishFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
-  // A plan limit refused the save: offer Premium.
-  const [limited, setLimited] = useState(false);
   const card = useCard(cardId);
   const terms = usePriceTerms();
   const create = useCreateWish();
@@ -133,7 +130,6 @@ export function WishEditor(props: WishEditorProps) {
       return;
     }
     setMessage(null);
-    setLimited(false);
     try {
       if (editItem) {
         await update.mutateAsync({ id: editItem.id, body: toUpdateWishRequest(form) });
@@ -152,7 +148,6 @@ export function WishEditor(props: WishEditorProps) {
         const shown = wishSaveError(error as ApiError);
         setErrors(shown.fields);
         setMessage(shown.message);
-        setLimited(error.errorCode === 'LIMIT_REACHED');
       } else {
         setMessage('Something went wrong. Please try again.');
       }
@@ -238,7 +233,6 @@ export function WishEditor(props: WishEditorProps) {
       />
 
       {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
-      {limited ? <SeePremiumButton testID="wish-limit-premium" /> : null}
       <Button
         label={editing ? 'Save changes' : 'Add to wishlist'}
         icon={editing ? 'content-save-outline' : 'heart-plus-outline'}

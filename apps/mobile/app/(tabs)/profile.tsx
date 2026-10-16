@@ -2,14 +2,12 @@ import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
-import { FEATURE, useFeatureFlags } from '@/src/api/hooks/featureFlags';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useMyProfile } from '@/src/api/hooks/profile';
 import type { MyLocationResponse, MyProfileResponse } from '@/src/api/types';
 import { useSession } from '@/src/auth/session';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Button } from '@/src/components/ui/Button';
-import type { IconName } from '@/src/components/ui/EmptyState';
 import { ChipList, Divider, ListRow, SectionCard } from '@/src/components/ui/Layout';
 import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen } from '@/src/components/ui/Screen';
@@ -18,55 +16,17 @@ import { Text } from '@/src/components/ui/Text';
 import { gameLabel, languageLabel } from '@/src/lib/profile';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-/** Premium, credits and donations: each row only while its feature flag is on. */
-const MONEY_ROWS: readonly {
-  feature: string;
-  icon: IconName;
-  label: string;
-  detail: string;
-  href: '/premium' | '/credits' | '/support';
-  testID: string;
-}[] = [
-  {
-    feature: FEATURE.premiumPlans,
-    icon: 'crown-outline',
-    label: 'Premium',
-    detail: 'Plans, your subscription and your usage',
-    href: '/premium',
-    testID: 'profile-premium',
-  },
-  {
-    feature: FEATURE.credits,
-    icon: 'hand-coin-outline',
-    label: 'Credits',
-    detail: 'Your balance, unlocks for a day and referrals',
-    href: '/credits',
-    testID: 'profile-credits',
-  },
-  {
-    feature: FEATURE.donations,
-    icon: 'hand-heart-outline',
-    label: 'Support OrenjiTrade',
-    detail: 'A voluntary donation',
-    href: '/support',
-    testID: 'profile-support',
-  },
-];
-
 /**
  * Profile tab: the collector's own profile (what they set up in onboarding), its location and
- * visibility, shortcuts to edit it, to preview it as others see it, and to Settings. Premium,
- * credits and donations appear while their flags are on.
+ * visibility, shortcuts to edit it, to preview it as others see it, and to Settings. Offers and
+ * trades left the phone (ADR 0018: deals happen in the chat); Premium, credits and donations left
+ * the app (ADR 0019: free for all).
  */
 export default function ProfileScreen() {
   const profile = useMyProfile();
   const location = useMyLocation();
   const router = useRouter();
   const session = useSession();
-  // Premium, credits and donations follow their flags (web: the account menu). Offers and trades
-  // left the phone (ADR 0018: deals happen in the chat).
-  const flags = useFeatureFlags();
-  const moneyRows = MONEY_ROWS.filter((row) => flags.data?.[row.feature] === true);
 
   return (
     <Screen scroll testID="screen-profile">
@@ -78,23 +38,6 @@ export default function ProfileScreen() {
       >
         {(data) => <ProfileContent profile={data} location={location.data} />}
       </QueryState>
-
-      {moneyRows.length > 0 ? (
-        <SectionCard style={styles.section} testID="profile-money">
-          {moneyRows.map((row, index) => (
-            <View key={row.testID}>
-              {index > 0 ? <Divider /> : null}
-              <ListRow
-                icon={row.icon}
-                label={row.label}
-                detail={row.detail}
-                onPress={() => router.push(row.href)}
-                testID={row.testID}
-              />
-            </View>
-          ))}
-        </SectionCard>
-      ) : null}
 
       <SectionCard style={styles.section}>
         <ListRow

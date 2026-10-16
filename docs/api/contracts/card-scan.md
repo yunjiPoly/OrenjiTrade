@@ -3,7 +3,7 @@
 Owner spec 2026-10-15 (`docs/product/specs/2026-10-15-card-scan.md`), sections 3.5 and 3.6: "Scan
 with camera" for Yu-Gi-Oh! cards. The phone reads each card's name and set code on the device (the
 photo never leaves the phone) and sends only that text; the API finds the exact printing, and the
-review list adds the ready cards in one call. Migration: `V124__card_text_scan_flag.sql` (the flag
+review list adds the ready cards in one call. Migration: `V129__card_text_scan_flag.sql` (the flag
 `cardTextScan`, on). Locks: `docs/database/schema.md`, "Locks of binders and inventory items". The
 exported `../openapi.json` is the field-level truth; this document says what the fields mean and what
 the phone does with them.
@@ -228,11 +228,13 @@ One transaction:
 - A line adds its copies to the caller's **equal item**, the oldest one: the same printing,
   language, condition, edition and finish, **and** the same visibility and binder. Otherwise it
   creates an item.
-- A new item gets the defaults of a card added on the phone today (`newItemDefaults` of the phone's
-  item form): the printing's language, edition and finish; the game's `NEAR_MINT` condition (its
-  first condition when it has none); availability `TRADE_OR_SALE`; offers off; currency `CAD`; no
-  price; no notes; the batch's visibility and binder. Stage R2 of the phone redesign changes the
-  condition to "not stated" and keeps the rest; the batch follows once R2 is merged.
+- A new item gets the defaults of a card added on the phone (`toCreateBody` of the phone's card
+  form, stage R2 of the phone redesign): the printing's language, edition and finish; **no condition
+  stated** (`condition` null, `conditionStated` false in the item's answers); availability
+  `TRADE_OR_SALE`; offers off; currency `CAD`; no price; no notes; the batch's visibility and
+  binder. (Before the card scan merged R2, the batch wrote the game's `NEAR_MINT`, the phone's
+  default of that time.) An equal item therefore has no stated condition either: a card whose
+  condition was stated (on the paused web, or before R2) is another item.
 - An item holds at most 9999 copies: what an equal item cannot take is counted in
   `copiesNotAdded` (it is not written elsewhere). An equal item that is already full gets no copy
   and is not raised.

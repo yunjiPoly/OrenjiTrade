@@ -8,7 +8,7 @@ import { apiBaseUrlInterceptor } from '../http/api-base-url.interceptor';
 import { ApiError, isApiError } from '../http/api-error';
 import { errorInterceptor } from '../http/error.interceptor';
 import { SKIP_LIMIT_DIALOG } from '../http/http-context';
-import { DEFAULT_UPGRADE_URL, limitReachedInfo, safeUpgradeUrl } from './limit-reached';
+import { limitReachedInfo } from './limit-reached';
 import { limitReachedInterceptor } from './limit-reached.interceptor';
 import { LimitReachedService } from './limit-reached.service';
 
@@ -28,7 +28,7 @@ function limitError(problem: Record<string, unknown>): ApiError {
 }
 
 describe('limitReachedInfo', () => {
-  it('reads the LIMIT_REACHED extensions', () => {
+  it('reads the LIMIT_REACHED extensions and ignores an old plan or upgrade link', () => {
     const info = limitReachedInfo(
       limitError({
         limitKey: 'binder.views.per_day',
@@ -44,8 +44,6 @@ describe('limitReachedInfo', () => {
       limit: 30,
       used: 30,
       resetsAt: '2026-09-30T00:00:00Z',
-      planCode: 'FREE',
-      upgradeUrl: '/premium',
       requestId: 'req-1',
     });
   });
@@ -56,15 +54,6 @@ describe('limitReachedInfo', () => {
     expect(info.limit).toBeNull();
     expect(info.used).toBeNull();
     expect(info.resetsAt).toBeNull();
-    expect(info.upgradeUrl).toBe(DEFAULT_UPGRADE_URL);
-  });
-
-  it('only follows same-app upgrade paths', () => {
-    expect(safeUpgradeUrl('/premium?from=limit')).toBe('/premium?from=limit');
-    expect(safeUpgradeUrl('https://evil.example/premium')).toBe('/premium');
-    expect(safeUpgradeUrl('//evil.example')).toBe('/premium');
-    expect(safeUpgradeUrl('javascript:alert(1)')).toBe('/premium');
-    expect(safeUpgradeUrl(undefined)).toBe('/premium');
   });
 });
 

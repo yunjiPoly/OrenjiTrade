@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
 import {
+  useApplyBinderPhotoChanges,
   useBinderItems,
   useCreateBinder,
   useDeleteBinder,
@@ -9,6 +10,8 @@ import {
   usePublicBinder,
   usePublicBinderItems,
   usePublishBinder,
+  useReorderBinders,
+  useUpdateBinder,
 } from '@/src/api/hooks/binders';
 import {
   EMPTY_CARD_SEARCH,
@@ -293,6 +296,63 @@ describe('binder hooks', () => {
     expect(api.callsTo('DELETE /api/v1/binders/{id}')[0]?.query.get('deleteItems')).toBe('false');
     // The deleted binder's items are not refetched.
     expect(api.callsTo('GET /api/v1/binders/{id}/items')).toHaveLength(before);
+  });
+
+  it('a binder write or delete refreshes the lists that show it to others (review fix 2 of R3)', async () => {
+    mockApi(
+      signedInRoutes({
+        'POST /api/v1/binders': ok(binderFixture({ id: 'b-new', name: 'New' }), 201),
+        'PATCH /api/v1/binders/{id}': ok(
+          binderFixture({ sellsAsCore: true, askingPriceText: '$150', visibility: 'PUBLIC' })
+        ),
+        'PUT /api/v1/binders/reorder': ok([binderFixture()]),
+        'DELETE /api/v1/binders/{id}': noContent,
+      })
+    );
+    const { wrapper, queryClient } = setup();
+    const uid = 'uid-maika';
+    // The owner's profile rows and counts, the map's counts and state list, a binder search.
+    const listings = [
+      meKeys.collector(uid, 'maika'),
+      meKeys.collectorPart(uid, 'maika', 'binders'),
+      meKeys.regionBinderCounts(uid, 'americas-north'),
+      meKeys.subdivisionBinders(uid, 'americas-north', 'CA-QC'),
+      meKeys.search(uid, { q: 'core', types: ['binders'], region: 'americas-north' }),
+    ];
+    const outOfDate = async (write: () => Promise<unknown>) => {
+      for (const key of listings) {
+        queryClient.setQueryData(key, { cached: true });
+      }
+      expect(listings.map((key) => queryClient.getQueryState(key)?.isInvalidated)).toEqual(
+        listings.map(() => false)
+      );
+      await act(async () => {
+        await write();
+      });
+      return listings.map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    };
+    const every = listings.map(() => true);
+
+    const update = renderHook(() => useUpdateBinder(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        update.result.current.mutateAsync({ id: BINDER_ID, patch: { askingPriceText: '$150' } })
+      )
+    ).toEqual(every);
+    const create = renderHook(() => useCreateBinder(), { wrapper });
+    expect(
+      await outOfDate(() => create.result.current.mutateAsync({ name: 'New', kind: 'TRADE' }))
+    ).toEqual(every);
+    const photos = renderHook(() => useApplyBinderPhotoChanges(), { wrapper });
+    expect(
+      await outOfDate(() =>
+        photos.result.current.mutateAsync({ id: BINDER_ID, add: [], remove: [] })
+      )
+    ).toEqual(every);
+    const reorder = renderHook(() => useReorderBinders(), { wrapper });
+    expect(await outOfDate(() => reorder.result.current.mutateAsync([BINDER_ID]))).toEqual(every);
+    const remove = renderHook(() => useDeleteBinder(), { wrapper });
+    expect(await outOfDate(() => remove.result.current.mutateAsync(BINDER_ID))).toEqual(every);
   });
 
   it('reads public binders with the token when signed in', async () => {

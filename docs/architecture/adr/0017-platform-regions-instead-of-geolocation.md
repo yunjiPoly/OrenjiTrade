@@ -186,3 +186,10 @@ permission strings are removed.
   user did not choose; rejected (the user picks from the list).
 - **TopoJSON assets**: smaller, but needs a client decoder dependency; plain GeoJSON with 2
   decimals is small enough once gzipped.
+
+## Amendment 2026-10-14 (stage F1, ADR 0019)
+
+The ads, Premium plans and credits this ADR adapted (ad targeting kinds, the plan perks and the
+credit products of the "Community, analytics, ads, plans" section) were removed with the paid
+features: there is no ad targeting and no plan any more; usage limits are the same for every
+collector. Nothing about places changes.

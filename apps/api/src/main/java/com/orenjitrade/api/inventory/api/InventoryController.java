@@ -81,6 +81,7 @@ public class InventoryController {
                     "edition",
                     "finish",
                     "askingPrice",
+                    "askingPriceText",
                     "currency",
                     "availability",
                     "acceptsOffers",
@@ -106,7 +107,9 @@ public class InventoryController {
                     "`query` matches card names (accent-insensitive, full text), printing codes"
                             + " (prefix) and set codes/names. `binderId` limits to one binder,"
                             + " `unfiled=true` to items without a binder. `sort`: updated (default,"
-                            + " newest first), name (A-Z) or price (highest first); `direction`"
+                            + " newest first), created (newest first), name (A-Z) or price"
+                            + " (highest first; prices that are not a plain amount come after"
+                            + " every amount, then the cards without a price); `direction`"
                             + " overrides the order.")
     @ApiResponse(responseCode = "200", description = "One page of items")
     @ApiResponse(
@@ -129,6 +132,14 @@ public class InventoryController {
                     @RequestParam(defaultValue = "false")
                     boolean unfiled,
             @RequestParam(required = false) @Nullable ListingVisibility visibility,
+            @Parameter(
+                            description =
+                                    "Only the items set to public, PUBLIC or TEMPORARILY_PUBLIC"
+                                            + " (the phone's \"Public\" filter; whether others"
+                                            + " see them also depends on the binder and the"
+                                            + " owner)")
+                    @RequestParam(defaultValue = "false")
+                    boolean markedPublic,
             @RequestParam(required = false) @Nullable Availability availability,
             @Parameter(description = "Condition code, e.g. NEAR_MINT")
                     @RequestParam(required = false)
@@ -136,17 +147,19 @@ public class InventoryController {
                     @Nullable String condition,
             @RequestParam(required = false) @Nullable FreshnessState freshness,
             @Parameter(
-                            description = "updated | name | price",
+                            description = "updated | created | name | price",
                             schema =
                                     @Schema(
-                                            allowableValues = {"updated", "name", "price"},
+                                            allowableValues = {
+                                                "updated", "created", "name", "price"
+                                            },
                                             defaultValue = "updated"))
                     @RequestParam(defaultValue = "updated")
                     String sort,
             @Parameter(
                             description =
-                                    "asc | desc (default: desc for updated and price, asc for"
-                                            + " name)",
+                                    "asc | desc (default: desc for updated, created and price,"
+                                            + " asc for name)",
                             schema = @Schema(allowableValues = {"asc", "desc"}))
                     @RequestParam(required = false)
                     @Nullable String direction,
@@ -161,6 +174,7 @@ public class InventoryController {
                                 binderId,
                                 unfiled,
                                 visibility,
+                                markedPublic,
                                 availability,
                                 condition,
                                 freshness,
@@ -176,12 +190,16 @@ public class InventoryController {
             summary = "Add an item",
             description =
                     "Language, edition and finish default to the printing's; condition to"
-                            + " NEAR_MINT (must be one of the game's conditions); currency to CAD."
-                            + " Visibility defaults to PUBLIC inside a binder (the binder decides"
-                            + " whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs"
-                            + " `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey"
-                            + " `inventory.items.max`) beyond the plan's inventory size; no plan"
-                            + " has a number for it today.")
+                            + " NEAR_MINT (must be one of the game's conditions), or none with"
+                            + " `conditionStated: false` (the response then has `condition` empty"
+                            + " and `conditionStated` false); currency to CAD. `askingPriceText`"
+                            + " keeps the price as typed and fills `askingPrice` when it is a plain"
+                            + " amount. Visibility defaults to PUBLIC inside a binder (the binder"
+                            + " decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC"
+                            + " needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED"
+                            + " (limitKey `inventory.items.max`) beyond the inventory size limit,"
+                            + " the same for every collector; unlimited until an admin gives it a"
+                            + " number.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "429",
@@ -225,7 +243,9 @@ public class InventoryController {
                                 body.publicNotes(),
                                 body.visibility(),
                                 body.publicUntil(),
-                                body.binderId()));
+                                body.binderId(),
+                                body.askingPriceText(),
+                                body.conditionStated()));
         return ResponseEntity.created(URI.create("/api/v1/inventory/items/" + created.row().id()))
                 .body(InventoryItemResponse.from(created, timeProvider.now()));
     }
@@ -251,10 +271,13 @@ public class InventoryController {
             operationId = "updateInventoryItem",
             summary = "Update an item (any subset of the fields)",
             description =
-                    "Absent fields are unchanged. `askingPrice`, `publicUntil`, `binderId`, `notes`"
-                        + " and `publicNotes` may be null to clear them. TEMPORARILY_PUBLIC needs"
-                        + " `publicUntil` at most 30 days ahead. Making the item public confirms"
-                        + " it.",
+                    "Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`,"
+                        + " `binderId`, `notes` and `publicNotes` may be null to clear them."
+                        + " `askingPriceText` sets the price as typed (and `askingPrice` when it is"
+                        + " a plain amount); `askingPrice` without it clears the text."
+                        + " TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making"
+                        + " the item public confirms it, and so does `confirm: true` (the phone's"
+                        + " Edit card: a save counts as still available).",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
@@ -290,7 +313,8 @@ public class InventoryController {
                                 "currency",
                                 "availability",
                                 "acceptsOffers",
-                                "visibility");
+                                "visibility",
+                                "confirm");
         Set<String> present = new HashSet<>();
         for (String field : PATCH_FIELDS) {
             if (patch.has(field)) {
@@ -314,7 +338,9 @@ public class InventoryController {
                         patch.text("publicNotes"),
                         patch.enumValue("visibility", ListingVisibility.class),
                         patch.instant("publicUntil"),
-                        patch.uuid("binderId"));
+                        patch.uuid("binderId"),
+                        patch.text("askingPriceText"),
+                        Boolean.TRUE.equals(patch.bool("confirm")));
         patch.throwIfInvalid();
         return InventoryItemResponse.from(
                 inventoryService.update(principal.userId(), id, itemPatch), timeProvider.now());
@@ -325,7 +351,10 @@ public class InventoryController {
     @Operation(
             operationId = "deleteInventoryItem",
             summary = "Delete an item",
-            description = "Soft delete: the item disappears everywhere; its photos are removed.")
+            description =
+                    "Soft delete: the item disappears everywhere. For 10 minutes `POST"
+                            + " .../restore` brings it back with its photos; the photos are"
+                            + " deleted after that.")
     @ApiResponse(responseCode = "204", description = "Deleted")
     @ApiResponse(
             responseCode = "404",
@@ -337,6 +366,39 @@ public class InventoryController {
     public void delete(
             @AuthenticationPrincipal AuthenticatedUser principal, @PathVariable UUID id) {
         inventoryService.delete(principal.userId(), id);
+    }
+
+    @PostMapping("/items/{id}/restore")
+    @Operation(
+            operationId = "restoreInventoryItem",
+            summary = "Undo the delete of an item",
+            description =
+                    "Within 10 minutes of the caller's own delete (one item or a bulk delete),"
+                            + " brings the item back exactly as it was: copies, prices, notes,"
+                            + " photos, binder and visibility. A live item is answered as it is"
+                            + " (a repeated undo). 409 RESTORE_WINDOW_CLOSED after the 10 minutes,"
+                            + " or for an item that left otherwise (a trade, its binder deleted"
+                            + " with it); 429 LIMIT_REACHED when `inventory.items.max` was reached"
+                            + " meanwhile.")
+    @ApiResponse(responseCode = "200", description = "The restored item")
+    @ApiResponse(
+            responseCode = "404",
+            description = "Unknown or not the caller's item",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "RESTORE_WINDOW_CLOSED",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public InventoryItemResponse restore(
+            @AuthenticationPrincipal AuthenticatedUser principal, @PathVariable UUID id) {
+        return InventoryItemResponse.from(
+                inventoryService.restore(principal.userId(), id), timeProvider.now());
     }
 
     @PostMapping("/items/{id}/confirm")
@@ -436,11 +498,12 @@ public class InventoryController {
             summary = "Bulk operation on the caller's items",
             description =
                     "One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for"
-                        + " TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled),"
-                        + " SET_AVAILABILITY (`availability`), CONFIRM, DELETE. Items that are not"
-                        + " the caller's (or unknown/deleted) are skipped as NOT_FOUND, items"
-                        + " already in the requested state as UNCHANGED. 404 when `binderId` is not"
-                        + " one of the caller's binders.")
+                            + " TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled),"
+                            + " SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item"
+                            + " restorable for 10 minutes). Items that are not the caller's (or"
+                            + " unknown/deleted) are skipped as NOT_FOUND, items already in the"
+                            + " requested state as UNCHANGED. 404 when `binderId` is not one of the"
+                            + " caller's binders.")
     @ApiResponse(responseCode = "200", description = "Outcome")
     @ApiResponse(
             responseCode = "400",
@@ -489,6 +552,7 @@ public class InventoryController {
             @Nullable UUID binderId,
             boolean unfiled,
             @Nullable ListingVisibility visibility,
+            boolean markedPublic,
             @Nullable Availability availability,
             @Nullable String condition,
             @Nullable FreshnessState freshness,
@@ -502,7 +566,9 @@ public class InventoryController {
         } catch (IllegalArgumentException e) {
             throw ApiException.validation(
                     "Validation failed",
-                    List.of(new ProblemFieldError("sort", "must be updated, name or price")));
+                    List.of(
+                            new ProblemFieldError(
+                                    "sort", "must be updated, created, name or price")));
         }
         boolean descending = key != SortKey.NAME;
         if (direction != null && !direction.isBlank()) {
@@ -520,6 +586,7 @@ public class InventoryController {
                 binderId,
                 unfiled,
                 visibility,
+                markedPublic,
                 availability,
                 condition == null || condition.isBlank()
                         ? null

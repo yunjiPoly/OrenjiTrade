@@ -1,48 +1,26 @@
-import type {
-  BulkInventoryRequest,
-  BulkInventoryResponse,
-  InventoryAvailability,
-  Visibility,
-} from '@/src/api/types';
-import {
-  AVAILABILITY_LABELS,
-  TEMPORARY_DURATIONS,
-  VISIBILITY_INFO,
-  publicUntilFor,
-  type TemporaryDuration,
-} from '@/src/lib/inventory';
+import type { BulkInventoryRequest, BulkInventoryResponse } from '@/src/api/types';
 
 /**
- * Bulk actions of the Inventory tab's selection (mirror of the web's
- * `features/inventory/data/bulk-actions.ts`): the request of `POST /inventory/items/bulk` and
- * the outcome sentence (with the reasons of skipped items).
+ * Bulk actions of the Inventory's Select mode (owner spec 2026-10-14, section 6: Move to binder,
+ * Make public, Make private, Still available, Delete; availability and temporary publication are
+ * gone from the phone): the request of `POST /inventory/items/bulk` and the outcome sentence (with
+ * the reasons of skipped items). A bulk delete can be undone from its toast.
  */
 export type BulkAction =
-  | { kind: 'visibility'; visibility: Visibility; duration?: TemporaryDuration }
+  | { kind: 'visibility'; visibility: 'PUBLIC' | 'PRIVATE' }
   | { kind: 'move'; binderId: string | null; binderName: string | null }
-  | { kind: 'availability'; availability: InventoryAvailability }
   | { kind: 'confirm' }
   | { kind: 'delete' };
 
 /** `POST /inventory/items/bulk` body for an action on the selected items. */
 export function toBulkRequest(
   action: BulkAction,
-  itemIds: readonly string[],
-  now: number = Date.now()
+  itemIds: readonly string[]
 ): BulkInventoryRequest {
   const base = { itemIds: [...itemIds] };
   switch (action.kind) {
-    case 'visibility': {
-      const request: BulkInventoryRequest = {
-        ...base,
-        action: 'SET_VISIBILITY',
-        visibility: action.visibility,
-      };
-      if (action.visibility === 'TEMPORARILY_PUBLIC') {
-        request.publicUntil = publicUntilFor(action.duration ?? '24h', now);
-      }
-      return request;
-    }
+    case 'visibility':
+      return { ...base, action: 'SET_VISIBILITY', visibility: action.visibility };
     case 'move': {
       const request: BulkInventoryRequest = { ...base, action: 'MOVE_TO_BINDER' };
       if (action.binderId) {
@@ -50,8 +28,6 @@ export function toBulkRequest(
       }
       return request;
     }
-    case 'availability':
-      return { ...base, action: 'SET_AVAILABILITY', availability: action.availability };
     case 'confirm':
       return { ...base, action: 'CONFIRM' };
     case 'delete':
@@ -63,25 +39,16 @@ function cards(count: number): string {
   return `${count} ${count === 1 ? 'card' : 'cards'}`;
 }
 
-function durationLabel(duration: TemporaryDuration): string {
-  return TEMPORARY_DURATIONS.find((option) => option.value === duration)?.label ?? duration;
-}
-
 function done(action: BulkAction, count: number): string {
   const subject = cards(count);
   const verb = count === 1 ? 'is' : 'are';
   switch (action.kind) {
     case 'visibility':
-      if (action.visibility === 'TEMPORARILY_PUBLIC') {
-        return `${subject} ${verb} now public for ${durationLabel(action.duration ?? '24h')}.`;
-      }
-      return `${subject} ${verb} now ${VISIBILITY_INFO[action.visibility].label.toLowerCase()}.`;
+      return `${subject} ${verb} now ${action.visibility === 'PUBLIC' ? 'public' : 'private'}.`;
     case 'move':
       return action.binderId
         ? `${subject} moved to “${action.binderName ?? 'the binder'}”.`
         : `${subject} moved out of their binder.`;
-    case 'availability':
-      return `${subject} set to ${AVAILABILITY_LABELS[action.availability].toLowerCase()}.`;
     case 'confirm':
       return `${subject} confirmed as still available.`;
     case 'delete':
@@ -102,11 +69,3 @@ export function bulkResultMessage(action: BulkAction, response: BulkInventoryRes
   }
   return parts.join(' ');
 }
-
-/** "Delete 3 cards?" confirmation of the bulk delete (web wording). */
-export function bulkDeleteTitle(count: number): string {
-  return `Delete ${cards(count)}?`;
-}
-
-export const BULK_DELETE_MESSAGE =
-  'They are removed from your inventory, your binders and every listing.';

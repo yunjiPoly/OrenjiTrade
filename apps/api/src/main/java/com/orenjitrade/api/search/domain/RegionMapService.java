@@ -24,10 +24,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The map (ADR 0017, spec section 3): how many public binders of discoverable collectors each
- * subdivision of a platform region holds, and the binders of one subdivision. No collectors, pins
- * or points: the shading is per state/province. Anonymous counts are cached with the discovery
- * cache (same invalidation); signed-in counts leave out collectors blocked with the viewer.
+ * The map (ADR 0017, spec section 3): how many public binders (and deck cores, stage R3) of
+ * discoverable collectors each subdivision of a platform region holds, and the binders of one
+ * subdivision or of the whole region. No collectors, pins or points: the shading is per
+ * state/province. Anonymous counts are cached with the discovery cache (same invalidation);
+ * signed-in counts leave out collectors blocked with the viewer.
  */
 @Service
 public class RegionMapService {
@@ -71,8 +72,9 @@ public class RegionMapService {
             return BinderCounts.of(
                     region.code(), repository.countsBySubdivision(region.code(), viewerId, now));
         }
+        // v2: the counts carry the deck cores (stage R3); entries of the earlier shape are skipped.
         return cache.get(
-                "binder-counts|" + region.code(),
+                "binder-counts:v2|" + region.code(),
                 BinderCounts.class,
                 () ->
                         BinderCounts.of(
@@ -84,12 +86,18 @@ public class RegionMapService {
      * The public binders of discoverable collectors located in {@code subdivisionCode} of {@code
      * regionCode}, most recently updated first ({@code 404} when the region is unknown or the
      * subdivision does not belong to it).
+     *
+     * @param deckCore deck cores only ({@code true}), other binders only ({@code false}) or both
+     * @param text a binder's name or description, its owner's handle, a deck core's card names;
+     *     blank or {@code null} for every binder
      */
     @Transactional(readOnly = true)
     public CursorPage<PublicBinderHit> subdivisionBinders(
             @Nullable UUID viewerId,
             String regionCode,
             String subdivisionCode,
+            @Nullable Boolean deckCore,
+            @Nullable String text,
             @Nullable String cursor,
             int limit) {
         RegionView region = requireRegion(regionCode);
@@ -102,10 +110,47 @@ public class RegionMapService {
         if (!inRegion) {
             throw ApiException.notFound(SUBDIVISION_NOT_FOUND);
         }
+        return binders(viewerId, region, code, deckCore, text, cursor, limit);
+    }
+
+    /**
+     * The public binders of discoverable collectors anywhere in {@code regionCode} (Search ›
+     * Binders without a state, stage R5), most recently updated first ({@code 404} for an unknown
+     * region); the filters of {@link #subdivisionBinders}.
+     */
+    @Transactional(readOnly = true)
+    public CursorPage<PublicBinderHit> regionBinders(
+            @Nullable UUID viewerId,
+            String regionCode,
+            @Nullable Boolean deckCore,
+            @Nullable String text,
+            @Nullable String cursor,
+            int limit) {
+        return binders(viewerId, requireRegion(regionCode), null, deckCore, text, cursor, limit);
+    }
+
+    private CursorPage<PublicBinderHit> binders(
+            @Nullable UUID viewerId,
+            RegionView region,
+            @Nullable String subdivisionCode,
+            @Nullable Boolean deckCore,
+            @Nullable String text,
+            @Nullable String cursor,
+            int limit) {
         @Nullable TimeCursor after = TimeCursor.decode(cursor);
         int size = Math.max(1, Math.min(limit, MAX_PAGE_SIZE));
+        @Nullable String query = text == null || text.isBlank() ? null : text.trim();
         Instant now = timeProvider.now();
-        List<BinderRef> refs = repository.binders(code, viewerId, after, size + 1, now);
+        List<BinderRef> refs =
+                repository.binders(
+                        region.code(),
+                        subdivisionCode,
+                        viewerId,
+                        deckCore,
+                        query,
+                        after,
+                        size + 1,
+                        now);
         boolean more = refs.size() > size;
         List<BinderRef> page = more ? refs.subList(0, size) : refs;
         List<PublicBinderHit> hits =
@@ -121,9 +166,9 @@ public class RegionMapService {
                             List.of(),
                             "none",
                             hits.size(),
-                            List.of(),
+                            filterNames(deckCore, query),
                             region.code(),
-                            code,
+                            subdivisionCode,
                             now));
         }
         if (!more) {
@@ -131,6 +176,18 @@ public class RegionMapService {
         }
         BinderRef last = page.get(page.size() - 1);
         return CursorPage.of(hits, new TimeCursor(last.updatedAt(), last.id()).encode());
+    }
+
+    /** Names of the filters in use (analytics; never the text). */
+    private static List<String> filterNames(@Nullable Boolean deckCore, @Nullable String text) {
+        List<String> names = new java.util.ArrayList<>();
+        if (deckCore != null) {
+            names.add("deck_core");
+        }
+        if (text != null) {
+            names.add("text");
+        }
+        return names;
     }
 
     private RegionView requireRegion(String code) {
@@ -142,22 +199,30 @@ public class RegionMapService {
      * Binder counts of a region.
      *
      * @param region region code
-     * @param total public binders in the region
+     * @param total public binders in the region (deck cores included)
+     * @param deckCoreTotal the deck cores among them
      * @param subdivisions counts per subdivision code (only subdivisions holding binders)
      */
-    public record BinderCounts(String region, long total, List<SubdivisionCount> subdivisions) {
+    public record BinderCounts(
+            String region, long total, long deckCoreTotal, List<SubdivisionCount> subdivisions) {
 
         public BinderCounts {
             subdivisions = List.copyOf(subdivisions);
         }
 
-        static BinderCounts of(String region, Map<String, Long> counts) {
+        static BinderCounts of(String region, Map<String, RegionBinderRepository.Counts> counts) {
             List<SubdivisionCount> list =
                     counts.entrySet().stream()
-                            .map(entry -> new SubdivisionCount(entry.getKey(), entry.getValue()))
+                            .map(
+                                    entry ->
+                                            new SubdivisionCount(
+                                                    entry.getKey(),
+                                                    entry.getValue().binders(),
+                                                    entry.getValue().deckCores()))
                             .toList();
             long total = list.stream().mapToLong(SubdivisionCount::binderCount).sum();
-            return new BinderCounts(region, total, list);
+            long cores = list.stream().mapToLong(SubdivisionCount::deckCoreCount).sum();
+            return new BinderCounts(region, total, cores, list);
         }
     }
 
@@ -165,7 +230,9 @@ public class RegionMapService {
      * Public binders of one subdivision.
      *
      * @param code subdivision code
-     * @param binderCount public binders of discoverable collectors located there
+     * @param binderCount public binders of discoverable collectors located there (deck cores
+     *     included)
+     * @param deckCoreCount the deck cores among them
      */
-    public record SubdivisionCount(String code, long binderCount) {}
+    public record SubdivisionCount(String code, long binderCount, long deckCoreCount) {}
 }

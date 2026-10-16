@@ -204,7 +204,6 @@ public class AdminUserService {
                 account.emailVerified(),
                 account.status(),
                 account.roles(),
-                account.planCode(),
                 avatars == null ? null : avatars.avatarUrlOf(account.id()),
                 account.createdAt(),
                 account.lastActiveAt(),

@@ -186,7 +186,7 @@ function LeftOutLines({
                   </Text>
                 ) : null}
                 <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-                  No printing was chosen. To add it, find the card with “Add card” in your
+                  No printing was chosen. To add it, find the card with “Add cards” in your
                   inventory.
                 </Text>
               </View>

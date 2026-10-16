@@ -88,7 +88,7 @@ public class OfferSnapshots {
         }
         node.put("setCode", view.printing().setCode());
         node.put("quantity", view.row().quantity());
-        node.put("condition", view.row().condition());
+        node.put("condition", view.row().conditionCode());
         node.put("language", view.row().language());
         node.put("edition", view.row().edition());
         node.put("finish", view.row().finish());

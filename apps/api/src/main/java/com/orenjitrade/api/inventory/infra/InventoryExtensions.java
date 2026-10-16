@@ -1,18 +1,20 @@
 package com.orenjitrade.api.inventory.infra;
 
-import com.orenjitrade.api.billing.domain.LimitUsageSource;
 import com.orenjitrade.api.binders.domain.BinderContents;
+import com.orenjitrade.api.binders.domain.KeyCard;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.InventoryService;
 import com.orenjitrade.api.inventory.domain.ItemImage;
 import com.orenjitrade.api.inventory.domain.ItemRow;
 import com.orenjitrade.api.inventory.domain.ListingReconciler;
 import com.orenjitrade.api.inventory.domain.imports.InventoryImportService;
+import com.orenjitrade.api.limits.domain.LimitUsageSource;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -57,6 +59,18 @@ public class InventoryExtensions {
             @Override
             public Map<UUID, Stats> statsOf(Collection<UUID> binderIds, boolean publicOnly) {
                 return inventoryService.binderStats(binderIds, publicOnly);
+            }
+
+            @Override
+            public Map<UUID, List<String>> previewImagesOf(
+                    Collection<UUID> binderIds, boolean publicOnly, int max) {
+                return inventoryService.binderPreviewImages(binderIds, publicOnly, max);
+            }
+
+            @Override
+            public Map<UUID, List<KeyCard>> keyCardsOf(
+                    Collection<UUID> binderIds, boolean publicOnly, int max) {
+                return inventoryService.binderKeyCards(binderIds, publicOnly, max);
             }
 
             @Override
@@ -143,10 +157,12 @@ public class InventoryExtensions {
         row.put("game", item.game());
         row.put("quantity", item.quantity());
         row.put("condition", item.condition());
+        row.put("conditionStated", item.conditionStated());
         row.put("language", item.language());
         row.put("edition", item.edition());
         row.put("finish", item.finish());
         row.put("askingPrice", item.askingPrice());
+        row.put("askingPriceText", item.askingPriceText());
         row.put("currency", item.currency());
         row.put("availability", item.availability().name());
         row.put("acceptsOffers", item.acceptsOffers());

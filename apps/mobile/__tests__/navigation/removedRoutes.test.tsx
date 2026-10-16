@@ -1,7 +1,10 @@
 import { screen, waitFor } from '@testing-library/react-native';
 
 import NotFoundScreen from '@/app/+not-found';
-import { DEALS_IN_CHAT_NOTE } from '@/src/features/notifications/notificationKinds';
+import {
+  DEALS_IN_CHAT_NOTE,
+  FREE_FOR_ALL_NOTE,
+} from '@/src/features/notifications/notificationKinds';
 import { removedRouteTarget } from '@/src/navigation/removedRoutes';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -17,7 +20,7 @@ beforeEach(() => {
   resetAppState();
 });
 
-describe('links to the screens that left the phone (ADR 0018)', () => {
+describe('links to the screens that left the phone (ADR 0018 and ADR 0019)', () => {
   it('sends offers, trades, disputes and the payment checkout to Messages', () => {
     for (const path of [
       '/offers',
@@ -41,15 +44,30 @@ describe('links to the screens that left the phone (ADR 0018)', () => {
     expect(removedRouteTarget('/settings/payouts?returnTo=/trades/t1')?.href).toBe('/settings');
   });
 
-  it('leaves every other path alone, the Premium and donation checkouts included', () => {
+  it('sends Premium, credits, support and their checkouts to the Profile tab (free for all)', () => {
+    for (const path of [
+      '/premium',
+      '/premium?checkout=success',
+      '/credits',
+      '/support',
+      '/checkout/fake-billing/fake_cs_1',
+      '/checkout/fake-donation/fake_dn_1',
+    ]) {
+      expect(removedRouteTarget(path)).toEqual({ href: '/profile', note: FREE_FOR_ALL_NOTE });
+    }
+  });
+
+  it('leaves every other path alone', () => {
     for (const path of [
       '/',
       '/messages',
       '/settings',
       '/settings/privacy',
-      '/checkout/fake-billing/x',
-      '/checkout/fake-donation/x',
+      '/profile',
+      '/checkout',
+      '/checkout/other/x',
       '/offerings',
+      '/premiums',
       '/collectors/collector2',
       '',
       null,
@@ -67,6 +85,15 @@ describe('links to the screens that left the phone (ADR 0018)', () => {
     expect(screen.queryByText('This page does not exist')).toBeNull();
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/messages'));
     expect(await screen.findByText(DEALS_IN_CHAT_NOTE)).toBeOnTheScreen();
+  });
+
+  it('an old Premium link opens the Profile tab with a note that the app is free', async () => {
+    mockApi(signedInRoutes());
+    mockPathname.current = '/premium';
+    renderWithProviders(<NotFoundScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(screen.getByTestId('screen-moved')).toBeOnTheScreen();
+    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/profile'));
+    expect(await screen.findByText(FREE_FOR_ALL_NOTE)).toBeOnTheScreen();
   });
 
   it('an old payout link opens Settings', async () => {

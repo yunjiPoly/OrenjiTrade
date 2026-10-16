@@ -21,7 +21,7 @@ import { SubdivisionBinders } from '../data/region-map.store';
 
 /**
  * Public binders of one state/province (ADR 0017), opened from the map or the list: a cursor list
- * with skeleton, empty and error states, "Show more" and a sponsored slot (`[sponsored]`). Each
+ * with skeleton, empty and error states and "Show more". Each
  * binder names its owner (handle) and the owner's state/province + country, never a city.
  */
 @Component({
@@ -48,8 +48,6 @@ import { SubdivisionBinders } from '../data/region-map.store';
           <p class="sdp__subtitle">{{ subtitle() }}</p>
         </div>
       </header>
-
-      <ng-content select="[sponsored]" />
 
       @let state = binders();
       @if (!state || state.loading) {

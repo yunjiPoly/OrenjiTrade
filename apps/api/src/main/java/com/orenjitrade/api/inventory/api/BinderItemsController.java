@@ -96,6 +96,7 @@ public class BinderItemsController {
                                 id,
                                 false,
                                 visibility,
+                                false,
                                 availability,
                                 condition,
                                 freshness,

@@ -88,9 +88,9 @@ public class WishlistController {
                         + " term. When a collector of the caller's platform region later lists a"
                         + " fitting public item, the caller gets a WISHLIST_ALERT (notification"
                         + " settings: wishlistAlerts). 409 CONFLICT for the same selection twice;"
-                        + " 429 LIMIT_REACHED beyond wishlist.items.max (FREE 20, PREMIUM 500)."
-                        + " Unknown members (such as the removed maxPrice or tradePreference) are"
-                        + " ignored.")
+                        + " 429 LIMIT_REACHED beyond wishlist.items.max (20 for everyone by"
+                        + " default; an admin setting). Unknown members (such as the removed"
+                        + " maxPrice or tradePreference) are ignored.")
     @ApiResponse(responseCode = "201", description = "The new item")
     @ApiResponse(
             responseCode = "400",

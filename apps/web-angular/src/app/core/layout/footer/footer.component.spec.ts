@@ -23,27 +23,14 @@ describe('FooterComponent', () => {
     await fixture.whenStable();
   });
 
-  it('shows no Premium or donation link until the flags allow them (launch configuration)', async () => {
-    TestBed.inject(FeatureFlagsService).set({ premiumPlans: false, donations: false });
+  it('links no Premium or donation page, whatever the flags say (stage F1: free for all)', async () => {
+    TestBed.inject(FeatureFlagsService).set({ premiumPlans: true, donations: true });
     fixture.detectChanges();
     await fixture.whenStable();
     expect(element.querySelector('nav[aria-label="OrenjiTrade"]')).toBeNull();
     expect(element.querySelector('a[href="/premium"]')).toBeNull();
     expect(element.querySelector('a[href="/support"]')).toBeNull();
+    expect(element.textContent).not.toMatch(/Premium|Support OrenjiTrade/);
     expect(links('Legal')).toContain('Trading safely');
-  });
-
-  it('links to Premium and to Support OrenjiTrade once their flags are on', async () => {
-    TestBed.inject(FeatureFlagsService).set({ premiumPlans: true, donations: true });
-    fixture.detectChanges();
-    await fixture.whenStable();
-    expect(links('OrenjiTrade')).toEqual([
-      expect.stringContaining('Support OrenjiTrade'),
-      'Premium',
-    ]);
-    expect(element.querySelector('a[href="/premium"]')).not.toBeNull();
-    expect(element.querySelector('[data-testid="footer-support"]')?.getAttribute('href')).toBe(
-      '/support',
-    );
   });
 });

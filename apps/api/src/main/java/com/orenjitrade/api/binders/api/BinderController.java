@@ -73,8 +73,8 @@ public class BinderController {
             description =
                     "Added at the end of the caller's list. PRIVATE unless `visibility` says"
                             + " otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days"
-                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the plan's"
-                            + " binder limit.")
+                            + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder"
+                            + " limit, the same for every collector.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",
@@ -102,7 +102,9 @@ public class BinderController {
                                 body.kind(),
                                 body.visibility(),
                                 body.publicUntil(),
-                                body.coverPrintingId()));
+                                body.coverPrintingId(),
+                                body.sellsAsCore(),
+                                body.askingPriceText()));
         return ResponseEntity.created(URI.create("/api/v1/binders/" + created.binder().id()))
                 .body(BinderResponse.from(created, timeProvider.now()));
     }
@@ -128,9 +130,13 @@ public class BinderController {
             operationId = "updateBinder",
             summary = "Update a binder (any subset of the fields)",
             description =
-                    "Absent fields are unchanged; `publicUntil` and `coverPrintingId` may be null."
-                            + " Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its"
-                            + " items (like publish).",
+                    "Absent fields are unchanged; `publicUntil`, `coverPrintingId` and"
+                        + " `askingPriceText` may be null. Making the binder PUBLIC or"
+                        + " TEMPORARILY_PUBLIC confirms it and its items (like publish), and so"
+                        + " does `confirm: true`. `sellsAsCore` turns \"Sell as a deck core\" on or"
+                        + " off (photos and price are kept, public views show them only for a deck"
+                        + " core); `askingPriceText` is at most 40 characters once trimmed, and a"
+                        + " plain amount also sets `askingPrice`.",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
@@ -153,7 +159,9 @@ public class BinderController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @RequestBody JsonNode body) {
-        PartialUpdate patch = PartialUpdate.of(body).notNull("name", "description", "kind");
+        PartialUpdate patch =
+                PartialUpdate.of(body)
+                        .notNull("name", "description", "kind", "sellsAsCore", "confirm");
         String name = patch.text("name");
         String description = patch.text("description");
         BinderKind kind = patch.enumValue("kind", BinderKind.class);
@@ -163,6 +171,9 @@ public class BinderController {
         }
         Instant publicUntil = patch.instant("publicUntil");
         UUID cover = patch.uuid("coverPrintingId");
+        Boolean sellsAsCore = patch.bool("sellsAsCore");
+        String priceText = patch.text("askingPriceText");
+        Boolean confirm = patch.bool("confirm");
         patch.throwIfInvalid();
         BinderDetails updated =
                 binderService.update(
@@ -176,7 +187,11 @@ public class BinderController {
                                 patch.has("publicUntil"),
                                 publicUntil,
                                 patch.has("coverPrintingId"),
-                                cover));
+                                cover,
+                                sellsAsCore,
+                                patch.has("askingPriceText"),
+                                priceText,
+                                Boolean.TRUE.equals(confirm)));
         return BinderResponse.from(updated, timeProvider.now());
     }
 

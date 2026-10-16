@@ -30,7 +30,7 @@ import {
   openImportText,
   orderedPrintings,
   ownedText,
-  planRoomText,
+  limitRoomText,
   refusalBeforeUpload,
   resultLines,
   resultSentence,
@@ -501,11 +501,11 @@ describe('one line of a preview', () => {
       'No card of the catalog has this passcode (the number printed in the lower left corner of a card).'
     );
     expect(unmatchedNextStep('UNKNOWN_PASSCODE')).toBe(
-      'If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     // A deck line says in which sections the file holds it.
     expect(rowSummary(passcode)).toBe(
-      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     const sheet = unmatchedRow({
       unmatchedReason: 'UNKNOWN_CARD',
@@ -541,7 +541,7 @@ describe('one line of a preview', () => {
       'The number of copies in the file is not a whole number from 1 to 9,999.'
     );
     expect(rowSummary(sheet)).toBe(
-      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add card” in your inventory.'
+      'Not recognised: Nobody Knows Me, Some Set · EN404 · Common · 3 copies, No card of the catalog has this name., Check its spelling in your file, or find the card by its name with “Add cards” in your inventory.'
     );
     for (const reason of [
       'AMBIGUOUS_CARD',
@@ -559,7 +559,7 @@ describe('one line of a preview', () => {
       'The number of copies in the file is not a whole number from 1 to 9,999.'
     );
     expect(unmatchedReasonText(null)).toBe('Nothing in the catalog fits.');
-    expect(unmatchedNextStep(null)).toMatch(/“Add card” in your inventory/);
+    expect(unmatchedNextStep(null)).toMatch(/“Add cards” in your inventory/);
   });
 
   it('lists the printings that fit the file first', () => {
@@ -786,25 +786,25 @@ describe('the commit button says what a press does', () => {
     });
   });
 
-  it('says before the commit when the plan has no room, and what to do when it was refused', () => {
+  it('says before the commit when the inventory limit has no room, and what to do when refused', () => {
     const adds = summaryOf({ toChoose: 0, items: 3, mergedItems: 1 });
-    expect(planRoomText(adds, null)).toBeNull();
-    expect(planRoomText(adds, 2)).toBeNull();
-    expect(planRoomText(adds, 1)).toBe(
-      'Your plan has room for 1 more card and this import adds 2 new cards: leave 1 out. Copies added to cards you already have always fit.'
+    expect(limitRoomText(adds, null)).toBeNull();
+    expect(limitRoomText(adds, 2)).toBeNull();
+    expect(limitRoomText(adds, 1)).toBe(
+      'Your inventory has room for 1 more card and this import adds 2 new cards: leave 1 out. Copies added to cards you already have always fit.'
     );
-    expect(planRoomText(adds, 0)).toBe(
-      'Your plan has no room for a new card and this import adds 2 new cards: leave 2 out. Copies added to cards you already have always fit.'
+    expect(limitRoomText(adds, 0)).toBe(
+      'Your inventory has no room for a new card and this import adds 2 new cards: leave 2 out. Copies added to cards you already have always fit.'
     );
     // Lines that still need a printing may become new cards too: said as "up to".
-    expect(planRoomText(summaryOf({ toChoose: 2, items: 1, mergedItems: 0 }), 2)).toBe(
-      'Your plan has room for 2 more cards and this import can add up to 3 new cards: leave out what does not fit before you add it. Copies added to cards you already have always fit.'
+    expect(limitRoomText(summaryOf({ toChoose: 2, items: 1, mergedItems: 0 }), 2)).toBe(
+      'Your inventory has room for 2 more cards and this import can add up to 3 new cards: leave out what does not fit before you add it. Copies added to cards you already have always fit.'
     );
     expect(limitRefusalText({ limit: 6, used: 5, requested: 2 })).toBe(
-      'This import adds 2 new cards and your plan has room for 1 (5 of 6 used). Leave 1 out and try again.'
+      'This import adds 2 new cards and your inventory has room for 1 (5 of 6 used). Leave 1 out and try again.'
     );
     expect(limitRefusalText({ limit: 6, used: 6, requested: 1 })).toBe(
-      'This import adds 1 new card and your plan has room for 0 (6 of 6 used). Leave 1 out and try again.'
+      'This import adds 1 new card and your inventory has room for 0 (6 of 6 used). Leave 1 out and try again.'
     );
     expect(limitRefusalText({ limit: null, used: 5, requested: 2 })).toBeNull();
   });

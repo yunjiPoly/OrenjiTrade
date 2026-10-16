@@ -80,10 +80,11 @@ public class OfferController {
                         + " trade-only or trades on sale-only cards, and MIXED offers unless the"
                         + " card is TRADE_OR_SALE and the seller accepts mixed offers. One open"
                         + " offer per buyer and card (409 OFFER_ALREADY_OPEN, extension offerId);"
-                        + " expiresInHours 1-168 (default 72); offers.per_day of the caller's plan"
-                        + " (429 LIMIT_REACHED, FREE 20). The seller gets OFFER_RECEIVED and a"
-                        + " SYSTEM message with the offer link appears in the pair conversation. An"
-                        + " Idempotency-Key repeats the original answer for 24 hours.")
+                        + " expiresInHours 1-168 (default 72); the usage limit offers.per_day, the"
+                        + " same for every collector (429 LIMIT_REACHED, 20 by default). The seller"
+                        + " gets OFFER_RECEIVED and a SYSTEM message with the offer link appears in"
+                        + " the pair conversation. An Idempotency-Key repeats the original answer"
+                        + " for 24 hours.")
     @ApiResponse(responseCode = "201", description = "The new offer (OPEN, the seller's turn)")
     @ApiResponse(
             responseCode = "400",

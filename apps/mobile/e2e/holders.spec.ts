@@ -82,11 +82,11 @@ test.describe('mobile card holders', () => {
     const cheapRow = holders.getByTestId(`holder-${cheap.id}`);
     await expect(offersRow).toBeVisible();
     await expect(cheapRow).toBeVisible();
-    await expect(offersRow).toContainText('Offers');
+    // "Accepts offers" left the phone's cards (stage R2): no Offers tag on a row.
+    await expect(offersRow).not.toContainText('Offers');
     await expect(offersRow).toContainText('NM');
     await expect(offersRow.getByTestId(`holder-${offers.id}-price`)).toContainText('45');
     await expect(cheapRow).toContainText('LP');
-    await expect(cheapRow).not.toContainText('Offers');
     await expect(offersRow.getByTestId(`holder-${offers.id}-collector`)).toContainText(
       'Mobile Holder'
     );

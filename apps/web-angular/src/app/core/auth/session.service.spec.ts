@@ -29,7 +29,6 @@ function me(overrides: Partial<MeResponse> = {}): MeResponse {
     createdAt: '2026-09-01T00:00:00Z',
     onboarding: { profileComplete: true, locationSet: true, interestsSet: true },
     requiredConsents: [],
-    plan: 'FREE',
     ...overrides,
   };
 }

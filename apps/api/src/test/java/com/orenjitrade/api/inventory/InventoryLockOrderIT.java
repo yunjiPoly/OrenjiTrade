@@ -68,6 +68,9 @@ import tools.jackson.databind.JsonNode;
  */
 class InventoryLockOrderIT extends AbstractIntegrationTest {
 
+    /** A tiny photo as the binder photo route stores it (re-encoded elsewhere). */
+    private static final byte[] JPEG = InventoryTestSupport.png(64, 64);
+
     private static final Duration STEP = Duration.ofSeconds(30);
     private static final String ITEMS = "/api/v1/inventory/items";
 
@@ -136,7 +139,9 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BULK_CONFIRM,
         ADMIN_RESTORE,
         ADMIN_HIDE,
-        TRADE_TRANSFER
+        TRADE_TRANSFER,
+        /** The owner's undo of a delete (stage R2): the item was deleted before the test. */
+        RESTORE
     }
 
     /**
@@ -160,6 +165,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                         createItem(uid, binderId, Map.of()));
         String kept = items.get(0);
         String written = items.get(1);
+        prepare(write, uid, written);
         assertThat(listedFlags(ownerId)).as("listed before the privacy change").containsOnly(true);
 
         // The privacy change itself (no event: the test runs the listener's reconciliation).
@@ -175,7 +181,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertThat(itemCount(binderId))
                 .isEqualTo(
                         switch (write) {
-                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE -> 2;
+                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE, RESTORE -> 2;
                             default -> 1;
                         });
         assertThat(isLive(kept)).isTrue();
@@ -197,6 +203,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         String otherBinderId = createBinder(uid, "Other", "PUBLIC");
         String kept = createItem(uid, binderId, Map.of());
         String written = createItem(uid, binderId, Map.of());
+        prepare(write, uid, written);
         assertThat(listedFlags(ownerId)).as("listed before the privacy change").containsOnly(true);
 
         setDiscoverable(ownerId, false);
@@ -210,10 +217,17 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertThat(itemCount(binderId))
                 .isEqualTo(
                         switch (write) {
-                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE -> 2;
+                            case CONFIRM, BULK_CONFIRM, ADMIN_RESTORE, ADMIN_HIDE, RESTORE -> 2;
                             default -> 1;
                         });
         assertThat(isLive(kept)).isTrue();
+    }
+
+    /** What a write needs before the test: the item that a restore brings back is deleted. */
+    private void prepare(ItemWrite write, String uid, String itemId) {
+        if (write == ItemWrite.RESTORE) {
+            callJson(HttpMethod.DELETE, ITEMS + "/" + itemId, uid, null, 204);
+        }
     }
 
     private void perform(
@@ -246,6 +260,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                             .get(0)
                                             .removed())
                             .isTrue();
+            case RESTORE -> callJson(HttpMethod.POST, uri + "/restore", uid, null, 200);
         }
     }
 
@@ -618,6 +633,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         String otherBinderId = createBinder(uid, "Other", "PUBLIC");
         String kept = createItem(uid, binderId, Map.of());
         String written = createItem(uid, binderId, Map.of());
+        prepare(write, uid, written);
 
         endsWhile(
                 () -> reference(ownerId, written),
@@ -697,6 +713,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         ITEM_CREATE_IN_A_BINDER,
         ITEM_UPDATE,
         ITEM_DELETE,
+        ITEM_RESTORE,
         ITEM_CONFIRM,
         ITEM_BULK,
         IMPORT_COMMIT,
@@ -712,6 +729,9 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BINDER_CONFIRM,
         BINDER_DELETE,
         BINDER_REORDER,
+        BINDER_DECK_CORE,
+        BINDER_PHOTO_ADD,
+        BINDER_PHOTO_DELETE,
         OWNER_RECONCILIATION,
         ITEM_PURGE,
         BINDER_PURGE,
@@ -734,7 +754,15 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         UUID ownerId = collector(uid);
         String binderId = createBinder(uid, "One", "PRIVATE");
         String otherBinderId = createBinder(uid, "Two", "PRIVATE");
-        String filed = createItem(uid, binderId, Map.of());
+        // The batch add raises a card whose condition is not stated, like every card added on the
+        // phone (stage R2): the filed card is one for that case.
+        String filed =
+                createItem(
+                        uid,
+                        binderId,
+                        write == OwnerWrite.BATCH_ADD
+                                ? Map.of("conditionStated", false)
+                                : Map.of());
         String unfiled = createItem(uid, null, Map.of());
         // A private mint card filed in the binder: the one an import adds its mint copies to (an
         // import never raises a card its owner shows), so the commit locks a binder and an item.
@@ -744,6 +772,20 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         @Nullable String importId =
                 write == OwnerWrite.IMPORT_COMMIT || write == OwnerWrite.ACCOUNT_PURGE
                         ? uploadImport(uid, importOf(2, 1))
+                        : null;
+        // The card an undo brings back, deleted before the owner lock is held.
+        if (write == OwnerWrite.ITEM_RESTORE) {
+            callJson(HttpMethod.DELETE, ITEMS + "/" + filed, uid, null, 204);
+        }
+        // The deck core photo a delete removes, added before the owner lock is held (stage R3).
+        @Nullable UUID photoId =
+                write == OwnerWrite.BINDER_PHOTO_DELETE
+                        ? binderService
+                                .addPhoto(ownerId, uuid(binderId), JPEG, 64, 64)
+                                .showcase()
+                                .photos()
+                                .get(0)
+                                .id()
                         : null;
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -776,7 +818,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                                 otherBinderId,
                                                 filed,
                                                 unfiled,
-                                                importId));
+                                                importId,
+                                                photoId));
                 awaitWaiterOf(pid, writing);
                 assertThatCode(() -> lockEveryRowOf(ownerId))
                         .as("no row is held while the write waits for the owner lock")
@@ -817,7 +860,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             String otherBinderId,
             String filed,
             String unfiled,
-            @Nullable String importId) {
+            @Nullable String importId,
+            @Nullable UUID photoId) {
         String binder = "/api/v1/binders/" + binderId;
         switch (write) {
             case ITEM_CREATE -> createItem(uid, null, Map.of());
@@ -830,6 +874,8 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             Map.of("quantity", 2),
                             200);
             case ITEM_DELETE -> callJson(HttpMethod.DELETE, ITEMS + "/" + filed, uid, null, 204);
+            case ITEM_RESTORE ->
+                    callJson(HttpMethod.POST, ITEMS + "/" + filed + "/restore", uid, null, 200);
             case ITEM_CONFIRM ->
                     callJson(HttpMethod.POST, ITEMS + "/" + filed + "/confirm", uid, null, 200);
             case ITEM_BULK ->
@@ -885,6 +931,26 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                             uid,
                             Map.of("binderIds", List.of(otherBinderId, binderId)),
                             200);
+            // Stage R3: "Sell as a deck core" with a price is a binder update; a photo of the
+            // deck core is a binder write too (the owner lock, then the binder row).
+            case BINDER_DECK_CORE ->
+                    callJson(
+                            HttpMethod.PATCH,
+                            binder,
+                            uid,
+                            Map.of("sellsAsCore", true, "askingPriceText", "$95", "confirm", true),
+                            200);
+            case BINDER_PHOTO_ADD ->
+                    assertThat(
+                                    binderService
+                                            .addPhoto(ownerId, uuid(binderId), JPEG, 64, 64)
+                                            .showcase()
+                                            .photos())
+                            .hasSize(1);
+            case BINDER_PHOTO_DELETE -> {
+                assertThat(photoId).isNotNull();
+                binderService.deletePhoto(ownerId, uuid(binderId), photoId);
+            }
             case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
             case ITEM_PURGE -> inventoryService.purge(ownerId);
             case BINDER_PURGE -> binderService.purge(ownerId);
@@ -1210,6 +1276,48 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         assertThat(column("inventory_item", "publicly_listed", gone))
                 .as("no flag stays on the deleted item")
                 .isEqualTo(false);
+    }
+
+    /**
+     * The photo purge ({@code inventory-photo-purge}, stage R2) closes the restore windows that
+     * have passed and skips the rows another transaction holds, like every job statement. A binder
+     * delete holds the cards deleted from that binder while it ends their undo (and deletes their
+     * photos itself): the purge does not wait for it, closes the other windows that have passed,
+     * and leaves those cards to the delete.
+     */
+    @Test
+    void thePhotoPurgeNeverWaitsForTheDeletedCardsABinderDeleteHolds() throws Exception {
+        String uid = uniqueUid("lock-photo-purge");
+        UUID ownerId = collector(uid);
+        String binderId = createBinder(uid, "Doomed", "PRIVATE");
+        String kept = createItem(uid, binderId, Map.of());
+        String inTheBinder = createItem(uid, binderId, Map.of());
+        String unfiled = createItem(uid, null, Map.of());
+        for (String item : List.of(inTheBinder, unfiled)) {
+            inventoryService.addImage(ownerId, uuid(item), InventoryTestSupport.png(64, 64));
+            callJson(HttpMethod.DELETE, ITEMS + "/" + item, uid, null, 204);
+            testUsers.update(
+                    "UPDATE inventory_item SET restorable_until = now() - interval '1 minute'"
+                            + " WHERE id = ?",
+                    uuid(item));
+        }
+
+        endsWhile(
+                () -> binderService.delete(ownerId, uuid(binderId), false),
+                () -> inventoryService.closeRestoreWindows(500));
+
+        assertThat(photos(unfiled)).as("the purge closed the window nobody held").isZero();
+        assertThat(column("inventory_item", "restorable_until", unfiled)).isNull();
+        assertThat(photos(inTheBinder)).as("the binder delete deleted those photos").isZero();
+        assertThat(column("inventory_item", "restorable_until", inTheBinder)).isNull();
+        assertThat(testUsers.count("SELECT count(*) FROM binder WHERE id = ?", uuid(binderId)))
+                .isZero();
+        assertThat(isLive(kept)).isTrue();
+    }
+
+    private int photos(String itemId) {
+        return testUsers.count(
+                "SELECT count(*) FROM inventory_item_image WHERE item_id = ?", uuid(itemId));
     }
 
     /** A statement of the freshness job, by the table it writes and what it does there. */
@@ -1634,9 +1742,10 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         setDiscoverable(ownerId, true);
         String first = createBinder(uid, "First", "PUBLIC");
         String second = createBinder(uid, "Second", "PUBLIC");
-        // The card the binder batches raise (public in its binder, near mint) and the cards another
-        // worker moves between the binders (private mint ones: never equal to a batch line).
-        String shown = createItem(uid, first, Map.of());
+        // The card the binder batches raise (public in its binder, no condition stated: a card
+        // added on the phone, stage R2) and the cards another worker moves between the binders
+        // (private mint ones: never equal to a batch line).
+        String shown = createItem(uid, first, Map.of("conditionStated", false));
         List<String> movers = new ArrayList<>();
         for (int index = 0; index < 2; index++) {
             movers.add(

@@ -91,6 +91,10 @@ class WishlistRulesTest {
         assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "UNKNOWN", true)).isFalse();
         assertThat(WishlistAlertRules.conditionFits(CONDITIONS, "DAMAGED", false)).isTrue();
         assertThat(WishlistAlertRules.conditionFits(List.of("GOOD"), "GOOD", true)).isFalse();
+        // Not stated (cards added on the phone, stage R2): a possible match either way.
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, null, true)).isTrue();
+        assertThat(WishlistAlertRules.conditionFits(CONDITIONS, null, false)).isTrue();
+        assertThat(WishlistAlertRules.NEAR_MINT_SQL).contains("i.condition IS NULL");
         assertThat(WishlistAlertRules.NEAR_MINT_SQL)
                 .contains("w.near_mint_only")
                 .contains("'NEAR_MINT'");

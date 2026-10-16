@@ -40,7 +40,7 @@ const KINDS: Record<string, NotificationKind> = {
 
 const FALLBACK: NotificationKind = { icon: 'bell', tone: 'system', label: 'Notification' };
 
-/** Icon, tone and label of a notification (the plan-limit notice gets the premium icon). */
+/** Icon, tone and label of a notification (the daily limit notice gets the limit icon). */
 export function notificationKind(
   notification: Pick<NotificationResponse, 'type' | 'data'>
 ): NotificationKind {
@@ -48,7 +48,7 @@ export function notificationKind(
   if (notification.type === 'SYSTEM') {
     switch (notification.data?.['kind']) {
       case 'LIMIT_REACHED':
-        return { icon: 'crown-outline', tone: 'system', label: 'Plan limit' };
+        return { icon: 'speedometer', tone: 'system', label: 'Limit reached' };
       case 'LISTINGS_PAUSED':
         return { icon: 'pause-circle-outline', tone: 'warning', label: 'Listings paused' };
       case 'MODERATION_WARNING':
@@ -131,16 +131,9 @@ export function notificationLink(
       return '/settings/reports';
     case 'SYSTEM':
       switch (data?.['kind']) {
-        case 'LIMIT_REACHED': {
-          // The API carries `upgradeUrl` / `deepLink: /premium` only while the premiumPlans flag
-          // is on (`deepLink` handled above); without it the notice is only about held-back
-          // alerts.
-          const upgrade = safeAppPath(data?.['upgradeUrl']);
-          if (upgrade) {
-            return upgrade;
-          }
+        case 'LIMIT_REACHED':
+          // Held-back alerts; nothing to buy (stage F1). An old notice's `upgradeUrl` is ignored.
           return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
-        }
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':
@@ -160,6 +153,10 @@ export function notificationLink(
 export type NotificationTarget = { kind: 'route'; href: string } | { kind: 'note'; note: string };
 
 const SETTINGS_LATER = 'This setting is on orenjitrade.com only for now.';
+
+/** Said by an old link to Premium, credits or donations (removed by stage F1, 2026-10-14). */
+export const FREE_FOR_ALL_NOTE =
+  'OrenjiTrade is free for every collector now: there is no Premium, credits or donations.';
 
 /**
  * What an old offer, trade, payment or dispute notification says when tapped: those screens left
@@ -192,10 +189,10 @@ function route(href: string): NotificationTarget {
  * The mobile screen of a web path (the API's deep links are web paths): the wishlist,
  * conversations, community channels, binders (`/inventory?binder=`), cards (with the
  * `?printing=<id>`, `?printing=any` or `?rarity=` of a wishlist alert), collector profiles
- * (`?tab=ratings` scrolls to the ratings), Premium, credits, support, legal pages and settings
- * (My reports) map to their app screens; the web-only settings explain where to go instead, and
- * offers, trades, disputes, offer settings and payouts say that deals happen in the chat (ADR
- * 0018). Ids are validated again.
+ * (`?tab=ratings` scrolls to the ratings), legal pages and settings (My reports) map to their app
+ * screens; the web-only settings explain where to go instead, offers, trades, disputes, offer
+ * settings and payouts say that deals happen in the chat (ADR 0018), and an old link to Premium,
+ * credits or "Support OrenjiTrade" says that the app is free (ADR 0019). Ids are validated again.
  */
 export function mobileTarget(webPath: string): NotificationTarget {
   const [pathname = '', query = ''] = webPath.split('?');
@@ -269,14 +266,10 @@ export function mobileTarget(webPath: string): NotificationTarget {
     case 'trades':
     case 'disputes':
       return { kind: 'note', note: DEALS_IN_CHAT_NOTE };
-    case 'premium': {
-      const checkout = params.get('checkout');
-      return route(checkout === 'success' ? '/premium?checkout=success' : '/premium');
-    }
+    case 'premium':
     case 'credits':
-      return route('/credits');
     case 'support':
-      return route('/support');
+      return { kind: 'note', note: FREE_FOR_ALL_NOTE };
     default:
       return route('/notifications');
   }

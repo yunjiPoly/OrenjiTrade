@@ -15,7 +15,7 @@ All under `/api/v1`. Discovery reads work for anonymous users with reduced detai
 `GET /collectors/nearby?lat=&lng=&radiusKm=&game=&availability=&freshness=&tags=&hasPrintingId=&hasCardId=&query=&limit=200`
 - `lat/lng` optional: default is the caller's own trading-area centre; anonymous callers must
   supply them (a city centre chosen on the client). `radiusKm` capped by plan limit
-  (`map.radius.max`, FREE 25, PREMIUM 100) → `429 LIMIT_REACHED` beyond it.
+  (`map.radius.max`, FREE 25, PREMIUM 100; removed with distances by ADR 0017, plans by ADR 0019) → `429 LIMIT_REACHED` beyond it.
 - Filters: `game` (slug), `availability` (TRADE|SALE|TRADE_OR_SALE|ACCEPTS_OFFERS),
   `freshness` (ACTIVE|AGING; STALE/HIDDEN never appear), `tags` (slugs, any), `hasPrintingId` /
   `hasCardId` (collector has an effective-public item for it), `query` (name/handle/tag text).
@@ -39,6 +39,8 @@ All under `/api/v1`. Discovery reads work for anonymous users with reduced detai
   (used by the preview card; adds `canMessage`, `isBlocked`).
 
 ## Unified search
+
+> **Stage R3 (2026-10-15):** binder search gains `deckCore` and matches owner handles and a deck core's card names; `GET /search/deck-cores` and `excludeDeckCoreItems` on the card holders: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
 
 `GET /search?q=&lat=&lng=&radiusKm=&types=cards,printings,sets,collectors,binders&game=&limit=` →
 ```json

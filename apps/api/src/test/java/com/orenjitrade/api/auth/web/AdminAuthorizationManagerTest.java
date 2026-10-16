@@ -41,7 +41,6 @@ class AdminAuthorizationManagerTest {
         assertThat(granted(manager, user(false, Role.MODERATOR))).isTrue();
         assertThat(granted(manager, user(false, Role.ADMIN))).isTrue();
         assertThat(granted(manager, user(false, Role.USER))).isFalse();
-        assertThat(granted(manager, user(false, Role.PREMIUM_USER))).isFalse();
 
         AdminAuthorizationManager withMfa = new AdminAuthorizationManager(true, true);
         assertThat(granted(withMfa, user(false, Role.MODERATOR))).isFalse();

@@ -10,6 +10,7 @@ import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.events.InventoryItemPublished;
+import com.orenjitrade.api.limits.domain.UsageLimitService;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -40,6 +41,7 @@ class InventoryBatchIT extends AbstractIntegrationTest {
     @Autowired private CatalogImportService importService;
     @Autowired private RecordedDomainEvents events;
     @Autowired private FeatureFlags featureFlags;
+    @Autowired private UsageLimitService usageLimits;
 
     private InventoryTestSupport.IsolatedCard card;
     private UUID other;
@@ -56,13 +58,17 @@ class InventoryBatchIT extends AbstractIntegrationTest {
     }
 
     @AfterEach
-    void flagOnAndUnlisted() {
+    void flagOnUnlistedAndNoLimit() {
         testUsers.update(
                 "UPDATE feature_flag SET enabled = true, rollout_percent = 100, updated_by = NULL"
                         + " WHERE key = 'cardTextScan'");
         featureFlags.invalidate();
         callJson(
                 HttpMethod.PUT, "/api/v1/me/settings/privacy", uid, privacy(false, "MEMBERS"), 200);
+        // inventory.items.max has no number unless a test gives it one (limitInventory).
+        testUsers.update(
+                "UPDATE usage_limit SET max_value = NULL WHERE limit_key = 'inventory.items.max'");
+        usageLimits.invalidate();
     }
 
     private static Map<String, Object> line(UUID printingId, int quantity) {
@@ -142,7 +148,8 @@ class InventoryBatchIT extends AbstractIntegrationTest {
         Map<String, Object> first = row(created.get(0));
         assertThat(first.get("printing_id")).isEqualTo(card.printingId());
         assertThat(first.get("quantity")).isEqualTo(3);
-        assertThat(first.get("condition")).isEqualTo("NEAR_MINT");
+        // No condition stated, like a card added on the phone (stage R2).
+        assertThat(first.get("condition")).isNull();
         assertThat(first.get("availability")).isEqualTo("TRADE_OR_SALE");
         assertThat(first.get("accepts_offers")).isEqualTo(false);
         assertThat(first.get("currency").toString().trim()).isEqualTo("CAD");
@@ -169,6 +176,7 @@ class InventoryBatchIT extends AbstractIntegrationTest {
         // The inventory lists them like any other card.
         JsonNode item = callJson(HttpMethod.GET, ITEMS + "/" + created.get(0), uid, null, 200);
         assertThat(item.path("quantity").asInt()).isEqualTo(3);
+        assertThat(item.path("conditionStated").asBoolean()).isFalse();
     }
 
     @Test
@@ -178,7 +186,7 @@ class InventoryBatchIT extends AbstractIntegrationTest {
                 ids(add(batch(null, null, List.of(line(card.printingId(), 1))))
                                 .path("createdItemIds"))
                         .get(0);
-        // Another condition and another finish are other items.
+        // A stated condition and another finish are other items.
         String mint =
                 callJson(
                                 HttpMethod.POST,
@@ -202,6 +210,8 @@ class InventoryBatchIT extends AbstractIntegrationTest {
                                         card.printingId().toString(),
                                         "finish",
                                         "FOIL",
+                                        "conditionStated",
+                                        false,
                                         "visibility",
                                         "PRIVATE"),
                                 201)
@@ -484,15 +494,28 @@ class InventoryBatchIT extends AbstractIntegrationTest {
         assertThat(liveItems()).isZero();
     }
 
-    /** Gives this collector alone an inventory limit (an entitlement beats the plan's value). */
+    /**
+     * Gives the inventory limit a number for this test, through the admin route as a SUPER_ADMIN
+     * would (the limit is the same for every collector, ADR 0019; {@link #flagOnUnlistedAndNoLimit}
+     * removes it).
+     */
     private void limitInventory(int max) {
-        String admin = uniqueUid("batch-limit-admin");
-        provisionWithRoles(admin, Role.ADMIN);
+        String superAdmin = uniqueUid("batch-limit-admin");
+        provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
+        UUID limitId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT id FROM usage_limit WHERE limit_key ="
+                                                + " 'inventory.items.max'")
+                                .get(0)
+                                .get("id");
         callJson(
-                HttpMethod.POST,
-                "/api/v1/admin/users/" + ownerId + "/entitlements",
-                admin,
-                Map.of("featureKey", "inventory.items.max", "value", String.valueOf(max)),
-                201);
+                HttpMethod.PUT,
+                "/api/v1/admin/usage-limits/" + limitId,
+                superAdmin,
+                Map.of("unlimited", false, "maxValue", max),
+                200);
+        assertThat(usageLimits.find("inventory.items.max").orElseThrow().maxValue()).isEqualTo(max);
     }
 }

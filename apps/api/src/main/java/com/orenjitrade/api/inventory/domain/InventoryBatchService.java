@@ -1,8 +1,5 @@
 package com.orenjitrade.api.inventory.domain;
 
-import com.orenjitrade.api.billing.domain.LimitDecision;
-import com.orenjitrade.api.billing.domain.LimitReachedException;
-import com.orenjitrade.api.billing.domain.Limits;
 import com.orenjitrade.api.binders.domain.BinderService;
 import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.cards.domain.CatalogPrintingRef;
@@ -13,15 +10,15 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
-import com.orenjitrade.api.games.domain.GameSchema;
-import com.orenjitrade.api.games.domain.GameService;
-import com.orenjitrade.api.games.domain.GameView;
 import com.orenjitrade.api.inventory.infra.InventoryBatchRepository;
 import com.orenjitrade.api.inventory.infra.InventoryBatchRepository.EqualItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Confirmed;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.LockedItem;
 import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
+import com.orenjitrade.api.limits.domain.LimitDecision;
+import com.orenjitrade.api.limits.domain.LimitReachedException;
+import com.orenjitrade.api.limits.domain.Limits;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,6 +67,13 @@ public class InventoryBatchService {
      */
     public static final Availability PHONE_AVAILABILITY = Availability.TRADE_OR_SALE;
 
+    /**
+     * The condition of a card added on the phone: not stated ({@code null}; stage R2, {@code
+     * conditionStated: false} of the phone's card form). A line therefore raises only an equal item
+     * whose condition is not stated either.
+     */
+    public static final @Nullable String PHONE_CONDITION = null;
+
     private static final Logger log = LoggerFactory.getLogger(InventoryBatchService.class);
 
     private final InventoryItemRepository items;
@@ -77,7 +81,6 @@ public class InventoryBatchService {
     private final BinderService binders;
     private final ListingReconciler reconciler;
     private final CatalogService catalog;
-    private final GameService games;
     private final FreshnessEventLog freshnessEvents;
     private final Limits limits;
     private final TimeProvider timeProvider;
@@ -89,7 +92,6 @@ public class InventoryBatchService {
             BinderService binders,
             ListingReconciler reconciler,
             CatalogService catalog,
-            GameService games,
             FreshnessEventLog freshnessEvents,
             Limits limits,
             TimeProvider timeProvider,
@@ -99,7 +101,6 @@ public class InventoryBatchService {
         this.binders = binders;
         this.reconciler = reconciler;
         this.catalog = catalog;
-        this.games = games;
         this.freshnessEvents = freshnessEvents;
         this.limits = limits;
         this.timeProvider = timeProvider;
@@ -215,7 +216,7 @@ public class InventoryBatchService {
                     new Planned(
                             new Key(
                                     printing.id(),
-                                    defaultCondition(printing.game()),
+                                    PHONE_CONDITION,
                                     printing.language(),
                                     printing.edition(),
                                     printing.finish()),
@@ -225,22 +226,6 @@ public class InventoryBatchService {
             throw ApiException.validation("Validation failed", errors);
         }
         return planned;
-    }
-
-    /**
-     * The condition of a card added on the phone today: the game's NEAR_MINT, else its first
-     * condition ({@code newItemDefaults} of the phone's item form). Stage R2 makes it "not stated".
-     */
-    private String defaultCondition(String gameSlug) {
-        List<String> conditions =
-                games.find(gameSlug)
-                        .map(GameView::schema)
-                        .map(GameSchema::conditions)
-                        .orElse(List.of());
-        if (conditions.isEmpty() || conditions.contains(InventoryService.DEFAULT_CONDITION)) {
-            return InventoryService.DEFAULT_CONDITION;
-        }
-        return conditions.get(0);
     }
 
     /** The transaction: locks, limit, writes, confirmation, reconciliation. */

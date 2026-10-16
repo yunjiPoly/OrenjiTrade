@@ -28,7 +28,7 @@ export interface GetUserRequestParams {
 export interface ListUsersRequestParams {
     query?: string;
     status?: 'ACTIVE' | 'SUSPENDED' | 'DELETION_REQUESTED' | 'DELETED';
-    role?: 'USER' | 'PREMIUM_USER' | 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN';
+    role?: 'USER' | 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN';
     page?: number;
     size?: number;
 }

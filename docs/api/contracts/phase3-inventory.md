@@ -3,6 +3,11 @@
 > **ADR 0017 (2026-10-08):** binder owners carry a `place` (state or province and country)
 > instead of `location: {publicLabel, distanceBucket}`; see
 > [s1-regions-location.md](s1-regions-location.md).
+>
+> **Stage R2 of the phone redesign (2026-10-14):** `asking_price_text`, a `condition` that may
+> be not stated (`conditionStated`), `sort=created`, `PATCH … confirm`, and the undo of a delete
+> (`POST /inventory/items/{id}/restore` within 10 minutes; photos kept until then); see
+> [r2-inventory-phone.md](r2-inventory-phone.md).
 
 All under `/api/v1`. Owner-only unless stated. Effective public visibility is computed server
 side: item visible ⇔ item.visibility ∈ {PUBLIC, TEMPORARILY_PUBLIC(not expired)} ∧ binder
@@ -37,6 +42,8 @@ ACTIVE 0–14, AGING 15–30, STALE 31–45, HIDDEN 46+ days since `confirmed_at
 `InventoryItemResponse` = `{ id, printing: PrintingSummary, card: {id, name, game}, binder: {id, name}|null, quantity, condition, language, edition, finish, askingPrice, currency, availability, acceptsOffers, notes, publicNotes, visibility, publicUntil, effectivePublic: bool, freshness: { state, confirmedAt, updatedAt, label: "Updated 3 hours ago" }, images: [], createdAt, updatedAt }`
 
 ## Endpoints — binders
+
+> **Stage R3 (2026-10-15):** deck cores (`sellsAsCore`, the price as typed, photos with `POST` / `DELETE /binders/{id}/images`, key cards, `confirm` on `PATCH`) and the rule that a public deck core shows without cards: [r3-binders-deck-cores.md](r3-binders-deck-cores.md).
 
 - `GET /binders` (mine) → `[BinderResponse]`; `POST /binders` `{ name, description, kind, visibility, publicUntil }`; `GET|PATCH|DELETE /binders/{id}` (delete moves items to no binder unless `?deleteItems=true`)
 - `POST /binders/{id}/publish` body `{ "mode": "PUBLIC|ONE_HOUR|ONE_DAY|UNTIL_DISABLED" }` → sets visibility/public_until; `POST /binders/{id}/unpublish`; `POST /binders/{id}/confirm`
