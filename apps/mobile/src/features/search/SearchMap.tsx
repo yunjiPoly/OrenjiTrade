@@ -85,7 +85,10 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
   );
 
   const field = (
-    <View onLayout={(event) => setFieldHeight(event.nativeEvent.layout.height)}>
+    <View
+      onLayout={(event) => setFieldHeight(event.nativeEvent.layout.height)}
+      testID="search-field-frame"
+    >
       <SearchFieldButton onPress={onType} />
     </View>
   );

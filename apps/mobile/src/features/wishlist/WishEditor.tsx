@@ -147,7 +147,9 @@ export function WishEditor(props: WishEditorProps) {
       leave();
     } catch (error) {
       setRemoving(false);
-      setMessage(isApiError(error) ? wishSaveError(error as ApiError).message : 'Please try again.');
+      setMessage(
+        isApiError(error) ? wishSaveError(error as ApiError).message : 'Please try again.'
+      );
     }
   };
 

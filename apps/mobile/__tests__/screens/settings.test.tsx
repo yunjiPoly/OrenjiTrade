@@ -7,6 +7,7 @@ import SettingsScreen from '@/app/settings/index';
 import LocationSettingsScreen from '@/app/settings/location';
 import NotificationSettingsScreen from '@/app/settings/notifications';
 import PrivacySettingsScreen from '@/app/settings/privacy';
+import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import ProfileSettingsScreen from '@/app/settings/profile';
 import { savedDetailKey } from '@/src/features/shipping/savedDetails';
 import { useAppStore } from '@/src/store/useAppStore';
@@ -277,6 +278,24 @@ describe('Settings → Privacy', () => {
   });
 });
 
+describe('Settings → Privacy › Remember my searches (stage R5)', () => {
+  it('is on by default; off clears the recent searches of this phone and stops them', async () => {
+    useRecentSearchesStore.setState({ byUser: { 'uid-maika': ['ash'] }, forgetting: {} });
+    const api = mockApi(signedInRoutes());
+    renderWithProviders(<PrivacySettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    const remember = await screen.findByRole('switch', { name: 'Remember my searches' });
+    expect(remember).toBeChecked();
+    fireEvent.press(remember);
+    expect(screen.getByRole('switch', { name: 'Remember my searches' })).not.toBeChecked();
+    expect(useRecentSearchesStore.getState().byUser['uid-maika']).toBeUndefined();
+    expect(useRecentSearchesStore.getState().forgetting['uid-maika']).toBe(true);
+    // A setting of this phone only: nothing is sent to the server.
+    expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
+    fireEvent.press(screen.getByRole('switch', { name: 'Remember my searches' }));
+    expect(useRecentSearchesStore.getState().forgetting['uid-maika']).toBeUndefined();
+  });
+});
+
 describe('Settings → Notifications', () => {
   it('saves channel and topic preferences', async () => {
     const api = mockApi(
@@ -308,6 +327,8 @@ describe('Settings → Notifications', () => {
       typeof notificationsFixture
     >;
     expect(body.emailEnabled).toBe(false);
+    // The wishlist alerts switch reaches the server too (it did not before stage R5).
+    expect(body.wishlistAlerts).toBe(true);
     expect(body.categories.MESSAGE).toEqual({ inApp: true, push: true, email: true });
     // Offers and trades left the phone (ADR 0018): no row under any label, and the stored
     // values go back unchanged.

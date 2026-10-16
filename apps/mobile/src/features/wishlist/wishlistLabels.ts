@@ -212,5 +212,7 @@ export function nearCapNotice(usage: { used: number; limit: number | null } | nu
   if (usage.used >= usage.limit) {
     return `${usage.used} of ${usage.limit} wishes. Remove one to add another.`;
   }
-  return usage.used >= Math.ceil(usage.limit * 0.8) ? `${usage.used} of ${usage.limit} wishes` : null;
+  return usage.used >= Math.ceil(usage.limit * 0.8)
+    ? `${usage.used} of ${usage.limit} wishes`
+    : null;
 }

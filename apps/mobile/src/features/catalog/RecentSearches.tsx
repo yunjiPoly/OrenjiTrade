@@ -67,7 +67,10 @@ export function RecentSearches({ uid, onPick }: RecentSearchesProps) {
               ]}
             >
               <MaterialCommunityIcons name="history" size={18} color={palette.textMuted} />
-              <Text style={[textStyle('md'), styles.grow, { color: palette.ink }]} numberOfLines={1}>
+              <Text
+                style={[textStyle('md'), styles.grow, { color: palette.ink }]}
+                numberOfLines={1}
+              >
                 {query}
               </Text>
             </Pressable>

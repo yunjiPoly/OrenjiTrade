@@ -18,22 +18,28 @@ export interface PrintingOption {
 export function printingOptions(printings: readonly PrintingSummary[]): PrintingOption[] {
   const base = (printing: PrintingSummary) =>
     CARD_PAGE_COPY.printingLine(printingCode(printing), printing.rarity);
-  const seen = new Map<string, number>();
+  const twins = new Map<string, PrintingSummary[]>();
   for (const printing of printings) {
-    seen.set(base(printing), (seen.get(base(printing)) ?? 0) + 1);
+    twins.set(base(printing), [...(twins.get(base(printing)) ?? []), printing]);
   }
+  // What tells twins apart: only the attributes whose values differ among them.
+  const parts: readonly ((printing: PrintingSummary) => string | null)[] = [
+    (printing) => (printing.language ? languageName(printing.language) : null),
+    (printing) => specialEdition(printing.edition),
+    (printing) => specialFinish(printing.finish),
+  ];
   return printings
     .filter((printing): printing is PrintingSummary & { id: string } => !!printing.id)
     .map((printing) => {
       const label = base(printing);
-      if ((seen.get(label) ?? 0) < 2) {
+      const group = twins.get(label) ?? [];
+      if (group.length < 2) {
         return { id: printing.id, label };
       }
-      const extra = [
-        printing.language ? languageName(printing.language) : null,
-        specialEdition(printing.edition),
-        specialFinish(printing.finish),
-      ].filter((part) => part && part !== '—');
+      const extra = parts
+        .filter((part) => new Set(group.map(part)).size > 1)
+        .map((part) => part(printing))
+        .filter((value): value is string => !!value && value !== '—');
       return { id: printing.id, label: [label, ...extra].join(' · ') };
     });
 }

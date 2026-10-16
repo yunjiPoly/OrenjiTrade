@@ -11,7 +11,7 @@ import { useDeckCoresWithCard, useWhoHasThisCard } from '@/src/api/hooks/search'
 import { useCreateWish, useDeleteWish, useWishlist } from '@/src/api/hooks/wishlist';
 import type { CardDetail, CardHolderResult, PublicBinderSummary } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
-import { CardImage } from '@/src/components/ui/CardImage';
+import { CardDataCredit, CardImage } from '@/src/components/ui/CardImage';
 import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { ListFooter } from '@/src/components/ui/ListFooter';
@@ -20,7 +20,7 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
-import { regionPhrase } from '@/src/lib/place';
+import { regionName } from '@/src/lib/place';
 import {
   PINNED_MAX_FONT_SCALE,
   TITLE_MAX_FONT_SCALE,
@@ -58,8 +58,9 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { region, home } = useBrowsingRegion();
-  const where = regionPhrase(region, home);
+  const { region } = useBrowsingRegion();
+  // "Nobody in Americas (North) lists this card yet." (the region browsed, by its name).
+  const where = regionName(region);
   const location = useMyLocation();
   const cardId = card.id ?? null;
   const name = card.name ?? 'Card';
@@ -235,13 +236,17 @@ export function WhoHasThisCard({ card, initialPrinting }: WhoHasThisCardProps) {
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={
-          holders.data ? (
-            <ListFooter
-              loading={holders.isFetchingNextPage}
-              failed={!!holders.error && holders.hasNextPage}
-              onRetry={() => void holders.fetchNextPage()}
-            />
-          ) : null
+          <View style={styles.footer}>
+            {holders.data ? (
+              <ListFooter
+                loading={holders.isFetchingNextPage}
+                failed={!!holders.error && holders.hasNextPage}
+                onRetry={() => void holders.fetchNextPage()}
+              />
+            ) : null}
+            {/* The picture's provider and the game's owner (ADR 0015). */}
+            <CardDataCredit game={card.game} />
+          </View>
         }
         onEndReached={() => {
           if (holders.hasNextPage && !holders.isFetchingNextPage && !holders.error) {
@@ -515,6 +520,7 @@ const styles = StyleSheet.create({
   bannerLine: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], minHeight: 44 },
   group: { paddingTop: spacing[4], paddingBottom: spacing[1] },
   empty: { gap: spacing[4], alignItems: 'center', paddingVertical: spacing[6] },
+  footer: { gap: spacing[4], paddingTop: spacing[4] },
   center: { textAlign: 'center' },
   option: {
     flexDirection: 'row',

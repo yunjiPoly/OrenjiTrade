@@ -11,14 +11,16 @@ describe('iOS back button over a route group', () => {
   it('names the tab the collector comes from, never the "(tabs)" folder', () => {
     expect(groupBackTitle('(tabs)', 'profile')).toBe('Profile');
     expect(groupBackTitle('(tabs)', 'messages')).toBe('Messages');
-    expect(groupBackTitle('(tabs)', 'index')).toBe('Map');
+    // The old Map and Wishlist tabs redirect into Search (stage R5).
+    expect(groupBackTitle('(tabs)', 'index')).toBe('Search');
+    expect(groupBackTitle('(tabs)', 'wishlist')).toBe('Search');
     for (const tab of TABS) {
       expect(groupBackTitle('(tabs)', tab.name)).toBe(tab.title);
     }
   });
 
   it('uses the first screen of the group until the group has navigated', () => {
-    expect(groupBackTitle('(tabs)', undefined)).toBe('Map');
+    expect(groupBackTitle('(tabs)', undefined)).toBe('Search');
     expect(groupBackTitle('(auth)', undefined)).toBe('Sign in');
     expect(groupBackTitle('(account)', undefined)).toBe('Verify your email');
   });
@@ -35,8 +37,8 @@ describe('iOS back button over a route group', () => {
   });
 
   it('only iOS gets a title: Android and the web show no back title', () => {
-    expect(groupTitleOptions('ios', '(tabs)', 'wishlist')).toEqual({ title: 'Wishlist' });
-    expect(groupTitleOptions('android', '(tabs)', 'wishlist')).toEqual({});
+    expect(groupTitleOptions('ios', '(tabs)', 'inventory')).toEqual({ title: 'Inventory' });
+    expect(groupTitleOptions('android', '(tabs)', 'inventory')).toEqual({});
     expect(groupTitleOptions('web', '(auth)', 'sign-in')).toEqual({});
   });
 });

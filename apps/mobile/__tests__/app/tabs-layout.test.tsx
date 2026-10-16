@@ -2,13 +2,13 @@ import { Slot } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import TabLayout from '@/app/(tabs)/_layout';
-import MapScreen from '@/app/(tabs)/index';
+import MapRedirect from '@/app/(tabs)/index';
 import InventoryScreen from '@/app/(tabs)/inventory';
 import MessagesScreen from '@/app/(tabs)/messages';
 import ProfileScreen from '@/app/(tabs)/profile';
 import SearchScreen from '@/app/(tabs)/search';
-import WishlistScreen from '@/app/(tabs)/wishlist';
-import { TABS } from '@/src/navigation/tabs';
+import WishlistRedirect from '@/app/(tabs)/wishlist';
+import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { conversationFixture, conversationPage } from '../support/fixtures';
@@ -27,11 +27,11 @@ function TestRootLayout() {
 const routes = {
   _layout: TestRootLayout,
   '(tabs)/_layout': TabLayout,
-  '(tabs)/index': MapScreen,
+  '(tabs)/index': MapRedirect,
   '(tabs)/inventory': InventoryScreen,
   '(tabs)/search': SearchScreen,
   '(tabs)/messages': MessagesScreen,
-  '(tabs)/wishlist': WishlistScreen,
+  '(tabs)/wishlist': WishlistRedirect,
   '(tabs)/profile': ProfileScreen,
 };
 
@@ -41,37 +41,34 @@ describe('(tabs) layout', () => {
     mockApi(signedInRoutes());
   });
 
-  it('declares the six product tabs in order', () => {
-    expect(TABS.map((tab) => tab.title)).toEqual([
-      'Map',
-      'Inventory',
-      'Search',
-      'Messages',
-      'Wishlist',
-      'Profile',
-    ]);
+  it('declares the four product tabs of stage R5 in order (Home comes with R7)', () => {
+    expect(TABS.map((tab) => tab.title)).toEqual(['Search', 'Inventory', 'Messages', 'Profile']);
+    // The old Map and Wishlist tabs are routes that redirect into Search, not tabs.
+    expect(HIDDEN_TAB_ROUTES).toEqual(['index', 'wishlist']);
   });
 
-  it('renders all six tab buttons and the map screen first', async () => {
+  it('opens on Search, with the map, and shows exactly the four tab buttons', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    expect(await screen.findByTestId('screen-map')).toBeOnTheScreen();
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
     for (const tab of TABS) {
       expect(screen.getByLabelText(`${tab.title} tab`)).toBeOnTheScreen();
       // Stable ids for the native Maestro flows.
       expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
     }
-    // The header keeps its height at every text size (like the stack headers iOS draws): its
-    // title does not follow the system text size, or the largest sizes cut it in half.
-    const title = screen
-      .getAllByText(TABS[0]?.title ?? '')
-      .find((text) => text.props['aria-level'] === '1');
-    expect(title).toBeDefined();
-    expect(title?.props.allowFontScaling).toBe(false);
-    // The Map tab: the region map with its switcher (ADR 0017).
-    expect(await screen.findByTestId('map-title')).toHaveTextContent('Binders in Americas (North)');
-    expect(screen.getByTestId('map-region')).toBeOnTheScreen();
-    expect(screen.getByTestId('region-map')).toBeOnTheScreen();
+    expect(screen.queryByLabelText('Map tab')).toBeNull();
+    expect(screen.queryByLabelText('Wishlist tab')).toBeNull();
+    // Search draws its own title with the bell, and the map is its default view (ADR 0017).
+    expect(screen.getByTestId('search-title')).toHaveTextContent('Search');
+    expect(await screen.findByTestId('notification-bell-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
+  });
+
+  it('sends the old Wishlist tab to the Wishlist segment of Search', async () => {
+    renderRouter(routes, { initialUrl: '/wishlist' });
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('search-wishlist')).toBeOnTheScreen();
+    expect(screen.getByRole('tab', { name: /^Wishlist/ })).toBeSelected();
   });
 
   it('shows the notification bell and the unread chats on the Messages tab', async () => {
@@ -89,16 +86,16 @@ describe('(tabs) layout', () => {
       })
     );
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-map');
+    await screen.findByTestId('screen-search');
     // Unread chats, not messages (spec section 4), muted ones left out.
     expect(await screen.findByLabelText('Messages tab, 2 unread chats')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
-    expect(screen.getByTestId('notification-bell-index-badge')).toHaveTextContent('5');
+    expect(screen.getByTestId('notification-bell-search-badge')).toHaveTextContent('5');
   });
 
   it('navigates to the Profile tab', async () => {
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-map');
+    await screen.findByTestId('screen-search');
 
     fireEvent.press(screen.getByLabelText('Profile tab'));
 

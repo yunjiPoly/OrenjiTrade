@@ -264,7 +264,11 @@ export function mobileTarget(webPath: string): NotificationTarget {
       if (printing && ID.test(printing)) {
         return route(`/holders?printing=${printing}`);
       }
-      // Collectors show under the cards while a card is typed since stage R5.
+      // Search's segments (stage R5); collectors show under the cards while a card is typed.
+      const segment = params.get('segment');
+      if (segment === 'binders' || segment === 'wishlist') {
+        return route(`/search?segment=${segment}`);
+      }
       return route(params.get('tab') === 'binders' ? '/search?segment=binders' : '/search');
     }
     case 'notifications':

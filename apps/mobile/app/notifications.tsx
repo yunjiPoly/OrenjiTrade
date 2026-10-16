@@ -195,7 +195,9 @@ export default function NotificationsScreen() {
               title="No notifications yet"
               description="Add cards to your wishlist: we'll tell you when a collector of your region lists one."
               actionLabel="Open my wishlist"
-              onAction={() => router.navigate({ pathname: '/search', params: { segment: 'wishlist' } })}
+              onAction={() =>
+                router.navigate({ pathname: '/search', params: { segment: 'wishlist' } })
+              }
             />
           )
         }
