@@ -1206,6 +1206,45 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     }
   });
 
+  it('Mark as sold with several copies: one "Copies sold", capped at the largest size (F8)', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 3 })));
+      render();
+      fireEvent.press(await screen.findByTestId('pinned-mark-sold'));
+      const sheet = await screen.findByTestId('mark-sold-sheet');
+      // The row's label only: the stepper keeps "Copies sold" as its spoken name.
+      expect(within(sheet).getAllByText('Copies sold')).toHaveLength(1);
+      expect(within(sheet).getByTestId('mark-sold-quantity-label')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      const stepper = within(sheet).getByTestId('mark-sold-quantity');
+      expect(stepper.props.accessibilityLabel).toBe('Copies sold');
+      expect(within(sheet).getByTestId('mark-sold-quantity-value')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      // The tracking number's label follows as far, which keeps its field in view.
+      expect(within(sheet).getByTestId('mark-sold-tracking-label')).toHaveProp(
+        'maxFontSizeMultiplier',
+        PINNED_MAX_FONT_SCALE
+      );
+      fireEvent.press(within(sheet).getByTestId('mark-sold-quantity-increase'));
+      expect(within(sheet).getByTestId('mark-sold-quantity-value')).toHaveTextContent('2');
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+
   it('selling: "Send my e-Transfer email" only', async () => {
     mockApi(chatRoutes(subjectFixture({ ownerId: SELF_ID, copies: 1 })));
     render();

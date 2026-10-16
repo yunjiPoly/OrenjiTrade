@@ -107,10 +107,21 @@ export function MarkSoldSheet({
         </View>
 
         {!core && copies > 1 ? (
+          // One "Copies sold" (the Stepper drew a second one) that follows the text size as far as
+          // the card row does: at the largest sizes the label broke mid-word and pushed the
+          // tracking number out of view (review fix 1, F8).
           <View style={styles.stepperRow}>
-            <Text style={[styles.label, { color: palette.ink }]}>{MARK_SOLD_COPY.copiesSold}</Text>
+            <Text
+              testID="mark-sold-quantity-label"
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.label, styles.stepperLabel, { color: palette.ink }]}
+            >
+              {MARK_SOLD_COPY.copiesSold}
+            </Text>
             <Stepper
               label={MARK_SOLD_COPY.copiesSold}
+              labelVisible={false}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
               value={quantity}
               min={1}
               max={copies}
@@ -121,7 +132,11 @@ export function MarkSoldSheet({
         ) : null}
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: palette.ink }]}>
+          <Text
+            testID="mark-sold-tracking-label"
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.label, { color: palette.ink }]}
+          >
             {MARK_SOLD_COPY.trackingLabel}{' '}
             <Text style={[styles.optional, { color: palette.textMuted }]}>
               · {MARK_SOLD_COPY.optional}
@@ -235,6 +250,7 @@ const styles = StyleSheet.create({
     gap: spacing[3],
     flexWrap: 'wrap',
   },
+  stepperLabel: { flexShrink: 1 },
   field: { gap: 6 },
   label: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
   optional: { fontWeight: fontWeight.medium },
