@@ -739,6 +739,11 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         DECK_CORE_SALE,
         /** Stage R4: the undo of a deck core's sale. */
         DECK_CORE_SALE_UNDO,
+        /**
+         * Stage R4, review fix 1 (F4): the undo of a sale that left copies, after a later sale took
+         * the last ones (the card comes back with the older sale's copies).
+         */
+        SALE_UNDO_BEFORE_LATER_SALE,
         OWNER_RECONCILIATION,
         ITEM_PURGE,
         BINDER_PURGE,
@@ -791,7 +796,12 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         // the sale an undo takes back, made before the owner lock is held.
         @Nullable String chatId = null;
         @Nullable String saleId = null;
-        if (write == OwnerWrite.SALE
+        if (write == OwnerWrite.SALE_UNDO_BEFORE_LATER_SALE) {
+            callJson(HttpMethod.PATCH, ITEMS + "/" + filed, uid, Map.of("quantity", 2), 200);
+            chatId = chatOfOwnerAbout(uid, filed, null);
+            saleId = markSold(uid, chatId);
+            markSold(uid, chatOfOwnerAbout(uid, filed, null));
+        } else if (write == OwnerWrite.SALE
                 || write == OwnerWrite.SALE_UNDO
                 || write == OwnerWrite.DECK_CORE_SALE
                 || write == OwnerWrite.DECK_CORE_SALE_UNDO) {
@@ -982,7 +992,11 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 binderService.deletePhoto(ownerId, uuid(binderId), photoId);
             }
             // Stage R4: run by everyWriteStartsWithTheOwnerLock through the chat (see there).
-            case SALE, SALE_UNDO, DECK_CORE_SALE, DECK_CORE_SALE_UNDO ->
+            case SALE,
+                    SALE_UNDO,
+                    DECK_CORE_SALE,
+                    DECK_CORE_SALE_UNDO,
+                    SALE_UNDO_BEFORE_LATER_SALE ->
                     throw new IllegalStateException(write + " runs through the chat");
             case OWNER_RECONCILIATION -> reconciler.owner(ownerId);
             case ITEM_PURGE -> inventoryService.purge(ownerId);

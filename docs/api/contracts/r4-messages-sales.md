@@ -124,7 +124,10 @@ cascade; `ck_sale_parties`), `kind` (`CARD`, `DECK_CORE`), `inventory_item_id` /
     `SALE_ALREADY_RATED`). A repeated undo answers the undone sale.
   - It puts back exactly what the sale took: copies left after the sale get the sold ones back; a
     card that left comes back with its copies, binder, visibility, price, note and photos; a deck
-    core loses `sold_at` and its cards come back into it. 409 `SALE_UNDO_CLOSED` when that cannot
+    core loses `sold_at` and its cards come back into it. When a later sale of the card took its
+    last copies since, the card comes back with this sale's copies and the later sale is marked as
+    not having taken the last copies, so its own undo adds its copies back (review fix 1, F4;
+    the copies went into the deleted card before). 409 `SALE_UNDO_CLOSED` when that cannot
     be done (the card's binder was deleted since): nothing is undone then. It removes the `SALE`
     interaction, withdraws the SYSTEM message (`deleted_at`; its copy, `sale.undone: true`, is
     pushed to both so their phones drop it; the chat's last message goes back to the newest one

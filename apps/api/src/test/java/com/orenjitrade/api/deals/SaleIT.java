@@ -251,6 +251,34 @@ class SaleIT extends AbstractDealsIT {
         assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(4);
     }
 
+    /**
+     * Review fix 1, F4: an older sale that left copies is undone after a later sale (another chat)
+     * took the last ones: its copy comes back into the inventory at once, and the later sale's undo
+     * adds its own copies back.
+     */
+    @Test
+    void undoingAnOlderSaleAfterALaterOneTookTheLastCopiesBringsItsCopyBack() {
+        Collector seller = collector("r4-order-seller");
+        Collector first = collector("r4-order-first");
+        Collector second = collector("r4-order-second");
+        String itemId = card(seller, 3, "PUBLIC", "$9");
+        String chatA = chatAbout(first, seller, itemId);
+        String chatB = chatAbout(second, seller, itemId);
+        String older = markSold(seller, chatA, 1, null, 201).path("id").asString();
+        JsonNode later = markSold(seller, chatB, 2, null, 201);
+        assertThat(later.path("removed").asBoolean()).isTrue();
+        item(seller, itemId, 404);
+
+        undo(seller, older, 200);
+        JsonNode back = item(seller, itemId, 200);
+        assertThat(back.path("quantity").asInt()).isEqualTo(1);
+        assertThat(back.path("visibility").asString()).isEqualTo("PUBLIC");
+        assertThat(back.path("askingPriceText").asString()).isEqualTo("$9");
+
+        undo(seller, later.path("id").asString(), 200);
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(3);
+    }
+
     @Test
     void onlyTheSellerOfTheChatsSubjectMarksItSold() {
         Collector seller = collector("r4-only-seller");

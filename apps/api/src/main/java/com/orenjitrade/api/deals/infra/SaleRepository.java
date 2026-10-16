@@ -76,6 +76,33 @@ public class SaleRepository {
                 .optional();
     }
 
+    /**
+     * The newest live sale of the same card, made after {@code after}, that took its last copies
+     * (review fix 1, F4: the undo of an older sale that left copies), locked {@code FOR UPDATE};
+     * the caller holds the seller's owner lock, as every write of these rows.
+     */
+    public Optional<SaleRow> lockLaterRemoval(UUID itemId, Instant after, UUID excludedId) {
+        return jdbc.sql(
+                        "SELECT "
+                                + COLUMNS
+                                + " FROM sale WHERE inventory_item_id = :itemId AND id <> :id"
+                                + " AND undone_at IS NULL AND item_removed AND created_at >="
+                                + " :after ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE")
+                .param("itemId", itemId)
+                .param("id", excludedId)
+                .param("after", Timestamp.from(after))
+                .query(SaleRepository::map)
+                .optional();
+    }
+
+    /**
+     * The sale no longer took the card's last copies: an older sale's undo brought the card back
+     * with its own copies, so this sale's undo adds its copies back instead of restoring the card.
+     */
+    public void keepItem(UUID id) {
+        jdbc.sql("UPDATE sale SET item_removed = false WHERE id = :id").param("id", id).update();
+    }
+
     public void markUndone(UUID id, Instant now) {
         jdbc.sql("UPDATE sale SET undone_at = :now WHERE id = :id AND undone_at IS NULL")
                 .param("id", id)

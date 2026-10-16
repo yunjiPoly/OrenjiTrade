@@ -280,11 +280,25 @@ public class SaleService {
         }
         Undo undone;
         if (SubjectKind.CARD.name().equals(sale.kind())) {
-            undone =
-                    sale.itemId() == null
-                            ? Undo.GONE
-                            : inventorySales.unsellCopies(
-                                    me, sale.itemId(), sale.quantity(), sale.itemRemoved());
+            if (sale.itemId() == null) {
+                undone = Undo.GONE;
+            } else {
+                // A later sale of the card may have taken its last copies since (F4).
+                java.util.Optional<SaleRow> later =
+                        sale.itemRemoved()
+                                ? java.util.Optional.empty()
+                                : sales.lockLaterRemoval(sale.itemId(), sale.createdAt(), saleId);
+                undone =
+                        inventorySales.unsellCopies(
+                                me,
+                                sale.itemId(),
+                                sale.quantity(),
+                                sale.itemRemoved(),
+                                later.isPresent());
+                if (undone == Undo.RESTORED_BEFORE_LATER_SALE) {
+                    sales.keepItem(later.orElseThrow().id());
+                }
+            }
         } else {
             undone =
                     sale.binderId() == null

@@ -171,6 +171,19 @@ public class InventorySales {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public Undo unsellCopies(UUID ownerId, UUID itemId, int quantity, boolean removed) {
+        return unsellCopies(ownerId, itemId, quantity, removed, false);
+    }
+
+    /**
+     * {@link #unsellCopies(UUID, UUID, int, boolean)}, knowing whether a later sale of the card
+     * took its last copies since ({@code laterSaleRemoved}, review fix 1, F4): the card that sale
+     * took out comes back with this sale's copies only ({@link Undo#RESTORED_BEFORE_LATER_SALE}:
+     * the caller marks the later sale so that its own undo adds its copies back). Without that, the
+     * copies went into the deleted row and stayed out of the inventory.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Undo unsellCopies(
+            UUID ownerId, UUID itemId, int quantity, boolean removed, boolean laterSaleRemoved) {
         // The lock order of the restore of a deleted item: the owner, the binder it still names,
         // then the item.
         binders.lockOwners(List.of(ownerId));
@@ -199,6 +212,19 @@ public class InventorySales {
             if (deleteState.binderId() != null) {
                 reconciler.binders(List.of(deleteState.binderId()));
             }
+        } else if (laterSaleRemoved && state.get().deletedAt() != null) {
+            DeleteState deleteState = state.get();
+            if (deleteState.restorableUntil() == null
+                    || !deleteState.restorableUntil().isAfter(now)) {
+                return Undo.GONE;
+            }
+            items.restoreWithQuantity(itemId, quantity, now);
+            if (deleteState.binderId() != null) {
+                reconciler.binders(List.of(deleteState.binderId()));
+            }
+            reconciler.items(List.of(itemId));
+            log.info("Card sale undone before a later sale owner={} item={}", ownerId, itemId);
+            return Undo.RESTORED_BEFORE_LATER_SALE;
         } else {
             items.addCopiesBack(itemId, quantity, now);
         }
@@ -303,6 +329,11 @@ public class InventorySales {
     public enum Undo {
         /** What the sale took is back. */
         RESTORED,
+        /**
+         * The card a later sale took out came back with this sale's copies: that later sale no
+         * longer took the last copies (its undo adds its own back).
+         */
+        RESTORED_BEFORE_LATER_SALE,
         /** The card was already back (its owner restored it from the inventory). */
         ALREADY_BACK,
         /** It cannot come back: its binder was deleted since, or the account purged it. */

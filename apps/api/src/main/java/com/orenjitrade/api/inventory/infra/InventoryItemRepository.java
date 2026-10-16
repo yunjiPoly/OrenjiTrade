@@ -844,6 +844,24 @@ public class InventoryItemRepository {
                 .optional();
     }
 
+    /**
+     * Brings a soft-deleted item back with {@code quantity} copies (the undo of an older sale of
+     * the card after a later sale took its last copies, review fix 1, F4).
+     */
+    public void restoreWithQuantity(UUID id, int quantity, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET deleted_at = NULL, restorable_until = NULL,
+                               quantity = :quantity, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NOT NULL
+                        """)
+                .param("id", id)
+                .param("quantity", quantity)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
     /** Brings a soft-deleted item back (restore); the binder count trigger counts it again. */
     public void restore(UUID id, Instant now) {
         jdbc.sql(
