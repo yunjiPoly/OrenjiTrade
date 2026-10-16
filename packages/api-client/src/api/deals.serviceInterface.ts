@@ -35,7 +35,7 @@ export interface DealsServiceInterface {
 
     /**
      * Mark the chat\&#39;s card or deck core as sold to the other collector
-     * The seller only: the chat\&#39;s subject must be the caller\&#39;s (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:&lt;id&gt;:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 400 for copies below 1 or above those held and a malformed tracking number; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
+     * The seller only: the chat\&#39;s subject must be the caller\&#39;s (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:&lt;id&gt;:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 409 SUBJECT_CHANGED when subjectItemId or subjectBinderId (what the seller\&#39;s chat shows) is no longer the chat\&#39;s subject; 400 for copies below 1 or above those held, a malformed tracking number and both subjects at once; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
      * @endpoint post /api/v1/conversations/{id}/sales
 * @param requestParameters
      */

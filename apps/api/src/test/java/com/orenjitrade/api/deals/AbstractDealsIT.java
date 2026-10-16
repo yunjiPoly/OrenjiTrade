@@ -179,6 +179,35 @@ abstract class AbstractDealsIT extends AbstractIntegrationTest {
                 expectedStatus);
     }
 
+    /**
+     * {@code POST /conversations/{id}/sales} naming the card or deck core the seller's chat shows
+     * (as the phone does since review fix 1).
+     */
+    JsonNode markSoldShown(
+            Collector caller,
+            String conversationId,
+            @Nullable Integer quantity,
+            @Nullable String shownItemId,
+            @Nullable String shownBinderId,
+            int expectedStatus) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (quantity != null) {
+            body.put("quantity", quantity);
+        }
+        if (shownItemId != null) {
+            body.put("subjectItemId", shownItemId);
+        }
+        if (shownBinderId != null) {
+            body.put("subjectBinderId", shownBinderId);
+        }
+        return callJson(
+                HttpMethod.POST,
+                CONVERSATIONS + "/" + conversationId + "/sales",
+                caller.uid(),
+                body,
+                expectedStatus);
+    }
+
     JsonNode undo(Collector caller, String saleId, int expectedStatus) {
         return callJson(
                 HttpMethod.POST,

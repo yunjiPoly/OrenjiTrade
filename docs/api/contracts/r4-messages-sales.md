@@ -36,9 +36,16 @@ default 8: the latest wins).
   **public** (a buyer opening it from a listing; for a deck core: `sellsAsCore`, unsold and
   effectively public), or the **caller's own** and still there. 404 for a private, deleted or sold
   subject (nothing is created), 400 for both at once, for a third collector's card and for a binder
-  that is not a deck core. Pinning the subject the chat already has changes nothing (its time and
-  who pinned it stay). Without a subject, the chat keeps its pinned card ("Message {handle}" on a
-  profile). Blocks and the messaging permission work as before (403 `MESSAGING_BLOCKED`).
+  that is not a deck core. Pinning the subject the chat already has pins it again (review fix 1,
+  F5 and F6): its time and who pinned it become this pin's, so an earlier sale of it no longer
+  shows "Sold" (the seller can record a sale of the copies left) and a card its owner shares is
+  listed for the other collector. Without a subject, the chat keeps its pinned card ("Message
+  {handle}" on a profile). Blocks and the messaging permission work as before (403
+  `MESSAGING_BLOCKED`).
+- Every pin (here, or a `CARD_LINK` with `inventoryItemId`) is pushed to both collectors on the new
+  realtime queue **`/user/queue/conversations`** `{conversationId}` (review fix 1, F1): their
+  clients read the conversation again, so a pinned bar follows a pin the other collector made
+  without writing. Nothing else rides on it.
 - `GET /conversations/{id}` (new): one conversation of the caller, as in the list, with its
   subject. 404 for non-participants and conversations hidden by a block.
 - `ConversationSummary` (the list, `POST`, `PATCH`, `GET /{id}`) gains `subject`
@@ -84,12 +91,17 @@ cascade; `ck_sale_parties`), `kind` (`CARD`, `DECK_CORE`), `inventory_item_id` /
 `tracking_number` (≤ 64, trimmed; the two collectors only), `item_removed` (the last copy left),
 `removed_item_ids uuid[]` (a deck core's cards that left with it), `created_at`, `undone_at`.
 
-- `POST /conversations/{id}/sales` `{ quantity?, trackingNumber? }` → **201** `SaleResponse
+- `POST /conversations/{id}/sales` `{ quantity?, trackingNumber?, subjectItemId?, subjectBinderId? }` → **201** `SaleResponse
   {id, conversationId, kind, itemId, binderId, sellerId, buyerId, name, quantity, trackingNumber,
   remaining, removed, createdAt, undoableUntil, undoneAt}`.
   - **The seller only**: the chat's subject must be the caller's (403 `FORBIDDEN`); 409
     `CONFLICT` for a chat without a subject; 404 for non-participants and chats hidden by a block;
     403 `MESSAGING_BLOCKED` when the buyer cannot take part (suspended, deleted).
+  - `subjectItemId` / `subjectBinderId` (optional, at most one; review fix 1, F1): the card or deck
+    core the seller's chat shows. 409 **`SUBJECT_CHANGED`** when it is no longer the chat's subject
+    (the buyer pinned another listing since the seller looked; checked before the copies, as the
+    card shown may hold more copies than a deck core sells), and nothing is sold. The phone always
+    sends it; a client that names nothing (the paused web) sells the chat's current subject.
   - `quantity`: 1 by default, at most the copies held (400 otherwise); a deck core sells as one
     (400 for another number). `trackingNumber`: letters, digits, spaces, dots and dashes, starting
     with a letter or a digit, at most 64 once trimmed (inner spaces collapsed); 400 otherwise.
@@ -133,7 +145,8 @@ cascade; `ck_sale_parties`), `kind` (`CARD`, `DECK_CORE`), `inventory_item_id` /
 
 ## Error codes (new)
 
-`NOTHING_LEFT_TO_SELL` (409), `SALE_UNDO_CLOSED` (409), `SALE_ALREADY_RATED` (409).
+`NOTHING_LEFT_TO_SELL` (409), `SALE_UNDO_CLOSED` (409), `SALE_ALREADY_RATED` (409),
+`SUBJECT_CHANGED` (409, review fix 1).
 
 ## Locks
 

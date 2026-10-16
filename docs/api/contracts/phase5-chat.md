@@ -38,7 +38,9 @@ STOMP over WebSocket at `/ws` (SockJS fallback off; native WS). Handshake auth: 
 header or `?access_token=` (ID token) validated by the same `IdentityTokenVerifier`.
 Subscriptions (server-enforced ownership): `/user/queue/messages` (new MessageResponse +
 conversationId), `/user/queue/receipts` (`{conversationId, userId, lastReadMessageId}`),
-`/user/queue/notifications` (Phase 6), `/user/queue/presence`. Client sends `/app/typing`
+`/user/queue/notifications` (Phase 6), `/user/queue/presence`, `/user/queue/conversations`
+(stage R4: `{conversationId}` when the chat's card or deck core was pinned, see
+[r4-messages-sales.md](r4-messages-sales.md)). Client sends `/app/typing`
 `{conversationId}` → other participant receives `/user/queue/typing`. Cross-instance fan-out:
 `RealtimePublisher` publishes to Redis channel `rt:user:{userId}`; every instance subscribes
 and forwards to local sessions. Presence: Redis key `presence:{userId}` TTL 60 s refreshed by

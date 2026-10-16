@@ -161,6 +161,84 @@ class SaleIT extends AbstractDealsIT {
         assertThat(saleMessages(buyer, chatId)).hasSize(1);
     }
 
+    /**
+     * Review fix 1, F1: the buyer pins another of the seller's listings between the seller's look
+     * at the chat and the seller's Mark as sold. The sale names what the seller saw, so nothing is
+     * sold until the seller looks again; a client that names nothing (the paused web) sells the
+     * chat's subject as before.
+     */
+    @Test
+    void aSaleOfTheCardTheSellerSawIsRefusedOnceTheBuyerPinnedAnother() {
+        Collector seller = collector("r4-repin-seller");
+        Collector buyer = collector("r4-repin-buyer");
+        String itemId = card(seller, 3, "PUBLIC", "85% TCG");
+        String coreId = deckCore(seller, "Lantern core", "$150");
+        String chatId = chatAbout(buyer, seller, itemId);
+        JsonNode seen = conversation(seller, chatId, 200).path("subject");
+        assertThat(seen.path("id").asString()).isEqualTo(itemId);
+        assertThat(seen.path("copies").asInt()).isEqualTo(3);
+
+        // The buyer opens the seller's deck core without writing.
+        startAbout(buyer, seller, null, coreId, 200);
+        JsonNode refused = markSoldShown(seller, chatId, 2, itemId, null, 409);
+        assertThat(refused.path("errorCode").asString()).isEqualTo("SUBJECT_CHANGED");
+        // Nothing was sold: the card keeps its copies, the core stays on offer, no sale, no
+        // message, no notification.
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(3);
+        JsonNode core = callJson(HttpMethod.GET, BINDERS + "/" + coreId, seller.uid(), null, 200);
+        assertThat(core.path("soldAt").isNull()).isTrue();
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM sale WHERE conversation_id = ?",
+                                UUID.fromString(chatId)))
+                .isZero();
+        assertThat(saleMessages(buyer, chatId)).isEmpty();
+        assertThat(notifications(buyer, "SALE_RECORDED")).isEmpty();
+
+        // Both at once is a mistake; a chat the seller saw about nothing has changed too.
+        markSoldShown(seller, chatId, 1, itemId, coreId, 400);
+
+        // The seller looks again and sells what the chat is about now.
+        JsonNode now = conversation(seller, chatId, 200).path("subject");
+        assertThat(now.path("kind").asString()).isEqualTo("DECK_CORE");
+        JsonNode sale = markSoldShown(seller, chatId, null, null, coreId, 201);
+        assertThat(sale.path("kind").asString()).isEqualTo("DECK_CORE");
+        assertThat(sale.path("binderId").asString()).isEqualTo(coreId);
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(3);
+
+        // The buyer goes back to the card: the core's sale does not make the card "Sold", and a
+        // sale naming the core now is refused in turn.
+        startAbout(buyer, seller, itemId, null, 200);
+        assertThat(conversation(seller, chatId, 200).path("subject").path("sold").asBoolean())
+                .isFalse();
+        assertThat(
+                        markSoldShown(seller, chatId, null, null, coreId, 409)
+                                .path("errorCode")
+                                .asString())
+                .isEqualTo("SUBJECT_CHANGED");
+        markSoldShown(seller, chatId, 1, itemId, null, 201);
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(2);
+    }
+
+    @Test
+    void aSaleNamingASubjectInAChatAboutNothingIsRefused() {
+        Collector seller = collector("r4-nosubject-seller");
+        Collector buyer = collector("r4-nosubject-buyer");
+        String itemId = card(seller, 1, "PUBLIC", "$4");
+        String plain =
+                callJson(
+                                HttpMethod.POST,
+                                CONVERSATIONS,
+                                buyer.uid(),
+                                Map.of("recipientId", seller.id().toString()),
+                                201)
+                        .path("id")
+                        .asString();
+        assertThat(markSoldShown(seller, plain, 1, itemId, null, 409).path("errorCode").asString())
+                .isEqualTo("SUBJECT_CHANGED");
+        assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(1);
+    }
+
     @Test
     void theUndoPutsBackSoldCopiesOfACardThatKeptSome() {
         Collector seller = collector("r4-copies-seller");

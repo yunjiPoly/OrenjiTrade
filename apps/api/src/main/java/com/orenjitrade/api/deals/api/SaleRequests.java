@@ -2,6 +2,7 @@ package com.orenjitrade.api.deals.api;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /** Request bodies of the deals endpoints (stage R4). */
@@ -26,5 +27,17 @@ public final class SaleRequests {
                                             + " collectors only",
                             maxLength = 64)
                     @Size(max = 200)
-                    @Nullable String trackingNumber) {}
+                    @Nullable String trackingNumber,
+            @Schema(
+                            description =
+                                    "The card the seller's chat shows (optional; the phone sends"
+                                        + " it): 409 SUBJECT_CHANGED when it is no longer what the"
+                                        + " chat is about")
+                    @Nullable UUID subjectItemId,
+            @Schema(
+                            description =
+                                    "The deck core the seller's chat shows (optional, not with"
+                                            + " subjectItemId): 409 SUBJECT_CHANGED when it is no"
+                                            + " longer what the chat is about")
+                    @Nullable UUID subjectBinderId) {}
 }

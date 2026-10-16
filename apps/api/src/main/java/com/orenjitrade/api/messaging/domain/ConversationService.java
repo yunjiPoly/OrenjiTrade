@@ -17,6 +17,7 @@ import com.orenjitrade.api.inventory.domain.InventorySales;
 import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.location.domain.LocationService;
 import com.orenjitrade.api.location.domain.PublicPlace;
+import com.orenjitrade.api.messaging.domain.RealtimeNotices.ConversationChanged;
 import com.orenjitrade.api.messaging.domain.RealtimeNotices.ReadReceipt;
 import com.orenjitrade.api.messaging.events.MessageRead;
 import com.orenjitrade.api.messaging.events.MessageSent;
@@ -244,6 +245,7 @@ public class ConversationService {
             if (pinning) {
                 conversations.setSubject(
                         existing.get(), subjectItemId, subjectBinderId, me, subjectTime());
+                publishSubjectChanged(existing.get(), me, recipientId);
             }
             return new Started(requireSummary(existing.get(), me), false);
         }
@@ -263,6 +265,7 @@ public class ConversationService {
         if (pinning) {
             conversations.setSubject(
                     created.conversationId(), subjectItemId, subjectBinderId, me, subjectTime());
+            publishSubjectChanged(created.conversationId(), me, recipientId);
         }
         return new Started(requireSummary(created.conversationId(), me), created.created());
     }
@@ -487,6 +490,9 @@ public class ConversationService {
                     realtime.publish(otherId, RealtimeDestinations.MESSAGES, view);
                     realtime.publish(me, RealtimeDestinations.MESSAGES, view);
                 });
+        if (pinItem != null) {
+            publishSubjectChanged(conversationId, me, otherId);
+        }
         log.debug(
                 "Message {} sent in conversation {} kind={}",
                 messageId,
@@ -1185,6 +1191,20 @@ public class ConversationService {
             throw invalid("inventoryItemId", "Only your own cards can be shared this way");
         }
         return card;
+    }
+
+    /**
+     * Tells both collectors, once the transaction commits, that the chat's card or deck core was
+     * pinned (again): their phones read the conversation again, so the seller's pinned bar and its
+     * Mark as sold follow a pin made by the other collector (stage R4).
+     */
+    private void publishSubjectChanged(UUID conversationId, UUID me, UUID otherId) {
+        ConversationChanged notice = new ConversationChanged(conversationId);
+        afterCommit(
+                () -> {
+                    realtime.publish(otherId, RealtimeDestinations.CONVERSATIONS, notice);
+                    realtime.publish(me, RealtimeDestinations.CONVERSATIONS, notice);
+                });
     }
 
     /** When a subject pinned now counts from (microseconds, as message times). */

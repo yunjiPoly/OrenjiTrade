@@ -90,30 +90,66 @@ public class SaleService {
         this.timeProvider = timeProvider;
     }
 
-    /**
-     * {@code POST /conversations/{id}/sales}. {@code 404} for non-participants and chats hidden by
-     * a block; {@code 409 CONFLICT} for a chat without a card or deck core; {@code 403 FORBIDDEN}
-     * when the subject is not the caller's; {@code 403 MESSAGING_BLOCKED} when the buyer can no
-     * longer take part; {@code 400} for copies below 1 or above those held (a deck core sells as
-     * one) and a malformed tracking number; {@code 409 NOTHING_LEFT_TO_SELL} when no copy is left.
-     */
+    /** {@code POST /conversations/{id}/sales} of a client that names no subject (the web). */
     @Transactional
     public SaleView markSold(
             UUID me,
             UUID conversationId,
             @Nullable Integer quantityRaw,
             @Nullable String trackingRaw) {
+        return markSold(me, conversationId, quantityRaw, trackingRaw, null, null);
+    }
+
+    /**
+     * {@code POST /conversations/{id}/sales}. {@code 404} for non-participants and chats hidden by
+     * a block; {@code 409 CONFLICT} for a chat without a card or deck core; {@code 409
+     * SUBJECT_CHANGED} when the card ({@code expectedItemId}) or deck core ({@code
+     * expectedBinderId}) the seller's chat shows is no longer the chat's subject (the other
+     * collector pinned another one since); {@code 403 FORBIDDEN} when the subject is not the
+     * caller's; {@code 403 MESSAGING_BLOCKED} when the buyer can no longer take part; {@code 400}
+     * for copies below 1 or above those held (a deck core sells as one), a malformed tracking
+     * number and both expected subjects at once; {@code 409 NOTHING_LEFT_TO_SELL} when no copy is
+     * left.
+     *
+     * <p>What is sold is the subject read here, which equals the expected one when it is given: a
+     * pin that lands while the sale runs changes the chat for later, never what this sale takes.
+     */
+    @Transactional
+    public SaleView markSold(
+            UUID me,
+            UUID conversationId,
+            @Nullable Integer quantityRaw,
+            @Nullable String trackingRaw,
+            @Nullable UUID expectedItemId,
+            @Nullable UUID expectedBinderId) {
         int quantity = quantityRaw == null ? 1 : quantityRaw;
         @Nullable String tracking = SaleRules.tracking(trackingRaw);
+        if (expectedItemId != null && expectedBinderId != null) {
+            throw ApiException.validation(
+                    "Validation failed",
+                    List.of(
+                            new ProblemFieldError(
+                                    "subjectBinderId", "Name a card or a deck core, not both")));
+        }
         ChatForSale chat = conversations.chatForSale(me, conversationId);
-        boolean deckCore = chat.subjectBinderId() != null;
-        List<ProblemFieldError> errors = SaleRules.validate(quantity, tracking, deckCore);
-        if (!errors.isEmpty()) {
-            throw ApiException.validation("Validation failed", errors);
+        boolean expected = expectedItemId != null || expectedBinderId != null;
+        if (expected
+                && !(java.util.Objects.equals(expectedItemId, chat.subjectItemId())
+                        && java.util.Objects.equals(expectedBinderId, chat.subjectBinderId()))) {
+            // Checked before the copies: the card shown may have more copies than the chat's
+            // current subject (a deck core sells as one).
+            throw new ApiException(
+                    ErrorCode.SUBJECT_CHANGED,
+                    "What this chat is about changed: check it before you mark it sold");
         }
         if (chat.subjectItemId() == null && chat.subjectBinderId() == null) {
             throw new ApiException(
                     ErrorCode.CONFLICT, "This chat is not about a card or a deck core yet");
+        }
+        boolean deckCore = chat.subjectBinderId() != null;
+        List<ProblemFieldError> errors = SaleRules.validate(quantity, tracking, deckCore);
+        if (!errors.isEmpty()) {
+            throw ApiException.validation("Validation failed", errors);
         }
         UUID buyerId = chat.otherId();
         Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);

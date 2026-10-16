@@ -53,9 +53,12 @@ public class SaleController {
                         + " cards); a SALE interaction lets both rate at once; a SYSTEM message"
                         + " both read (key sale:<id>:SOLD) and an in-app notification for the"
                         + " buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the"
-                        + " second of two sales of the last copy); 400 for copies below 1 or above"
-                        + " those held and a malformed tracking number; 404 for non-participants"
-                        + " and chats hidden by a block. OrenjiTrade never handles the payment.")
+                        + " second of two sales of the last copy); 409 SUBJECT_CHANGED when"
+                        + " subjectItemId or subjectBinderId (what the seller's chat shows) is no"
+                        + " longer the chat's subject; 400 for copies below 1 or above those held,"
+                        + " a malformed tracking number and both subjects at once; 404 for"
+                        + " non-participants and chats hidden by a block. OrenjiTrade never handles"
+                        + " the payment.")
     @ApiResponse(responseCode = "201", description = "The sale")
     @ApiResponse(
             responseCode = "400",
@@ -80,7 +83,9 @@ public class SaleController {
                             schema = @Schema(ref = PROBLEM_REF)))
     @ApiResponse(
             responseCode = "409",
-            description = "NOTHING_LEFT_TO_SELL, or CONFLICT for a chat without a subject",
+            description =
+                    "NOTHING_LEFT_TO_SELL, SUBJECT_CHANGED, or CONFLICT for a chat without a"
+                            + " subject",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -89,7 +94,13 @@ public class SaleController {
             @AuthenticationPrincipal AuthenticatedUser principal,
             @PathVariable UUID id,
             @Valid @RequestBody MarkSoldRequest body) {
-        return saleService.markSold(principal.userId(), id, body.quantity(), body.trackingNumber());
+        return saleService.markSold(
+                principal.userId(),
+                id,
+                body.quantity(),
+                body.trackingNumber(),
+                body.subjectItemId(),
+                body.subjectBinderId());
     }
 
     @PostMapping("/sales/{id}/undo")

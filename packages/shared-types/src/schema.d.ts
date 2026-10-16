@@ -1549,7 +1549,7 @@ export interface paths {
         put?: never;
         /**
          * Mark the chat's card or deck core as sold to the other collector
-         * @description The seller only: the chat's subject must be the caller's (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:<id>:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 400 for copies below 1 or above those held and a malformed tracking number; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
+         * @description The seller only: the chat's subject must be the caller's (403 FORBIDDEN otherwise; 409 CONFLICT for a chat without one). The copies sold leave the inventory (at 0 the card leaves it; a deck core is hidden with its cards); a SALE interaction lets both rate at once; a SYSTEM message both read (key sale:<id>:SOLD) and an in-app notification for the buyer. 409 NOTHING_LEFT_TO_SELL when no copy is left (also for the second of two sales of the last copy); 409 SUBJECT_CHANGED when subjectItemId or subjectBinderId (what the seller's chat shows) is no longer the chat's subject; 400 for copies below 1 or above those held, a malformed tracking number and both subjects at once; 404 for non-participants and chats hidden by a block. OrenjiTrade never handles the payment.
          */
         post: operations["markSold"];
         delete?: never;
@@ -7084,6 +7084,16 @@ export interface components {
             quantity?: number;
             /** @description Optional tracking number of the shipment (letters, digits, spaces, dots and dashes; trimmed); seen by the two collectors only */
             trackingNumber?: string;
+            /**
+             * Format: uuid
+             * @description The card the seller's chat shows (optional; the phone sends it): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+             */
+            subjectItemId?: string;
+            /**
+             * Format: uuid
+             * @description The deck core the seller's chat shows (optional, not with subjectItemId): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+             */
+            subjectBinderId?: string;
         };
         MarkConversationReadRequest: {
             /**
@@ -9889,7 +9899,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "SUBJECT_CHANGED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -16852,7 +16862,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description NOTHING_LEFT_TO_SELL, or CONFLICT for a chat without a subject */
+            /** @description NOTHING_LEFT_TO_SELL, SUBJECT_CHANGED, or CONFLICT for a chat without a subject */
             409: {
                 headers: {
                     [name: string]: unknown;

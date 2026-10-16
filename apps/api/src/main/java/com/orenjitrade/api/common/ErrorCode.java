@@ -60,6 +60,11 @@ public enum ErrorCode {
     SALE_UNDO_CLOSED(HttpStatus.CONFLICT, "Sale undo closed"),
     /** A sale that one of the two collectors already rated cannot be undone (stage R4). */
     SALE_ALREADY_RATED(HttpStatus.CONFLICT, "Sale already rated"),
+    /**
+     * Mark as sold named a card or deck core that is no longer what the chat is about: the other
+     * collector pinned another one since the seller looked (stage R4).
+     */
+    SUBJECT_CHANGED(HttpStatus.CONFLICT, "Subject changed"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */

@@ -6,6 +6,8 @@ import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.auth.domain.AccountStatus;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
+import com.orenjitrade.api.cards.domain.CatalogImportService;
+import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.messaging.MessagingTestSupport.Member;
 import java.lang.reflect.Type;
 import java.time.Duration;
@@ -51,6 +53,8 @@ class RealtimeIT extends AbstractMessagingIT {
     @LocalServerPort private int port;
 
     @Autowired private SimpUserRegistry userRegistry;
+
+    @Autowired private CatalogImportService importService;
 
     private WebSocketStompClient stompClient;
     private final List<StompSession> sessions = new ArrayList<>();
@@ -156,6 +160,51 @@ class RealtimeIT extends AbstractMessagingIT {
                                 .asString())
                 .isEqualTo("OFFLINE");
         assertThat(queuesB.typing()).isEmpty();
+    }
+
+    /**
+     * Stage R4, review fix 1 (F1): a pin of the chat's card by either collector reaches both on
+     * {@code /user/queue/conversations}, so the seller's pinned bar and its Mark as sold follow a
+     * card the buyer pinned without writing.
+     */
+    @Test
+    void aPinnedCardReachesBothCollectorsAsAConversationChange() throws Exception {
+        InventoryTestSupport.ensureCatalog(importService);
+        Member seller = member("rt-pin-seller");
+        Member buyer = member("rt-pin-buyer");
+        String conversationId = start(buyer, seller, 201);
+        Map<String, Object> card =
+                InventoryTestSupport.item(InventoryTestSupport.printing(testUsers, "ygo-p001a"));
+        String itemId =
+                callJson(HttpMethod.POST, "/api/v1/inventory/items", seller.uid(), card, 201)
+                        .path("id")
+                        .asString();
+
+        StompSession sessionB = connectWithQueryToken(buyer.uid()).session();
+        Queues queuesB = subscribeAll(sessionB);
+        awaitSubscribed(buyer.id(), "/user/queue/conversations");
+
+        // The seller pins their own card without a message (POST /conversations with a subject).
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/conversations",
+                seller.uid(),
+                Map.of("recipientId", buyer.id().toString(), "subjectItemId", itemId),
+                200);
+        JsonNode changed = queuesB.conversations().poll(10, TimeUnit.SECONDS);
+        assertThat(changed).as("the buyer is told what the chat is about changed").isNotNull();
+        assertThat(changed.path("conversationId").asString()).isEqualTo(conversationId);
+        // Nothing else rides on it: the client reads the conversation again.
+        assertThat(changed.properties()).hasSize(1);
+
+        // Sharing the card in a message pins it again: the change comes with the message.
+        send(seller, conversationId, Map.of("kind", "CARD_LINK", "inventoryItemId", itemId));
+        assertThat(queuesB.conversations().poll(10, TimeUnit.SECONDS)).isNotNull();
+        assertThat(queuesB.messages().poll(10, TimeUnit.SECONDS)).isNotNull();
+        // A plain message changes nothing about the subject.
+        sendText(seller, conversationId, "Still available");
+        assertThat(queuesB.messages().poll(10, TimeUnit.SECONDS)).isNotNull();
+        assertThat(queuesB.conversations().poll(500, TimeUnit.MILLISECONDS)).isNull();
     }
 
     @Test
@@ -269,6 +318,7 @@ class RealtimeIT extends AbstractMessagingIT {
         session.subscribe("/user/queue/receipts", queues.handler(queues.receipts()));
         session.subscribe("/user/queue/typing", queues.handler(queues.typing()));
         session.subscribe("/user/queue/presence", queues.handler(queues.presence()));
+        session.subscribe("/user/queue/conversations", queues.handler(queues.conversations()));
         return queues;
     }
 
@@ -314,10 +364,12 @@ class RealtimeIT extends AbstractMessagingIT {
             BlockingQueue<JsonNode> messages,
             BlockingQueue<JsonNode> receipts,
             BlockingQueue<JsonNode> typing,
-            BlockingQueue<JsonNode> presence) {
+            BlockingQueue<JsonNode> presence,
+            BlockingQueue<JsonNode> conversations) {
 
         Queues() {
             this(
+                    new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),
                     new LinkedBlockingQueue<>(),

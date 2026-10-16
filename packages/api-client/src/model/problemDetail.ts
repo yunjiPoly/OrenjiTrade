@@ -108,6 +108,7 @@ export enum ProblemDetailErrorCodeEnum {
     NothingLeftToSell = 'NOTHING_LEFT_TO_SELL',
     SaleUndoClosed = 'SALE_UNDO_CLOSED',
     SaleAlreadyRated = 'SALE_ALREADY_RATED',
+    SubjectChanged = 'SUBJECT_CHANGED',
     ReportAlreadyOpen = 'REPORT_ALREADY_OPEN',
     CannotReportSelf = 'CANNOT_REPORT_SELF',
     OffersNotAccepted = 'OFFERS_NOT_ACCEPTED',

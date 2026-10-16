@@ -18,5 +18,13 @@ export interface MarkSoldRequest {
      * Optional tracking number of the shipment (letters, digits, spaces, dots and dashes; trimmed); seen by the two collectors only
      */
     trackingNumber?: string;
+    /**
+     * The card the seller\'s chat shows (optional; the phone sends it): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+     */
+    subjectItemId?: string;
+    /**
+     * The deck core the seller\'s chat shows (optional, not with subjectItemId): 409 SUBJECT_CHANGED when it is no longer what the chat is about
+     */
+    subjectBinderId?: string;
 }
 
