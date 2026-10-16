@@ -130,6 +130,15 @@ describe('reading a camera photo', () => {
       readCardText(fake, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
     ).resolves.toEqual({ codes: ['ZR04-EN015'], names: ['Quillfeather Mage'] });
     expect(methods(fake)).toEqual(['recognizeName', 'recognizeSetCode', 'recognizeLines@0']);
+    // Its first line only starts there, the attribute icon's word lies at the right: cut too.
+    const iconAtRight = reader({
+      name: [at('THERWING MAGE', 0.0, 0.3, 0.6, 0.4, 1), at('DARK', 0.85, 0.3, 0.1, 0.4, 1)],
+      setCode: ['ZR04-EN015'],
+      whole: ['Quillfeather Mage', 'ZR04-EN015'],
+    });
+    await expect(
+      readCardText(iconAtRight, { photo: PHOTO, source: 'CAMERA', crops: CROPS })
+    ).resolves.toEqual({ codes: ['ZR04-EN015'], names: ['Quillfeather Mage'] });
   });
 
   it("takes the whole photo's names when the reader doubts every line of the Name area", async () => {

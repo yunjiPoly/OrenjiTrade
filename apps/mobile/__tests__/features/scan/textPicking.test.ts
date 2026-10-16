@@ -552,6 +552,24 @@ describe('name candidates', () => {
     ]);
   });
 
+  it('makes a text column of two anchors, running text of five words or more among them', () => {
+    const read = (text: string) => [
+      at('GLIMMERWING HERALD', 0.36, 0.0, 0.53, 0.037),
+      at('QUILLFEATHER MAGE', 0.21, 0.197, 0.41, 0.045),
+      at('[Spellcaster/Normal]', 0.198, 0.782, 0.385, 0.022),
+      at(text, 0.2, 0.804, 0.56, 0.019),
+    ];
+    // The type line and a line of five words: a column, the other card's name left out.
+    expect(nameCandidatesFromPhoto(read('A scholar who writes winds.'))).toEqual([
+      'QUILLFEATHER MAGE',
+      'A scholar who writes winds',
+    ]);
+    // Four words are no running text: one anchor, no column, every name kept.
+    expect(nameCandidatesFromPhoto(read('Scholar writes the winds.'))[0]).toBe(
+      'GLIMMERWING HERALD'
+    );
+  });
+
   it('keeps every name when the read shows no text column, or no name on it', () => {
     // One anchor (the type line) is no column.
     const noColumn = [
@@ -615,10 +633,38 @@ describe('where the code lies', () => {
     expect(band?.width).toBeCloseTo(w, 4);
     expect(band?.height).toBeCloseTo(h, 4);
   };
+  /** A trap read upright: no type line, its text column from 0.18 to 0.95. */
+  const TRAP = [
+    at('BRAMBLE SNARE', 0.2, 0.06, 0.5, 0.045),
+    at('[TRAP CARD]', 0.6, 0.13, 0.29, 0.028),
+    at('Choose 1 lantern on the field; it glows a little brighter.', 0.2, 0.72, 0.75, 0.03),
+    at('The snare closes once and then rests for a while.', 0.2, 0.75, 0.7, 0.03),
+    at('12345678 1st Edition', 0.18, 0.93, 0.27, 0.02),
+  ];
 
   it('is around a code cut short after its region, with room, centred where the whole code lies', () => {
     // The cut code: 0.72, 0.75, 0.09 x 0.013; the band 4.5 x 12 times it, centred at 0.7 of it.
     near(codeBand(CARD_BEFORE_ANOTHER, SIZE), 0.5805, 0.6785, 0.405, 0.156);
+  });
+
+  it("is around a code cut short a little outside the card's text column, the card's own", () => {
+    // The column runs from 0.178 to 0.76; a code starting up to 0.12 of its width (0.07) outside it
+    // is the card's: the band is around it, never above the type line.
+    const noFragment = CARD_BEFORE_ANOTHER.filter((line) => line.text !== 'ZR04-EN');
+    near(
+      codeBand([at('ZR04-EN', 0.8, 0.75, 0.09, 0.013), ...noFragment], SIZE),
+      0.6605,
+      0.6785,
+      0.3395,
+      0.156
+    );
+    near(
+      codeBand([at('ZR04-EN', 0.13, 0.75, 0.09, 0.013), ...noFragment], SIZE),
+      0,
+      0.6785,
+      0.3955,
+      0.156
+    );
   });
 
   it("is right above the type line, at the right of the card's text column", () => {
@@ -635,17 +681,10 @@ describe('where the code lies', () => {
   });
 
   it("is right above a spell's or trap's first line of text, which has no type line", () => {
-    const trap = [
-      at('BRAMBLE SNARE', 0.2, 0.06, 0.5, 0.045),
-      at('[TRAP CARD]', 0.6, 0.13, 0.29, 0.028),
-      at('Choose 1 lantern on the field; it glows a little brighter.', 0.2, 0.72, 0.75, 0.03),
-      at('The snare closes once and then rests for a while.', 0.2, 0.75, 0.7, 0.03),
-      at('12345678 1st Edition', 0.18, 0.93, 0.27, 0.02),
-    ];
     // The column: 0.18 to 0.95.
     // The band stops at the image's right edge.
     near(
-      codeBand(trap, SIZE),
+      codeBand(TRAP, SIZE),
       0.18 + 0.3 * 0.77,
       0.72 - 0.25 * 0.03 - 3 * 0.03,
       1 - (0.18 + 0.3 * 0.77),
@@ -666,6 +705,10 @@ describe('where the code lies', () => {
     const behind = codeBand([at('[Fairy/Effect]', 0.55, 0.04, 0.3, 0.022), ...noFragment], SIZE);
     expect(behind?.y).toBeCloseTo(0.782 - 0.25 * 0.022 - 3 * 0.022, 4);
     expect(behind?.height).toBeCloseTo(6 * 0.022, 4);
+    // A trap (no type line) before a card whose text lies at the photo's top, right of the trap's
+    // column: the band is right above the trap's own first line of text, never above that card's.
+    const text = at('The lantern on the left glows over the old road.', 0.62, 0.04, 0.3, 0.02);
+    expect(codeBand([text, ...TRAP], SIZE)).toEqual(codeBand(TRAP, SIZE));
   });
 
   it('is nowhere without those marks, or when they lie sideways, and never leaves the image', () => {
