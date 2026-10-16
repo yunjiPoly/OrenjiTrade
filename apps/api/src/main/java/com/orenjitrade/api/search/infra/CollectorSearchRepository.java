@@ -80,6 +80,17 @@ public class CollectorSearchRepository {
      * public listings do.
      */
     public DiscoveryPage discover(DiscoveryCriteria criteria, Instant now) {
+        return discover(criteria, null, now);
+    }
+
+    /**
+     * {@link #discover(DiscoveryCriteria, Instant)} as {@code viewerId} sees it: without the
+     * collectors in a block relation with the viewer, in either direction, left out in SQL before
+     * the limit and of the count (stage R5; the hardening list's "blocked collectors in the
+     * collectors section of search": dropped after the limit, they left a short page).
+     */
+    public DiscoveryPage discover(
+            DiscoveryCriteria criteria, @Nullable UUID viewerId, Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         params.put("region", criteria.region());
@@ -88,6 +99,10 @@ public class CollectorSearchRepository {
                         .append(DiscoverySql.DISCOVERABLE)
                         .append(" AND ")
                         .append(DiscoverySql.IN_REGION);
+        if (viewerId != null) {
+            where.append(DiscoverySql.notBlocked("u.id"));
+            params.put("viewer", viewerId);
+        }
         where.append(" AND (st.best_freshness IS NULL OR st.best_freshness < 2)");
         if (criteria.freshness() != null) {
             where.append(" AND st.best_freshness = :freshnessRank");
@@ -250,6 +265,73 @@ public class CollectorSearchRepository {
                         + " greatest(similarity(u.handle, :qn), similarity("
                         + display
                         + ", :qn)) DESC, u.handle LIMIT :limit";
+        JdbcClient.StatementSpec statement = jdbc.sql(sql);
+        for (Map.Entry<String, Object> param : params.entrySet()) {
+            statement = statement.param(param.getKey(), param.getValue());
+        }
+        return statement
+                .query(
+                        (rs, rowNum) ->
+                                new CollectorHit(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getString("handle"),
+                                        rs.getString("display_name"),
+                                        rs.getString("avatar_key"),
+                                        place(rs)))
+                .list();
+    }
+
+    /**
+     * The collectors of "Collectors" while a card is typed (stage R5, owner spec 2026-10-14,
+     * section 8): discoverable collectors of {@code region} who allow name search, whose handle (a
+     * leading {@code @} is ignored) or display name contains {@code query} (accent- and
+     * case-insensitive substring; no fuzzy match, so that a card name does not bring unrelated
+     * collectors), at most {@code limit}: a handle that starts with the text first, then a display
+     * name that does, then by handle. For a signed-in viewer, never the viewer, and never a
+     * collector blocked with them in either direction (left out in SQL, before the limit).
+     */
+    public List<CollectorHit> byName(
+            String query, String region, @Nullable UUID viewerId, int limit, Instant now) {
+        String text = query.trim();
+        if (text.startsWith("@")) {
+            text = text.substring(1);
+        }
+        String normalised = CatalogText.normalise(text);
+        if (normalised.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("now", Timestamp.from(now));
+        params.put("region", region);
+        String escaped = CatalogText.escapeLike(normalised);
+        params.put("qContains", "%" + escaped + "%");
+        params.put("qPrefix", escaped + "%");
+        params.put("limit", limit);
+        if (viewerId != null) {
+            params.put("viewer", viewerId);
+        }
+        String display = "lower(unaccent_immutable(COALESCE(pr.display_name, u.display_name, '')))";
+        String sql =
+                "SELECT u.id, u.handle, COALESCE(pr.display_name, NULLIF(u.display_name, ''),"
+                        + " u.handle) AS display_name, pr.avatar_key, "
+                        + DiscoverySql.PLACE_COLUMNS
+                        + " FROM user_account u JOIN privacy_settings ps ON ps.user_id = u.id"
+                        + DiscoverySql.locationJoins("u.id")
+                        + " LEFT JOIN profile pr ON pr.user_id = u.id"
+                        + " WHERE "
+                        + DiscoverySql.DISCOVERABLE
+                        + " AND "
+                        + DiscoverySql.IN_REGION
+                        + " AND ps.search_discoverable AND (u.handle LIKE :qContains ESCAPE '\\'"
+                        + " OR "
+                        + display
+                        + " LIKE :qContains ESCAPE '\\')"
+                        + (viewerId == null
+                                ? ""
+                                : " AND u.id <> :viewer" + DiscoverySql.notBlocked("u.id"))
+                        + " ORDER BY CASE WHEN u.handle LIKE :qPrefix ESCAPE '\\' THEN 0 WHEN "
+                        + display
+                        + " LIKE :qPrefix ESCAPE '\\' THEN 1 ELSE 2 END, u.handle LIMIT :limit";
         JdbcClient.StatementSpec statement = jdbc.sql(sql);
         for (Map.Entry<String, Object> param : params.entrySet()) {
             statement = statement.param(param.getKey(), param.getValue());

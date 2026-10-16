@@ -86,12 +86,12 @@ test.describe('mobile trading safety', () => {
     await expect(dialog).toBeHidden();
     expect(await apiMyBlocks(request, ada)).toEqual([]);
 
-    // Not dismissed: still at the start of the chat after a reload. (Reload on the Map tab, `/`:
+    // Not dismissed: still at the start of the chat after a reload. (Reload on Search, `/search`:
     // the static export serves no page for `/messages` or a thread.)
     await page.goBack();
     await expect(screen(page, 'messages')).toBeVisible({ timeout: 30_000 });
-    await openTab(page, 'Map');
-    await expect(page).toHaveURL(/\/$/);
+    await openTab(page, 'Search');
+    await expect(page).toHaveURL(/\/search$/);
     await page.reload();
     await openTab(page, 'Messages');
     await screen(page, 'messages').getByTestId(`conversation-row-${ben.handle}`).click();

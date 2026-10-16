@@ -1,5 +1,7 @@
 import type {
   BlockedUser,
+  CollectorByName,
+  WishlistAvailability,
   CardHolderResult,
   CardHoldersPage,
   SetDetail,
@@ -1255,4 +1257,24 @@ export function setDetailFixture(overrides: Partial<SetDetail> = {}): SetDetail 
     },
     ...overrides,
   };
+}
+
+/** A collector of `GET /search/collectors` (stage R5: collectors while a card is typed). */
+export function collectorByNameFixture(overrides: Partial<CollectorByName> = {}): CollectorByName {
+  return {
+    id: OTHER_ID,
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    place: ONTARIO,
+    ...overrides,
+  };
+}
+
+/** `GET /wishlist/availability` (stage R5): the wishes "Available" in a region. */
+export function wishlistAvailabilityFixture(
+  available: string[] = [],
+  region = 'americas-north'
+): WishlistAvailability {
+  return { region, available };
 }

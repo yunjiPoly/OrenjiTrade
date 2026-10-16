@@ -319,7 +319,7 @@ describe('binder hooks', () => {
       meKeys.collector(uid, 'maika'),
       meKeys.collectorPart(uid, 'maika', 'binders'),
       meKeys.regionBinderCounts(uid, 'americas-north'),
-      meKeys.subdivisionBinders(uid, 'americas-north', 'CA-QC'),
+      meKeys.regionBinderSearch(uid, { region: 'americas-north' }),
       meKeys.search(uid, { q: 'core', types: ['binders'], region: 'americas-north' }),
     ];
     const outOfDate = async (write: () => Promise<unknown>) => {

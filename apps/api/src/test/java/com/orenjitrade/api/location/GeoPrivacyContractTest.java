@@ -399,6 +399,77 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * Search of stage R5 (the phone's Search tab): the collectors by name while a card is typed,
+     * "Who has this card" grouped by province without a deck core's cards, and the wishlist with
+     * "Available" in each region, anonymous, as a seed collector and as a new account. Places only:
+     * a state or province and a country, never a city, a distance or a count of holders.
+     */
+    @Test
+    void searchOfStageR5CarriesPlacesOnly(CapturedOutput output) {
+        String viewer = uniqueUid("geo-r5");
+        provisionCompliant(viewer);
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        UUID cardId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT card_id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'ygo-p001a'")
+                                .get(0)
+                                .get("card_id");
+        for (String caller : Arrays.asList(null, viewer, collector1)) {
+            for (String region : List.of("americas-north", "americas-south", "europe")) {
+                JsonNode byName =
+                        fetch(
+                                "/api/v1/search/collectors?q=collector&limit=10&region=" + region,
+                                caller);
+                assertPlaces(byName);
+            }
+            JsonNode north =
+                    fetch(
+                            "/api/v1/search/collectors?q=collector&limit=10&region=americas-north",
+                            caller);
+            assertThat(north.size()).isPositive();
+            JsonNode grouped =
+                    fetch(
+                            "/api/v1/search/card-holders?region=americas-north&sort=province"
+                                    + "&excludeDeckCoreItems=true&cardId="
+                                    + cardId,
+                            caller);
+            for (JsonNode row : grouped.path("items")) {
+                assertPlaces(jsonMapper.createArrayNode().add(row.path("collector")));
+            }
+        }
+        JsonNode wishes = fetch("/api/v1/wishlist", collector2);
+        assertThat(wishes.size()).isPositive();
+        for (JsonNode wish : wishes) {
+            assertThat(wish.path("available").isBoolean()).as("%s", wish).isTrue();
+        }
+        for (String region : List.of("americas-north", "americas-south", "europe")) {
+            JsonNode available =
+                    fetch("/api/v1/wishlist/availability?region=" + region, collector2);
+            assertThat(available.path("region").asString()).isEqualTo(region);
+            assertThat(available.path("available").isArray()).isTrue();
+        }
+        fetch("/api/v1/wishlist", viewer);
+        for (Fetched document : fetched) {
+            String text = document.body().toString();
+            for (String handle : NOT_DISCOVERABLE) {
+                assertThat(text)
+                        .as("%s in %s", handle, document.path())
+                        .doesNotContain("\"handle\":\"" + handle + "\"");
+            }
+            if (document.path().startsWith("/api/v1/wishlist")) {
+                assertNoItemNotes(document.body(), document.path());
+            } else {
+                assertNoPrivateNotes(document.body(), document.path());
+            }
+        }
+        assertContract(output);
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {

@@ -34,7 +34,7 @@ branding assets are supplied.
 | Identity | Firebase Authentication / Identity Platform; backend verifies ID tokens; roles live in our DB (RBAC) |
 | Events | Domain events via Spring Modulith event registry (transactional outbox); Pub/Sub adapter for cloud + analytics |
 | Payments | Provider abstraction (`PaymentProvider`), Stripe Connect adapter, `FakePaymentProvider` locally, feature-flagged; web only: the phone has no protected payments (ADR 0018) |
-| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The mobile Map tab draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
+| Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The phone's map (Search's default view) draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
 ### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
@@ -131,11 +131,11 @@ call for geography (boundaries are bundled static assets).
   interfaces for server DTOs). Design tokens come from `packages/design-tokens` as CSS custom
   properties; light/dark ready. Skeleton loaders, empty states, error states with retry, and
   keyboard navigation are required for every screen. No giant components.
-- Mobile: expo-router tabs `Map | Inventory | Search | Messages | Wishlist | Profile` today; the
-  phone redesign approved on 2026-10-14 (stages R1 to R8,
-  `docs/product/specs/2026-10-14-phone-redesign.md`) changes them to
-  `Home | Search | Inventory | Messages | Profile` (until a stage lands, describe the phone as it
-  is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+- Mobile: expo-router tabs `Search | Inventory | Messages | Profile` since stage R5 (the Map tab
+  is Search's default view, the Wishlist tab its Wishlist segment; old routes redirect); stage R7
+  of the phone redesign approved on 2026-10-14 (stages R1 to R8,
+  `docs/product/specs/2026-10-14-phone-redesign.md`) adds `Home` as the first of five (until a
+  stage lands, describe the phone as it is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
   API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
   switcher; the collector's home region by default).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.

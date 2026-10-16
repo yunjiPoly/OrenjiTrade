@@ -11,6 +11,7 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
+import { CollectorByName } from '../model/models';
 import { PageResponseCardHolderResult } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { PublicBinderSummary } from '../model/models';
@@ -42,10 +43,17 @@ export interface SearchCardHoldersRequestParams {
     edition?: string;
     language?: string;
     acceptsOffers?: boolean;
-    sort?: 'freshness' | 'price';
+    sort?: 'freshness' | 'price' | 'province';
     page?: number;
     size?: number;
     excludeDeckCoreItems?: boolean;
+    rarity?: string;
+}
+
+export interface SearchCollectorsByNameRequestParams {
+    q: string;
+    region?: string;
+    limit?: number;
 }
 
 export interface SearchDeckCoresRequestParams {
@@ -76,11 +84,19 @@ export interface SearchServiceInterface {
 
     /**
      * Collectors of a region holding a card (auth optional)
-     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first) or price. Each row pairs the holder (state/province + country, never a distance) with the public item.
+     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first), price, or province (grouped by state or province for \&quot;Who has this card\&quot;: the caller\&#39;s own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
      * @endpoint get /api/v1/search/card-holders
 * @param requestParameters
      */
     searchCardHolders(requestParameters: SearchCardHoldersRequestParams, extraHttpRequestParams?: any): Observable<PageResponseCardHolderResult>;
+
+    /**
+     * Collectors of a region by handle or name (auth optional)
+     * The \&quot;Collectors\&quot; section of the phone\&#39;s card search (stage R5): discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains &#x60;q&#x60; (accent- and case-insensitive), a handle that starts with it first, at most &#x60;limit&#x60;. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+     * @endpoint get /api/v1/search/collectors
+* @param requestParameters
+     */
+    searchCollectorsByName(requestParameters: SearchCollectorsByNameRequestParams, extraHttpRequestParams?: any): Observable<Array<CollectorByName>>;
 
     /**
      * Public deck cores of a region holding a card (auth optional)

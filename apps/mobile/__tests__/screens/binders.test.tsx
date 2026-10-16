@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Dimensions, View } from 'react-native';
+import { Dimensions, Keyboard, View } from 'react-native';
 
 import BinderScreen from '@/app/binders/[id]';
 import type { BinderResponse, UpdateBinderRequest } from '@/src/api/types';
@@ -277,8 +277,13 @@ describe('Edit binder (screen 18)', () => {
       })
     );
     renderWithProviders(<EditBinderScreen />, { port: port() });
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
     fireEvent.press(await screen.findByTestId('binder-add-cards'));
     const sheet = await screen.findByTestId('card-picker-sheet');
+    // The name or note typed last lets go of the keyboard: iOS would give it back to that field
+    // when the picker leaves, over the form's button (stage R5 review, F2).
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
     expect(
       within(sheet).getByText(
         'Cards in another binder move here. Buyers see them when the deck core is public.'

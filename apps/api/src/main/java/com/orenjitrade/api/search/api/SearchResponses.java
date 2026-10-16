@@ -19,6 +19,7 @@ import com.orenjitrade.api.search.domain.DiscoveryResults.CardHolder;
 import com.orenjitrade.api.search.domain.DiscoveryResults.Suggestion;
 import com.orenjitrade.api.search.domain.DiscoveryResults.UnifiedSearch;
 import com.orenjitrade.api.search.domain.MatchingItem;
+import com.orenjitrade.api.search.domain.SearchService;
 import com.orenjitrade.api.search.domain.SuggestionType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -202,6 +203,32 @@ public final class SearchResponses {
             return new CardHolderResultResponse(
                     CollectorMarkerResponse.from(holder.collector()),
                     PublicInventoryItemResponse.from(holder.item(), now));
+        }
+    }
+
+    /** A collector found by name (the "Collectors" section while a card is typed). */
+    @Schema(
+            name = "CollectorByName",
+            description =
+                    "A discoverable collector whose handle or name matches the text, with their"
+                            + " state/province and country (never a city, a coordinate or a"
+                            + " distance)")
+    public record CollectorByNameResponse(
+            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,
+            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Maïka Tremblay")
+                    String displayName,
+            @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String avatarUrl,
+            @Schema(requiredMode = RequiredMode.REQUIRED) PlaceResponse place) {
+
+        static CollectorByNameResponse from(SearchService.CollectorByName hit) {
+            return new CollectorByNameResponse(
+                    hit.id(),
+                    hit.handle(),
+                    hit.displayName(),
+                    hit.avatarUrl(),
+                    PlaceResponse.from(hit.place()));
         }
     }
 

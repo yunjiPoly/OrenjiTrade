@@ -182,3 +182,31 @@ export function sameWindow(a: MapWindow, b: MapWindow): boolean {
   const same = (first: number, second: number) => Math.abs(first - second) < 0.01;
   return same(a.x, b.x) && same(a.y, b.y) && same(a.width, b.width) && same(a.height, b.height);
 }
+
+/** How much room a focused state or province leaves around it: the box spans 1 / this. */
+export const FOCUS_MARGIN = 2.2;
+/** Where the focused place sits from the top (a fraction): the state card covers the bottom. */
+export const FOCUS_TOP = 0.42;
+
+/**
+ * The window on one state or province (its box `[left, top, right, bottom]`, drawing units): the
+ * map's "My province" and its first view (owner spec 2026-10-14, section 8: "The map opens
+ * centred on your province"), zoomed so the place spans about half of the frame, never out
+ * beyond the whole region nor in beyond the maximum zoom, a little above the middle.
+ */
+export function focusWindow(
+  base: MapWindow,
+  outline: RegionOutline,
+  box: readonly number[]
+): MapWindow {
+  const [left = 0, top = 0, right = 0, bottom = 0] = box;
+  const wanted = Math.max(right - left, ((bottom - top) * base.width) / base.height) * FOCUS_MARGIN;
+  const width = clamp(wanted, base.width / MAX_MAP_ZOOM, base.width);
+  const height = (width * base.height) / base.width;
+  const centreX = (left + right) / 2;
+  const centreY = (top + bottom) / 2;
+  return settleWindow(
+    { x: centreX - width / 2, y: centreY - height * FOCUS_TOP, width, height },
+    outline
+  );
+}

@@ -4,10 +4,16 @@ import { StyleSheet, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
-import { useCreateWish, usePriceTerms, useUpdateWish } from '@/src/api/hooks/wishlist';
+import {
+  useCreateWish,
+  useDeleteWish,
+  usePriceTerms,
+  useUpdateWish,
+} from '@/src/api/hooks/wishlist';
 import type { CardSuggestion, WishlistItemResponse } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { CardImage } from '@/src/components/ui/CardImage';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
@@ -30,7 +36,7 @@ import {
   type WishFormErrors,
   type WishFormValue,
 } from './wishForm';
-import { addedMessage } from './wishlistLabels';
+import { addedMessage, removeConfirmation } from './wishlistLabels';
 
 export type WishEditorProps =
   | {
@@ -78,6 +84,8 @@ export function WishEditor(props: WishEditorProps) {
   const terms = usePriceTerms();
   const create = useCreateWish();
   const update = useUpdateWish();
+  const remove = useDeleteWish();
+  const [removing, setRemoving] = useState(false);
   const saving = create.isPending || update.isPending;
   const printings = card.data?.printings ?? [];
 
@@ -119,6 +127,32 @@ export function WishEditor(props: WishEditorProps) {
     setMessage(null);
   };
 
+  // Back where the wish was opened from: Search › Wishlist (stage R5) or a card page.
+  const leave = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace({ pathname: '/search', params: { segment: 'wishlist' } });
+    }
+  };
+
+  const confirmRemove = async () => {
+    if (!editItem) {
+      return;
+    }
+    try {
+      await remove.mutateAsync({ id: editItem.id });
+      setRemoving(false);
+      snackbar.show(`${editItem.card?.name ?? 'The card'} left your wishlist.`);
+      leave();
+    } catch (error) {
+      setRemoving(false);
+      setMessage(
+        isApiError(error) ? wishSaveError(error as ApiError).message : 'Please try again.'
+      );
+    }
+  };
+
   const save = async () => {
     if (!form || !card.data?.id || saving) {
       return;
@@ -138,11 +172,7 @@ export function WishEditor(props: WishEditorProps) {
         const saved = await create.mutateAsync(toCreateWishRequest(form, card.data.id));
         snackbar.show(addedMessage(saved), { duration: 6000 });
       }
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/wishlist');
-      }
+      leave();
     } catch (error) {
       if (isApiError(error)) {
         const shown = wishSaveError(error as ApiError);
@@ -241,6 +271,29 @@ export function WishEditor(props: WishEditorProps) {
         loadingLabel="Saving…"
         testID="wish-save"
       />
+      {editItem ? (
+        <>
+          <Button
+            label="Remove from wishlist"
+            icon="trash-can-outline"
+            variant="danger"
+            onPress={() => setRemoving(true)}
+            disabled={saving || remove.isPending}
+            testID="wish-remove"
+          />
+          <ConfirmSheet
+            visible={removing}
+            title={`Remove ${editItem.card?.name ?? 'this card'}?`}
+            message={removeConfirmation(editItem)}
+            confirmLabel="Remove"
+            cancelLabel="Keep it"
+            busy={remove.isPending}
+            onConfirm={() => void confirmRemove()}
+            onCancel={() => setRemoving(false)}
+            testID="wish-remove-dialog"
+          />
+        </>
+      ) : null}
     </View>
   );
 }

@@ -26,8 +26,11 @@ wording, look", ADR 0018): the phone has no offers, trades, protected payments o
 more (the API keeps them for the paused web), every chat opens with a shipping safety tip, ratings
 no longer ask about meetups, the meetup wording left the app, the seeds and the "Trading safely"
 page, and the phone opens in the dark theme with the redesign's typefaces (Sora, Inter, JetBrains
-Mono). Stages R2 to R8 are not built: the rest of this page describes the phone as it is (six tabs
-until R5). What the owner's change of 2026-10-08 delivered and what it did not:
+Mono). Stages R2 to R5 are built too (the Inventory and adding cards, binders and deck cores,
+messages and Mark as sold, and Search: four tabs, Search | Inventory | Messages | Profile, with the
+map as Search's default view, the card search with collectors, Who has this card, Search › Binders
+and Search › Wishlist); R6 to R8 are not built, and R7 adds Home as the first of five tabs. Older
+passages below may still name the Map and Wishlist tabs of before R5. What the owner's change of 2026-10-08 delivered and what it did not:
 [2026-10-08-change-delivery-report.md](2026-10-08-change-delivery-report.md).
 
 ## Two primary surfaces

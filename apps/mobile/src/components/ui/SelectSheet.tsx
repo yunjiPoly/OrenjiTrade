@@ -29,6 +29,12 @@ export interface SelectSheetProps<T extends string> {
    * "<label>: <current choice>" is still what a screen reader says.
    */
   iconOnly?: boolean;
+  /**
+   * A compact trigger whose icon already says what it chooses (the globe of the region pill over
+   * Search's map, mockup screen 11): it shows the choice alone, so the choice keeps the room at
+   * large text sizes. A screen reader still says "<label>: <current choice>".
+   */
+  hideLabel?: boolean;
   /** `accent` tints the trigger: the choice is not the usual one and should be noticed. */
   tone?: 'default' | 'accent';
   /**
@@ -60,6 +66,7 @@ export function SelectSheet<T extends string>({
   compact = false,
   icon,
   iconOnly = false,
+  hideLabel = false,
   tone = 'default',
   wrap = false,
   maxFontSizeMultiplier,
@@ -122,7 +129,7 @@ export function SelectSheet<T extends string>({
                 maxFontSizeMultiplier={maxFontSizeMultiplier}
                 style={[textStyle(compact ? 'sm' : 'md'), styles.value, { color: ink }]}
               >
-                {compact ? `${label}: ${currentLabel}` : currentLabel}
+                {compact && !hideLabel ? `${label}: ${currentLabel}` : currentLabel}
               </Text>
             </View>
             <MaterialCommunityIcons

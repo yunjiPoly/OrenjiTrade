@@ -16,6 +16,7 @@ import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.profiles.domain.TagService;
 import com.orenjitrade.api.profiles.domain.TagView;
@@ -267,6 +268,8 @@ public class SearchService {
      * @param size page size
      * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it;
      *     the phone shows the core instead, stage R5)
+     * @param rarity any printing of the card in this rarity, as the catalogue names it (a wish of
+     *     any printing in one rarity, stage R5)
      */
     public record HolderQuery(
             @Nullable UUID printingId,
@@ -283,7 +286,8 @@ public class SearchService {
             HolderSort sort,
             int page,
             int size,
-            boolean excludeDeckCoreItems) {}
+            boolean excludeDeckCoreItems,
+            @Nullable String rarity) {}
 
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
@@ -322,6 +326,8 @@ public class SearchService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
+        @Nullable String rarity =
+                query.rarity() == null || query.rarity().isBlank() ? null : query.rarity().trim();
         RegionView region = discovery.scope(viewerId, query.region());
         ItemFilter filter =
                 new ItemFilter(
@@ -335,7 +341,8 @@ public class SearchService {
                         query.freshness(),
                         edition,
                         language,
-                        query.acceptsOffers());
+                        query.acceptsOffers(),
+                        rarity);
         Instant now = timeProvider.now();
         HolderPage page =
                 cardHolders.page(
@@ -410,6 +417,55 @@ public class SearchService {
         return publicBinderService.publicBinders(
                 viewerId,
                 regionBinders.deckCoresWithCard(cardId, region.code(), viewerId, size, now));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // GET /search/collectors
+    // ---------------------------------------------------------------------------------------
+
+    /** The most collectors {@code GET /search/collectors} lists. */
+    public static final int COLLECTORS_BY_NAME_MAX = 10;
+
+    /**
+     * A collector found by name while a card is typed.
+     *
+     * @param id account id
+     * @param handle handle
+     * @param displayName display name
+     * @param avatarUrl public avatar URL, when any
+     * @param place state/province and country (never a city)
+     */
+    public record CollectorByName(
+            UUID id,
+            String handle,
+            String displayName,
+            @Nullable String avatarUrl,
+            PublicPlace place) {}
+
+    /**
+     * {@code GET /search/collectors}: the "Collectors" section under the cards while a card is
+     * typed on the phone (stage R5): discoverable collectors of the region who allow name search,
+     * whose handle or display name contains the text, at most {@code limit}; never the caller nor a
+     * collector blocked with them (in SQL, before the limit). No analytics event: the text a
+     * collector types never leaves for analytics.
+     */
+    @Transactional(readOnly = true)
+    public List<CollectorByName> collectorsByName(
+            @Nullable UUID viewerId, String q, @Nullable String regionCode, int limit) {
+        RegionView region = discovery.scope(viewerId, regionCode);
+        int size = Math.max(1, Math.min(limit, COLLECTORS_BY_NAME_MAX));
+        return collectors.byName(q, region.code(), viewerId, size, timeProvider.now()).stream()
+                .map(
+                        hit ->
+                                new CollectorByName(
+                                        hit.id(),
+                                        hit.handle(),
+                                        hit.displayName(),
+                                        hit.avatarKey() == null
+                                                ? null
+                                                : storage.publicUrl(hit.avatarKey()),
+                                        hit.place()))
+                .toList();
     }
 
     // ---------------------------------------------------------------------------------------

@@ -96,6 +96,10 @@ export function RealtimeCacheSync() {
     if (notification.type === 'REPORT_DECISION') {
       void queryClient.invalidateQueries({ queryKey: meKeys.reports(uid) });
     }
+    if (notification.type === 'WISHLIST_ALERT') {
+      // A fitting card was just listed: "Available" of Search › Wishlist (stage R5) is read again.
+      void queryClient.invalidateQueries({ queryKey: [...meKeys.wishlist(uid), 'availability'] });
+    }
   });
 
   useRealtimeEvent('resync', () => {

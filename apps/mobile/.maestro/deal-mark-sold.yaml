@@ -79,13 +79,40 @@ tags:
     id: 'saved-detail-input'
 - inputText: 'ada.maestro@example.com'
 - runFlow: subflows/hide-keyboard-in-dialog.yaml
-- tapOn:
-    id: 'saved-detail-save'
-- extendedWaitUntil:
-    visible:
-      id: 'conversation-input'
-      text: 'e-Transfer to ada.maestro@example.com'
-    timeout: 15000
+# The address as typed: a key the simulator dropped under load is typed again here, not found
+# three steps later in the message box (stage R5 review, F2: the step failed once in a full run).
+- runFlow:
+    when:
+      notVisible:
+        id: 'saved-detail-input'
+        text: 'ada.maestro@example.com'
+    commands:
+      - tapOn:
+          id: 'saved-detail-input'
+      - eraseText: 40
+      - inputText: 'ada.maestro@example.com'
+      - runFlow: subflows/hide-keyboard-in-dialog.yaml
+- assertVisible:
+    id: 'saved-detail-input'
+    text: 'ada.maestro@example.com'
+# Save, then the text in the box. A tap made while the sheet still settled can miss it: the sheet
+# is then still up after the wait, and Save is tapped once more (a sheet that took the tap is
+# gone by then, so the detail is never put in twice).
+- retry:
+    maxRetries: 1
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: 'saved-detail-save'
+          commands:
+            - tapOn:
+                id: 'saved-detail-save'
+      - extendedWaitUntil:
+          visible:
+            id: 'conversation-input'
+            text: 'e-Transfer to ada.maestro@example.com'
+          timeout: 15000
 # The seller checks the text in the box (the keyboard comes up) and sends it; the keyboard stays
 # up for Mark as sold, the order of spec flow 4 (review fix 1, F2: the toast and its Undo were
 # drawn under the keys when the box took the keyboard back).

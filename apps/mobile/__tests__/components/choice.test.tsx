@@ -192,6 +192,25 @@ describe('choice controls', () => {
     });
   });
 
+  it('SelectSheet shows the choice alone when its icon says what it chooses; the name keeps the label', () => {
+    // The region pill over Search's map (mockup screen 11): "Americas (North)" with the globe, so
+    // the region's name is what stays on screen at large text sizes (stage R5 review, U4).
+    themed(
+      <SelectSheet
+        compact
+        hideLabel
+        icon="earth"
+        label="Region"
+        options={[{ value: 'americas-north', label: 'Americas (North)' }]}
+        value="americas-north"
+        onChange={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Americas (North)')).toBeOnTheScreen();
+    expect(screen.queryByText('Region: Americas (North)')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Region: Americas (North)' })).toBeOnTheScreen();
+  });
+
   it('Segmented switches views', () => {
     const onChange = jest.fn();
     themed(

@@ -75,7 +75,7 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'screen-map'
+      id: 'screen-search'
     timeout: 60000
 
 # The same account: its handle on the Profile tab, both methods under Settings -> Account.

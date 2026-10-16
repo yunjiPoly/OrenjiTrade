@@ -4,18 +4,10 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 export type ThemeOverride = 'system' | 'light' | 'dark';
 
-/** How the Map tab shows a region: the drawn map, or the list of its states and provinces. */
-export type MapViewChoice = 'map' | 'list';
-
 /** Preferences that survive sign-out and app restarts. */
 export interface SessionPrefs {
   /** Pre-fills the sign-in form; never a password. */
   lastSignedInEmail: string | null;
-  /**
-   * The view of the Map tab the collector chose last; null until they choose (the map, or the
-   * list while a screen reader is on). A layout preference, nothing about a place.
-   */
-  mapView: MapViewChoice | null;
   /**
    * The way the collector typed a card's asking price last on this phone, "$" (`usd`) or "% TCG"
    * (`pct`): a new card starts in it (owner change of 2026-10-16). Null until a card is saved
@@ -35,7 +27,6 @@ export interface AppState {
 
 export const DEFAULT_PREFS: SessionPrefs = {
   lastSignedInEmail: null,
-  mapView: null,
   priceMode: null,
 };
 
@@ -63,16 +54,19 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: APP_STORE_STORAGE_KEY,
-      version: 6,
+      version: 7,
       // v1 also stored `prefs.hasCompletedOnboarding` (onboarding now comes from `GET /me`); v1
       // and v2 stored the Map tab's last viewport, which is no longer kept on the device; v1 to
       // v3 stored a distance unit (there are no distances since ADR 0017); v5 adds the Map tab's
-      // view (map or list); v6 the price mode used last. Nothing location-like is persisted.
+      // view (map or list), which v7 drops with the Map tab (stage R5: the map is Search's default
+      // view, and a screen reader gets the list); v6 the price mode used last. Nothing
+      // location-like is persisted.
       migrate: (persisted) => {
         const state = { ...(persisted as Record<string, unknown> | undefined) };
         const prefs: Record<string, unknown> = { ...(state.prefs as object | undefined) };
         delete prefs.hasCompletedOnboarding;
         delete prefs.distanceUnit;
+        delete prefs.mapView;
         delete state.lastMapRegion;
         return { ...state, prefs: { ...DEFAULT_PREFS, ...prefs } } as unknown as AppState;
       },

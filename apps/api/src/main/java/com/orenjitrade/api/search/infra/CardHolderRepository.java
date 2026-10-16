@@ -86,6 +86,12 @@ public class CardHolderRepository {
                             " ORDER BY "
                                     + DiscoverySql.FRESHNESS_RANK
                                     + ", i.confirmed_at DESC, i.asking_price NULLS LAST, i.id";
+                    case PROVINCE ->
+                            " ORDER BY "
+                                    + provinceTier(viewerId)
+                                    + "lower(co.name), lower(sd.name), ul.subdivision_code, "
+                                    + DiscoverySql.FRESHNESS_RANK
+                                    + ", i.confirmed_at DESC, i.asking_price NULLS LAST, i.id";
                 };
         Map<String, Object> pageParams = new LinkedHashMap<>(params);
         pageParams.put("limit", size);
@@ -104,6 +110,23 @@ public class CardHolderRepository {
                                                 rs.getObject("owner_id", UUID.class)))
                         .list();
         return new HolderPage(holders, total);
+    }
+
+    /**
+     * The first key of the province order, with its comma: the group tier of the holder ({@code
+     * ProvinceOrder.tier}): 0 in the viewer's own state or province, 1 elsewhere in the viewer's
+     * country, 2 anywhere else (also for a viewer without a location). Nothing for a viewer signed
+     * out: every holder is in the last tier (a constant key would be read as a column number). The
+     * viewer's own declared codes only, never a position.
+     */
+    static String provinceTier(@Nullable UUID viewerId) {
+        if (viewerId == null) {
+            return "";
+        }
+        return "CASE WHEN ul.subdivision_code = (SELECT vl.subdivision_code FROM user_location vl"
+                + " WHERE vl.user_id = :viewer) THEN 0 WHEN ul.country_code = (SELECT"
+                + " vl.country_code FROM user_location vl WHERE vl.user_id = :viewer) THEN 1"
+                + " ELSE 2 END, ";
     }
 
     private JdbcClient.StatementSpec statement(String sql, Map<String, Object> params) {

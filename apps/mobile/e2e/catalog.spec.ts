@@ -10,15 +10,15 @@ import {
 } from './support/stack';
 
 /**
- * Mobile Phase 2 (card catalog) against the real stack and the mock catalog of the isolated
- * database (fictional seed cards, never a real provider): the Search tab (live search, game and
- * schema filters, printing codes, recent searches) and the card detail (printings, market price,
- * API pictures only).
+ * Mobile Phase 2 (card catalog) on Search since stage R5 (mockup screen 12) against the real stack
+ * and the mock catalog of the isolated database (fictional seed cards, never a real provider):
+ * the card search while typing (game chips, the typed part highlighted, printing codes, recent
+ * searches on this phone with their privacy line) and the card page (API pictures only).
  */
 test.describe('mobile catalog', () => {
   requireStack();
 
-  test('search the catalog, filter, open a card and switch printings', async ({
+  test('type a card, filter by game, open it, and find the search again on this phone', async ({
     page,
     request,
   }) => {
@@ -28,43 +28,25 @@ test.describe('mobile catalog', () => {
 
     await openTab(page, 'Search');
     const search = screen(page, 'search');
-    // The whole catalog first (the 4 seed games), then a typo-tolerant search.
-    await expect(search.getByTestId('search-count')).toHaveText(/^\d+ cards$/, { timeout: 30_000 });
+    await search.getByRole('search', { name: /Card name or code/ }).click({ timeout: 30_000 });
+    // The empty box: only the privacy line before the first search.
+    await expect(search.getByTestId('recent-searches-privacy')).toHaveText(
+      'Only you see your searches. You can turn this off in Settings › Privacy.'
+    );
+    await search.getByLabel('Card name or code').fill('emberfang');
+    const vmax = search.getByRole('button', { name: 'Emberfang Fox VMAX, Pokémon' });
+    await expect(vmax).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByRole('button', { name: 'Emberfang Fox, Pokémon' })).toBeVisible();
+    // The typed part highlighted; no count, no printings, no type line.
+    await expect(vmax.getByText('Emberfang', { exact: true })).toBeVisible();
+    await expect(search).not.toContainText(/printings?|\d+ cards/);
 
-    // A screen down the catalog the field, the game pills and the filters have scrolled away with
-    // the cards (only the region switcher and the segments stay); the Search tab pressed again
-    // brings them back. One turn of the wheel takes the field far above the screen: the rows the
-    // list draws first are taller than the screen. (No deeper: on the web the list draws ten
-    // rows, then the others in an idle moment, which a wheel that keeps turning holds back.)
-    const field = search.getByLabel('Find a card');
-    await search.getByTestId('search-results').hover();
-    await expect
-      .poll(async () => {
-        await page.mouse.wheel(0, 1500);
-        return field.evaluate((node) => node.getBoundingClientRect().bottom);
-      })
-      .toBeLessThan(-200);
-    await expect(field).not.toBeInViewport();
-    await expect(search.getByRole('button', { name: 'Filters' })).not.toBeInViewport();
-    await expect(search.getByTestId('search-region')).toBeInViewport();
-    await openTab(page, 'Search');
-    await expect(field).toBeInViewport();
-    await expect(search.getByRole('button', { name: 'Filters' })).toBeInViewport();
-
-    await search.getByLabel('Find a card').fill('emberfang');
-    await expect(search.getByTestId('search-count')).toHaveText(/cards? for “emberfang”/);
-    await expect(search.getByRole('link', { name: 'Emberfang Fox VMAX' })).toBeVisible();
-    await expect(search.getByRole('link', { name: 'Emberfang Fox', exact: true })).toBeVisible();
-
-    // Game pill, then a language from the game schema: only cards with a French printing.
-    await search.getByRole('radio', { name: 'Pokémon' }).click();
-    await search.getByRole('button', { name: 'Filters' }).click();
-    const filters = page.getByTestId('card-filters');
-    await filters.getByRole('radio', { name: 'French' }).click();
-    await filters.getByRole('button', { name: 'Show results' }).click();
-    await expect(search.getByRole('button', { name: 'Filters (1)' })).toBeVisible();
-    await expect(search.getByRole('link', { name: 'Emberfang Fox VMAX' })).toBeVisible();
-    await expect(search.getByRole('link', { name: 'Emberfang Fox', exact: true })).toHaveCount(0);
+    // The game chips are the only filter.
+    await search.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
+    await expect(vmax).toHaveCount(0, { timeout: 30_000 });
+    await search.getByRole('radio', { name: 'All games' }).click();
+    await expect(vmax).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByRole('button', { name: /Filters/ })).toHaveCount(0);
 
     // Every picture is an API picture (cached artwork or placeholder), never a provider URL.
     const sources = await search
@@ -75,47 +57,51 @@ test.describe('mobile catalog', () => {
       expect(source.startsWith(`${API_URL}/api/v1/public/`), source).toBe(true);
     }
 
-    await search.getByRole('link', { name: 'Emberfang Fox VMAX' }).click();
+    await vmax.click();
     const card = screen(page, 'card');
     await expect(card.getByTestId('card-name')).toHaveText('Emberfang Fox VMAX', {
       timeout: 30_000,
     });
-    await expect(card.getByText('Printings (2)')).toBeVisible();
-    await expect(card.getByTestId('card-attributes')).toContainText('320');
-    // The English holo has a market price; the French reverse holo has none.
-    await expect(card.getByTestId('card-price')).toContainText('38.00');
-    await card.getByRole('radio', { name: /French/ }).click();
-    await expect(page).toHaveURL(/\?printing=/);
-    await expect(card.getByTestId('card-price')).toHaveText(
-      'No market price for this printing yet.'
-    );
-    await expect(card.getByTestId('card-selected-printing')).toContainText('Reverse holo');
+    await expect(card.getByTestId('card-game')).toHaveText('POKÉMON');
 
     // The search is remembered on this device (also after a reload).
-    await page.goto('/search');
+    await page.goto('/search?typing=1');
     const back = screen(page, 'search');
     await expect(back.getByRole('button', { name: 'Search again for emberfang' })).toBeVisible({
       timeout: 30_000,
     });
     await back.getByRole('button', { name: 'Search again for emberfang' }).click();
-    await expect(back.getByTestId('search-count')).toHaveText(/for “emberfang”/);
+    await expect(back.getByRole('button', { name: 'Emberfang Fox VMAX, Pokémon' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await back.getByLabel('Card name or code').fill('');
+    await back.getByRole('button', { name: 'Clear recent searches' }).click();
+    await expect(back.getByRole('button', { name: 'Search again for emberfang' })).toHaveCount(0);
   });
 
-  test('a printing code finds its card; an unknown card says so', async ({ page, request }) => {
+  test('a printing code finds its card; nothing matches says so; an unknown card says so', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(120_000);
     const collector = await createOnboardedCollector(request, 'code', 'Mobile Codes');
     await signInThroughUi(page, collector.email, collector.password);
 
     await openTab(page, 'Search');
     const search = screen(page, 'search');
-    await search.getByLabel('Find a card').fill('AZR-EN001');
-    await expect(search.getByText('Printing code match')).toBeVisible({ timeout: 30_000 });
-    await expect(search.getByRole('link', { name: 'Azure-Eyes Sky Dragon' })).toBeVisible();
+    await search.getByRole('search', { name: /Card name or code/ }).click({ timeout: 30_000 });
+    await search.getByLabel('Card name or code').fill('AZR-EN001');
+    await expect(
+      search.getByRole('button', { name: 'Azure-Eyes Sky Dragon, Yu-Gi-Oh!' })
+    ).toBeVisible({ timeout: 30_000 });
 
-    await search.getByLabel('Find a card').fill('zzzqqqxxx');
-    await expect(search.getByText('No cards match')).toBeVisible({ timeout: 30_000 });
-    await search.getByRole('button', { name: 'Clear search and filters' }).click();
-    await expect(search.getByTestId('search-count')).toHaveText(/^\d+ cards$/);
+    await search.getByLabel('Card name or code').fill('zzzqqqxxx');
+    await expect(search.getByTestId('search-no-match')).toHaveText(
+      'No card matches “zzzqqqxxx”Try fewer letters, or the code printed on the card, like LAVD-EN008.',
+      { timeout: 30_000 }
+    );
+    await search.getByRole('button', { name: 'Cancel' }).click();
+    await expect(search.getByTestId('search-map')).toBeVisible();
 
     await openInApp(page, '/cards/00000000-0000-4000-8a00-ffffffffffff');
     await expect(screen(page, 'card').getByText('Card not found')).toBeVisible({

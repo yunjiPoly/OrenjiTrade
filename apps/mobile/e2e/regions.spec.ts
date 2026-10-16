@@ -5,8 +5,6 @@ import {
   apiListCopy,
   apiPublicBinder,
   createOnboardedCollector,
-  openTab,
-  PLACE_LABELS,
   PLACES,
   printingIdOf,
   requireStack,
@@ -17,12 +15,6 @@ import {
 /** A word no seed or other spec uses, for names that must match exactly one collector. */
 function word(): string {
   return `Rg${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/** The region a `GET /api/v1/search` request names; null for any other request. */
-function searchRegion(url: string): string | null {
-  const parsed = new URL(url);
-  return parsed.pathname === '/api/v1/search' ? (parsed.searchParams.get('region') ?? '') : null;
 }
 
 /** The region codes whose binder counts the page asked for. */
@@ -64,16 +56,16 @@ function watchDrawings(page: Page): string[] {
 }
 
 /**
- * Regions on the phone (stage M9, ADR 0017): the region switcher, the region map drawn from the
- * app's own files, the list of states and provinces and the public binders of one of them,
- * against the real isolated stack. Counts depend on what other specs publish in a region, so the
- * specs look for their own collectors and binders. No map provider is ever asked and no API
- * answer carries a coordinate (the privacy fixture fails the test otherwise).
+ * Regions on the phone (stage M9, Search's map since stage R5, ADR 0017): the region pill over the
+ * map, the region map drawn from the app's own files, the card of a state and its binders in
+ * Search › Binders, against the real isolated stack. Counts depend on what other specs publish in
+ * a region, so the specs look for their own collectors and binders. No map provider is ever asked
+ * and no API answer carries a coordinate (the privacy fixture fails the test otherwise).
  */
 test.describe('mobile regions and the region map', () => {
   requireStack();
 
-  test('a state opens from the map and from the list; its binders name the owner and the state, never a city; a binder opens', async ({
+  test("a state's card opens from the map; See binders lists them with the owner and never a city; a binder opens", async ({
     page,
     request,
   }) => {
@@ -100,97 +92,79 @@ test.describe('mobile regions and the region map', () => {
     const drawings = watchDrawings(page);
     await signInThroughUi(page, viewer.email, viewer.password);
 
-    // The Map tab: the home region, drawn from its own chunk only.
-    const map = screen(page, 'map');
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)', {
+    // Search opens on the map of the home region, drawn from its own chunk only, on the
+    // collector's province with its card.
+    const search = screen(page, 'search');
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(map.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible();
-    await expect(map.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
-    const wyoming = map.getByTestId('map-shape-US-WY');
-    await expect(wyoming).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByTestId('search-state-name')).toHaveText('Quebec', {
+      timeout: 30_000,
+    });
+    await expect(search.getByTestId('search-state-sub')).toHaveText('Canada · your province');
     expect(drawings).toEqual(['americas-north']);
 
-    // From the map: Wyoming is a rectangle, the middle of its shape is Wyoming.
+    // The card closed and the whole region (zoom out), then Wyoming: the middle of its shape is
+    // Wyoming (the card and the legend cover the bottom of the map).
+    await search.getByRole('button', { name: 'Close' }).click();
+    await expect(search.getByTestId('search-state-card')).toHaveCount(0);
+    const frame = () => search.getByTestId('map-drawing').getAttribute('viewBox');
+    const focused = await frame();
+    await search.getByRole('button', { name: 'Zoom out' }).click();
+    await expect.poll(frame).not.toBe(focused);
+    const out = search.getByRole('button', { name: 'Zoom out' });
+    if (await out.isEnabled()) {
+      await out.click();
+    }
+    const wyoming = search.getByTestId('map-shape-US-WY');
+    await expect(wyoming).toBeVisible({ timeout: 30_000 });
     const box = await wyoming.boundingBox();
     expect(box).not.toBeNull();
     await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    const place = screen(page, 'place');
-    await expect(place.getByTestId('place-title')).toHaveText(PLACE_LABELS.wyoming, {
+    await expect(search.getByTestId('search-state-name')).toHaveText('Wyoming', {
       timeout: 30_000,
     });
-    await expect(page).toHaveURL(/\/regions\/americas-north\/US-WY$/);
-    await expect(place.getByTestId('place-count')).toHaveText(/^\d+ public binders?$/);
-    const row = place.getByTestId(`place-binder-${binderId}`);
+    await expect(search.getByTestId('search-state-sub')).toHaveText('United States');
+    await expect(search.getByTestId('search-state-stats-US-WY')).toHaveText(/^\d+ binders?$/);
+    await expect(search.getByTestId('map-selected-US-WY')).toBeVisible();
+
+    // See binders: Search › Binders on Wyoming, the owner's handle and the cards, never a city.
+    await search.getByRole('button', { name: 'See binders' }).click();
+    await expect(search.getByTestId('binders-state-chip')).toContainText('Wyoming', {
+      timeout: 30_000,
+    });
+    const row = search.getByTestId(`binder-search-row-${binderId}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText(binderName);
-    await expect(row).toContainText('Trade binder · 1 card');
-    await expect(place.getByTestId(`place-binder-owner-${binderId}`)).toHaveText(
-      `${token} Owner @${owner.handle}`
-    );
-    await expect(place.getByTestId(`place-binder-place-${binderId}`)).toHaveText(
-      PLACE_LABELS.wyoming
-    );
-    await expect(place.getByTestId(`place-binder-updated-${binderId}`)).toHaveText(/^Updated /);
-    // The state or province and the country, never the owner's city, never a distance.
-    await expect(place).not.toContainText('Cheyenne');
-    await expect(place).not.toContainText(/\bkm\b|away/);
-    await expect(row).toHaveAttribute(
-      'aria-label',
-      new RegExp(
-        `^${binderName}, Trade binder, 1 card, by ${token} Owner, @${owner.handle}, ${PLACE_LABELS.wyoming}, Updated `
-      )
-    );
+    await expect(row).toContainText(`${owner.handle} · 1 card`);
+    await expect(search).not.toContainText('Cheyenne');
+    await expect(search).not.toContainText(/\bkm\b|away/);
 
-    // The binder opens; back to the state, back to the map, which outlines the state.
+    // The binder opens; back to the binders of Wyoming.
     await row.click();
     const binder = screen(page, 'binder');
     await expect(binder.getByText(binderName).first()).toBeVisible({ timeout: 30_000 });
     await page.goBack();
-    await expect(screen(page, 'place').getByTestId(`place-binder-${binderId}`)).toBeVisible({
+    await expect(screen(page, 'search').getByTestId(`binder-search-row-${binderId}`)).toBeVisible({
       timeout: 30_000,
     });
-    await page.goBack();
-    const back = screen(page, 'map');
-    await expect(back.getByTestId('map-selected-US-WY')).toBeVisible({ timeout: 30_000 });
 
-    // From the list: every place with its count, as links with a name.
-    await back.getByRole('tab', { name: 'List' }).click();
-    await expect(back.getByTestId('place-list')).toBeVisible({ timeout: 30_000 });
-    await expect(back.getByTestId('region-map')).toHaveCount(0);
-    await back.getByLabel('Find a state or province').fill('wyo');
-    const listed = back.getByTestId('place-row-US-WY');
-    await expect(listed).toHaveAttribute('aria-label', /^Wyoming, \d+ public binders?$/);
-    await expect(back.getByTestId('place-row-CA-QC')).toHaveCount(0);
-    await listed.click();
-    await expect(screen(page, 'place').getByTestId(`place-binder-${binderId}`)).toBeVisible({
-      timeout: 30_000,
-    });
-    await page.goBack();
-
-    // A state without a public binder says so (no spec and no seed puts a collector in Alaska).
-    const list = screen(page, 'map');
-    await list.getByLabel('Find a state or province').fill('alaska');
-    await expect(list.getByTestId('place-row-US-AK')).toHaveAttribute(
-      'aria-label',
-      'Alaska, No public binders'
-    );
-    await list.getByTestId('place-row-US-AK').click();
-    const empty = screen(page, 'place');
-    await expect(empty.getByTestId('place-title')).toHaveText('Alaska, United States', {
-      timeout: 30_000,
-    });
-    await expect(empty.getByTestId('place-empty')).toContainText('No public binders here yet');
-    await expect(empty.getByTestId('place-count')).toHaveText('No public binders');
-
-    // The view is remembered: the tab is still on its list after the visit.
-    await page.goBack();
-    await expect(screen(page, 'map').getByTestId('place-list')).toBeVisible({ timeout: 30_000 });
+    // The chip's × goes back to the whole region; "Pick on the map" back to the map, and "My
+    // province" to the collector's own.
+    await screen(page, 'search')
+      .getByRole('button', { name: 'Showing Wyoming. Show the whole region' })
+      .click();
+    await screen(page, 'search').getByRole('link', { name: 'Pick on the map' }).click();
+    const map = screen(page, 'search');
+    await expect(map.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
+    await map.getByRole('button', { name: 'Show my province' }).click();
+    await expect(map.getByTestId('search-state-name')).toHaveText('Quebec', { timeout: 30_000 });
     // Only the region on screen was ever downloaded.
     expect(drawings).toEqual(['americas-north']);
   });
 
-  test("the region switcher re-scopes search and the map, and says when the region is not the collector's own", async ({
+  test("the region switcher re-scopes the map, the collectors while typing and Binders, and says when the region is not the collector's own", async ({
     page,
     request,
   }) => {
@@ -214,37 +188,12 @@ test.describe('mobile regions and the region map', () => {
     });
     const drawings = watchDrawings(page);
     await signInThroughUi(page, viewer.email, viewer.password);
-    await expect(screen(page, 'map').getByTestId('map-title')).toHaveText(
-      'Binders in Americas (North)',
-      { timeout: 30_000 }
-    );
-
-    // Search in the home region: the Breton collector is not there.
-    await openTab(page, 'Search');
     const search = screen(page, 'search');
     await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
     });
-    await search.getByRole('tab', { name: 'Collectors' }).click();
-    await expect(search.getByText('Who trades in your region?')).toBeVisible({ timeout: 30_000 });
-    // The search is asked for the region on screen; no sponsored placement is asked for any more
-    // (ads left with stage F1).
-    const adRequests: string[] = [];
-    page.on('request', (candidate) => {
-      if (new URL(candidate.url()).pathname.startsWith('/api/v1/ads')) {
-        adRequests.push(candidate.url());
-      }
-    });
-    const atHome = page.waitForRequest((candidate) => searchRegion(candidate.url()) !== null);
-    await search.getByLabel('Find a collector').fill(token);
-    await expect(search.getByTestId('search-collectors-empty')).toBeVisible({ timeout: 30_000 });
-    expect(searchRegion((await atHome).url())).toBe('americas-north');
 
     // The switcher: a sheet with the three regions, the home one marked.
-    const asked = page.waitForRequest(
-      (candidate) =>
-        candidate.url().includes('/api/v1/search?') && candidate.url().includes('region=europe')
-    );
     await search.getByTestId('search-region').click();
     await expect(page.getByTestId('search-region-option-americas-north')).toContainText(
       'Your region'
@@ -255,54 +204,48 @@ test.describe('mobile regions and the region map', () => {
       /Europe/,
     ]);
     await page.getByTestId('search-region-option-europe').click();
-    const url = new URL((await asked).url());
-    expect(url.searchParams.get('q')).toBe(token);
-    expect(url.searchParams.get('region')).toBe('europe');
-    expect(adRequests).toEqual([]);
-    // The same search, in Europe now: the Breton collector, with their state.
-    const row = search.getByTestId(`collector-result-${abroad.handle}`);
-    await expect(row).toBeVisible({ timeout: 30_000 });
-    await expect(row).toContainText(PLACE_LABELS.brittany);
-    // At a glance: the switcher names Europe and says it is not the collector's region.
-    await expect(search.getByRole('button', { name: 'Region: Europe' })).toBeVisible();
-    await expect(search.getByTestId('search-region-away')).toContainText('Not your region');
-
-    // The binders segment follows too.
-    await search.getByRole('tab', { name: 'Binders' }).click();
-    await search.getByLabel('Find a public binder').fill(token);
-    await expect(search.getByTestId(`binder-result-${binderId}`)).toBeVisible({ timeout: 30_000 });
-
-    // The map follows: Europe, its own drawing, Brittany shaded.
-    await openTab(page, 'Map');
-    const map = screen(page, 'map');
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Europe', { timeout: 30_000 });
-    await expect(map.getByTestId('map-status')).toHaveText(/^\d+ public binders? in Europe$/, {
+    // The map follows: Europe, its own drawing, Brittany shaded; not the collector's region.
+    await expect(search.getByRole('button', { name: 'Region: Europe' })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(map.getByTestId('map-shape-FR-BRE')).toBeVisible({ timeout: 30_000 });
-    await expect(map.getByTestId('map-shape-CA-QC')).toHaveCount(0);
-    await expect(map.getByTestId('map-region-away')).toContainText('Not your region');
+    await expect(search.getByTestId('map-shape-FR-BRE')).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByTestId('map-shape-CA-QC')).toHaveCount(0);
+    await expect(search.getByTestId('search-region-away')).toContainText('Not your region');
     expect(drawings).toEqual(['americas-north', 'europe']);
+    // Outside the collector's region: no province of theirs to show, no state card.
+    await expect(search.getByRole('button', { name: 'Show my province' })).toHaveCount(0);
+    await expect(search.getByTestId('search-state-card')).toHaveCount(0);
 
-    // The map's zoom buttons (a pinch on a phone): closer, then the whole region again.
-    const frame = () => map.getByTestId('map-drawing').getAttribute('viewBox');
-    const whole = await frame();
-    await map.getByRole('button', { name: 'Zoom in' }).click();
-    await expect.poll(frame).not.toBe(whole);
-    await map.getByRole('button', { name: 'Show the whole region' }).click();
-    await expect.poll(frame).toBe(whole);
+    // The collectors while typing are those of Europe.
+    const asked = page.waitForRequest(
+      (candidate) =>
+        candidate.url().includes('/api/v1/search/collectors?') &&
+        candidate.url().includes('region=europe')
+    );
+    await search.getByRole('search', { name: /Card name or code/ }).click();
+    await search.getByLabel('Card name or code').fill(token);
+    expect(new URL((await asked).url()).searchParams.get('q')).toBe(token);
+    await expect(search.getByTestId(`search-collector-${abroad.handle}`)).toContainText(
+      'Brittany',
+      { timeout: 30_000 }
+    );
 
-    // One press goes home; search and the map are back in the collector's region.
-    await map.getByRole('button', { name: 'Back to Americas (North)' }).click();
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)');
-    await expect(map.getByTestId('map-region-away')).toHaveCount(0);
-    await openTab(page, 'Search');
-    await expect(
-      screen(page, 'search').getByRole('button', { name: 'Region: Americas (North)' })
-    ).toBeVisible({ timeout: 30_000 });
+    // Binders follows too: the whole of Europe, the Breton binder with its owner's state.
+    await search.getByRole('tab', { name: 'Binders', exact: true }).click();
+    await search.getByLabel('Deck, binder or collector').fill(token);
+    await expect(search.getByTestId(`binder-search-row-${binderId}`)).toContainText(
+      `${abroad.handle} · Brittany`,
+      { timeout: 30_000 }
+    );
+
+    // One press goes home.
+    await search.getByRole('tab', { name: 'Cards' }).click();
+    await search.getByRole('button', { name: 'Back to Americas (North)' }).click();
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible();
+    await expect(search.getByTestId('search-region-away')).toHaveCount(0);
   });
 
-  test('a link opens the tab on a region and one of its states; a new visit starts in the home region', async ({
+  test('a link opens Search on a region and one of its states; a new visit starts in the home region', async ({
     page,
     request,
   }) => {
@@ -325,46 +268,64 @@ test.describe('mobile regions and the region map', () => {
       discoverable: true,
     });
     await signInThroughUi(page, viewer.email, viewer.password);
-    await expect(screen(page, 'map').getByTestId('map-title')).toHaveText(
-      'Binders in Americas (North)',
-      { timeout: 30_000 }
-    );
+    const search = screen(page, 'search');
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
+      timeout: 30_000,
+    });
 
-    // Inside the running app (a tapped link, a notification). The tab follows the link at once
-    // (the address becomes the state's), so the link is opened here rather than with `openInApp`,
-    // which waits on the address it pushed.
+    // The old Map tab's link inside the running app (a tapped link, a notification).
     await followLink(page, '/?region=americas-south&subdivision=uy-mo');
-    const place = screen(page, 'place');
-    await expect(place.getByTestId('place-title')).toHaveText(PLACE_LABELS.montevideo, {
+    await expect(search.getByRole('button', { name: 'Region: Americas (South)' })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(place.getByTestId(`place-binder-${binderId}`)).toBeVisible({ timeout: 30_000 });
-    await expect(page).toHaveURL(/\/regions\/americas-south\/UY-MO$/);
-    await page.goBack();
-    const map = screen(page, 'map');
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+    await expect(search.getByTestId('search-state-name')).toHaveText('Montevideo', {
       timeout: 30_000,
     });
-    await expect(map.getByTestId('map-selected-UY-MO')).toBeVisible({ timeout: 30_000 });
-    await expect(map.getByTestId('map-region-away')).toContainText('Not your region');
+    await expect(search.getByTestId('search-state-sub')).toHaveText('Uruguay');
+    // The link is used up: the address no longer carries it.
+    await expect(page).not.toHaveURL(/region=/);
+    await search.getByRole('button', { name: 'See binders' }).click();
+    await expect(search.getByTestId(`binder-search-row-${binderId}`)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    // The old public binders of a state (`/regions/<region>/<code>`, stage M9), opened inside the
+    // app from the map: Search › Binders on that state, on the link's region (the link crashed
+    // the tabs: stage R5 review, P1).
+    await search.getByTestId('search-segment-cards').click();
+    await search.getByTestId('search-region').click();
+    await page.getByTestId('search-region-option-americas-north').click();
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible();
+    await followLink(page, '/regions/americas-south/UY-MO');
+    await expect(search.getByTestId('binders-state-chip')).toContainText('Montevideo', {
+      timeout: 30_000,
+    });
+    await expect(search.getByTestId('search-segment-binders')).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    await expect(search.getByTestId(`binder-search-row-${binderId}`)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page.getByText('Something went wrong')).toHaveCount(0);
 
     // As a full page load (a link opened from outside the app): the region alone.
     await page.goto('/?region=europe');
-    const linked = screen(page, 'map');
-    await expect(linked.getByTestId('map-title')).toHaveText('Binders in Europe', {
+    await expect(
+      screen(page, 'search').getByRole('button', { name: 'Region: Europe' })
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'search').getByTestId('map-drawing')).toBeVisible({
       timeout: 30_000,
     });
-    await expect(linked.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
 
     // A new visit without a link starts in the collector's own region again.
     await page.goto('/');
-    await expect(screen(page, 'map').getByTestId('map-title')).toHaveText(
-      'Binders in Americas (North)',
-      { timeout: 30_000 }
-    );
+    await expect(
+      screen(page, 'search').getByRole('button', { name: 'Region: Americas (North)' })
+    ).toBeVisible({ timeout: 30_000 });
   });
 
-  test('a link works every time it is opened; a region that does not exist is neither browsed nor kept; another region starts at the top of its list', async ({
+  test('a link works every time it is opened; a region that does not exist is neither browsed nor kept', async ({
     page,
     request,
   }) => {
@@ -374,111 +335,52 @@ test.describe('mobile regions and the region map', () => {
     const viewer = await createOnboardedCollector(request, 'rgnew', 'Mobile Placeless Linker');
     const counts = watchCounts(page);
     await signInThroughUi(page, viewer.email, viewer.password);
-    const map = screen(page, 'map');
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)', {
+    const search = screen(page, 'search');
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
     });
+    // Without a declared province: no "My province" and no state card.
+    await expect(search.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
+    await expect(search.getByRole('button', { name: 'Show my province' })).toHaveCount(0);
+    await expect(search.getByTestId('search-state-card')).toHaveCount(0);
 
-    // The same link, twice in one visit: it opens its place both times (it used to do nothing
-    // the second time).
+    // The same link, twice in one visit: it opens its state both times.
     const link = '/?region=americas-south&subdivision=UY-MO';
     await followLink(page, link);
-    await expect(screen(page, 'place').getByTestId('place-title')).toHaveText(
-      PLACE_LABELS.montevideo,
-      { timeout: 30_000 }
-    );
-    await page.goBack();
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+    await expect(search.getByTestId('search-state-name')).toHaveText('Montevideo', {
       timeout: 30_000,
     });
-    // The link is used up: the tab's address no longer carries it.
-    await expect(page).not.toHaveURL(/region=/);
-    await map.getByTestId('map-region').click();
-    await page.getByTestId('map-region-option-americas-north').click();
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (North)');
+    await search.getByRole('button', { name: 'Close' }).click();
+    await expect(search.getByTestId('search-state-card')).toHaveCount(0);
+    await search.getByTestId('search-region').click();
+    await page.getByTestId('search-region-option-americas-north').click();
+    await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible();
     await followLink(page, link);
-    await expect(screen(page, 'place').getByTestId('place-title')).toHaveText(
-      PLACE_LABELS.montevideo,
-      { timeout: 30_000 }
-    );
-    await expect(page).toHaveURL(/\/regions\/americas-south\/UY-MO$/);
-    await page.goBack();
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
+    await expect(search.getByTestId('search-state-name')).toHaveText('Montevideo', {
       timeout: 30_000,
     });
+    await expect(search.getByRole('button', { name: 'Region: Americas (South)' })).toBeVisible();
 
-    // A link to a region that does not exist changes nothing: the region on screen stays, its
-    // counts stay, nothing is asked for "asia" and the device does not keep it.
+    // A link to a region that does not exist changes nothing: the region on screen stays, nothing
+    // is asked for "asia" and the device does not keep it.
     await followLink(page, '/?region=asia');
     await expect(page).not.toHaveURL(/region=/);
-    await expect(map.getByTestId('map-title')).toHaveText('Binders in Americas (South)');
-    await expect(map.getByTestId('map-status')).toHaveText(
-      /^\d+ public binders? in Americas \(South\)$/
-    );
-    await expect(map.getByTestId('map-counts-error')).toHaveCount(0);
-    await expect(map.getByRole('button', { name: 'Region: Americas (South)' })).toBeVisible();
+    await expect(search.getByRole('button', { name: 'Region: Americas (South)' })).toBeVisible();
+    await expect(search.getByTestId('search-map-counts-error')).toHaveCount(0);
     expect(await page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY)).toBe(
       'americas-south'
     );
 
-    // The same from outside the app (a full page load), with the list on screen: no skeleton
-    // that never ends, the places of the region the device kept.
-    await map.getByRole('tab', { name: 'List' }).click();
-    // (The list draws its rows as they come into view: the first country of the region.)
-    await expect(map.getByRole('link', { name: /^Buenos Aires City, / })).toBeVisible({
-      timeout: 30_000,
-    });
-    await page.goto('/?region=asia');
-    const again = screen(page, 'map');
-    await expect(again.getByTestId('map-title')).toHaveText('Binders in Americas (South)', {
-      timeout: 30_000,
-    });
-    await expect(again.getByRole('link', { name: /^Buenos Aires City, / })).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(again.getByTestId('place-list-loading')).toHaveCount(0);
-    await expect(again.getByTestId('map-counts-error')).toHaveCount(0);
-
-    // A code an older install (or a link, before this fix) left on the device: the server's list
-    // is the judge. The app starts in Americas (North) and the code is removed from the device.
+    // A code an older install left on the device: the server's list is the judge. The app starts
+    // in Americas (North) and the code is removed from the device.
     await page.evaluate((key) => window.localStorage.setItem(key, 'oceania'), REGION_STORAGE_KEY);
     await page.goto('/');
-    const fresh = screen(page, 'map');
-    await expect(fresh.getByTestId('map-title')).toHaveText('Binders in Americas (North)', {
-      timeout: 30_000,
-    });
-    await expect(fresh.getByTestId('map-status')).toHaveText(
-      /^\d+ public binders? in Americas \(North\)$/,
-      { timeout: 30_000 }
-    );
-    await fresh.getByLabel('Find a state or province').fill('queb');
-    await expect(fresh.getByTestId('place-row-CA-QC')).toBeVisible({ timeout: 30_000 });
-    await fresh.getByLabel('Find a state or province').fill('');
+    await expect(
+      screen(page, 'search').getByRole('button', { name: 'Region: Americas (North)' })
+    ).toBeVisible({ timeout: 30_000 });
     await expect
       .poll(() => page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY))
       .toBeNull();
     expect(counts.filter((code) => code === 'asia' || code === 'oceania')).toEqual([]);
-
-    // Deep in the list, the Map tab pressed again brings its top back; deep in it again, another
-    // region starts at its top, under its name.
-    const title = fresh.getByTestId('map-title');
-    // The wheel over the list, until the title of the tab is far above the screen.
-    const scrollDeep = async () => {
-      await fresh.getByTestId('place-list').hover();
-      await expect
-        .poll(async () => {
-          await page.mouse.wheel(0, 1500);
-          return title.evaluate((node) => node.getBoundingClientRect().bottom);
-        })
-        .toBeLessThan(-600);
-    };
-    await scrollDeep();
-    await expect(title).not.toBeInViewport();
-    await openTab(page, 'Map');
-    await expect(title).toBeInViewport();
-    await scrollDeep();
-    await followLink(page, '/?region=europe');
-    await expect(title).toHaveText('Binders in Europe', { timeout: 30_000 });
-    await expect(title).toBeInViewport();
   });
 });
