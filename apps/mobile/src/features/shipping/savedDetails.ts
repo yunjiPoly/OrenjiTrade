@@ -1,19 +1,26 @@
 import * as SecureStore from 'expo-secure-store';
 import { useCallback, useEffect } from 'react';
 import { Platform } from 'react-native';
-import { create } from 'zustand';
 
 import { useUid } from '@/src/api/hooks/useUid';
 
-/**
+import {
+  unloadSavedDetails,
+  useSavedDetailsStore,
+  type SavedDetailKind,
+} from './savedDetailsStore';
+
+export { unloadSavedDetails, type SavedDetailKind };
+
+/*
  * The buyer's shipping address and the seller's e-Transfer email or phone number (owner spec
  * 2026-10-14, sections 10 and 13; spec section 16, default 3): saved on this phone only, in its
  * secure storage (expo-secure-store; Expo web, used by the test suite, keeps them in localStorage
  * or, without it, in memory), one pair per signed-in account. They never reach the server except
  * inside a message the collector checks in the message box and sends; they are never logged, never
- * in analytics, never in the query cache.
+ * in analytics, never in the query cache. They stay on the phone across sign-outs (keyed by
+ * account) and are deleted with the account's deletion request (review fix 1, P3).
  */
-export type SavedDetailKind = 'address' | 'etransfer';
 
 /** Longest saved text: an address of a few lines, an email or a phone number. */
 export const SAVED_DETAIL_MAX: Readonly<Record<SavedDetailKind, number>> = {
@@ -95,28 +102,26 @@ export function cleanDetail(kind: SavedDetailKind, raw: string): string | null {
   return text ? text : null;
 }
 
-interface SavedDetailsState {
-  uid: string | null;
-  loaded: boolean;
-  address: string | null;
-  etransfer: string | null;
-  setAll: (uid: string | null, address: string | null, etransfer: string | null) => void;
-  setOne: (kind: SavedDetailKind, value: string | null) => void;
-}
-
-const useSavedDetailsStore = create<SavedDetailsState>((set) => ({
-  uid: null,
-  loaded: false,
-  address: null,
-  etransfer: null,
-  setAll: (uid, address, etransfer) => set({ uid, loaded: true, address, etransfer }),
-  setOne: (kind, value) => set(kind === 'address' ? { address: value } : { etransfer: value }),
-}));
-
-/** Forgets what was read (tests; a sign-out keeps nothing in memory for the next account). */
+/** Forgets everything, the in-memory fallback storage included (tests). */
 export function resetSavedDetails(): void {
   memory.clear();
-  useSavedDetailsStore.setState({ uid: null, loaded: false, address: null, etransfer: null });
+  unloadSavedDetails();
+}
+
+/**
+ * Deletes both saved details of an account from this phone (its deletion was requested, review
+ * fix 1, P3): no screen is left to delete them from afterwards, and nothing should outlive the
+ * account in the phone's keychain.
+ */
+export async function deleteSavedDetails(uid: string): Promise<void> {
+  await Promise.all(
+    (['address', 'etransfer'] as const).map((kind) =>
+      removeKey(savedDetailKey(kind, uid)).catch(() => undefined)
+    )
+  );
+  if (useSavedDetailsStore.getState().uid === uid) {
+    unloadSavedDetails();
+  }
 }
 
 /**
