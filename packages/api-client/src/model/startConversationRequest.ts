@@ -14,5 +14,13 @@ export interface StartConversationRequest {
      * Account id of the recipient
      */
     recipientId: string;
+    /**
+     * Stage R4: the card (inventory item) the chat is about, which becomes its subject (the latest wins). It must be public and the recipient\'s, or yours.
+     */
+    subjectItemId?: string;
+    /**
+     * Stage R4: the deck core (binder) the chat is about, which becomes its subject. It must be public and the recipient\'s, or yours. At most one of subjectItemId and subjectBinderId.
+     */
+    subjectBinderId?: string;
 }
 

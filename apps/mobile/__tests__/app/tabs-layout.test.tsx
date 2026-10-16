@@ -74,12 +74,14 @@ describe('(tabs) layout', () => {
     expect(screen.getByTestId('region-map')).toBeOnTheScreen();
   });
 
-  it('shows the notification bell and the unread messages on the Messages tab', async () => {
+  it('shows the notification bell and the unread chats on the Messages tab', async () => {
     mockApi(
       signedInRoutes({
         'GET /api/v1/conversations': ok(
           conversationPage([
             conversationFixture({ unreadCount: 3 }),
+            conversationFixture({ id: 'second', unreadCount: 1 }),
+            conversationFixture({ id: 'read', unreadCount: 0 }),
             conversationFixture({ id: 'muted', unreadCount: 7, muted: true }),
           ])
         ),
@@ -88,7 +90,8 @@ describe('(tabs) layout', () => {
     );
     renderRouter(routes, { initialUrl: '/' });
     await screen.findByTestId('screen-map');
-    expect(await screen.findByLabelText('Messages tab, 3 unread')).toBeOnTheScreen();
+    // Unread chats, not messages (spec section 4), muted ones left out.
+    expect(await screen.findByLabelText('Messages tab, 2 unread chats')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
     expect(screen.getByTestId('notification-bell-index-badge')).toHaveTextContent('5');
   });

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   AccessibilityInfo,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -166,6 +167,43 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** The keyboard's height on iOS now (0 when it is down), from the keyboard's own metrics. */
+function iosKeyboardHeight(): number {
+  if (Platform.OS !== 'ios') {
+    return 0;
+  }
+  try {
+    return Keyboard.isVisible?.() ? (Keyboard.metrics?.()?.height ?? 0) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * How much of the bottom of the screen the keyboard covers on iOS, where the window does not
+ * resize for it (stage R4, review fix 1, F2: a toast and its "Undo" were drawn under the keys).
+ * Android resizes the window for the keyboard (adjustResize), so the toast's place already clears
+ * it there, as the bottom sheets assume.
+ */
+function useKeyboardCover(): number {
+  const [height, setHeight] = useState(iosKeyboardHeight);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return undefined;
+    }
+    // iOS sends "will show" again when the keyboard changes size while it is up.
+    const shown = Keyboard.addListener('keyboardWillShow', (event) =>
+      setHeight(event.endCoordinates.height)
+    );
+    const hidden = Keyboard.addListener('keyboardWillHide', () => setHeight(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+  return height;
+}
+
 function SnackbarView({
   message,
   clearance,
@@ -183,8 +221,13 @@ function SnackbarView({
   // At large text sizes the action goes under the text, which keeps the width of the toast
   // (side by side, "Saved" broke in the middle of the word).
   const stacked = useWindowDimensions().fontScale > 1.3;
-  // Above the tab bar, or above the bottom bar of a form screen.
-  const bottom = Math.max(insets.bottom + spacing[16], clearance + spacing[2]);
+  // Above the tab bar, or above the bottom bar of a form screen, and above the keyboard.
+  const keyboard = useKeyboardCover();
+  const bottom = Math.max(
+    insets.bottom + spacing[16],
+    clearance + spacing[2],
+    keyboard > 0 ? keyboard + spacing[2] : 0
+  );
   const [height, setHeight] = useState(0);
   useEffect(() => {
     onCover(height > 0 ? bottom + height : 0);

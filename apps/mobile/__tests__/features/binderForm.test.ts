@@ -5,6 +5,7 @@ import {
   binderRowLine,
   binderVisibilityChoice,
   hasBinderErrors,
+  liveBinders,
   orderBinders,
   toBinderPatch,
   toCreateBinderBody,
@@ -72,6 +73,8 @@ describe('Inventory › Binders lines (screen 17)', () => {
     const ordered = orderBinders([plainA, coreB, plainC, sold]);
     expect(ordered.cores.map((binder) => binder.id)).toEqual(['b']);
     expect(ordered.binders.map((binder) => binder.id)).toEqual(['a', 'c']);
+    // The owner's lists, counts and pickers never hold a sold deck core (R3 leftover U10).
+    expect(liveBinders([plainA, sold, coreB]).map((binder) => binder.id)).toEqual(['a', 'b']);
   });
 });
 

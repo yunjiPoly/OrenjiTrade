@@ -215,6 +215,16 @@ export function binderTag(binder: Pick<BinderResponse, 'askingPriceText'>): stri
 }
 
 /**
+ * The collector's binders without the deck cores they sold (Mark as sold, stage R4; spec section
+ * 16, default 6: a sold deck core is hidden). `useMyBinders` answers these, so a sold core is in no
+ * list, count or picker of the phone: Inventory › Binders, the "Binders {n}" switch, Reorder, the
+ * card form's binder picker and "Share a binder" (R3 leftover U10). Undoing the sale brings it back.
+ */
+export function liveBinders(binders: readonly BinderResponse[]): BinderResponse[] {
+  return binders.filter((binder) => !binder.soldAt);
+}
+
+/**
  * Inventory › Binders: deck cores first, then the other binders, each in the owner's order (the
  * list the API returns, `PUT /binders/reorder`). Sold deck cores (stage R4) are not listed. The
  * Reorder sheet shows the same two groups and moves a binder inside its group.
@@ -223,7 +233,7 @@ export function orderBinders(binders: readonly BinderResponse[]): {
   cores: BinderResponse[];
   binders: BinderResponse[];
 } {
-  const live = binders.filter((binder) => !binder.soldAt);
+  const live = liveBinders(binders);
   return {
     cores: live.filter((binder) => binder.sellsAsCore),
     binders: live.filter((binder) => !binder.sellsAsCore),

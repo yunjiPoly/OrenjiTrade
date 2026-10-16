@@ -56,6 +56,13 @@ describe('notification kinds', () => {
     expect(link('WISHLIST_ALERT', { cardId: '../x' })).toBe('/wishlist');
     expect(link('MESSAGE', { conversationId: 'c1' })).toBe('/messages/c1');
     expect(link('MESSAGE', {})).toBe('/messages');
+    // Stage R4: "{seller} marked {card} as sold to you" opens the chat.
+    expect(link('SALE_RECORDED', { conversationId: 'c1', saleId: 's1' })).toBe('/messages/c1');
+    expect(notificationKind({ type: 'SALE_RECORDED', data: {} })).toEqual({
+      icon: 'package-variant-closed',
+      tone: 'trade',
+      label: 'Sold to you',
+    });
     expect(link('BINDER_HIDDEN', { binderId: 'b1' })).toBe('/inventory?binder=b1');
     expect(link('OFFER_RECEIVED', { offerId: 'o1' })).toBe('/offers/o1');
     expect(link('OFFER_ACCEPTED', { offerId: 'o1', tradeId: 't1' })).toBe('/trades/t1');

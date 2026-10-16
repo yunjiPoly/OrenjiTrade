@@ -22,10 +22,12 @@ import type {
   CardDetail,
   CollectorMarker,
   CollectorRatingsPage,
+  ConversationSubject,
   ConversationSummary,
   MatchingItem,
   MessagePage,
   MessageResponse,
+  SaleNotice,
   MyLimits,
   Place,
   PublicBinderCursorPage,
@@ -836,6 +838,72 @@ export function conversationFixture(
     createdAt: '2026-10-01T12:00:00Z',
     ...overrides,
   };
+}
+
+/** The card a chat is about (stage R4): collector2's public card, as the buyer sees it. */
+export function subjectFixture(overrides: Partial<ConversationSubject> = {}): ConversationSubject {
+  return {
+    kind: 'CARD',
+    id: ITEM_ID,
+    ownerId: '00000000-0000-4000-8000-0000000000b1',
+    name: 'Emberfang Fox VMAX',
+    printingCode: 'SVX-001',
+    rarity: 'Ultra Rare',
+    cardId: CARD_ID,
+    printingId: PRINTING_A,
+    imageUrl: '/api/v1/public/card-images/pa',
+    askingPriceText: '$32',
+    sold: false,
+    listed: true,
+    copies: null,
+    ...overrides,
+  };
+}
+
+/** A deck core a chat is about (stage R4). */
+export function deckCoreSubjectFixture(
+  overrides: Partial<ConversationSubject> = {}
+): ConversationSubject {
+  return subjectFixture({
+    kind: 'DECK_CORE',
+    id: BINDER_ID,
+    name: 'Snake-Eye core',
+    printingCode: null,
+    rarity: null,
+    cardId: null,
+    printingId: null,
+    imageUrl: null,
+    askingPriceText: '$95',
+    ...overrides,
+  });
+}
+
+/** The SYSTEM message of a sale (stage R4). */
+export function saleMessageFixture(
+  sale: Partial<SaleNotice> = {},
+  overrides: Partial<MessageResponse> = {}
+): MessageResponse {
+  return messageFixture({
+    id: 'm-sale',
+    kind: 'SYSTEM',
+    senderId: null,
+    body: 'collector2 marked Emberfang Fox VMAX as sold to maika.',
+    createdAt: '2026-10-04T12:10:00Z',
+    payload: {
+      sale: {
+        saleId: 'sale-1',
+        sellerId: '00000000-0000-4000-8000-0000000000b1',
+        buyerId: SELF_ID,
+        kind: 'CARD',
+        name: 'Emberfang Fox VMAX',
+        quantity: 1,
+        trackingNumber: '7023 2109 8876 5432',
+        undone: false,
+        ...sale,
+      },
+    },
+    ...overrides,
+  });
 }
 
 export function messageFixture(overrides: Partial<MessageResponse> = {}): MessageResponse {

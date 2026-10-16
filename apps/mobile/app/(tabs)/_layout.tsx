@@ -10,7 +10,7 @@ import { NotificationBell } from '@/src/features/notifications/NotificationBell'
 import { TABS } from '@/src/navigation/tabs';
 import { useTheme } from '@/src/theme/useTheme';
 
-/** Unread messages of the inbox (not muted), for the Messages tab badge. */
+/** Unread chats of the inbox (not muted), for the Messages tab badge (stage R4). */
 function useInboxUnread(): number {
   const ready = useAccount().status === 'ready';
   const inbox = useConversations(ready);
@@ -47,7 +47,7 @@ export default function TabLayout() {
               title: tab.title,
               headerShown: !tab.ownHeader,
               tabBarAccessibilityLabel: badge
-                ? `${tab.title} tab, ${unreadMessages} unread`
+                ? `${tab.title} tab, ${unreadMessages} unread ${unreadMessages === 1 ? 'chat' : 'chats'}`
                 : `${tab.title} tab`,
               // Stable selector for the native Maestro flows (resource-id on Android).
               tabBarButtonTestID: `tab-${tab.name}`,

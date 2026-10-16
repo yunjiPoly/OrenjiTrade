@@ -3,7 +3,14 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/src/components/ui/Text';
 import { useRealtimeState } from '@/src/realtime/RealtimeProvider';
 import type { RealtimeState } from '@/src/realtime/realtimeClient';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 /** Label of a realtime state (web: `app-realtime-status`). */
 export function realtimeStatusLabel(state: RealtimeState): string | null {
@@ -46,6 +53,9 @@ export function RealtimeStatus() {
       />
       <Text
         testID={`realtime-status-${state}`}
+        // Beside the title, above the list: it follows the text size as far as the other controls
+        // that stay on screen.
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         style={[
           textStyle('xs'),
           styles.text,

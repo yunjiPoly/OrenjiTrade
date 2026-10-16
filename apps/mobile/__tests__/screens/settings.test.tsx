@@ -8,6 +8,7 @@ import LocationSettingsScreen from '@/app/settings/location';
 import NotificationSettingsScreen from '@/app/settings/notifications';
 import PrivacySettingsScreen from '@/app/settings/privacy';
 import ProfileSettingsScreen from '@/app/settings/profile';
+import { savedDetailKey } from '@/src/features/shipping/savedDetails';
 import { useAppStore } from '@/src/store/useAppStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -51,6 +52,7 @@ describe('Settings home', () => {
       'Profile',
       'Location and discoverability',
       'Privacy',
+      'Shipping details',
       'Notifications',
       'Blocked users',
       'My reports',
@@ -67,6 +69,8 @@ describe('Settings home', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
     fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
+    fireEvent.press(screen.getByRole('link', { name: 'Shipping details' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/shipping');
     fireEvent.press(screen.getByTestId('settings-sign-out'));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
@@ -430,6 +434,12 @@ describe('Settings → Delete account', () => {
   });
 
   it('re-authenticates, then files the request (the gate shows the pending screen)', async () => {
+    // The saved shipping details of this account, and those of another account on this phone.
+    const secureStore = (require('expo-secure-store') as { mockStore: Map<string, string> })
+      .mockStore;
+    secureStore.set(savedDetailKey('address', 'uid-maika'), '1 Rue Exemple');
+    secureStore.set(savedDetailKey('etransfer', 'uid-maika'), 'maika@example.com');
+    secureStore.set(savedDetailKey('address', 'uid-other'), '2 Rue Autre');
     const port = new FakeAuthPort(testUser());
     const api = mockApi(
       signedInRoutes({
@@ -447,6 +457,13 @@ describe('Settings → Delete account', () => {
       exportFirst: false,
     });
     expect(exportMock()).not.toHaveBeenCalled();
+    // The account's saved address and e-Transfer email leave the phone with it (review fix 1,
+    // P3); another account's stay.
+    await waitFor(() =>
+      expect(secureStore.has(savedDetailKey('address', 'uid-maika'))).toBe(false)
+    );
+    expect(secureStore.has(savedDetailKey('etransfer', 'uid-maika'))).toBe(false);
+    expect(secureStore.get(savedDetailKey('address', 'uid-other'))).toBe('2 Rue Autre');
   });
 
   it('confirms with Google for an account without a password', async () => {

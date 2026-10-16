@@ -779,3 +779,114 @@ export const PHOTO_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==',
   'base64'
 );
+
+/**
+ * `POST /conversations` as `from` about a card (`subjectItemId`) or a deck core
+ * (`subjectBinderId`): the chat's pinned subject (stage R4). The conversation id.
+ */
+export async function apiStartConversationAbout(
+  api: APIRequestContext,
+  from: EmulatorUser,
+  recipientId: string,
+  subject: { subjectItemId?: string; subjectBinderId?: string }
+): Promise<string> {
+  const response = await api.post(`${API_URL}/api/v1/conversations`, {
+    headers: authHeader(from.idToken),
+    data: { recipientId, ...subject },
+  });
+  expect([200, 201], `POST /conversations about ${JSON.stringify(subject)}`).toContain(
+    response.status()
+  );
+  return ((await response.json()) as { id: string }).id;
+}
+
+export interface ApiConversation {
+  id: string;
+  unreadCount: number;
+  subject?: {
+    kind: string;
+    id: string;
+    ownerId: string;
+    name: string;
+    sold: boolean;
+    listed: boolean;
+    askingPriceText?: string | null;
+    copies?: number | null;
+  } | null;
+}
+
+/** `GET /conversations/{id}` as `as` (stage R4: with its subject). */
+export async function apiConversation(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string
+): Promise<ApiConversation> {
+  const response = await api.get(`${API_URL}/api/v1/conversations/${conversationId}`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /conversations/{id}').toBeTruthy();
+  return (await response.json()) as ApiConversation;
+}
+
+export interface ApiSaleMessage {
+  id: string;
+  kind: string;
+  body: string;
+  payload?: {
+    sale?: {
+      saleId: string;
+      sellerId: string;
+      buyerId: string;
+      name: string;
+      trackingNumber?: string | null;
+      undone: boolean;
+    };
+  };
+}
+
+/** The SYSTEM sale messages of a chat as `as` reads it (stage R4). */
+export async function apiSaleMessages(
+  api: APIRequestContext,
+  as: EmulatorUser,
+  conversationId: string
+): Promise<ApiSaleMessage[]> {
+  return ((await apiMessages(api, as, conversationId)) as unknown as ApiSaleMessage[]).filter(
+    (message) => message.kind === 'SYSTEM' && !!message.payload?.sale
+  );
+}
+
+/** A public deck core of `seller` with its price and one private card; the binder id. */
+export async function apiDeckCore(
+  api: APIRequestContext,
+  seller: EmulatorUser,
+  name: string,
+  price: string,
+  printingId: string
+): Promise<string> {
+  const created = await api.post(`${API_URL}/api/v1/binders`, {
+    headers: authHeader(seller.idToken),
+    data: {
+      name,
+      visibility: 'PUBLIC',
+      sellsAsCore: true,
+      askingPriceText: price,
+      description: 'Fictional deck core of the mobile E2E suite.',
+    },
+  });
+  expect(created.status(), 'POST /binders (deck core)').toBe(201);
+  const id = ((await created.json()) as { id: string }).id;
+  await apiAddItem(api, seller, printingId, { binderId: id, visibility: 'PRIVATE' });
+  return id;
+}
+
+/** The notifications of `as` (newest first). */
+export async function apiNotifications(
+  api: APIRequestContext,
+  as: EmulatorUser
+): Promise<{ type: string; title: string; data: Record<string, unknown> }[]> {
+  const response = await api.get(`${API_URL}/api/v1/notifications`, {
+    headers: authHeader(as.idToken),
+  });
+  expect(response.ok(), 'GET /notifications').toBeTruthy();
+  return ((await response.json()) as { items: never[] }).items;
+}

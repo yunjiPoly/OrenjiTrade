@@ -27,10 +27,15 @@ import type {
   ConversationPage,
   ConversationSummary,
   ImageUploadResponse,
+  MarkSoldRequest,
   MessagePage,
   MessageResponse,
+  SaleResponse,
+  StartConversationRequest,
   UpdateConversationRequest,
 } from '../types';
+import { refreshInventory } from './inventory';
+import { refreshBinderListings } from './listingRefresh';
 import { refreshUnreadCountSoon } from './notificationCentre';
 import { useIsAuthenticated, useUid } from './useUid';
 
@@ -38,12 +43,26 @@ import { useIsAuthenticated, useUid } from './useUid';
 export const MESSAGES_PAGE_SIZE = 30;
 /** Conversations per page of the inbox. */
 export const CONVERSATIONS_PAGE_SIZE = 30;
-/** Conversation pages scanned to find one opened by id (deep link) when it is not cached. */
-const CONVERSATION_LOOKUP_PAGES = 3;
 
 export { MESSAGE_MAX_LENGTH } from '@/src/features/messages/messageText';
 
 type Uid = string | null;
+
+/**
+ * The fields of a conversation a new message changes (the last message, archived, unread), taken
+ * from the inbox's updated copy; everything else (the subject first) stays the conversation's own.
+ */
+export function withMessageFields(
+  current: ConversationSummary,
+  updated: ConversationSummary
+): ConversationSummary {
+  return {
+    ...current,
+    lastMessage: updated.lastMessage,
+    archived: updated.archived,
+    unreadCount: updated.unreadCount,
+  };
+}
 
 /** Keeps the inbox and the conversation's own cache entry in step. */
 function patchEverywhere(
@@ -74,6 +93,15 @@ export function applyMessageToCaches(
   queryClient.setQueryData<ThreadData>(meKeys.messages(uid, message.conversationId), (data) =>
     upsertThreadMessage(data, message)
   );
+  if (message.payload?.sale) {
+    // A sale or its undo (stage R4): the pinned bar's "Sold", the unread count and the last
+    // message come from the server; the seller's inventory changed.
+    void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
+    void queryClient.invalidateQueries({
+      queryKey: meKeys.conversation(uid, message.conversationId),
+    });
+    return;
+  }
   const onScreen = activeConversationId() === message.conversationId;
   const inbox = queryClient.getQueryData<InboxData>(meKeys.conversationList(uid));
   const result = applyMessageToInbox(inbox, message, selfId, onScreen);
@@ -81,9 +109,21 @@ export function applyMessageToCaches(
     queryClient.setQueryData(meKeys.conversationList(uid), result.data);
     const updated = findConversation(result.data, message.conversationId);
     if (updated) {
-      queryClient.setQueryData(meKeys.conversation(uid, updated.id), updated);
+      // Only what a message changes: the inbox's copy of the subject may be older than the
+      // conversation's own (review fix 1, F1: the pinned bar went back to an earlier card).
+      queryClient.setQueryData<ConversationSummary>(
+        meKeys.conversation(uid, updated.id),
+        (current) => (current ? withMessageFields(current, updated) : current)
+      );
     }
   } else {
+    void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
+  }
+  if (message.payload?.item) {
+    // A card shared by its owner becomes what the chat is about.
+    void queryClient.invalidateQueries({
+      queryKey: meKeys.conversation(uid, message.conversationId),
+    });
     void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
   }
 }
@@ -119,16 +159,18 @@ export function useConversations(enabled = true) {
 
 /**
  * `POST /api/v1/conversations` (the web's `ConversationStarterService`): opens the conversation
- * with a collector, creating it when needed (200 existing, 201 new). A refusal (403
- * `MESSAGING_BLOCKED`: a block, or the collector's messaging permission) rejects with the
- * `ApiError`, which the caller explains. The answer seeds the thread's header.
+ * with a collector, creating it when needed (200 existing, 201 new). With a subject (stage R4) the
+ * card (`subjectItemId`) or deck core (`subjectBinderId`) becomes what the chat is about: the
+ * latest wins; "Message {handle}" on a profile sends none and keeps the chat's pinned card. A
+ * refusal (403 `MESSAGING_BLOCKED`: a block, or the collector's messaging permission; 404 for a
+ * card that is no longer listed) rejects with the `ApiError`, which the caller explains. The
+ * answer seeds the thread's header.
  */
 export function useStartConversation() {
   const uid = useUid();
   const queryClient = useQueryClient();
-  return useMutation<ConversationSummary, ApiError, { recipientId: string }>({
-    mutationFn: async ({ recipientId }) =>
-      required((await api.POST('/api/v1/conversations', { body: { recipientId } })).data),
+  return useMutation<ConversationSummary, ApiError, StartConversationRequest>({
+    mutationFn: async (body) => required((await api.POST('/api/v1/conversations', { body })).data),
     onSuccess: (conversation) => {
       queryClient.setQueryData(meKeys.conversation(uid, conversation.id), conversation);
       void queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) });
@@ -137,9 +179,8 @@ export function useStartConversation() {
 }
 
 /**
- * One conversation (its other participant for the thread header): the inbox's copy when it is
- * loaded, the summary cached when it was opened, else looked up in the first pages of
- * `GET /conversations`.
+ * One conversation, with its subject (`GET /api/v1/conversations/{id}`, stage R4): the inbox's
+ * copy shows at once while it is read.
  */
 export function useConversation(id: string | null | undefined) {
   const uid = useUid();
@@ -147,28 +188,10 @@ export function useConversation(id: string | null | undefined) {
   const queryClient = useQueryClient();
   return useQuery<ConversationSummary, ApiError>({
     queryKey: meKeys.conversation(uid, id ?? ''),
-    queryFn: async () => {
-      let cursor: string | undefined;
-      for (let page = 0; page < CONVERSATION_LOOKUP_PAGES; page++) {
-        const slice: ConversationPage = required(
-          (await api.GET('/api/v1/conversations', { params: { query: { cursor, limit: 50 } } }))
-            .data
-        );
-        const found = slice.items?.find((conversation) => conversation.id === id);
-        if (found) {
-          return found;
-        }
-        if (!slice.hasMore || !slice.nextCursor) {
-          break;
-        }
-        cursor = slice.nextCursor;
-      }
-      throw new ApiError({
-        status: 404,
-        errorCode: 'NOT_FOUND',
-        message: 'This conversation is not available.',
-      });
-    },
+    queryFn: async () =>
+      required(
+        (await api.GET('/api/v1/conversations/{id}', { params: { path: { id: id ?? '' } } })).data
+      ),
     initialData: () =>
       id
         ? (findConversation(
@@ -176,6 +199,11 @@ export function useConversation(id: string | null | undefined) {
             id
           ) ?? undefined)
         : undefined,
+    // The inbox's copy is shown at once and the conversation read again behind it.
+    initialDataUpdatedAt: 0,
+    // Read again whenever the chat opens or the app comes back (review fix 1, F1): what it is
+    // about may have changed while it was closed; pins pushed while it is open invalidate it.
+    staleTime: 0,
     enabled: !!id && authenticated,
   });
 }
@@ -322,4 +350,55 @@ export function restoreToInbox(
   queryClient.setQueryData<InboxData>(meKeys.conversationList(uid), (data) =>
     upsertConversation(data, conversation)
   );
+}
+
+/** Re-reads what a sale or its undo changed: the chat, its thread, the inbox and the inventory. */
+async function refreshAfterSale(queryClient: QueryClient, uid: Uid, conversationId: string) {
+  refreshBinderListings(queryClient, uid);
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: meKeys.conversation(uid, conversationId) }),
+    queryClient.invalidateQueries({ queryKey: meKeys.messages(uid, conversationId) }),
+    queryClient.invalidateQueries({ queryKey: meKeys.conversationList(uid) }),
+    queryClient.invalidateQueries({ queryKey: meKeys.ratingEligibilities(uid) }),
+    refreshInventory(queryClient, uid),
+  ]);
+}
+
+/**
+ * Mark as sold (`POST /api/v1/conversations/{id}/sales`, stage R4): the seller marks the chat's
+ * card or deck core sold to the other collector, with the copies sold and an optional tracking
+ * number. 403 (not the seller), 409 `NOTHING_LEFT_TO_SELL` and 400 reject with the `ApiError`.
+ */
+export function useMarkSold(conversationId: string) {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<SaleResponse, ApiError, MarkSoldRequest>({
+    mutationFn: async (body) =>
+      required(
+        (
+          await api.POST('/api/v1/conversations/{id}/sales', {
+            params: { path: { id: conversationId } },
+            body,
+          })
+        ).data
+      ),
+    onSuccess: async () => refreshAfterSale(queryClient, uid, conversationId),
+  });
+}
+
+/**
+ * The undo of a sale (`POST /api/v1/sales/{id}/undo`): the seller, within 10 minutes and before
+ * anyone rated it. 409 `SALE_UNDO_CLOSED` / `SALE_ALREADY_RATED` reject with the `ApiError`.
+ */
+export function useUndoSale() {
+  const uid = useUid();
+  const queryClient = useQueryClient();
+  return useMutation<SaleResponse, ApiError, { saleId: string; conversationId: string }>({
+    mutationFn: async ({ saleId }) =>
+      required(
+        (await api.POST('/api/v1/sales/{id}/undo', { params: { path: { id: saleId } } })).data
+      ),
+    onSettled: async (_data, _error, { conversationId }) =>
+      refreshAfterSale(queryClient, uid, conversationId),
+  });
 }

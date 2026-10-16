@@ -288,6 +288,17 @@ public class NotificationService {
         return repository.markConversationRead(userId, conversationId, timeProvider.now());
     }
 
+    /**
+     * Withdraws a notification by its dedup key (the undo of a sale withdraws the buyer's notice,
+     * stage R4); nothing happens when none has the key.
+     *
+     * @return whether one was deleted
+     */
+    @Transactional
+    public boolean withdraw(String dedupKey) {
+        return repository.deleteByDedupKey(dedupKey) > 0;
+    }
+
     /** One stored notification (dispatcher). */
     @Transactional(readOnly = true)
     public Optional<NotificationView> find(UUID notificationId) {

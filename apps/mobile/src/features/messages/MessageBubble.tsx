@@ -7,17 +7,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MessageImage, MessageResponse } from '@/src/api/types';
 import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
-import { fontWeight, radius, scrimColor, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, scrimColor, spacing, useTheme } from '@/src/theme';
 
 import { OfferUnavailableLine, SharedLinkCard } from './LinkCards';
 import { isOfferMessage } from './messageText';
+import { SaleMessage } from './SaleMessage';
 
 /** Largest photo side in a bubble (dp). */
-const PHOTO_MAX = 240;
+const PHOTO_MAX = 172;
 /** Behind a photo opened full screen: nearly opaque, and not a pure black (theme/scrim.ts). */
 const PHOTO_SCRIM = scrimColor('rgba(0, 0, 0, 0.92)');
 
-function timeLabel(iso: string): string {
+/** "2:14 PM" (the time under a group of messages). */
+export function timeLabel(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return '';
@@ -26,21 +28,33 @@ function timeLabel(iso: string): string {
 }
 
 /**
- * One message (the web's `app-message-bubble`): text, a shared card or binder (with an optional
- * caption), a photo (tap to view it full screen) or a system line. An old offer or trade message
- * reads as the grey line "Offer (no longer available)" (a text sent with an offer link stays, in
- * its bubble). Removed messages keep their place with a neutral note.
+ * One message (owner spec 2026-10-14, section 10, mockup screens 23 and 24): the reader's own in
+ * orange on the right, the other collector's in a dark bubble on the left, line breaks kept (an
+ * address); a shared card (picture, name, code and price) or binder; a photo (tap to view it full
+ * screen); a sale, worded for the reader (`SaleMessage`); an old offer or trade as the grey line
+ * "Offer (no longer available)" (a text sent with an offer link stays, in its bubble). Removed
+ * messages keep their place with a neutral note. The time sits under the last message of a group
+ * (the thread list draws it).
  */
 export function MessageBubble({
   message,
   own,
-  showTime,
+  selfId,
+  otherHandle,
+  onRate,
 }: {
   message: MessageResponse;
   own: boolean;
-  showTime: boolean;
+  selfId: string | null;
+  otherHandle: string;
+  /** "Rate {other}" of a sale message. */
+  onRate: () => void;
 }) {
   const { palette } = useTheme();
+  const bubbleColors = own
+    ? { backgroundColor: palette.primary }
+    : { backgroundColor: palette.chat.otherBubble };
+  const textColor = own ? palette.onPrimary : palette.ink;
   if (isOfferMessage(message)) {
     const caption =
       message.kind === 'OFFER_LINK' && message.moderationState !== 'REMOVED' && message.body;
@@ -48,80 +62,81 @@ export function MessageBubble({
       <View style={styles.offer} testID={`message-${message.id}`}>
         <OfferUnavailableLine testID={`message-${message.id}-offer`} />
         {caption ? (
-          <View
-            style={[
-              styles.bubble,
-              own
-                ? [styles.own, { backgroundColor: palette.primary }]
-                : [styles.other, { backgroundColor: palette.surfaceVariant }],
-            ]}
-          >
-            <Text
-              selectable
-              style={[textStyle('md'), { color: own ? palette.onPrimary : palette.ink }]}
-            >
+          <View style={[styles.bubble, own ? styles.own : styles.other, bubbleColors]}>
+            <Text selectable style={[styles.body, { color: textColor }]}>
               {caption}
             </Text>
-            {showTime ? (
-              <Text
-                style={[
-                  textStyle('xs'),
-                  styles.time,
-                  { color: own ? palette.onPrimary : palette.ink },
-                ]}
-              >
-                {timeLabel(message.createdAt)}
-              </Text>
-            ) : null}
           </View>
         ) : null}
       </View>
     );
   }
   if (message.kind === 'SYSTEM') {
+    if (message.payload?.sale) {
+      return (
+        <SaleMessage
+          sale={message.payload.sale}
+          selfId={selfId}
+          otherHandle={otherHandle}
+          onRate={onRate}
+          testID={`message-${message.id}`}
+        />
+      );
+    }
     return (
       <View style={styles.system} testID={`message-${message.id}`}>
-        <Text style={[textStyle('sm'), styles.systemText, { color: palette.textMuted }]}>
-          {message.body}
-        </Text>
+        <Text style={[styles.systemText, { color: palette.textMuted }]}>{message.body}</Text>
       </View>
     );
   }
   const removed = message.moderationState === 'REMOVED';
-  const textColor = own ? palette.onPrimary : palette.ink;
+  if (!removed && message.kind === 'CARD_LINK' && message.payload?.card) {
+    // A shared card is its own bubble (screen 24), the text under it in an ordinary bubble.
+    return (
+      <View testID={`message-${message.id}`} style={own ? styles.ownStack : styles.otherStack}>
+        <SharedLinkCard card={message.payload.card} item={message.payload.item} />
+        {message.body ? (
+          <View style={[styles.bubble, own ? styles.own : styles.other, bubbleColors]}>
+            <Text selectable style={[styles.body, { color: textColor }]}>
+              {message.body}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+  if (!removed && message.kind === 'IMAGE' && message.payload?.image) {
+    return (
+      <View testID={`message-${message.id}`} style={own ? styles.ownStack : styles.otherStack}>
+        <Photo image={message.payload.image} sender={own ? null : otherHandle} />
+        {message.body ? (
+          <View style={[styles.bubble, own ? styles.own : styles.other, bubbleColors]}>
+            <Text selectable style={[styles.body, { color: textColor }]}>
+              {message.body}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
   let attachment = null;
-  if (!removed) {
-    switch (message.kind) {
-      case 'CARD_LINK':
-        attachment = message.payload?.card ? <SharedLinkCard card={message.payload.card} /> : null;
-        break;
-      case 'BINDER_LINK':
-        attachment = message.payload?.binder ? (
-          <SharedLinkCard binder={message.payload.binder} />
-        ) : null;
-        break;
-      case 'IMAGE':
-        attachment = message.payload?.image ? <Photo image={message.payload.image} /> : null;
-        break;
-      default:
-        break;
-    }
+  if (!removed && message.kind === 'BINDER_LINK' && message.payload?.binder) {
+    attachment = <SharedLinkCard binder={message.payload.binder} />;
   }
   return (
     <View
       testID={`message-${message.id}`}
       style={[
         styles.bubble,
-        own
-          ? [styles.own, { backgroundColor: palette.primary }]
-          : [styles.other, { backgroundColor: palette.surfaceVariant }],
+        own ? styles.own : styles.other,
+        bubbleColors,
         message.moderationState === 'FLAGGED' && { borderColor: palette.warning, borderWidth: 1 },
       ]}
     >
       {removed ? (
         <View style={styles.removed}>
           <MaterialCommunityIcons name="cancel" size={16} color={textColor} />
-          <Text style={[textStyle('md'), styles.italic, { color: textColor }]}>
+          <Text style={[styles.body, styles.italic, { color: textColor }]}>
             This message was removed by moderation.
           </Text>
         </View>
@@ -129,24 +144,18 @@ export function MessageBubble({
         <>
           {attachment}
           {message.body ? (
-            <Text selectable style={[textStyle('md'), { color: textColor }]}>
+            <Text selectable style={[styles.body, { color: textColor }]}>
               {message.body}
             </Text>
           ) : null}
         </>
       )}
-      {showTime ? (
-        <Text style={[textStyle('xs'), styles.time, { color: textColor }]}>
-          {timeLabel(message.createdAt)}
-          {message.editedAt ? ' · edited' : ''}
-        </Text>
-      ) : null}
     </View>
   );
 }
 
 /** A photo of an IMAGE message: API media only (ADR 0015 rules), full screen on tap. */
-function Photo({ image }: { image: MessageImage }) {
+function Photo({ image, sender }: { image: MessageImage; sender: string | null }) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
@@ -162,7 +171,7 @@ function Photo({ image }: { image: MessageImage }) {
         style={[styles.photoMissing, { backgroundColor: palette.surface }]}
       >
         <MaterialCommunityIcons name="image-off-outline" size={22} color={palette.textMuted} />
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>Photo unavailable</Text>
+        <Text style={[styles.small, { color: palette.textMuted }]}>Photo unavailable</Text>
       </View>
     );
   }
@@ -170,13 +179,17 @@ function Photo({ image }: { image: MessageImage }) {
     <>
       <Pressable
         accessibilityRole="imagebutton"
-        accessibilityLabel="Photo sent in the conversation. Opens it full screen."
+        accessibilityLabel={
+          sender
+            ? `Photo from ${sender}. Opens it full screen.`
+            : 'Photo you sent. Opens it full screen.'
+        }
         onPress={() => setOpen(true)}
         testID="message-photo"
       >
         <Image
           source={{ uri: url }}
-          style={[styles.photo, { width, height }]}
+          style={[styles.photo, { width, height, borderColor: palette.borderStrong }]}
           contentFit="cover"
           cachePolicy="memory-disk"
           accessible={false}
@@ -209,21 +222,24 @@ function Photo({ image }: { image: MessageImage }) {
 
 const styles = StyleSheet.create({
   bubble: {
-    maxWidth: '85%',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
+    maxWidth: '78%',
+    paddingHorizontal: 13,
+    paddingVertical: 9,
     gap: spacing[2],
     borderRadius: 18,
   },
   own: { alignSelf: 'flex-end', borderBottomRightRadius: 6 },
   other: { alignSelf: 'flex-start', borderBottomLeftRadius: 6 },
-  time: { alignSelf: 'flex-end', opacity: 0.75 },
+  ownStack: { alignSelf: 'flex-end', alignItems: 'flex-end', gap: 6, maxWidth: '85%' },
+  otherStack: { alignSelf: 'flex-start', alignItems: 'flex-start', gap: 6, maxWidth: '85%' },
+  body: { fontSize: 15, lineHeight: 20 },
+  small: { fontSize: 13, lineHeight: 18 },
   removed: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   italic: { fontStyle: 'italic' },
   system: { alignSelf: 'center', alignItems: 'stretch', gap: spacing[2], maxWidth: '95%' },
   offer: { alignSelf: 'stretch', gap: spacing[1] },
-  systemText: { textAlign: 'center' },
-  photo: { borderRadius: radius.md },
+  systemText: { textAlign: 'center', fontSize: 13, lineHeight: 18 },
+  photo: { borderRadius: 16, borderWidth: 1 },
   photoMissing: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -418,7 +418,12 @@ tags:
 
 # "Delete binder" from that Edit binder closes every screen of the deck core and lands on
 # Inventory › Binders (R3 review fix 2: it showed "This binder is not available"); the card stays
-# in the inventory, unfiled and still private.
+# in the inventory, unfiled and still private. The "Saved · Maestro core" toast of the save above
+# sits at the bottom for about 5 seconds and can cover the row, depending on where the list
+# settled (R3 leftover R2-1: the tap hit the toast): wait for it to leave first.
+- extendedWaitUntil:
+    notVisible: 'Saved.*Maestro core.*'
+    timeout: 20000
 - tapOn: 'Maestro core, Deck core · \$120'
 - extendedWaitUntil:
     visible:

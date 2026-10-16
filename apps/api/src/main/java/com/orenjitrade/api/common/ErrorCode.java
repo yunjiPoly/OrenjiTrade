@@ -48,6 +48,23 @@ public enum ErrorCode {
      * its owner's own delete (stage R2 of the phone redesign).
      */
     RESTORE_WINDOW_CLOSED(HttpStatus.CONFLICT, "Restore window closed"),
+    /**
+     * Mark as sold (stage R4): the chat's card has no copy left (deleted, or every copy already
+     * sold), or its deck core is already sold.
+     */
+    NOTHING_LEFT_TO_SELL(HttpStatus.CONFLICT, "Nothing left to sell"),
+    /**
+     * A sale can only be undone by its seller within 10 minutes, while what it took can still come
+     * back (stage R4; extension {@code undoableUntil} when the window has passed).
+     */
+    SALE_UNDO_CLOSED(HttpStatus.CONFLICT, "Sale undo closed"),
+    /** A sale that one of the two collectors already rated cannot be undone (stage R4). */
+    SALE_ALREADY_RATED(HttpStatus.CONFLICT, "Sale already rated"),
+    /**
+     * Mark as sold named a card or deck core that is no longer what the chat is about: the other
+     * collector pinned another one since the seller looked (stage R4).
+     */
+    SUBJECT_CHANGED(HttpStatus.CONFLICT, "Subject changed"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */

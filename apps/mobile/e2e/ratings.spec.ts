@@ -50,7 +50,7 @@ test.describe('mobile ratings', () => {
     await expect(screen(page, 'conversation').getByText('Shipped, thanks! 2')).toBeVisible({
       timeout: 30_000,
     });
-    await page.getByTestId('conversation-menu').click(); // in the navigation header
+    await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-rate').click();
 
     const form = screen(page, 'rate');

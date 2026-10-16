@@ -18,11 +18,13 @@ import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.SqlParameterValue;
@@ -546,6 +548,34 @@ public class InventoryItemRepository {
     }
 
     /**
+     * The first card of each sold deck core among those its sale took out (soft-deleted at or after
+     * the binder's {@code sold_at}), in the order they were added: the picture a chat about it
+     * keeps once it is sold (stage R4, review fix 1, F7). Binders not sold, or without such a card,
+     * are absent.
+     */
+    public List<PreviewRow> soldCorePreviews(Collection<UUID> binderIds) {
+        if (binderIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        """
+                        SELECT DISTINCT ON (i.binder_id) i.binder_id, i.printing_id
+                          FROM inventory_item i
+                          JOIN binder b ON b.id = i.binder_id
+                         WHERE i.binder_id IN (:ids) AND b.sold_at IS NOT NULL
+                           AND i.deleted_at >= b.sold_at
+                         ORDER BY i.binder_id, i.created_at, i.id
+                        """)
+                .param("ids", binderIds)
+                .query(
+                        (rs, rowNum) ->
+                                new PreviewRow(
+                                        rs.getObject("binder_id", UUID.class),
+                                        rs.getObject("printing_id", UUID.class)))
+                .list();
+    }
+
+    /**
      * The cards of each binder with their copies (every printing of a card together), most copies
      * first, then by name, at most {@code max} per binder (a deck core's key cards, stage R3),
      * optionally among the cards buyers see ({@link #SHOWN_PUBLICLY}: every live card of a public
@@ -842,6 +872,24 @@ public class InventoryItemRepository {
                 .optional();
     }
 
+    /**
+     * Brings a soft-deleted item back with {@code quantity} copies (the undo of an older sale of
+     * the card after a later sale took its last copies, review fix 1, F4).
+     */
+    public void restoreWithQuantity(UUID id, int quantity, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET deleted_at = NULL, restorable_until = NULL,
+                               quantity = :quantity, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id AND deleted_at IS NOT NULL
+                        """)
+                .param("id", id)
+                .param("quantity", quantity)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
     /** Brings a soft-deleted item back (restore); the binder count trigger counts it again. */
     public void restore(UUID id, Instant now) {
         jdbc.sql(
@@ -851,6 +899,119 @@ public class InventoryItemRepository {
                          WHERE id = :id AND deleted_at IS NOT NULL
                         """)
                 .param("id", id)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Sales and chat subjects (stage R4)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Holds an item, live or deleted, {@code FOR KEY SHARE} until the transaction ends, before a
+     * row of another module references it (a chat's subject): the lock its foreign key check takes
+     * anyway, taken before that row is written, so a binder delete or an account purge holding the
+     * item never waits for that row in turn. It conflicts with no write of the owner ({@code FOR NO
+     * KEY UPDATE}).
+     *
+     * @return whether the item exists
+     */
+    public boolean lockKeyShare(UUID id) {
+        return jdbc.sql("SELECT id FROM inventory_item WHERE id = :id FOR KEY SHARE")
+                .param("id", id)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
+    }
+
+    /** The soft-deleted items among {@code ids}. */
+    public Set<UUID> deletedAmong(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(
+                jdbc.sql(
+                                "SELECT id FROM inventory_item WHERE id IN (:ids) AND deleted_at"
+                                        + " IS NOT NULL")
+                        .param("ids", ids)
+                        .query(UUID.class)
+                        .list());
+    }
+
+    /**
+     * Soft-deletes every live item of a binder, keeping them restorable (and their photos) until
+     * {@code restorableUntil}: a deck core sold with its cards (stage R4), which an undo brings
+     * back. Rows in ascending id, {@code FOR NO KEY UPDATE}; the caller holds the owner lock and
+     * the binder. Returns their ids.
+     */
+    public List<UUID> softDeleteInBinderRestorable(
+            UUID ownerId, UUID binderId, Instant restorableUntil, Instant now) {
+        return jdbc.sql(
+                        """
+                        WITH sold AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NULL
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = :now, updated_at = :now,
+                               last_owner_activity_at = :now, restorable_until = :until
+                          FROM sold s
+                         WHERE i.id = s.id
+                        RETURNING i.id
+                        """)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .param("until", Timestamp.from(restorableUntil))
+                .param("now", Timestamp.from(now))
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Brings back the items among {@code ids} that a deck core sale soft-deleted: still deleted,
+     * still in the binder and still restorable at {@code now} (the undo of the sale, stage R4).
+     * Rows in ascending id, {@code FOR NO KEY UPDATE}; the caller holds the owner lock and the
+     * binder. Returns their ids.
+     */
+    public List<UUID> restoreInBinder(
+            UUID ownerId, UUID binderId, Collection<UUID> ids, Instant now) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(
+                        """
+                        WITH back AS MATERIALIZED (
+                            SELECT id FROM inventory_item
+                             WHERE id IN (:ids) AND owner_id = :ownerId AND binder_id = :binderId
+                               AND deleted_at IS NOT NULL AND restorable_until > :now
+                             ORDER BY id FOR NO KEY UPDATE)
+                        UPDATE inventory_item i SET deleted_at = NULL, restorable_until = NULL,
+                               updated_at = :now, last_owner_activity_at = :now
+                          FROM back b
+                         WHERE i.id = b.id
+                        RETURNING i.id
+                        """)
+                .param("ids", ids)
+                .param("ownerId", ownerId)
+                .param("binderId", binderId)
+                .param("now", Timestamp.from(now))
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Puts sold copies back on an item the transaction holds, live or deleted since (the undo of a
+     * sale that left copies: a later restore of the item then brings them all), at most 9 999.
+     */
+    public void addCopiesBack(UUID id, int by, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE inventory_item SET quantity = LEAST(quantity + :by, 9999),
+                               updated_at = :now, last_owner_activity_at = :now
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("by", by)
                 .param("now", Timestamp.from(now))
                 .update();
     }

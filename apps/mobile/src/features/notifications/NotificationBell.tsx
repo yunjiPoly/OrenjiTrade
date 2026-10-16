@@ -57,7 +57,11 @@ export function NotificationBell({
           testID={`${testID}-badge`}
           style={[styles.badge, { backgroundColor: palette.danger }]}
         >
-          <Text style={styles.badgeText}>{badgeCount(count)}</Text>
+          {/* Fits its 18 pt badge on the fixed-size bell, as the tab bar's badges do (the count is
+              in the bell's name for VoiceOver). */}
+          <Text maxFontSizeMultiplier={1} style={styles.badgeText}>
+            {badgeCount(count)}
+          </Text>
         </View>
       ) : null}
     </Pressable>

@@ -32,6 +32,12 @@ export const SETTINGS_LINKS: readonly SettingsLink[] = [
     icon: 'shield-account-outline',
   },
   {
+    href: '/settings/shipping',
+    label: 'Shipping details',
+    detail: 'Your address and e-Transfer email, saved on this phone only',
+    icon: 'truck-delivery-outline',
+  },
+  {
     href: '/settings/notifications',
     label: 'Notifications',
     detail: 'Channels, topics, quiet hours',

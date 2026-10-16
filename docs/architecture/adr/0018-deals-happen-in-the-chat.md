@@ -78,6 +78,13 @@ the money.
 - Stage R1 builds parts 1, 3 (the phone's rating form), 4 (no claims) and 5; stage R4 builds
   part 2, the `SALE` interaction, the chats' pinned card (which feeds the buying and selling
   tips), the inbox thumbnails and the saved shipping details.
+- **Built in stage R4 (2026-10-15):** V127 (the chat's subject on `conversation`, the `sale`
+  table, `SALE` interactions), the `deals` module (`SaleService`: `POST
+  /conversations/{id}/sales`, `POST /sales/{id}/undo`), the SYSTEM sale message
+  (`sale:<id>:SOLD`), the buyer's `SALE_RECORDED` notification and, on the phone, the inbox, the
+  chat with its pinned bar, per-side tips and quick replies, the + sheet with the saved address or
+  e-Transfer email (expo-secure-store only) and Mark as sold with its Undo
+  ([contract](../../api/contracts/r4-messages-sales.md)). No new ADR: this one decided the module.
 
 ## Alternatives considered
 

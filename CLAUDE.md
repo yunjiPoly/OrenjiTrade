@@ -86,8 +86,10 @@ call for geography (boundaries are bundled static assets).
 
 - Root package `com.orenjitrade.api`. One package per module:
   `auth users profiles location games cards inventory binders search wishlist messaging
-  community notifications ratings reports offers trades payments limits moderation admin
+  community notifications ratings reports offers trades payments deals limits moderation admin
   audit analytics featureflags delisting jobs common config`.
+  `deals` (stage R4, ADR 0018) records Mark as sold and its undo through the other modules'
+  services (`InventorySales`, `ConversationService`, `InteractionService`, notifications).
   `auth` is the lowest business module (owns `Role`, `AccountStatus`, `AuthenticatedUser`, the
   `AccountResolver` SPI); `users` implements that SPI. `jobs` owns `job_run` and `/internal/jobs/*`.
 - Inside a module: `api/` (controllers + request/response DTOs), `domain/` (entities, value

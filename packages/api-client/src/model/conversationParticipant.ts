@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { Place } from './place';
 
 
 /**
@@ -18,6 +19,7 @@ export interface ConversationParticipant {
     displayName: string;
     avatarUrl?: string | null;
     onlineStatus: ConversationParticipantOnlineStatusEnum;
+    place?: Place;
 }
 export enum ConversationParticipantOnlineStatusEnum {
     Online = 'ONLINE',

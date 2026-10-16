@@ -141,16 +141,18 @@ public class RatingService {
     public RatingView submit(
             UUID me, UUID interactionId, RatingScores scores, @Nullable String rawComment) {
         @Nullable String comment = validated(scores, rawComment);
+        // Held until the rating is stored: the undo of a sale removes its interaction only while
+        // nobody rated it (stage R4).
         InteractionView interaction =
                 interactions
-                        .find(interactionId)
+                        .findForRating(interactionId)
                         .filter(found -> found.involves(me))
                         .orElseThrow(
                                 () ->
                                         new ApiException(
                                                 ErrorCode.RATING_NOT_ELIGIBLE,
-                                                "You can rate a collector after a completed trade,"
-                                                        + " an accepted offer or a real"
+                                                "You can rate a collector after a sale, a completed"
+                                                        + " trade, an accepted offer or a real"
                                                         + " conversation with them"));
         UUID rateeId = interaction.otherThan(me);
         if (!isRateable(rateeId)) {

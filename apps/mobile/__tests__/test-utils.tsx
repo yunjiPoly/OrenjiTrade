@@ -20,6 +20,7 @@ import { SnackbarProvider } from '@/src/components/ui/Snackbar';
 import type { RealtimeClient } from '@/src/realtime/realtimeClient';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
+import { resetSavedDetails } from '@/src/features/shipping/savedDetails';
 import { useAppStore } from '@/src/store/useAppStore';
 import { ThemeProvider } from '@/src/theme/ThemeProvider';
 import type { ColorScheme } from '@/src/theme/palette';
@@ -115,4 +116,6 @@ export function resetAppState(): void {
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
   useAppStore.getState().reset();
+  resetSavedDetails();
+  (require('expo-secure-store') as { mockStore: Map<string, string> }).mockStore.clear();
 }

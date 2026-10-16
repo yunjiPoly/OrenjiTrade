@@ -32,6 +32,12 @@ public interface BinderContents {
             Collection<UUID> binderIds, boolean publicOnly, int max);
 
     /**
+     * The catalog picture of the first card each sold deck core's sale took out of the inventory
+     * (stage R4, review fix 1, F7); binders not sold, or without such a card, are absent.
+     */
+    Map<UUID, String> soldDeckCorePicturesOf(Collection<UUID> binderIds);
+
+    /**
      * The cards of each binder with their copies (every printing of a card together), most copies
      * first, then by name; at most {@code max} per binder; binders without items are absent.
      *
