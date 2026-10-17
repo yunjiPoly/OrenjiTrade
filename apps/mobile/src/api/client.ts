@@ -9,6 +9,7 @@ import type { Middleware } from 'openapi-fetch';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { getIdToken, isSignedIn } from '@/src/auth/tokenProvider';
 import { appConfig } from '@/src/config/env';
+import { DEMO, demoFetch } from '@/src/demo/demo';
 
 import { ApiError, REAUTHENTICATION_REQUIRED_CODE } from './ApiError';
 import { reportAccountSignal } from './accountSignal';
@@ -266,7 +267,10 @@ const lazyGlobalFetch: typeof globalThis.fetch = (input, init) => globalThis.fet
  */
 export function createApiClient(options: CreateApiClientOptions = {}): ApiClient {
   const client = createSharedApiClient(options.baseUrl ?? API_BASE_URL, undefined, {
-    fetch: withReadTimeout(options.fetch ?? lazyGlobalFetch, options.readTimeoutMs),
+    fetch: withReadTimeout(
+      options.fetch ?? (DEMO ? demoFetch : lazyGlobalFetch),
+      options.readTimeoutMs
+    ),
     headers: { Accept: 'application/json, application/problem+json' },
     requestId: newRequestId,
   });

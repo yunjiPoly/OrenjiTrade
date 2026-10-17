@@ -1,0 +1,50 @@
+# The offline Android demo: an .apk with no server and no sign-in (EXPO_PUBLIC_DEMO=1, see
+# apps/mobile/src/demo/demo.ts), to show the app on a phone. Built on GitHub's machines because
+# the owner's Mac has no Android SDK; no EAS and no Expo account. Signed with the debug key, for
+# sideloading only. Download it from the run's "orenjitrade-offline-demo" artifact.
+name: Android offline demo
+
+on:
+  push:
+    branches: [demo/android-offline]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: Offline demo APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_DEMO: "1"
+      # Never called: the demo answers every API call on the phone.
+      EXPO_PUBLIC_API_BASE_URL: https://demo.invalid
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - run: npm ci
+      - name: Generate the Android project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --no-install
+      - name: Build the release APK (64-bit ARM phones)
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orenjitrade-offline-demo
+          path: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30

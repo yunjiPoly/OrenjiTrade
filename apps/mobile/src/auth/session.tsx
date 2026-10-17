@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { clearAccountSignal } from '@/src/api/accountSignal';
+import { DEMO, demoAuthPort } from '@/src/demo/demo';
 import { unloadSavedDetails } from '@/src/features/shipping/savedDetailsStore';
 
 import { AuthError } from './authErrors';
@@ -66,7 +67,10 @@ export interface SessionProviderProps {
  * Owns the Firebase session: subscribes to auth changes, exposes the account methods, bridges
  * the ID token to the API client and drops cached data when the signed-in user changes.
  */
-export function SessionProvider({ children, port = firebaseAuthPort }: SessionProviderProps) {
+export function SessionProvider({
+  children,
+  port = DEMO ? demoAuthPort : firebaseAuthPort,
+}: SessionProviderProps) {
   const queryClient = useQueryClient();
   const [state, dispatch] = useReducer(sessionReducer, initialSessionState);
   const lastUid = useRef<string | null | undefined>(undefined);
