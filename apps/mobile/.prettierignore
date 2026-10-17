@@ -13,3 +13,4 @@ src/legal/legalContent.ts
 src/legal/legalContent.fr.ts
 test-results
 playwright-report
+src/demo/demoResponses.json
