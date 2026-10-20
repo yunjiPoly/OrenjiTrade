@@ -1,0 +1,664 @@
+import type {
+  AddInventoryItemsBatchLine,
+  AddInventoryItemsBatchRequest,
+  CardScanCard,
+  CardScanMatch,
+  CardScanNotFoundReason,
+  CardScanOtherMatch,
+  CardScanPrinting,
+  ScanRead,
+  ScanVisibility,
+} from './types';
+
+/**
+ * The state of one scan (owner spec 2026-10-15, sections 3.2, 4 (27 to 30) and 10): the tiles of
+ * the tray, newest first, and the photo files the scan made. Pure: every change returns a new
+ * session and leaves the old one as it was. It lives in memory only: closing the app loses a scan
+ * that was not added (the owner's default 1).
+ */
+
+/**
+ * - READING: "Reading…" (the photo is read, then matched);
+ * - FOUND: "✓ Found", one printing: ready to add;
+ * - PICK_RARITY: "Pick rarity": the code comes in several rarities;
+ * - PICK_PRINTING: "Pick printing": the card is known, not its printing ("Code unreadable");
+ * - NOT_FOUND: "Couldn't read" ("Tap to search"), or "Couldn't match" when the API kept failing on
+ *   its match (`MATCH_FAILED`);
+ * - WAITING: "Waiting for connection": read, not matched yet (offline, or the API could not answer);
+ *   it resolves when the connection is back, and stays WAITING while it is tried again.
+ */
+export type TileStatus =
+  'READING' | 'FOUND' | 'PICK_RARITY' | 'PICK_PRINTING' | 'NOT_FOUND' | 'WAITING';
+
+/**
+ * Why a tile is "Couldn't read": the API's reason (`NOTHING_READ`: nothing was read, nothing sent;
+ * `NO_MATCH`, `AMBIGUOUS`, `OTHER_LANGUAGE`), or the phone's own `MATCH_FAILED`: the read was sent
+ * but the API kept failing on it (server errors), so the scan gave it up ("Couldn't match"; "Try
+ * again" asks once more). Null: the reader failed, or the API refused the read.
+ */
+export type UnreadReason = CardScanNotFoundReason | 'MATCH_FAILED';
+
+/** At most 99 copies per tile (the owner's default 5). */
+export const MAX_COPIES = 99;
+export const MIN_COPIES = 1;
+
+/** A photo of the scan. */
+export interface ScanPhoto {
+  uri: string;
+  width: number;
+  height: number;
+  /**
+   * Whether the scan made or copied the file (a camera photo, the picker's copy of a library
+   * photo): such files are deleted when the scan ends. A file the scan does not own is never
+   * deleted.
+   */
+  owned: boolean;
+}
+
+export interface ScanTile {
+  id: string;
+  status: TileStatus;
+  /** The tile's photos, the first one shown; a repeat grouped into the tile adds its own. */
+  photos: ScanPhoto[];
+  copies: number;
+  /** What the phone read (null while reading). */
+  read: ScanRead | null;
+  card: CardScanCard | null;
+  /** FOUND only: the printing to add. */
+  printing: CardScanPrinting | null;
+  /** The printings of the code read, one per rarity (the rarity list and screen 28's chips). */
+  rarities: CardScanPrinting[];
+  /** Every English printing of the card, newest set first (the printing list). */
+  printings: CardScanPrinting[];
+  otherMatches: CardScanOtherMatch[];
+  /** NOT_FOUND: why (`UnreadReason`; null after a failure of the reader, or a refusal of the API). */
+  notFoundReason: UnreadReason | null;
+}
+
+/**
+ * An add of the review sent and not answered yet, or sent without an answer (offline, none in time,
+ * a server error): exactly what was sent, under its `Idempotency-Key`. Until it is answered its
+ * tiles stay as they were sent (copies, printing) and the review's pills show what was sent:
+ * "Add {n} cards to inventory" sends that same body under that same key first, so the API answers
+ * it once (new, or its first answer repeated), and nothing sent can change in between.
+ */
+export interface PendingAdd {
+  /** The `Idempotency-Key` it was sent with. */
+  key: string;
+  /** What was sent, as it was sent. */
+  body: AddInventoryItemsBatchRequest;
+  /** The tiles it holds. */
+  tileIds: string[];
+  /** The binder it names, by name as the review showed it (null: no binder). */
+  binderName: string | null;
+}
+
+export interface ScanSession {
+  /** Newest first. */
+  tiles: ScanTile[];
+  /** Photos of tiles that were removed: deleted with the others when the scan ends. */
+  discarded: ScanPhoto[];
+  /** Photos taken so far (it numbers the tiles). */
+  taken: number;
+  /** The add sent and not answered yet (`PendingAdd`), if any. */
+  pendingAdd: PendingAdd | null;
+}
+
+export function emptyScanSession(): ScanSession {
+  return { tiles: [], discarded: [], taken: 0, pendingAdd: null };
+}
+
+export function findTile(session: ScanSession, tileId: string): ScanTile | null {
+  return session.tiles.find((tile) => tile.id === tileId) ?? null;
+}
+
+/** Whether a tile belongs to the add sent and not answered yet: it stays as it was sent. */
+export function isSent(session: ScanSession, tileId: string): boolean {
+  return session.pendingAdd?.tileIds.includes(tileId) ?? false;
+}
+
+function clampCopies(copies: number): number {
+  if (!Number.isFinite(copies)) {
+    return MIN_COPIES;
+  }
+  return Math.min(MAX_COPIES, Math.max(MIN_COPIES, Math.round(copies)));
+}
+
+/** Changes one tile; a tile of the add sent and not answered yet never changes. */
+function updateTile(
+  session: ScanSession,
+  tileId: string,
+  change: (tile: ScanTile) => ScanTile | null
+): ScanSession {
+  if (isSent(session, tileId)) {
+    return session;
+  }
+  let changed = false;
+  const tiles = session.tiles.map((tile) => {
+    if (tile.id !== tileId) {
+      return tile;
+    }
+    const next = change(tile);
+    if (next && next !== tile) {
+      changed = true;
+      return next;
+    }
+    return tile;
+  });
+  return changed ? { ...session, tiles } : session;
+}
+
+/** A new photo: a "Reading…" tile at the front of the tray. The shutter never waits. */
+export function addPhoto(
+  session: ScanSession,
+  photo: ScanPhoto
+): { session: ScanSession; tileId: string } {
+  const taken = session.taken + 1;
+  const tile: ScanTile = {
+    id: `scan-${taken}`,
+    status: 'READING',
+    photos: [photo],
+    copies: 1,
+    read: null,
+    card: null,
+    printing: null,
+    rarities: [],
+    printings: [],
+    otherMatches: [],
+    notFoundReason: null,
+  };
+  return { session: { ...session, tiles: [tile, ...session.tiles], taken }, tileId: tile.id };
+}
+
+/** What a tile becomes for a matcher answer (`POST /cards/scan-match`). */
+export function tileFromMatch(tile: ScanTile, read: ScanRead, match: CardScanMatch): ScanTile {
+  const base: ScanTile = {
+    ...tile,
+    read,
+    card: match.card ?? null,
+    printing: null,
+    rarities: match.rarities ?? [],
+    printings: match.printings ?? [],
+    otherMatches: match.otherMatches ?? [],
+    notFoundReason: null,
+  };
+  const unknownPrinting = (): ScanTile =>
+    base.card ? { ...base, status: 'PICK_PRINTING' } : notFound(base, null);
+  switch (match.status) {
+    case 'FOUND':
+      return match.printing && base.card
+        ? { ...base, status: 'FOUND', printing: match.printing }
+        : unknownPrinting();
+    case 'PICK_RARITY':
+      if (base.card && base.rarities.length === 1) {
+        return { ...base, status: 'FOUND', printing: base.rarities[0] ?? null };
+      }
+      return base.card && base.rarities.length > 1
+        ? { ...base, status: 'PICK_RARITY' }
+        : unknownPrinting();
+    case 'PICK_PRINTING':
+      return unknownPrinting();
+    case 'NOT_FOUND':
+    default:
+      return notFound(base, match.reason ?? null);
+  }
+}
+
+function notFound(tile: ScanTile, reason: UnreadReason | null): ScanTile {
+  return {
+    ...tile,
+    status: 'NOT_FOUND',
+    card: null,
+    printing: null,
+    rarities: [],
+    printings: [],
+    notFoundReason: reason,
+  };
+}
+
+/** Whether a tile is ready to add: found, with its printing. */
+export function isReady(tile: ScanTile): boolean {
+  return tile.status === 'FOUND' && tile.printing !== null;
+}
+
+/** Whether the matcher's answer may still land on a tile (it was not removed nor fixed). */
+function awaitsAnswer(tile: ScanTile | null): tile is ScanTile {
+  return tile !== null && (tile.status === 'READING' || tile.status === 'WAITING');
+}
+
+/**
+ * The matcher's answer for a tile. A card found again with the same printing (and so the same
+ * rarity) adds a copy to its tile (×2) instead, while that tile holds fewer than 99: the grouped
+ * tile takes the new tile's place in the tray (it is the newest scan) and keeps both photos.
+ * Unfinished tiles are never grouped, a tile a collector fixed by hand is never merged away, and a
+ * tile of the add sent and not answered yet takes no copy (it stays as it was sent).
+ */
+export function applyMatch(
+  session: ScanSession,
+  tileId: string,
+  read: ScanRead,
+  match: CardScanMatch
+): ScanSession {
+  const tile = findTile(session, tileId);
+  if (!awaitsAnswer(tile)) {
+    return session;
+  }
+  const resolved = tileFromMatch(tile, read, match);
+  const printingId = resolved.status === 'FOUND' ? resolved.printing?.id : undefined;
+  const twin = printingId
+    ? session.tiles.find(
+        (other) =>
+          other.id !== tileId &&
+          isReady(other) &&
+          !isSent(session, other.id) &&
+          other.printing?.id === printingId &&
+          other.copies + resolved.copies <= MAX_COPIES
+      )
+    : undefined;
+  if (!twin) {
+    return updateTile(session, tileId, () => resolved);
+  }
+  const grouped: ScanTile = {
+    ...twin,
+    copies: twin.copies + resolved.copies,
+    photos: [...twin.photos, ...resolved.photos],
+  };
+  return {
+    ...session,
+    tiles: session.tiles
+      .filter((other) => other.id !== twin.id)
+      .map((other) => (other.id === tileId ? grouped : other)),
+  };
+}
+
+/** The matcher could not be reached (offline): "Waiting for connection", the read kept. */
+export function markWaiting(session: ScanSession, tileId: string, read: ScanRead): ScanSession {
+  return updateTile(session, tileId, (tile) =>
+    awaitsAnswer(tile) ? { ...tile, status: 'WAITING', read } : null
+  );
+}
+
+/** The tiles waiting for the connection, oldest first, with what they read (to match again). */
+export function tilesWaiting(session: ScanSession): { tileId: string; read: ScanRead }[] {
+  return session.tiles
+    .filter((tile) => tile.status === 'WAITING' && tile.read !== null)
+    .reverse()
+    .map((tile) => ({ tileId: tile.id, read: tile.read as ScanRead }));
+}
+
+/**
+ * "Couldn't read": the reader found nothing (`NOTHING_READ`: nothing is sent to the API), or the
+ * reader or the API failed (no reason); "Couldn't match": the API kept failing on the read
+ * (`MATCH_FAILED`).
+ */
+export function markUnread(
+  session: ScanSession,
+  tileId: string,
+  read: ScanRead | null,
+  reason: UnreadReason | null
+): ScanSession {
+  return updateTile(session, tileId, (tile) =>
+    awaitsAnswer(tile) ? notFound({ ...tile, read, otherMatches: [] }, reason) : null
+  );
+}
+
+/**
+ * Whether a tile was given up after the API kept failing on its match ("Couldn't match"): its read
+ * is kept, and "Try again" asks for its match once more (`reopenMatch`).
+ */
+export function isGivenUp(tile: ScanTile): boolean {
+  return (
+    tile.status === 'NOT_FOUND' && tile.notFoundReason === 'MATCH_FAILED' && tile.read !== null
+  );
+}
+
+/**
+ * "Try again" on a card given up ("Couldn't match"): the answer of its new match may land on it
+ * again, as on a tile waiting for the connection. A tile fixed or removed meanwhile stays as it is.
+ */
+export function reopenMatch(session: ScanSession, tileId: string): ScanSession {
+  return updateTile(session, tileId, (tile) =>
+    isGivenUp(tile) ? { ...tile, status: 'WAITING', notFoundReason: null } : null
+  );
+}
+
+/** The rarity list's pick (or a chip of screen 28): the tile is found with that printing. */
+export function pickRarity(session: ScanSession, tileId: string, printingId: string): ScanSession {
+  return updateTile(session, tileId, (tile) => {
+    const printing = tile.rarities.find((candidate) => candidate.id === printingId);
+    if (!printing || !tile.card || (tile.status !== 'PICK_RARITY' && tile.status !== 'FOUND')) {
+      return null;
+    }
+    return { ...tile, status: 'FOUND', printing };
+  });
+}
+
+/** One row of the printing list: a code and its printings (one per rarity). */
+export interface PrintingRow {
+  /** The printing code, or the set code when the catalog has no code for it. */
+  code: string;
+  setName: string;
+  printings: CardScanPrinting[];
+}
+
+/** The printing list: the card's printings grouped by code, newest set first (the API's order). */
+export function printingRows(printings: readonly CardScanPrinting[]): PrintingRow[] {
+  const rows: PrintingRow[] = [];
+  const byCode = new Map<string, PrintingRow>();
+  for (const printing of printings) {
+    const code = printing.printingCode ?? printing.setCode;
+    const row = byCode.get(code);
+    if (row) {
+      row.printings.push(printing);
+    } else {
+      const created = { code, setName: printing.setName, printings: [printing] };
+      byCode.set(code, created);
+      rows.push(created);
+    }
+  }
+  return rows;
+}
+
+function codeKey(value: string): string {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** The rows whose code holds what was typed ("Code on your card, like MACR"), case and dashes aside. */
+export function filterPrintingRows(rows: readonly PrintingRow[], typed: string): PrintingRow[] {
+  const key = codeKey(typed);
+  return key.length === 0 ? rows.slice() : rows.filter((row) => codeKey(row.code).includes(key));
+}
+
+/**
+ * The printing list's pick: a code with one rarity finds the tile; a code with several opens the
+ * rarity list next (PICK_RARITY with those printings).
+ */
+export function pickPrinting(
+  session: ScanSession,
+  tileId: string,
+  row: Pick<PrintingRow, 'printings'>
+): ScanSession {
+  return updateTile(session, tileId, (tile) => {
+    if (!tile.card || row.printings.length === 0 || tile.status === 'READING') {
+      return null;
+    }
+    if (row.printings.length === 1) {
+      return { ...tile, status: 'FOUND', printing: row.printings[0] ?? null, rarities: [] };
+    }
+    return { ...tile, status: 'PICK_RARITY', printing: null, rarities: row.printings.slice() };
+  });
+}
+
+/** A card picked for a tile by hand (screen 28's other matches, the search inside the scan). */
+export interface CardChoice {
+  card: CardScanCard;
+  /** Its printing, when known: the tile is found. */
+  printing?: CardScanPrinting | null;
+  /** The printings of a code in several rarities: the rarity list. */
+  rarities?: CardScanPrinting[];
+  /** Every printing of the card (the printing list); kept when not given. */
+  printings?: CardScanPrinting[];
+}
+
+/** Replaces a tile's match by a card picked by hand. */
+export function replaceMatch(
+  session: ScanSession,
+  tileId: string,
+  choice: CardChoice
+): ScanSession {
+  return updateTile(session, tileId, (tile) => {
+    if (tile.status === 'READING') {
+      return null;
+    }
+    const sameCard = tile.card?.id === choice.card.id;
+    const printings = choice.printings ?? (sameCard ? tile.printings : []);
+    const rarities = choice.rarities ?? [];
+    const base: ScanTile = {
+      ...tile,
+      card: choice.card,
+      printing: null,
+      rarities,
+      printings,
+      notFoundReason: null,
+    };
+    if (choice.printing) {
+      return { ...base, status: 'FOUND', printing: choice.printing };
+    }
+    if (rarities.length === 1) {
+      return { ...base, status: 'FOUND', printing: rarities[0] ?? null };
+    }
+    return { ...base, status: rarities.length > 1 ? 'PICK_RARITY' : 'PICK_PRINTING' };
+  });
+}
+
+/**
+ * Screen 28's "Other matches": picking one replaces the match. A code in one rarity finds the tile;
+ * otherwise the card is known, not its printing (the printing list, read for that card).
+ */
+export function chooseOtherMatch(
+  session: ScanSession,
+  tileId: string,
+  other: CardScanOtherMatch
+): ScanSession {
+  const card: CardScanCard = {
+    id: other.cardId,
+    name: other.name,
+    ...(other.imageUrl ? { imageUrl: other.imageUrl } : {}),
+  };
+  const printing: CardScanPrinting | null =
+    other.printingId && other.printingCode
+      ? {
+          id: other.printingId,
+          printingCode: other.printingCode,
+          setCode: other.printingCode.split('-')[0] ?? other.printingCode,
+          setName: other.setName ?? '',
+          ...(other.rarity ? { rarity: other.rarity } : {}),
+        }
+      : null;
+  return replaceMatch(session, tileId, { card, printing });
+}
+
+/** "− {n} +": 1 to 99 copies. */
+export function setCopies(session: ScanSession, tileId: string, copies: number): ScanSession {
+  return updateTile(session, tileId, (tile) => ({ ...tile, copies: clampCopies(copies) }));
+}
+
+/**
+ * "Remove" (or "Take it again"): the tile leaves the tray. Its photos wait in `discarded` until
+ * they are deleted (`scanRunner.removeTile`, once nothing shows them; else when the scan ends). A
+ * tile of the add sent and not answered yet stays.
+ */
+export function removeTile(session: ScanSession, tileId: string): ScanSession {
+  const tile = findTile(session, tileId);
+  if (!tile || isSent(session, tileId)) {
+    return session;
+  }
+  return {
+    ...session,
+    tiles: session.tiles.filter((other) => other.id !== tileId),
+    discarded: [...session.discarded, ...tile.photos],
+  };
+}
+
+/** Removed tiles' photos whose files were deleted: the scan no longer holds them. */
+export function forgetPhotos(session: ScanSession, uris: readonly string[]): ScanSession {
+  const gone = new Set(uris);
+  const discarded = session.discarded.filter((photo) => !gone.has(photo.uri));
+  return discarded.length === session.discarded.length ? session : { ...session, discarded };
+}
+
+export interface ScanCounts {
+  /** Cards (copies) in the scan, the ones being read aside: "This scan · {n}", "Review {n}". */
+  cards: number;
+  /** Copies ready to add. */
+  ready: number;
+  /** Copies left to check (pick, couldn't read, waiting for connection): they won't be added. */
+  toCheck: number;
+  /** Photos being read. */
+  reading: number;
+}
+
+export function scanCounts(session: ScanSession): ScanCounts {
+  let cards = 0;
+  let ready = 0;
+  let reading = 0;
+  for (const tile of session.tiles) {
+    if (tile.status === 'READING') {
+      reading += 1;
+      continue;
+    }
+    cards += tile.copies;
+    if (isReady(tile)) {
+      ready += tile.copies;
+    }
+  }
+  return { cards, ready, toCheck: cards - ready, reading };
+}
+
+/** The review's two groups, newest first: "To check" above "Ready". */
+export function reviewGroups(session: ScanSession): { toCheck: ScanTile[]; ready: ScanTile[] } {
+  const listed = session.tiles.filter((tile) => tile.status !== 'READING');
+  return {
+    toCheck: listed.filter((tile) => !isReady(tile)),
+    ready: listed.filter(isReady),
+  };
+}
+
+export interface BatchOptions {
+  /** "Private" by default, or "Public". */
+  visibility?: ScanVisibility;
+  /** "No binder" by default. */
+  binderId?: string | null;
+}
+
+/**
+ * The ready tiles not sent yet, in the order they were scanned: what a new add sends. `only`: just
+ * these tiles, and only as they were then (the cards a tap of "Add {n} cards to inventory" counted:
+ * a card that became ready since, or that changed since, is left for the next add).
+ */
+export function tilesToSend(session: ScanSession, only?: readonly ScanTile[]): ScanTile[] {
+  const chosen = only ? new Set(only) : null;
+  return session.tiles
+    .slice()
+    .reverse()
+    .filter(
+      (tile) =>
+        isReady(tile) &&
+        tile.printing !== null &&
+        !isSent(session, tile.id) &&
+        (chosen === null || chosen.has(tile))
+    );
+}
+
+/** Whether a ready card is left that no add holds (the scan ends once there is none). */
+export function hasCardsToSend(session: ScanSession): boolean {
+  return tilesToSend(session).length > 0;
+}
+
+/**
+ * The body of `POST /inventory/items/batch` for a new add of "Add {n} cards to inventory": the
+ * ready tiles not sent yet (`only`: just those of `tilesToSend(session, only)`), in the order they
+ * were scanned, one line per printing (repeats summed). Null when there are none ("Nothing ready to
+ * add", or only the add sent already).
+ */
+export function batchAddRequest(
+  session: ScanSession,
+  { visibility = 'PRIVATE', binderId = null }: BatchOptions = {},
+  only?: readonly ScanTile[]
+): AddInventoryItemsBatchRequest | null {
+  const lines = new Map<string, AddInventoryItemsBatchLine>();
+  for (const tile of tilesToSend(session, only)) {
+    if (!tile.printing) {
+      continue;
+    }
+    const line = lines.get(tile.printing.id);
+    if (line) {
+      line.quantity += tile.copies;
+    } else {
+      lines.set(tile.printing.id, { printingId: tile.printing.id, quantity: tile.copies });
+    }
+  }
+  if (lines.size === 0) {
+    return null;
+  }
+  return { visibility, ...(binderId ? { binderId } : {}), lines: [...lines.values()] };
+}
+
+/**
+ * An add is sent: its tiles stay as they were sent until it is answered (`addAnswered`), or until
+ * the API refused it (`addRefused`: nothing was added).
+ */
+export function addSent(session: ScanSession, add: PendingAdd): ScanSession {
+  if (session.pendingAdd) {
+    return session; // One add at a time: the one sent first is answered first.
+  }
+  return { ...session, pendingAdd: { ...add, tileIds: add.tileIds.slice() } };
+}
+
+/** The add of this key was refused (nothing was added): its tiles can be changed again. */
+export function addRefused(session: ScanSession, key: string): ScanSession {
+  return session.pendingAdd?.key === key ? { ...session, pendingAdd: null } : session;
+}
+
+/**
+ * The add of this key was answered (its cards are in the inventory): its tiles leave the scan.
+ * Their photo files are deleted at once (`scanRunner.addAnswered`), so they are not kept as
+ * discarded.
+ */
+export function addAnswered(session: ScanSession, key: string): ScanSession {
+  const pending = session.pendingAdd;
+  if (pending?.key !== key) {
+    return session;
+  }
+  const sent = new Set(pending.tileIds);
+  return {
+    ...session,
+    tiles: session.tiles.filter((tile) => !sent.has(tile.id)),
+    pendingAdd: null,
+  };
+}
+
+/** The copies of the add sent and not answered yet: the scan cannot tell whether they were added. */
+export function sentCopies(session: ScanSession): number {
+  const pending = session.pendingAdd;
+  if (!pending) {
+    return 0;
+  }
+  return session.tiles
+    .filter((tile) => pending.tileIds.includes(tile.id))
+    .reduce((total, tile) => total + tile.copies, 0);
+}
+
+/** The photo files of the add sent and not answered yet (deleted once it is answered). */
+export function sentPhotoFiles(session: ScanSession): string[] {
+  const pending = session.pendingAdd;
+  if (!pending) {
+    return [];
+  }
+  const uris = new Set<string>();
+  for (const tile of session.tiles) {
+    if (pending.tileIds.includes(tile.id)) {
+      for (const photo of tile.photos) {
+        if (photo.owned) {
+          uris.add(photo.uri);
+        }
+      }
+    }
+  }
+  return [...uris];
+}
+
+/**
+ * Every photo file the scan made or copied, to delete when the scan ends (cards added, or the scan
+ * left): the tiles' photos, grouped repeats and removed tiles included. Files the scan does not own
+ * are left alone.
+ */
+export function photoFilesToDelete(session: ScanSession): string[] {
+  const uris = new Set<string>();
+  for (const photo of [...session.tiles.flatMap((tile) => tile.photos), ...session.discarded]) {
+    if (photo.owned) {
+      uris.add(photo.uri);
+    }
+  }
+  return [...uris];
+}

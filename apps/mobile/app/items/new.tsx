@@ -42,6 +42,7 @@ import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
 import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
+import { useAddCardsScanRows } from '@/src/features/scan/useAddCardsScanRows';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import { useAppStore } from '@/src/store';
 import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
@@ -96,6 +97,8 @@ export default function AddCardsScreen() {
     printings.find((candidate) => candidate.id === printingId) ??
     (printings.length === 1 ? (printings[0] ?? null) : null);
   const findability = useCardFindability();
+  // The card scan's two rows (spec 2026-10-15, screen 26), where the scan is available.
+  const scanRows = useAddCardsScanRows();
 
   const leave = useCallback(() => {
     if (router.canGoBack()) {
@@ -264,6 +267,7 @@ export default function AddCardsScreen() {
         onImportCollectr={() =>
           router.push({ pathname: '/items/import', params: { source: 'COLLECTR_CSV' } })
         }
+        scan={scanRows}
       />
     );
   } else if (step === 'typing') {

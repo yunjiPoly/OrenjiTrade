@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.AbstractIntegrationTest;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.featureflags.infra.FeatureFlagRepository;
 import com.orenjitrade.api.featureflags.infra.FeatureFlagSeedContributor;
@@ -19,9 +20,10 @@ import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature
- * off), public map, admin reads/writes, rollout, 404 when off. Rollout is exercised on {@link
- * #PROBE}, a flag row this test creates and removes, so no product flag is switched on.
+ * Feature flags: migration defaults (V010 + the V105 launch configuration: every money feature off;
+ * V129: the camera card scan on), public map, admin reads/writes, rollout, 404 when off. Rollout is
+ * exercised on {@link #PROBE}, a flag row this test creates and removes, so no product flag is
+ * switched on.
  */
 class FeatureFlagsIT extends AbstractIntegrationTest {
 
@@ -32,7 +34,8 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
             Map.of(
                     "mlScanning", false,
                     "protectedPayments", false,
-                    "publicChat", true);
+                    "publicChat", true,
+                    "cardTextScan", true);
 
     @Autowired private FeatureFlags featureFlags;
     @Autowired private FeatureFlagRepository repository;
@@ -229,5 +232,62 @@ class FeatureFlagsIT extends AbstractIntegrationTest {
         seed.seed();
         assertThat(featureFlags.isEnabled("protectedPayments")).isFalse();
         assertThat(FeatureFlagSeedContributor.LOCAL_ENABLED).containsExactly("protectedPayments");
+        assertThat(featureFlags.isEnabled("cardTextScan")).isTrue();
+    }
+
+    /**
+     * The camera card scan (V129) is on by default, for every account, and a SUPER_ADMIN switches
+     * it off and on again in the admin console like any other flag; the public map follows at once.
+     * mlScanning, the on-hold photo pipeline, stays off.
+     */
+    @Test
+    void cardTextScanIsOnByDefaultAndEditableInTheAdminConsole() {
+        String superAdmin = uniqueUid("ff-scan-super");
+        provisionWithRoles(superAdmin, Role.SUPER_ADMIN);
+        String user = uniqueUid("ff-scan-user");
+        UUID userId = provisionCompliant(user);
+        featureFlags.invalidate();
+
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN)).isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN, userId)).isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.ML_SCANNING)).isFalse();
+        JsonNode admin =
+                callJson(HttpMethod.GET, "/api/v1/admin/feature-flags", superAdmin, null, 200);
+        JsonNode row = null;
+        for (JsonNode flag : admin) {
+            if (flag.path("key").asString().equals("cardTextScan")) {
+                row = flag;
+            }
+        }
+        assertThat(row).as("listed in /admin").isNotNull();
+        assertThat(row.path("enabled").asBoolean()).isTrue();
+        assertThat(row.path("rolloutPercent").asInt()).isEqualTo(100);
+        assertThat(row.path("description").asString()).contains("Scan with camera");
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/admin/feature-flags/cardTextScan",
+                superAdmin,
+                Map.of("enabled", false),
+                200);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/public/feature-flags", user, null, 200)
+                                .path("cardTextScan")
+                                .asBoolean())
+                .isFalse();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.CARD_TEXT_SCAN, userId)).isFalse();
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/admin/feature-flags/cardTextScan",
+                superAdmin,
+                Map.of("enabled", true),
+                200);
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/public/feature-flags", null, null, 200)
+                                .path("cardTextScan")
+                                .asBoolean())
+                .isTrue();
+        assertThat(featureFlags.isEnabled(FeatureFlagKeys.ML_SCANNING)).isFalse();
     }
 }

@@ -11,6 +11,8 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
+import { AddInventoryItemsBatchRequest } from '../model/models';
+import { AddInventoryItemsBatchResponse } from '../model/models';
 import { BulkInventoryRequest } from '../model/models';
 import { BulkInventoryResponse } from '../model/models';
 import { CreateInventoryItemRequest } from '../model/models';
@@ -23,6 +25,11 @@ import { UpdateInventoryItemRequest } from '../model/models';
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface AddInventoryItemsBatchRequestParams {
+    addInventoryItemsBatchRequest: AddInventoryItemsBatchRequest;
+    idempotencyKey?: string;
+}
 
 export interface BulkUpdateInventoryItemsRequestParams {
     bulkInventoryRequest: BulkInventoryRequest;
@@ -83,6 +90,14 @@ export interface UploadInventoryItemImageRequestParams {
 export interface InventoryServiceInterface {
     defaultHeaders: HttpHeaders;
     configuration: Configuration;
+
+    /**
+     * Add several cards at once (camera scan)
+     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key repeats the first answer for 24 hours, whatever the body: nothing is added a second time.
+     * @endpoint post /api/v1/inventory/items/batch
+* @param requestParameters
+     */
+    addInventoryItemsBatch(requestParameters: AddInventoryItemsBatchRequestParams, extraHttpRequestParams?: any): Observable<AddInventoryItemsBatchResponse>;
 
     /**
      * Bulk operation on the caller\&#39;s items

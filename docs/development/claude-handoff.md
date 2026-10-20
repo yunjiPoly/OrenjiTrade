@@ -54,6 +54,7 @@ Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #
 | Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | merged as #75 (`2f9c5506`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done; on `main`. |
 | Stage R4 of the phone redesign (messages and Mark as sold, mockup screens 22 to 25) | merged as #76 (`f26d531f`), from branch `feature/r4-messages-mark-as-sold` | Builder done (V127, the `deals` module; IMPLEMENTATION_STATUS.md, "Phone redesign R4"): the R3 leftovers R2-1, R2-2, U10 (and U8) fixed first; the chat's subject, `GET /conversations/{id}`, sharing one's own card, `POST /conversations/{id}/sales` and `POST /sales/{id}/undo`, the SALE interaction, the buyer's notification; on the phone the inbox, the chat with its pinned bar, tips, quick replies and + sheet, Settings › Shipping details, Mark as sold with its toast and Undo; native flows 3 (as far as R4 reaches) and 4; walked on the iPhone 18 Pro in dark and light at the default and the largest text size (three large-text fixes); the full check list run (the native suite 32 / 33, the one stale flow fixed and passing alone). Reviewed (a functional verifier and a privacy lens); **review fix 1 done** (IMPLEMENTATION_STATUS.md, R4 section, "Review fix 1"): Mark as sold names the card the seller saw (409 `SUBJECT_CHANGED`) and pins are pushed on `/user/queue/conversations`; the toast's Undo stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has its test; nine minor fixes. **Review fix 2 done** ("Review fix 2"): a jest test that the open Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS (the row's padding). On `main`. |
 | Stage R5 of the phone redesign (Search, mockup screens 11 to 15) | branch `feature/r5-search` (worktree `OrenjiTrade-r2`) | Builder done (no migration; IMPLEMENTATION_STATUS.md, "Phone redesign R5: search"): four tabs (Search \| Inventory \| Messages \| Profile), Search's map with the state card, typing a card with the collectors, Who has this card (holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy › "Remember my searches", the old routes and links redirected; API `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out in SQL from the collectors of search, no search text in analytics; native flows 2 and 3 in full. Not pushed; its reviews next. |
+| Camera card scan ("Scan with camera", Yu-Gi-Oh!, mockup screens 26 to 30; owner spec `docs/product/specs/2026-10-15-card-scan.md`) | branch `feature/card-scan` (worktree `OrenjiTrade-card-scan`), its own session beside the redesign | Built and reviewed (a functional verifier and a privacy / collector lens, three fix rounds, the third approved by the owner, then the last small fixes); merged with `main` (R4, #77, R5) on 2026-10-20 and the full check list green, the Maestro set 33 / 33 (IMPLEMENTATION_STATUS.md, "Card scan"). ADR 0020 (the owner lifted the Phase 11 hold on 2026-10-15 for this on-device text scan only), V129 (flag `cardTextScan`, on), contract `docs/api/contracts/card-scan.md`: the phone reads the name and the set code (Apple Vision / ML Kit through the local Expo module `OrenjiTextReader`), `POST /cards/scan-match` finds the printing, `POST /inventory/items/batch` adds the ready cards (`Idempotency-Key`). A development build for the iOS simulator only, by the owner's order (no phone build; the Android run could not be verified). Real cards on the finished screens: 28 of 32 found right away, 2 after one pick, 0 wrong, 2 not read. Not pushed; its pull request next. |
 
 **Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
 with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
@@ -86,7 +87,8 @@ upgrade offer or paid entry point; its limit messages are F1's plain caps).
 
 The owner's local dev database was still at V105 on the Windows machine; a fresh Mac database
 migrates to the newest level of `main` (V127: R1's V115 and V116, F1's V120–V123, R2's V125,
-R3's V126, R4's V127; V117–V119 unused, V124 kept for another branch) at the
+R3's V126, R4's V127; V117–V119 and V124 unused: V124 was kept for the card scan, which took
+V129, the newest level once it lands) at the
 first `npm run dev`, and
 loses its trading areas by design (S1).
 
@@ -123,9 +125,10 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    below, the pull request, the merge on green). **Then stage R6** (profiles, mockup screens 19 to
    21, and Settings behind the gear), R7 (Home, the first of five tabs; it turns the hidden `index`
    route of the tabs, which redirects to Search today, into Home) and R8, in order, one branch and
-   one PR each, none of them bringing back a paid feature (ADR 0019). Migrations: the newest is
-   R4's V127 (R5 has none), and V124 is kept for another branch, so the next is **V128** (Flyway,
-   without `outOfOrder`, refuses a version older than the database's newest one).
+   one PR each, none of them bringing back a paid feature (ADR 0019). Migrations: the newest on
+   `main` is R4's V127 (R5 has none); V124 is unused (the card scan, which had it, took V129); the
+   next is **V128** until the card scan's V129 lands, then **V130** (Flyway, without `outOfOrder`,
+   refuses a version older than the database's newest one).
 2. R1 (#72), F1 (#73) and R2 are on `main`: R1 and F1 merged together on 2026-10-15
    (IMPLEMENTATION_STATUS.md, "Free for all", "Merged with R1 (2026-10-15)"), then R2 merged
    `main` (IMPLEMENTATION_STATUS.md, "Phone redesign R2", "Merged with free for all
@@ -249,7 +252,8 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   real catalog import is the explicit `npm run catalog:import`, an owner step), and nothing ever
   calls Collectr. The owner is budget-conscious: ask before anything that can cost money, and run
   multi-agent work in moderate batches.
-- **On hold:** Phase 11 ML card recognition (keep `mlScanning` off, no camera scanning); the Expo SDK
+- **On hold:** Phase 11 ML card recognition (keep `mlScanning` off, no camera scanning; the owner
+  lifted the hold on 2026-10-15 for the on-device text scan of ADR 0020 only); the Expo SDK
   58 upgrade until it is stable; the full French UI translation (the owner said "hold, don't start"
   on 2026-10-07 — the plan stays in IMPLEMENTATION_STATUS.md).
 - **Launch decisions (2026-10-05):** discovery + messaging only (protected payments off at launch),

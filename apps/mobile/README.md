@@ -104,8 +104,10 @@ no matches) and the **notification centre** (a bell
 with a live unread badge on every tab, the list, mark read, a deep link per notification kind).
 Device push is not wired (it needs an EAS project and a real FCM sender): notifications arrive in
 the app. An ended session leads to the sign-in screen with an explanation, and a link opened while
-signed out reopens after signing in. Card recognition (Phase 11) is on hold: no scan flow, the
-`mlScanning` flag stays off.
+signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
+`mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
+"Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
+development build below and the flag `cardTextScan`).
 
 Phases 7 and 8 (stage M5) are implemented on the same API as the web: **Report collector**
 (`report`: the API's reasons, details, a confirmation; from profiles, conversations, community
@@ -230,6 +232,78 @@ The npm workspace also holds the Angular app, whose toolchain uses Babel 8. The 
 react-native-worklets Babel plugin needs it, and without it every native bundle fails with
 `[Worklets] Babel plugin exception` (guarded by `__tests__/config/babel-toolchain.test.ts` and the
 `expo export --platform android` step of the CI mobile job).
+
+## The card scan's development build (simulator)
+
+The card scan reads text on the phone through the local Expo module `OrenjiTextReader`
+(`modules/orenji-text-reader`: Apple Vision on iOS, ML Kit's bundled model on Android), which Expo
+Go does not hold. Expo Go, the web export and jest run without it (the scan is then unavailable);
+reading cards needs a local development build. The scan's own app installs beside every other
+app: `ORENJI_APP_VARIANT=scan` gives it the bundle id `com.orenjitrade.app.scan` and the name
+"OrenjiTrade Scan" (app.config.ts); without the variable nothing changes. Free and local: no EAS,
+no Apple account, no signing for the simulator. For now the scan is built and checked on the iOS
+simulator only (owner, 2026-10-15). Builds for a phone (an iPhone, an Android phone) belong to the
+phone-install task, which has not started: its section will hold the phone setup and signing (its
+signing flag will sit next to the variant), and the scan build adds only its own name and API
+address to it.
+
+Once per Mac: Xcode with an iOS runtime, and CocoaPods (`brew install cocoapods`; `pod` needs a
+UTF-8 locale). The commands below use the card scan's isolated stack: an API on `:8470` (database
+`orenjitrade_card_scan`, Redis db 9, its own card-image cache and media folders, environment as in
+`scripts/lib/web-e2e-guard.mjs`), Metro on `:8084`, and the simulator kept booted for this work
+(never boot, erase or shut one down from here). `ios/` and `android/` are generated and git-ignored.
+
+```bash
+cd apps/mobile
+ORENJI_APP_VARIANT=scan npx expo prebuild --platform ios --clean --no-install
+git checkout -- package.json          # prebuild rewrites the "ios" and "android" scripts
+cd ios && LANG=en_US.UTF-8 pod install
+xcodebuild -workspace OrenjiTradeScan.xcworkspace -scheme OrenjiTradeScan -configuration Debug \
+  -sdk iphonesimulator -destination 'id=<udid>' \
+  -derivedDataPath <scratch>/DerivedData RCT_METRO_PORT=8084 build
+xcrun simctl install <udid> <scratch>/DerivedData/Build/Products/Debug-iphonesimulator/OrenjiTradeScan.app
+
+cd ..                                 # apps/mobile: Metro of the debug build, pointed at the API on :8470
+EXPO_OFFLINE=1 EXPO_PUBLIC_API_BASE_URL=http://localhost:8470 npx expo start --port 8084
+xcrun simctl launch <udid> com.orenjitrade.app.scan
+```
+
+- `-destination 'id=<udid>'` builds for that simulator only (its own architecture, arm64 on Apple
+  silicon); `generic/platform=iOS Simulator` would compile x86_64 too.
+- `RCT_METRO_PORT=8084` makes the debug build load its JavaScript from that Metro; the Auth
+  emulator stays the default `localhost:9099`. Sign in with a seed account
+  (`docs/development/test-accounts.md`). On a fresh database the seed accounts have not confirmed
+  being 18+ yet (they predate the rule): the first sign-in stops at the onboarding "Age" step;
+  tick the box and continue, once per account and database.
+- iOS 27 stops an app built with Xcode 27 at launch unless it adopts the scene life cycle; Expo SDK
+  57's native template does not, so the variant applies `plugins/withIosSceneLifecycle.js` (Expo's
+  `ExpoAppSceneDelegate`, as SDK 58's template does). Builds without the variant are unchanged.
+- Testing with library photos ("Choose from photos", the camera's "Photos"; the simulator has no
+  camera, so the camera path cannot be tried there: it shows "There is no camera here"): add them
+  with `xcrun simctl addmedia <udid> <copies>` **from a copy in a scratch folder**, never straight
+  from `~/Downloads` (macOS asks for the Downloads folder's permission and the simulator's bridge
+  hangs on it). It adds them to that simulator's Photos library: ask the owner first. Photos of real
+  cards come from the owner and stay outside the repository; no photo, crop or recorded read is
+  ever committed (test fixtures are text).
+- The areas config: the parts of the card the scan reads are set in one place,
+  `src/features/scan/cardAreas.ts`, in fractions of the card (the Name area, the Set code area, the
+  Pendulum spot read only when the Set code area holds no code, `AREA_MARGIN` around each crop, the
+  set code read at twice its size). The camera's frame maps them to photo pixels
+  (`frameMapping.ts`); a library photo is read whole. The camera-path times measured on the
+  simulator hold for a card exactly under the frame; a card slightly off it misses the set code
+  area and costs a whole-photo read (`AREA_MARGIN`, to tune with real framed camera photos).
+- For the phone-install task: the scan app keeps the owner app's URL scheme (`orenjitrade`), its
+  associated domains and its Google sign-in redirect (`src/auth/googleNative.ts` names
+  `com.orenjitrade.app`). With both apps on one phone, `orenjitrade://` links may open either, and
+  Google sign-in from the scan app returns to the owner's app: give the variant its own scheme
+  (`orenjitrade-scan`) and derive the redirect id from the variant, or sign in to the scan app by
+  email only. On the simulator it does not matter.
+- Android: the module's Android half (Kotlin, ML Kit's bundled model, in
+  `modules/orenji-text-reader/android`) is written, but it was never compiled, built or run on this
+  Mac (no Android SDK; the TypeScript that calls it is type-checked and tested with a fake reader):
+  **the Android run could not be verified**. Building it would be
+  `ORENJI_APP_VARIANT=scan npx expo prebuild --platform android`, then Gradle; the owner will try it
+  on an Android phone.
 
 ## Configuration
 

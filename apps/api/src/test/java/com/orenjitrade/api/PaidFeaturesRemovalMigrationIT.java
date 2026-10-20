@@ -195,8 +195,9 @@ class PaidFeaturesRemovalMigrationIT {
 
     @Test
     void theFlagsAndSettingsOfTheRemovedFeaturesAreGone() {
+        // cardTextScan: V129, the camera card scan, added after F1.
         assertThat(db.queryForList("SELECT key FROM feature_flag ORDER BY key", String.class))
-                .containsExactly("mlScanning", "protectedPayments", "publicChat");
+                .containsExactly("cardTextScan", "mlScanning", "protectedPayments", "publicChat");
         assertThat(
                         db.queryForObject(
                                 "SELECT count(*) FROM platform_settings WHERE key LIKE 'credits.%'"
