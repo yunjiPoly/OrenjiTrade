@@ -20,7 +20,15 @@ import { itemPriceText } from '@/src/features/inventory/itemPrice';
 import { wishTerms } from '@/src/features/wishlist/wishlistLabels';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import { printingImageUrl } from '@/src/lib/catalog';
-import { fontFamily, fontWeight, radius, spacing, useStackedRows, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  radius,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import { PROFILE_COPY } from './profileCopy';
 import { referenceMonth } from './profileRules';
@@ -48,7 +56,11 @@ export function SectionHeader({
   const { palette } = useTheme();
   return (
     <View style={styles.sectionHead}>
-      <Text accessibilityRole="header" style={[styles.sectionTitle, { color: palette.ink }]}>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        style={[styles.sectionTitle, { color: palette.ink }]}
+      >
         {title}
       </Text>
       {onSeeAll ? (
@@ -60,7 +72,12 @@ export function SectionHeader({
           testID={`${testID}-see-all`}
           style={({ pressed }) => [styles.seeAll, pressed && styles.pressed]}
         >
-          <Text style={[styles.seeAllLabel, { color: palette.accent }]}>{PROFILE_COPY.seeAll}</Text>
+          <Text
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.seeAllLabel, { color: palette.accent }]}
+          >
+            {PROFILE_COPY.seeAll}
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -689,9 +706,10 @@ const styles = StyleSheet.create({
   gutter: { paddingHorizontal: spacing[4] },
   sectionHead: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing[3],
+    columnGap: spacing[3],
     paddingHorizontal: spacing[4],
   },
   sectionTitle: {

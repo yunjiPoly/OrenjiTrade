@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Share } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, Share, StyleSheet } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]/index';
 import { meKeys } from '@/src/api/queryKeys';
+import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { peekPendingDraft } from '@/src/features/messages/pendingDraft';
 
@@ -331,6 +332,45 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
       nativeEvent: { contentOffset: { x: 0, y: 40 } },
     });
     await waitFor(() => expect(screen.queryByTestId('profile-top-bar-name')).toBeNull());
+  });
+});
+
+describe('At the largest text size (the walk of stage R6)', () => {
+  it('puts the avatar above the name and keeps the titles and "See all" on their words', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(routes());
+      render();
+      expect(await screen.findByTestId('collector-name')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      // Beside the avatar the handle broke in the middle of a word.
+      expect(StyleSheet.flatten(screen.getByTestId('collector-header').props.style)).toMatchObject({
+        flexDirection: 'column',
+      });
+      // "Looking for" broke as "Looki / ng for" beside "See all".
+      expect(screen.getByText('Looking for')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      expect(screen.getAllByText('See all')[0]).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      // A wish puts "I have it" under the card.
+      expect(await screen.findByTestId(`profile-have-${CARD_ID}`)).toBeOnTheScreen();
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 });
 

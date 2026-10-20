@@ -4,7 +4,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { CollectorProfileResponse } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import { PROFILE_COPY } from './profileCopy';
 import { profileChips, profileLine, ratingText } from './profileRules';
@@ -28,6 +35,10 @@ export interface ProfileHeaderProps {
  */
 export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHeaderProps) {
   const { palette } = useTheme();
+  // From the larger text sizes on, the avatar stands above the name: beside it, the name, the
+  // handle and the chips kept a narrow column and broke the handle in the middle (the walk at the
+  // largest size).
+  const stacked = useStackedRows();
   const rating = ratingText(profile.rating);
   const chips = profileChips(profile.games, profile.tags);
   const line = profileLine(profile, own);
@@ -40,7 +51,7 @@ export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHea
 
   return (
     <View style={styles.root}>
-      <View style={styles.top}>
+      <View style={[styles.top, stacked && styles.topStacked]} testID={`${prefix}-header`}>
         <View style={styles.avatar}>
           <Avatar src={profile.avatarUrl} name={profile.displayName} size={64} />
           {online ? (
@@ -60,6 +71,7 @@ export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHea
             <Text
               accessibilityRole="header"
               testID={`${prefix}-name`}
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
               style={[styles.name, { color: palette.ink }]}
             >
               {profile.displayName}
@@ -166,6 +178,7 @@ export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHea
 const styles = StyleSheet.create({
   root: { gap: 10 },
   top: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
+  topStacked: { flexDirection: 'column', gap: spacing[3] },
   avatar: { width: 64, height: 64 },
   online: {
     position: 'absolute',
