@@ -498,7 +498,7 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 assertThat(profile.path("location").path("subdivisionName").asString())
                         .as("province of %s for %s", handle, reader)
                         .isEqualTo(PLACES.get(handle).split(", ")[0]);
-                fetch(base + "/inventory?size=10", caller);
+                fetch(base + "/inventory?size=10&excludeDeckCoreItems=true", caller);
                 fetch(base + "/binders", caller);
                 fetch(base + "/ratings?limit=1", caller);
                 fetch(base + "/references?limit=2", caller);

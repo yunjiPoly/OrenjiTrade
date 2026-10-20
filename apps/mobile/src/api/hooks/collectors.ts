@@ -61,7 +61,10 @@ export function useCollectorBinders(handle: string | null | undefined, enabled =
   });
 }
 
-/** `GET /api/v1/collectors/{handle}/inventory`: the first public cards across binders. */
+/**
+ * `GET /api/v1/collectors/{handle}/inventory`: the first public cards across binders, without the
+ * cards of a deck core (they sell only with it; stage R6).
+ */
 export function useCollectorPublicItems(handle: string | null | undefined, enabled = true) {
   const uid = useUid();
   return useQuery<PublicInventoryPage, ApiError>({
@@ -70,7 +73,11 @@ export function useCollectorPublicItems(handle: string | null | undefined, enabl
       required(
         (
           await api.GET('/api/v1/collectors/{handle}/inventory', {
-            params: { path: { handle: handle ?? '' }, query: { size: PUBLIC_ITEMS_PREVIEW } },
+            params: {
+              path: { handle: handle ?? '' },
+              // The cards of a deck core sell only with it: the Binders rail shows the core.
+              query: { size: PUBLIC_ITEMS_PREVIEW, excludeDeckCoreItems: true },
+            },
           })
         ).data
       ),
@@ -90,7 +97,11 @@ export function useCollectorPublicItemPages(handle: string | null | undefined) {
           await api.GET('/api/v1/collectors/{handle}/inventory', {
             params: {
               path: { handle: handle ?? '' },
-              query: { page: pageParam as number, size: PUBLIC_ITEMS_PAGE_SIZE },
+              query: {
+                page: pageParam as number,
+                size: PUBLIC_ITEMS_PAGE_SIZE,
+                excludeDeckCoreItems: true,
+              },
             },
           })
         ).data

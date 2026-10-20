@@ -35,6 +35,7 @@ export interface ListCollectorInventoryRequestParams {
     availability?: 'COLLECTION_ONLY' | 'TRADE' | 'SALE' | 'TRADE_OR_SALE' | 'NOT_AVAILABLE';
     page?: number;
     size?: number;
+    excludeDeckCoreItems?: boolean;
 }
 
 export interface ListPublicBinderItemsRequestParams {

@@ -25238,6 +25238,8 @@ export interface operations {
                 availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
                 page?: number;
                 size?: number;
+                /** @description Leave out the cards filed in a deck core: they sell only with it (stage R6: the phone's profile passes it) */
+                excludeDeckCoreItems?: boolean;
             };
             header?: never;
             path: {

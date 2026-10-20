@@ -360,11 +360,25 @@ public final class InventoryChanges {
      * @param availability only this availability
      * @param page zero-based page
      * @param size page size
+     * @param excludeDeckCoreItems leave out the cards filed in a deck core (they sell only with it,
+     *     owner spec 2026-10-14, section 7: the profile's Cards of stage R6)
      */
     public record PublicQuery(
             @Nullable String query,
             @Nullable String game,
             @Nullable Availability availability,
             int page,
-            int size) {}
+            int size,
+            boolean excludeDeckCoreItems) {
+
+        /** Every public card, a deck core's included. */
+        public PublicQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable Availability availability,
+                int page,
+                int size) {
+            this(query, game, availability, page, size, false);
+        }
+    }
 }

@@ -19885,6 +19885,16 @@
               "maximum": 100,
               "minimum": 1
             }
+          },
+          {
+            "name": "excludeDeckCoreItems",
+            "in": "query",
+            "description": "Leave out the cards filed in a deck core: they sell only with it (stage R6: the phone's profile passes it)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {

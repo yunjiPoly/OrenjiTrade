@@ -138,9 +138,13 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
   });
 
   it('shows Cards, Binders, Looking for, About and Ratings & references, in that order', async () => {
-    mockApi(routes());
+    const api = mockApi(routes());
     render();
     const card = await screen.findByTestId(`profile-card-${CARD.id}`);
+    // The cards of a deck core sell only with it: the Binders rail shows the core instead.
+    expect(
+      api.callsTo('GET /api/v1/collectors/{handle}/inventory')[0]?.query.get('excludeDeckCoreItems')
+    ).toBe('true');
     expect(card).toHaveTextContent('Azure-Eyes Sky Dragon85% TCG');
     const core = screen.getByTestId('profile-binder-core-1');
     expect(core).toHaveTextContent('Deck coreYubel core$95');

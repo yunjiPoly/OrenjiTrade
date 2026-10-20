@@ -114,12 +114,18 @@ public class PublicInventoryController {
                     @Nullable String query,
             @RequestParam(required = false) @Nullable Availability availability,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @Parameter(
+                            description =
+                                    "Leave out the cards filed in a deck core: they sell only with"
+                                            + " it (stage R6: the phone's profile passes it)")
+                    @RequestParam(defaultValue = "false")
+                    boolean excludeDeckCoreItems) {
         return responses(
                 publicInventoryService.collectorItems(
                         viewer(principal),
                         handle,
-                        publicQuery(query, game, availability, page, size)));
+                        publicQuery(query, game, availability, page, size, excludeDeckCoreItems)));
     }
 
     private PageResponse<PublicInventoryItemResponse> responses(
@@ -141,12 +147,23 @@ public class PublicInventoryController {
             @Nullable Availability availability,
             int page,
             int size) {
+        return publicQuery(query, game, availability, page, size, false);
+    }
+
+    private static PublicQuery publicQuery(
+            @Nullable String query,
+            @Nullable String game,
+            @Nullable Availability availability,
+            int page,
+            int size,
+            boolean excludeDeckCoreItems) {
         return new PublicQuery(
                 query == null || query.isBlank() ? null : query.trim(),
                 game == null || game.isBlank() ? null : game.trim().toLowerCase(Locale.ROOT),
                 availability,
                 page,
-                size);
+                size,
+                excludeDeckCoreItems);
     }
 
     private static @Nullable UUID viewer(@Nullable AuthenticatedUser principal) {

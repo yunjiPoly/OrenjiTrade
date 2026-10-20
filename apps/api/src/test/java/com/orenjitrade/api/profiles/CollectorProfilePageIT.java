@@ -187,6 +187,38 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void theCardsOfADeckCoreStayOutOfTheCardsWhenAsked() {
+        Page page = collectorWithListings("r6-core");
+        Collector viewer = collector("r6-core-viewer");
+        Map<String, Object> core = binder("Core " + page.owner().handle(), "PUBLIC");
+        core.put("sellsAsCore", true);
+        core.put("askingPriceText", "$95");
+        String coreId =
+                callJson(HttpMethod.POST, "/api/v1/binders", page.owner().uid(), core, 201)
+                        .path("id")
+                        .asString();
+        String inCore =
+                createItem(page.owner(), printing(testUsers, "pkm-p001a"), "PUBLIC", coreId, null);
+        String base = "/api/v1/collectors/" + page.owner().handle() + "/inventory?size=10";
+
+        assertThat(ids(get(base, viewer, 200)))
+                .as("unchanged by default (the paused web lists them)")
+                .containsExactlyInAnyOrder(page.publicCard(), inCore);
+        JsonNode cards = get(base + "&excludeDeckCoreItems=true", viewer, 200);
+        assertThat(ids(cards))
+                .as("the profile's Cards: a deck core's cards sell only with it")
+                .containsExactly(page.publicCard());
+        assertThat(cards.path("totalItems").asLong()).isEqualTo(1);
+        assertThat(
+                        ids(
+                                get(
+                                        "/api/v1/collectors/" + page.owner().handle() + "/binders",
+                                        viewer,
+                                        200)))
+                .contains(coreId);
+    }
+
+    @Test
     void aBlockInEitherDirectionLeavesTheHeaderOnly() {
         Page page = collectorWithListings("r6-block");
         Collector viewer = collector("r6-block-viewer");

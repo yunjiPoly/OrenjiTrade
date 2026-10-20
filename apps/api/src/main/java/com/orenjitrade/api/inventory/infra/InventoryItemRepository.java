@@ -319,6 +319,10 @@ public class InventoryItemRepository {
             where.append(" AND i.availability = :availability");
             params.put("availability", query.availability().name());
         }
+        if (query.excludeDeckCoreItems()) {
+            // The cards of a deck core sell only with it (owner spec 2026-10-14, section 7).
+            where.append(" AND (i.binder_id IS NULL OR NOT b.sells_as_core)");
+        }
         return page(
                 where.toString(),
                 " ORDER BY c.normalized_name, s.code, p.collector_number, i.id",
