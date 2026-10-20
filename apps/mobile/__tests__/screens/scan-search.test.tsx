@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo, Keyboard } from 'react-native';
 
@@ -144,6 +145,17 @@ describe('the search inside the scan', () => {
     expect(screen.getByTestId('add-search-hint')).toHaveTextContent(
       'Tap a card to pick its printing, or an exact printing to use it for this photo.'
     );
+  });
+
+  it('keeps the magnifier of its field out of the screen reader: the field is named already', async () => {
+    openForUnread();
+    render();
+    expect(screen.getByTestId('add-search-input')).toBeOnTheScreen();
+    const magnifier = screen
+      .UNSAFE_getAllByType(MaterialCommunityIcons)
+      .find((icon) => icon.props.name === 'magnify');
+    expect(magnifier?.props.accessibilityElementsHidden).toBe(true);
+    expect(magnifier?.props.importantForAccessibility).toBe('no');
   });
 
   it('never takes a card of another game for the photo', async () => {

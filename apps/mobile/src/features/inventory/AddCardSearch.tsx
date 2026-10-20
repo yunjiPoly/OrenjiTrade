@@ -137,7 +137,13 @@ export function AddCardSearch({
         <View
           style={[styles.field, { backgroundColor: palette.surface, borderColor: palette.primary }]}
         >
-          <MaterialCommunityIcons name="magnify" size={22} color={palette.primary} />
+          <MaterialCommunityIcons
+            name="magnify"
+            size={22}
+            color={palette.primary}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
           <TextInput
             value={text}
             onChangeText={onText}
