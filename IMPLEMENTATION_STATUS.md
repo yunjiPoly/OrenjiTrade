@@ -7372,11 +7372,25 @@ then the binders and their cards in ascending id (`docs/database/schema.md`).
 | Region sheet | `src/features/regions/RegionBar.tsx` (the pill and "Choose a region"), `regionCopy.ts` |
 | Search | `app/(tabs)/search.tsx` (the pill, `?game=` links, the wish count), `SearchMap.tsx`, `CardTyping.tsx` (no chips), `BindersSegment.tsx`, `WishlistSegment.tsx`, `searchCopy.ts`, `src/api/hooks/search.ts` and `regionMap.ts` (`game=`), `queryKeys.ts`, `features/map/RegionMap.tsx` (the spoken name), `features/cards/tcgplayer.ts` |
 | Binders | `InventoryBinders.tsx` (sections), `BinderEditor.tsx` + `BinderGameField.tsx` (Game picker, locked game), `binderForm.ts` (`game`, `bindersByGame`, `bindersForGame`), `CardPickerSheet.tsx`, `binderCopy.ts`, `app/binders/new.tsx` (`?game=`), `app/items/new.tsx` and `[id].tsx`, `app/(tabs)/inventory.tsx` + `features/inventory/bulkActions.ts`, `features/scan/ScanReviewScreen.tsx` |
-| Tests | jest `features/oneGameAtATime` (new: the default, per account, the sheet, sections, words), `features/binderForm`, `features/searchRules`, `features/browsingRegion`, `screens/search`, `screens/wishlist` (+2), `screens/binders`, `scan-review`, `lib/profile`; Playwright `catalog`, `binders`, `bulk-actions`, `holders` and the stack helpers (binders of the cards' game); Maestro **native flow G `one-game-at-a-time.yaml`** (new), `search-card-detail.yaml`, `large-text.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `map-gestures-links.yaml`, `deck-core.yaml`, `binder-create-add-item.yaml`, `dialog-after-sheet.yaml` and the scripts `create-collector.js` (`GAMES`), `parity.js`, `deals.js`, `wishlist.js`, `region-map.js` (`GAME`) |
+| Tests | jest `features/oneGameAtATime` (new: the default, per account, the sheet, sections, words), `features/binderForm`, `features/searchRules`, `features/browsingRegion`, `screens/search`, `screens/wishlist` (+2), `screens/binders`, `scan-review`, `lib/profile`; Playwright `catalog`, `binders`, `bulk-actions`, `holders`, `map` (the spoken name), `search-segments` ("No Pokémon card matches"), `wishlist` (a Yu-Gi-Oh! wish shown on Yu-Gi-Oh!) and the stack helpers (binders of the cards' game); Maestro **native flow G `one-game-at-a-time.yaml`** (new), `search-card-detail.yaml`, `large-text.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `map-gestures-links.yaml`, `deck-core.yaml`, `binder-create-add-item.yaml`, `dialog-after-sheet.yaml` and the scripts `create-collector.js` (`GAMES`), `parity.js`, `deals.js`, `wishlist.js`, `region-map.js` (`GAME`) |
 
 **Checks** (retries off, the real numbers; this Mac, 2026-10-20)
 
-CHECKS_TABLE
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,192 tests in 185 classes** (with the catalog tests), 0 failed, 0 skipped, 3 min 41 s. The first full run found 32 tests whose binders held cards of another game (fixed per class); new: `BinderGameMigrationIT` 7, `BinderGameIT`, `SearchGameIT` 3, `GamesIT`, `WishlistAvailabilityIT` +1, `GeoPrivacyContractTest.oneGameAtATimeCarriesPlacesOnly`, `SeedDataRunnerIT` (18 seed binders, none holding another game) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git (run again on the final tree) |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB** (under 900 kB); `git diff 3d56a090 -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) on the final tree. With a Yu-Gi-Oh! default for a binder made without a game, 5 of 68 failed; with "the first card decides" 3 (its specs file a Yu-Gi-Oh! and a Pokémon card into one binder): hence decision 1 |
+| `npm run test:mobile` | typecheck, lint, jest **116 suites / 1,479 tests**, 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,808,651 B (1,868 modules), Android 6,098,471 B (1,992 modules), web entry 3,067,343 B (1,486 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **60 passed** (1.0 min) on the final tree. The first run: 56 passed, 4 failed on stage G's words (the map's spoken name, "No Pokémon card matches", a Yu-Gi-Oh! wish shown on Yu-Gi-Oh!, Yu-Gi-Oh!'s near match "Ember Wyrmling" for "emberfang"): specs fixed |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **33 of 35 flows** in 55 min 47 s; the 2 others failed on this stage and pass alone after the fix: `search-card-detail.yaml` (1 min 3 s; "emberfang" has a Yu-Gi-Oh! near match, Ember Wyrmling, so the flow checks that instead of an empty state, which native flow G checks) and `deck-core.yaml` (4 min 30 s; at the largest size the game's section title pushes the plain binder below the screen: the flow scrolls to it). Native flow G `one-game-at-a-time.yaml` passed in the full run. The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **135 tests** in 26 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
 
 **The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 14:36 to 15:17; scratch
 Maestro flows on the isolated stack; dark and light, the default and the largest text size;
