@@ -8,6 +8,7 @@ import {
   apiListItem,
   apiMessages,
   apiPublicBinder,
+  apiStartConversationAbout,
   apiUpdatePrivacy,
   cardOfPrinting,
   createOnboardedCollector,
@@ -24,8 +25,8 @@ const suffix = () => Math.random().toString(36).slice(2, 6);
  * Stage R6 of the phone redesign (owner spec 2026-10-14, sections 9 and 10; mockup screens 19 to
  * 21) against the real stack: another collector's profile (the header, the one line, "Message",
  * Cards, Binders with a deck core, Looking for with "I have it", About, Ratings & references, the
- * "See all" pages), "I have it" opening the chat with your card pinned and the text in the box,
- * nothing sent before send; your Profile tab with the gear that opens Settings.
+ * "See all" pages), "I have it" opening the chat with your card and the text in the box, nothing
+ * sent and the chat's card unchanged before send; your Profile tab with the gear that opens Settings.
  */
 test.describe('mobile profiles (stage R6)', () => {
   requireStack();
@@ -55,6 +56,10 @@ test.describe('mobile profiles (stage R6)', () => {
     const mine = await apiAddItem(request, viewer, printingId, {
       visibility: 'PUBLIC',
       askingPriceText: '$12.50',
+    });
+    // The viewer asked Dana about her card before: their chat is pinned on it (R4).
+    const earlier = await apiStartConversationAbout(request, viewer, dana.id, {
+      subjectItemId: listed.id,
     });
 
     await signInThroughUi(page, viewer.email, viewer.password);
@@ -90,7 +95,8 @@ test.describe('mobile profiles (stage R6)', () => {
     });
     await page.goBack();
 
-    // "I have it": the chat opens with your card pinned and the text in the box; nothing sent.
+    // "I have it": the same chat opens with your card and the text in the box. Nothing is sent
+    // and the chat's card stays Dana's until send: she sees no copy of yours before that.
     await profile.getByTestId(`profile-have-${cardId}`).click();
     const chat = screen(page, 'conversation');
     const box = chat.getByLabel('Message', { exact: true });
@@ -98,10 +104,9 @@ test.describe('mobile profiles (stage R6)', () => {
       timeout: 30_000,
     });
     await expect(chat.getByTestId('composer-attachment')).toContainText(cardName);
-    await expect(chat.getByTestId('pinned-line')).toContainText('your card');
     const conversationId = page.url().split('/messages/')[1]?.split(/[?#]/)[0] ?? '';
-    expect(conversationId).not.toBe('');
-    expect((await apiConversation(request, viewer, conversationId)).subject?.id).toBe(mine.id);
+    expect(conversationId).toBe(earlier);
+    expect((await apiConversation(request, dana, conversationId)).subject?.id).toBe(listed.id);
     expect(await apiMessages(request, dana, conversationId)).toEqual([]);
 
     // Send: your card first, then the text, as Dana reads it.
@@ -114,6 +119,9 @@ test.describe('mobile profiles (stage R6)', () => {
         ])
       )
       .toEqual([['CARD_LINK', `I have ${cardName} for your wishlist. Interested?`]]);
+    // Sent, your copy is the chat's card: you are the seller.
+    expect((await apiConversation(request, dana, conversationId)).subject?.id).toBe(mine.id);
+    await expect(chat.getByTestId('pinned-line')).toContainText('your card', { timeout: 30_000 });
   });
 
   test('your Profile tab: your page, and the gear opens Settings', async ({ page, request }) => {

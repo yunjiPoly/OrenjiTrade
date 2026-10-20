@@ -2,10 +2,12 @@
 # 19 to 21): the profile pages and the Settings gear. Vic (fictional, in Ontario, holding a public
 # copy of the card Dana wants) opens Dana's profile: the line with her shown city and her province,
 # "Message {handle}", Cards, Binders with her deck core, Looking for with "I have it", the small top
-# bar once scrolled, Ratings & references and its "See all", the "⋯" sheet. "I have it" opens the
-# chat with Vic's copy pinned and the text in the box, nothing sent until send; sent, it shares the
-# card and the text. Then Vic's Profile tab, its gear opening Settings, and "See all" of the cards
-# leading to the Inventory (scripts/parity.js, ACTION=profiles and check-have).
+# bar once scrolled, Ratings & references and its "See all", the "⋯" sheet and its Share profile
+# (the system's share sheet). "I have it" opens Vic's chat with Dana (about her card) with his copy
+# and the text in the box: nothing is sent and the chat's card stays hers until send; sent, it
+# shares the card and the text and his copy becomes the chat's card. Then Vic's Profile tab, its
+# gear opening Settings, and "See all" of the cards and of the binders leading to the Inventory,
+# twice for the binders (scripts/parity.js, ACTION=profiles and check-have).
 appId: ${APP_ID}
 name: Profile pages and the Settings gear
 tags:
@@ -69,6 +71,30 @@ tags:
       id: 'collector-block'
     timeout: 15000
 
+# Share profile from the sheet: the system's share sheet comes up once the sheet has gone (iOS
+# took it away with the closing sheet before review fix 1), then a swipe down closes it.
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-share'
+    timeout: 15000
+- tapOn:
+    id: 'collector-share'
+- extendedWaitUntil:
+    visible: 'Copy'
+    timeout: 15000
+- takeScreenshot: r6-collector-share-sheet
+- swipe:
+    start: 50%, 62%
+    end: 50%, 98%
+    duration: 400
+- extendedWaitUntil:
+    notVisible: 'Copy'
+    timeout: 15000
+- assertVisible:
+    id: 'collector-name'
+
 # Looking for (screen 20): Dana's wish with "I have it"; the top bar shows her name and Message.
 - runFlow:
     file: subflows/scroll-down-to.yaml
@@ -102,8 +128,8 @@ tags:
       id: 'profile-references-see-all'
     timeout: 30000
 
-# "I have it": the chat with Vic's copy pinned (he is the seller), the text and the card in the
-# box; nothing is sent until he taps send.
+# "I have it": Vic's chat with Dana, the text and his card in the box; nothing is sent and the
+# chat's card stays Dana's (he is still the buyer) until he taps send.
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -117,7 +143,7 @@ tags:
     timeout: 60000
 - assertVisible:
     id: 'composer-attachment'
-- assertVisible:
+- assertNotVisible:
     id: 'pinned-mark-sold'
 - runScript:
     file: scripts/parity.js
@@ -126,7 +152,7 @@ tags:
       EMAIL: ${output.vic.email}
       PASSWORD: ${output.vic.password}
       HANDLE: ${output.dana.handle}
-      ITEM: ${output.items.vic}
+      ITEM: ${output.items.dana}
       EXPECT_COUNT: '0'
 - takeScreenshot: r6-i-have-it-chat
 - tapOn:
@@ -134,6 +160,11 @@ tags:
 - extendedWaitUntil:
     notVisible:
       id: 'composer-attachment'
+    timeout: 30000
+# Sent: his copy is the chat's card, he is the seller.
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-mark-sold'
     timeout: 30000
 - runScript:
     file: scripts/parity.js
@@ -203,3 +234,35 @@ tags:
     visible:
       id: 'screen-inventory'
     timeout: 30000
+
+# "See all" of your binders is Inventory › Binders, every time: after Cards was chosen by hand,
+# the same link switches the view again (review fix 1).
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-binders-see-all'
+- tapOn:
+    id: 'profile-binders-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-list'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-view-cards'
+- extendedWaitUntil:
+    notVisible:
+      id: 'binders-list'
+    timeout: 15000
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-binders-see-all'
+- tapOn:
+    id: 'profile-binders-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-list'
+    timeout: 30000
+- takeScreenshot: r6-see-all-binders-again

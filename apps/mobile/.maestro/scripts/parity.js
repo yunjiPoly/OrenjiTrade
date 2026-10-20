@@ -21,8 +21,9 @@
 //   core" at "$95", a wish for the card: any printing, Near Mint only, "90% TCG").
 //   Outputs: output.vic.{email, password, displayName}, output.dana.{handle, displayName},
 //            output.card.{id, name}, output.items.{dana, vic}
-// ACTION=check-have checks, as EMAIL / PASSWORD, the chat with HANDLE: its card is ITEM (the
-//   copy "I have it" pinned) and it holds EXPECT_COUNT messages (EXPECT_KIND the newest, if any).
+// ACTION=check-have checks, as EMAIL / PASSWORD, the chat with HANDLE: its card is ITEM (the card
+//   it was about before send, the copy sent after) and it holds EXPECT_COUNT messages (EXPECT_KIND
+//   among them, if any).
 // ACTION=expect-blocks checks, as EMAIL / PASSWORD, that `GET /me/blocks` holds EXPECT_COUNT
 //   collectors (HANDLE among them when given).
 // ACTION=verify-email marks the e-mail of EMAIL / PASSWORD as verified in the emulator (a
@@ -165,6 +166,7 @@ function createCollector(prefix, displayName, place, privacy, city) {
     'PUT privacy'
   );
   return {
+    id: me.id,
     email: email,
     password: password,
     displayName: displayName,
@@ -322,6 +324,14 @@ if (action === 'looking-for') {
       conditionStated: false,
     },
     'POST /inventory/items (Vic)'
+  );
+  // Vic asked Dana about her card before: their chat is pinned on it (R4). "I have it" must not
+  // change that before Vic sends (stage R6, review fix 1).
+  postJson(
+    vic.token,
+    '/api/v1/conversations',
+    { recipientId: dana.id, subjectItemId: danaCard.id },
+    "POST /conversations (about Dana's card)"
   );
   output.vic = { email: vic.email, password: vic.password, displayName: vic.displayName };
   output.dana = { handle: dana.handle, displayName: dana.displayName };

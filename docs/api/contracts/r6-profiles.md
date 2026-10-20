@@ -47,14 +47,18 @@ filters (`markedPublic=true`, …). A malformed id is 400.
 The phone's "I have it" (another collector's wish on a profile; Home with stage R7):
 
 1. `GET /inventory/items?cardId=<the wished card>&size=50` and picks a copy: the wished printing,
-   else the wished rarity, else any printing; a public copy before a private one; the newest.
-2. `POST /conversations {recipientId, subjectItemId?}` (R4): opens or reuses the pair's chat, and
-   with a copy pins it as the chat's card (it is the caller's, so it may be pinned even private;
-   the caller is the seller).
+   else the wished rarity, else any printing; a public copy before a private one; the newest. A
+   copy filed in one of the caller's deck cores (`GET /binders`, `sellsAsCore`) is never picked:
+   it sells only with its core.
+2. `POST /conversations {recipientId}` (R4, as "Message"): opens or reuses the pair's chat
+   **without** `subjectItemId`, so the chat's card stays what it was (review fix 1: pinning the
+   copy here showed it, even a private one with its price, in the other collector's inbox before
+   anything was sent, and backing out left it pinned).
 3. The chat opens with "I have {card} for your wishlist. Interested?" in the message box and the
-   copy waiting beside it; **nothing is sent** until the collector taps send, which posts one
-   `CARD_LINK` with `inventoryItemId` and the text as its `body` (the card shared first, then the
-   text, as screen 24 shows it).
+   copy waiting beside it; **nothing is sent and nothing changes in the chat** until the
+   collector taps send, which posts one `CARD_LINK` with `inventoryItemId` and the text as its
+   `body` (the card shared first, then the text, as screen 24 shows it). That message pins the
+   copy as the chat's card (R4: the caller is the seller from then on).
 
 ## Privacy
 
