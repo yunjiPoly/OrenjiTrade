@@ -33,6 +33,10 @@ export interface CreateBinderRequest {
      * The deck core\'s asking price as typed (at most 40 characters once trimmed, one line): \"$180\", \"Trade only\". A plain amount also sets askingPrice
      */
     askingPriceText?: string;
+    /**
+     * The game whose cards the binder holds (stage G): an ACTIVE game with cards (GET /games, hasCards), else 400. The phone always sends it; without it (the paused web) the binder is a Yu-Gi-Oh! binder. Only cards of this game go in (409 BINDER_GAME_MISMATCH)
+     */
+    gameId?: string;
 }
 export enum CreateBinderRequestKindEnum {
     Collection = 'COLLECTION',

@@ -125,7 +125,7 @@ export class BindersService extends BaseService implements BindersServiceInterfa
 
     /**
      * Create a binder
-     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector.
+     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector. &#x60;gameId&#x60; (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it, a Yu-Gi-Oh! binder (the paused web).
      * @endpoint post /api/v1/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -828,7 +828,7 @@ export class BindersService extends BaseService implements BindersServiceInterfa
 
     /**
      * Update a binder (any subset of the fields)
-     * Absent fields are unchanged; &#x60;publicUntil&#x60;, &#x60;coverPrintingId&#x60; and &#x60;askingPriceText&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does &#x60;confirm: true&#x60;. &#x60;sellsAsCore&#x60; turns \&quot;Sell as a deck core\&quot; on or off (photos and price are kept, public views show them only for a deck core); &#x60;askingPriceText&#x60; is at most 40 characters once trimmed, and a plain amount also sets &#x60;askingPrice&#x60;.
+     * Absent fields are unchanged; &#x60;publicUntil&#x60;, &#x60;coverPrintingId&#x60; and &#x60;askingPriceText&#x60; may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does &#x60;confirm: true&#x60;. &#x60;sellsAsCore&#x60; turns \&quot;Sell as a deck core\&quot; on or off (photos and price are kept, public views show them only for a deck core); &#x60;askingPriceText&#x60; is at most 40 characters once trimmed, and a plain amount also sets &#x60;askingPrice&#x60;. &#x60;gameId&#x60; (stage G) changes the binder\&#39;s game while it holds no card: 409 BINDER_GAME_LOCKED once it has one, 400 for a game that is not ACTIVE or has no cards.
      * @endpoint patch /api/v1/binders/{id}
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

@@ -1324,7 +1324,7 @@ export interface paths {
         put?: never;
         /**
          * Add an item
-         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions), or none with `conditionStated: false` (the response then has `condition` empty and `conditionStated` false); currency to CAD. `askingPriceText` keeps the price as typed and fills `askingPrice` when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
+         * @description Language, edition and finish default to the printing's; condition to NEAR_MINT (must be one of the game's conditions), or none with `conditionStated: false` (the response then has `condition` empty and `conditionStated` false); currency to CAD. `askingPriceText` keeps the price as typed and fills `askingPrice` when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `inventory.items.max`) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number. A card goes only into a binder of its own game (409 BINDER_GAME_MISMATCH, stage G).
          */
         post: operations["createInventoryItem"];
         delete?: never;
@@ -1404,7 +1404,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk operation on the caller's items
-         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when `binderId` is not one of the caller's binders.
+         * @description One transaction. SET_VISIBILITY (`visibility`, `publicUntil` for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (`binderId`; null = unfiled), SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller's (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED, and for MOVE_TO_BINDER the cards of another game than the binder as BINDER_GAME_MISMATCH (stage G: a binder holds the cards of one game; they stay where they were). 404 when `binderId` is not one of the caller's binders.
          */
         post: operations["bulkUpdateInventoryItems"];
         delete?: never;
@@ -1708,7 +1708,7 @@ export interface paths {
         put?: never;
         /**
          * Create a binder
-         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector.
+         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector. `gameId` (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it, a Yu-Gi-Oh! binder (the paused web).
          */
         post: operations["createBinder"];
         delete?: never;
@@ -2487,7 +2487,7 @@ export interface paths {
         head?: never;
         /**
          * Update an item (any subset of the fields)
-         * @description Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. `askingPriceText` sets the price as typed (and `askingPrice` when it is a plain amount); `askingPrice` without it clears the text. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it, and so does `confirm: true` (the phone's Edit card: a save counts as still available).
+         * @description Absent fields are unchanged. `askingPrice`, `askingPriceText`, `publicUntil`, `binderId`, `notes` and `publicNotes` may be null to clear them. `askingPriceText` sets the price as typed (and `askingPrice` when it is a plain amount); `askingPrice` without it clears the text. TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making the item public confirms it, and so does `confirm: true` (the phone's Edit card: a save counts as still available). A card goes only into a binder of its own game, and a filed card keeps its binder's game (409 BINDER_GAME_MISMATCH, stage G).
          */
         patch: operations["updateInventoryItem"];
         trace?: never;
@@ -2608,7 +2608,7 @@ export interface paths {
         head?: never;
         /**
          * Update a binder (any subset of the fields)
-         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`.
+         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`. `gameId` (stage G) changes the binder's game while it holds no card: 409 BINDER_GAME_LOCKED once it has one, 400 for a game that is not ACTIVE or has no cards.
          */
         patch: operations["updateBinder"];
         trace?: never;
@@ -2696,7 +2696,7 @@ export interface paths {
         };
         /**
          * Which of the caller's wishes are available in a region
-         * @description The ids of the caller's wishes that `available` would mark in `region` (default: the caller's home region, else americas-north): the phone's Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as `available` on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+         * @description The ids of the caller's wishes that `available` would mark in `region` (default: the caller's home region, else americas-north): the phone's Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as `available` on GET /wishlist, one grouped query. Ids only: no count, no holder, no place. `game` (stage G) keeps the wishes of that game only.
          */
         get: operations["getWishlistAvailability"];
         put?: never;
@@ -2856,7 +2856,7 @@ export interface paths {
         };
         /**
          * Public deck cores of a region holding a card (auth optional)
-         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a copy of `cardId` among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+         * @description Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of `region` (default: the caller's home region, else americas-north) that hold a copy of `cardId` among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most `limit` ("Also in a deck core" on the card page). The caller's own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city). `game` (stage G) keeps the deck cores of that game only.
          */
         get: operations["searchDeckCores"];
         put?: never;
@@ -2876,7 +2876,7 @@ export interface paths {
         };
         /**
          * Collectors of a region by handle or name (auth optional)
-         * @description The "Collectors" section of the phone's card search (stage R5): discoverable collectors of `region` (default: the caller's home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains `q` (accent- and case-insensitive), a handle that starts with it first, at most `limit`. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+         * @description The "Collectors" section of the phone's card search (stage R5): discoverable collectors of `region` (default: the caller's home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains `q` (accent- and case-insensitive), a handle that starts with it first, at most `limit`. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. `game` (stage G) keeps the collectors who list that game on their profile or show a card of it. Emits no analytics event.
          */
         get: operations["searchCollectorsByName"];
         put?: never;
@@ -2896,7 +2896,7 @@ export interface paths {
         };
         /**
          * Collectors of a region holding a card (auth optional)
-         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first), price, or province (grouped by state or province for "Who has this card": the caller's own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
+         * @description Public, fresh (ACTIVE or AGING) items of `printingId` or of any printing of `cardId` (exactly one) held by discoverable collectors whose country is in `region` (default: the caller's home region, else americas-north). The caller's own items are excluded. Filters: `availability`, `condition`, `minPrice`/`maxPrice` (items without a price never match), `freshness`, `edition`, `language`, `acceptsOffers`. `sort`: freshness (default, newest listing first), price, or province (grouped by state or province for "Who has this card": the caller's own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item. `game` (stage G) keeps that game's cards only: a card of another game has no holders.
          */
         get: operations["searchCardHolders"];
         put?: never;
@@ -2936,7 +2936,7 @@ export interface paths {
         };
         /**
          * Public binders of a state/province (auth optional)
-         * @description Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. `deckCore` keeps the deck cores (true) or the other binders (false); `q` matches a binder's name or description, its owner's handle and a deck core's card names. 404 when the region is unknown or the subdivision is not one of its own.
+         * @description Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. `deckCore` keeps the deck cores (true) or the other binders (false); `q` matches a binder's name or description, its owner's handle and a deck core's card names. 404 when the region is unknown or the subdivision is not one of its own. `game` (stage G) keeps the binders of that game only (400 for an unknown game).
          */
         get: operations["listSubdivisionBinders"];
         put?: never;
@@ -2956,7 +2956,7 @@ export interface paths {
         };
         /**
          * Public binders of a whole region (auth optional)
-         * @description As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same `deckCore` and `q` filters. 404 for an unknown region.
+         * @description As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same `deckCore` and `q` filters and `game` (stage G). 404 for an unknown region.
          */
         get: operations["listRegionBinders"];
         put?: never;
@@ -2976,7 +2976,7 @@ export interface paths {
         };
         /**
          * Public binders per state/province of a region (auth optional)
-         * @description Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; `deckCoreCount` says how many of them are deck cores (other binders = binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+         * @description Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; `deckCoreCount` says how many of them are deck cores (other binders = binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s. `game` (stage G) counts only that game's binders (400 for an unknown game); without it every game counts, as before.
          */
         get: operations["getRegionBinderCounts"];
         put?: never;
@@ -4954,6 +4954,16 @@ export interface components {
             previewImages?: string[];
             /** @description A deck core's cards with their copies, most copies first (at most 30); empty for other binders. Always sent */
             keyCards?: components["schemas"]["BinderKeyCard"][];
+            /**
+             * @description Slug of the one game whose cards the binder holds (stage G). Always sent
+             * @example yugioh
+             */
+            game?: string;
+            /**
+             * Format: uuid
+             * @description Id of that game (GET /games). Always sent
+             */
+            gameId?: string;
         };
         /** @description Freshness of a listing */
         Freshness: {
@@ -5371,6 +5381,8 @@ export interface components {
             schema?: components["schemas"]["GameSchema"];
             /** Format: date-time */
             updatedAt?: string;
+            /** @description Whether the catalogue holds a card of this game (stage G): a game without cards can be on a profile but is not browsed and holds no binder */
+            hasCards?: boolean;
         };
         /** @description Feature flag change */
         UpdateFeatureFlagRequest: {
@@ -6832,10 +6844,10 @@ export interface components {
             /** Format: uuid */
             itemId: string;
             /**
-             * @description NOT_FOUND (unknown, deleted or not the caller's item) or UNCHANGED (already in the requested state)
+             * @description NOT_FOUND (unknown, deleted or not the caller's item), UNCHANGED (already in the requested state) or BINDER_GAME_MISMATCH (MOVE_TO_BINDER: a card of another game than the binder, stage G)
              * @enum {string}
              */
-            reason: "NOT_FOUND" | "UNCHANGED";
+            reason: "NOT_FOUND" | "UNCHANGED" | "BINDER_GAME_MISMATCH";
         };
         /** @description A printing and its copies */
         AddInventoryItemsBatchLine: {
@@ -7490,6 +7502,11 @@ export interface components {
              * @example $180
              */
             askingPriceText?: string;
+            /**
+             * Format: uuid
+             * @description The game whose cards the binder holds (stage G): an ACTIVE game with cards (GET /games, hasCards), else 400. The phone always sends it; without it (the paused web) the binder is a Yu-Gi-Oh! binder. Only cards of this game go in (409 BINDER_GAME_MISMATCH)
+             */
+            gameId?: string;
         };
         /** @description How to publish a binder */
         PublishBinderRequest: {
@@ -8338,6 +8355,11 @@ export interface components {
             askingPriceText?: string | null;
             /** @description true also confirms the binder and its cards are still available, as POST /binders/{id}/confirm (the phone's Save changes) */
             confirm?: boolean;
+            /**
+             * Format: uuid
+             * @description Another game for the binder (stage G; not null): an ACTIVE game with cards, else 400; only while the binder holds no card, else 409 BINDER_GAME_LOCKED
+             */
+            gameId?: string;
         };
         UpdateCommunityChannelRequest: {
             name?: string;
@@ -10099,7 +10121,7 @@ export interface components {
              * @example VALIDATION_FAILED
              * @enum {string}
              */
-            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "SUBJECT_CHANGED" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
+            errorCode: "VALIDATION_FAILED" | "NOT_FOUND" | "FORBIDDEN" | "UNAUTHENTICATED" | "REAUTHENTICATION_REQUIRED" | "ACCOUNT_SUSPENDED" | "FEATURE_DISABLED" | "MESSAGING_BLOCKED" | "MESSAGE_BLOCKED" | "POST_BLOCKED" | "DUPLICATE_POST" | "RATING_NOT_ELIGIBLE" | "ALREADY_RATED" | "RATING_EDIT_WINDOW_CLOSED" | "RESTORE_WINDOW_CLOSED" | "NOTHING_LEFT_TO_SELL" | "SALE_UNDO_CLOSED" | "SALE_ALREADY_RATED" | "SUBJECT_CHANGED" | "BINDER_GAME_LOCKED" | "BINDER_GAME_MISMATCH" | "REPORT_ALREADY_OPEN" | "CANNOT_REPORT_SELF" | "OFFERS_NOT_ACCEPTED" | "OFFER_ALREADY_OPEN" | "STALE_OFFER" | "NOT_YOUR_TURN" | "INVALID_STATE_TRANSITION" | "ITEM_UNAVAILABLE" | "TRADING_BLOCKED" | "SELLER_NOT_ONBOARDED" | "DISPUTE_WINDOW_CLOSED" | "EVIDENCE_LIMIT_REACHED" | "WEBHOOK_SIGNATURE_INVALID" | "IMPORT_EXPIRED" | "IMPORT_ALREADY_COMMITTED" | "IMPORT_ROWS_UNRESOLVED" | "IMPORT_EMPTY" | "CONFLICT" | "HANDLE_TAKEN" | "DELETION_BLOCKED" | "TERMS_ACCEPTANCE_REQUIRED" | "AGE_CONFIRMATION_REQUIRED" | "LOCATION_REQUIRED" | "RATE_LIMITED" | "LIMIT_REACHED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL_ERROR" | "NOT_IMPLEMENTED" | "SERVICE_UNAVAILABLE";
             message: string;
             requestId: string;
             /** Format: date-time */
@@ -15914,6 +15936,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description BINDER_GAME_MISMATCH: the card is of another game than the binder (stage G) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -16337,6 +16368,15 @@ export interface operations {
             };
             /** @description NOT_FOUND (binder) or FEATURE_DISABLED (cardTextScan is off) */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description BINDER_GAME_MISMATCH: a card of another game than the binder (stage G), nothing written */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21322,6 +21362,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description BINDER_GAME_MISMATCH: the card is of another game than the binder (stage G) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -22203,6 +22252,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description BINDER_GAME_LOCKED: the game changes only while the binder holds no card */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -22478,6 +22536,8 @@ export interface operations {
             query?: {
                 /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north */
                 region?: string;
+                /** @description Game slug (GET /games): only the wishes of that game (stage G, the phone's browsed game) */
+                game?: string;
             };
             header?: never;
             path?: never;
@@ -22494,7 +22554,7 @@ export interface operations {
                     "application/json": components["schemas"]["WishlistAvailability"];
                 };
             };
-            /** @description VALIDATION_FAILED: unknown region */
+            /** @description VALIDATION_FAILED: unknown region or game */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -22986,6 +23046,8 @@ export interface operations {
                 /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
                 region?: string;
                 limit?: number;
+                /** @description Game slug (GET /games): only that game (stage G, the phone's browsed game); every game without it */
+                game?: string;
             };
             header?: never;
             path?: never;
@@ -23039,6 +23101,8 @@ export interface operations {
                 /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north. Scopes results only, never grants access */
                 region?: string;
                 limit?: number;
+                /** @description Game slug (GET /games): only collectors who list that game on their profile or show a card of it (stage G, the phone's browsed game); every collector without it */
+                game?: string;
             };
             header?: never;
             path?: never;
@@ -23111,6 +23175,8 @@ export interface operations {
                 excludeDeckCoreItems?: boolean;
                 /** @description Any printing of the card in this rarity, as the catalogue names it (e.g. Ultra Rare; exact): the holders a wish of any printing in one rarity opens */
                 rarity?: string;
+                /** @description Game slug (GET /games): only that game (stage G, the phone's browsed game); every game without it */
+                game?: string;
             };
             header?: never;
             path?: never;
@@ -23201,6 +23267,8 @@ export interface operations {
                 deckCore?: boolean;
                 /** @description Binder name or description, owner handle, or a card of a deck core */
                 q?: string;
+                /** @description Game slug (GET /games): only that game's binders (stage G, the phone's browsed game); every game without it */
+                game?: string;
                 /** @description Opaque cursor of the previous page */
                 cursor?: string;
                 limit?: number;
@@ -23259,6 +23327,8 @@ export interface operations {
                 deckCore?: boolean;
                 /** @description Binder name or description, owner handle, or a card of a deck core */
                 q?: string;
+                /** @description Game slug (GET /games): only that game's binders (stage G, the phone's browsed game); every game without it */
+                game?: string;
                 /** @description Opaque cursor of the previous page */
                 cursor?: string;
                 limit?: number;
@@ -23311,7 +23381,10 @@ export interface operations {
     };
     getRegionBinderCounts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Game slug (GET /games): only that game's binders (stage G, the phone's browsed game); every game without it */
+                game?: string;
+            };
             header?: never;
             path: {
                 region: string;

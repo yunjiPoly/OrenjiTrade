@@ -85,6 +85,14 @@ export interface BinderResponse {
      * A deck core\'s cards with their copies, most copies first (at most 30); empty for other binders. Always sent
      */
     keyCards?: Array<BinderKeyCard>;
+    /**
+     * Slug of the one game whose cards the binder holds (stage G). Always sent
+     */
+    game?: string;
+    /**
+     * Id of that game (GET /games). Always sent
+     */
+    gameId?: string;
 }
 export enum BinderResponseKindEnum {
     Collection = 'COLLECTION',

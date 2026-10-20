@@ -102,7 +102,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Bulk operation on the caller\&#39;s items
-     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
+     * One transaction. SET_VISIBILITY (&#x60;visibility&#x60;, &#x60;publicUntil&#x60; for TEMPORARILY_PUBLIC), MOVE_TO_BINDER (&#x60;binderId&#x60;; null &#x3D; unfiled), SET_AVAILABILITY (&#x60;availability&#x60;), CONFIRM, DELETE (each item restorable for 10 minutes). Items that are not the caller\&#39;s (or unknown/deleted) are skipped as NOT_FOUND, items already in the requested state as UNCHANGED, and for MOVE_TO_BINDER the cards of another game than the binder as BINDER_GAME_MISMATCH (stage G: a binder holds the cards of one game; they stay where they were). 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders.
      * @endpoint post /api/v1/inventory/items/bulk
 * @param requestParameters
      */
@@ -118,7 +118,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Add an item
-     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number.
+     * Language, edition and finish default to the printing\&#39;s; condition to NEAR_MINT (must be one of the game\&#39;s conditions), or none with &#x60;conditionStated: false&#x60; (the response then has &#x60;condition&#x60; empty and &#x60;conditionStated&#x60; false); currency to CAD. &#x60;askingPriceText&#x60; keeps the price as typed and fills &#x60;askingPrice&#x60; when it is a plain amount. Visibility defaults to PUBLIC inside a binder (the binder decides whether it shows) and PRIVATE otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;inventory.items.max&#x60;) beyond the inventory size limit, the same for every collector; unlimited until an admin gives it a number. A card goes only into a binder of its own game (409 BINDER_GAME_MISMATCH, stage G).
      * @endpoint post /api/v1/inventory/items
 * @param requestParameters
      */
@@ -173,7 +173,7 @@ export interface InventoryServiceInterface {
 
     /**
      * Update an item (any subset of the fields)
-     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;askingPriceText&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. &#x60;askingPriceText&#x60; sets the price as typed (and &#x60;askingPrice&#x60; when it is a plain amount); &#x60;askingPrice&#x60; without it clears the text. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it, and so does &#x60;confirm: true&#x60; (the phone\&#39;s Edit card: a save counts as still available).
+     * Absent fields are unchanged. &#x60;askingPrice&#x60;, &#x60;askingPriceText&#x60;, &#x60;publicUntil&#x60;, &#x60;binderId&#x60;, &#x60;notes&#x60; and &#x60;publicNotes&#x60; may be null to clear them. &#x60;askingPriceText&#x60; sets the price as typed (and &#x60;askingPrice&#x60; when it is a plain amount); &#x60;askingPrice&#x60; without it clears the text. TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. Making the item public confirms it, and so does &#x60;confirm: true&#x60; (the phone\&#39;s Edit card: a save counts as still available). A card goes only into a binder of its own game, and a filed card keeps its binder\&#39;s game (409 BINDER_GAME_MISMATCH, stage G).
      * @endpoint patch /api/v1/inventory/items/{id}
 * @param requestParameters
      */

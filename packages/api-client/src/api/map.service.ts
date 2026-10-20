@@ -47,7 +47,7 @@ export class MapService extends BaseService implements MapServiceInterface {
 
     /**
      * Public binders per state/province of a region (auth optional)
-     * Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; &#x60;deckCoreCount&#x60; says how many of them are deck cores (other binders &#x3D; binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s.
+     * Effectively public binders holding at least one public item, and public deck cores (which need no cards), whose owner is discoverable (opted in, ACTIVE, profile not PRIVATE, listings not paused) with a location in the region, per subdivision code; &#x60;deckCoreCount&#x60; says how many of them are deck cores (other binders &#x3D; binderCount - deckCoreCount). Subdivisions without binders are absent. Signed-in callers never count collectors blocked with them. Anonymous answers are cached server-side 60 s. &#x60;game&#x60; (stage G) counts only that game\&#39;s binders (400 for an unknown game); without it every game counts, as before.
      * @endpoint get /api/v1/regions/{region}/binder-counts
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -62,6 +62,18 @@ export class MapService extends BaseService implements MapServiceInterface {
         if (region === null || region === undefined) {
             throw new Error('Required parameter region was null or undefined when calling getRegionBinderCounts.');
         }
+        const game = requestParameters?.game;
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
+            QueryParamStyle.Form,
+            true,
+        );
+
 
         let localVarHeaders = this.defaultHeaders;
 
@@ -94,6 +106,7 @@ export class MapService extends BaseService implements MapServiceInterface {
         return this.httpClient.request<RegionBinderCounts>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
@@ -106,7 +119,7 @@ export class MapService extends BaseService implements MapServiceInterface {
 
     /**
      * Public binders of a whole region (auth optional)
-     * As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same &#x60;deckCore&#x60; and &#x60;q&#x60; filters. 404 for an unknown region.
+     * As GET /regions/{region}/subdivisions/{code}/binders for every state and province of the region (Search › Binders without a state): public binders and deck cores of discoverable collectors, most recently updated first, cursor paginated, with the same &#x60;deckCore&#x60; and &#x60;q&#x60; filters and &#x60;game&#x60; (stage G). 404 for an unknown region.
      * @endpoint get /api/v1/regions/{region}/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -123,6 +136,7 @@ export class MapService extends BaseService implements MapServiceInterface {
         }
         const deckCore = requestParameters?.deckCore;
         const q = requestParameters?.q;
+        const game = requestParameters?.game;
         const cursor = requestParameters?.cursor;
         const limit = requestParameters?.limit;
 
@@ -141,6 +155,15 @@ export class MapService extends BaseService implements MapServiceInterface {
             localVarQueryParameters,
             'q',
             <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
             QueryParamStyle.Form,
             true,
         );
@@ -208,7 +231,7 @@ export class MapService extends BaseService implements MapServiceInterface {
 
     /**
      * Public binders of a state/province (auth optional)
-     * Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. &#x60;deckCore&#x60; keeps the deck cores (true) or the other binders (false); &#x60;q&#x60; matches a binder\&#39;s name or description, its owner\&#39;s handle and a deck core\&#39;s card names. 404 when the region is unknown or the subdivision is not one of its own.
+     * Public binders (and public deck cores, which need no cards) of discoverable collectors located in the subdivision, most recently updated first, cursor paginated. Each binder carries its name, public item count, freshness (last update), owner block (handle, display name, avatar, state/province + country; never a city) and, for a deck core, its price, photos and key cards. &#x60;deckCore&#x60; keeps the deck cores (true) or the other binders (false); &#x60;q&#x60; matches a binder\&#39;s name or description, its owner\&#39;s handle and a deck core\&#39;s card names. 404 when the region is unknown or the subdivision is not one of its own. &#x60;game&#x60; (stage G) keeps the binders of that game only (400 for an unknown game).
      * @endpoint get /api/v1/regions/{region}/subdivisions/{code}/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -229,6 +252,7 @@ export class MapService extends BaseService implements MapServiceInterface {
         }
         const deckCore = requestParameters?.deckCore;
         const q = requestParameters?.q;
+        const game = requestParameters?.game;
         const cursor = requestParameters?.cursor;
         const limit = requestParameters?.limit;
 
@@ -247,6 +271,15 @@ export class MapService extends BaseService implements MapServiceInterface {
             localVarQueryParameters,
             'q',
             <any>q,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
             QueryParamStyle.Form,
             true,
         );

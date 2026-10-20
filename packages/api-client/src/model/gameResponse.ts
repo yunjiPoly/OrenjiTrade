@@ -23,6 +23,10 @@ export interface GameResponse {
     sortOrder?: number;
     schema?: GameSchema;
     updatedAt?: string;
+    /**
+     * Whether the catalogue holds a card of this game (stage G): a game without cards can be on a profile but is not browsed and holds no binder
+     */
+    hasCards?: boolean;
 }
 export enum GameResponseStatusEnum {
     Active = 'ACTIVE',

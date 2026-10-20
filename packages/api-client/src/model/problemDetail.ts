@@ -109,6 +109,8 @@ export enum ProblemDetailErrorCodeEnum {
     SaleUndoClosed = 'SALE_UNDO_CLOSED',
     SaleAlreadyRated = 'SALE_ALREADY_RATED',
     SubjectChanged = 'SUBJECT_CHANGED',
+    BinderGameLocked = 'BINDER_GAME_LOCKED',
+    BinderGameMismatch = 'BINDER_GAME_MISMATCH',
     ReportAlreadyOpen = 'REPORT_ALREADY_OPEN',
     CannotReportSelf = 'CANNOT_REPORT_SELF',
     OffersNotAccepted = 'OFFERS_NOT_ACCEPTED',
