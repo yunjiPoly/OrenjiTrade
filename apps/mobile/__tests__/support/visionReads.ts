@@ -3,8 +3,9 @@ import type { OcrLine } from '@/src/features/scan/ocr/types';
 /**
  * Whole-photo reads Apple Vision gave on the iPhone 17 simulator (batch B1, 2026-10-15), of
  * synthetic photos of FICTIONAL cards: the text and the boxes (fractions of the image read, origin
- * top left) as the reader's test screen recorded them, rounded to 3 decimals. Their card text was
- * since reworded into other fictional words of the same lengths.
+ * top left) as the reader's test screen of that batch recorded them (the screen is gone since),
+ * rounded to 3 decimals. Their card text was since reworded into other fictional words of the same
+ * lengths.
  */
 function line(text: string, x: number, y: number, width: number, height: number): OcrLine {
   return { text, confidence: 1, box: { x, y, width, height } };

@@ -263,13 +263,6 @@ xcrun simctl launch <udid> com.orenjitrade.app.scan
   `ExpoAppSceneDelegate`, as SDK 58's template does). Builds without the variant are unchanged.
 - Library photos for the scan: `xcrun simctl addmedia <udid> <photos>` (it changes that simulator's
   Photos: ask the owner first). Fictional card faces only; no photo is ever committed.
-- The reader's test screen (development builds only, removed before the scan's PR):
-  `xcrun simctl openurl <udid> orenjitrade://scan/dev-reader`. It reads the picked photos through
-  the areas and as a whole, and shows the lines, the candidates, the match and the times. A summary
-  of the last reads (text and boxes, never an image) goes to the app's cache,
-  `Library/Caches/dev-reader-results.json` under
-  `xcrun simctl get_app_container <udid> com.orenjitrade.app.scan data`: never backed up, replaced
-  by the next reading.
 - The areas of the card the scan reads are set in one place, `src/features/scan/cardAreas.ts`.
   The camera-path times measured on the simulator hold for a card exactly under the frame; a card
   slightly off it misses the set code area and costs a whole-photo read (`AREA_MARGIN`, to tune
