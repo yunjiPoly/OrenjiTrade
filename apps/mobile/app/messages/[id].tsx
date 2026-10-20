@@ -45,6 +45,7 @@ import {
   sendErrorMessage,
   type MessageDraft,
 } from '@/src/features/messages/messageDraft';
+import { clearPendingDraft, peekPendingDraft } from '@/src/features/messages/pendingDraft';
 import { PinnedBar } from '@/src/features/messages/PinnedBar';
 import { ThreadHeader, type ThreadMenuAction } from '@/src/features/messages/ThreadHeader';
 import {
@@ -123,6 +124,11 @@ export default function ConversationScreen() {
   const visible = useThreadVisible(id ?? null);
   const typing = useOtherTyping(id ?? null, selfId);
   const sendTyping = useSendTyping(id ?? null);
+  // What another screen left for the message box ("I have it"): read once, then let go.
+  const [initialDraft] = useState(() => peekPendingDraft(conversationId));
+  useEffect(() => {
+    clearPendingDraft(conversationId);
+  }, [conversationId]);
   const [sendError, setSendError] = useState<string | null>(null);
   const [messagingBlocked, setMessagingBlocked] = useState(false);
   const [blockedByMe, setBlockedByMe] = useState(false);
@@ -521,6 +527,7 @@ export default function ConversationScreen() {
           onSend={onSend}
           onTyping={sendTyping}
           onDismissError={() => setSendError(null)}
+          initialDraft={initialDraft}
         />
       </View>
       {subject && side === 'selling' ? (

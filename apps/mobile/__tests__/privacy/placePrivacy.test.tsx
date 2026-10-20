@@ -230,7 +230,8 @@ describe('place privacy contract (ADR 0017)', () => {
     );
     renderWithProviders(<CollectorScreen />, { port: new FakeAuthPort(testUser()) });
     await waitFor(() =>
-      expect(screen.getByTestId('collector-location')).toHaveTextContent('Montréal, Quebec, Canada')
+      // The province (no country) on the line under the header, the city only on its owner's page.
+      expect(screen.getByTestId('profile-line')).toHaveTextContent(/^Montréal, Quebec · /)
     );
     expect(screen.queryByText(DISTANCE_TEXT)).toBeNull();
     expect(screen.queryByText(/\d{2}\.\d{3,}/)).toBeNull();

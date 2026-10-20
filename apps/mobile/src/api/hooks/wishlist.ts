@@ -16,12 +16,12 @@ import { useIsAuthenticated, useUid } from './useUid';
  * Near Mint only, price term; no matches; stage R5: `available` in the home region, see
  * `useWishlistAvailability` for the browsed one). Every realtime reconnection re-reads it.
  */
-export function useWishlist() {
+export function useWishlist(enabled = true) {
   const uid = useUid();
   return useQuery<WishlistItemResponse[], ApiError>({
     queryKey: meKeys.wishlistItems(uid),
     queryFn: async () => required((await api.GET('/api/v1/wishlist')).data),
-    enabled: useIsAuthenticated(),
+    enabled: useIsAuthenticated() && enabled,
     staleTime: 30_000,
   });
 }

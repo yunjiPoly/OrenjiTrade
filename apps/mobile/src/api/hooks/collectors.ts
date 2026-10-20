@@ -16,8 +16,10 @@ import { useIsAuthenticated, useUid } from './useUid';
 export const RATINGS_PAGE_SIZE = 5;
 /** References per page ("Show more references"). */
 export const REFERENCES_PAGE_SIZE = 10;
-/** Public cards shown on a profile (the rest are in the binders). */
-export const PUBLIC_ITEMS_PREVIEW = 8;
+/** Public cards shown in the Cards rail of a profile ("See all" has the rest). */
+export const PUBLIC_ITEMS_PREVIEW = 10;
+/** Public cards per page of a profile's "See all". */
+export const PUBLIC_ITEMS_PAGE_SIZE = 24;
 
 /**
  * `GET /api/v1/collectors/{handle}`: a public profile as the caller sees it (the owner's own
@@ -73,6 +75,33 @@ export function useCollectorPublicItems(handle: string | null | undefined, enabl
         ).data
       ),
     enabled: !!handle && enabled,
+  });
+}
+
+/** `GET /api/v1/collectors/{handle}/inventory`, every page: a profile's "See all" cards. */
+export function useCollectorPublicItemPages(handle: string | null | undefined) {
+  const uid = useUid();
+  return useInfiniteQuery<PublicInventoryPage, ApiError>({
+    queryKey: meKeys.collectorPart(uid, handle ?? '', 'item-pages'),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) =>
+      required(
+        (
+          await api.GET('/api/v1/collectors/{handle}/inventory', {
+            params: {
+              path: { handle: handle ?? '' },
+              query: { page: pageParam as number, size: PUBLIC_ITEMS_PAGE_SIZE },
+            },
+          })
+        ).data
+      ),
+    getNextPageParam: (last, pages) => {
+      const loaded = pages.reduce((total, page) => total + (page.items?.length ?? 0), 0);
+      return loaded < (last.totalItems ?? 0) && (last.items?.length ?? 0) > 0
+        ? pages.length
+        : undefined;
+    },
+    enabled: !!handle,
   });
 }
 

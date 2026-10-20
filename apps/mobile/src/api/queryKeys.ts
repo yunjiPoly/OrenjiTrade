@@ -57,8 +57,11 @@ export const meKeys = {
   /** Another collector as this viewer sees them: profile, binders, cards, ratings, references. */
   collector: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase()] as const,
-  collectorPart: (uid: Uid, handle: string, part: 'binders' | 'items' | 'ratings' | 'references') =>
-    [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
+  collectorPart: (
+    uid: Uid,
+    handle: string,
+    part: 'binders' | 'items' | 'item-pages' | 'ratings' | 'references'
+  ) => [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), part] as const,
   /** Conversations (Phase 5): every read below (prefix), the inbox, one conversation, messages. */
   conversations: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations'] as const,
   conversationList: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'conversations', 'list'] as const,

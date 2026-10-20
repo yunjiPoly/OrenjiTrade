@@ -76,7 +76,15 @@ export function RootNavigator() {
         {/* Legal pages: readable from every gate (signed out, consent, suspended, app). */}
         <Stack.Screen name="legal/index" options={{ title: 'Legal' }} />
         <Stack.Screen name="legal/[key]" options={{ title: 'Legal' }} />
-        <Stack.Screen name="collectors/[id]" options={{ title: 'Collector' }} />
+        <Stack.Screen name="collectors/[id]/index" options={{ title: 'Collector' }} />
+        {/* A profile's "See all" (stage R6): cards, binders, wishes, ratings and references. */}
+        <Stack.Screen name="collectors/[id]/cards" options={{ title: 'Cards' }} />
+        <Stack.Screen name="collectors/[id]/binders" options={{ title: 'Binders' }} />
+        <Stack.Screen name="collectors/[id]/wishes" options={{ title: 'Looking for' }} />
+        <Stack.Screen
+          name="collectors/[id]/references"
+          options={{ title: 'Ratings & references' }}
+        />
         <Stack.Screen name="cards/[id]" options={{ title: 'Card' }} />
         {/* "Who has this in my region" as a list (web: /search?card=) and a set's cards (web: /sets/:id). */}
         <Stack.Screen name="holders" options={{ title: 'Card holders' }} />

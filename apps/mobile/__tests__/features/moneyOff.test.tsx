@@ -98,10 +98,11 @@ describe('launch configuration: every money flag off', () => {
     expect(await screen.findByTestId('collector-name')).toBeOnTheScreen();
     expect(screen.queryByText(/Sponsored/)).toBeNull();
     expect(api.callsTo('GET /api/v1/ads')).toHaveLength(0);
-    // Report and Block remain (trust and safety is not a money feature).
+    // Report and Block remain in the "⋯" sheet (trust and safety is not a money feature).
+    fireEvent.press(screen.getByTestId('collector-menu'));
     expect(screen.getByTestId('collector-report')).toBeOnTheScreen();
     expect(screen.getByTestId('collector-block')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('collector-block'));
-    expect(screen.getByTestId('block-dialog')).toBeOnTheScreen();
+    expect(await screen.findByTestId('block-dialog')).toBeOnTheScreen();
   });
 });

@@ -10,8 +10,9 @@ export interface TabDefinition {
   icon: TabIconName;
   iconFocused: TabIconName;
   /**
-   * The screen draws its own header (a large title, the bell and its main button: the Inventory
-   * and the Messages of the 2026-10-14 redesign); the tab bar shows no navigation header over it.
+   * The screen draws its own header (a large title, the bell and its main button: the Inventory,
+   * the Messages and the Profile of the 2026-10-14 redesign); the tab bar shows no navigation
+   * header over it.
    */
   ownHeader?: boolean;
 }
@@ -49,6 +50,8 @@ export const TABS: readonly TabDefinition[] = [
     title: 'Profile',
     icon: 'account-circle-outline',
     iconFocused: 'account-circle',
+    // Stage R6: the title, the bell and the gear that opens Settings (mockup screen 21).
+    ownHeader: true,
   },
 ];
 

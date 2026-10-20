@@ -185,12 +185,3 @@ export function initialsOf(name: string | null | undefined): string {
   const letters = words.length === 1 ? first.slice(0, 2) : `${first[0] ?? ''}${second[0] ?? ''}`;
   return letters.toUpperCase();
 }
-
-/** Last-active buckets of public profiles (never an exact time). */
-export const LAST_ACTIVE_LABELS: Readonly<Record<string, string>> = {
-  TODAY: 'Active today',
-  THIS_WEEK: 'Active this week',
-  THIS_MONTH: 'Active this month',
-  LONGER_AGO: 'Active a while ago',
-  HIDDEN: 'Activity hidden',
-};
