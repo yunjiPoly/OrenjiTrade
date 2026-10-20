@@ -21,14 +21,17 @@ describe('the scan store', () => {
     expect(useScanStore.getState().trying).toEqual(['scan-2']);
   });
 
-  it('starts the next scan empty: no tile, no try under way, no add sent', () => {
+  it('starts the next scan empty: no tile, no try under way, no add sent or on its way', () => {
     const store = useScanStore.getState();
     store.apply(
       (session) =>
         addPhoto(session, { uri: 'file:///a.jpg', width: 1, height: 1, owned: true }).session
     );
-    // A scan left while its tile "scan-1" was tried again: the next scan's "scan-1" is not tried.
+    // A scan left while its tile "scan-1" was tried again and an add was on its way: the next
+    // scan's "scan-1" is not tried, and nothing of it is being added.
     store.setTrying('scan-1', true);
+    store.setAdding(true);
+    expect(useScanStore.getState().adding).toBe(true);
     const generation = useScanStore.getState().generation;
     useScanStore.getState().reset();
     const next = useScanStore.getState();
@@ -36,5 +39,6 @@ describe('the scan store', () => {
     expect(next.session.tiles).toEqual([]);
     expect(next.session.pendingAdd).toBeNull();
     expect(next.trying).toEqual([]);
+    expect(next.adding).toBe(false);
   });
 });

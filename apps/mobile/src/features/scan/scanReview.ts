@@ -3,19 +3,26 @@ import { friendlyMessage } from '@/src/api/errorMessages';
 import { limitReachedInfo } from '@/src/lib/limits';
 
 import { REVIEW_COPY } from './scanCopy';
-import { isReady, type ScanSession, type ScanTile } from './scanSession';
+import { isGivenUp, isReady, type ScanSession, type ScanTile } from './scanSession';
 
 /**
  * The review's rules that hold no screen (mockup screen 30, owner spec 2026-10-15, section 4).
  * Pure.
  */
 
-/** How a row of the review looks, and what it offers. */
-export type ReviewRowKind = 'READY' | 'PICK_RARITY' | 'PICK_PRINTING' | 'UNREAD' | 'WAITING';
+/**
+ * How a row of the review looks, and what it offers. UNMATCHED: a card given up after server
+ * errors ("Couldn't match": "Try again" and the search).
+ */
+export type ReviewRowKind =
+  'READY' | 'PICK_RARITY' | 'PICK_PRINTING' | 'UNREAD' | 'UNMATCHED' | 'WAITING';
 
 export function reviewRowKind(tile: ScanTile): ReviewRowKind {
   if (isReady(tile)) {
     return 'READY';
+  }
+  if (isGivenUp(tile)) {
+    return 'UNMATCHED';
   }
   switch (tile.status) {
     case 'PICK_RARITY':

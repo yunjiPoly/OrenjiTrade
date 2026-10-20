@@ -5,12 +5,13 @@ import { AccessibilityInfo, Linking } from 'react-native';
 
 import ScanCameraRoute from '@/app/scan/index';
 import { scanRunner } from '@/src/features/scan/scanRunner';
+import { addSent, batchAddRequest } from '@/src/features/scan/scanSession';
 import { useScanStore } from '@/src/features/scan/scanStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { mockApi, ok, problem } from '../support/mockApi';
 import { mockRouter, resetRouterMock } from '../support/router';
-import { FOUND_YEW, YEW } from '../support/scanFixtures';
+import { FOUND_YEW, LYRA, READ_YEW, YEW } from '../support/scanFixtures';
 import {
   cameraPhoto,
   DENIED,
@@ -23,6 +24,7 @@ import {
   scanRoutes,
   UNDETERMINED,
 } from '../support/scanScreen';
+import { FOUND_LYRA, seedScan } from '../support/scanSeed';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 /**
@@ -502,6 +504,50 @@ describe('leaving', () => {
       [libraryPhoto('blank').uri, libraryPhoto('yew').uri].sort()
     );
     expect(useScanStore.getState().session.tiles).toEqual([]);
+  });
+
+  it('with an add not confirmed: its tile says so and opens nothing, and the question counts only the others', async () => {
+    readerOf({});
+    const [yew = '', lyra = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lyra', match: FOUND_LYRA },
+      { photo: 'blank', givenUp: READ_YEW },
+    ]);
+    // The review sent Yew without an answer.
+    act(() => {
+      useScanStore.getState().apply((session) =>
+        addSent(session, {
+          key: 'scan-key-1',
+          body: batchAddRequest(session)!,
+          tileIds: [yew],
+          binderName: null,
+        })
+      );
+    });
+    render();
+    await screen.findByTestId('screen-scan-camera');
+    const sentLabel = `${YEW.name}, ZACR-EN036, not confirmed yet`;
+    expect(screen.getByLabelText(sentLabel)).toHaveTextContent(/Not confirmed yet/);
+    // It stays as it was sent: no button, nothing to open (Lyra, not sent, opens its sheet).
+    expect(screen.queryByRole('button', { name: sentLabel })).toBeNull();
+    expect(screen.getByTestId(`scan-tile-${lyra}`)).not.toHaveTextContent(/Not confirmed yet/);
+    fireEvent.press(screen.getByRole('button', { name: `${LYRA.name}, ZACR-EN038, found` }));
+    expect(await screen.findByTestId('scan-check-sheet')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('scan-check-close'));
+    await waitFor(() => expect(screen.queryByTestId('scan-check-sheet')).toBeNull());
+    // A card given up after server errors: "Couldn't match".
+    expect(screen.getByLabelText("Couldn't match this card, tap to search")).toHaveTextContent(
+      /Couldn't match/
+    );
+
+    fireEvent.press(screen.getByLabelText('Close the scanner'));
+    expect(await screen.findByText('Leave without adding?')).toBeTruthy();
+    expect(screen.getByTestId('scan-leave-text')).toHaveTextContent(
+      "The 2 cards in this scan won't be added to your inventory."
+    );
+    expect(screen.getByTestId('scan-leave-unconfirmed')).toHaveTextContent(
+      "We couldn't tell whether the card you added went through: check Inventory."
+    );
   });
 
   it('leaves at once when the tray is empty', async () => {

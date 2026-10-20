@@ -2,8 +2,14 @@ import { ApiError } from '@/src/api/ApiError';
 import { scanCallFailure } from '@/src/api/hooks/cardScan';
 
 import type { ReadCardInput } from './readCardText';
-import { applyMatch, markUnread, markWaiting, type ScanSession } from './scanSession';
-import { hasText, type CardScanMatch, type CardScanNotFoundReason, type ScanRead } from './types';
+import {
+  applyMatch,
+  markUnread,
+  markWaiting,
+  type ScanSession,
+  type UnreadReason,
+} from './scanSession';
+import { hasText, type CardScanMatch, type ScanRead } from './types';
 
 /**
  * One photo from the reader to its tile: read on the phone, then matched by the API. The reader
@@ -24,7 +30,7 @@ export type PhotoOutcome =
   | {
       kind: 'UNREAD';
       read: ScanRead | null;
-      reason: CardScanNotFoundReason | null;
+      reason: UnreadReason | null;
       /** The API answered with a refusal (a 4xx): it can be reached. */
       refused?: true;
     };

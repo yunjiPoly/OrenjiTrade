@@ -11,6 +11,7 @@ import {
   savedToast,
   summaryNeedsAttention,
   tileAction,
+  tileAnnouncement,
   tileText,
   toCheckTitle,
   toCheckWarning,
@@ -21,6 +22,7 @@ import {
   addPhoto,
   applyMatch,
   emptyScanSession,
+  markUnread,
   markWaiting,
   setCopies,
   type ScanCounts,
@@ -45,7 +47,10 @@ const ZA01_075: CardScanPrinting[] = ['Super Rare', 'Ultra Rare'].map((rarity, i
   rarity,
 }));
 
-function tileFor(answer: Partial<CardScanMatch> | 'READING' | 'WAITING', copies = 1): ScanTile {
+function tileFor(
+  answer: Partial<CardScanMatch> | 'READING' | 'WAITING' | 'GIVEN_UP',
+  copies = 1
+): ScanTile {
   const added = addPhoto(emptyScanSession(), {
     uri: 'file:///cache/scan/1.jpg',
     width: 3000,
@@ -55,6 +60,8 @@ function tileFor(answer: Partial<CardScanMatch> | 'READING' | 'WAITING', copies 
   let session = added.session;
   if (answer === 'WAITING') {
     session = markWaiting(session, added.tileId, READ);
+  } else if (answer === 'GIVEN_UP') {
+    session = markUnread(session, added.tileId, READ, 'MATCH_FAILED');
   } else if (answer !== 'READING') {
     session = applyMatch(session, added.tileId, READ, {
       status: 'NOT_FOUND',
@@ -147,6 +154,23 @@ describe('a tile in the tray', () => {
       badge: null,
       accessibilityLabel: "Couldn't read this card, tap to search",
     });
+  });
+
+  it('says "Couldn\'t match" for a card given up after server errors: the search, or "Try again"', () => {
+    expect(tileText(tileFor('GIVEN_UP'))).toEqual({
+      title: "Couldn't match",
+      code: '',
+      status: 'Tap to search',
+      badge: null,
+      accessibilityLabel: "Couldn't match this card, tap to search",
+    });
+    expect(tileText(tileFor('GIVEN_UP'), true)).toMatchObject({
+      status: 'Trying again…',
+      accessibilityLabel: "Couldn't match this card, trying again",
+    });
+    expect(tileAction(tileFor('GIVEN_UP'))).toBe('UNREAD');
+    expect(tileAnnouncement(tileFor('GIVEN_UP'))).toBe("Couldn't match this card");
+    expect(tileAnnouncement(tileFor({ status: 'NOT_FOUND' }))).toBe("Couldn't read this card");
   });
 
   it('says "Reading…" while the photo is read, and "Waiting for connection" offline (tap to try again)', () => {

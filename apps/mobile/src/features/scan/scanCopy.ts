@@ -1,4 +1,4 @@
-import { isReady, type ScanCounts, type ScanTile, type TileStatus } from './scanSession';
+import { isGivenUp, isReady, type ScanCounts, type ScanTile, type TileStatus } from './scanSession';
 
 /**
  * The approved wording of the scan's tray and review (mockup screens 27 and 30), from the scan's
@@ -24,6 +24,12 @@ export const TAP_TO_TRY_AGAIN = 'Tap to try again';
 
 /** "Trying again…": a waiting tile whose match is being tried again (it still waits). */
 export const TRYING_AGAIN = 'Trying again…';
+
+/**
+ * "Couldn't match": a card the scan gave up after the API kept failing on its match (server
+ * errors); the read was fine. Its sheet offers the search and "Try again".
+ */
+export const COULDNT_MATCH = "Couldn't match";
 
 /**
  * "Not confirmed yet": a card of an add sent without an answer; it stays as it was sent until "Add
@@ -61,8 +67,8 @@ function codeOf(tile: ScanTile): string {
 }
 
 /**
- * How a tile shows: `trying`, a waiting tile is being tried again; `sent`, the tile belongs to an
- * add sent without an answer ("Not confirmed yet").
+ * How a tile shows: `trying`, its match is being tried again (a waiting tile, a card given up);
+ * `sent`, the tile belongs to an add sent without an answer ("Not confirmed yet").
  */
 export function tileText(tile: ScanTile, trying = false, sent = false): TileText {
   const badge = tile.copies > 1 ? `×${tile.copies}` : null;
@@ -85,6 +91,17 @@ export function tileText(tile: ScanTile, trying = false, sent = false): TileText
       accessibilityLabel: trying
         ? 'A card waiting for connection, trying again'
         : 'A card waiting for connection, tap to try again',
+    };
+  }
+  if (isGivenUp(tile)) {
+    return {
+      title: COULDNT_MATCH,
+      code: '',
+      status: trying ? TRYING_AGAIN : TILE_STATUS_TEXT.NOT_FOUND,
+      badge,
+      accessibilityLabel: trying
+        ? "Couldn't match this card, trying again"
+        : "Couldn't match this card, tap to search",
     };
   }
   if (tile.status === 'NOT_FOUND' || !tile.card) {
@@ -247,6 +264,9 @@ export function tileAnnouncement(tile: ScanTile): string {
   if (tile.status === 'WAITING') {
     return 'A card is waiting for connection';
   }
+  if (isGivenUp(tile)) {
+    return SCAN_COPY.unmatchedTitle;
+  }
   if (tile.status === 'NOT_FOUND' || !tile.card) {
     return "Couldn't read this card";
   }
@@ -345,6 +365,10 @@ export const SCAN_COPY = {
   tipHoldStill: 'Hold still',
   searchByNameOrCode: 'Search by name or code',
   takeItAgain: 'Take it again',
+  // 29 for a card given up after server errors: the read was fine, the API kept failing.
+  unmatchedTitle: "Couldn't match this card",
+  unmatchedText:
+    "We couldn't match this card right now. Search for it by name or code, or try again later.",
 } as const;
 
 /** "Reading 3 of 12…": the photo being read and how many the scan holds (screen 30). */
@@ -361,6 +385,7 @@ export const REVIEW_COPY = {
   codeUnreadable: 'Set code not readable',
   searchByNameOrCode: 'Search by name or code',
   couldntRead: "Couldn't read",
+  couldntMatch: COULDNT_MATCH,
   remove: (name: string) => `Remove ${name}`,
   // A row with no card yet (couldn't read, waiting for the connection).
   removeThisCard: 'Remove this card',

@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
 import { PillButton } from '@/src/components/ui/PillButton';
@@ -15,9 +15,9 @@ import {
   useTheme,
 } from '@/src/theme';
 
-import { SCAN_COPY } from './scanCopy';
+import { REVIEW_COPY, SCAN_COPY } from './scanCopy';
 import { ScanPhotoImage } from './ScanPhotoImage';
-import type { ScanTile } from './scanSession';
+import { isGivenUp, type ScanTile } from './scanSession';
 import { SheetHeader, useLastValue } from './SheetParts';
 
 const PICTURE = { width: 104, height: 152 };
@@ -39,12 +39,19 @@ export interface UnreadSheetProps {
   onSearch: () => void;
   /** "Take it again": removes this tile and goes back to the camera. */
   onTakeAgain: () => void;
+  /** A card given up after server errors: "Try again" asks for its match once more. */
+  onRetry: () => void;
+  /** Its match is being tried again: "Trying again…". */
+  trying?: boolean;
 }
 
 /**
  * Couldn't read this card (mockup screen 29, a sheet): "Remove" and Close, "Your photo" next to an
  * empty "Our match" ("No match yet"), what to do, three tips, "Search by name or code" and "Take
- * it again".
+ * it again". For a card the scan gave up after the API kept failing on its match (the read was
+ * fine): "Couldn't match this card", "We couldn't match this card right now…", no tips (the photo
+ * is not the problem), "Search by name or code" and "Try again" ("Trying again…" while it is
+ * tried; the sheet goes once the card is matched).
  */
 export function UnreadSheet(props: UnreadSheetProps) {
   const visible = props.tile !== null;
@@ -62,12 +69,15 @@ function Unread({
   onClose,
   onSearch,
   onTakeAgain,
+  onRetry,
+  trying = false,
 }: UnreadSheetProps & { tile: ScanTile }) {
   const { palette } = useTheme();
+  const unmatched = isGivenUp(tile);
   return (
     <View style={styles.body}>
       <SheetHeader
-        title={SCAN_COPY.unreadTitle}
+        title={unmatched ? SCAN_COPY.unmatchedTitle : SCAN_COPY.unreadTitle}
         onRemove={onRemove}
         onClose={onClose}
         testID="scan-unread"
@@ -111,30 +121,13 @@ function Unread({
             </Text>
           </View>
         </View>
-        <Text style={[textStyle('sm'), styles.text, { color: palette.textMuted }]}>
-          {SCAN_COPY.unreadText}
+        <Text
+          style={[textStyle('sm'), styles.text, { color: palette.textMuted }]}
+          testID="scan-unread-text"
+        >
+          {unmatched ? SCAN_COPY.unmatchedText : SCAN_COPY.unreadText}
         </Text>
-        <View style={styles.tips}>
-          {TIPS.map((tip) => (
-            // One element per tip for the screen reader: its icon is decorative.
-            <View key={tip.label} accessible accessibilityLabel={tip.label} style={styles.tip}>
-              <View
-                style={[
-                  styles.tipIcon,
-                  { backgroundColor: palette.background, borderColor: palette.border },
-                ]}
-              >
-                <MaterialCommunityIcons name={tip.icon} size={22} color={palette.ink} />
-              </View>
-              <Text
-                maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-                style={[styles.tipLabel, { color: palette.ink }]}
-              >
-                {tip.label}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {unmatched ? null : <Tips />}
       </ScrollView>
       <View style={styles.actions}>
         <PillButton
@@ -144,27 +137,104 @@ function Unread({
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="scan-unread-search"
         />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={SCAN_COPY.takeItAgain}
-          onPress={onTakeAgain}
-          style={({ pressed }) => [
-            styles.again,
-            { borderColor: palette.borderStrong },
-            pressed && styles.pressed,
-          ]}
-          testID="scan-unread-again"
-        >
-          <MaterialCommunityIcons name="restore" size={18} color={palette.ink} />
-          <Text
-            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={[textStyle('md'), styles.againLabel, { color: palette.ink }]}
-          >
-            {SCAN_COPY.takeItAgain}
-          </Text>
-        </Pressable>
+        {unmatched ? (
+          <SecondButton
+            label={trying ? REVIEW_COPY.tryingAgain : REVIEW_COPY.tryAgain}
+            icon="refresh"
+            busy={trying}
+            onPress={onRetry}
+            testID="scan-unread-retry"
+          />
+        ) : (
+          <SecondButton
+            label={SCAN_COPY.takeItAgain}
+            icon="restore"
+            onPress={onTakeAgain}
+            testID="scan-unread-again"
+          />
+        )}
       </View>
     </View>
+  );
+}
+
+/** Three tips for the next photo; one element each for the screen reader (the icon is decorative). */
+function Tips() {
+  const { palette } = useTheme();
+  return (
+    <View style={styles.tips}>
+      {TIPS.map((tip) => (
+        // One element per tip for the screen reader: its icon is decorative.
+        <View key={tip.label} accessible accessibilityLabel={tip.label} style={styles.tip}>
+          <View
+            style={[
+              styles.tipIcon,
+              { backgroundColor: palette.background, borderColor: palette.border },
+            ]}
+          >
+            <MaterialCommunityIcons name={tip.icon} size={22} color={palette.ink} />
+          </View>
+          <Text
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.tipLabel, { color: palette.ink }]}
+          >
+            {tip.label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * The outlined button under the search: "Take it again", or "Try again" for a card given up. Busy
+ * (a try under way): a small spinner before its word, and off.
+ */
+function SecondButton({
+  label,
+  icon,
+  busy = false,
+  onPress,
+  testID,
+}: {
+  label: string;
+  icon: IconName;
+  busy?: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
+  const { palette } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy }}
+      disabled={busy}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.again,
+        { borderColor: palette.borderStrong },
+        pressed && styles.pressed,
+      ]}
+      testID={testID}
+    >
+      {busy ? (
+        <ActivityIndicator
+          size="small"
+          color={palette.ink}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : (
+        <MaterialCommunityIcons name={icon} size={18} color={palette.ink} />
+      )}
+      <Text
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        style={[textStyle('md'), styles.againLabel, { color: palette.ink }]}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 

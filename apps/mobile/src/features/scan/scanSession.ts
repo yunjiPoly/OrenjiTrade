@@ -22,12 +22,21 @@ import type {
  * - FOUND: "✓ Found", one printing: ready to add;
  * - PICK_RARITY: "Pick rarity": the code comes in several rarities;
  * - PICK_PRINTING: "Pick printing": the card is known, not its printing ("Code unreadable");
- * - NOT_FOUND: "Couldn't read" ("Tap to search");
+ * - NOT_FOUND: "Couldn't read" ("Tap to search"), or "Couldn't match" when the API kept failing on
+ *   its match (`MATCH_FAILED`);
  * - WAITING: "Waiting for connection": read, not matched yet (offline, or the API could not answer);
  *   it resolves when the connection is back, and stays WAITING while it is tried again.
  */
 export type TileStatus =
   'READING' | 'FOUND' | 'PICK_RARITY' | 'PICK_PRINTING' | 'NOT_FOUND' | 'WAITING';
+
+/**
+ * Why a tile is "Couldn't read": the API's reason (`NOTHING_READ`: nothing was read, nothing sent;
+ * `NO_MATCH`, `AMBIGUOUS`, `OTHER_LANGUAGE`), or the phone's own `MATCH_FAILED`: the read was sent
+ * but the API kept failing on it (server errors), so the scan gave it up ("Couldn't match"; "Try
+ * again" asks once more). Null: the reader failed, or the API refused the read.
+ */
+export type UnreadReason = CardScanNotFoundReason | 'MATCH_FAILED';
 
 /** At most 99 copies per tile (the owner's default 5). */
 export const MAX_COPIES = 99;
@@ -62,8 +71,8 @@ export interface ScanTile {
   /** Every English printing of the card, newest set first (the printing list). */
   printings: CardScanPrinting[];
   otherMatches: CardScanOtherMatch[];
-  /** NOT_FOUND: why, when the API said (null after a failure of the reader or the API). */
-  notFoundReason: CardScanNotFoundReason | null;
+  /** NOT_FOUND: why (`UnreadReason`; null after a failure of the reader, or a refusal of the API). */
+  notFoundReason: UnreadReason | null;
 }
 
 /**
@@ -195,7 +204,7 @@ export function tileFromMatch(tile: ScanTile, read: ScanRead, match: CardScanMat
   }
 }
 
-function notFound(tile: ScanTile, reason: CardScanNotFoundReason | null): ScanTile {
+function notFound(tile: ScanTile, reason: UnreadReason | null): ScanTile {
   return {
     ...tile,
     status: 'NOT_FOUND',
@@ -279,16 +288,37 @@ export function tilesWaiting(session: ScanSession): { tileId: string; read: Scan
 
 /**
  * "Couldn't read": the reader found nothing (`NOTHING_READ`: nothing is sent to the API), or the
- * reader or the API failed (no reason).
+ * reader or the API failed (no reason); "Couldn't match": the API kept failing on the read
+ * (`MATCH_FAILED`).
  */
 export function markUnread(
   session: ScanSession,
   tileId: string,
   read: ScanRead | null,
-  reason: CardScanNotFoundReason | null
+  reason: UnreadReason | null
 ): ScanSession {
   return updateTile(session, tileId, (tile) =>
     awaitsAnswer(tile) ? notFound({ ...tile, read, otherMatches: [] }, reason) : null
+  );
+}
+
+/**
+ * Whether a tile was given up after the API kept failing on its match ("Couldn't match"): its read
+ * is kept, and "Try again" asks for its match once more (`reopenMatch`).
+ */
+export function isGivenUp(tile: ScanTile): boolean {
+  return (
+    tile.status === 'NOT_FOUND' && tile.notFoundReason === 'MATCH_FAILED' && tile.read !== null
+  );
+}
+
+/**
+ * "Try again" on a card given up ("Couldn't match"): the answer of its new match may land on it
+ * again, as on a tile waiting for the connection. A tile fixed or removed meanwhile stays as it is.
+ */
+export function reopenMatch(session: ScanSession, tileId: string): ScanSession {
+  return updateTile(session, tileId, (tile) =>
+    isGivenUp(tile) ? { ...tile, status: 'WAITING', notFoundReason: null } : null
   );
 }
 
@@ -501,12 +531,23 @@ export interface BatchOptions {
   binderId?: string | null;
 }
 
-/** The ready tiles not sent yet, in the order they were scanned: what a new add sends. */
-export function tilesToSend(session: ScanSession): ScanTile[] {
+/**
+ * The ready tiles not sent yet, in the order they were scanned: what a new add sends. `only`: just
+ * these tiles, and only as they were then (the cards a tap of "Add {n} cards to inventory" counted:
+ * a card that became ready since, or that changed since, is left for the next add).
+ */
+export function tilesToSend(session: ScanSession, only?: readonly ScanTile[]): ScanTile[] {
+  const chosen = only ? new Set(only) : null;
   return session.tiles
     .slice()
     .reverse()
-    .filter((tile) => isReady(tile) && tile.printing !== null && !isSent(session, tile.id));
+    .filter(
+      (tile) =>
+        isReady(tile) &&
+        tile.printing !== null &&
+        !isSent(session, tile.id) &&
+        (chosen === null || chosen.has(tile))
+    );
 }
 
 /** Whether a ready card is left that no add holds (the scan ends once there is none). */
@@ -516,15 +557,17 @@ export function hasCardsToSend(session: ScanSession): boolean {
 
 /**
  * The body of `POST /inventory/items/batch` for a new add of "Add {n} cards to inventory": the
- * ready tiles not sent yet, in the order they were scanned, one line per printing (repeats
- * summed). Null when there are none ("Nothing ready to add", or only the add sent already).
+ * ready tiles not sent yet (`only`: just those of `tilesToSend(session, only)`), in the order they
+ * were scanned, one line per printing (repeats summed). Null when there are none ("Nothing ready to
+ * add", or only the add sent already).
  */
 export function batchAddRequest(
   session: ScanSession,
-  { visibility = 'PRIVATE', binderId = null }: BatchOptions = {}
+  { visibility = 'PRIVATE', binderId = null }: BatchOptions = {},
+  only?: readonly ScanTile[]
 ): AddInventoryItemsBatchRequest | null {
   const lines = new Map<string, AddInventoryItemsBatchLine>();
-  for (const tile of tilesToSend(session)) {
+  for (const tile of tilesToSend(session, only)) {
     if (!tile.printing) {
       continue;
     }

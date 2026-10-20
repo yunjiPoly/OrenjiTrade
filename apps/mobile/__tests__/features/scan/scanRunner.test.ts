@@ -7,12 +7,22 @@ import {
   SERVER_FAILURES_WHILE_UP,
   type PhotoToRead,
 } from '@/src/features/scan/scanRunner';
-import { findTile, removeTile, scanCounts, type ScanTile } from '@/src/features/scan/scanSession';
+import {
+  addPhoto,
+  addSent,
+  findTile,
+  markUnread,
+  removeTile,
+  replaceMatch,
+  scanCounts,
+  type ScanTile,
+} from '@/src/features/scan/scanSession';
 import { useScanStore } from '@/src/features/scan/scanStore';
 import type { CardScanMatch, ScanRead } from '@/src/features/scan/types';
 
 import {
   FOUND_YEW,
+  LANTERN as LANTERN_CARD,
   notFound,
   PICK_RARITY_LANTERN,
   READ_YEW,
@@ -166,6 +176,27 @@ describe('waiting for the connection', () => {
     await runner.idle();
     expect(tiles().map((tile) => tile.status)).toEqual(['PICK_RARITY', 'FOUND']);
     expect(match).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops a round of tries at the first match that cannot reach the API: the others keep waiting', async () => {
+    const { runner, match } = setup(
+      { 'file:///a.jpg': YEW_TEXT, 'file:///b.jpg': LANTERN_TEXT },
+      async () => {
+        throw offline();
+      }
+    );
+    const ids = runner.addPhotos([library('file:///a.jpg'), library('file:///b.jpg')]);
+    await runner.idle();
+    expect(tiles().map((tile) => tile.status)).toEqual(['WAITING', 'WAITING']);
+    match.mockClear();
+    await runner.retryWaiting();
+    // The oldest was tried and still had no connection: the newer one was not tried in vain.
+    expect(match).toHaveBeenCalledTimes(1);
+    expect(match.mock.calls[0]?.[0]).toEqual(READ_YEW);
+    expect(ids.map((id) => findTile(useScanStore.getState().session, id)?.status)).toEqual([
+      'WAITING',
+      'WAITING',
+    ]);
   });
 
   it('tries the waiting tiles again on a timer while a scan screen is open, the phone online all along', async () => {
@@ -333,7 +364,7 @@ describe('the API could not answer this time (a server error)', () => {
       expect(match).toHaveBeenCalledTimes(SERVER_FAILURES_MAX);
       expect(tiles()[0]).toMatchObject({
         status: 'NOT_FOUND',
-        notFoundReason: null,
+        notFoundReason: 'MATCH_FAILED',
         read: READ_YEW,
       });
       // Given up: no more tries.
@@ -343,6 +374,40 @@ describe('the API could not answer this time (a server error)', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it("keeps counting a tile's server errors across a try without a connection", async () => {
+    const answers: (() => never)[] = [
+      ...Array.from({ length: SERVER_FAILURES_MAX - 1 }, () => () => {
+        throw unavailable();
+      }),
+      () => {
+        throw offline();
+      },
+      () => {
+        throw unavailable();
+      },
+    ];
+    const { runner, match } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
+      const next = answers.shift();
+      if (!next) {
+        throw new Error('No more answers');
+      }
+      return next();
+    });
+    const [id = ''] = runner.addPhotos([library('file:///a.jpg')]);
+    await runner.idle();
+    for (let round = 0; round < SERVER_FAILURES_MAX; round += 1) {
+      expect(findTile(useScanStore.getState().session, id)?.status).toBe('WAITING');
+      await runner.retryWaiting();
+    }
+    // Its fifth server error gives it up: the try without a connection between them did not
+    // start the count again.
+    expect(match).toHaveBeenCalledTimes(SERVER_FAILURES_MAX + 1);
+    expect(findTile(useScanStore.getState().session, id)).toMatchObject({
+      status: 'NOT_FOUND',
+      notFoundReason: 'MATCH_FAILED',
+    });
   });
 
   it('never lets a tile that always gets a server error hold back a newer waiting tile', async () => {
@@ -430,7 +495,7 @@ describe('the API could not answer this time (a server error)', () => {
       await runner.idle();
     }
     const given = findTile(useScanStore.getState().session, bad ?? '');
-    expect(given).toMatchObject({ status: 'NOT_FOUND', notFoundReason: null });
+    expect(given).toMatchObject({ status: 'NOT_FOUND', notFoundReason: 'MATCH_FAILED' });
     // Its read is kept: the search opens with it.
     expect(given?.read).toEqual({ codes: ['ZRA1-EN075'], names: ['Endless Lantern'] });
     const triesOfBad = match.mock.calls.filter(([read]) => read.codes[0] === 'ZRA1-EN075');
@@ -441,6 +506,134 @@ describe('the API could not answer this time (a server error)', () => {
     expect(match.mock.calls.filter(([read]) => read.codes[0] === 'ZRA1-EN075')).toHaveLength(
       1 + SERVER_FAILURES_WHILE_UP
     );
+  });
+});
+
+describe('a card given up after server errors ("Couldn\'t match")', () => {
+  /** A scan holding one card given up, with what it read. */
+  function givenUp(): string {
+    let id = '';
+    useScanStore.getState().apply((session) => {
+      const added = addPhoto(session, {
+        uri: 'file:///a.jpg',
+        width: 3000,
+        height: 4000,
+        owned: true,
+      });
+      id = added.tileId;
+      return markUnread(added.session, id, READ_YEW, 'MATCH_FAILED');
+    });
+    return id;
+  }
+
+  it('"Try again" asks once more: another server error leaves it given up, said again', async () => {
+    let answer: (fail: boolean) => void = () => undefined;
+    const { runner, match } = setup(
+      {},
+      () =>
+        new Promise<CardScanMatch>((resolve, reject) => {
+          answer = (fail) => (fail ? reject(unavailable()) : resolve(FOUND_YEW));
+        })
+    );
+    const landed: string[] = [];
+    runner.onLanded((tile) => landed.push(`${tile.status} ${tile.notFoundReason ?? ''}`.trim()));
+    const id = givenUp();
+
+    const first = runner.retryGivenUp(id);
+    // The try is under way: the card stays as it is, the store says so; a second tap waits.
+    expect(useScanStore.getState().trying).toEqual([id]);
+    expect(findTile(useScanStore.getState().session, id)?.status).toBe('NOT_FOUND');
+    await runner.retryGivenUp(id);
+    expect(match).toHaveBeenCalledTimes(1);
+    expect(match).toHaveBeenCalledWith(READ_YEW);
+    answer(true);
+    await first;
+    expect(useScanStore.getState().trying).toEqual([]);
+    expect(findTile(useScanStore.getState().session, id)).toMatchObject({
+      status: 'NOT_FOUND',
+      notFoundReason: 'MATCH_FAILED',
+      read: READ_YEW,
+    });
+    // Asked by the collector: said again although nothing changed.
+    expect(landed).toEqual(['NOT_FOUND MATCH_FAILED']);
+
+    const second = runner.retryGivenUp(id);
+    answer(false);
+    await second;
+    await runner.idle();
+    expect(findTile(useScanStore.getState().session, id)).toMatchObject({
+      status: 'FOUND',
+      notFoundReason: null,
+      printing: FOUND_YEW.printing,
+    });
+    expect(landed).toEqual(['NOT_FOUND MATCH_FAILED', 'FOUND']);
+  });
+
+  it('waits for the connection when "Try again" cannot reach the API', async () => {
+    const { runner } = setup({}, async () => {
+      throw offline();
+    });
+    const id = givenUp();
+    await runner.retryGivenUp(id);
+    expect(findTile(useScanStore.getState().session, id)).toMatchObject({
+      status: 'WAITING',
+      read: READ_YEW,
+      notFoundReason: null,
+    });
+  });
+
+  it('asks nothing for a card that was not given up, and keeps a fix made while it was tried', async () => {
+    let answer: () => void = () => undefined;
+    const { runner, match } = setup(
+      {},
+      () => new Promise<CardScanMatch>((resolve) => (answer = () => resolve(FOUND_YEW)))
+    );
+    // "Couldn't read" (nothing to match again): nothing is asked.
+    let unread = '';
+    useScanStore.getState().apply((session) => {
+      const added = addPhoto(session, { uri: 'file:///b.jpg', width: 1, height: 1, owned: true });
+      unread = added.tileId;
+      return markUnread(added.session, unread, READ_YEW, null);
+    });
+    await runner.retryGivenUp(unread);
+    expect(match).not.toHaveBeenCalled();
+
+    const id = givenUp();
+    const tried = runner.retryGivenUp(id);
+    // Picked by hand from the search meanwhile: the late answer does not replace it.
+    useScanStore
+      .getState()
+      .apply((session) =>
+        replaceMatch(session, id, { card: LANTERN_CARD, rarities: PICK_RARITY_LANTERN.rarities })
+      );
+    answer();
+    await tried;
+    expect(findTile(useScanStore.getState().session, id)).toMatchObject({
+      status: 'PICK_RARITY',
+      card: LANTERN_CARD,
+    });
+  });
+});
+
+describe('an add answered', () => {
+  it('takes out only the cards of the add it answers: a late answer of another key changes nothing', () => {
+    const { runner, deleted } = setup({}, async () => FOUND_YEW);
+    useScanStore.getState().apply((session) => {
+      const added = addPhoto(session, { uri: 'file:///a.jpg', width: 1, height: 1, owned: true });
+      return addSent(added.session, {
+        key: 'key-new',
+        body: { visibility: 'PRIVATE', lines: [] },
+        tileIds: [added.tileId],
+        binderName: null,
+      });
+    });
+    runner.addAnswered('key-old');
+    expect(tiles()).toHaveLength(1);
+    expect(useScanStore.getState().session.pendingAdd?.key).toBe('key-new');
+    expect(deleted).toEqual([]);
+    runner.addAnswered('key-new');
+    expect(tiles()).toEqual([]);
+    expect(deleted).toEqual(['file:///a.jpg']);
   });
 });
 

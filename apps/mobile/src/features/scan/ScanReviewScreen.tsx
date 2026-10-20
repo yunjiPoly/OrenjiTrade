@@ -37,6 +37,7 @@ import {
   addSent,
   batchAddRequest,
   hasCardsToSend,
+  isGivenUp,
   reviewGroups,
   scanCounts,
   sentCopies,
@@ -84,7 +85,10 @@ function showSaved(snackbar: ReturnType<typeof useSnackbar>, added: Added): void
  * with its key (the scan's `pendingAdd`), its rows say "Not confirmed yet" and stay as they were
  * sent, and the pills show what was sent. The next tap sends that same add again under the same
  * key first (the API answers it once, new or repeated: nothing is added twice, and nothing sent
- * can change), then the cards that became ready since, under a new key.
+ * can change), then, under a new key, the other ready cards the button counted at that tap, as
+ * they were then: a card that becomes ready or changes while the first add is on its way waits for
+ * the next tap. While a tap's adds are on their way, the button says "Adding…", on a review opened
+ * again meanwhile too.
  *
  * Opened from the camera's "Review {n}", "Back to scanning" goes back to the camera. Opened from
  * Add cards' "Choose from photos" (`from=photos`), it shows "Reading 3 of 12…" while the photos are
@@ -98,6 +102,8 @@ export function ScanReviewScreen() {
   const { palette } = useTheme();
   const live = useScanStore((state) => state.session);
   const trying = useScanStore((state) => state.trying);
+  // A tap of "Add {n} cards" on its way, from this review or one closed meanwhile.
+  const adding = useScanStore((state) => state.adding);
   const apply = useScanStore((state) => state.apply);
   const options = useScanReviewOptions();
   const binders = useMyBinders();
@@ -106,7 +112,6 @@ export function ScanReviewScreen() {
   // Once added, the screen keeps showing what it added while it leaves (the scan is emptied).
   const [saved, setSaved] = useState<{ session: ScanSession; result: Added } | null>(null);
   const [failure, setFailure] = useState<AddFailure | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [choosingBinder, setChoosingBinder] = useState(false);
   const [toCamera, setToCamera] = useState(false);
 
@@ -117,7 +122,7 @@ export function ScanReviewScreen() {
   const groups = reviewGroups(session);
   const progress = readingProgress(session);
   const readingTiles = session.tiles.filter((tile) => tile.status === 'READING').length;
-  const saving = submitting || saved !== null;
+  const saving = adding || saved !== null;
   // An add sent without an answer: the pills show what it sent until it is answered.
   const pending = live.pendingAdd;
 
@@ -129,12 +134,11 @@ export function ScanReviewScreen() {
     options.binderId && (chosenBinder || !binders.data) ? options.binderId : null;
   const shownVisibility = pending ? (pending.body.visibility ?? 'PRIVATE') : options.visibility;
   // An add sent without an answer says so whenever the review shows it (opened again from the
-  // camera too), not only right after the tap.
+  // camera too), not only right after the tap; while it is still on its way, the button says
+  // "Adding…" instead.
   const shownFailure: AddFailure | null =
     failure ??
-    (pending && !submitting && saved === null
-      ? { kind: 'UNSURE', message: REVIEW_COPY.unsure }
-      : null);
+    (pending && !adding && saved === null ? { kind: 'UNSURE', message: REVIEW_COPY.unsure } : null);
   const shownBinderName = pending ? pending.binderName : (chosenBinder?.name ?? null);
 
   // Opened from the photo picker, nothing is under this screen but Add cards: leaving with cards
@@ -225,15 +229,18 @@ export function ScanReviewScreen() {
 
   const submit = async () => {
     const start = useScanStore.getState().session;
-    const fresh = batchAddRequest(start, {
-      visibility: options.visibility,
-      binderId: binderToSend,
-    });
-    if ((!start.pendingAdd && !fresh) || progress || saving) {
+    // The cards the button counts besides an add sent before: this tap adds them as they are now.
+    const chosen = tilesToSend(start);
+    if (
+      (!start.pendingAdd && chosen.length === 0) ||
+      progress ||
+      saving ||
+      useScanStore.getState().adding
+    ) {
       return;
     }
     const scan = useScanStore.getState().generation;
-    setSubmitting(true);
+    useScanStore.getState().setAdding(true);
     setFailure(null);
     const added: Added = { copiesAdded: 0, copiesNotAdded: 0 };
     const count = (result: Added) => {
@@ -259,17 +266,23 @@ export function ScanReviewScreen() {
       if (earlier) {
         settle(await send(earlier, true));
       }
-      // Then the cards ready now that no add holds, under a new key, with the pills as shown.
+      // Then the cards the button counted at the tap, still ready and as they were then, under a
+      // new key, with the pills as shown. A card that became ready or changed meanwhile (a match
+      // landed, a fix on the camera) stays in the scan for the next add.
       const now = useScanStore.getState();
       const body =
         !stopped.failed && now.generation === scan
-          ? batchAddRequest(now.session, { visibility: options.visibility, binderId: binderToSend })
+          ? batchAddRequest(
+              now.session,
+              { visibility: options.visibility, binderId: binderToSend },
+              chosen
+            )
           : null;
       if (body) {
         const next: PendingAdd = {
           key: newScanAddKey(),
           body,
-          tileIds: tilesToSend(now.session).map((tile) => tile.id),
+          tileIds: tilesToSend(now.session, chosen).map((tile) => tile.id),
           binderName: body.binderId ? (chosenBinder?.name ?? null) : null,
         };
         apply((current) => addSent(current, next));
@@ -278,7 +291,9 @@ export function ScanReviewScreen() {
         }
       }
     } finally {
-      setSubmitting(false);
+      if (useScanStore.getState().generation === scan) {
+        useScanStore.getState().setAdding(false);
+      }
     }
     if (useScanStore.getState().generation !== scan) {
       return; // The scan was left meanwhile.
@@ -323,7 +338,11 @@ export function ScanReviewScreen() {
       }
       trying={trying.includes(tile.id)}
       sent={pending?.tileIds.includes(tile.id) ?? false}
-      onRetry={() => void scanRunner.retryWaiting({ explicit: true })}
+      onRetry={(target) =>
+        void (isGivenUp(target)
+          ? scanRunner.retryGivenUp(target.id)
+          : scanRunner.retryWaiting({ explicit: true }))
+      }
       onCopies={(target, copies) => apply((current) => setCopies(current, target.id, copies))}
       // Its photo files are deleted at once.
       onRemove={(target) => scanRunner.removeTile(target.id)}

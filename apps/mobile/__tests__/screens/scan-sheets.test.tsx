@@ -8,9 +8,9 @@ import { useScanStore } from '@/src/features/scan/scanStore';
 import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer, type MockRoutes } from '../support/mockApi';
 import { mockRouter, resetRouterMock } from '../support/router';
-import { FOX, LANTERN, YEW } from '../support/scanFixtures';
+import { FOUND_YEW, FOX, LANTERN, READ_YEW, YEW } from '../support/scanFixtures';
 import {
   libraryPhoto,
   mockFiles,
@@ -19,6 +19,7 @@ import {
   resetScanMocks,
   scanRoutes,
 } from '../support/scanScreen';
+import { seedScan } from '../support/scanSeed';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 /**
@@ -439,6 +440,59 @@ describe("29 Couldn't read this card", () => {
     expect(screen.queryByLabelText(UNREAD_LABEL)).toBeNull();
     expect(screen.getByText('THIS SCAN · 3')).toBeTruthy();
     await photoDeletedDuringTheScan('blank');
+  });
+
+  it('for a card given up after server errors: "Couldn\'t match", the search, and "Try again"', async () => {
+    readerOf({});
+    seedScan([{ photo: 'yew', givenUp: READ_YEW }]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const api = mockApi(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': [
+          () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+          ok(FOUND_YEW),
+        ],
+      })
+    );
+    renderWithProviders(<ScanCameraRoute />, {
+      port: new FakeAuthPort(testUser()),
+      scheme: 'dark',
+    });
+    await screen.findByTestId('screen-scan-camera');
+    const label = "Couldn't match this card, tap to search";
+    expect(tile(label)).toHaveTextContent(/Couldn't match/);
+    fireEvent.press(tile(label));
+    const sheet = await screen.findByTestId('scan-unread-sheet');
+    expect(within(sheet).getByRole('header', { name: "Couldn't match this card" })).toBeTruthy();
+    expect(within(sheet).getByTestId('scan-unread-text')).toHaveTextContent(
+      "We couldn't match this card right now. Search for it by name or code, or try again later."
+    );
+    // The read was fine: no tips for the photo, no "Take it again".
+    expect(within(sheet).queryByLabelText('No glare')).toBeNull();
+    expect(within(sheet).queryByLabelText('Take it again')).toBeNull();
+    expect(within(sheet).getByLabelText('Search by name or code')).toBeTruthy();
+
+    // "Try again": a server error again leaves it given up, said again.
+    fireEvent.press(within(sheet).getByLabelText('Try again'));
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('scan-unread-retry')).toHaveTextContent('Trying again…')
+    );
+    expect(within(sheet).getByTestId('scan-unread-retry')).toBeDisabled();
+    await act(async () => {
+      answer(problem(503, 'SERVICE_UNAVAILABLE', 'Try again later'));
+    });
+    await waitFor(() =>
+      expect(within(sheet).getByTestId('scan-unread-retry')).toHaveTextContent(/Try again$/)
+    );
+    expect(announced()).toContain("Couldn't match this card");
+    expect(screen.getByTestId('scan-unread-sheet')).toBeTruthy();
+
+    // Again: matched, the sheet goes by itself and the result is said.
+    fireEvent.press(within(sheet).getByLabelText('Try again'));
+    await sheetGone('scan-unread-sheet');
+    expect(tile(FOUND_LABEL)).toBeTruthy();
+    expect(announced()).toContain(`${YEW.name}, found`);
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
   });
 
   it('"Remove" takes the card out too', async () => {

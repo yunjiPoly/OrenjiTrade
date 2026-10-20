@@ -15,7 +15,14 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { binderFixture } from '../support/fixtures';
 import { mockApi, ok, problem, type MockAnswer, type MockRoutes } from '../support/mockApi';
 import { mockDispatch, mockParams, mockRouter, resetRouterMock } from '../support/router';
-import { FOUND_YEW, LANTERN, LYRA, READ_YEW, YEW } from '../support/scanFixtures';
+import {
+  FOUND_YEW,
+  LANTERN,
+  LYRA,
+  PICK_RARITY_LANTERN,
+  READ_YEW,
+  YEW,
+} from '../support/scanFixtures';
 import {
   libraryPhoto,
   mockFiles,
@@ -331,6 +338,56 @@ describe('a row', () => {
     expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
   });
 
+  it('a card given up after server errors says "Couldn\'t match", and offers "Try again" and the search', async () => {
+    const [, given = ''] = seedScan([
+      { photo: 'lyra', match: FOUND_LYRA },
+      { photo: 'yew-1', givenUp: READ_YEW },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        problem(503, 'SERVICE_UNAVAILABLE', 'Try again later'),
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    const row = screen.getByTestId(`review-row-${given}`);
+    expect(row).toHaveTextContent(/Couldn't match/);
+    expect(row).not.toHaveTextContent(/Couldn't read/);
+    expect(screen.getByTestId(`review-row-${given}-remove`)).toHaveProp(
+      'accessibilityLabel',
+      'Remove this card'
+    );
+    // Given up: nothing is asked by itself.
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(0);
+    fireEvent.press(screen.getByTestId(`review-row-${given}-search`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/scan/search',
+      params: { tileId: given },
+    });
+
+    // "Try again": another server error, still "Couldn't match", said again.
+    fireEvent.press(screen.getByTestId(`review-row-${given}-retry`));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByTestId(`review-row-${given}-retry`)).toHaveTextContent('Try again')
+    );
+    expect(screen.getByTestId(`review-row-${given}`)).toHaveTextContent(/Couldn't match/);
+    expect(announce).toHaveBeenLastCalledWith("Couldn't match this card");
+
+    // Again: "Trying again…" while it is tried, then the card found.
+    fireEvent.press(screen.getByTestId(`review-row-${given}-retry`));
+    await waitFor(() =>
+      expect(screen.getByTestId(`review-row-${given}-retry`)).toHaveTextContent('Trying again…')
+    );
+    expect(screen.getByTestId(`review-row-${given}-retry`)).toBeDisabled();
+    await act(async () => {
+      answer(ok({ ...FOUND_YEW, read: READ_YEW }));
+    });
+    await waitFor(() => expect(screen.getByTestId('review-summary')).toHaveTextContent('2 ready'));
+    expect(announce).toHaveBeenLastCalledWith(`${YEW.name}, found`);
+  });
+
   it('tries the waiting cards again when the app comes back to the front', async () => {
     jest.useFakeTimers();
     // AppState is jest's stand-in: the screens' listeners are in its calls.
@@ -505,6 +562,10 @@ describe('adding', () => {
     expect(notice).toHaveTextContent(/Your inventory is full/);
     expect(screen.getByTestId('review-limit-message')).toHaveTextContent(
       'Your inventory holds at most 500 cards and has 499. These cards need 2 new places and 1 is left. Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.'
+    );
+    // One element for the screen reader, its title first.
+    expect(notice.props.accessibilityLabel).toBe(
+      'Your inventory is full. Your inventory holds at most 500 cards and has 499. These cards need 2 new places and 1 is left. Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.'
     );
     // Said to the screen reader too, title first.
     expect(announce).toHaveBeenLastCalledWith(
@@ -769,6 +830,164 @@ describe('adding', () => {
     expect(calls[1]?.headers.get('Idempotency-Key')).not.toBe(
       calls[0]?.headers.get('Idempotency-Key')
     );
+  });
+
+  it('adds with a tap only the cards it counted: one matched while the add sent before is answered waits', async () => {
+    countUuids();
+    const [yew = '', lyra = '', lantern = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lyra', waiting: READ_LYRA },
+      { photo: 'lantern', match: PICK_RARITY_LANTERN },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(FOUND_LYRA),
+      ],
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        // The same add again: its answer takes its time.
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-lantern'] }),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-lyra'] }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 3 cards' });
+    await waitFor(() => expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1));
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    // Lantern's rarity picked: the tap counts the card sent before and Lantern.
+    fireEvent.press(screen.getByTestId(`review-row-${lantern}-pick-rarity`));
+    await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Ultra Rare' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+    expect(addButton()).toHaveTextContent(/Add 2 cards to inventory/);
+    fireEvent.press(addButton());
+    await waitFor(() => expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2));
+    // While it is on its way, the waiting card is matched (on the camera, say).
+    await act(async () => {
+      await scanRunner.retryWaiting();
+    });
+    expect(findTile(useScanStore.getState().session, lyra)?.status).toBe('FOUND');
+    await act(async () => {
+      answer(ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-yew'] }));
+    });
+    expect(await screen.findByText('Saved · 2 cards')).toBeOnTheScreen();
+    // Lantern went under a new key; Lyra was not added with that tap: never reviewed, and not in
+    // the count of its button. It stays, as it is, for the next add.
+    const calls = api.callsTo('POST /api/v1/inventory/items/batch');
+    expect(calls).toHaveLength(3);
+    expect(calls[2]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: 'p-zra1-075-u', quantity: 1 }],
+    });
+    expect(calls[2]?.headers.get('Idempotency-Key')).not.toBe(
+      calls[0]?.headers.get('Idempotency-Key')
+    );
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(`review-row-${yew}`)).toBeNull();
+    expect(screen.queryByTestId(`review-row-${lantern}`)).toBeNull();
+    expect(screen.getByTestId(`review-row-${lyra}`)).toBeOnTheScreen();
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    expect(addButton()).toHaveTextContent(/Add 1 card to inventory/);
+
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const last = api.callsTo('POST /api/v1/inventory/items/batch')[3];
+    expect(last?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: FOUND_LYRA.printing?.id, quantity: 1 }],
+    });
+  });
+
+  it('adds with a tap the cards it counted as they were: one changed while the add sent before is answered waits', async () => {
+    countUuids();
+    const [, lyra = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lyra', waiting: READ_LYRA },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(FOUND_LYRA),
+      ],
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 3, createdItemIds: ['item-lyra'] }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    await waitFor(() => expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1));
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    await act(async () => {
+      await scanRunner.retryWaiting();
+    });
+    // The tap counts the card sent before and the one matched since.
+    expect(addButton()).toHaveTextContent(/Add 2 cards to inventory/);
+    fireEvent.press(addButton());
+    await waitFor(() => expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2));
+    // While the add sent before is on its way, Lyra gets more copies (on the camera's sheet).
+    act(() => {
+      useScanStore.getState().apply((session) => setCopies(session, lyra, 3));
+    });
+    await act(async () => {
+      answer(ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-yew'] }));
+    });
+    expect(await screen.findByText('Saved · 1 card')).toBeOnTheScreen();
+    // Lyra changed after the tap: it waits for the next one, as it is now.
+    expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2);
+    expect(screen.getByTestId(`review-row-${lyra}-copies`)).toHaveTextContent('3');
+    expect(addButton()).toHaveTextContent(/Add 3 cards to inventory/);
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    expect(api.callsTo('POST /api/v1/inventory/items/batch')[2]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: FOUND_LYRA.printing?.id, quantity: 3 }],
+    });
+  });
+
+  it('opened again while an add is on its way, says "Adding…" until it is answered', async () => {
+    seedMockupScan();
+    let fail: () => void = () => undefined;
+    const first = render({
+      'POST /api/v1/inventory/items/batch': () =>
+        new Promise<MockAnswer>((_resolve, reject) => {
+          fail = () => reject(new TypeError('Network request failed'));
+        }),
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await waitFor(() => expect(addButton()).toHaveTextContent('Adding…'));
+    first.unmount();
+
+    // Back to scanning, then Review again while the add is still on its way.
+    render();
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    expect(screen.queryByTestId('review-add-error')).toBeNull();
+    expect(addButton()).toHaveTextContent('Adding…');
+    expect(addButton()).toBeDisabled();
+
+    // No answer in the end: now the review cannot tell, and says so.
+    await act(async () => {
+      fail();
+    });
+    expect(await screen.findByTestId('review-add-error-message')).toHaveTextContent(
+      REVIEW_COPY.unsure
+    );
+    expect(addButton()).toHaveTextContent(/Add 3 cards to inventory/);
+    expect(addButton()).toBeEnabled();
   });
 
   it('sent again and refused for the limit: nothing was added, the cards can change and go under a new key', async () => {

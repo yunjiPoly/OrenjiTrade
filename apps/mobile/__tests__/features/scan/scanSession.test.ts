@@ -6,6 +6,7 @@ import {
   applyMatch,
   batchAddRequest,
   hasCardsToSend,
+  isGivenUp,
   isSent,
   chooseOtherMatch,
   emptyScanSession,
@@ -19,6 +20,7 @@ import {
   pickRarity,
   printingRows,
   removeTile,
+  reopenMatch,
   replaceMatch,
   reviewGroups,
   scanCounts,
@@ -542,6 +544,43 @@ describe('an add sent without an answer', () => {
     expect(photoFilesToDelete(answered)).toEqual([photo(4).uri]);
   });
 
+  it('a tap adds the cards it counted, as they were: one ready or changed since waits for the next', () => {
+    let { session } = sentScan();
+    session = pickRarity(session, 'scan-4', ZA01_075[1]!.id);
+    // The tap: Interference is ready, besides the add sent before.
+    const chosen = tilesToSend(session);
+    expect(chosen.map((tile) => tile.id)).toEqual(['scan-4']);
+    // While the add sent before is answered, another card becomes ready.
+    session = addAnswered(session, 'key-1');
+    session = scan(session, match({ ...FOUND_YEW, card: LYRA, printing: ZAGO_011 }));
+    expect(tilesToSend(session).map((tile) => tile.id)).toEqual(['scan-4', 'scan-5']);
+    expect(tilesToSend(session, chosen).map((tile) => tile.id)).toEqual(['scan-4']);
+    expect(batchAddRequest(session, {}, chosen)).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: ZA01_075[1]!.id, quantity: 1 }],
+    });
+    // A card of the tap changed meanwhile (one more copy): it waits too.
+    const changed = setCopies(session, 'scan-4', 2);
+    expect(tilesToSend(changed, chosen)).toEqual([]);
+    expect(batchAddRequest(changed, {}, chosen)).toBeNull();
+  });
+
+  it('deletes only the photo files the scan owns once answered', () => {
+    let session = addPhoto(emptyScanSession(), photo(1)).session;
+    session = applyMatch(session, 'scan-1', READ, FOUND_YEW);
+    // A repeat whose photo the scan does not own (never deleted) is grouped into it.
+    const repeat = addPhoto(session, { ...photo(2), uri: 'ph://library-original', owned: false });
+    session = applyMatch(repeat.session, repeat.tileId, READ, FOUND_YEW);
+    expect(findTile(session, 'scan-1')?.copies).toBe(2);
+    session = addSent(session, {
+      key: 'key-1',
+      body: batchAddRequest(session)!,
+      tileIds: ['scan-1'],
+      binderName: null,
+    });
+    expect(sentPhotoFiles(session)).toEqual([photo(1).uri]);
+  });
+
   it('refused: nothing was added, its tiles can change again', () => {
     const { session } = sentScan();
     expect(addRefused(session, 'another-key')).toBe(session);
@@ -549,6 +588,39 @@ describe('an add sent without an answer', () => {
     expect(refused.pendingAdd).toBeNull();
     expect(refused.tiles).toBe(session.tiles);
     expect(findTile(setCopies(refused, 'scan-1', 5), 'scan-1')?.copies).toBe(5);
+  });
+});
+
+describe('a card given up after server errors', () => {
+  function givenUp(): ScanSession {
+    const added = addPhoto(emptyScanSession(), photo(1));
+    return markUnread(added.session, added.tileId, READ, 'MATCH_FAILED');
+  }
+
+  it('keeps its read, and can wait for its match again ("Try again")', () => {
+    const session = givenUp();
+    const tile = findTile(session, 'scan-1')!;
+    expect(isGivenUp(tile)).toBe(true);
+    expect(tile).toMatchObject({ status: 'NOT_FOUND', read: READ });
+    const reopened = reopenMatch(session, 'scan-1');
+    expect(findTile(reopened, 'scan-1')).toMatchObject({
+      status: 'WAITING',
+      read: READ,
+      notFoundReason: null,
+    });
+    // Its answer lands as any waiting tile's.
+    expect(findTile(applyMatch(reopened, 'scan-1', READ, FOUND_YEW), 'scan-1')?.status).toBe(
+      'FOUND'
+    );
+  });
+
+  it('reopens nothing else: a card that could not be read, or one fixed by hand', () => {
+    const unread = markUnread(addPhoto(emptyScanSession(), photo(1)).session, 'scan-1', READ, null);
+    expect(isGivenUp(findTile(unread, 'scan-1')!)).toBe(false);
+    expect(reopenMatch(unread, 'scan-1')).toBe(unread);
+    const fixed = replaceMatch(givenUp(), 'scan-1', { card: YEW, printing: ZACR_036 });
+    expect(isGivenUp(findTile(fixed, 'scan-1')!)).toBe(false);
+    expect(reopenMatch(fixed, 'scan-1')).toBe(fixed);
   });
 });
 

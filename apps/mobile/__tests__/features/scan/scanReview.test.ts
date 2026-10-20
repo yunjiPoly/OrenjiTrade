@@ -50,8 +50,9 @@ function problemError(status: number, errorCode: string, extra: Record<string, u
 
 describe('review rows', () => {
   it('names how each tile shows on the review', () => {
-    const { session, ids } = withPhotos(6);
-    const [found, rarity, printing, unread, waiting, reading] = ids as [
+    const { session, ids } = withPhotos(7);
+    const [found, rarity, printing, unread, waiting, reading, givenUp] = ids as [
+      string,
       string,
       string,
       string,
@@ -64,6 +65,7 @@ describe('review rows', () => {
     next = applyMatch(next, printing, READ_FOX, PICK_PRINTING_FOX);
     next = markUnread(next, unread, null, null);
     next = markWaiting(next, waiting, READ_FOX);
+    next = markUnread(next, givenUp, READ_FOX, 'MATCH_FAILED');
     const kinds = Object.fromEntries(next.tiles.map((tile) => [tile.id, reviewRowKind(tile)]));
     expect(kinds).toEqual({
       [found]: 'READY',
@@ -72,6 +74,7 @@ describe('review rows', () => {
       [unread]: 'UNREAD',
       [waiting]: 'WAITING',
       [reading]: 'WAITING',
+      [givenUp]: 'UNMATCHED',
     });
   });
 

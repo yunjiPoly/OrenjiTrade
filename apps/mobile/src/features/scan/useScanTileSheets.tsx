@@ -41,7 +41,9 @@ export interface ScanTileSheetsOptions {
  * 2026-10-15, section 4: a found card opens 28 (Check the match), "Pick rarity" the rarity list,
  * "Pick printing" the printing list (a code in several rarities opens the rarity list next), and
  * "Couldn't read" 29; a tile waiting for the connection is matched again, and its sheet offers
- * "Try again" and "Search by name or code" (it closes once the tile is matched). A tile of an add
+ * "Try again" and "Search by name or code" (it closes once the tile is matched). A card given up
+ * after server errors ("Couldn't match") opens 29's variant, whose "Try again" asks for its match
+ * once more (it closes once the card is matched, or waits for the connection). A tile of an add
  * sent without an answer opens nothing: it stays as it was sent. Every pick changes the scan at
  * once (`scanStore`), and the screen reader says the card's new result ("Ash Blossom & Joyous
  * Spring, found"), as the search inside the scan does.
@@ -104,8 +106,10 @@ export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptio
   };
 
   const sheetTile = (sheet: TileSheet) => (open?.sheet === sheet ? tile : null);
-  // The sheet of a waiting tile goes once the tile is matched (or removed).
+  // The sheet of a waiting tile goes once the tile is matched (or removed); 29 goes once its card
+  // given up is matched again (or waits for the connection).
   const waitingTile = sheetTile('WAITING')?.status === 'WAITING' ? tile : null;
+  const unreadTile = sheetTile('UNREAD')?.status === 'NOT_FOUND' ? tile : null;
 
   const sheets = (
     <>
@@ -168,7 +172,9 @@ export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptio
         onClose={close}
       />
       <UnreadSheet
-        tile={sheetTile('UNREAD')}
+        tile={unreadTile}
+        trying={trying.includes(tileId)}
+        onRetry={() => void scanRunner.retryGivenUp(tileId)}
         onRemove={remove}
         onClose={close}
         onSearch={search}

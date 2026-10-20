@@ -35,9 +35,12 @@ export interface ReviewRowProps {
   onOpen: (tile: ScanTile) => void;
   /** "Search by name or code" (a card that could not be read). */
   onSearch: (tile: ScanTile) => void;
-  /** "Try again" (a card waiting for the connection): its match is asked for again. */
+  /**
+   * "Try again" (a card waiting for the connection, or given up after server errors): its match is
+   * asked for again.
+   */
   onRetry: (tile: ScanTile) => void;
-  /** A card waiting for the connection whose match is being tried again: "Trying again…". */
+  /** Its match is being tried again: "Trying again…". */
   trying?: boolean;
   /**
    * A card of an add sent without an answer: "Not confirmed yet", and it stays as it was sent (no
@@ -57,6 +60,7 @@ function rowBorder(kind: ReviewRowKind, palette: Palette): string {
     case 'PICK_PRINTING':
       return `${palette.warning}66`;
     case 'UNREAD':
+    case 'UNMATCHED':
       return palette.primaryContainer;
     default:
       return palette.borderStrong;
@@ -68,9 +72,10 @@ function rowBorder(kind: ReviewRowKind, palette: Palette): string {
  * Remove. A ready row opens 28 (Check the match); a row to check shows its fix: "Pick rarity",
  * "Pick printing" under "Set code not readable", or "Search by name or code". A row still waiting
  * for the connection says so and offers "Try again" ("Trying again…" while it is tried; the row stays
- * where it is) and "Search by name or code" (the search is always one tap away). A card of an add
- * sent without an answer says "Not confirmed yet" and cannot be changed. Past the pinned text size,
- * the copies go under the name.
+ * where it is) and "Search by name or code" (the search is always one tap away); so does a card
+ * given up after server errors, under "Couldn't match". A card of an add sent without an answer
+ * says "Not confirmed yet" and cannot be changed. Past the pinned text size, the copies go under
+ * the name.
  */
 export function ReviewRow({
   tile,
@@ -88,30 +93,33 @@ export function ReviewRow({
   const name =
     kind === 'UNREAD'
       ? REVIEW_COPY.couldntRead
-      : kind === 'WAITING'
-        ? TILE_STATUS_TEXT.WAITING
-        : (tile.card?.name ?? '');
+      : kind === 'UNMATCHED'
+        ? REVIEW_COPY.couldntMatch
+        : kind === 'WAITING'
+          ? TILE_STATUS_TEXT.WAITING
+          : (tile.card?.name ?? '');
   const stacked = (fontScale || 1) > PINNED_MAX_FONT_SCALE;
   const hasCopies = kind === 'READY' || kind === 'PICK_RARITY' || kind === 'PICK_PRINTING';
 
-  const picture =
-    kind === 'UNREAD' || kind === 'WAITING' ? (
-      <ScanPhotoImage
-        uri={tile.photos[0]?.uri}
-        blurred={kind === 'UNREAD'}
-        style={PICTURE}
-        testID={`review-row-${tile.id}-photo`}
-      />
-    ) : (
-      <CardImage
-        src={tile.card?.imageUrl}
-        alt=""
-        game="yugioh"
-        size="xs"
-        style={PICTURE}
-        testID={`review-row-${tile.id}-picture`}
-      />
-    );
+  // No card yet: the collector's photo, blurred when nothing matched it.
+  const noCard = kind === 'UNREAD' || kind === 'UNMATCHED' || kind === 'WAITING';
+  const picture = noCard ? (
+    <ScanPhotoImage
+      uri={tile.photos[0]?.uri}
+      blurred={kind !== 'WAITING'}
+      style={PICTURE}
+      testID={`review-row-${tile.id}-photo`}
+    />
+  ) : (
+    <CardImage
+      src={tile.card?.imageUrl}
+      alt=""
+      game="yugioh"
+      size="xs"
+      style={PICTURE}
+      testID={`review-row-${tile.id}-picture`}
+    />
+  );
 
   const texts = (
     <View style={styles.texts}>
@@ -167,11 +175,7 @@ export function ReviewRow({
     <Pressable
       accessibilityRole="button"
       // A row with no card yet is not named after its status ("Remove Couldn't read").
-      accessibilityLabel={
-        kind === 'UNREAD' || kind === 'WAITING'
-          ? REVIEW_COPY.removeThisCard
-          : REVIEW_COPY.remove(name)
-      }
+      accessibilityLabel={noCard ? REVIEW_COPY.removeThisCard : REVIEW_COPY.remove(name)}
       onPress={() => onRemove(tile)}
       hitSlop={SLOP}
       style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
@@ -284,6 +288,7 @@ function Details({
           testID={`review-row-${tile.id}-search`}
         />
       );
+    case 'UNMATCHED':
     case 'WAITING':
       return (
         <View style={styles.details}>

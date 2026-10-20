@@ -16,9 +16,11 @@ import {
   addPhoto,
   findTile,
   forgetPhotos,
+  isGivenUp,
   isSent,
   photoFilesToDelete,
   removeTile as removeTileFrom,
+  reopenMatch,
   sentPhotoFiles,
   tilesWaiting,
   type ScanPhoto,
@@ -51,9 +53,11 @@ import { useScanStore, type ScanStore } from './scanStore';
  *   when the collector asked with "Try again").
  * - A tile whose match fails with a server error again after the API answered the scan's other
  *   photos (`SERVER_FAILURES_WHILE_UP` times), or whose match failed with a server error
- *   `SERVER_FAILURES_MAX` times whatever the other photos do, is given up: "Couldn't read", the
- *   search one tap away, rather than waiting for ever on an error that does not go away. A match
- *   that could not reach the API (no connection) never gives a tile up.
+ *   `SERVER_FAILURES_MAX` times whatever the other photos do, is given up: "Couldn't match"
+ *   (`MATCH_FAILED`), the search one tap away, rather than waiting for ever on an error that does
+ *   not go away. A match that could not reach the API (no connection) never gives a tile up. "Try
+ *   again" on a card given up asks for its match once more (`retryGivenUp`): another server error
+ *   leaves it given up, no connection makes it wait for the connection.
  * - A removed tile's photo files are deleted once no sheet shows them any more (`removeTile`).
  * - The tiles of an add that was answered leave the scan, and their photo files are deleted at
  *   once (`addAnswered`); the rest of the scan goes on.
@@ -147,6 +151,13 @@ export interface ScanRunner {
    * their photo files are deleted at once. The rest of the scan stays.
    */
   addAnswered: (key: string) => void;
+  /**
+   * "Try again" on a card given up after server errors ("Couldn't match"): its match is asked for
+   * once more (the store's `trying` says so meanwhile), and the answer lands on it, said by the
+   * screen reader. Another server error leaves it given up; no connection makes it wait for the
+   * connection like any other card.
+   */
+  retryGivenUp: (tileId: string) => Promise<void>;
   /** Ends the scan: its photo files are deleted and the tray is emptied. */
   endScan: () => void;
   /** Called with each tile once its photo is matched (or found unreadable): its result. */
@@ -262,9 +273,10 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   /**
    * What an outcome becomes for its tile: a server error waits for the connection, unless the
    * tile's match failed that way again and again while the API answered the scan's other photos,
-   * or too many times (`SERVER_FAILURES_MAX`). No connection always waits.
+   * or too many times (`SERVER_FAILURES_MAX`), or the tile was given up already (`givenUp`: the
+   * collector's "Try again"). No connection always waits.
    */
-  function settle(tileId: string, outcome: PhotoOutcome): PhotoOutcome {
+  function settle(tileId: string, outcome: PhotoOutcome, givenUp = false): PhotoOutcome {
     if (outcome.kind === 'MATCHED') {
       answered += 1;
       serverFailures.delete(tileId);
@@ -280,12 +292,16 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     if (outcome.cause !== 'SERVER') {
       return outcome;
     }
+    const gaveUp: PhotoOutcome = { kind: 'UNREAD', read: outcome.read, reason: 'MATCH_FAILED' };
+    if (givenUp) {
+      return gaveUp;
+    }
     const last = serverFailures.get(tileId);
     const whileUp = (last?.whileUp ?? 0) + (last && answered > last.seen ? 1 : 0);
     const count = (last?.count ?? 0) + 1;
     if (whileUp >= SERVER_FAILURES_WHILE_UP || count >= SERVER_FAILURES_MAX) {
       serverFailures.delete(tileId);
-      return { kind: 'UNREAD', read: outcome.read, reason: null };
+      return gaveUp;
     }
     serverFailures.set(tileId, { seen: answered, whileUp, count });
     return outcome;
@@ -293,21 +309,26 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
 
   /**
    * Lands an answer on its tile. The screen reader hears the tile when its result changed (a photo
-   * read, a waiting tile matched), or when the collector asked (`explicit`). Returns what landed.
+   * read, a waiting tile matched), or when the collector asked (`explicit`). `givenUp`: the answer
+   * of a "Try again" on a card given up, which it reopens (`reopenMatch`) to land. Returns what
+   * landed.
    */
   function land(
     generation: number,
     tileId: string,
     answer: PhotoOutcome,
-    explicit = false
+    explicit = false,
+    givenUp = false
   ): PhotoOutcome {
     if (state().generation !== generation) {
       return answer;
     }
-    const outcome = settle(tileId, answer);
+    const outcome = settle(tileId, answer, givenUp);
     const before = findTile(state().session, tileId);
     const photoUri = before?.photos[0]?.uri ?? null;
-    state().apply((session) => applyOutcome(session, tileId, outcome));
+    state().apply((session) =>
+      applyOutcome(givenUp ? reopenMatch(session, tileId) : session, tileId, outcome)
+    );
     const tile = landedTile(state().session, tileId, photoUri);
     if (
       tile &&
@@ -413,6 +434,21 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     }
   }
 
+  async function retryGivenUp(tileId: string): Promise<void> {
+    const generation = state().generation;
+    const tile = findTile(state().session, tileId);
+    if (!tile?.read || !isGivenUp(tile) || state().trying.includes(tileId)) {
+      return; // Not given up (fixed, removed, matched), or tried already.
+    }
+    state().setTrying(tileId, true);
+    const outcome = await track(matchRead(deps.matcher, tile.read));
+    if (state().generation !== generation) {
+      return; // The scan ended meanwhile.
+    }
+    state().setTrying(tileId, false);
+    land(generation, tileId, outcome, true, true);
+  }
+
   function removeTile(tileId: string): void {
     const generation = state().generation;
     const tile = findTile(state().session, tileId);
@@ -496,6 +532,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     watchWaiting,
     removeTile,
     addAnswered,
+    retryGivenUp,
     endScan,
     sweepLeftovers: writeDown,
     onLanded: (listener) => {

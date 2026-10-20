@@ -35,8 +35,10 @@ as typed text always is. The API's own log holds no query strings.
 On the phone, a match that gets no answer within 20 s, or that the API cannot answer this time
 (5xx, 408, 429), leaves its tile "Waiting for connection" and is tried again later; any other
 refusal (400, 404 `FEATURE_DISABLED`, 401/403) makes it "Couldn't read". A tile whose match keeps
-failing with a server error while the API answers the scan's other photos is given up ("Couldn't
-read") after its second such failure.
+failing with a server error while the API answers the scan's other photos is given up after its
+second such failure (after its fifth server error whatever the other photos do): "Couldn't match",
+whose sheet offers the search and "Try again" (one more match; another server error leaves it given
+up, no answer within 20 s makes it wait for the connection).
 
 ### Body `CardScanMatchRequest`
 
@@ -228,14 +230,16 @@ The review list's "Add {n} cards to inventory": only the ready cards.
 (`scan-<uuid>`) and keeps it with the exact body it sent while that add has no answer: adding again
 after an answer that was lost (no signal, no answer within the phone's 30 s) sends **the same body
 under the same key**, so the cards are never added twice and nothing sent can change on the way
-(the review keeps those cards and its pills as they were sent, "Not confirmed yet"). Cards that
-became ready since go in a later add, under a new key. The key is looked up under the owner lock,
-after the flag check and the validation of the body and before the binder and the limit: a repeat
-sent while the first add still runs waits for it and gets its answer. Only an add that went through
-is kept (a 400, 404 or 429 is not: the same key may add once the refusal is fixed). So a repeat
-refused for the binder (404) or the limit (429) tells the phone that the first try did not go
-through either; a repeat refused before the look-up (404 `FEATURE_DISABLED`, 400) does not, and the
-phone still cannot tell. Like the reports' and the offers' keys it lives in Redis and fails open.
+(the review keeps those cards and its pills as they were sent, "Not confirmed yet"). The other
+cards that same tap counted (ready at the tap, unchanged since) follow under a new key; a card that
+became ready or changed while that first add was on its way waits for the next tap. The key is
+looked up under the owner lock, after the flag check and the validation of the body and before the
+binder and the limit: a repeat sent while the first add still runs waits for it and gets its
+answer. Only an add that went through is kept (a 400, 404 or 429 is not: the same key may add once
+the refusal is fixed). So a repeat refused for the binder (404) or the limit (429) tells the phone
+that the first try did not go through either; a repeat refused before the look-up (404
+`FEATURE_DISABLED`, 400) does not, and the phone still cannot tell. Like the reports' and the
+offers' keys it lives in Redis and fails open.
 
 ### Body `AddInventoryItemsBatchRequest`
 

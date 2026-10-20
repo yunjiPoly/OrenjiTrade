@@ -16,15 +16,24 @@ export interface ScanStore {
    */
   generation: number;
   /**
-   * The tiles waiting for the connection whose match is being tried again right now. They stay
-   * "Waiting for connection" (a try changes nothing until its answer lands): the tray and the
-   * review only show that a try is under way.
+   * The tiles whose match is being tried again right now: tiles waiting for the connection, and
+   * cards given up after server errors ("Couldn't match") whose "Try again" was tapped. They stay
+   * as they are (a try changes nothing until its answer lands): the tray, the review and the sheets
+   * only show that a try is under way ("Trying again…").
    */
   trying: readonly string[];
+  /**
+   * A tap of "Add {n} cards to inventory" is on its way (its adds sent, their answers awaited). It
+   * belongs to the scan, not to the review screen: a review opened again meanwhile (back to
+   * scanning, then Review) says "Adding…" too, not that the add went unanswered.
+   */
+  adding: boolean;
   /** Applies a pure change of `scanSession.ts` (nothing happens when it returns the same session). */
   apply: (change: (session: ScanSession) => ScanSession) => void;
-  /** Marks a waiting tile as being tried again (or no longer). */
+  /** Marks a tile as being tried again (or no longer). */
   setTrying: (tileId: string, trying: boolean) => void;
+  /** Marks a tap of "Add {n} cards to inventory" as on its way (or no longer). */
+  setAdding: (adding: boolean) => void;
   /** An empty scan, the next generation. */
   reset: () => void;
 }
@@ -33,6 +42,7 @@ export const useScanStore = create<ScanStore>()((set) => ({
   session: emptyScanSession(),
   generation: 0,
   trying: [],
+  adding: false,
   apply: (change) =>
     set((state) => {
       const session = change(state.session);
@@ -50,10 +60,12 @@ export const useScanStore = create<ScanStore>()((set) => ({
           : state.trying.filter((other) => other !== tileId),
       };
     }),
+  setAdding: (adding) => set((state) => (state.adding === adding ? state : { adding })),
   reset: () =>
     set((state) => ({
       session: emptyScanSession(),
       generation: state.generation + 1,
       trying: [],
+      adding: false,
     })),
 }));

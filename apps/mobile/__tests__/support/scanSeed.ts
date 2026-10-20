@@ -27,6 +27,8 @@ export type SeedEntry =
   | { photo: string; match: CardScanMatch }
   | { photo: string; unread: ScanRead | null }
   | { photo: string; waiting: ScanRead }
+  /** Given up after server errors ("Couldn't match"), with what it read. */
+  | { photo: string; givenUp: ScanRead }
   | { photo: string; reading: true };
 
 export function seedScan(entries: readonly SeedEntry[]): string[] {
@@ -44,6 +46,8 @@ export function seedScan(entries: readonly SeedEntry[]): string[] {
         session = markUnread(session, added.tileId, entry.unread, entry.unread ? 'NO_MATCH' : null);
       } else if ('waiting' in entry) {
         session = markWaiting(session, added.tileId, entry.waiting);
+      } else if ('givenUp' in entry) {
+        session = markUnread(session, added.tileId, entry.givenUp, 'MATCH_FAILED');
       }
     }
     return session;
