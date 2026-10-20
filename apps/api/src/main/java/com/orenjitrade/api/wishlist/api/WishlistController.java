@@ -1,7 +1,10 @@
 package com.orenjitrade.api.wishlist.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
+import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.PartialUpdate;
+import com.orenjitrade.api.common.ProblemFieldError;
+import com.orenjitrade.api.games.domain.GameCatalog;
 import com.orenjitrade.api.wishlist.api.WishlistRequests.CreateWishlistItemRequest;
 import com.orenjitrade.api.wishlist.api.WishlistRequests.UpdateWishlistItemRequest;
 import com.orenjitrade.api.wishlist.api.WishlistResponses.PriceTermsResponse;
@@ -21,6 +24,7 @@ import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -58,9 +62,11 @@ public class WishlistController {
             List.of("printingId", "rarity", "note", "nearMintOnly", "priceTerm");
 
     private final WishlistService wishlistService;
+    private final GameCatalog games;
 
-    public WishlistController(WishlistService wishlistService) {
+    public WishlistController(WishlistService wishlistService, GameCatalog games) {
         this.wishlistService = wishlistService;
+        this.games = games;
     }
 
     @GetMapping
@@ -97,11 +103,12 @@ public class WishlistController {
                         + " (default: the caller's home region, else americas-north): the phone's"
                         + " Wishlist segment of Search asks it for the region it browses (stage"
                         + " R5). The same rules as `available` on GET /wishlist, one grouped query."
-                        + " Ids only: no count, no holder, no place.")
+                        + " Ids only: no count, no holder, no place. `game` (stage G) keeps the"
+                        + " wishes of that game only.")
     @ApiResponse(responseCode = "200", description = "The available wishes")
     @ApiResponse(
             responseCode = "400",
-            description = "VALIDATION_FAILED: unknown region",
+            description = "VALIDATION_FAILED: unknown region or game",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -114,12 +121,26 @@ public class WishlistController {
                                             + " home region, else americas-north")
                     @RequestParam(required = false)
                     @Size(max = 32)
-                    @Nullable String region) {
+                    @Nullable String region,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only the wishes of that game (stage"
+                                            + " G, the phone's browsed game)")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
+        @Nullable String gameSlug =
+                game == null || game.isBlank() ? null : game.trim().toLowerCase(Locale.ROOT);
+        if (gameSlug != null && !games.isKnown(gameSlug)) {
+            throw ApiException.validation(
+                    "Validation failed", List.of(new ProblemFieldError("game", "unknown game")));
+        }
         WishlistService.Listing listing =
                 wishlistService.listWithAvailability(principal.userId(), region);
         return new WishlistAvailabilityResponse(
                 listing.region(),
                 listing.items().stream()
+                        .filter(view -> gameSlug == null || gameSlug.equals(view.row().gameSlug()))
                         .map(view -> view.row().id())
                         .filter(listing.available()::contains)
                         .toList());

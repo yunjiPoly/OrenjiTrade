@@ -291,7 +291,12 @@ public class CollectorSearchRepository {
      * collector blocked with them in either direction (left out in SQL, before the limit).
      */
     public List<CollectorHit> byName(
-            String query, String region, @Nullable UUID viewerId, int limit, Instant now) {
+            String query,
+            String region,
+            @Nullable String game,
+            @Nullable UUID viewerId,
+            int limit,
+            Instant now) {
         String text = query.trim();
         if (text.startsWith("@")) {
             text = text.substring(1);
@@ -310,6 +315,19 @@ public class CollectorSearchRepository {
         if (viewerId != null) {
             params.put("viewer", viewerId);
         }
+        // Stage G: the browsed game's collectors, as the collector search's game filter has them.
+        String ofGame = "";
+        if (game != null) {
+            ofGame =
+                    " AND (:game = ANY(COALESCE(pr.games, '{}')) OR EXISTS (SELECT 1"
+                            + DiscoverySql.ITEM_JOINS
+                            + " WHERE i.owner_id = u.id AND "
+                            + DiscoverySql.LISTED
+                            + " AND "
+                            + ItemFilter.DISCOVERABLE
+                            + " AND g.slug = :game))";
+            params.put("game", game);
+        }
         String display = "lower(unaccent_immutable(COALESCE(pr.display_name, u.display_name, '')))";
         String sql =
                 "SELECT u.id, u.handle, COALESCE(pr.display_name, NULLIF(u.display_name, ''),"
@@ -326,6 +344,7 @@ public class CollectorSearchRepository {
                         + " OR "
                         + display
                         + " LIKE :qContains ESCAPE '\\')"
+                        + ofGame
                         + (viewerId == null
                                 ? ""
                                 : " AND u.id <> :viewer" + DiscoverySql.notBlocked("u.id"))
