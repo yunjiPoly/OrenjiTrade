@@ -820,9 +820,10 @@ Flows: `sign-in.yaml`,
 `sign-up-onboarding.yaml` (the location step with the pickers), `profile-edit.yaml`,
 `profile-pages-settings-gear.yaml` (native flow 6 of the redesign, stage R6: another collector's
 profile with its line, Message, Cards, Binders, Looking for, the compact top bar, the "⋯" sheet and
-"See all references"; "I have it" pinning your copy and sending nothing before send
-(`scripts/parity.js` ACTION=profiles and check-have); your Profile tab and the gear that opens
-Settings),
+"See all references", Share profile from the "⋯" sheet (the system's share sheet); "I have it"
+sending nothing and leaving the chat's card alone before send, then pinning your copy
+(`scripts/parity.js` ACTION=profiles and check-have); your Profile tab, the gear that opens
+Settings, and "See all binders" twice),
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a

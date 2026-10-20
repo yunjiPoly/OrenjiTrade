@@ -6820,11 +6820,12 @@ Offers, Payouts, Premium, Credits or Support.
     loading.
 - **I have it** (section 10): opens or reuses the chat with that collector. When your inventory
   holds the card (the wished printing first, then its rarity, then any printing; a public copy
-  before a private one; the newest), that copy becomes the chat's card (you are the seller: "·
-  your card" and Mark as sold in the pinned bar) and waits in the message box beside the text "I
-  have {card} for your wishlist. Interested?"; without a copy, the text alone. **Nothing is sent**
-  until you tap send, which shares your card and then the text (one `CARD_LINK` with your copy, as
-  screen 24 shows it). You can change or remove either first.
+  before a private one; the newest; never a card filed in a deck core), that copy waits in the
+  message box beside the text "I have {card} for your wishlist. Interested?"; without a copy, the
+  text alone. **Nothing is sent and the chat's card does not change** until you tap send, which
+  shares your card and then the text (one `CARD_LINK` with your copy, as screen 24 shows it) and
+  makes your copy the chat's card (you are the seller: "· your card" and Mark as sold in the
+  pinned bar). You can change or remove either first (review fix 1).
 - **Your Profile tab** (screen 21): "Profile", the bell and a **gear** that opens Settings; then
   the same page others see of you (your public cards and binders, your wishes, your bio, your
   ratings and references), with **Edit profile** and **Share profile** instead of Message; your
@@ -6855,15 +6856,19 @@ Offers, Payouts, Premium, Credits or Support.
 
 **Decisions, and why**
 
-1. **"I have it" pins your copy when the chat opens and shares it on send.** The prompt says the
-   card "becomes the chat's card" and that "nothing is sent until you tap send": the pin is R4's
-   chat subject (`POST /conversations` with `subjectItemId`, allowed for your own card), the share
-   is R4's `CARD_LINK` with `inventoryItemId`, waiting in the message box (one message: the card,
-   then the text; R4 draws it as screen 24). One way into the chat, no new endpoint.
+1. **"I have it" leaves the chat's card alone until send, and shares and pins your copy on send**
+   (revised in review fix 1: the build pinned the copy as the chat opened, which showed it, even a
+   private one with its price, in the other collector's inbox before anything was sent). The
+   prompt says the card "becomes the chat's card" and that "nothing is sent until you tap send":
+   the chat opens as "Message" opens it (`POST /conversations` with the recipient only), your copy
+   waits in the message box, and sending it, R4's `CARD_LINK` with `inventoryItemId` (one message:
+   the card, then the text; R4 draws it as screen 24), pins it as the chat's card (you are the
+   seller from then on). One way into the chat, no new endpoint.
 2. **Which copy "I have it" picks**: the wished printing, then the wished rarity, then any printing
    of the card ("If your inventory holds that card"); a public copy before a private one (a
-   private one shows to that collector only once shared, R4), then the newest. A new `cardId`
-   filter on the caller's own list finds them (one request, whatever the inventory's size).
+   private one shows to that collector only once shared, R4), then the newest; never a copy filed
+   in one of your deck cores (review fix 1: it sells only with its core). A new `cardId` filter on
+   the caller's own list finds them (one request, whatever the inventory's size).
 3. **A block keeps today's rule on the API** (the profile's header answers with `isBlocked`, the
    listings do not, either way; the paused web shows Unblock there). The phone tells the two
    directions apart with `GET /me/blocks`: the blocker sees the header and Unblock, the blocked
@@ -6908,8 +6913,8 @@ Offers, Payouts, Premium, Credits or Support.
 
 **The defaults of section 16 this stage applies:** 1 (new installs start in dark: every R6 screen
 follows R1's theme, light included) and 8 (one chat per pair: "Message {handle}" opens it without
-changing its card; "I have it" pins your copy, the latest one winning, as R4's Message on a holder
-row). Default 3 (saved details stay on the phone) is untouched: "I have it" puts its text in the
+changing its card; "I have it" too, until you send your copy, which then pins it, the latest one
+winning, as R4's shared card does). Default 3 (saved details stay on the phone) is untouched: "I have it" puts its text in the
 message box to be checked, like a saved detail.
 
 **What changed on the phone**
@@ -6971,12 +6976,13 @@ check the "⋯" sheet's Share profile; jest checks the link handed to it).
 - Home's "I have it" comes with R7 (`useIHaveIt` is ready for it).
 - A single long word wider than the row (a long handle at the largest size) still wraps inside the
   word (R5's note).
-- The "⋯" sheet's rows scroll at the largest size, as the chat's (R4).
+- The "⋯" sheet's rows scroll at the largest size, as the chat's (R4); its scroll bar flashes when
+  Block is below the fold (review fix 1).
 - The rating stars use half stars from .25 and full ones from .75; the number beside them is the
   average with one decimal.
 
-**Owner follow-ups:** confirm decisions 1 ("I have it" pins your copy when the chat opens; nothing
-is sent before send), 3 (a collector who blocked you reads "not available"; the API keeps today's
+**Owner follow-ups:** confirm decisions 1 ("I have it" puts your copy and the text in the box;
+nothing is sent and the chat's card stays as it was until send, which pins your copy), 3 (a collector who blocked you reads "not available"; the API keeps today's
 rule), 4 ("Active this week" also for today), 5 (a deck core's cards stay out of a profile's
 Cards), 6 (version 50's "Deck core" tag with the price under the name), 7 (the full ratings and
 "Write a reference" behind "See all references"), 9 (your Profile tab is your public profile: "Not
