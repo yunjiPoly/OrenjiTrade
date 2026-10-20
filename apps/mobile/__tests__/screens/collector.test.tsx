@@ -60,10 +60,17 @@ const CORE = publicBinderSummaryFixture({
 });
 const BINDER = publicBinderSummaryFixture({ previewImages: [] });
 
+// The default text size of a phone (jest's window says 2, a larger size where rows stack).
+const WINDOW = Dimensions.get('window');
 beforeEach(() => {
+  Dimensions.set({ window: { ...WINDOW, fontScale: 1 }, screen: { ...WINDOW, fontScale: 1 } });
   resetRouterMock();
   resetAppState();
   mockParams.current = { id: 'collector2' };
+});
+
+afterAll(() => {
+  Dimensions.set({ window: WINDOW, screen: WINDOW });
 });
 
 function routes(extra: MockRoutes = {}): MockRoutes {
@@ -337,7 +344,7 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
 
 describe('At the largest text size (the walk of stage R6)', () => {
   it('puts the avatar above the name and keeps the titles and "See all" on their words', async () => {
-    const window = Dimensions.get('window');
+    const window = WINDOW;
     act(() => {
       Dimensions.set({
         window: { ...window, fontScale: 3.1 },
@@ -366,6 +373,13 @@ describe('At the largest text size (the walk of stage R6)', () => {
       );
       // A wish puts "I have it" under the card.
       expect(await screen.findByTestId(`profile-have-${CARD_ID}`)).toBeOnTheScreen();
+      // The cards and binders are rows, the whole name beside the picture (in a tile the name
+      // broke in the middle of a word).
+      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
+      expect(screen.getByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
+        'Azure-Eyes Sky Dragon85% TCG'
+      );
+      expect(screen.getByTestId('profile-binders-rail').type).not.toBe('RCTScrollView');
     } finally {
       act(() => {
         Dimensions.set({ window, screen: window });

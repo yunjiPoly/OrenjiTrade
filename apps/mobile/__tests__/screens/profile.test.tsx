@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Share } from 'react-native';
+import { Dimensions, Share } from 'react-native';
 
 import ProfileScreen from '@/app/(tabs)/profile';
 
@@ -30,9 +30,16 @@ const CORE = publicBinderSummaryFixture({
   itemCount: 0,
 });
 
+// The default text size of a phone (jest's window says 2, a larger size where rows stack).
+const WINDOW = Dimensions.get('window');
 beforeEach(() => {
+  Dimensions.set({ window: { ...WINDOW, fontScale: 1 }, screen: { ...WINDOW, fontScale: 1 } });
   resetRouterMock();
   resetAppState();
+});
+
+afterAll(() => {
+  Dimensions.set({ window: WINDOW, screen: WINDOW });
 });
 
 function routes(extra: MockRoutes = {}): MockRoutes {

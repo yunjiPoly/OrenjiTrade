@@ -15,7 +15,7 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
-import { DeckCoreTag } from '@/src/features/binders/BinderRows';
+import { CardFan, CoreThumb, DeckCoreTag } from '@/src/features/binders/BinderRows';
 import { itemPriceText } from '@/src/features/inventory/itemPrice';
 import { wishTerms } from '@/src/features/wishlist/wishlistLabels';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
@@ -150,6 +150,9 @@ function Rail({ children, testID }: { children: ReactNode; testID: string }) {
   );
 }
 
+/** Rows a rail keeps at the larger text sizes ("See all" has the rest). */
+const STACKED_ROWS = 4;
+
 /**
  * Cards: a sideways rail of the collector's public cards (`GET /collectors/{handle}/inventory`),
  * the picture with the name and the price as typed under it. Larger text sizes widen the tiles.
@@ -166,53 +169,71 @@ export function CardsSection({
   onSeeAll: (() => void) | undefined;
 }) {
   const { palette } = useTheme();
+  // From the larger text sizes on, the rail becomes rows (the picture beside the full name and
+  // the price): in a tile the name broke in the middle of a word (the walk at the largest size).
   const stacked = useStackedRows();
   const list = items.data?.items ?? [];
-  const width = stacked ? 120 : 84;
-  const height = Math.round(width * 1.45);
+  const width = 84;
+  const height = 122;
   let body;
   if (items.data) {
+    const tiles = list.map((item) => {
+      const price = itemPriceText(item);
+      return (
+        <Pressable
+          key={item.id}
+          accessibilityRole="button"
+          accessibilityLabel={[item.card.name, price].filter(Boolean).join(', ')}
+          onPress={() => onOpen(item)}
+          testID={`profile-card-${item.id}`}
+          style={({ pressed }) => [
+            stacked ? styles.stackRow : [styles.cardTile, { width }],
+            stacked && { backgroundColor: palette.surface, borderColor: palette.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <CardImage
+            src={printingImageUrl(item.printing)}
+            alt=""
+            game={item.card.game}
+            size={stacked ? 'xs' : 'sm'}
+            style={
+              stacked
+                ? [styles.wishPicture, { borderColor: palette.borderStrong }]
+                : [styles.cardPicture, { width, height, borderColor: palette.borderStrong }]
+            }
+          />
+          <View style={stacked ? styles.stackText : styles.tileText}>
+            <Text
+              numberOfLines={stacked ? undefined : 1}
+              style={[stacked ? styles.wishName : styles.tileName, { color: palette.ink }]}
+            >
+              {item.card.name}
+            </Text>
+            {price ? (
+              <Text
+                numberOfLines={stacked ? undefined : 1}
+                style={[styles.tilePrice, { color: palette.ink }]}
+              >
+                {price}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
+      );
+    });
     body =
       list.length === 0 ? (
         <SectionNote
           text={own ? PROFILE_COPY.emptyCards.own : PROFILE_COPY.emptyCards.other}
           testID="profile-cards-empty"
         />
+      ) : stacked ? (
+        <View style={styles.stackList} testID="profile-cards-rail">
+          {tiles.slice(0, STACKED_ROWS)}
+        </View>
       ) : (
-        <Rail testID="profile-cards-rail">
-          {list.map((item) => {
-            const price = itemPriceText(item);
-            return (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityLabel={[item.card.name, price].filter(Boolean).join(', ')}
-                onPress={() => onOpen(item)}
-                testID={`profile-card-${item.id}`}
-                style={({ pressed }) => [styles.cardTile, { width }, pressed && styles.pressed]}
-              >
-                <CardImage
-                  src={printingImageUrl(item.printing)}
-                  alt=""
-                  game={item.card.game}
-                  size="sm"
-                  style={[styles.cardPicture, { width, height, borderColor: palette.borderStrong }]}
-                />
-                <Text
-                  numberOfLines={stacked ? 2 : 1}
-                  style={[styles.tileName, { color: palette.ink }]}
-                >
-                  {item.card.name}
-                </Text>
-                {price ? (
-                  <Text numberOfLines={1} style={[styles.tilePrice, { color: palette.ink }]}>
-                    {price}
-                  </Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </Rail>
+        <Rail testID="profile-cards-rail">{tiles}</Rail>
       );
   } else if (items.error) {
     body = (
@@ -288,91 +309,131 @@ export function BindersSection({
   onSeeAll: (() => void) | undefined;
 }) {
   const { palette } = useTheme();
+  // From the larger text sizes on, rows (as the Cards): a tile cut the names short.
   const stacked = useStackedRows();
   const list = binders.data ?? [];
-  const width = stacked ? 200 : 160;
+  const width = 160;
   let body;
   if (binders.data) {
+    const tiles = list.map((binder) => {
+      const core = binder.sellsAsCore;
+      const detail = core
+        ? (binder.askingPriceText ?? null)
+        : PROFILE_COPY.cardCount(binder.itemCount);
+      const photo = safeCardImageUrl(core ? binder.previewImages?.[0] : null);
+      const label = [binder.name, core ? PROFILE_COPY.deckCore.toLowerCase() : null, detail]
+        .filter(Boolean)
+        .join(', ');
+      const name = (
+        <Text
+          numberOfLines={stacked ? undefined : 1}
+          style={[styles.binderName, { color: palette.ink }]}
+        >
+          {binder.name}
+        </Text>
+      );
+      const line = detail ? (
+        <Text
+          numberOfLines={stacked ? undefined : 1}
+          style={[
+            core ? styles.tilePrice : styles.binderCount,
+            { color: core ? palette.ink : palette.textMuted },
+          ]}
+        >
+          {detail}
+        </Text>
+      ) : null;
+      if (stacked) {
+        return (
+          <Pressable
+            key={binder.id}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => onOpen(binder)}
+            testID={`profile-binder-${binder.id}`}
+            style={({ pressed }) => [
+              styles.stackRow,
+              { backgroundColor: palette.surface, borderColor: palette.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            {core ? (
+              <CoreThumb url={binder.previewImages?.[0]} />
+            ) : (
+              <CardFan urls={binder.previewImages ?? []} />
+            )}
+            <View style={styles.stackText}>
+              {name}
+              {core ? (
+                <DeckCoreTag
+                  label={PROFILE_COPY.deckCore}
+                  testID={`profile-binder-tag-${binder.id}`}
+                />
+              ) : null}
+              {line}
+            </View>
+          </Pressable>
+        );
+      }
+      return (
+        <Pressable
+          key={binder.id}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          onPress={() => onOpen(binder)}
+          testID={`profile-binder-${binder.id}`}
+          style={({ pressed }) => [styles.binderTile, { width }, pressed && styles.pressed]}
+        >
+          <View
+            style={[
+              styles.binderFrame,
+              core
+                ? {
+                    backgroundColor: palette.deckCore.tagBackground,
+                    borderColor: palette.borderStrong,
+                  }
+                : { backgroundColor: palette.surface, borderColor: palette.border },
+            ]}
+          >
+            {core ? (
+              <>
+                {photo ? (
+                  <Image
+                    source={{ uri: photo }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    accessible={false}
+                  />
+                ) : null}
+                <View style={styles.coreTag}>
+                  <DeckCoreTag
+                    label={PROFILE_COPY.deckCore}
+                    testID={`profile-binder-tag-${binder.id}`}
+                  />
+                </View>
+              </>
+            ) : (
+              <TileFan urls={binder.previewImages ?? []} />
+            )}
+          </View>
+          {name}
+          {line}
+        </Pressable>
+      );
+    });
     body =
       list.length === 0 ? (
         <SectionNote
           text={own ? PROFILE_COPY.emptyBinders.own : PROFILE_COPY.emptyBinders.other}
           testID="profile-binders-empty"
         />
+      ) : stacked ? (
+        <View style={styles.stackList} testID="profile-binders-rail">
+          {tiles.slice(0, STACKED_ROWS)}
+        </View>
       ) : (
-        <Rail testID="profile-binders-rail">
-          {list.map((binder) => {
-            const core = binder.sellsAsCore;
-            const detail = core
-              ? (binder.askingPriceText ?? null)
-              : PROFILE_COPY.cardCount(binder.itemCount);
-            const photo = safeCardImageUrl(core ? binder.previewImages?.[0] : null);
-            return (
-              <Pressable
-                key={binder.id}
-                accessibilityRole="button"
-                accessibilityLabel={[
-                  binder.name,
-                  core ? PROFILE_COPY.deckCore.toLowerCase() : null,
-                  detail,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-                onPress={() => onOpen(binder)}
-                testID={`profile-binder-${binder.id}`}
-                style={({ pressed }) => [styles.binderTile, { width }, pressed && styles.pressed]}
-              >
-                <View
-                  style={[
-                    styles.binderFrame,
-                    core
-                      ? {
-                          backgroundColor: palette.deckCore.tagBackground,
-                          borderColor: palette.borderStrong,
-                        }
-                      : { backgroundColor: palette.surface, borderColor: palette.border },
-                  ]}
-                >
-                  {core ? (
-                    <>
-                      {photo ? (
-                        <Image
-                          source={{ uri: photo }}
-                          style={StyleSheet.absoluteFill}
-                          contentFit="cover"
-                          cachePolicy="memory-disk"
-                          accessible={false}
-                        />
-                      ) : null}
-                      <View style={styles.coreTag}>
-                        <DeckCoreTag
-                          label={PROFILE_COPY.deckCore}
-                          testID={`profile-binder-tag-${binder.id}`}
-                        />
-                      </View>
-                    </>
-                  ) : (
-                    <TileFan urls={binder.previewImages ?? []} />
-                  )}
-                </View>
-                <Text numberOfLines={1} style={[styles.binderName, { color: palette.ink }]}>
-                  {binder.name}
-                </Text>
-                {detail ? (
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      core ? styles.tilePrice : styles.binderCount,
-                      { color: core ? palette.ink : palette.textMuted },
-                    ]}
-                  >
-                    {detail}
-                  </Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </Rail>
+        <Rail testID="profile-binders-rail">{tiles}</Rail>
       );
   } else if (binders.error) {
     body = (
@@ -728,6 +789,18 @@ const styles = StyleSheet.create({
   rail: { gap: 10, paddingHorizontal: spacing[4] },
   railSkeleton: { flexDirection: 'row', gap: 10, paddingHorizontal: spacing[4] },
   cardTile: { gap: 6 },
+  tileText: { gap: 1 },
+  stackList: { gap: spacing[2], paddingHorizontal: spacing[4] },
+  stackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    minHeight: 64,
+  },
+  stackText: { flex: 1, minWidth: 0, gap: 4, alignItems: 'flex-start' },
   cardPicture: { borderRadius: 6, borderWidth: 1 },
   tileName: { fontSize: 12, lineHeight: 16 },
   tilePrice: { fontSize: 13, lineHeight: 17, fontWeight: fontWeight.bold },
