@@ -180,6 +180,7 @@ describe('Your Profile tab (mockup screen 21)', () => {
   it('says how to fill each empty section', async () => {
     mockApi(
       routes({
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: true })),
         'GET /api/v1/collectors/{handle}': ok(
           collectorFixture({ bio: '', rating: { average: null, count: 0 } })
         ),
@@ -205,6 +206,53 @@ describe('Your Profile tab (mockup screen 21)', () => {
     expect(screen.getByTestId('profile-ratings-empty')).toHaveTextContent('No ratings yet.');
     // Your "See all" still leads where you add them.
     expect(screen.getByTestId('profile-cards-see-all')).toBeOnTheScreen();
+  });
+
+  it('while you are not on the map, says why others see no cards and links to Location', async () => {
+    // The API hides the cards and binders of a collector who is not discoverable (others get an
+    // empty list too): "Make cards public" was the wrong advice (stage R6, review fix 1).
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok(collectorFixture({ location: undefined })),
+        'GET /api/v1/me/settings/privacy': ok(privacyFixture({ discoverable: false })),
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+        'GET /api/v1/collectors/{handle}/binders': ok([]),
+      })
+    );
+    render();
+    const cards = await screen.findByTestId('profile-cards-empty');
+    await waitFor(() =>
+      expect(cards).toHaveTextContent(
+        /^Collectors cannot see your cards while you are not on the map\.Get on the map$/
+      )
+    );
+    expect(screen.getByTestId('profile-binders-empty')).toHaveTextContent(
+      /^Collectors cannot see your binders while you are not on the map\./
+    );
+    expect(screen.queryByText(/Make cards public/)).toBeNull();
+    fireEvent.press(screen.getByTestId('profile-cards-empty-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
+  });
+
+  it('while your profile is private, says why others see no cards and links to Privacy', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/me/settings/privacy': ok(
+          privacyFixture({ discoverable: true, profileVisibility: 'PRIVATE' })
+        ),
+        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+        'GET /api/v1/collectors/{handle}/binders': ok([]),
+      })
+    );
+    render();
+    const binders = await screen.findByTestId('profile-binders-empty');
+    await waitFor(() =>
+      expect(binders).toHaveTextContent(
+        /^Your profile is private, so collectors cannot see your binders\.Privacy settings$/
+      )
+    );
+    fireEvent.press(screen.getByTestId('profile-binders-empty-action'));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/privacy');
   });
 
   it('shows an error with retry', async () => {

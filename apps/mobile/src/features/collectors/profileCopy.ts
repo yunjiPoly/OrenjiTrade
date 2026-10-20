@@ -62,6 +62,21 @@ export const PROFILE_COPY = {
     own: 'No public binders yet. Make a binder public, or sell a deck core, in Inventory › Binders.',
     other: 'No public binders yet.',
   },
+  // Your own page while others see none of your listings (not on the map, or a private profile).
+  unseen: {
+    'not-on-map': {
+      cards: 'Collectors cannot see your cards while you are not on the map.',
+      binders: 'Collectors cannot see your binders while you are not on the map.',
+      action: 'Get on the map',
+      hint: 'Opens Location and discoverability',
+    },
+    private: {
+      cards: 'Your profile is private, so collectors cannot see your cards.',
+      binders: 'Your profile is private, so collectors cannot see your binders.',
+      action: 'Privacy settings',
+      hint: 'Opens Privacy',
+    },
+  },
   emptyWishes: {
     own: 'No wishes yet. Add the cards you want in Search › Wishlist.',
     other: 'No public wishes.',

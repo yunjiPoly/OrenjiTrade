@@ -31,7 +31,7 @@ import {
 } from '@/src/theme';
 
 import { PROFILE_COPY } from './profileCopy';
-import { deckCoresFirst, referenceMonth } from './profileRules';
+import { deckCoresFirst, referenceMonth, type UnseenReason } from './profileRules';
 
 /** What a section needs of a query: its data, its failure and a retry. */
 export interface SectionQuery<T> {
@@ -84,20 +84,34 @@ export function SectionHeader({
   );
 }
 
-/** The quiet line of an empty section, or its failure with "Try again". */
+/** The quiet line of an empty section, or its failure with "Try again", or a link to fix it. */
 export function SectionNote({
   text,
   onRetry,
+  action,
   testID,
 }: {
   text: string;
   onRetry?: () => void;
+  action?: { label: string; hint: string; onPress: () => void };
   testID: string;
 }) {
   const { palette } = useTheme();
   return (
     <View style={styles.note} testID={testID}>
       <Text style={[styles.noteText, { color: palette.textMuted }]}>{text}</Text>
+      {action ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityHint={action.hint}
+          onPress={action.onPress}
+          hitSlop={8}
+          testID={`${testID}-action`}
+          style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
+        >
+          <Text style={[styles.seeAllLabel, { color: palette.accent }]}>{action.label}</Text>
+        </Pressable>
+      ) : null}
       {onRetry ? (
         <Pressable
           accessibilityRole="button"
@@ -111,6 +125,18 @@ export function SectionNote({
       ) : null}
     </View>
   );
+}
+
+/** The link of an empty section on your page while others cannot see it (Location or Privacy). */
+function unseenAction(unseen: UnseenReason | null, onPress: (() => void) | undefined) {
+  if (!unseen || !onPress) {
+    return undefined;
+  }
+  return {
+    label: PROFILE_COPY.unseen[unseen].action,
+    hint: PROFILE_COPY.unseen[unseen].hint,
+    onPress,
+  };
 }
 
 function RailSkeleton({
@@ -160,11 +186,16 @@ const STACKED_ROWS = 4;
 export function CardsSection({
   items,
   own,
+  unseen = null,
+  onUnseen,
   onOpen,
   onSeeAll,
 }: {
   items: SectionQuery<{ items?: PublicInventoryItem[] }>;
   own: boolean;
+  /** Your page while others see none of your cards: why, and the link that changes it. */
+  unseen?: UnseenReason | null;
+  onUnseen?: () => void;
   onOpen: (item: PublicInventoryItem) => void;
   onSeeAll: (() => void) | undefined;
 }) {
@@ -225,7 +256,14 @@ export function CardsSection({
     body =
       list.length === 0 ? (
         <SectionNote
-          text={own ? PROFILE_COPY.emptyCards.own : PROFILE_COPY.emptyCards.other}
+          text={
+            own && unseen
+              ? PROFILE_COPY.unseen[unseen].cards
+              : own
+                ? PROFILE_COPY.emptyCards.own
+                : PROFILE_COPY.emptyCards.other
+          }
+          action={unseenAction(own ? unseen : null, onUnseen)}
           testID="profile-cards-empty"
         />
       ) : stacked ? (
@@ -300,11 +338,16 @@ function TileFan({ urls }: { urls: readonly string[] }) {
 export function BindersSection({
   binders,
   own,
+  unseen = null,
+  onUnseen,
   onOpen,
   onSeeAll,
 }: {
   binders: SectionQuery<PublicBinderSummary[]>;
   own: boolean;
+  /** Your page while others see none of your binders: why, and the link that changes it. */
+  unseen?: UnseenReason | null;
+  onUnseen?: () => void;
   onOpen: (binder: PublicBinderSummary) => void;
   onSeeAll: (() => void) | undefined;
 }) {
@@ -426,7 +469,14 @@ export function BindersSection({
     body =
       list.length === 0 ? (
         <SectionNote
-          text={own ? PROFILE_COPY.emptyBinders.own : PROFILE_COPY.emptyBinders.other}
+          text={
+            own && unseen
+              ? PROFILE_COPY.unseen[unseen].binders
+              : own
+                ? PROFILE_COPY.emptyBinders.own
+                : PROFILE_COPY.emptyBinders.other
+          }
+          action={unseenAction(own ? unseen : null, onUnseen)}
           testID="profile-binders-empty"
         />
       ) : stacked ? (

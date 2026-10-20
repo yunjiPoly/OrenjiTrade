@@ -1,7 +1,9 @@
 import {
   activeLabel,
+  deckCoresFirst,
   matchingItem,
   memberYear,
+  ownUnseenReason,
   profileChips,
   profileLine,
   profilePlace,
@@ -94,6 +96,28 @@ describe('ratings, references and the share link', () => {
   it('shares the public address of the profile', () => {
     expect(profileUrl('duelist_jp')).toBe('https://www.orenjitrade.com/collectors/duelist_jp');
     expect(profileUrl('a b')).toBe('https://www.orenjitrade.com/collectors/a%20b');
+  });
+});
+
+describe('why others see none of your listings (the API rule of a listed collector)', () => {
+  it('is null while discoverable or with a PUBLIC profile, never with a PRIVATE one', () => {
+    expect(ownUnseenReason(null)).toBeNull();
+    expect(ownUnseenReason({ discoverable: true, profileVisibility: 'MEMBERS' })).toBeNull();
+    expect(ownUnseenReason({ discoverable: false, profileVisibility: 'PUBLIC' })).toBeNull();
+    expect(ownUnseenReason({ discoverable: false, profileVisibility: 'MEMBERS' })).toBe(
+      'not-on-map'
+    );
+    expect(ownUnseenReason({ discoverable: true, profileVisibility: 'PRIVATE' })).toBe('private');
+  });
+
+  it('puts the deck cores first, each group in its owner order', () => {
+    const rows = [
+      { id: 'b1', sellsAsCore: false },
+      { id: 'c1', sellsAsCore: true },
+      { id: 'b2', sellsAsCore: false },
+      { id: 'c2', sellsAsCore: true },
+    ];
+    expect(deckCoresFirst(rows).map((row) => row.id)).toEqual(['c1', 'c2', 'b1', 'b2']);
   });
 });
 

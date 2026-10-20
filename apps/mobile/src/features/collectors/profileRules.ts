@@ -2,6 +2,7 @@ import type {
   CollectorProfileResponse,
   InventoryItemResponse,
   PrintingSummary,
+  PrivacySettings,
 } from '@/src/api/types';
 import { gameLabel } from '@/src/lib/profile';
 
@@ -150,6 +151,27 @@ export function deckCoresFirst<T extends { sellsAsCore?: boolean | null }>(
     ...binders.filter((binder) => binder.sellsAsCore),
     ...binders.filter((binder) => !binder.sellsAsCore),
   ];
+}
+
+/** Why nobody else sees your cards and binders, whatever their own visibility. */
+export type UnseenReason = 'not-on-map' | 'private';
+
+/**
+ * Why others see none of your cards and binders (the API's rule for a collector's listings:
+ * listed while discoverable or with a PUBLIC profile, never with a PRIVATE one), or null while
+ * they can see the public ones. Your own page then says how to change that instead of "Make
+ * cards public", which they already may be (stage R6, review fix 1).
+ */
+export function ownUnseenReason(
+  privacy: Pick<PrivacySettings, 'discoverable' | 'profileVisibility'> | null | undefined
+): UnseenReason | null {
+  if (!privacy) {
+    return null;
+  }
+  if (privacy.profileVisibility === 'PRIVATE') {
+    return 'private';
+  }
+  return privacy.discoverable || privacy.profileVisibility === 'PUBLIC' ? null : 'not-on-map';
 }
 
 /** What a wish asks for, as "I have it" compares it with your copies. */

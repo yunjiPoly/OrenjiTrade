@@ -18,6 +18,7 @@ import { spacing, useStackedRows, useTheme } from '@/src/theme';
 
 import { ProfileHeader } from './ProfileHeader';
 import { PROFILE_COPY } from './profileCopy';
+import { ownUnseenReason } from './profileRules';
 import {
   AboutSection,
   BindersSection,
@@ -185,6 +186,11 @@ export function ProfilePage({
     );
   }
   const hiddenFromOthers = own && privacy.data?.wishlistVisible === false && wishRows.length > 0;
+  // Your page while others see none of your cards and binders (not on the map, or private): the
+  // empty sections say so and link to the setting, not to "Make cards public".
+  const unseen = own ? ownUnseenReason(privacy.data) : null;
+  const onUnseen = () =>
+    router.push(unseen === 'private' ? '/settings/privacy' : '/settings/location');
   const refs = references.data?.pages.flatMap((page) => page.items ?? []);
 
   return (
@@ -193,6 +199,8 @@ export function ProfilePage({
       <CardsSection
         items={items}
         own={own}
+        unseen={unseen}
+        onUnseen={onUnseen}
         onOpen={(item) =>
           own
             ? router.push({ pathname: '/items/[id]', params: { id: item.id } })
@@ -210,6 +218,8 @@ export function ProfilePage({
       <BindersSection
         binders={binders}
         own={own}
+        unseen={unseen}
+        onUnseen={onUnseen}
         onOpen={(binder) =>
           own
             ? router.push({ pathname: '/binders/edit', params: { id: binder.id } })
