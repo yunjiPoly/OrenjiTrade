@@ -6922,12 +6922,26 @@ message box to be checked, like a saved detail.
 | Your Profile tab (21) and the gear | `app/(tabs)/profile.tsx`, `src/navigation/tabs.ts` (`ownHeader`), `app/settings/appearance.tsx` (the chips wrap) |
 | Data | `src/api/hooks/collectors.ts` (`excludeDeckCoreItems`, `useCollectorPublicItemPages`), `wishlist.ts` and `location.ts` (an `enabled` flag), `queryKeys.ts`, `src/navigation/RootNavigator.tsx` (the new routes), `packages/design-tokens/tokens.json` + `src/theme/tokens.ts` (`color.profile`) |
 | Removed | `src/features/collectors/CollectorProfileView.tsx`, `CollectorListings.tsx`, `CollectorWishlistSection.tsx`, `MessageAction.tsx`, `LAST_ACTIVE_LABELS` (only today's profile layout used them) |
-| Tests | API: `CollectorProfilePageIT` (new, 6 tests), `GeoPrivacyContractTest` (+1); jest `features/profileRules` (new), `screens/collector` (rewritten: the header and its line in every bucket, the sections and their empty states, See all, Message, I have it with and without a copy, the "⋯" sheet, the compact bar, blocks both ways, your own profile, the largest text size), `screens/profile` (rewritten: the gear, Edit and Share, See all, your wishes, "Not on the map"), `screens/collector-sections` (new), `screens/conversation` (+1: the "I have it" draft sent only on send), `screens/ratings` (the references page), `screens/blocked`, `features/moneyOff`, `privacy/placePrivacy`, `app/tabs-layout`; Playwright `profiles` (new), `auth`, `location`, `profile`, `collector-wishlist`, `blocked`, `map`, `safety-notice`, `reports`; Maestro **native flow 6** `profile-pages-settings-gear.yaml` (new; `scripts/parity.js` ACTION=profiles and check-have), and `sign-out`, `sign-in`, `google-sign-in`, `discoverability`, `profile-edit`, `deck-core`, `map-region-binders`, `report-collector`, `collector-search-looking-for` on the new pages |
+| Tests | API: `CollectorProfilePageIT` (new, 6 tests), `GeoPrivacyContractTest` (+1); jest `features/profileRules` (new), `screens/collector` (rewritten: the header and its line in every bucket, the sections and their empty states, See all, Message, I have it with and without a copy, the "⋯" sheet, the compact bar, blocks both ways, your own profile, the largest text size), `screens/profile` (rewritten: the gear, Edit and Share, See all, your wishes, "Not on the map"), `screens/collector-sections` (new), `screens/conversation` (+1: the "I have it" draft sent only on send), `screens/ratings` (the references page), `screens/blocked`, `features/moneyOff`, `privacy/placePrivacy`, `app/tabs-layout`; Playwright `profiles` (new), `auth`, `location`, `profile`, `collector-wishlist`, `blocked`, `map`, `safety-notice`, `reports`; Maestro **native flow 6** `profile-pages-settings-gear.yaml` (new; `scripts/parity.js` ACTION=profiles and check-have), and `sign-out`, `sign-in`, `sign-up-onboarding`, `google-sign-in`, `discoverability`, `profile-edit`, `deck-core`, `map-region-binders`, `report-collector`, `collector-search-looking-for` on the new pages |
 
 **Checks** (retries off, the real numbers; this Mac, 2026-10-20, the owner's iPhone 18 Pro simulator
 under the lock)
 
-CHECKS_TABLE
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 41 s: **175 classes / 1082 tests** (+7 over R5's 1075: `CollectorProfilePageIT` new with 6, `GeoPrivacyContractTest` +1) + 12 catalog tests in 2 classes, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed with the API changes (`98707f5e`, `1ad0b316`); nothing changed when run again at the end, git clean |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed: `git diff 108655e8 -- apps/web-angular` is empty) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests** against the regenerated client; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.3 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **94 suites / 1064 tests** (R5: 92 / 1039; new `features/profileRules`, `screens/collector-sections`; rewritten `screens/collector`, `screens/profile`) + 28 guard tests (on the final code; the run before it lost one jest worker to a SIGSEGV in `realtime/stompFrames`, a suite R6 does not touch: alone 9 / 9, then the whole run again green) |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **60 / 60** (1.0 min; new `profiles.spec.ts` with 2) |
+| `npm run test:mobile:maestro -- --platform ios` | **33 / 34** in 54 min 36 s on the owner's iPhone 18 Pro: `sign-up-onboarding.yaml` failed on the old Profile tab's `profile-visibility` (a flow the update had missed), fixed (`b3d65dbf`: the tab's line "Not on the map · Member since …") and **passed alone (1 / 1, 2 min 20 s)**; native flow 6 `profile-pages-settings-gear.yaml` and every flow the stage changed passed. The copy of the profile pages moved into `profileCopy.ts` after that run (`198e1615`, the same words): native flow 6 (1 / 1, 1 min 45 s), the sign-up flow and the mobile web E2E (60 / 60) ran again on the final code |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
 
 **The walk on the simulator** (scratch Maestro flows on the isolated stack, on the owner's iPhone 18
 Pro under the lock; the screenshots are kept outside the repository and compared with the mockup's
@@ -6941,9 +6955,9 @@ default size and at the largest accessibility size (the launch argument of
 `subflows/relaunch-large-text.yaml`). The screens match the mockup in order, wording, colours and
 sizes; the differences are the decisions above. Found at the largest size and fixed, each with a
 jest test: the handle broken in the middle beside the avatar and "Looking for" broken as "Looki /
-ng for" (`75f27f83`), the tiles' names cut in the middle of a word (`4c5136cc`). Found on the way
-and fixed: "@handle ·" read with its dot (`6982acbb`), "See all looking for" read by a screen
-reader (`ea58b19a`). The walk's fictional accounts were deleted from the Auth emulator; the
+ng for" (`2ae0a6ce`), the tiles' names cut in the middle of a word (`4e12968f`). Found on the way
+and fixed: "@handle ·" read with its dot (`7fc244d2`), "See all looking for" read by a screen
+reader (`9d9c4ad2`). The walk's fictional accounts were deleted from the Auth emulator; the
 owner's appearance (light) and text size (Large) were put back as they were.
 
 **Could not be verified:** the Android run (no Android SDK on this Mac; native flow 6 and the
