@@ -471,6 +471,84 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     }
 
     /**
+     * One game at a time (stage G): every discovery endpoint the phone calls with {@code game=} for
+     * each game (One Piece without cards included), signed out, as a fresh collector and as seed
+     * collectors: the map's counts, the binders of the region and of a state, the collectors found
+     * by name, card holders and deck cores of a card, the wishes available; the games with hasCards
+     * and the caller's binders with their game. Places only, never a city outside its owner's
+     * profile, a coordinate or a private note.
+     */
+    @Test
+    void oneGameAtATimeCarriesPlacesOnly(CapturedOutput output) {
+        String viewer = uniqueUid("geo-g");
+        provisionCompliant(viewer);
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector5 = "seed-collector5:collector5@orenjitrade.test";
+        UUID cardId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT card_id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'pkm-p001a'")
+                                .get(0)
+                                .get("card_id");
+        JsonNode games = fetch("/api/v1/games", null);
+        assertThat(games.findValuesAsString("slug")).contains("onepiece");
+        for (String caller : Arrays.asList(null, viewer, collector1, collector5)) {
+            for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                for (String region : List.of("americas-north", "americas-south", "europe")) {
+                    fetch("/api/v1/regions/" + region + "/binder-counts?game=" + game, caller);
+                    fetch("/api/v1/regions/" + region + "/binders?game=" + game, caller);
+                    assertPlaces(
+                            fetch(
+                                    "/api/v1/search/collectors?q=collector&limit=10&region="
+                                            + region
+                                            + "&game="
+                                            + game,
+                                    caller));
+                }
+                fetch(
+                        "/api/v1/regions/americas-north/subdivisions/CA-QC/binders?game=" + game,
+                        caller);
+                JsonNode holders =
+                        fetch(
+                                "/api/v1/search/card-holders?region=americas-north&sort=province"
+                                        + "&excludeDeckCoreItems=true&cardId="
+                                        + cardId
+                                        + "&game="
+                                        + game,
+                                caller);
+                for (JsonNode row : holders.path("items")) {
+                    assertPlaces(jsonMapper.createArrayNode().add(row.path("collector")));
+                }
+                fetch(
+                        "/api/v1/search/deck-cores?region=americas-north&cardId="
+                                + cardId
+                                + "&game="
+                                + game,
+                        caller);
+                if (caller != null) {
+                    fetch("/api/v1/wishlist/availability?game=" + game, caller);
+                }
+            }
+        }
+        JsonNode mine = fetch("/api/v1/binders", collector1);
+        assertThat(mine.findValuesAsString("game")).contains("yugioh", "pokemon");
+        for (Fetched document : fetched) {
+            String text = document.body().toString();
+            for (String handle : NOT_DISCOVERABLE) {
+                assertThat(text)
+                        .as("%s in %s", handle, document.path())
+                        .doesNotContain("\"handle\":\"" + handle + "\"");
+            }
+            if (!document.path().startsWith("/api/v1/wishlist")) {
+                assertNoPrivateNotes(document.body(), document.path());
+            }
+        }
+        assertContract(output);
+    }
+
+    /**
      * The profile pages of stage R6 (mockup screens 19 to 21) as the phone reads them, signed in as
      * every seed collector: the profile, then each section (the first public cards, the binders,
      * the wishes when shown, the rating summary and the 2 latest references), and the caller's own

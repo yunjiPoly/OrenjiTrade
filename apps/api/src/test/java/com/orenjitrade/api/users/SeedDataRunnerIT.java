@@ -43,8 +43,9 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 testUsers.count(
                         "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
                                 + " '00000000-0000-4000-8c00-%'");
-        // Stage R3 added collector2's deck core "Moth Queen core" and its three cards.
-        assertThat(binders).isEqualTo(12);
+        // Stage R3 added collector2's deck core "Moth Queen core" and its three cards; stage G
+        // split the five binders that mixed games into one binder per game (18).
+        assertThat(binders).isEqualTo(18);
         assertThat(items).isEqualTo(42);
         seedDataRunner.seedAll();
         assertThat(
@@ -77,7 +78,16 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                         + " '00000000-0000-4000-8b00-000000000601' AND"
                                         + " freshness_state = 'HIDDEN' AND hidden_reason ="
                                         + " 'STALE_UNCONFIRMED'"))
-                .isEqualTo(3);
+                .isEqualTo(2);
+        // Stage G: every seeded binder holds the cards of its own game only.
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item i JOIN binder b ON b.id ="
+                                        + " i.binder_id JOIN card_printing p ON p.id ="
+                                        + " i.printing_id JOIN card c ON c.id = p.card_id WHERE"
+                                        + " b.id::text LIKE '00000000-0000-4000-8b00-%' AND"
+                                        + " c.game_id <> b.game_id"))
+                .isZero();
         Map<String, Object> core = binderRow("00000000-0000-4000-8b00-000000000202");
         assertThat(core.get("sells_as_core")).isEqualTo(true);
         assertThat(core.get("asking_price_text")).isEqualTo("$95");
