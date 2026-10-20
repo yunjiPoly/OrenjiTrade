@@ -61,9 +61,10 @@ public final class BinderRequests {
                             description =
                                     "The game whose cards the binder holds (stage G): an ACTIVE"
                                         + " game with cards (GET /games, hasCards), else 400. The"
-                                        + " phone always sends it; without it (the paused web) the"
-                                        + " binder is a Yu-Gi-Oh! binder. Only cards of this game"
-                                        + " go in (409 BINDER_GAME_MISMATCH)")
+                                        + " phone always sends it. Without it (the paused web) the"
+                                        + " binder takes the game of the first card filed in it"
+                                        + " while it holds none (Yu-Gi-Oh! until then). Only cards"
+                                        + " of its game go in (409 BINDER_GAME_MISMATCH)")
                     @Nullable UUID gameId) {}
 
     /**

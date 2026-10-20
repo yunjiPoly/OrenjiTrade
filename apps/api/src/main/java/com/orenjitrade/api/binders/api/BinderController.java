@@ -76,7 +76,8 @@ public class BinderController {
                             + " ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder"
                             + " limit, the same for every collector. `gameId` (stage G): the one"
                             + " game whose cards it holds, an ACTIVE game with cards (400"
-                            + " otherwise); without it, a Yu-Gi-Oh! binder (the paused web).")
+                            + " otherwise); without it (the paused web) the binder takes the"
+                            + " game of the first card filed in it while it holds none.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",

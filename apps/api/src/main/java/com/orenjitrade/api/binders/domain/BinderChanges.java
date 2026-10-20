@@ -21,7 +21,8 @@ public final class BinderChanges {
      * @param sellsAsCore "Sell as a deck core" (stage R3); false when null
      * @param askingPriceText the deck core's asking price as typed (at most 40 characters)
      * @param gameId the game whose cards the binder holds (stage G): an ACTIVE game with cards;
-     *     {@code null} only from the paused web, which has no game picker: Yu-Gi-Oh!
+     *     {@code null} only from the paused web, which has no game picker: the binder then takes
+     *     the game of the first card filed in it while it holds none (Yu-Gi-Oh! until then)
      */
     public record NewBinder(
             String name,
@@ -34,7 +35,7 @@ public final class BinderChanges {
             @Nullable String askingPriceText,
             @Nullable UUID gameId) {
 
-        /** A binder of stage R3 (no game: Yu-Gi-Oh!). */
+        /** A binder of stage R3 (no game: it follows its first card). */
         public NewBinder(
                 String name,
                 @Nullable String description,

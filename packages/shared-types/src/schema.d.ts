@@ -1708,7 +1708,7 @@ export interface paths {
         put?: never;
         /**
          * Create a binder
-         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector. `gameId` (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it, a Yu-Gi-Oh! binder (the paused web).
+         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector. `gameId` (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none.
          */
         post: operations["createBinder"];
         delete?: never;
@@ -7504,7 +7504,7 @@ export interface components {
             askingPriceText?: string;
             /**
              * Format: uuid
-             * @description The game whose cards the binder holds (stage G): an ACTIVE game with cards (GET /games, hasCards), else 400. The phone always sends it; without it (the paused web) the binder is a Yu-Gi-Oh! binder. Only cards of this game go in (409 BINDER_GAME_MISMATCH)
+             * @description The game whose cards the binder holds (stage G): an ACTIVE game with cards (GET /games, hasCards), else 400. The phone always sends it. Without it (the paused web) the binder takes the game of the first card filed in it while it holds none (Yu-Gi-Oh! until then). Only cards of its game go in (409 BINDER_GAME_MISMATCH)
              */
             gameId?: string;
         };

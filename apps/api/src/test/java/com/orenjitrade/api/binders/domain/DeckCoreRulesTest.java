@@ -42,7 +42,8 @@ class DeckCoreRulesTest {
                 "CAD",
                 soldAt,
                 UUID.randomUUID(),
-                "yugioh");
+                "yugioh",
+                false);
     }
 
     static BinderDetails details(BinderView binder, long publicItems) {

@@ -99,7 +99,10 @@ public class BinderService {
     /** Default currency of a binder's price (as inventory items). */
     public static final String DEFAULT_CURRENCY = "CAD";
 
-    /** The game of a binder made without one (the paused web has no game picker, stage G). */
+    /**
+     * The game of a binder made without one until its first card sets it (the paused web has no
+     * game picker, stage G).
+     */
     public static final String DEFAULT_GAME = "yugioh";
 
     static final String NOT_FOUND = "Binder not found";
@@ -203,6 +206,7 @@ public class BinderService {
                 input.coverPrintingId(),
                 coreFields(Boolean.TRUE.equals(input.sellsAsCore()), priceText),
                 game.id(),
+                input.gameId() == null,
                 now);
         reconcileListing(ListingScope.Binders.of(List.of(id)));
         log.info(
@@ -300,7 +304,26 @@ public class BinderService {
         return game.get();
     }
 
-    /** The game of a binder made without one: Yu-Gi-Oh! (the paused web, stage G). */
+    /**
+     * A card of game {@code cardGame} goes into {@code binder}, which the caller holds (owner lock,
+     * row lock): a binder made without a game ({@link BinderView#gameFollowsCards()}) that holds no
+     * card (live, or deleted with an undo still open) takes that game; any other binder keeps its
+     * own. Returns the binder as it now is.
+     */
+    public BinderView followCardGame(BinderView binder, String cardGame, boolean empty) {
+        if (binder.game().equals(cardGame) || !binder.gameFollowsCards() || !empty) {
+            return binder;
+        }
+        Optional<GameView> game = games.find(cardGame).filter(GameView::isActive);
+        if (game.isEmpty()) {
+            return binder;
+        }
+        repository.followCardGame(binder.id(), game.get().id());
+        log.info("Binder game follows its first card binder={} game={}", binder.id(), cardGame);
+        return binder.withGame(game.get().id(), game.get().slug());
+    }
+
+    /** The placeholder game of a binder made without one: Yu-Gi-Oh! (stage G). */
     private GameView defaultGame() {
         return games.find(DEFAULT_GAME)
                 .orElseThrow(() -> new IllegalStateException("The game yugioh is missing"));

@@ -287,7 +287,14 @@ public class InventoryBatchService {
         binders.lockInOrder(ownerId, binderIds);
         if (binderId != null) {
             BinderView binder = binders.requireOwned(ownerId, binderId);
-            // A binder holds the cards of one game (stage G): the whole batch or nothing.
+            // A binder holds the cards of one game (stage G): the whole batch or nothing. A
+            // binder made without a game that holds no card takes the game of the first line.
+            if (binder.gameFollowsCards() && !lines.isEmpty()) {
+                boolean empty =
+                        binder.itemCount() == 0
+                                && items.countRestorableInBinder(binderId, now) == 0;
+                binder = binders.followCardGame(binder, lines.get(0).game(), empty);
+            }
             for (Planned line : lines) {
                 InventoryService.requireBinderGame(binder, line.game());
             }

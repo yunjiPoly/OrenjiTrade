@@ -39,7 +39,8 @@ class PublicPriceTest {
                 "CAD",
                 null,
                 UUID.randomUUID(),
-                "yugioh");
+                "yugioh",
+                false);
     }
 
     @Test

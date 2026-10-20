@@ -18,6 +18,9 @@
 --    (SYSTEM, binder.game.cards_moved_out, with how many), and a NOTICE in the migration log gives
 --    the totals.
 -- 4. game_id becomes NOT NULL.
+-- 5. binder.game_follows_cards (default false): a binder made without a game (the paused web has
+--    no game picker) takes the game of the first card filed in it while it holds none; every
+--    binder of this migration has its game and does not follow its cards.
 --
 -- Locks (docs/database/schema.md, "Locks of binders and inventory items"): the owner lock of
 -- every collector who has a binder comes first, taken in the order of their keys as
@@ -148,8 +151,10 @@ END
 $$;
 
 ALTER TABLE binder ALTER COLUMN game_id SET NOT NULL;
+ALTER TABLE binder ADD COLUMN game_follows_cards boolean NOT NULL DEFAULT false;
 ALTER TABLE binder
     ADD CONSTRAINT fk_binder_game FOREIGN KEY (game_id) REFERENCES game (id);
 CREATE INDEX ix_binder_game ON binder (game_id);
 
+COMMENT ON COLUMN binder.game_follows_cards IS 'The binder was made without a game (the paused web): while it holds no card (live or undoable), the first card filed in it sets game_id. False for binders made with a game and for every binder of V131.';
 COMMENT ON COLUMN binder.game_id IS 'The one game whose cards the binder holds (stage G); chosen at creation, changeable only while the binder holds no live card (409 BINDER_GAME_LOCKED); a card of another game is refused (409 BINDER_GAME_MISMATCH).';

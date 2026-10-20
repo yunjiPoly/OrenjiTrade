@@ -295,7 +295,7 @@ public class InventoryService {
         if (printing == null) {
             throw ApiException.validation("Validation failed", errors);
         }
-        requireBinderGame(binder, printing.card().game());
+        binder = binderForCard(binder, printing.card().game(), now);
         boolean conditionStated = !Boolean.FALSE.equals(input.conditionStated());
         if (!conditionStated && !blank(input.condition())) {
             errors.add(
@@ -385,7 +385,7 @@ public class InventoryService {
                 binderId == null ? null : binders.requireOwned(ownerId, binderId);
         boolean moved = !Objects.equals(binderId, current.binderId());
         if (moved || printingChanged) {
-            requireBinderGame(target, printing.card().game());
+            target = binderForCard(target, printing.card().game(), now);
         }
 
         ListingVisibility visibility =
@@ -641,6 +641,17 @@ public class InventoryService {
         Map<UUID, ItemRow> owned = new LinkedHashMap<>();
         for (ItemRow row : items.findByIds(lockedIds, now)) {
             owned.put(row.id(), row);
+        }
+        if (target != null && target.gameFollowsCards()) {
+            // A binder made without a game takes the game of the first card moved in while it
+            // holds none (stage G); the cards of another game are then skipped.
+            for (UUID id : ids) {
+                ItemRow first = owned.get(id);
+                if (first != null) {
+                    target = binders.followCardGame(target, first.game(), binderEmpty(target, now));
+                    break;
+                }
+            }
         }
         List<Skipped> skipped = new ArrayList<>();
         List<UUID> changed = new ArrayList<>();
@@ -1367,6 +1378,30 @@ public class InventoryService {
         if (binder != null && !binder.game().equals(cardGame)) {
             throw new ApiException(ErrorCode.BINDER_GAME_MISMATCH, GAME_MISMATCH);
         }
+    }
+
+    /**
+     * A card of {@code cardGame} goes into {@code binder} (held by the caller): a binder made
+     * without a game that holds no card takes the card's game ({@link
+     * BinderService#followCardGame}); then the card must be of the binder's game ({@code 409
+     * BINDER_GAME_MISMATCH}). Returns the binder as it now is.
+     */
+    private @Nullable BinderView binderForCard(
+            @Nullable BinderView binder, String cardGame, Instant now) {
+        if (binder == null) {
+            return null;
+        }
+        BinderView current =
+                binder.gameFollowsCards()
+                        ? binders.followCardGame(binder, cardGame, binderEmpty(binder, now))
+                        : binder;
+        requireBinderGame(current, cardGame);
+        return current;
+    }
+
+    /** No live card, and no deleted card whose undo can still bring it back (stage G). */
+    boolean binderEmpty(BinderView binder, Instant now) {
+        return binder.itemCount() == 0 && items.countRestorableInBinder(binder.id(), now) == 0;
     }
 
     /**
