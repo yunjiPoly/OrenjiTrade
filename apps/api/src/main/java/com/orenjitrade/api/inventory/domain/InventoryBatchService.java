@@ -65,11 +65,12 @@ import org.springframework.transaction.support.TransactionTemplate;
  * visibility and the binder, raises only an item in that binder with that visibility, and confirms.
  *
  * <p>An {@code Idempotency-Key} repeats the first answer for 24 hours, whatever the body of the
- * repeat: the phone keeps one key for a scan's add, so adding again after an answer that was lost
- * (no signal, a timeout) never adds the cards a second time. The key is looked up under the owner
- * lock, so a repeat that arrives while the first add still runs waits for it and gets its answer;
- * the answer is kept before the commit and forgotten when the transaction rolls back. Like the
- * reports' and the offers' keys, it lives in Redis and fails open (Redis down: no repeat check).
+ * repeat: the phone keeps the key of an add with the exact body it sent and sends that body again
+ * under it after an answer that was lost (no signal, a timeout), so the cards are never added a
+ * second time; its next add has a new key. The key is looked up under the owner lock, so a repeat
+ * that arrives while the first add still runs waits for it and gets its answer; the answer is kept
+ * before the commit and forgotten when the transaction rolls back. Like the reports' and the
+ * offers' keys, it lives in Redis and fails open (Redis down: no repeat check).
  */
 @Service
 public class InventoryBatchService {

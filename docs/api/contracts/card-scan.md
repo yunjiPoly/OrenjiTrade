@@ -224,12 +224,18 @@ The review list's "Add {n} cards to inventory": only the ready cards.
 
 1 to 100 letters, digits or `. _ : -` (another value: 400 `VALIDATION_FAILED` on
 `Idempotency-Key`). The same key from the same collector repeats the **first answer** for 24 hours,
-**whatever the body of the repeat**, and adds nothing again. The phone keeps one key per scan
-(`scan-<uuid>`), so adding again after an answer that was lost (no signal, no answer within the
-phone's 30 s) never adds the cards twice; a new scan has a new key. The key is looked up under the
-owner lock: a repeat sent while the first add still runs waits for it and gets its answer. Only an
-add that went through is kept (a 400, 404 or 429 is not: the same key may add once the refusal is
-fixed). Like the reports' and the offers' keys it lives in Redis and fails open.
+**whatever the body of the repeat**, and adds nothing again. The phone makes a new key for each add
+(`scan-<uuid>`) and keeps it with the exact body it sent while that add has no answer: adding again
+after an answer that was lost (no signal, no answer within the phone's 30 s) sends **the same body
+under the same key**, so the cards are never added twice and nothing sent can change on the way
+(the review keeps those cards and its pills as they were sent, "Not confirmed yet"). Cards that
+became ready since go in a later add, under a new key. The key is looked up under the owner lock,
+after the flag check and the validation of the body and before the binder and the limit: a repeat
+sent while the first add still runs waits for it and gets its answer. Only an add that went through
+is kept (a 400, 404 or 429 is not: the same key may add once the refusal is fixed). So a repeat
+refused for the binder (404) or the limit (429) tells the phone that the first try did not go
+through either; a repeat refused before the look-up (404 `FEATURE_DISABLED`, 400) does not, and the
+phone still cannot tell. Like the reports' and the offers' keys it lives in Redis and fails open.
 
 ### Body `AddInventoryItemsBatchRequest`
 
@@ -286,7 +292,8 @@ One transaction:
 The phone's toast "Saved · {n} cards" counts the copies of the ready cards it sent
 (`copiesAdded`). Without an answer (offline, none within 30 s, a 5xx) the phone cannot tell whether
 the cards were added: it says so, keeps the scan, reads the inventory again, and adding again sends
-the same key.
+the same body under the same key first. The cards an add answered leave the scan (their photos are
+deleted); the scan ends once no ready card is left.
 
 ### Example
 

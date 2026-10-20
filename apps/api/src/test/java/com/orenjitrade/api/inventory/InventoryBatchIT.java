@@ -512,7 +512,8 @@ class InventoryBatchIT extends AbstractIntegrationTest {
         assertThat(first.path("itemsCreated").asInt()).isEqualTo(1);
         assertThat(first.path("copiesAdded").asInt()).isEqualTo(2);
 
-        // The answer was lost: the phone adds again with the scan's key, whatever it sends now.
+        // The answer was lost: the phone sends the same body again under the same key. A repeat
+        // of the key gets the first answer whatever its body: nothing is added a second time.
         JsonNode again = addWithKey(uid, body, key, 200);
         assertThat(again).isEqualTo(first);
         JsonNode changed =
