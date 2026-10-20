@@ -11,10 +11,10 @@ import {
 } from './support/stack';
 
 /**
- * "Looking for" on a collector's profile (stage M7, the web's `app-collector-wishlist` on
- * `GET /collectors/{handle}/wishlist`): the public wishlist of a collector who enabled "Let others
- * see what you want" (card, which copy, public note, Near Mint only and price term; never radii
- * or notes); nothing for a collector who keeps it private (404).
+ * "Looking for" on a collector's profile (stage M7, redrawn by stage R6 on
+ * `GET /collectors/{handle}/wishlist`): the public wishes of a collector who enabled "Let others
+ * see what you want" (picture, name, terms, "I have it"; never radii or notes); "No public wishes."
+ * for a collector who keeps them private (404), as for one who has none.
  */
 test.describe('mobile collector wishlist', () => {
   requireStack();
@@ -55,23 +55,13 @@ test.describe('mobile collector wishlist', () => {
     expect(body).toHaveLength(1);
     expect(body[0]).not.toHaveProperty('maxPrice');
     expect(body[0]).not.toHaveProperty('radiusKm');
-    const section = profile.getByTestId('collector-wishlist');
+    // Looking for (stage R6): the picture, the name and the terms, with "I have it".
+    const section = profile.getByTestId('profile-wishes');
     await expect(section).toBeVisible({ timeout: 30_000 });
-    await expect(section).toContainText('1 card Open Wisher is looking for');
-    const wish = section.getByTestId(`collector-wish-${cardId}`);
-    await expect(wish).toContainText(cardName);
-    await expect(wish).toContainText('Any printing');
-    await expect(wish).toContainText('Sleeved copies welcome.');
-    await expect(wish).toContainText('Near Mint only');
-    await expect(wish).toContainText('90% TCG');
+    await expect(section).toContainText(cardName);
+    await expect(section).toContainText('Any printing · NM only · 90% TCG');
     await expect(section).not.toContainText('km');
-
-    // The wish opens the card.
-    await wish.click();
-    await expect(screen(page, 'card').getByTestId('card-name')).toHaveText(cardName, {
-      timeout: 30_000,
-    });
-    await page.goBack();
+    await expect(profile.getByTestId(`profile-have-${cardId}`)).toBeVisible();
 
     // The closed profile: the API answers 404 and no section appears.
     const hidden = page.waitForResponse((response) =>
@@ -83,7 +73,8 @@ test.describe('mobile collector wishlist', () => {
       timeout: 30_000,
     });
     expect((await hidden).status()).toBe(404);
-    await expect(other.getByTestId('collector-about')).toBeVisible();
-    await expect(other.getByTestId('collector-wishlist')).toHaveCount(0);
+    // A hidden wishlist reads like an empty one: nothing says why.
+    await expect(other.getByTestId('profile-wishes-empty')).toHaveText('No public wishes.');
+    await expect(other.getByTestId(`profile-have-${cardId}`)).toHaveCount(0);
   });
 });

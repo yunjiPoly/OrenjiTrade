@@ -1,0 +1,204 @@
+# Native flow 6 of the phone redesign (owner spec 2026-10-14, section 14; stage R6, mockup screens
+# 19 to 21): the profile pages and the Settings gear. Vic (fictional, in Ontario, holding a public
+# copy of the card Dana wants) opens Dana's profile: the line with her shown city and her province,
+# "Message {handle}", Cards, Binders with her deck core, Looking for with "I have it", the small top
+# bar once scrolled, Ratings & references and its "See all", the "⋯" sheet. "I have it" opens the
+# chat with Vic's copy pinned and the text in the box, nothing sent until send; sent, it shares the
+# card and the text. Then Vic's Profile tab, its gear opening Settings, and "See all" of the cards
+# leading to the Inventory (scripts/parity.js, ACTION=profiles and check-have).
+appId: ${APP_ID}
+name: Profile pages and the Settings gear
+tags:
+  - mobile-r6
+  - profiles
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: profiles
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 60000
+
+# Dana's profile (screen 19): the city she shows, her province, this week; Message; her listings.
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.dana.displayName}
+    timeout: 60000
+- assertVisible:
+    id: 'collector-line'
+    text: 'Laval, Quebec · Member since \d{4} · Active this week'
+- assertVisible:
+    id: 'collector-message'
+    text: 'Message ${output.dana.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-card-${output.items.dana}'
+      text: '.*85% TCG'
+    timeout: 30000
+- assertVisible: 'Maestro profile core, deck core, \$95'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: r6-collector-profile
+
+# The "⋯" sheet: Share profile, Report, Block; Cancel closes it.
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-block'
+    timeout: 15000
+- assertVisible:
+    id: 'collector-share'
+- assertVisible:
+    id: 'collector-report'
+- takeScreenshot: r6-collector-menu
+- tapOn:
+    id: 'collector-menu-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'collector-block'
+    timeout: 15000
+
+# Looking for (screen 20): Dana's wish with "I have it"; the top bar shows her name and Message.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-have-${output.card.id}'
+- assertVisible: 'Any printing · NM only · 90% TCG'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-top-bar-name'
+      text: ${output.dana.displayName}
+    timeout: 15000
+- assertVisible:
+    id: 'profile-top-bar-message'
+- takeScreenshot: r6-collector-profile-scrolled
+
+# Ratings & references in full ("See all references"): rate and write a reference live there.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-references-see-all'
+- tapOn:
+    id: 'profile-references-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-ratings'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+    timeout: 30000
+
+# "I have it": the chat with Vic's copy pinned (he is the seller), the text and the card in the
+# box; nothing is sent until he taps send.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-have-${output.card.id}'
+- tapOn:
+    id: 'profile-have-${output.card.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-input'
+      text: 'I have .* for your wishlist\. Interested\?'
+    timeout: 60000
+- assertVisible:
+    id: 'composer-attachment'
+- assertVisible:
+    id: 'pinned-mark-sold'
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: check-have
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+      HANDLE: ${output.dana.handle}
+      ITEM: ${output.items.vic}
+      EXPECT_COUNT: '0'
+- takeScreenshot: r6-i-have-it-chat
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    notVisible:
+      id: 'composer-attachment'
+    timeout: 30000
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: check-have
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+      HANDLE: ${output.dana.handle}
+      ITEM: ${output.items.vic}
+      EXPECT_COUNT: '1'
+      EXPECT_KIND: CARD_LINK
+- takeScreenshot: r6-i-have-it-sent
+
+# Vic's Profile tab (screen 21): his page as others see it, Edit profile and Share profile.
+- openLink: ${APP_URL}/--/profile
+- runFlow: subflows/dismiss-dev-menu.yaml
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Vic Maestro'
+- assertVisible:
+    id: 'profile-line'
+    text: 'Ontario · Member since \d{4}'
+- assertVisible:
+    id: 'profile-edit'
+- assertVisible:
+    id: 'profile-share'
+- assertNotVisible:
+    id: 'collector-message'
+- takeScreenshot: r6-profile-tab
+
+# The gear opens Settings: everything the Profile tab reached before is there.
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 30000
+- assertVisible:
+    id: 'settings-link-profile'
+- assertVisible:
+    id: 'settings-link-location'
+- assertVisible:
+    id: 'settings-link-privacy'
+- assertVisible:
+    id: 'settings-link-shipping'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-sign-out'
+- assertVisible:
+    id: 'settings-link-legal'
+- assertNotVisible: 'Premium'
+- assertNotVisible: 'Payouts'
+- takeScreenshot: r6-settings-from-gear
+- runFlow: subflows/go-back.yaml
+
+# "See all" of your cards is your Inventory.
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-cards-see-all'
+- tapOn:
+    id: 'profile-cards-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-inventory'
+    timeout: 30000

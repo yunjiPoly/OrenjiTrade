@@ -30,10 +30,13 @@ tags:
       id: 'collector-name'
       text: 'Bo Reported'
     timeout: 60000
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'collector-report'
+# Report is in the profile's "⋯" sheet (stage R6).
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-report'
+    timeout: 15000
 - tapOn:
     id: 'collector-report'
 

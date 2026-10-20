@@ -82,7 +82,7 @@ tags:
 - runFlow: subflows/open-profile-tab.yaml
 - assertVisible:
     id: 'profile-handle-label'
-    text: '@${output.collector.handle}'
+    text: '@${output.collector.handle}( ·)?'
 - assertVisible:
     id: 'profile-name'
     text: 'Maestro Googler'

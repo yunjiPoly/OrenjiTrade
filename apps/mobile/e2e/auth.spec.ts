@@ -148,10 +148,14 @@ test.describe('mobile accounts', () => {
     const profile = screen(page, 'profile');
     await expect(profile.getByTestId('profile-name')).toHaveText('Mobile Newbie');
     await expect(profile.getByTestId('profile-handle-label')).toHaveText(`@${handle}`);
-    await expect(profile.getByTestId('profile-area')).toHaveText('Quebec, Canada');
-    await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
+    // Not discoverable yet: your page, as others see it, has no place (stage R6).
+    await expect(profile.getByTestId('profile-line')).toHaveText(
+      /^Not on the map · Member since \d{4}$/
+    );
 
-    await profile.getByRole('button', { name: 'Sign out' }).click();
+    // Sign out is in Settings, behind the gear.
+    await profile.getByTestId('profile-settings').click();
+    await screen(page, 'settings').getByRole('button', { name: 'Sign out' }).click();
     await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
 
     // The session is gone: a reload stays signed out.

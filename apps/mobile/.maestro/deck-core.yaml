@@ -386,18 +386,14 @@ tags:
     timeout: 60000
 - tapOn:
     id: 'edit-binder-back'
+# The Profile tab is the page others see (stage R6): its Binders rail, where your deck core opens
+# Edit binder.
 - runFlow: subflows/open-profile-tab.yaml
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'profile-preview'
-- tapOn:
-    id: 'profile-preview'
 - runFlow:
     file: subflows/scroll-down-to-text.yaml
     env:
-      TEXT: 'Maestro core, Deck core · \$150'
-- tapOn: 'Maestro core, Deck core · \$150'
+      TEXT: 'Maestro core, deck core, \$150'
+- tapOn: 'Maestro core, deck core, \$150'
 - extendedWaitUntil:
     visible:
       id: 'edit-binder-save'
@@ -416,14 +412,13 @@ tags:
 - tapOn:
     id: 'edit-binder-save'
 - extendedWaitUntil:
-    visible: 'Maestro core, Deck core · \$120'
+    visible: 'Maestro core, deck core, \$120'
     timeout: 30000
 - takeScreenshot: r3-profile-row-after-save
 
 # Native flow 2 in full (stage R5): the deck core is found in Search. The map opens on the
 # collector's province, whose card counts its deck cores; "See binders", then "Deck cores": the row
 # with the core's price, which opens its page (the owner sees "Edit binder").
-- runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
       id: 'tab-search'
@@ -468,18 +463,12 @@ tags:
     visible:
       id: 'binders-kind-cores'
     timeout: 30000
-# Back to the profile's public preview, where the delete below starts.
+# Back to the Profile tab, where the delete below starts.
 - runFlow: subflows/open-profile-tab.yaml
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'profile-preview'
-- tapOn:
-    id: 'profile-preview'
 - runFlow:
     file: subflows/scroll-down-to-text.yaml
     env:
-      TEXT: 'Maestro core, Deck core · \$120'
+      TEXT: 'Maestro core, deck core, \$120'
 
 # "Delete binder" from that Edit binder closes every screen of the deck core and lands on
 # Inventory › Binders (R3 review fix 2: it showed "This binder is not available"); the card stays
@@ -489,7 +478,7 @@ tags:
 - extendedWaitUntil:
     notVisible: 'Saved.*Maestro core.*'
     timeout: 20000
-- tapOn: 'Maestro core, Deck core · \$120'
+- tapOn: 'Maestro core, deck core, \$120'
 - extendedWaitUntil:
     visible:
       id: 'edit-binder-delete'

@@ -72,7 +72,8 @@ tags:
 - assertVisible:
     id: 'profile-name'
     text: 'Maïka Tremblay'
+# "@collector1 ·" with the star of the rating beside it once rated (stage R6).
 - assertVisible:
     id: 'profile-handle-label'
-    text: '@collector1'
+    text: '@collector1( ·)?'
 - takeScreenshot: sign-in-profile

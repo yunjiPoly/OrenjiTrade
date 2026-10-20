@@ -31,11 +31,10 @@ test.describe('mobile location and discoverability', () => {
 
     await openTab(page, 'Profile');
     const profile = screen(page, 'profile');
-    await expect(profile.getByTestId('profile-area')).toHaveText('No location yet.', {
-      timeout: 30_000,
-    });
-    await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
-    await profile.getByRole('link', { name: 'Location and discoverability' }).click();
+    // Your page has no place yet: its "Not on the map" opens Location (stage R6).
+    const line = profile.getByTestId('profile-line');
+    await expect(line).toHaveText(/^Not on the map · Member since \d{4}$/, { timeout: 30_000 });
+    await line.click();
 
     const settings = screen(page, 'settings-location');
     await expect(settings.getByTestId('location-none')).toBeVisible({ timeout: 30_000 });
@@ -116,20 +115,13 @@ test.describe('mobile location and discoverability', () => {
     });
     privacy.scan(`${API_URL}/api/v1/me/location`, body);
 
-    // The profile tab reflects it; the public preview shows the state and the shown city.
+    // The Profile tab is your page as others see it: the shown city and the province.
     await page.goBack();
     const refreshed = screen(page, 'profile');
-    await expect(refreshed.getByTestId('profile-visibility')).toHaveText(
-      'Visible on the map in Ontario, Canada.',
+    await expect(refreshed.getByTestId('profile-line')).toHaveText(
+      /^Ottawa, Ontario · Member since \d{4}$/,
       { timeout: 30_000 }
     );
-    await expect(refreshed.getByTestId('profile-area')).toHaveText('Ottawa, Ontario, Canada');
-    await refreshed.getByRole('button', { name: 'Public preview' }).click();
-    await expect(screen(page, 'collector').getByTestId('collector-location')).toHaveText(
-      'Ottawa, Ontario, Canada',
-      { timeout: 30_000 }
-    );
-    await page.goBack();
 
     // Opting out again hides the collector; removing the location clears it.
     await screen(page, 'profile').getByTestId('profile-settings').click();

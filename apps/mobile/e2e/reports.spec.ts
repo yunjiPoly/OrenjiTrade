@@ -40,7 +40,9 @@ test.describe('mobile collector reports', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText(ben.displayName, {
       timeout: 30_000,
     });
-    await profile.getByRole('button', { name: `Report ${ben.displayName}` }).click();
+    // Report is in the profile's "⋯" sheet (stage R6).
+    await page.getByRole('button', { name: `More for ${ben.handle}` }).click();
+    await page.getByRole('button', { name: `Report ${ben.handle}` }).click();
 
     const report = screen(page, 'report');
     await expect(report.getByTestId('report-target')).toHaveText(ben.displayName);

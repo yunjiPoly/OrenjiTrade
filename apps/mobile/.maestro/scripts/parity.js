@@ -15,6 +15,14 @@
 //   Lightly Played for sale at 20 CAD not accepting offers).
 //   Outputs: output.ada.{email, password, displayName}, output.ben.{handle, displayName},
 //            output.card.{id, name}, output.items.{offers, cheap}
+// ACTION=profiles (stage R6, native flow 6) creates Vic (the app user, in Ontario, holding a
+//   public PFT-002 copy at "$12.50") and Dana (in Quebec, city "Laval" shown on her profile,
+//   wishes shown: a public binder with a PFT-002 copy at "85% TCG", a deck core "Maestro profile
+//   core" at "$95", a wish for the card: any printing, Near Mint only, "90% TCG").
+//   Outputs: output.vic.{email, password, displayName}, output.dana.{handle, displayName},
+//            output.card.{id, name}, output.items.{dana, vic}
+// ACTION=check-have checks, as EMAIL / PASSWORD, the chat with HANDLE: its card is ITEM (the
+//   copy "I have it" pinned) and it holds EXPECT_COUNT messages (EXPECT_KIND the newest, if any).
 // ACTION=expect-blocks checks, as EMAIL / PASSWORD, that `GET /me/blocks` holds EXPECT_COUNT
 //   collectors (HANDLE among them when given).
 // ACTION=verify-email marks the e-mail of EMAIL / PASSWORD as verified in the emulator (a
@@ -22,7 +30,7 @@
 //   keeps the password when Google signs in with the same e-mail instead of replacing it.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
-// EXPECT_COUNT, HANDLE.
+// EXPECT_COUNT, HANDLE, ITEM, EXPECT_KIND.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -86,9 +94,10 @@ function signIn(email, password) {
 
 var QUEBEC = { countryCode: 'CA', subdivisionCode: 'CA-QC' };
 var WYOMING = { countryCode: 'US', subdivisionCode: 'US-WY' };
+var ONTARIO = { countryCode: 'CA', subdivisionCode: 'CA-ON' };
 
 /** A fresh onboarded collector with a declared place; `privacy` merges into the settings. */
-function createCollector(prefix, displayName, place, privacy) {
+function createCollector(prefix, displayName, place, privacy, city) {
   var suffix = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   var email = 'm-' + runId + '-maestro-' + prefix + '-' + suffix + '@mobile-e2e.test';
   var password = 'Maestro-Pass-42';
@@ -134,7 +143,7 @@ function createCollector(prefix, displayName, place, privacy) {
       body: JSON.stringify({
         countryCode: place.countryCode,
         subdivisionCode: place.subdivisionCode,
-        city: null,
+        city: city || null,
         showCity: true,
       }),
     }),
@@ -253,6 +262,112 @@ if (action === 'looking-for') {
     offers: listCopy('NEAR_MINT', 'TRADE_OR_SALE', 45, true),
     cheap: listCopy('LIGHTLY_PLAYED', 'SALE', 20, false),
   };
+} else if (action === 'profiles') {
+  var vic = createCollector('vic', 'Vic Maestro', ONTARIO, null);
+  var dana = createCollector('dana', 'Dana Maestro', QUEBEC, { wishlistVisible: true }, 'Laval');
+  var wished = printingOf(dana.token, 'PFT-002');
+  function postJson(token, path, body, what) {
+    return check(
+      http.post(api + path, { headers: jsonHeaders(token), body: JSON.stringify(body) }),
+      what
+    );
+  }
+  var shelf = postJson(
+    dana.token,
+    '/api/v1/binders',
+    { name: 'Maestro profile binder', visibility: 'PUBLIC', description: 'Fictional binder.' },
+    'POST /binders'
+  );
+  var danaCard = postJson(
+    dana.token,
+    '/api/v1/inventory/items',
+    {
+      printingId: wished.printingId,
+      binderId: shelf.id,
+      visibility: 'PUBLIC',
+      askingPriceText: '85% TCG',
+      availability: 'TRADE_OR_SALE',
+      acceptsOffers: false,
+      conditionStated: false,
+    },
+    'POST /inventory/items (Dana)'
+  );
+  postJson(
+    dana.token,
+    '/api/v1/binders',
+    {
+      name: 'Maestro profile core',
+      visibility: 'PUBLIC',
+      sellsAsCore: true,
+      askingPriceText: '$95',
+      description: 'Fictional deck core of the Maestro flows.',
+    },
+    'POST /binders (deck core)'
+  );
+  postJson(
+    dana.token,
+    '/api/v1/wishlist',
+    { cardId: wished.cardId, nearMintOnly: true, priceTerm: '90% TCG' },
+    'POST /wishlist'
+  );
+  var vicCard = postJson(
+    vic.token,
+    '/api/v1/inventory/items',
+    {
+      printingId: wished.printingId,
+      visibility: 'PUBLIC',
+      askingPriceText: '$12.50',
+      availability: 'TRADE_OR_SALE',
+      acceptsOffers: false,
+      conditionStated: false,
+    },
+    'POST /inventory/items (Vic)'
+  );
+  output.vic = { email: vic.email, password: vic.password, displayName: vic.displayName };
+  output.dana = { handle: dana.handle, displayName: dana.displayName };
+  output.card = { id: wished.cardId, name: wished.cardName };
+  output.items = { dana: danaCard.id, vic: vicCard.id };
+} else if (action === 'check-have') {
+  var reader = signIn(EMAIL, PASSWORD);
+  var inbox = check(
+    http.get(api + '/api/v1/conversations?limit=50', { headers: jsonHeaders(reader) }),
+    'GET /conversations'
+  );
+  var chat = null;
+  var rows = inbox.items || [];
+  for (var r = 0; r < rows.length; r++) {
+    if (rows[r].other && rows[r].other.handle === HANDLE) {
+      chat = rows[r];
+    }
+  }
+  if (!chat) {
+    throw new Error('No chat with ' + HANDLE + ': ' + JSON.stringify(rows));
+  }
+  var one = check(
+    http.get(api + '/api/v1/conversations/' + chat.id, { headers: jsonHeaders(reader) }),
+    'GET /conversations/{id}'
+  );
+  if (!one.subject || one.subject.id !== ITEM) {
+    throw new Error('The chat card is not ' + ITEM + ': ' + JSON.stringify(one.subject));
+  }
+  var thread = check(
+    http.get(api + '/api/v1/conversations/' + chat.id + '/messages?limit=30', {
+      headers: jsonHeaders(reader),
+    }),
+    'GET messages'
+  ).items;
+  if (thread.length !== Number(EXPECT_COUNT)) {
+    throw new Error('Expected ' + EXPECT_COUNT + ' messages, got ' + JSON.stringify(thread));
+  }
+  if (typeof EXPECT_KIND !== 'undefined' && thread.length > 0) {
+    var kinds = [];
+    for (var m = 0; m < thread.length; m++) {
+      kinds.push(thread[m].kind);
+    }
+    if (kinds.indexOf(EXPECT_KIND) < 0) {
+      throw new Error('No ' + EXPECT_KIND + ' message: ' + JSON.stringify(thread));
+    }
+  }
 } else if (action === 'expect-blocks') {
   var blocks = check(
     http.get(api + '/api/v1/me/blocks', { headers: jsonHeaders(signIn(EMAIL, PASSWORD)) }),
