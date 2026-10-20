@@ -31,7 +31,7 @@ import {
 } from '@/src/theme';
 
 import { PROFILE_COPY } from './profileCopy';
-import { referenceMonth } from './profileRules';
+import { deckCoresFirst, referenceMonth } from './profileRules';
 
 /** What a section needs of a query: its data, its failure and a retry. */
 export interface SectionQuery<T> {
@@ -311,7 +311,8 @@ export function BindersSection({
   const { palette } = useTheme();
   // From the larger text sizes on, rows (as the Cards): a tile cut the names short.
   const stacked = useStackedRows();
-  const list = binders.data ?? [];
+  // Deck cores first, as in Inventory › Binders (mockup screens 19 and 21).
+  const list = deckCoresFirst(binders.data ?? []);
   const width = 160;
   let body;
   if (binders.data) {

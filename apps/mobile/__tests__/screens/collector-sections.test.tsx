@@ -11,6 +11,7 @@ import {
   CARD_ID,
   CONVERSATION_ID,
   PUBLIC_BINDER_ID,
+  blockedUserFixture,
   collectorFixture,
   conversationFixture,
   inventoryPage,
@@ -75,6 +76,10 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
     );
     renderWithProviders(<CollectorCardsScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId('collector-all-card-item-0'));
+    // The cards of a deck core sell only with it: the list leaves them out, as the profile does.
+    expect(
+      api.callsTo('GET /api/v1/collectors/{handle}/inventory')[0]?.query.get('excludeDeckCoreItems')
+    ).toBe('true');
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: first[0]!.printing.id },
@@ -95,10 +100,12 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
     );
   });
 
-  it('lists every public binder and deck core; a row opens it', async () => {
+  it('lists every public binder and deck core, the deck cores first; a row opens it', async () => {
     mockApi(
       routes({
+        // The owner's order puts the binder first: the deck cores still come first.
         'GET /api/v1/collectors/{handle}/binders': ok([
+          publicBinderSummaryFixture(),
           publicBinderSummaryFixture({
             id: 'core-1',
             name: 'Yubel core',
@@ -106,12 +113,14 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
             askingPriceText: '$95',
             itemCount: 0,
           }),
-          publicBinderSummaryFixture(),
         ]),
       })
     );
     renderWithProviders(<CollectorBindersScreen />, { port: port() });
     const core = await screen.findByTestId('collector-all-binder-core-1');
+    expect(
+      screen.getAllByTestId(/^collector-all-binder-/).map((row) => row.props.testID)
+    ).toEqual(['collector-all-binder-core-1', `collector-all-binder-${PUBLIC_BINDER_ID}`]);
     expect(core).toHaveTextContent(/Yubel core.*Deck core · \$95/);
     expect(screen.getByTestId(`collector-all-binder-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
       /Magic trades.*14 cards/
@@ -158,6 +167,43 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
     expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
     expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
     expect(screen.getByText('Well packed, shipped with tracking.')).toBeOnTheScreen();
+  });
+
+  it('references: a collector who blocked you is "not available", without Rate or Write', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, isBlocked: true, canMessage: false }),
+        'GET /api/v1/me/blocks': ok([]),
+        'GET /api/v1/ratings/eligibility': ok({ eligible: true, interactions: [] }),
+      })
+    );
+    renderWithProviders(<CollectorReferencesScreen />, { port: port() });
+    expect(await screen.findByTestId('collector-references-page-not-found')).toHaveTextContent(
+      /This collector is not available/
+    );
+    expect(screen.queryByTestId('rating-summary')).toBeNull();
+    expect(screen.queryByText(/Rate this collector|Write a reference/)).toBeNull();
+    expect(api.callsTo('GET /api/v1/collectors/{handle}/references')).toHaveLength(0);
+  });
+
+  it('references: a collector you blocked shows Unblock, then their ratings once unblocked', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': [
+          ok({ ...OTHER, isBlocked: true, canMessage: false }),
+          ok(OTHER),
+        ],
+        'GET /api/v1/me/blocks': ok([blockedUserFixture({ id: OTHER.id, handle: OTHER.handle })]),
+        'DELETE /api/v1/users/{id}/block': ok(undefined),
+      })
+    );
+    renderWithProviders(<CollectorReferencesScreen />, { port: port() });
+    const blocked = await screen.findByTestId('collector-references-page-blocked');
+    expect(blocked).toHaveTextContent(/You blocked collector2/);
+    expect(screen.queryByTestId('rating-summary')).toBeNull();
+    fireEvent.press(within(blocked).getByRole('button', { name: 'Unblock' }));
+    expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
+    expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1);
   });
 
   it('says "not available" for a hidden or blocked collector', async () => {

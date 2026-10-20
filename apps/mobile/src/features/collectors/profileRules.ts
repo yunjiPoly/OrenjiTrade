@@ -139,6 +139,19 @@ export function referenceMonth(createdAt: string): string {
   return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+/**
+ * A profile's binders as Inventory › Binders orders them (owner spec, section 7: "Deck cores
+ * first"): the deck cores, then the other binders, each group in its owner's order.
+ */
+export function deckCoresFirst<T extends { sellsAsCore?: boolean | null }>(
+  binders: readonly T[]
+): T[] {
+  return [
+    ...binders.filter((binder) => binder.sellsAsCore),
+    ...binders.filter((binder) => !binder.sellsAsCore),
+  ];
+}
+
 /** What a wish asks for, as "I have it" compares it with your copies. */
 export interface WishTarget {
   cardId: string;

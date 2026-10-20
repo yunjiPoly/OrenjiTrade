@@ -4,6 +4,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import type { ApiError } from '@/src/api/ApiError';
 import { useAccount } from '@/src/account/AccountProvider';
+import { useMyBlocks } from '@/src/api/hooks/blocks';
 import {
   useCollectorBinders,
   useCollectorProfile,
@@ -24,8 +25,10 @@ import { CARD_PAGE_COPY } from '@/src/features/search/searchCopy';
 import { printingCode, printingImageUrl } from '@/src/lib/catalog';
 import { fontFamily, fontWeight, spacing, useStackedRows, useTheme } from '@/src/theme';
 
+import { useUnblockCollector } from './BlockCollectorDialog';
 import { CollectorRatingsSection } from './CollectorRatingsSection';
 import { PROFILE_COPY } from './profileCopy';
+import { deckCoresFirst } from './profileRules';
 import { WishRow, wishRowFromSummary } from './ProfileSections';
 import { useIHaveIt } from './useIHaveIt';
 
@@ -37,7 +40,9 @@ export type CollectorSection = 'cards' | 'binders' | 'wishes' | 'references';
  * and deck core (a row opens it), every public wish (with "I have it"), and every rating and
  * reference (the full section: the breakdown, "Rate this collector" after a deal or a real
  * conversation, "Write a reference"). The same visibility as the profile: a hidden or blocked
- * collector's lists answer 404, shown as "not available".
+ * collector's lists answer 404, shown as "not available". Ratings and references answer for a
+ * blocked pair (today's rule), so their page applies the profile's rule itself: a collector who
+ * blocked you is "not available", one you blocked shows Unblock instead.
  */
 export function CollectorSectionScreen({
   section,
@@ -73,13 +78,16 @@ function States({
   error,
   onRetry,
   testID,
+  notAvailable = false,
 }: {
   error: ApiError | null;
   onRetry: () => void;
   testID: string;
+  /** Not available whatever the answer (a collector who blocked you). */
+  notAvailable?: boolean;
 }): ReactNode {
   const router = useRouter();
-  if (error?.status === 404) {
+  if (notAvailable || error?.status === 404) {
     return (
       <EmptyState
         testID={`${testID}-not-found`}
@@ -246,7 +254,7 @@ function BindersList({ handle }: { handle: string }) {
   }
   return (
     <FlatList
-      data={binders.data}
+      data={deckCoresFirst(binders.data)}
       keyExtractor={(binder) => binder.id}
       testID="collector-binders-page"
       contentContainerStyle={styles.list}
@@ -321,21 +329,50 @@ function WishesList({ handle }: { handle: string }) {
 
 function ReferencesPage({ handle }: { handle: string }) {
   const profile = useCollectorProfile(handle);
-  const own = useAccount().me?.id === profile.data?.id;
-  if (!profile.data) {
+  const blocks = useMyBlocks();
+  const unblocking = useUnblockCollector();
+  const me = useAccount().me;
+  const data = profile.data ?? null;
+  const own = !!data && me?.id === data.id;
+  // The profile's rule for a block (app/collectors/[id]/index.tsx): you see a collector you
+  // blocked with Unblock, a collector who blocked you as "not available"; a block whose direction
+  // is not known (your blocks could not load) shows nothing either.
+  const blocked = !!data && !own && data.isBlocked;
+  const blockedByMe = blocked && !!blocks.data?.some((b) => b.id === data.id);
+  const waitingForBlocks = blocked && !blocks.data && !blocks.error;
+  if (!data || waitingForBlocks || (blocked && !blockedByMe)) {
     return (
       <View style={styles.padded}>
         <States
           error={profile.error}
+          notAvailable={blocked && !waitingForBlocks}
           onRetry={() => void profile.refetch()}
           testID="collector-references-page"
         />
       </View>
     );
   }
+  if (blockedByMe) {
+    return (
+      <View style={styles.padded}>
+        <EmptyState
+          testID="collector-references-page-blocked"
+          icon="cancel"
+          title={PROFILE_COPY.blockedTitle(data.handle)}
+          description={PROFILE_COPY.blockedByMe(data.handle)}
+          actionLabel={PROFILE_COPY.unblockAction}
+          onAction={() =>
+            void unblocking
+              .unblock({ id: data.id, displayName: data.handle })
+              .then((done) => (done ? void profile.refetch() : undefined))
+          }
+        />
+      </View>
+    );
+  }
   return (
     <ScrollView contentContainerStyle={styles.list} testID="collector-references-page">
-      <CollectorRatingsSection profile={profile.data} isOwn={own} />
+      <CollectorRatingsSection profile={data} isOwn={own} />
     </ScrollView>
   );
 }

@@ -148,7 +148,8 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
   });
 
   it('shows Cards, Binders, Looking for, About and Ratings & references, in that order', async () => {
-    const api = mockApi(routes());
+    // The owner made the binder before the deck core: the rail still shows the deck core first.
+    const api = mockApi(routes({ 'GET /api/v1/collectors/{handle}/binders': ok([BINDER, CORE]) }));
     render();
     const card = await screen.findByTestId(`profile-card-${CARD.id}`);
     // The cards of a deck core sell only with it: the Binders rail shows the core instead.
@@ -162,6 +163,10 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
     expect(screen.getByTestId(`profile-binder-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
       'Magic trades14 cards'
     );
+    expect(order([`profile-binder-${PUBLIC_BINDER_ID}`, 'profile-binder-core-1'])).toEqual([
+      'profile-binder-core-1',
+      `profile-binder-${PUBLIC_BINDER_ID}`,
+    ]);
     const wish = await screen.findByTestId(`profile-have-${CARD_ID}`);
     expect(wish).toHaveTextContent('I have it');
     expect(wish.props.accessibilityLabel).toBe('I have Azure-Eyes Sky Dragon. Message collector2');

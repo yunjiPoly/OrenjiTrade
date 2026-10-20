@@ -77,6 +77,7 @@ export const PROFILE_COPY = {
   // A block (today's rule: the header answers, the listings do not, either way).
   blockedByMe: (handle: string) =>
     `You blocked ${handle}. Unblock them to see their cards, binders and wishes, and to message each other.`,
+  blockedTitle: (handle: string) => `You blocked ${handle}`,
   unblockAction: 'Unblock',
   blockedToast: (handle: string) => `${handle} is blocked.`,
   unblockedToast: (handle: string) => `${handle} is unblocked.`,
