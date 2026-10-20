@@ -7,7 +7,14 @@ import { Text } from '@/src/components/ui/Text';
 import type { GameOption } from '@/src/features/games/browsingGame';
 import { GameTile } from '@/src/features/games/GameTile';
 import { gameLabel } from '@/src/lib/profile';
-import { PINNED_MAX_FONT_SCALE, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  fontWeight,
+  spacing,
+  textStyle,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import { EDIT_BINDER_COPY } from './binderCopy';
 
@@ -37,6 +44,8 @@ export function BinderGameGrid({
   disabled?: boolean;
 }) {
   const { palette } = useTheme();
+  // One game per row at the larger text sizes: two by two, the names broke in mid-word.
+  const stacked = useStackedRows();
   return (
     <View style={styles.field}>
       <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>
@@ -62,6 +71,7 @@ export function BinderGameGrid({
               testID={`binder-game-${option.slug}`}
               style={({ pressed }) => [
                 styles.choice,
+                stacked && styles.choiceFull,
                 {
                   borderColor: on ? palette.primary : palette.border,
                   backgroundColor: on
@@ -220,6 +230,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
   },
+  choiceFull: { flexBasis: '100%' },
   choiceTexts: { flex: 1, minWidth: 0, gap: 1 },
   choiceName: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
   choiceSub: { fontSize: 11, lineHeight: 15 },

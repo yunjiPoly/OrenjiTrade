@@ -119,6 +119,11 @@ tags:
       id: 'search-game-sheet-option-pokemon'
     timeout: 15000
 - takeScreenshot: large-text-game-sheet
+# At this size the sheet's title, its line and the rows scroll together.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'search-game-sheet-option-pokemon'
 - tapOn:
     id: 'search-game-sheet-option-pokemon'
 - extendedWaitUntil:
@@ -164,6 +169,10 @@ tags:
     visible:
       id: 'search-region-option-europe'
     timeout: 15000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'search-region-option-europe'
 - tapOn:
     id: 'search-region-option-europe'
 - runFlow:

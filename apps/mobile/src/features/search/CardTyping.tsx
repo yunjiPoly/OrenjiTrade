@@ -17,7 +17,14 @@ import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesSto
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { SEARCH_DEBOUNCE_MS, boundedQuery } from '@/src/lib/catalog';
 import { GENERIC_PLACE_LABEL } from '@/src/lib/place';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  TITLE_MAX_FONT_SCALE,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { highlightParts } from './highlight';
 import { SearchInput } from './SearchField';
@@ -220,7 +227,11 @@ const CardResult = memo(function CardResult({
     >
       <CardImage src={card.primaryImageUrl} alt="" game={card.game} size="xs" />
       <View style={styles.fill}>
-        <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
+        {/* Twice the size at most, as titles: larger, a long card name broke in mid-word. */}
+        <Text
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[textStyle('md'), styles.bold, { color: palette.ink }]}
+        >
           {parts.before}
           {parts.match ? <Text style={{ color: palette.primary }}>{parts.match}</Text> : null}
           {parts.after}
