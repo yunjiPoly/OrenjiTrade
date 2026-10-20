@@ -36,27 +36,44 @@ tags:
 - inputText: 'emberfang'
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
-    visible: 'Emberfang Fox VMAX, Pokémon'
+    visible: 'Emberfang Fox VMAX'
     timeout: 30000
-- assertVisible: 'Emberfang Fox, Pokémon'
+- assertVisible: 'Emberfang Fox'
 
-# The game chips are the only filter: Yu-Gi-Oh! has no Emberfang (its typo-tolerant search may
-# still find another card), All games brings it back.
+# One game at a time (stage G): the field names the browsed game (the collector's Pokémon), and
+# the game pill chooses it. Yu-Gi-Oh! has no Emberfang: its empty state names the game; Pokémon
+# brings it back.
+- assertVisible:
+    id: 'search-game'
+    text: 'Game: Pokémon\. Change game'
 - tapOn:
-    id: 'search-game-yugioh'
+    id: 'search-game'
 - extendedWaitUntil:
-    notVisible: 'Emberfang Fox VMAX, Pokémon'
+    visible:
+      id: 'search-game-sheet-option-yugioh'
+    timeout: 15000
+- tapOn:
+    id: 'search-game-sheet-option-yugioh'
+- extendedWaitUntil:
+    visible: 'No Yu-Gi-Oh! card matches “emberfang”'
     timeout: 30000
+- assertNotVisible: 'Emberfang Fox VMAX'
 - tapOn:
-    id: 'search-game-__all__'
+    id: 'search-game'
 - extendedWaitUntil:
-    visible: 'Emberfang Fox VMAX, Pokémon'
+    visible:
+      id: 'search-game-sheet-option-pokemon'
+    timeout: 15000
+- tapOn:
+    id: 'search-game-sheet-option-pokemon'
+- extendedWaitUntil:
+    visible: 'Emberfang Fox VMAX'
     timeout: 30000
 - takeScreenshot: search-results
 
 # The card page, Who has this card: the game, the name, "Check TCGplayer price" and "Any
 # printing"; the sheet of printings filters the holders to the French one.
-- tapOn: 'Emberfang Fox VMAX, Pokémon'
+- tapOn: 'Emberfang Fox VMAX'
 - extendedWaitUntil:
     visible:
       id: 'card-name'

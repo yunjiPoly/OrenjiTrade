@@ -23,6 +23,7 @@ tags:
       REGION: europe
       CODE: FR-IDF
       BINDER: 'Extras for trade'
+      GAME: pokemon
 - runScript:
     file: scripts/confirm-age.js
     env:
@@ -108,26 +109,36 @@ tags:
     env:
       ID: 'search-field'
 
-# A card that is typed can be narrowed to its game and opened. At this size a result is about a
-# third of the screen tall (its name wraps) and the list scrolls under the field and the game
-# chips: a row scrolled half under them is still "on screen" for iOS's accessibility tree, and a
-# tap at its middle would land on a chip. The game chip (the card search's only filter) puts the
-# card first, in full view.
+# A card of the browsed game is typed and opened. At this size a result is about a third of the
+# screen tall (its name wraps) and the list scrolls under the field. Pokémon first, with the game
+# pill (stage G: the card search shows the browsed game's cards only; the sheet at this size).
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game-sheet-option-pokemon'
+    timeout: 15000
+- takeScreenshot: large-text-game-sheet
+- tapOn:
+    id: 'search-game-sheet-option-pokemon'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Pokémon\. Change game'
+    timeout: 15000
 - tapOn:
     id: 'search-field'
 - extendedWaitUntil:
     visible:
       id: 'search-input'
     timeout: 30000
-- inputText: 'emberfang'
+- inputText: 'emberfang fox'
 - runFlow: subflows/hide-keyboard.yaml
-- tapOn:
-    id: 'search-game-pokemon'
 - extendedWaitUntil:
-    visible: 'Emberfang Fox, Pokémon'
+    visible: 'Emberfang Fox'
     timeout: 30000
 - takeScreenshot: large-text-typing
-- tapOn: 'Emberfang Fox, Pokémon'
+- tapOn: 'Emberfang Fox'
 - extendedWaitUntil:
     visible:
       id: 'card-name'

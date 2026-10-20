@@ -6,6 +6,7 @@ import {
   authHeader,
   cardOfPrinting,
   createOnboardedCollector,
+  gameIdOf,
   openTab,
   PLACES,
   requireStack,
@@ -67,7 +68,13 @@ test.describe('mobile who has this card', () => {
     const coreName = `Fox core ${suffix}`;
     const created = await request.post(`${API_URL}/api/v1/binders`, {
       headers: authHeader(seller.idToken),
-      data: { name: coreName, visibility: 'PUBLIC', sellsAsCore: true, askingPriceText: '$95' },
+      data: {
+        name: coreName,
+        visibility: 'PUBLIC',
+        sellsAsCore: true,
+        askingPriceText: '$95',
+        gameId: await gameIdOf(request, 'pokemon'),
+      },
     });
     expect(created.status(), 'POST /binders (deck core)').toBe(201);
     const coreId = ((await created.json()) as { id: string }).id;

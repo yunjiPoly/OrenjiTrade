@@ -6,19 +6,23 @@
 // its owner and the owner's state or province and country.
 //
 // Inputs (env): API_URL, REGION (default americas-north), CODE (default CA-QC), BINDER (the name
-// of a seed binder of that place, default "Pokémon holo binder").
+// of a seed binder of that place, default "Pokémon holo binder"), GAME (a game slug: the counts
+// and the list of that game only, as the phone asks them since stage G; every game without it).
 // Outputs: output.place.{region, code, count}, output.binder.{id, name, handle, owner, place}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var region = typeof REGION !== 'undefined' ? REGION : 'americas-north';
 var code = typeof CODE !== 'undefined' ? CODE : 'CA-QC';
 var wanted = typeof BINDER !== 'undefined' ? BINDER : 'Pokémon holo binder';
+var game = typeof GAME !== 'undefined' && GAME ? GAME : null;
 
 if (/:8080\/?$/.test(api)) {
   throw new Error('Refusing to use the developer API ' + api + ': only the isolated API on :8090.');
 }
 
-var counts = http.get(api + '/api/v1/regions/' + region + '/binder-counts');
+var counts = http.get(
+  api + '/api/v1/regions/' + region + '/binder-counts' + (game ? '?game=' + game : '')
+);
 if (!counts.ok) {
   throw new Error('GET /regions/' + region + '/binder-counts failed: HTTP ' + counts.status);
 }
@@ -34,7 +38,13 @@ if (count === 0) {
 }
 
 var list = http.get(
-  api + '/api/v1/regions/' + region + '/subdivisions/' + code + '/binders?limit=50'
+  api +
+    '/api/v1/regions/' +
+    region +
+    '/subdivisions/' +
+    code +
+    '/binders?limit=50' +
+    (game ? '&game=' + game : '')
 );
 if (!list.ok) {
   throw new Error(

@@ -10,8 +10,10 @@
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, PREFIX (optional), DISPLAY_NAME (optional),
 // CONFIRM_AGE (optional, 'false' skips the 18+ confirmation), PLACE (optional, a declared country
-// and state or province as 'CA:CA-QC', never a city) and DISCOVERABLE (optional, 'true' turns on
-// "Show me on the map": the collector's public binders and cards can be found; stage R3).
+// and state or province as 'CA:CA-QC', never a city), DISCOVERABLE (optional, 'true' turns on
+// "Show me on the map": the collector's public binders and cards can be found; stage R3) and GAMES
+// (optional, the profile's game slugs as 'yugioh,pokemon'; 'pokemon' by default). The first of
+// them that has cards is the game Home and Search browse (stage G).
 // Outputs: output.collector.{email, password, handle, displayName}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
@@ -21,6 +23,7 @@ var runId = typeof RUN_ID !== 'undefined' ? RUN_ID : 'rmanual0';
 var prefix = typeof PREFIX !== 'undefined' ? PREFIX : 'collector';
 var displayName = typeof DISPLAY_NAME !== 'undefined' ? DISPLAY_NAME : 'Maestro Collector';
 var confirmAge = typeof CONFIRM_AGE === 'undefined' || CONFIRM_AGE !== 'false';
+var games = typeof GAMES !== 'undefined' && GAMES ? GAMES.split(',') : ['pokemon'];
 
 if (/:8080\/?$/.test(api)) {
   throw new Error(
@@ -95,7 +98,7 @@ check(
       handle: handle,
       displayName: displayName,
       bio: 'Maestro bio.',
-      games: ['pokemon'],
+      games: games,
       languages: ['en'],
     }),
   }),

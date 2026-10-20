@@ -167,7 +167,25 @@ function printingOf(token, text) {
     http.get(api + '/api/v1/cards/' + cards.items[0].id, { headers: headers(token) }),
     'GET /cards/{id}'
   );
-  return { printingId: card.printings[0].id, name: card.name };
+  return { printingId: card.printings[0].id, name: card.name, game: card.game };
+}
+
+/**
+ * The id of a game by its slug (`GET /games`, public): a binder holds the cards of one game (stage
+ * G), so the binders made here name the game of the cards they take.
+ */
+function gameIdOf(slug) {
+  var response = http.get(api + '/api/v1/games');
+  if (!response.ok) {
+    throw new Error('GET /games failed: HTTP ' + response.status);
+  }
+  var games = json(response.body);
+  for (var g = 0; g < games.length; g++) {
+    if (games[g].slug === slug) {
+      return games[g].id;
+    }
+  }
+  throw new Error('No game ' + slug);
 }
 
 function account(collector) {
@@ -181,7 +199,11 @@ if (action === 'seller-setup') {
   var binder = check(
     http.post(api + '/api/v1/binders', {
       headers: headers(ada.token),
-      body: JSON.stringify({ name: 'Deals binder', visibility: 'PUBLIC' }),
+      body: JSON.stringify({
+        name: 'Deals binder',
+        visibility: 'PUBLIC',
+        gameId: gameIdOf(printing.game),
+      }),
     }),
     'POST /binders'
   );
@@ -228,6 +250,7 @@ if (action === 'seller-setup') {
         visibility: 'PUBLIC',
         sellsAsCore: true,
         askingPriceText: '$95',
+        gameId: gameIdOf(corePrinting.game),
         description: 'Fictional deck core of the Maestro flows.',
       }),
     }),
@@ -255,7 +278,11 @@ if (action === 'seller-setup') {
   var sellerBinder = check(
     http.post(api + '/api/v1/binders', {
       headers: headers(cardSeller.token),
-      body: JSON.stringify({ name: 'Trades', visibility: 'PUBLIC' }),
+      body: JSON.stringify({
+        name: 'Trades',
+        visibility: 'PUBLIC',
+        gameId: gameIdOf(cardPrinting.game),
+      }),
     }),
     'POST /binders'
   );

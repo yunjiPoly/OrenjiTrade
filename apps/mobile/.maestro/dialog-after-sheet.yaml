@@ -20,6 +20,9 @@ tags:
 - runScript:
     file: scripts/create-collector.js
     env:
+      # Yu-Gi-Oh! (stage G): the game of its card, Lantern Fox Spirit, so New binder starts on it
+      # and Search browses it.
+      GAMES: 'yugioh'
       PREFIX: dlg
       DISPLAY_NAME: Maestro Dialogs
 - runScript:

@@ -1,8 +1,8 @@
 # The region map (ADR 0017, mobile stage M9; Search's map since stage R5): a seed collector
 # (collector1, Quebec) opens the app on Search, whose map draws Americas (North) from the borders
-# the app ships (no tile server, no GPS) and opens on Quebec with its card ("{n} binders"); "See
-# binders" lists Quebec's public binders in Search › Binders with their owner's handle, never a
-# city or a distance; one binder opens. Then Sofia's profile (seed collector5,
+# the app ships (no tile server, no GPS) and opens on Quebec with its card ("{n} binders" of the
+# browsed game, Yu-Gi-Oh!, stage G); "See binders" lists Quebec's public Yu-Gi-Oh! binders in
+# Search › Binders with their owner's handle, never a city or a distance; one binder opens. Then Sofia's profile (seed collector5,
 # California, showing her city) shows her state and city, never a distance or a zone.
 # The seed account is only signed in to; what Quebec holds is read on the host from the public
 # API (scripts/region-map.js).
@@ -18,7 +18,8 @@ tags:
     env:
       REGION: americas-north
       CODE: CA-QC
-      BINDER: 'Pokémon holo binder'
+      BINDER: 'Yu-Gi-Oh! trade binder'
+      GAME: yugioh
 # The seed predates the 18+ rule: its confirmation is recorded through the API first (the
 # onboarding age step is proven by age-step-existing-account.yaml).
 - runScript:
@@ -42,11 +43,15 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(North\)'
+      text: 'Region: Americas \(North\)\. Change region'
     timeout: 30000
 - assertVisible:
     id: 'search-region-map'
-    text: 'Map of Americas \(North\): states and provinces shaded by their number of public binders'
+    text: 'Map of public Yu-Gi-Oh! binders by state or province in Americas \(North\)'
+# The game pill (stage G): the collector's first profile game with cards, Yu-Gi-Oh!.
+- assertVisible:
+    id: 'search-game'
+    text: 'Game: Yu-Gi-Oh!\. Change game'
 - assertVisible:
     id: 'search-region-map-zoom-in'
 - assertVisible:
