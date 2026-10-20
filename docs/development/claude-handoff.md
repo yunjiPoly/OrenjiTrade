@@ -117,6 +117,16 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
+0. **The owner's two prompts of 2026-10-19, saved word for word:**
+   [`docs/product/specs/2026-10-19-home-full-design.md`](../product/specs/2026-10-19-home-full-design.md)
+   (Home, stage R7; it replaces the redesign spec's section 5 and adds to its feed endpoint) and
+   [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](../product/specs/2026-10-20-finish-the-phone-ui.md)
+   (stage G, one game at a time, and stages R9 to R15; no Inventory › Wanted tab and no
+   WANTED_ALERT). **The order now:** R6 (profiles, screens 19 to 21, and Settings behind the gear,
+   from the redesign spec), then G, then R7 with the Home prompt, then R8, then R9 to R15 (R15
+   after R12), one branch and one PR each. The mockup is version 50 of the owner's design canvas;
+   ask the owner for a screenshot of any screen you need. Item 1 below predates these prompts: R5
+   is merged (#78).
 1. **The reviews of stage R5** (branch `feature/r5-search`, builder done; IMPLEMENTATION_STATUS.md,
    "Phone redesign R5: search"): a functional verifier, a privacy lens and a product / UX lens (as
    a collector), at most two fix rounds, then the ship step (merge `main`, the full check list

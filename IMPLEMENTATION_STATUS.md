@@ -6776,6 +6776,14 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 
 ## NEXT TASK
 
+> **Owner prompts of 2026-10-19 (saved word for word):**
+> [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
+> (Home, stage R7) and
+> [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
+> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (now), then G, then R7 with
+> the Home prompt, then R8, then R9 to R15 (R15 after R12). R5 is merged (#78); the paragraphs
+> below predate these prompts where they say otherwise.
+
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
 > `main` with F1 on 2026-10-15). Stage R1 of the phone redesign ("Offers out, shipping wording,
 > look", #72; section "Phone redesign R1: offers out, shipping wording, look (2026-10-14)" above):
