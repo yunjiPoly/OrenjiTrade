@@ -11,7 +11,8 @@ import { profileUrl } from './profileRules';
  * "Share profile" (mockup screens 19 to 21): the system's share sheet with the profile's public
  * link (`https://www.orenjitrade.com/collectors/{handle}`, a universal link of the app). A browser
  * without a share sheet (the web build) shows the link in a snackbar instead. Waits for a closing
- * sheet first: iOS would take the share sheet away with it.
+ * sheet first, until iOS has dismissed it ("⋯" › Share profile): iOS would take the share sheet
+ * away with it (`afterModals`).
  */
 export function useShareProfile() {
   const snackbar = useSnackbar();
