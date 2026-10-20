@@ -8,6 +8,7 @@ import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
+import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
 import {
   BROWSING_REGION_STORAGE_KEY,
   resetBrowsingRegion,
@@ -113,6 +114,7 @@ export function resetAppState(): void {
   usePendingLink.getState().clear();
   useSessionNotice.getState().clear();
   useActiveConversation.getState().set(null);
+  usePendingDrafts.setState({ drafts: {} });
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
   useAppStore.getState().reset();

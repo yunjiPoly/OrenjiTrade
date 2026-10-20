@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import CollectorScreen from '@/app/collectors/[id]';
+import CollectorReferencesScreen from '@/app/collectors/[id]/references';
 import RateCollectorScreen from '@/app/ratings/rate';
 import WriteReferenceScreen from '@/app/ratings/reference';
 
@@ -233,14 +233,14 @@ describe('Write a reference', () => {
   });
 });
 
-describe('Ratings section of a profile', () => {
+describe('Ratings & references of a profile, in full (its "See all references", stage R6)', () => {
   beforeEach(() => {
     mockParams.current = { id: 'collector2' };
   });
 
   it('offers to rate and to write a reference after an interaction', async () => {
     mockApi(routes());
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    renderWithProviders(<CollectorReferencesScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId('collector-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
@@ -285,7 +285,7 @@ describe('Ratings section of a profile', () => {
         ),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    renderWithProviders(<CollectorReferencesScreen />, { port: port() });
     expect(await screen.findByTestId('rating-hint')).toHaveTextContent(
       /You already rated your interactions with Noé Verdun/
     );
@@ -310,7 +310,7 @@ describe('Ratings section of a profile', () => {
         ),
       })
     );
-    renderWithProviders(<CollectorScreen />, { port: port() });
+    renderWithProviders(<CollectorReferencesScreen />, { port: port() });
     expect(await screen.findByTestId('rating-hint')).toHaveTextContent(
       /You can rate Noé Verdun after a deal with them or a conversation/
     );

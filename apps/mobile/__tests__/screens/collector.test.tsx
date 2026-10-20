@@ -1,24 +1,33 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions, Share, StyleSheet } from 'react-native';
 
-import CollectorScreen from '@/app/collectors/[id]';
+import CollectorScreen from '@/app/collectors/[id]/index';
 import { meKeys } from '@/src/api/queryKeys';
+import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
+import { peekPendingDraft } from '@/src/features/messages/pendingDraft';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
+  CARD_ID,
   CONVERSATION_ID,
+  ONTARIO,
   PUBLIC_BINDER_ID,
+  TAGS,
+  binderFixture,
+  blockedUserFixture,
   collectorFixture,
   conversationFixture,
+  deckCoreFixture,
+  inventoryPage,
+  itemFixture,
+  printingFixture,
   publicBinderSummaryFixture,
   publicItemFixture,
   publicItemsPage,
-  ratingsPageFixture,
   referencesPageFixture,
+  wishFixture,
   wishlistEntryFixture,
-  PRINTING_A,
-  printingFixture,
-  ONTARIO,
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -32,26 +41,49 @@ const OTHER = collectorFixture({
   handle: 'collector2',
   displayName: 'Noé Verdun',
   bio: 'Magic and Pokémon in Verdun.',
+  games: ['mtg', 'pokemon'],
+  tags: [TAGS[0]!, { slug: 'pokemon', label: 'Pokemon' }],
   location: { ...ONTARIO },
+  memberSince: '2024-03-01',
   lastActiveBucket: 'THIS_WEEK',
   onlineStatus: 'ONLINE',
   rating: { average: 4.8, count: 12 },
 });
 
+const CARD = publicItemFixture({ askingPriceText: '85% TCG' });
+const CORE = publicBinderSummaryFixture({
+  id: 'core-1',
+  name: 'Yubel core',
+  kind: 'DECK',
+  itemCount: 0,
+  sellsAsCore: true,
+  askingPriceText: '$95',
+  previewImages: ['/api/v1/public/binder-images/core-1-photo'],
+});
+const BINDER = publicBinderSummaryFixture({ previewImages: [] });
+
+// The default text size of a phone (jest's window says 2, a larger size where rows stack).
+const WINDOW = Dimensions.get('window');
 beforeEach(() => {
+  Dimensions.set({ window: { ...WINDOW, fontScale: 1 }, screen: { ...WINDOW, fontScale: 1 } });
   resetRouterMock();
   resetAppState();
   mockParams.current = { id: 'collector2' };
 });
 
+afterAll(() => {
+  Dimensions.set({ window: WINDOW, screen: WINDOW });
+});
+
 function routes(extra: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
-    'GET /api/v1/collectors/{handle}/binders': ok([publicBinderSummaryFixture()]),
-    'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([publicItemFixture()])),
-    'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture()),
+    'GET /api/v1/collectors/{handle}/binders': ok([CORE, BINDER]),
+    'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([CARD])),
     'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture()),
-    'GET /api/v1/collectors/{handle}/wishlist': problem(404, 'NOT_FOUND', 'hidden'),
+    'GET /api/v1/collectors/{handle}/wishlist': ok([wishlistEntryFixture()]),
     'GET /api/v1/collectors/{handle}': ok(OTHER),
+    'GET /api/v1/me/blocks': ok([]),
+    'GET /api/v1/wishlist': ok([wishFixture()]),
     ...extra,
   });
 }
@@ -59,181 +91,220 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 const render = (port = new FakeAuthPort(testUser())) =>
   renderWithProviders(<CollectorScreen />, { port });
 
-describe('Collector profile', () => {
-  it('shows a skeleton, then the public profile with the state, never a distance', async () => {
+/** The order in which test ids appear in the rendered tree. */
+function order(ids: string[]): string[] {
+  const tree = JSON.stringify(screen.toJSON());
+  return [...ids].sort((a, b) => tree.indexOf(`"${a}"`) - tree.indexOf(`"${b}"`));
+}
+
+describe("Another collector's profile (mockup screens 19 and 20)", () => {
+  it('shows a skeleton, then the header, the line and Message, never a distance', async () => {
     mockApi(routes());
     render();
     expect(screen.getByTestId('collector-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
-    expect(screen.getByText('@collector2')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-location')).toHaveTextContent('Ontario, Canada');
-    expect(screen.queryByTestId('collector-distance')).toBeNull();
-    expect(screen.getByTestId('collector-last-active')).toHaveTextContent('Active this week');
-    expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
-    expect(screen.getByText('Magic and Pokémon in Verdun.')).toBeOnTheScreen();
-    expect(screen.getByTestId('collector-tags')).toHaveTextContent('Tracked shipping');
-    expect(screen.queryByTestId('public-preview-banner')).toBeNull();
-
-    // The location card: the state or province only, no map, no zone, no distance (ADR 0017).
-    expect(screen.getByTestId('collector-area-note')).toHaveTextContent(
-      'On the map in Ontario, Canada. OrenjiTrade only shows the state or province, never a position or a distance.'
+    expect(screen.getByTestId('collector-handle')).toHaveTextContent('@collector2');
+    expect(screen.getByTestId('collector-rating')).toHaveTextContent(/4\.8$/);
+    expect(screen.getByTestId('collector-rating').props.accessibilityLabel).toBe(
+      'Rated 4.8 out of 5. Go to ratings and references'
     );
-    expect(screen.queryByTestId('collector-area-view')).toBeNull();
-    expect(screen.queryByText(/km/)).toBeNull();
+    expect(screen.getByLabelText('Online now')).toBeOnTheScreen();
+    // Games first (orange), then the tags; the "Pokemon" tag repeats a game and is left out.
+    const chips = screen.getByTestId('collector-chips');
+    expect(chips).toHaveTextContent('Magic: The GatheringPokémonTracked shipping');
+    expect(screen.getByTestId('collector-line')).toHaveTextContent(
+      'Ontario · Member since 2024 · Active this week'
+    );
+    expect(screen.getByTestId('collector-message')).toHaveTextContent(/Message collector2$/);
+    expect(screen.queryByText(/km|Canada/)).toBeNull();
+    // The location section is gone.
+    expect(screen.queryByText('Location')).toBeNull();
   });
 
-  it('shows the city only when the API sends it (its owner shows it)', async () => {
+  it('writes the city only when the API sends it, and the activity in two buckets', async () => {
+    const cases: [Partial<typeof OTHER>, string][] = [
+      [
+        { location: { ...ONTARIO, city: 'Ottawa' } },
+        'Ottawa, Ontario · Member since 2024 · Active this week',
+      ],
+      [{ lastActiveBucket: 'TODAY' }, 'Ontario · Member since 2024 · Active this week'],
+      [{ lastActiveBucket: 'THIS_MONTH' }, 'Ontario · Member since 2024 · Active this month'],
+      [{ lastActiveBucket: 'LONGER_AGO' }, 'Ontario · Member since 2024'],
+      [{ lastActiveBucket: 'HIDDEN' }, 'Ontario · Member since 2024'],
+      [{ location: undefined }, 'Member since 2024 · Active this week'],
+    ];
+    for (const [changes, line] of cases) {
+      mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, ...changes }) }));
+      const view = render();
+      expect(await screen.findByTestId('collector-line')).toHaveTextContent(line);
+      view.unmount();
+    }
+    mockApi(
+      routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, onlineStatus: 'HIDDEN' }) })
+    );
+    render();
+    await screen.findByTestId('collector-name');
+    expect(screen.queryByLabelText('Online now')).toBeNull();
+  });
+
+  it('shows Cards, Binders, Looking for, About and Ratings & references, in that order', async () => {
+    // The owner made the binder before the deck core: the rail still shows the deck core first.
+    const api = mockApi(routes({ 'GET /api/v1/collectors/{handle}/binders': ok([BINDER, CORE]) }));
+    render();
+    const card = await screen.findByTestId(`profile-card-${CARD.id}`);
+    // The cards of a deck core sell only with it: the Binders rail shows the core instead.
+    expect(
+      api.callsTo('GET /api/v1/collectors/{handle}/inventory')[0]?.query.get('excludeDeckCoreItems')
+    ).toBe('true');
+    expect(card).toHaveTextContent('Azure-Eyes Sky Dragon85% TCG');
+    const core = screen.getByTestId('profile-binder-core-1');
+    expect(core).toHaveTextContent('Deck coreYubel core$95');
+    expect(core.props.accessibilityLabel).toBe('Yubel core, deck core, $95');
+    expect(screen.getByTestId(`profile-binder-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
+      'Magic trades14 cards'
+    );
+    expect(order([`profile-binder-${PUBLIC_BINDER_ID}`, 'profile-binder-core-1'])).toEqual([
+      'profile-binder-core-1',
+      `profile-binder-${PUBLIC_BINDER_ID}`,
+    ]);
+    const wish = await screen.findByTestId(`profile-have-${CARD_ID}`);
+    expect(wish).toHaveTextContent('I have it');
+    expect(wish.props.accessibilityLabel).toBe('I have Azure-Eyes Sky Dragon. Message collector2');
+    expect(screen.getByTestId('profile-wishes')).toHaveTextContent(/Any printing · NM only/);
+    expect(screen.getByTestId('profile-bio-text')).toHaveTextContent(
+      'Magic and Pokémon in Verdun.'
+    );
+    expect(screen.getByTestId('profile-rating-summary')).toHaveTextContent(/^4\.8.*12 ratings$/);
+    expect(screen.getByLabelText('4.8 out of 5')).toBeOnTheScreen();
+    expect(await screen.findByText('Fair and friendly trader.')).toBeOnTheScreen();
+    expect(screen.getByText(/^collector1/)).toBeOnTheScreen();
+    expect(screen.getByText(/· Sep 2026/)).toBeOnTheScreen();
+    expect(
+      order([
+        'profile-ratings',
+        'profile-about',
+        'profile-wishes',
+        'profile-binders',
+        'profile-cards',
+      ])
+    ).toEqual([
+      'profile-cards',
+      'profile-binders',
+      'profile-wishes',
+      'profile-about',
+      'profile-ratings',
+    ]);
+    // No counts beyond the design's (no "N cards" for the collector, no holders).
+    expect(screen.queryByText(/public binders/)).toBeNull();
+  });
+
+  it('shows at most 3 wishes and the 2 latest references', async () => {
+    const entries = ['A', 'B', 'C', 'D'].map((name) =>
+      wishlistEntryFixture({ card: { id: `card-${name}`, name: `Card ${name}`, imageUrl: null } })
+    );
+    const refs = referencesPageFixture();
+    const reference = refs.items![0]!;
     mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}': ok({
-          ...OTHER,
-          location: { ...ONTARIO, city: 'Ottawa' },
+        'GET /api/v1/collectors/{handle}/wishlist': ok(entries),
+        'GET /api/v1/collectors/{handle}/references': ok({
+          ...refs,
+          items: [
+            reference,
+            { ...reference, id: 'r2', body: 'Second.' },
+            { ...reference, id: 'r3', body: 'Third.' },
+          ],
         }),
       })
     );
     render();
-    expect(await screen.findByTestId('collector-location')).toHaveTextContent(
-      'Ottawa, Ontario, Canada'
-    );
+    expect(await screen.findByTestId('profile-have-card-C')).toBeOnTheScreen();
+    expect(screen.queryByTestId('profile-have-card-D')).toBeNull();
+    expect(await screen.findByText('Second.')).toBeOnTheScreen();
+    expect(screen.queryByText('Third.')).toBeNull();
   });
 
-  it('lists a deck core with its tag and price, never “0 cards”', async () => {
-    mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}/binders': ok([
-          publicBinderSummaryFixture({
-            name: 'Lantern core',
-            kind: 'DECK',
-            itemCount: 0,
-            games: ['yugioh'],
-            sellsAsCore: true,
-            askingPriceText: 'Trade only',
-          }),
-        ]),
-      })
-    );
-    render();
-    const binder = await screen.findByTestId(`collector-binder-${PUBLIC_BINDER_ID}`);
-    expect(screen.getByTestId(`collector-binder-tag-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
-      'Deck core · Trade only'
-    );
-    expect(binder).not.toHaveTextContent(/0 cards/);
-    expect(binder.props.accessibilityLabel).toBe('Lantern core, Deck core · Trade only');
-  });
-
-  it('lists the public binders and cards and opens the first binder', async () => {
-    mockApi(routes());
-    render();
-    const binder = await screen.findByTestId(`collector-binder-${PUBLIC_BINDER_ID}`);
-    expect(binder).toHaveTextContent(/Magic trades/);
-    expect(await screen.findByTestId('collector-cards')).toBeOnTheScreen();
-    const view = screen.getByTestId('collector-view-binder');
-    await waitFor(() => expect(view).not.toBeDisabled());
-    fireEvent.press(view);
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/binders/[id]',
-      params: { id: PUBLIC_BINDER_ID },
-    });
-    fireEvent.press(binder);
-    expect(mockRouter.push).toHaveBeenCalledTimes(2);
-  });
-
-  it('reports the collector and makes an offer on a public card', async () => {
-    mockApi(routes());
-    render();
-    fireEvent.press(await screen.findByTestId('collector-report'));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/report',
-      params: {
-        userId: OTHER.id,
-        name: 'Noé Verdun',
-        handle: 'collector2',
-        source: 'PROFILE',
-      },
-    });
-  });
-
-  it('lists the public cards without "Make an offer" (offers left the phone, ADR 0018)', async () => {
-    const item = publicItemFixture();
-    mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([item])),
-      })
-    );
-    render();
-    expect(await screen.findByTestId(`collector-card-${item.id}`)).toBeOnTheScreen();
-    expect(screen.queryByTestId(`make-offer-${item.id}`)).not.toBeOnTheScreen();
-    expect(screen.queryByText('Make an offer')).not.toBeOnTheScreen();
-  });
-
-  it('shows empty binders, and a retry when they fail', async () => {
+  it('says when a section is empty, and retries one that failed', async () => {
     const api = mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}/binders': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok([])],
+        'GET /api/v1/collectors/{handle}': ok({
+          ...OTHER,
+          bio: '',
+          rating: { average: null, count: 0 },
+        }),
         'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
-      })
-    );
-    render();
-    const failed = await screen.findByTestId('collector-binders-error');
-    expect(screen.getByTestId('collector-view-binder')).toBeDisabled();
-    fireEvent.press(within(failed).getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByTestId('collector-binders-empty')).toHaveTextContent(
-      /When Noé Verdun publishes a binder/
-    );
-    expect(api.callsTo('GET /api/v1/collectors/{handle}/binders')).toHaveLength(2);
-    expect(screen.queryByTestId('collector-cards')).toBeNull();
-  });
-
-  it('shows the ratings summary, ratings and references, with more on demand', async () => {
-    const api = mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}/ratings': (request) =>
-          ok(
-            request.query.get('cursor')
-              ? ratingsPageFixture({
-                  items: [
-                    {
-                      ...ratingsPageFixture().items[0]!,
-                      id: 'r2',
-                      comment: 'Quick answers.',
-                    },
-                  ],
-                })
-              : ratingsPageFixture({ hasMore: true, nextCursor: 'c2' })
-          ),
-      })
-    );
-    render();
-    expect(await screen.findByTestId('rating-summary')).toHaveTextContent(/4\.8/);
-    expect(screen.getByTestId('rating-count')).toHaveTextContent('12 ratings');
-    expect(screen.getByText('Well packed, shipped with tracking.')).toBeOnTheScreen();
-    expect(screen.getByText('Communication')).toBeOnTheScreen();
-    expect(await screen.findByText('“Fair and friendly trader.”')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('ratings-more'));
-    expect(await screen.findByText('Quick answers.')).toBeOnTheScreen();
-    expect(api.callsTo('GET /api/v1/collectors/{handle}/ratings')[1]?.query.get('cursor')).toBe(
-      'c2'
-    );
-  });
-
-  it('shows empty ratings and references, and retries ratings that failed', async () => {
-    mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}/ratings': [
-          problem(500, 'INTERNAL_ERROR', 'Boom'),
-          ok(ratingsPageFixture({ items: [], summary: { average: null, count: 0 } })),
-        ],
+        'GET /api/v1/collectors/{handle}/binders': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok([])],
+        'GET /api/v1/collectors/{handle}/wishlist': problem(404, 'NOT_FOUND', 'hidden'),
         'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture({ items: [] })),
       })
     );
     render();
-    const failed = await screen.findByTestId('ratings-error');
+    expect(await screen.findByTestId('profile-cards-empty')).toHaveTextContent(
+      'No public cards yet.'
+    );
+    const failed = await screen.findByTestId('profile-binders-error');
+    expect(failed).toHaveTextContent(/^Binders could not load\./);
     fireEvent.press(within(failed).getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('ratings-empty')).toHaveTextContent(/No ratings yet/);
-    expect(screen.getByTestId('references-empty')).toHaveTextContent('No references yet.');
+    expect(await screen.findByTestId('profile-binders-empty')).toHaveTextContent(
+      'No public binders yet.'
+    );
+    expect(api.callsTo('GET /api/v1/collectors/{handle}/binders')).toHaveLength(2);
+    // A hidden wishlist reads like an empty one (nothing says why).
+    expect(await screen.findByTestId('profile-wishes-empty')).toHaveTextContent(
+      'No public wishes.'
+    );
+    expect(screen.getByTestId('profile-bio-text')).toHaveTextContent(
+      'Noé Verdun has not written a bio yet.'
+    );
+    expect(screen.getByTestId('profile-ratings-empty')).toHaveTextContent('No ratings yet.');
+    expect(await screen.findByTestId('profile-references-empty')).toHaveTextContent(
+      'No references yet.'
+    );
+    // Nothing to see in full: no "See all" on the empty sections.
+    expect(screen.queryByTestId('profile-cards-see-all')).toBeNull();
+    expect(screen.queryByTestId('profile-wishes-see-all')).toBeNull();
+    // The references page still holds Rate and Write a reference.
+    expect(screen.getByTestId('profile-references-see-all')).toBeOnTheScreen();
   });
 
-  it('starts or opens the conversation when the collector accepts messages', async () => {
+  it('opens a card, a binder, each "See all" and a reference author', async () => {
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId(`profile-card-${CARD.id}`));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/cards/[id]',
+      params: { id: CARD_ID, printing: CARD.printing.id },
+    });
+    fireEvent.press(screen.getByTestId('profile-binder-core-1'));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/binders/[id]',
+      params: { id: 'core-1' },
+    });
+    const seeAll: [string, string][] = [
+      ['profile-cards-see-all', '/collectors/[id]/cards'],
+      ['profile-binders-see-all', '/collectors/[id]/binders'],
+      ['profile-wishes-see-all', '/collectors/[id]/wishes'],
+      ['profile-references-see-all', '/collectors/[id]/references'],
+    ];
+    await screen.findByTestId(`profile-have-${CARD_ID}`);
+    for (const [id, pathname] of seeAll) {
+      fireEvent.press(screen.getByTestId(id));
+      expect(mockRouter.push).toHaveBeenLastCalledWith({
+        pathname,
+        params: { id: 'collector2' },
+      });
+    }
+    expect(screen.getByTestId('profile-cards-see-all').props.accessibilityLabel).toBe(
+      'See all cards'
+    );
+    fireEvent.press(await screen.findByText(/^collector1/));
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/collectors/[id]',
+      params: { id: 'collector1' },
+    });
+  });
+
+  it('"Message {handle}" opens or reuses the chat without changing its card', async () => {
     const api = mockApi(routes({ 'POST /api/v1/conversations': ok(conversationFixture()) }));
     render();
     fireEvent.press(await screen.findByTestId('collector-message'));
@@ -246,87 +317,298 @@ describe('Collector profile', () => {
     expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({ recipientId: OTHER.id });
   });
 
-  it('respects the messaging permission and blocks', async () => {
+  it('respects the messaging permission: Message is off with the reason, no "I have it"', async () => {
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, canMessage: false }) }));
-    const first = render();
+    render();
     expect(await screen.findByTestId('collector-message')).toBeDisabled();
     expect(screen.getByTestId('collector-message-reason')).toHaveTextContent(
-      'Noé Verdun does not accept messages from you.'
+      'collector2 does not accept messages from you.'
     );
-    first.unmount();
-    mockApi(
+    expect(await screen.findByTestId('profile-wishes')).toHaveTextContent(/Azure-Eyes Sky Dragon/);
+    expect(screen.queryByTestId(`profile-have-${CARD_ID}`)).toBeNull();
+  });
+
+  it('shows the small top bar with Message once the header has scrolled away', async () => {
+    const api = mockApi(routes({ 'POST /api/v1/conversations': ok(conversationFixture()) }));
+    render();
+    await screen.findByTestId('collector-name');
+    expect(screen.queryByTestId('profile-top-bar-name')).toBeNull();
+    fireEvent(screen.getByTestId('profile-actions'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 120, width: 360, height: 44 } },
+    });
+    fireEvent.scroll(screen.getByTestId('collector-scroll'), {
+      nativeEvent: { contentOffset: { x: 0, y: 400 } },
+    });
+    expect(await screen.findByTestId('profile-top-bar-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByTestId('profile-top-bar-message'));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/conversations')).toHaveLength(1));
+    fireEvent.scroll(screen.getByTestId('collector-scroll'), {
+      nativeEvent: { contentOffset: { x: 0, y: 40 } },
+    });
+    await waitFor(() => expect(screen.queryByTestId('profile-top-bar-name')).toBeNull());
+  });
+});
+
+describe('At the largest text size (the walk of stage R6)', () => {
+  it('puts the avatar above the name and keeps the titles and "See all" on their words', async () => {
+    const window = WINDOW;
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(routes());
+      render();
+      expect(await screen.findByTestId('collector-name')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      // Beside the avatar the handle broke in the middle of a word.
+      expect(StyleSheet.flatten(screen.getByTestId('collector-header').props.style)).toMatchObject({
+        flexDirection: 'column',
+      });
+      // "Looking for" broke as "Looki / ng for" beside "See all".
+      expect(screen.getByText('Looking for')).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      expect(screen.getAllByText('See all')[0]).toHaveProp(
+        'maxFontSizeMultiplier',
+        TITLE_MAX_FONT_SCALE
+      );
+      // A wish puts "I have it" under the card.
+      expect(await screen.findByTestId(`profile-have-${CARD_ID}`)).toBeOnTheScreen();
+      // The cards and binders are rows, the whole name beside the picture (in a tile the name
+      // broke in the middle of a word).
+      expect(screen.getByTestId('profile-cards-rail').type).not.toBe('RCTScrollView');
+      expect(screen.getByTestId(`profile-card-${CARD.id}`)).toHaveTextContent(
+        'Azure-Eyes Sky Dragon85% TCG'
+      );
+      expect(screen.getByTestId('profile-binders-rail').type).not.toBe('RCTScrollView');
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+});
+
+describe('"I have it" (owner spec 2026-10-14, section 10)', () => {
+  const mine = (id: string, visibility: 'PUBLIC' | 'PRIVATE', updatedAt: string) =>
+    itemFixture({
+      id,
+      card: { id: CARD_ID, name: 'Azure-Eyes Sky Dragon', game: 'yugioh' },
+      printing: printingFixture({ printingCode: 'AZR-EN001' }),
+      askingPriceText: '$12.50',
+      visibility,
+      updatedAt,
+    });
+
+  it('puts your copy and the text in the box, leaving the chat card alone until send', async () => {
+    const api = mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, canMessage: false, isBlocked: true }),
+        'GET /api/v1/inventory/items': ok(
+          inventoryPage([
+            mine('private-copy', 'PRIVATE', '2026-10-10T12:00:00Z'),
+            mine('public-copy', 'PUBLIC', '2026-10-01T12:00:00Z'),
+          ])
+        ),
+        'POST /api/v1/conversations': ok(conversationFixture()),
       })
     );
     render();
-    expect(await screen.findByTestId('collector-message-reason')).toHaveTextContent(
-      /because of a block/
+    fireEvent.press(await screen.findByTestId(`profile-have-${CARD_ID}`));
+    await waitFor(() =>
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/messages/[id]',
+        params: { id: CONVERSATION_ID },
+      })
+    );
+    const lookup = api.callsTo('GET /api/v1/inventory/items')[0];
+    expect(lookup?.query.get('cardId')).toBe(CARD_ID);
+    // The chat opens as "Message" opens it: its card is not changed before send (the other
+    // collector would see your copy, even a private one, in their inbox at once).
+    expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({ recipientId: OTHER.id });
+    expect(peekPendingDraft(CONVERSATION_ID)).toEqual({
+      text: 'I have Azure-Eyes Sky Dragon for your wishlist. Interested?',
+      attachment: {
+        kind: 'item',
+        item: {
+          itemId: 'public-copy',
+          name: 'Azure-Eyes Sky Dragon',
+          printingCode: 'AZR-EN001',
+          imageUrl: '/api/v1/public/card-images/pa',
+          game: 'yugioh',
+          askingPriceText: '$12.50',
+        },
+      },
+    });
+    // Nothing is sent until the collector taps send in the chat.
+    expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(0);
+  });
+
+  it('never offers a copy filed in one of your deck cores (it sells only with its core)', async () => {
+    const core = deckCoreFixture();
+    const api = mockApi(
+      routes({
+        'GET /api/v1/binders': ok([binderFixture(), core]),
+        'GET /api/v1/inventory/items': ok(
+          inventoryPage([
+            {
+              ...mine('core-copy', 'PUBLIC', '2026-10-10T12:00:00Z'),
+              binder: { id: core.id, name: core.name },
+            },
+          ])
+        ),
+        'POST /api/v1/conversations': ok(conversationFixture()),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId(`profile-have-${CARD_ID}`));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/conversations')).toHaveLength(1));
+    await waitFor(() =>
+      expect(peekPendingDraft(CONVERSATION_ID)).toEqual({
+        text: 'I have Azure-Eyes Sky Dragon for your wishlist. Interested?',
+        attachment: null,
+      })
     );
   });
 
-  it('shows "Looking for" when the collector shows their wishlist, nothing when hidden', async () => {
-    mockApi(
+  it('without a copy, opens the chat with the text only and no card pinned', async () => {
+    const api = mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}/wishlist': ok([
-          wishlistEntryFixture(),
-          wishlistEntryFixture({
-            card: { id: 'c2', name: 'Emberfang Fox VMAX', imageUrl: null },
-            printing: printingFixture(),
-            note: '',
-            nearMintOnly: false,
-            priceTerm: { label: '90% TCG', percent: 90, orMore: false },
-          }),
-        ]),
+        'GET /api/v1/inventory/items': ok(inventoryPage([])),
+        'POST /api/v1/conversations': ok(conversationFixture()),
       })
     );
-    const first = render();
-    const section = await screen.findByTestId('collector-wishlist');
-    expect(section).toHaveTextContent(/2 cards Noé Verdun is looking for/);
-    const dragon = within(section).getByTestId(
-      'collector-wish-00000000-0000-4000-8a00-000000000001'
+    render();
+    fireEvent.press(await screen.findByTestId(`profile-have-${CARD_ID}`));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/conversations')).toHaveLength(1));
+    expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({ recipientId: OTHER.id });
+    await waitFor(() =>
+      expect(peekPendingDraft(CONVERSATION_ID)).toEqual({
+        text: 'I have Azure-Eyes Sky Dragon for your wishlist. Interested?',
+        attachment: null,
+      })
     );
-    expect(dragon).toHaveTextContent(/Azure-Eyes Sky Dragon/);
-    expect(dragon).toHaveTextContent(/Any printing/);
-    expect(dragon).toHaveTextContent(/Sleeved copies welcome\./);
-    expect(dragon).toHaveTextContent(/Near Mint only/);
-    const fox = within(section).getByTestId('collector-wish-c2');
-    expect(fox).toHaveTextContent(/SVX-001 · Ultra Rare · Stellar Vortex/);
-    expect(fox).toHaveTextContent(/90% TCG ≈ 34\.20 CAD/);
-    // Never a radius, a distance or a place.
-    expect(section).not.toHaveTextContent(/km|Quebec|Ontario/);
-    fireEvent.press(fox);
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/cards/[id]',
-      params: { id: 'c2', printing: PRINTING_A },
-    });
-    first.unmount();
+  });
 
+  it('says why when the chat cannot open', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/inventory/items': ok(inventoryPage([])),
+        'POST /api/v1/conversations': problem(403, 'MESSAGING_BLOCKED', 'No'),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId(`profile-have-${CARD_ID}`));
+    expect(await screen.findByTestId('snackbar')).toBeOnTheScreen();
+    expect(mockRouter.push).not.toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: '/messages/[id]' })
+    );
+  });
+});
+
+describe('The "⋯" sheet: Share profile, Report, Block', () => {
+  it('shares the public link of the profile once iOS has dismissed the sheet', async () => {
+    // iOS takes a share sheet asked for while it still dismisses the "⋯" sheet away with it: the
+    // share waits for the sheet's Modal to report `onDismiss` (stage R6, review fix 1).
+    const { mockDismissals } = require('react-native/Libraries/Modal/Modal') as {
+      mockDismissals: { count: number };
+    };
+    const before = mockDismissals.count;
+    let dismissalsAtShare = -1;
+    const share = jest.spyOn(Share, 'share').mockImplementation(async () => {
+      dismissalsAtShare = mockDismissals.count;
+      return { action: 'sharedAction' };
+    });
     mockApi(routes());
     render();
-    await screen.findByTestId('collector-binders');
-    await waitFor(() => expect(screen.queryByTestId('collector-wishlist')).toBeNull());
+    fireEvent.press(await screen.findByRole('button', { name: 'More for collector2' }));
+    fireEvent.press(within(screen.getByTestId('collector-menu-sheet')).getByText('Share profile'));
+    await waitFor(() => expect(share).toHaveBeenCalled());
+    expect(dismissalsAtShare).toBe(before + 1);
+    expect(screen.queryByTestId('collector-menu-sheet')).toBeNull();
+    expect(JSON.stringify(share.mock.calls[0]?.[0])).toContain(
+      'https://www.orenjitrade.com/collectors/collector2'
+    );
+    share.mockRestore();
   });
 
-  it('is the public preview of the own profile (edit, no Message)', async () => {
+  it('shows the link when the device cannot share', async () => {
+    const share = jest.spyOn(Share, 'share').mockRejectedValue(new Error('not supported'));
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-menu'));
+    fireEvent.press(screen.getByTestId('collector-share'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      'Profile link: https://www.orenjitrade.com/collectors/collector2'
+    );
+    share.mockRestore();
+  });
+
+  it('flashes the scroll bar when its rows do not all fit (the largest text size)', async () => {
+    const { ScrollView } = jest.requireActual<typeof import('react-native')>('react-native');
+    const flash = ScrollView.prototype.flashScrollIndicators as jest.Mock;
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-menu'));
+    const list = screen.getByTestId('collector-menu-scroll');
+    flash.mockClear();
+    // Everything fits: nothing to show.
+    fireEvent(list, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 400 } } });
+    fireEvent(list, 'contentSizeChange', 390, 300);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(flash).not.toHaveBeenCalled();
+    // Block is below the fold: the scroll bar shows that the rows go on.
+    fireEvent(list, 'contentSizeChange', 390, 900);
+    await waitFor(() => expect(flash).toHaveBeenCalled());
+  });
+
+  it('reports the collector', async () => {
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-menu'));
+    expect(screen.getByTestId('collector-report')).toHaveTextContent(/Report collector2$/);
+    fireEvent.press(screen.getByTestId('collector-report'));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/report',
+      params: {
+        userId: OTHER.id,
+        name: 'Noé Verdun',
+        handle: 'collector2',
+        source: 'PROFILE',
+      },
+    });
+  });
+});
+
+describe('Your own profile opened from a link', () => {
+  it('is your page: Edit profile and Share profile, no Message, no "⋯", no "I have it"', async () => {
     mockParams.current = { id: 'maika' };
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
     render();
-    expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
+    expect(screen.getByTestId('profile-edit')).toBeOnTheScreen();
+    expect(screen.getByTestId('profile-share')).toBeOnTheScreen();
     expect(screen.queryByTestId('collector-message')).toBeNull();
-    expect(screen.queryByTestId('collector-report')).toBeNull();
-    fireEvent.press(screen.getByTestId('collector-edit-profile'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings/profile');
-  });
-
-  it('says when a collector is not on the map', async () => {
-    mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok({ ...OTHER, location: undefined }) }));
-    render();
-    expect(await screen.findByTestId('collector-location')).toHaveTextContent('Not on the map');
-    expect(screen.getByTestId('collector-area-hidden')).toHaveTextContent(
-      'Noé Verdun is not visible on the map.'
+    expect(screen.queryByTestId('collector-menu')).toBeNull();
+    // Your wishes (GET /wishlist) open the wish, never "I have it".
+    const wish = await screen.findByTestId('profile-wish-00000000-0000-4000-9a00-000000000001');
+    fireEvent.press(wish);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/edit',
+      params: { id: '00000000-0000-4000-9a00-000000000001' },
+    });
+    expect(screen.queryByText('I have it')).toBeNull();
+    // Your own line: the city you show, no "Active".
+    expect(screen.getByTestId('profile-line')).toHaveTextContent(
+      'Montréal, Quebec · Member since 2026'
     );
-    expect(screen.queryByTestId('collector-area-note')).toBeNull();
   });
 });
 
@@ -337,8 +619,8 @@ describe('Collector profile visibility (like the web)', () => {
     const empty = await screen.findByTestId('collector-not-found');
     expect(empty).toHaveTextContent(/This collector is not available/);
     expect(empty).toHaveTextContent(/does not exist, is private, or is no longer active/);
-    fireEvent.press(within(empty).getByRole('button', { name: 'Back to the map' }));
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+    fireEvent.press(within(empty).getByRole('button', { name: 'Back to Search' }));
+    expect(mockRouter.navigate).toHaveBeenCalledWith('/search');
   });
 
   it('MEMBERS while signed out: sign-in required, nothing is requested', async () => {
@@ -363,7 +645,6 @@ describe('Collector profile visibility (like the web)', () => {
     expect(await screen.findByTestId('collector-members-only')).toBeOnTheScreen();
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
     expect(useSessionNotice.getState().ended).toBe(true);
-    // Signed out now: the buttons open the auth screens.
     fireEvent.press(screen.getByTestId('collector-sign-in'));
     expect(mockRouter.push).toHaveBeenCalledWith('/sign-in');
   });
@@ -388,120 +669,91 @@ describe('Collector profile visibility (like the web)', () => {
   });
 });
 
-describe('Collector profile: Block / Unblock (launch readiness)', () => {
-  it('blocks the collector after a confirmation, then offers Unblock', async () => {
-    const api = mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
-        'POST /api/v1/users/{id}/block': { status: 204 },
-        'DELETE /api/v1/users/{id}/block': { status: 204 },
-      })
-    );
+describe("Blocks (today's rule: the header answers, the listings do not, either way)", () => {
+  const blockRoutes = (extra: MockRoutes = {}) =>
+    routes({
+      'GET /api/v1/collectors/{handle}': [
+        ok(OTHER),
+        ok({ ...OTHER, isBlocked: true, canMessage: false }),
+      ],
+      'GET /api/v1/me/blocks': [ok([]), ok([blockedUserFixture()])],
+      'POST /api/v1/users/{id}/block': { status: 204 },
+      'DELETE /api/v1/users/{id}/block': { status: 204 },
+      ...extra,
+    });
+
+  it('blocks from the sheet after a confirmation; then the header and Unblock only', async () => {
+    const api = mockApi(blockRoutes());
     render();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
-    expect(screen.getByTestId('collector-report')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
-    const dialog = screen.getByTestId('block-dialog');
-    expect(within(dialog).getByText('Block Noé Verdun?')).toBeOnTheScreen();
-    expect(within(dialog).getByText(/Settings → Blocked users/)).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('collector-menu'));
+    const block = screen.getByTestId('collector-block');
+    expect(block).toHaveTextContent(/Block collector2$/);
+    fireEvent.press(block);
+    const dialog = await screen.findByTestId('block-dialog');
+    expect(within(dialog).getByText('Block collector2?')).toBeOnTheScreen();
     fireEvent.press(within(dialog).getByRole('button', { name: 'Block' }));
     await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
     expect(api.callsTo('POST /api/v1/users/{id}/block')[0]?.path).toBe(
       '/api/v1/users/00000000-0000-4000-8000-0000000000b1/block'
     );
-    expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is blocked.');
-    // The profile is read again: blocked now, Unblock in place of Block.
-    expect(await screen.findByRole('button', { name: 'Unblock Noé Verdun' })).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
+    expect(await screen.findByTestId('collector-blocked')).toHaveTextContent(
+      /You blocked collector2\. Unblock them to see their cards, binders and wishes/
+    );
+    expect(screen.queryByTestId('profile-cards')).toBeNull();
+    expect(screen.queryByTestId('profile-wishes')).toBeNull();
+    expect(screen.queryByTestId('collector-message')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Unblock collector2' }));
     await waitFor(() => expect(api.callsTo('DELETE /api/v1/users/{id}/block')).toHaveLength(1));
-    expect(screen.getByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+    expect(screen.getByTestId('snackbar')).toHaveTextContent('collector2 is unblocked.');
   });
 
-  it('reads the region map again after a block and after an unblock', async () => {
-    // A blocked collector's binder is neither counted on the map nor listed under its state:
-    // what the map already read (kept for a minute otherwise) is out of date at once.
-    mockApi(
+  it('reads the region map, search and card holders again after a block and an unblock', async () => {
+    mockApi(blockRoutes());
+    const { queryClient } = render();
+    const keys = [
+      meKeys.regionBinderCounts('uid-maika', 'americas-north'),
+      meKeys.regionBinderSearch('uid-maika', { region: 'americas-north' }),
+      meKeys.search('uid-maika', { q: 'noe', types: ['collectors'], region: 'americas-north' }),
+      meKeys.cardHolders('uid-maika', { cardId: 'card-1', region: 'americas-north' }),
+    ];
+    const read = () => keys.forEach((key) => queryClient.setQueryData(key, { pages: [] }));
+    const stale = () => keys.map((key) => queryClient.getQueryState(key)?.isInvalidated);
+    read();
+    expect(stale()).toEqual([false, false, false, false]);
+    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
+    fireEvent.press(screen.getByTestId('collector-menu'));
+    fireEvent.press(screen.getByTestId('collector-block'));
+    fireEvent.press(
+      within(await screen.findByTestId('block-dialog')).getByRole('button', { name: 'Block' })
+    );
+    await waitFor(() => expect(stale()).toEqual([true, true, true, true]));
+    read();
+    fireEvent.press(await screen.findByRole('button', { name: 'Unblock collector2' }));
+    await waitFor(() => expect(stale()).toEqual([true, true, true, true]));
+  });
+
+  it('a collector who blocked you is "not available", and their listings are not asked for', async () => {
+    const api = mockApi(
       routes({
-        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
-        'POST /api/v1/users/{id}/block': { status: 204 },
-        'DELETE /api/v1/users/{id}/block': { status: 204 },
+        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, isBlocked: true, canMessage: false }),
+        'GET /api/v1/me/blocks': ok([]),
       })
     );
-    const { queryClient } = render();
-    const counts = meKeys.regionBinderCounts('uid-maika', 'americas-north');
-    const binders = meKeys.regionBinderSearch('uid-maika', { region: 'americas-north' });
-    queryClient.setQueryData(counts, { region: 'americas-north', total: 1, subdivisions: [] });
-    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
-    const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;
-    expect([stale(counts), stale(binders)]).toEqual([false, false]);
-
-    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
-    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
-    fireEvent.press(
-      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
-    );
-    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
-
-    queryClient.setQueryData(counts, { region: 'americas-north', total: 0, subdivisions: [] });
-    queryClient.setQueryData(binders, { pages: [], pageParams: [] });
-    expect([stale(counts), stale(binders)]).toEqual([false, false]);
-    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
-    await waitFor(() => expect([stale(counts), stale(binders)]).toEqual([true, true]));
+    render();
+    expect(await screen.findByTestId('collector-not-found')).toBeOnTheScreen();
+    expect(screen.queryByTestId('collector-menu')).toBeNull();
+    expect(api.callsTo('GET /api/v1/collectors/{handle}/inventory')).toHaveLength(0);
+    expect(api.callsTo('GET /api/v1/collectors/{handle}/binders')).toHaveLength(0);
+    expect(api.callsTo('GET /api/v1/collectors/{handle}/wishlist')).toHaveLength(0);
   });
 
-  it('reads search results and card holders again after a block and after an unblock', async () => {
-    // A blocked collector is no longer found, nor their binders or their copies of a card: what
-    // the Search tab and a card's holders already read (kept for a minute otherwise) is out of
-    // date at once, in whatever region it was read.
-    mockApi(
-      routes({
-        'GET /api/v1/collectors/{handle}': [ok(OTHER), ok({ ...OTHER, isBlocked: true })],
-        'POST /api/v1/users/{id}/block': { status: 204 },
-        'DELETE /api/v1/users/{id}/block': { status: 204 },
-      })
-    );
-    const { queryClient } = render();
-    const collectors = meKeys.search('uid-maika', {
-      q: 'noe',
-      types: ['collectors'],
-      region: 'americas-north',
-      limit: 20,
-    });
-    const binders = meKeys.search('uid-maika', {
-      q: 'extras',
-      types: ['binders'],
-      region: 'europe',
-      limit: 20,
-    });
-    const holders = meKeys.cardHolders('uid-maika', { cardId: 'card-1', region: 'americas-north' });
-    const read = () => {
-      queryClient.setQueryData(collectors, { collectors: [], binders: [] });
-      queryClient.setQueryData(binders, { collectors: [], binders: [] });
-      queryClient.setQueryData(holders, { pages: [], pageParams: [] });
-    };
-    const stale = () =>
-      [collectors, binders, holders].map((key) => queryClient.getQueryState(key)?.isInvalidated);
-    read();
-    expect(stale()).toEqual([false, false, false]);
-
-    expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
-    fireEvent.press(screen.getByRole('button', { name: 'Block Noé Verdun' }));
-    fireEvent.press(
-      within(screen.getByTestId('block-dialog')).getByRole('button', { name: 'Block' })
-    );
-    await waitFor(() => expect(stale()).toEqual([true, true, true]));
-
-    read();
-    expect(stale()).toEqual([false, false, false]);
-    fireEvent.press(await screen.findByRole('button', { name: 'Unblock Noé Verdun' }));
-    await waitFor(() => expect(stale()).toEqual([true, true, true]));
-  });
-
-  it("never offers Block on the collector's own profile", async () => {
-    // The fixture's default is the signed-in collector's own profile.
+  it("never offers Block or Report on the collector's own profile", async () => {
+    mockParams.current = { id: 'maika' };
     mockApi(routes({ 'GET /api/v1/collectors/{handle}': ok(collectorFixture()) }));
     render();
-    expect(await screen.findByTestId('public-preview-banner')).toBeOnTheScreen();
+    expect(await screen.findByTestId('profile-name')).toBeOnTheScreen();
+    expect(screen.queryByTestId('collector-menu')).toBeNull();
     expect(screen.queryByTestId('collector-block')).toBeNull();
     expect(screen.queryByTestId('collector-report')).toBeNull();
   });

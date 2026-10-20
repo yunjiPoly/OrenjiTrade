@@ -22,12 +22,12 @@ export function useMyLocation() {
 }
 
 /** `GET /api/v1/me/settings/privacy`. */
-export function usePrivacySettings() {
+export function usePrivacySettings(enabled = true) {
   const uid = useUid();
   return useQuery<PrivacySettings, ApiError>({
     queryKey: meKeys.privacy(uid),
     queryFn: async () => required((await api.GET('/api/v1/me/settings/privacy')).data),
-    enabled: useIsAuthenticated(),
+    enabled: useIsAuthenticated() && enabled,
   });
 }
 

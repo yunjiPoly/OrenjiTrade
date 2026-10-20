@@ -34,8 +34,9 @@ test.describe('mobile profile', () => {
     await expect(profile.getByTestId('profile-bio-text')).toHaveText(
       'Fictional mobile E2E collector.'
     );
-    await expect(profile.getByTestId('profile-area')).toHaveText('No location yet.');
-    await expect(profile.getByTestId('profile-visibility')).toHaveText('Hidden from the map.');
+    await expect(profile.getByTestId('profile-line')).toHaveText(
+      /^Not on the map · Member since \d{4}$/
+    );
 
     await profile.getByRole('button', { name: 'Edit profile' }).click();
     const editor = screen(page, 'settings-profile');
@@ -90,7 +91,7 @@ test.describe('mobile profile', () => {
     expect(body.games).toEqual(expect.arrayContaining(['pokemon', 'yugioh']));
     expect(body.tags).toHaveLength(1);
 
-    // Back on the Profile tab, then the public preview.
+    // Back on the Profile tab: your page as others see it, read again (stage R6).
     await page.goBack();
     const updated = screen(page, 'profile');
     await expect(updated.getByTestId('profile-name')).toHaveText('Mobile Editor Renamed', {
@@ -99,10 +100,6 @@ test.describe('mobile profile', () => {
     await expect(updated.getByTestId('profile-bio-text')).toHaveText(
       'Updated from the mobile app.'
     );
-    await updated.getByRole('button', { name: 'Public preview' }).click();
-    const preview = screen(page, 'collector');
-    await expect(preview.getByTestId('public-preview-banner')).toBeVisible({ timeout: 30_000 });
-    await expect(preview.getByTestId('collector-name')).toHaveText('Mobile Editor Renamed');
-    await expect(preview.getByTestId('collector-location')).toHaveText('Not on the map');
+    await expect(updated.getByTestId('profile-chips')).toContainText('Pokémon');
   });
 });

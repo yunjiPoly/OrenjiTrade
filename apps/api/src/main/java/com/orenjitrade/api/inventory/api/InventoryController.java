@@ -106,7 +106,8 @@ public class InventoryController {
             description =
                     "`query` matches card names (accent-insensitive, full text), printing codes"
                             + " (prefix) and set codes/names. `binderId` limits to one binder,"
-                            + " `unfiled=true` to items without a binder. `sort`: updated (default,"
+                            + " `unfiled=true` to items without a binder, `cardId` to the"
+                            + " printings of one card. `sort`: updated (default,"
                             + " newest first), created (newest first), name (A-Z) or price"
                             + " (highest first; prices that are not a plain amount come after"
                             + " every amount, then the cards without a price); `direction`"
@@ -164,7 +165,13 @@ public class InventoryController {
                     @RequestParam(required = false)
                     @Nullable String direction,
             @RequestParam(defaultValue = "0") @Min(0) @Max(10_000) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @Parameter(
+                            description =
+                                    "Only the printings of this card (stage R6: \"I have it\""
+                                            + " looks for the caller's copies of a wished card)")
+                    @RequestParam(required = false)
+                    @Nullable UUID cardId) {
         return responses(
                 inventoryService.list(
                         principal.userId(),
@@ -181,7 +188,8 @@ public class InventoryController {
                                 sort,
                                 direction,
                                 page,
-                                size)));
+                                size,
+                                cardId)));
     }
 
     @PostMapping(path = "/items", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -560,6 +568,38 @@ public class InventoryController {
             @Nullable String direction,
             int page,
             int size) {
+        return ownerQuery(
+                query,
+                game,
+                binderId,
+                unfiled,
+                visibility,
+                markedPublic,
+                availability,
+                condition,
+                freshness,
+                sort,
+                direction,
+                page,
+                size,
+                null);
+    }
+
+    static OwnerQuery ownerQuery(
+            @Nullable String query,
+            @Nullable String game,
+            @Nullable UUID binderId,
+            boolean unfiled,
+            @Nullable ListingVisibility visibility,
+            boolean markedPublic,
+            @Nullable Availability availability,
+            @Nullable String condition,
+            @Nullable FreshnessState freshness,
+            String sort,
+            @Nullable String direction,
+            int page,
+            int size,
+            @Nullable UUID cardId) {
         SortKey key;
         try {
             key = SortKey.valueOf(sort.trim().toUpperCase(Locale.ROOT));
@@ -595,6 +635,7 @@ public class InventoryController {
                 key,
                 descending,
                 page,
-                size);
+                size,
+                cardId);
     }
 }

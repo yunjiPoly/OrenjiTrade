@@ -77,7 +77,7 @@ describe('Settings → Blocked users', () => {
     expect(screen.getByTestId('blocked-collector2')).toBeOnTheScreen();
   });
 
-  it('is linked from Settings and from a blocked collector profile', async () => {
+  it('is linked from Settings; a blocked collector profile offers Unblock', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/me/blocks': ok([]) }));
     renderWithProviders(<SettingsScreen />, { port: port() });
     fireEvent.press(await screen.findByRole('link', { name: 'Blocked users' }));
@@ -99,13 +99,15 @@ describe('Settings → Blocked users', () => {
         'GET /api/v1/collectors/{handle}/ratings': ok(ratingsPageFixture()),
         'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture()),
         'GET /api/v1/collectors/{handle}/wishlist': problem(404, 'NOT_FOUND', 'hidden'),
+        'GET /api/v1/me/blocks': ok([blockedUserFixture()]),
       })
     );
     renderWithProviders(<CollectorScreen />, { port: port() });
-    expect(await screen.findByTestId('collector-message-reason')).toHaveTextContent(
-      /Messaging is unavailable because of a block/
+    // Stage R6: the header and Unblock, in place of the sections and Message.
+    expect(await screen.findByTestId('collector-blocked')).toHaveTextContent(
+      /You blocked collector2/
     );
-    fireEvent.press(screen.getByTestId('collector-message-blocked-users'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings/blocked');
+    expect(screen.getByRole('button', { name: 'Unblock collector2' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('collector-message')).toBeNull();
   });
 });

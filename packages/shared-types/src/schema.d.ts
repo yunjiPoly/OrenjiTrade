@@ -1318,7 +1318,7 @@ export interface paths {
         };
         /**
          * The caller's items (filters, sort, pages)
-         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.
+         * @description `query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder, `cardId` to the printings of one card. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.
          */
         get: operations["listInventoryItems"];
         put?: never;
@@ -15782,6 +15782,8 @@ export interface operations {
                 direction?: "asc" | "desc";
                 page?: number;
                 size?: number;
+                /** @description Only the printings of this card (stage R6: "I have it" looks for the caller's copies of a wished card) */
+                cardId?: string;
             };
             header?: never;
             path?: never;
@@ -25549,6 +25551,8 @@ export interface operations {
                 availability?: "COLLECTION_ONLY" | "TRADE" | "SALE" | "TRADE_OR_SALE" | "NOT_AVAILABLE";
                 page?: number;
                 size?: number;
+                /** @description Leave out the cards filed in a deck core: they sell only with it (stage R6: the phone's profile passes it) */
+                excludeDeckCoreItems?: boolean;
             };
             header?: never;
             path: {

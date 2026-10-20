@@ -51,6 +51,11 @@ export interface MessageComposerProps {
   /** The caller typed (throttled by the thread before it reaches the server). */
   onTyping: () => void;
   onDismissError: () => void;
+  /**
+   * What the message box starts with (stage R6, "I have it": the text and your copy of the card),
+   * to be checked and sent by the collector; nothing is sent by itself.
+   */
+  initialDraft?: MessageDraft | null;
 }
 
 const ROW_ICONS: Record<AttachRow, keyof typeof MaterialCommunityIcons.glyphMap> = {
@@ -96,12 +101,15 @@ export function MessageComposer({
   onSend,
   onTyping,
   onDismissError,
+  initialDraft = null,
 }: MessageComposerProps) {
   const { palette } = useTheme();
   const input = useRef<ElementRef<typeof TextInput>>(null);
   const saved = useSavedDetails();
-  const [text, setText] = useState('');
-  const [attachment, setAttachment] = useState<DraftAttachment | null>(null);
+  const [text, setText] = useState(initialDraft?.text ?? '');
+  const [attachment, setAttachment] = useState<DraftAttachment | null>(
+    initialDraft?.attachment ?? null
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const [binderPicker, setBinderPicker] = useState(false);
   const [cardPicker, setCardPicker] = useState(false);

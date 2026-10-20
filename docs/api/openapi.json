@@ -7092,7 +7092,7 @@
           "inventory"
         ],
         "summary": "The caller's items (filters, sort, pages)",
-        "description": "`query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.",
+        "description": "`query` matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. `binderId` limits to one binder, `unfiled=true` to items without a binder, `cardId` to the printings of one card. `sort`: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); `direction` overrides the order.",
         "operationId": "listInventoryItems",
         "parameters": [
           {
@@ -7252,6 +7252,16 @@
               "default": 20,
               "maximum": 100,
               "minimum": 1
+            }
+          },
+          {
+            "name": "cardId",
+            "in": "query",
+            "description": "Only the printings of this card (stage R6: \"I have it\" looks for the caller's copies of a wished card)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -20093,6 +20103,16 @@
               "default": 20,
               "maximum": 100,
               "minimum": 1
+            }
+          },
+          {
+            "name": "excludeDeckCoreItems",
+            "in": "query",
+            "description": "Leave out the cards filed in a deck core: they sell only with it (stage R6: the phone's profile passes it)",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],

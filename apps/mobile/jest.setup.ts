@@ -52,6 +52,31 @@ jest.mock(
   () => require('react-native-safe-area-context/jest/mock').default
 );
 
+// iOS's Modal: hidden (`visible={false}`), it reports `onDismiss` once iOS has taken it away. React
+// Native's own jest mock never does; a bottom sheet that has slid away waits for it before the
+// share sheet or the photo picker may come up (`afterModals`, modalTurns.tsx), so here it comes
+// right after the modal is hidden, as on an iPhone. `mockDismissals.count` counts them (a test reads
+// it with `require('react-native/Libraries/Modal/Modal').mockDismissals`).
+jest.mock('react-native/Libraries/Modal/Modal', () => {
+  const React = require('react') as typeof import('react');
+  const Stock = require('@react-native/jest-preset/jest/mocks/Modal').default;
+  const mockDismissals = { count: 0 };
+  function Modal(props: { visible?: boolean; onDismiss?: () => void }) {
+    const visible = props.visible !== false;
+    const wasVisible = React.useRef(visible);
+    const { onDismiss } = props;
+    React.useEffect(() => {
+      if (wasVisible.current && !visible) {
+        mockDismissals.count += 1;
+        onDismiss?.();
+      }
+      wasVisible.current = visible;
+    }, [onDismiss, visible]);
+    return React.createElement(Stock, props);
+  }
+  return { __esModule: true, default: Modal, mockDismissals };
+});
+
 // --- No long timer outlives its test file ---------------------------------------------------------
 //
 // A real timer still armed when a test file is done keeps its jest worker alive: jest then kills

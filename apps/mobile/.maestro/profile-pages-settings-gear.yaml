@@ -1,0 +1,329 @@
+# Native flow 6 of the phone redesign (owner spec 2026-10-14, section 14; stage R6, mockup screens
+# 19 to 21): the profile pages and the Settings gear. Vic (fictional, in Ontario, holding a public
+# copy of the card Dana wants) opens Dana's profile: the line with her shown city and her province,
+# "Message {handle}", Cards, Binders with her deck core, Looking for with "I have it", the small top
+# bar once scrolled, Ratings & references and its "See all", the "⋯" sheet and its Share profile
+# (the system's share sheet). "I have it" opens Vic's chat with Dana (about her card) with his copy
+# and the text in the box: nothing is sent and the chat's card stays hers until send; sent, it
+# shares the card and the text and his copy becomes the chat's card. Then Vic's Profile tab, its
+# gear opening Settings, and "See all" of the cards and of the binders leading to the Inventory,
+# twice for the binders. Last, the "See all" pages across a block, their titles in view: Vic blocks
+# Dana ("You blocked", Unblock), then Dana blocks Vic ("not available") (scripts/parity.js,
+# ACTION=profiles, check-have and block).
+appId: ${APP_ID}
+name: Profile pages and the Settings gear
+tags:
+  - mobile-r6
+  - profiles
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: profiles
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 60000
+
+# Dana's profile (screen 19): the city she shows, her province, this week; Message; her listings.
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.dana.displayName}
+    timeout: 60000
+- assertVisible:
+    id: 'collector-line'
+    text: 'Laval, Quebec · Member since \d{4} · Active this week'
+- assertVisible:
+    id: 'collector-message'
+    text: 'Message ${output.dana.handle}'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-card-${output.items.dana}'
+      text: '.*85% TCG'
+    timeout: 30000
+- assertVisible: 'Maestro profile core, deck core, \$95'
+- assertNotVisible: '.*km away.*'
+- takeScreenshot: r6-collector-profile
+
+# The "⋯" sheet: Share profile, Report, Block; Cancel closes it.
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-block'
+    timeout: 15000
+- assertVisible:
+    id: 'collector-share'
+- assertVisible:
+    id: 'collector-report'
+- takeScreenshot: r6-collector-menu
+- tapOn:
+    id: 'collector-menu-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'collector-block'
+    timeout: 15000
+
+# Share profile from the sheet: the system's share sheet comes up once the sheet has gone (iOS
+# took it away with the closing sheet before review fix 1), then a swipe down closes it.
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-share'
+    timeout: 15000
+- tapOn:
+    id: 'collector-share'
+- extendedWaitUntil:
+    visible: 'Copy'
+    timeout: 15000
+- takeScreenshot: r6-collector-share-sheet
+- swipe:
+    start: 50%, 62%
+    end: 50%, 98%
+    duration: 400
+- extendedWaitUntil:
+    notVisible: 'Copy'
+    timeout: 15000
+- assertVisible:
+    id: 'collector-name'
+
+# Looking for (screen 20): Dana's wish with "I have it"; the top bar shows her name and Message.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-have-${output.card.id}'
+- assertVisible: 'Any printing · NM only · 90% TCG'
+- extendedWaitUntil:
+    visible:
+      id: 'profile-top-bar-name'
+      text: ${output.dana.displayName}
+    timeout: 15000
+- assertVisible:
+    id: 'profile-top-bar-message'
+- takeScreenshot: r6-collector-profile-scrolled
+
+# Ratings & references in full ("See all references"): rate and write a reference live there.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-references-see-all'
+- tapOn:
+    id: 'profile-references-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-ratings'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+# Back on the profile where it was left, scrolled down to its ratings.
+- extendedWaitUntil:
+    visible:
+      id: 'profile-references-see-all'
+    timeout: 30000
+
+# "I have it": Vic's chat with Dana, the text and his card in the box; nothing is sent and the
+# chat's card stays Dana's (he is still the buyer) until he taps send.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-have-${output.card.id}'
+- tapOn:
+    id: 'profile-have-${output.card.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-input'
+      text: 'I have .* for your wishlist\. Interested\?'
+    timeout: 60000
+- assertVisible:
+    id: 'composer-attachment'
+- assertNotVisible:
+    id: 'pinned-mark-sold'
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: check-have
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+      HANDLE: ${output.dana.handle}
+      ITEM: ${output.items.dana}
+      EXPECT_COUNT: '0'
+- takeScreenshot: r6-i-have-it-chat
+- tapOn:
+    id: 'conversation-send'
+- extendedWaitUntil:
+    notVisible:
+      id: 'composer-attachment'
+    timeout: 30000
+# Sent: his copy is the chat's card, he is the seller.
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-mark-sold'
+    timeout: 30000
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: check-have
+      EMAIL: ${output.vic.email}
+      PASSWORD: ${output.vic.password}
+      HANDLE: ${output.dana.handle}
+      ITEM: ${output.items.vic}
+      EXPECT_COUNT: '1'
+      EXPECT_KIND: CARD_LINK
+- takeScreenshot: r6-i-have-it-sent
+
+# Vic's Profile tab (screen 21): his page as others see it, Edit profile and Share profile.
+- openLink: ${APP_URL}/--/profile
+- runFlow: subflows/dismiss-dev-menu.yaml
+- runFlow: subflows/open-profile-tab.yaml
+- assertVisible:
+    id: 'profile-name'
+    text: 'Vic Maestro'
+- assertVisible:
+    id: 'profile-line'
+    text: 'Ontario · Member since \d{4}'
+- assertVisible:
+    id: 'profile-edit'
+- assertVisible:
+    id: 'profile-share'
+- assertNotVisible:
+    id: 'collector-message'
+- takeScreenshot: r6-profile-tab
+
+# The gear opens Settings: everything the Profile tab reached before is there.
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 30000
+- assertVisible:
+    id: 'settings-link-profile'
+- assertVisible:
+    id: 'settings-link-location'
+- assertVisible:
+    id: 'settings-link-privacy'
+- assertVisible:
+    id: 'settings-link-shipping'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'settings-sign-out'
+- assertVisible:
+    id: 'settings-link-legal'
+- assertNotVisible: 'Premium'
+- assertNotVisible: 'Payouts'
+- takeScreenshot: r6-settings-from-gear
+- runFlow: subflows/go-back.yaml
+
+# "See all" of your cards is your Inventory.
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-cards-see-all'
+- tapOn:
+    id: 'profile-cards-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-inventory'
+    timeout: 30000
+
+# "See all" of your binders is Inventory › Binders, every time: after Cards was chosen by hand,
+# the same link switches the view again (review fix 1).
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-binders-see-all'
+- tapOn:
+    id: 'profile-binders-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-list'
+    timeout: 30000
+- tapOn:
+    id: 'inventory-view-cards'
+- extendedWaitUntil:
+    notVisible:
+      id: 'binders-list'
+    timeout: 15000
+- runFlow: subflows/open-profile-tab.yaml
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-binders-see-all'
+- tapOn:
+    id: 'profile-binders-see-all'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-list'
+    timeout: 30000
+- takeScreenshot: r6-see-all-binders-again
+
+# The "See all" pages across a block, their titles and texts on screen (iOS showed only a cut-off
+# icon and the button before review fix 2). Vic blocks Dana from the "⋯" sheet: her references
+# page says so, and Unblock brings her ratings back.
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-menu'
+    timeout: 60000
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-block'
+    timeout: 15000
+- tapOn:
+    id: 'collector-block'
+- extendedWaitUntil:
+    visible:
+      id: 'block-dialog'
+    timeout: 30000
+- tapOn:
+    id: 'block-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-blocked'
+    timeout: 60000
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}/references
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible: 'You blocked ${output.dana.handle}'
+    timeout: 60000
+- assertVisible: 'You blocked ${output.dana.handle}\. Unblock them to see their cards, .*'
+- takeScreenshot: r6-see-all-blocked-by-me
+- tapOn:
+    id: 'collector-references-page-blocked-action'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-ratings'
+    timeout: 60000
+
+# Dana blocks Vic: her "See all" pages are not available to him.
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: block
+      EMAIL: ${output.dana.email}
+      PASSWORD: ${output.dana.password}
+      TARGET: ${output.vic.id}
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}/cards
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible: 'This collector is not available'
+    timeout: 60000
+- assertVisible: 'The profile does not exist, is private, or is no longer active\.'
+- assertVisible:
+    id: 'collector-cards-page-not-found-action'
+- takeScreenshot: r6-see-all-not-available

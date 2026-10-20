@@ -83,6 +83,7 @@ export default function AppearanceSettingsScreen() {
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
-  chips: { flexDirection: 'row', gap: spacing[2] },
+  // The chips wrap: at the largest text size "Dark" was pushed off the screen (found by R5).
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   status: { gap: spacing[1] },
 });
