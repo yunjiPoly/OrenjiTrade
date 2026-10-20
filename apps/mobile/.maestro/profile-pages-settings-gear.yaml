@@ -96,9 +96,10 @@ tags:
       id: 'collector-ratings'
     timeout: 30000
 - runFlow: subflows/go-back.yaml
+# Back on the profile where it was left, scrolled down to its ratings.
 - extendedWaitUntil:
     visible:
-      id: 'collector-name'
+      id: 'profile-references-see-all'
     timeout: 30000
 
 # "I have it": the chat with Vic's copy pinned (he is the seller), the text and the card in the
