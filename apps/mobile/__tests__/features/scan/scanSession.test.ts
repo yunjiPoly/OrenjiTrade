@@ -1,7 +1,12 @@
 import {
+  addAnswered,
   addPhoto,
+  addRefused,
+  addSent,
   applyMatch,
   batchAddRequest,
+  hasCardsToSend,
+  isSent,
   chooseOtherMatch,
   emptyScanSession,
   filterPrintingRows,
@@ -17,9 +22,13 @@ import {
   replaceMatch,
   reviewGroups,
   scanCounts,
+  sentCopies,
+  sentPhotoFiles,
   setCopies,
   tileFromMatch,
+  tilesToSend,
   tilesWaiting,
+  type PendingAdd,
   type ScanPhoto,
   type ScanSession,
 } from '@/src/features/scan/scanSession';
@@ -247,6 +256,22 @@ describe('repeats', () => {
     session = scan(session, FOUND_YEW);
     expect(session.tiles.map((tile) => tile.copies)).toEqual([1, 99]);
   });
+
+  it('groups a repeat into a tile of 98 copies: one tile of 99', () => {
+    let session = scan(emptyScanSession(), FOUND_YEW);
+    session = setCopies(session, 'scan-1', MAX_COPIES - 1);
+    session = scan(session, FOUND_YEW);
+    expect(session.tiles.map((tile) => [tile.id, tile.copies])).toEqual([['scan-1', 99]]);
+  });
+
+  it('keeps a code to pick the rarity of apart from a found tile of one of its rarities', () => {
+    let session = scan(emptyScanSession(), match({ ...FOUND_YEW, printing: ZA01_075[0] }));
+    session = scan(session, PICK_RARITY_II);
+    expect(session.tiles.map((tile) => [tile.status, tile.copies])).toEqual([
+      ['PICK_RARITY', 1],
+      ['FOUND', 1],
+    ]);
+  });
 });
 
 describe('fixing a tile', () => {
@@ -453,6 +478,77 @@ describe('adding', () => {
     session = scan(session, NOT_FOUND);
     expect(batchAddRequest(session)).toBeNull();
     expect(batchAddRequest(emptyScanSession())).toBeNull();
+  });
+});
+
+describe('an add sent without an answer', () => {
+  /** Yew ×2 and Gold found, Interference to pick, then the found ones sent under key-1. */
+  function sentScan(): { session: ScanSession; add: PendingAdd } {
+    let session = scan(emptyScanSession(), FOUND_YEW);
+    session = scan(session, FOUND_YEW);
+    session = scan(session, match({ ...FOUND_YEW, printing: ZAGO_011 }));
+    session = scan(session, PICK_RARITY_II);
+    const body = batchAddRequest(session, { visibility: 'PUBLIC' });
+    const add: PendingAdd = {
+      key: 'key-1',
+      body: body!,
+      tileIds: tilesToSend(session).map((tile) => tile.id),
+      binderName: null,
+    };
+    return { session: addSent(session, add), add };
+  }
+
+  it('keeps what was sent: its tiles cannot change, take copies or leave', () => {
+    const { session, add } = sentScan();
+    expect(add.tileIds).toEqual(['scan-1', 'scan-3']);
+    expect(isSent(session, 'scan-1')).toBe(true);
+    expect(isSent(session, 'scan-4')).toBe(false);
+    expect(sentCopies(session)).toBe(3);
+    expect(setCopies(session, 'scan-1', 5)).toBe(session);
+    expect(removeTile(session, 'scan-3')).toBe(session);
+    expect(pickPrinting(session, 'scan-1', { printings: [ZAGO_011] })).toBe(session);
+    expect(replaceMatch(session, 'scan-1', { card: LYRA })).toBe(session);
+    // A repeat found again is a tile of its own: the one sent takes no copy.
+    const again = scan(session, FOUND_YEW);
+    expect(findTile(again, 'scan-1')?.copies).toBe(2);
+    expect(again.tiles[0]).toMatchObject({ id: 'scan-5', status: 'FOUND', copies: 1 });
+    // One add at a time.
+    expect(addSent(again, { ...add, key: 'key-2', tileIds: ['scan-5'] })).toBe(again);
+  });
+
+  it('adds afterwards only the cards that became ready since', () => {
+    let { session } = sentScan();
+    expect(batchAddRequest(session)).toBeNull();
+    expect(hasCardsToSend(session)).toBe(false);
+    session = pickRarity(session, 'scan-4', ZA01_075[1]!.id);
+    expect(hasCardsToSend(session)).toBe(true);
+    expect(batchAddRequest(session, { visibility: 'PRIVATE' })).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: ZA01_075[1]!.id, quantity: 1 }],
+    });
+  });
+
+  it('answered: exactly its tiles leave the scan, their photos to delete at once', () => {
+    let { session } = sentScan();
+    session = pickRarity(session, 'scan-4', ZA01_075[1]!.id);
+    expect(sentPhotoFiles(session).sort()).toEqual(
+      [photo(1).uri, photo(2).uri, photo(3).uri].sort()
+    );
+    expect(addAnswered(session, 'another-key')).toBe(session);
+    const answered = addAnswered(session, 'key-1');
+    expect(answered.tiles.map((tile) => tile.id)).toEqual(['scan-4']);
+    expect(answered.pendingAdd).toBeNull();
+    expect(answered.discarded).toEqual([]);
+    expect(photoFilesToDelete(answered)).toEqual([photo(4).uri]);
+  });
+
+  it('refused: nothing was added, its tiles can change again', () => {
+    const { session } = sentScan();
+    expect(addRefused(session, 'another-key')).toBe(session);
+    const refused = addRefused(session, 'key-1');
+    expect(refused.pendingAdd).toBeNull();
+    expect(refused.tiles).toBe(session.tiles);
+    expect(findTile(setCopies(refused, 'scan-1', 5), 'scan-1')?.copies).toBe(5);
   });
 });
 

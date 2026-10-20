@@ -1,5 +1,5 @@
 import { onlineManager } from '@tanstack/react-query';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { AccessibilityInfo, Linking } from 'react-native';
 
@@ -323,6 +323,40 @@ describe('the tray', () => {
     expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
     await screen.findByLabelText(`${YEW.name}, ZACR-EN036, found`);
     expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
+    // Matched: the waiting tile's sheet goes by itself.
+    await waitFor(() => expect(screen.queryByTestId('scan-waiting-sheet')).toBeNull());
+  });
+
+  it('offers the search on a waiting tile: its sheet has "Search by name or code"', async () => {
+    readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
+    pickerGives(['yew']);
+    render(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': () => {
+          throw new TypeError('Network request failed');
+        },
+      })
+    );
+    await screen.findByTestId('screen-scan-camera');
+    fireEvent.press(screen.getByLabelText('Add photos you already took'));
+    const waiting = await screen.findByLabelText('A card waiting for connection, tap to try again');
+    await act(async () => {
+      fireEvent.press(waiting);
+    });
+    const sheet = await screen.findByTestId('scan-waiting-sheet');
+    expect(within(sheet).getByRole('header', { name: 'Waiting for connection' })).toBeTruthy();
+    // Its try failed again: "Try again" again, and the search one tap away.
+    await waitFor(() =>
+      expect(within(sheet).getByRole('button', { name: 'Try again' })).toBeEnabled()
+    );
+    fireEvent.press(within(sheet).getByRole('button', { name: 'Search by name or code' }));
+    const tileId = useScanStore.getState().session.tiles[0]?.id;
+    await waitFor(() =>
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/scan/search',
+        params: { tileId },
+      })
+    );
   });
 
   it('says "Trying again…" on a waiting tile while it is tried, and still waits after', async () => {
@@ -355,16 +389,22 @@ describe('the tray', () => {
     expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
     const trying = screen.getByLabelText('A card waiting for connection, trying again');
     // Not "Reading…", not counted out of the tray, and it cannot be tapped twice.
-    expect(screen.getByText('Trying again…')).toBeTruthy();
-    expect(screen.getByText('Waiting for connection')).toBeTruthy();
+    const tray = screen.getByTestId('scan-tray');
+    expect(within(tray).getByText('Trying again…')).toBeTruthy();
+    expect(within(tray).getByText('Waiting for connection')).toBeTruthy();
     expect(screen.queryByText('Reading…')).toBeNull();
     expect(screen.getByText('THIS SCAN · 1')).toBeTruthy();
     expect(trying.props.accessibilityRole).toBeUndefined();
+    // Its sheet says so too, with the search one tap away.
+    const sheet = screen.getByTestId('scan-waiting-sheet');
+    expect(within(sheet).getByRole('button', { name: 'Trying again…' })).toBeDisabled();
+    expect(within(sheet).getByRole('button', { name: 'Search by name or code' })).toBeEnabled();
     await act(async () => {
       fail();
       await jest.advanceTimersByTimeAsync(0);
     });
     expect(screen.getByLabelText('A card waiting for connection, tap to try again')).toBeTruthy();
+    expect(within(sheet).getByRole('button', { name: 'Try again' })).toBeEnabled();
     // Asked by the collector: told that it still waits.
     expect(announce).toHaveBeenCalledTimes(2);
     expect(announce).toHaveBeenLastCalledWith('A card is waiting for connection');

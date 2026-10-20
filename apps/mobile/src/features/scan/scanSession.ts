@@ -66,6 +66,24 @@ export interface ScanTile {
   notFoundReason: CardScanNotFoundReason | null;
 }
 
+/**
+ * An add of the review sent and not answered yet, or sent without an answer (offline, none in time,
+ * a server error): exactly what was sent, under its `Idempotency-Key`. Until it is answered its
+ * tiles stay as they were sent (copies, printing) and the review's pills show what was sent:
+ * "Add {n} cards to inventory" sends that same body under that same key first, so the API answers
+ * it once (new, or its first answer repeated), and nothing sent can change in between.
+ */
+export interface PendingAdd {
+  /** The `Idempotency-Key` it was sent with. */
+  key: string;
+  /** What was sent, as it was sent. */
+  body: AddInventoryItemsBatchRequest;
+  /** The tiles it holds. */
+  tileIds: string[];
+  /** The binder it names, by name as the review showed it (null: no binder). */
+  binderName: string | null;
+}
+
 export interface ScanSession {
   /** Newest first. */
   tiles: ScanTile[];
@@ -73,14 +91,21 @@ export interface ScanSession {
   discarded: ScanPhoto[];
   /** Photos taken so far (it numbers the tiles). */
   taken: number;
+  /** The add sent and not answered yet (`PendingAdd`), if any. */
+  pendingAdd: PendingAdd | null;
 }
 
 export function emptyScanSession(): ScanSession {
-  return { tiles: [], discarded: [], taken: 0 };
+  return { tiles: [], discarded: [], taken: 0, pendingAdd: null };
 }
 
 export function findTile(session: ScanSession, tileId: string): ScanTile | null {
   return session.tiles.find((tile) => tile.id === tileId) ?? null;
+}
+
+/** Whether a tile belongs to the add sent and not answered yet: it stays as it was sent. */
+export function isSent(session: ScanSession, tileId: string): boolean {
+  return session.pendingAdd?.tileIds.includes(tileId) ?? false;
 }
 
 function clampCopies(copies: number): number {
@@ -90,11 +115,15 @@ function clampCopies(copies: number): number {
   return Math.min(MAX_COPIES, Math.max(MIN_COPIES, Math.round(copies)));
 }
 
+/** Changes one tile; a tile of the add sent and not answered yet never changes. */
 function updateTile(
   session: ScanSession,
   tileId: string,
   change: (tile: ScanTile) => ScanTile | null
 ): ScanSession {
+  if (isSent(session, tileId)) {
+    return session;
+  }
   let changed = false;
   const tiles = session.tiles.map((tile) => {
     if (tile.id !== tileId) {
@@ -192,7 +221,8 @@ function awaitsAnswer(tile: ScanTile | null): tile is ScanTile {
  * The matcher's answer for a tile. A card found again with the same printing (and so the same
  * rarity) adds a copy to its tile (×2) instead, while that tile holds fewer than 99: the grouped
  * tile takes the new tile's place in the tray (it is the newest scan) and keeps both photos.
- * Unfinished tiles are never grouped, and a tile a collector fixed by hand is never merged away.
+ * Unfinished tiles are never grouped, a tile a collector fixed by hand is never merged away, and a
+ * tile of the add sent and not answered yet takes no copy (it stays as it was sent).
  */
 export function applyMatch(
   session: ScanSession,
@@ -211,6 +241,7 @@ export function applyMatch(
         (other) =>
           other.id !== tileId &&
           isReady(other) &&
+          !isSent(session, other.id) &&
           other.printing?.id === printingId &&
           other.copies + resolved.copies <= MAX_COPIES
       )
@@ -404,11 +435,12 @@ export function setCopies(session: ScanSession, tileId: string, copies: number):
 
 /**
  * "Remove" (or "Take it again"): the tile leaves the tray. Its photos wait in `discarded` until
- * they are deleted (`scanRunner.removeTile`, once nothing shows them; else when the scan ends).
+ * they are deleted (`scanRunner.removeTile`, once nothing shows them; else when the scan ends). A
+ * tile of the add sent and not answered yet stays.
  */
 export function removeTile(session: ScanSession, tileId: string): ScanSession {
   const tile = findTile(session, tileId);
-  if (!tile) {
+  if (!tile || isSent(session, tileId)) {
     return session;
   }
   return {
@@ -469,18 +501,31 @@ export interface BatchOptions {
   binderId?: string | null;
 }
 
+/** The ready tiles not sent yet, in the order they were scanned: what a new add sends. */
+export function tilesToSend(session: ScanSession): ScanTile[] {
+  return session.tiles
+    .slice()
+    .reverse()
+    .filter((tile) => isReady(tile) && tile.printing !== null && !isSent(session, tile.id));
+}
+
+/** Whether a ready card is left that no add holds (the scan ends once there is none). */
+export function hasCardsToSend(session: ScanSession): boolean {
+  return tilesToSend(session).length > 0;
+}
+
 /**
- * The body of `POST /inventory/items/batch` for "Add {n} cards to inventory": the ready tiles
- * only, in the order they were scanned, one line per printing (repeats summed). Null when nothing
- * is ready ("Nothing ready to add").
+ * The body of `POST /inventory/items/batch` for a new add of "Add {n} cards to inventory": the
+ * ready tiles not sent yet, in the order they were scanned, one line per printing (repeats
+ * summed). Null when there are none ("Nothing ready to add", or only the add sent already).
  */
 export function batchAddRequest(
   session: ScanSession,
   { visibility = 'PRIVATE', binderId = null }: BatchOptions = {}
 ): AddInventoryItemsBatchRequest | null {
   const lines = new Map<string, AddInventoryItemsBatchLine>();
-  for (const tile of session.tiles.slice().reverse()) {
-    if (!isReady(tile) || !tile.printing) {
+  for (const tile of tilesToSend(session)) {
+    if (!tile.printing) {
       continue;
     }
     const line = lines.get(tile.printing.id);
@@ -494,6 +539,70 @@ export function batchAddRequest(
     return null;
   }
   return { visibility, ...(binderId ? { binderId } : {}), lines: [...lines.values()] };
+}
+
+/**
+ * An add is sent: its tiles stay as they were sent until it is answered (`addAnswered`), or until
+ * the API refused it (`addRefused`: nothing was added).
+ */
+export function addSent(session: ScanSession, add: PendingAdd): ScanSession {
+  if (session.pendingAdd) {
+    return session; // One add at a time: the one sent first is answered first.
+  }
+  return { ...session, pendingAdd: { ...add, tileIds: add.tileIds.slice() } };
+}
+
+/** The add of this key was refused (nothing was added): its tiles can be changed again. */
+export function addRefused(session: ScanSession, key: string): ScanSession {
+  return session.pendingAdd?.key === key ? { ...session, pendingAdd: null } : session;
+}
+
+/**
+ * The add of this key was answered (its cards are in the inventory): its tiles leave the scan.
+ * Their photo files are deleted at once (`scanRunner.addAnswered`), so they are not kept as
+ * discarded.
+ */
+export function addAnswered(session: ScanSession, key: string): ScanSession {
+  const pending = session.pendingAdd;
+  if (pending?.key !== key) {
+    return session;
+  }
+  const sent = new Set(pending.tileIds);
+  return {
+    ...session,
+    tiles: session.tiles.filter((tile) => !sent.has(tile.id)),
+    pendingAdd: null,
+  };
+}
+
+/** The copies of the add sent and not answered yet: the scan cannot tell whether they were added. */
+export function sentCopies(session: ScanSession): number {
+  const pending = session.pendingAdd;
+  if (!pending) {
+    return 0;
+  }
+  return session.tiles
+    .filter((tile) => pending.tileIds.includes(tile.id))
+    .reduce((total, tile) => total + tile.copies, 0);
+}
+
+/** The photo files of the add sent and not answered yet (deleted once it is answered). */
+export function sentPhotoFiles(session: ScanSession): string[] {
+  const pending = session.pendingAdd;
+  if (!pending) {
+    return [];
+  }
+  const uris = new Set<string>();
+  for (const tile of session.tiles) {
+    if (pending.tileIds.includes(tile.id)) {
+      for (const photo of tile.photos) {
+        if (photo.owned) {
+          uris.add(photo.uri);
+        }
+      }
+    }
+  }
+  return [...uris];
 }
 
 /**

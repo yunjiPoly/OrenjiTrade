@@ -39,6 +39,11 @@ export interface ReviewRowProps {
   onRetry: (tile: ScanTile) => void;
   /** A card waiting for the connection whose match is being tried again: "Trying again…". */
   trying?: boolean;
+  /**
+   * A card of an add sent without an answer: "Not confirmed yet", and it stays as it was sent (no
+   * check of the match, no copies changed, no Remove) until that add is answered.
+   */
+  sent?: boolean;
   onCopies: (tile: ScanTile, copies: number) => void;
   onRemove: (tile: ScanTile) => void;
 }
@@ -63,7 +68,9 @@ function rowBorder(kind: ReviewRowKind, palette: Palette): string {
  * Remove. A ready row opens 28 (Check the match); a row to check shows its fix: "Pick rarity",
  * "Pick printing" under "Set code not readable", or "Search by name or code". A row still waiting
  * for the connection says so and offers "Try again" ("Trying again…" while it is tried; the row stays
- * where it is). Past the pinned text size, the copies go under the name.
+ * where it is) and "Search by name or code" (the search is always one tap away). A card of an add
+ * sent without an answer says "Not confirmed yet" and cannot be changed. Past the pinned text size,
+ * the copies go under the name.
  */
 export function ReviewRow({
   tile,
@@ -71,6 +78,7 @@ export function ReviewRow({
   onSearch,
   onRetry,
   trying = false,
+  sent = false,
   onCopies,
   onRemove,
 }: ReviewRowProps) {
@@ -118,11 +126,20 @@ export function ReviewRow({
         onRetry={onRetry}
         trying={trying}
       />
+      {sent ? (
+        <Text
+          maxFontSizeMultiplier={ROW_TEXT_SCALE}
+          style={[styles.unconfirmed, { color: palette.warning }]}
+          testID={`review-row-${tile.id}-not-confirmed`}
+        >
+          {REVIEW_COPY.notConfirmed}
+        </Text>
+      ) : null}
     </View>
   );
 
   const left =
-    kind === 'READY' ? (
+    kind === 'READY' && !sent ? (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={REVIEW_COPY.checkMatchFor(name)}
@@ -144,9 +161,9 @@ export function ReviewRow({
     );
 
   const copies = hasCopies ? (
-    <Copies tile={tile} onChange={(value) => onCopies(tile, value)} />
+    <Copies tile={tile} frozen={sent} onChange={(value) => onCopies(tile, value)} />
   ) : null;
-  const remove = (
+  const remove = sent ? null : (
     <Pressable
       accessibilityRole="button"
       // A row with no card yet is not named after its status ("Remove Couldn't read").
@@ -269,12 +286,19 @@ function Details({
       );
     case 'WAITING':
       return (
-        <TextButton
-          label={trying ? REVIEW_COPY.tryingAgain : REVIEW_COPY.tryAgain}
-          busy={trying}
-          onPress={() => onRetry(tile)}
-          testID={`review-row-${tile.id}-retry`}
-        />
+        <View style={styles.details}>
+          <TextButton
+            label={trying ? REVIEW_COPY.tryingAgain : REVIEW_COPY.tryAgain}
+            busy={trying}
+            onPress={() => onRetry(tile)}
+            testID={`review-row-${tile.id}-retry`}
+          />
+          <TextButton
+            label={REVIEW_COPY.searchByNameOrCode}
+            onPress={() => onSearch(tile)}
+            testID={`review-row-${tile.id}-search`}
+          />
+        </View>
       );
     default:
       return null;
@@ -360,8 +384,16 @@ function FixButton({
   );
 }
 
-/** "− {n} +": the copies of a row (1 to 99), the mockup's small stepper. */
-function Copies({ tile, onChange }: { tile: ScanTile; onChange: (copies: number) => void }) {
+/** "− {n} +": the copies of a row (1 to 99), the mockup's small stepper; off while `frozen`. */
+function Copies({
+  tile,
+  frozen,
+  onChange,
+}: {
+  tile: ScanTile;
+  frozen: boolean;
+  onChange: (copies: number) => void;
+}) {
   const { palette } = useTheme();
   const value = tile.copies;
   const button = (label: string, icon: 'minus' | 'plus', next: number, enabled: boolean) => (
@@ -388,7 +420,7 @@ function Copies({ tile, onChange }: { tile: ScanTile; onChange: (copies: number)
   );
   return (
     <View style={styles.copies}>
-      {button(SCAN_COPY.oneLess, 'minus', value - 1, value > MIN_COPIES)}
+      {button(SCAN_COPY.oneLess, 'minus', value - 1, !frozen && value > MIN_COPIES)}
       <Text
         accessibilityLabel={`${SCAN_COPY.copies}: ${value}`}
         maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
@@ -397,7 +429,7 @@ function Copies({ tile, onChange }: { tile: ScanTile; onChange: (copies: number)
       >
         {value}
       </Text>
-      {button(SCAN_COPY.oneMore, 'plus', value + 1, value < MAX_COPIES)}
+      {button(SCAN_COPY.oneMore, 'plus', value + 1, !frozen && value < MAX_COPIES)}
     </View>
   );
 }
@@ -422,6 +454,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   unreadable: { fontSize: 12, lineHeight: 16 },
+  unconfirmed: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
   fix: {
     minHeight: SMALL,
     flexDirection: 'row',

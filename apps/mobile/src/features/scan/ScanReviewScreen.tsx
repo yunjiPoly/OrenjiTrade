@@ -1,19 +1,17 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
 import { useMyBinders } from '@/src/api/hooks/binders';
 import { useAddScannedCards } from '@/src/api/hooks/cardScan';
 import { EmptyState } from '@/src/components/ui/EmptyState';
-import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
-import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { fontWeight, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 import { BinderPickerSheet } from './BinderPickerSheet';
@@ -31,33 +29,62 @@ import {
   toCheckTitle,
 } from './scanCopy';
 import { addFailure, readingProgress, type AddFailure } from './scanReview';
-import { scanAddKey, useScanReviewOptions } from './scanReviewOptions';
+import { newScanAddKey, useScanReviewOptions } from './scanReviewOptions';
 import { REVIEW_FROM_PHOTOS, SCAN_CAMERA_ROUTE, SCAN_SEARCH_ROUTE } from './scanRoutes';
 import { scanRunner } from './scanRunner';
 import {
+  addRefused,
+  addSent,
   batchAddRequest,
+  hasCardsToSend,
   reviewGroups,
   scanCounts,
+  sentCopies,
   setCopies,
+  tilesToSend,
+  type PendingAdd,
   type ScanSession,
   type ScanTile,
 } from './scanSession';
 import { useScanStore } from './scanStore';
-import type { AddInventoryItemsBatchResponse } from './types';
 import { useScanEffects } from './useScanEffects';
 import { useScanTileSheets } from './useScanTileSheets';
 
 /** At most this many placeholder rows while photos are read. */
 const READING_ROWS = 3;
 
+/** What the adds of one tap of "Add {n} cards to inventory" wrote. */
+interface Added {
+  copiesAdded: number;
+  copiesNotAdded: number;
+}
+
+/** "Saved · {n} cards" (and the copies that did not fit), on Inventory or on the review. */
+function showSaved(snackbar: ReturnType<typeof useSnackbar>, added: Added): void {
+  if (added.copiesNotAdded > 0) {
+    snackbar.show(REVIEW_COPY.copiesNotAdded(added.copiesNotAdded), {
+      title: savedToast(added.copiesAdded),
+      icon: 'success',
+    });
+  } else {
+    snackbar.show(savedToast(added.copiesAdded), { icon: 'success' });
+  }
+}
+
 /**
  * Review (mockup screen 30, owner spec 2026-10-15, section 4): every card of the scan, "To check"
  * above "Ready", each with its quick fix in place (28, the rarity list, the printing list, the
  * search inside the scan). "Private"/"Public" and "No binder" choose how the cards are added;
  * "Add {n} cards to inventory" adds the ready cards only, in one request that writes everything
- * or nothing, then ends the scan (its photos are deleted) and opens Inventory with "Saved · {n}
- * cards". A refusal keeps the scan as it was and says how to go on; without an answer the review
- * says it cannot tell, and adding again is safe (the scan's key: nothing is added twice).
+ * or nothing; the cards it added leave the scan (their photos are deleted), and once no ready card
+ * is left the scan ends and Inventory opens with "Saved · {n} cards". A refusal keeps the scan as
+ * it was and says how to go on, above the button (and to the screen reader).
+ *
+ * Without an answer the review cannot tell whether the cards were added: what was sent is kept
+ * with its key (the scan's `pendingAdd`), its rows say "Not confirmed yet" and stay as they were
+ * sent, and the pills show what was sent. The next tap sends that same add again under the same
+ * key first (the API answers it once, new or repeated: nothing is added twice, and nothing sent
+ * can change), then the cards that became ready since, under a new key.
  *
  * Opened from the camera's "Review {n}", "Back to scanning" goes back to the camera. Opened from
  * Add cards' "Choose from photos" (`from=photos`), it shows "Reading 3 of 12…" while the photos are
@@ -70,7 +97,6 @@ export function ScanReviewScreen() {
   const snackbar = useSnackbar();
   const { palette } = useTheme();
   const live = useScanStore((state) => state.session);
-  const generation = useScanStore((state) => state.generation);
   const trying = useScanStore((state) => state.trying);
   const apply = useScanStore((state) => state.apply);
   const options = useScanReviewOptions();
@@ -78,12 +104,9 @@ export function ScanReviewScreen() {
   const add = useAddScannedCards();
 
   // Once added, the screen keeps showing what it added while it leaves (the scan is emptied).
-  const [saved, setSaved] = useState<{
-    session: ScanSession;
-    result: AddInventoryItemsBatchResponse;
-  } | null>(null);
-  const [failure, setFailure] = useState<(AddFailure & { error: ApiError }) | null>(null);
-  const [failures, setFailures] = useState(0);
+  const [saved, setSaved] = useState<{ session: ScanSession; result: Added } | null>(null);
+  const [failure, setFailure] = useState<AddFailure | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [choosingBinder, setChoosingBinder] = useState(false);
   const [toCamera, setToCamera] = useState(false);
 
@@ -94,7 +117,9 @@ export function ScanReviewScreen() {
   const groups = reviewGroups(session);
   const progress = readingProgress(session);
   const readingTiles = session.tiles.filter((tile) => tile.status === 'READING').length;
-  const saving = add.isPending || saved !== null;
+  const saving = submitting || saved !== null;
+  // An add sent without an answer: the pills show what it sent until it is answered.
+  const pending = live.pendingAdd;
 
   const chosenBinder = options.binderId
     ? (binders.data?.find((binder) => binder.id === options.binderId) ?? null)
@@ -102,6 +127,15 @@ export function ScanReviewScreen() {
   // A binder deleted meanwhile is no binder any more, once the list says so.
   const binderToSend =
     options.binderId && (chosenBinder || !binders.data) ? options.binderId : null;
+  const shownVisibility = pending ? (pending.body.visibility ?? 'PRIVATE') : options.visibility;
+  // An add sent without an answer says so whenever the review shows it (opened again from the
+  // camera too), not only right after the tap.
+  const shownFailure: AddFailure | null =
+    failure ??
+    (pending && !submitting && saved === null
+      ? { kind: 'UNSURE', message: REVIEW_COPY.unsure }
+      : null);
+  const shownBinderName = pending ? pending.binderName : (chosenBinder?.name ?? null);
 
   // Opened from the photo picker, nothing is under this screen but Add cards: leaving with cards
   // asks first, like the camera's Close.
@@ -110,14 +144,16 @@ export function ScanReviewScreen() {
 
   // A scan left with nothing in it ends here, like the camera's (every row removed, then back):
   // the photos of the removed rows are deleted.
-  useEffect(
-    () => () => {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       if (useScanStore.getState().session.tiles.length === 0) {
         scanRunner.endScan();
       }
-    },
-    []
-  );
+    };
+  }, []);
 
   const backToScanning = () => {
     if (!fromPhotos && router.canGoBack()) {
@@ -140,15 +176,7 @@ export function ScanReviewScreen() {
       return;
     }
     left.current = true;
-    const { copiesAdded, copiesNotAdded } = saved.result;
-    if (copiesNotAdded > 0) {
-      snackbar.show(REVIEW_COPY.copiesNotAdded(copiesNotAdded), {
-        title: savedToast(copiesAdded),
-        icon: 'success',
-      });
-    } else {
-      snackbar.show(savedToast(copiesAdded), { icon: 'success' });
-    }
+    showSaved(snackbar, saved.result);
     router.dismissTo('/inventory');
   }, [live.tiles.length, router, saved, snackbar]);
 
@@ -157,28 +185,126 @@ export function ScanReviewScreen() {
     onTakeAgain: backToScanning,
   });
 
-  const submit = async () => {
-    const body = batchAddRequest(live, {
-      visibility: options.visibility,
-      binderId: binderToSend,
-    });
-    if (!body || progress || saving) {
-      return;
-    }
-    setFailure(null);
+  /**
+   * Sends one add (`pendingAdd` of the scan): answered, its cards leave the scan (their photos are
+   * deleted); refused, nothing was added and its cards can be changed again; without an answer it
+   * stays as it was sent. `replay`: it was sent before without an answer. Returns what it wrote, or
+   * why it failed (shown above the button; `submit` has it said).
+   */
+  const send = async (
+    pendingAdd: PendingAdd,
+    replay: boolean
+  ): Promise<{ added: Added } | { failure: AddFailure | null }> => {
+    const scan = useScanStore.getState().generation;
     try {
-      const result = await add.mutateAsync({ body, idempotencyKey: scanAddKey(generation) });
-      setSaved({ session: live, result });
-      scanRunner.endScan();
+      const result = await add.mutateAsync({
+        body: pendingAdd.body,
+        idempotencyKey: pendingAdd.key,
+      });
+      if (useScanStore.getState().generation === scan) {
+        scanRunner.addAnswered(pendingAdd.key);
+      }
+      return { added: result };
     } catch (error) {
-      const apiError = error as ApiError;
-      const found = addFailure(apiError, binderToSend !== null);
+      if (useScanStore.getState().generation !== scan) {
+        return { failure: null }; // The scan was left meanwhile.
+      }
+      const found = addFailure(error as ApiError, !!pendingAdd.body.binderId, replay);
+      if (found.kind !== 'UNSURE') {
+        // A refusal: nothing was added, the cards can be changed and added again.
+        apply((current) => addRefused(current, pendingAdd.key));
+      }
       if (found.kind === 'BINDER_GONE') {
         options.setBinderId(null);
         void binders.refetch();
       }
-      setFailure({ ...found, error: apiError });
-      setFailures((count) => count + 1);
+      setFailure(found);
+      return { failure: found };
+    }
+  };
+
+  const submit = async () => {
+    const start = useScanStore.getState().session;
+    const fresh = batchAddRequest(start, {
+      visibility: options.visibility,
+      binderId: binderToSend,
+    });
+    if ((!start.pendingAdd && !fresh) || progress || saving) {
+      return;
+    }
+    const scan = useScanStore.getState().generation;
+    setSubmitting(true);
+    setFailure(null);
+    const added: Added = { copiesAdded: 0, copiesNotAdded: 0 };
+    const count = (result: Added) => {
+      added.copiesAdded += result.copiesAdded;
+      added.copiesNotAdded += result.copiesNotAdded;
+    };
+    // Whether an add of this tap failed, and why (null: the scan was left meanwhile).
+    const stopped: { failed: boolean; failure: AddFailure | null } = {
+      failed: false,
+      failure: null,
+    };
+    const settle = (outcome: { added: Added } | { failure: AddFailure | null }) => {
+      if ('added' in outcome) {
+        count(outcome.added);
+      } else {
+        stopped.failed = true;
+        stopped.failure = outcome.failure;
+      }
+    };
+    try {
+      // First the add sent before without an answer: exactly what was sent, under its key.
+      const earlier = start.pendingAdd;
+      if (earlier) {
+        settle(await send(earlier, true));
+      }
+      // Then the cards ready now that no add holds, under a new key, with the pills as shown.
+      const now = useScanStore.getState();
+      const body =
+        !stopped.failed && now.generation === scan
+          ? batchAddRequest(now.session, { visibility: options.visibility, binderId: binderToSend })
+          : null;
+      if (body) {
+        const next: PendingAdd = {
+          key: newScanAddKey(),
+          body,
+          tileIds: tilesToSend(now.session).map((tile) => tile.id),
+          binderName: body.binderId ? (chosenBinder?.name ?? null) : null,
+        };
+        apply((current) => addSent(current, next));
+        if (useScanStore.getState().session.pendingAdd?.key === next.key) {
+          settle(await send(next, false));
+        }
+      }
+    } finally {
+      setSubmitting(false);
+    }
+    if (useScanStore.getState().generation !== scan) {
+      return; // The scan was left meanwhile.
+    }
+    const after = useScanStore.getState().session;
+    if (!stopped.failed && !after.pendingAdd && !hasCardsToSend(after) && mounted.current) {
+      // Nothing ready is left: the scan ends (its photos are deleted), off to Inventory. (Back on
+      // the camera meanwhile, the scan goes on there with what is left.)
+      setSaved({ session: start, result: added });
+      scanRunner.endScan();
+      return;
+    }
+    const some = added.copiesAdded > 0 || added.copiesNotAdded > 0;
+    if (some) {
+      // Some cards were added; the others stay in the scan.
+      showSaved(snackbar, added);
+    }
+    const said = stopped.failure;
+    if (said) {
+      // iOS says nothing of an alert by itself: the screen reader hears what went wrong (last, so
+      // that the toast's own words do not cut it off; with what was saved, when something was).
+      const wrong =
+        said.kind === 'LIMIT' ? `${REVIEW_COPY.limitTitle}. ${said.message}` : said.message;
+      AccessibilityInfo.announceForAccessibility(
+        some ? `${savedToast(added.copiesAdded)}. ${wrong}` : wrong
+      );
     }
   };
 
@@ -196,6 +322,7 @@ export function ScanReviewScreen() {
         router.push({ pathname: SCAN_SEARCH_ROUTE, params: { tileId: target.id } })
       }
       trying={trying.includes(tile.id)}
+      sent={pending?.tileIds.includes(tile.id) ?? false}
       onRetry={() => void scanRunner.retryWaiting({ explicit: true })}
       onCopies={(target, copies) => apply((current) => setCopies(current, target.id, copies))}
       // Its photo files are deleted at once.
@@ -246,18 +373,19 @@ export function ScanReviewScreen() {
     <>
       <InventoryFormScreen
         header={header}
-        showEnd={failures}
         footer={
           <ReviewFooter
             counts={counts}
-            visibility={options.visibility}
+            visibility={shownVisibility}
             onToggleVisibility={() =>
               options.setVisibility(options.visibility === 'PRIVATE' ? 'PUBLIC' : 'PRIVATE')
             }
-            binderName={chosenBinder?.name ?? null}
+            binderName={shownBinderName}
             onBinder={() => setChoosingBinder(true)}
             reading={progress !== null}
             saving={saving}
+            locked={pending !== null}
+            failure={shownFailure}
             onAdd={() => void submit()}
           />
         }
@@ -302,16 +430,6 @@ export function ScanReviewScreen() {
               testID="review-empty"
             />
           ) : null}
-          {failure?.kind === 'LIMIT' ? (
-            <LimitReachedNotice
-              error={failure.error}
-              title={REVIEW_COPY.limitTitle}
-              message={failure.message}
-              testID="review-limit"
-            />
-          ) : failure ? (
-            <FormMessage testID="review-add-error">{failure.message}</FormMessage>
-          ) : null}
         </View>
       </InventoryFormScreen>
       {sheets}
@@ -331,6 +449,7 @@ export function ScanReviewScreen() {
       <LeaveScanSheet
         visible={guard.asking}
         counts={{ ...counts, cards: counts.cards + counts.reading }}
+        sent={sentCopies(live)}
         onStay={guard.stay}
         onLeave={confirmLeave}
       />

@@ -12,11 +12,14 @@ import { storedScanPhotoJournal, type ScanPhotoJournal } from './scanPhotoJourna
 import { readCardText, type PhotoSource } from './readCardText';
 import { applyOutcome, matchRead, type CardMatcher, type PhotoOutcome } from './scanPipeline';
 import {
+  addAnswered as addAnsweredTo,
   addPhoto,
   findTile,
   forgetPhotos,
+  isSent,
   photoFilesToDelete,
   removeTile as removeTileFrom,
+  sentPhotoFiles,
   tilesWaiting,
   type ScanPhoto,
   type ScanSession,
@@ -36,15 +39,24 @@ import { useScanStore, type ScanStore } from './scanStore';
  *   the front, when the collector taps "Try again", and on a timer that waits longer each time
  *   (5 s, 10 s, 20 s, 40 s, then every minute) while a scan screen is open (`watchWaiting`). The
  *   phone can be online while the API cannot be reached, so the timer does not wait for the phone
- *   to say it is back; it only skips its try while the phone says it is offline.
+ *   to say it is back; it only skips its try while the phone says it is offline. (What the phone
+ *   says is NetInfo's: the root layout wires TanStack Query's `onlineManager` to it through
+ *   `connectQueryManagers`, `src/api/queryClient.ts`.)
+ * - A round of tries goes from the oldest waiting tile to the newest, and stops only when a match
+ *   could not reach the API (no connection: the others would not reach it either); a server error
+ *   for one tile does not hold back the next one.
  * - A waiting tile stays "Waiting for connection" while it is tried again (the store's `trying`
  *   says that a try is under way): the tray, the review's counts and its add do not change until
  *   the answer lands, and the screen reader hears a tile again only when its result changed (or
  *   when the collector asked with "Try again").
  * - A tile whose match fails with a server error again after the API answered the scan's other
- *   photos (`SERVER_FAILURES_WHILE_UP` times) is given up: "Couldn't read", the search one tap
- *   away, rather than waiting for ever on an error that does not go away.
+ *   photos (`SERVER_FAILURES_WHILE_UP` times), or whose match failed with a server error
+ *   `SERVER_FAILURES_MAX` times whatever the other photos do, is given up: "Couldn't read", the
+ *   search one tap away, rather than waiting for ever on an error that does not go away. A match
+ *   that could not reach the API (no connection) never gives a tile up.
  * - A removed tile's photo files are deleted once no sheet shows them any more (`removeTile`).
+ * - The tiles of an add that was answered leave the scan, and their photo files are deleted at
+ *   once (`addAnswered`); the rest of the scan goes on.
  * - Ending the scan (cards added, or the scan left) deletes every photo file it made or copied and
  *   empties the tray; what the reader or the API answers later for that scan is dropped, and so is
  *   a photo the camera hands over after its scan ended (its file is deleted).
@@ -75,8 +87,9 @@ export interface ScanRunnerDeps {
   /** How long the waiting tiles wait before each new try, in ms (the last one repeats). */
   retryDelaysMs?: readonly number[];
   /**
-   * Whether the phone says it is online; the timer skips its try while it is not (the scan screens
-   * try again as soon as it is). Online when not given.
+   * Whether the phone says it is online (the app: NetInfo, through `onlineManager`); the timer
+   * skips its try while it is not (the scan screens try again as soon as it is). Online when not
+   * given.
    */
   isOnline?: () => boolean;
 }
@@ -89,6 +102,13 @@ export const RETRY_DELAYS_MS: readonly number[] = [5_000, 10_000, 20_000, 40_000
  * scan since its last try, this many times, is given up ("Couldn't read").
  */
 export const SERVER_FAILURES_WHILE_UP = 2;
+
+/**
+ * A tile whose match failed with a server error this many times is given up ("Couldn't read"),
+ * whatever the other photos do: on the timer alone, about 75 s after its first failure (0, 5, 15,
+ * 35 and 75 s), long enough for a restart of the API.
+ */
+export const SERVER_FAILURES_MAX = 5;
 
 export interface RetryOptions {
   /**
@@ -107,8 +127,9 @@ export interface ScanRunner {
    */
   addPhotos: (photos: readonly PhotoToRead[], forScan?: number) => string[];
   /**
-   * Matches the tiles that wait for the connection again, oldest first, until one still cannot be
-   * matched. A try already under way is not doubled (an explicit one then has its results said).
+   * Matches the tiles that wait for the connection again, oldest first, until one cannot reach the
+   * API (a server error for one tile goes on to the next). A try already under way is not doubled
+   * (an explicit one then has its results said).
    */
   retryWaiting: (options?: RetryOptions) => Promise<void>;
   /**
@@ -116,8 +137,16 @@ export interface ScanRunner {
    * timer that waits longer each time. Returns the function to call when the screen closes.
    */
   watchWaiting: () => () => void;
-  /** "Remove": the tile leaves the tray, and its photo files are deleted once no sheet shows them. */
+  /**
+   * "Remove": the tile leaves the tray, and its photo files are deleted once no sheet shows them. A
+   * tile of the add sent and not answered yet stays.
+   */
   removeTile: (tileId: string) => void;
+  /**
+   * The add of this key was answered (`addAnswered` of the session): its tiles leave the scan and
+   * their photo files are deleted at once. The rest of the scan stays.
+   */
+  addAnswered: (key: string) => void;
   /** Ends the scan: its photo files are deleted and the tray is emptied. */
   endScan: () => void;
   /** Called with each tile once its photo is matched (or found unreadable): its result. */
@@ -144,11 +173,13 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retries = 0;
   let explicitRetry = false;
-  // Answers the API gave (any status): a server error after one is not the API being down.
+  // Answers the API gave (a match, or a refusal: a 4xx): a server error after one is not the API
+  // being down.
   let answered = 0;
   // The tiles of this scan whose match failed with a server error: the answers counted at their
-  // last failure, and how many of their failures came after the API answered another photo.
-  const serverFailures = new Map<string, { seen: number; whileUp: number }>();
+  // last failure, how many of their failures came after the API answered another photo, and how
+  // many there were.
+  const serverFailures = new Map<string, { seen: number; whileUp: number; count: number }>();
   const isOnline = deps.isOnline ?? (() => true);
 
   const state = (): ScanStore => store.getState();
@@ -230,7 +261,8 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
 
   /**
    * What an outcome becomes for its tile: a server error waits for the connection, unless the
-   * tile's match failed that way again and again while the API answered the scan's other photos.
+   * tile's match failed that way again and again while the API answered the scan's other photos,
+   * or too many times (`SERVER_FAILURES_MAX`). No connection always waits.
    */
   function settle(tileId: string, outcome: PhotoOutcome): PhotoOutcome {
     if (outcome.kind === 'MATCHED') {
@@ -239,6 +271,9 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
       return outcome;
     }
     if (outcome.kind === 'UNREAD') {
+      if (outcome.refused) {
+        answered += 1;
+      }
       serverFailures.delete(tileId);
       return outcome;
     }
@@ -247,11 +282,12 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     }
     const last = serverFailures.get(tileId);
     const whileUp = (last?.whileUp ?? 0) + (last && answered > last.seen ? 1 : 0);
-    if (whileUp >= SERVER_FAILURES_WHILE_UP) {
+    const count = (last?.count ?? 0) + 1;
+    if (whileUp >= SERVER_FAILURES_WHILE_UP || count >= SERVER_FAILURES_MAX) {
       serverFailures.delete(tileId);
       return { kind: 'UNREAD', read: outcome.read, reason: null };
     }
-    serverFailures.set(tileId, { seen: answered, whileUp });
+    serverFailures.set(tileId, { seen: answered, whileUp, count });
     return outcome;
   }
 
@@ -283,7 +319,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
         listener(tile);
       }
     }
-    if (outcome.kind === 'MATCHED') {
+    if (outcome.kind === 'MATCHED' || (outcome.kind === 'UNREAD' && outcome.refused)) {
       // The API answered: tiles that waited for the connection can be matched now.
       void retryWaiting();
     }
@@ -366,9 +402,10 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
           state().setTrying(tileId, false);
         }
         const landed = land(generation, tileId, outcome, explicitRetry);
-        if (landed.kind === 'OFFLINE') {
+        if (landed.kind === 'OFFLINE' && landed.cause === 'NETWORK') {
           return; // Still no connection: the others keep waiting.
         }
+        // A server error for this tile: the next one may be answered.
       }
     } finally {
       retrying = false;
@@ -379,8 +416,8 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   function removeTile(tileId: string): void {
     const generation = state().generation;
     const tile = findTile(state().session, tileId);
-    if (!tile) {
-      return;
+    if (!tile || isSent(state().session, tileId)) {
+      return; // Gone already, or sent: it stays as it was sent until the add is answered.
     }
     state().apply((session) => removeTileFrom(session, tileId));
     planRetry();
@@ -402,6 +439,20 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
         })
         .catch(() => undefined)
     );
+  }
+
+  function addAnswered(key: string): void {
+    const session = state().session;
+    if (session.pendingAdd?.key !== key) {
+      return; // Another scan, or answered already.
+    }
+    const files = sentPhotoFiles(session);
+    state().apply((current) => addAnsweredTo(current, key));
+    for (const uri of files) {
+      deps.deleteFile(uri);
+    }
+    planRetry();
+    void writeDown();
   }
 
   function watchWaiting(): () => void {
@@ -444,6 +495,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     retryWaiting,
     watchWaiting,
     removeTile,
+    addAnswered,
     endScan,
     sweepLeftovers: writeDown,
     onLanded: (listener) => {

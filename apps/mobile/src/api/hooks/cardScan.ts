@@ -32,7 +32,8 @@ export const SCAN_MATCH_TIMEOUT_MS = 20_000;
 /**
  * How long "Add {n} cards to inventory" waits for its answer. Without one, the review says that it
  * could not tell whether the cards were added (the request may have reached the API), and adding
- * again is safe: the scan's `Idempotency-Key` gets the first answer back instead of a second add.
+ * again is safe: the same body is sent again under the same `Idempotency-Key`, which gets the first
+ * answer back instead of a second add.
  */
 export const SCAN_ADD_TIMEOUT_MS = 30_000;
 
@@ -114,12 +115,13 @@ export function scanCallFailure(error: unknown): ScanCallFailure {
   return 'REFUSED';
 }
 
-/** What "Add {n} cards to inventory" sends: the cards, and the key of the scan's add. */
+/** What "Add {n} cards to inventory" sends: the cards, and the key of that add. */
 export interface ScanAddRequest {
   body: AddInventoryItemsBatchRequest;
   /**
-   * The scan keeps one key for its add (`useScanAddKey`): adding again after an answer that was
-   * lost gets the first answer back, so no card is added twice.
+   * Each add has its own key, kept with the body it sent (`PendingAdd` of the scan session): sent
+   * again as it was after an answer that was lost, it gets the first answer back, so no card is
+   * added twice.
    */
   idempotencyKey: string;
 }

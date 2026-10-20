@@ -59,9 +59,15 @@ export interface AddFailure {
  * The batch add is one transaction (`POST /inventory/items/batch`): a refusal writes nothing, so
  * the scan is kept as it was and every failure says how to go on. Without an answer (offline,
  * none in time, a server error) the request may have gone through: the review says it cannot
- * tell, and adding again is safe (the scan's `Idempotency-Key` gets the first answer back).
+ * tell, and its cards stay as they were sent, to be sent again as they were under the same
+ * `Idempotency-Key` (the API then answers it once: nothing is added twice).
+ *
+ * `replay`: the add sent again after no answer. Its first try may have gone through, and only the
+ * refusals the API decides after looking the key up (the limit, the binder) say that it did not;
+ * another refusal (the flag off, a bad request, the account) comes before that look-up, so the
+ * review still cannot tell (`UNSURE`).
  */
-export function addFailure(error: ApiError, binderChosen: boolean): AddFailure {
+export function addFailure(error: ApiError, binderChosen: boolean, replay = false): AddFailure {
   if (error.errorCode === 'LIMIT_REACHED') {
     const info = limitReachedInfo(error);
     return {
@@ -72,11 +78,14 @@ export function addFailure(error: ApiError, binderChosen: boolean): AddFailure {
   if (error.isNetworkError || error.isServerError || error.status === 408) {
     return { kind: 'UNSURE', message: REVIEW_COPY.unsure };
   }
+  if (error.status === 404 && binderChosen && error.errorCode !== 'FEATURE_DISABLED') {
+    return { kind: 'BINDER_GONE', message: REVIEW_COPY.binderGone };
+  }
+  if (replay) {
+    return { kind: 'UNSURE', message: REVIEW_COPY.unsure };
+  }
   if (error.errorCode === 'FEATURE_DISABLED') {
     return { kind: 'SCAN_OFF', message: REVIEW_COPY.scanOff };
-  }
-  if (error.status === 404 && binderChosen) {
-    return { kind: 'BINDER_GONE', message: REVIEW_COPY.binderGone };
   }
   return { kind: 'OTHER', message: REVIEW_COPY.failed(friendlyMessage(error)) };
 }

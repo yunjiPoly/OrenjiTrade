@@ -155,7 +155,7 @@ describe('POST /inventory/items/batch', () => {
   const KEY = 'scan-0b7c3f7e-6d3c-4d1e-9a51-3f1f0f0e6a11';
   const REQUEST = { body: BODY, idempotencyKey: KEY };
 
-  it("adds the ready cards with the scan's key, then reads the inventory and the binders again", async () => {
+  it('adds the ready cards with the key of the add, then reads the inventory and the binders again', async () => {
     const api = mockApi(signedInRoutes({ 'POST /api/v1/inventory/items/batch': ok(ADDED) }));
     const { queryClient, wrapper } = setup();
     const invalidate = jest.spyOn(queryClient, 'invalidateQueries');

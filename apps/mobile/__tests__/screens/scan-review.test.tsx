@@ -1,13 +1,15 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as Crypto from 'expo-crypto';
-import { AccessibilityInfo, AppState, type AppStateStatus } from 'react-native';
+import { AccessibilityInfo, AppState, Dimensions, type AppStateStatus } from 'react-native';
 
 import ScanCameraRoute from '@/app/scan/index';
 import ScanReviewRoute from '@/app/scan/review';
+import { REVIEW_COPY } from '@/src/features/scan/scanCopy';
 import { scanRunner } from '@/src/features/scan/scanRunner';
 import { resetScanReviewOptions } from '@/src/features/scan/scanReviewOptions';
 import { findTile, removeTile, setCopies } from '@/src/features/scan/scanSession';
 import { useScanStore } from '@/src/features/scan/scanStore';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { binderFixture } from '../support/fixtures';
@@ -23,7 +25,7 @@ import {
   resetScanMocks,
   scanRoutes,
 } from '../support/scanScreen';
-import { FOUND_LYRA, READ_BLUR, seedMockupScan, seedScan } from '../support/scanSeed';
+import { FOUND_LYRA, READ_BLUR, READ_LYRA, seedMockupScan, seedScan } from '../support/scanSeed';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
 /**
@@ -295,6 +297,12 @@ describe('a row', () => {
       'accessibilityLabel',
       'Remove this card'
     );
+    // The search is one tap away, for a card that waits too.
+    fireEvent.press(screen.getByTestId(`review-row-${waiting}-search`));
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/scan/search',
+      params: { tileId: waiting },
+    });
     // Said once when it began to wait, not at each try that changed nothing.
     expect(announce).not.toHaveBeenCalled();
 
@@ -498,6 +506,10 @@ describe('adding', () => {
     expect(screen.getByTestId('review-limit-message')).toHaveTextContent(
       'Your inventory holds at most 500 cards and has 499. These cards need 2 new places and 1 is left. Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.'
     );
+    // Said to the screen reader too, title first.
+    expect(announce).toHaveBeenLastCalledWith(
+      'Your inventory is full. Your inventory holds at most 500 cards and has 499. These cards need 2 new places and 1 is left. Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.'
+    );
     // Nothing was added: the scan and its photos are kept, the screen stays.
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
     expect(useScanStore.getState().session.tiles).toHaveLength(5);
@@ -509,26 +521,18 @@ describe('adding', () => {
     expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2);
   });
 
-  it('says what to do without an answer, when the binder is gone, and when adding is off', async () => {
+  it('says what went wrong above the button, and to the screen reader: the binder gone, adding off, anything else', async () => {
     countUuids();
     seedMockupScan();
     const { api } = render({
       'POST /api/v1/inventory/items/batch': [
-        () => {
-          throw new TypeError('Network request failed');
-        },
         problem(404, 'NOT_FOUND', 'Binder not found'),
         problem(404, 'FEATURE_DISABLED', 'Feature is disabled', { feature: 'cardTextScan' }),
+        problem(400, 'VALIDATION_FAILED', 'Unknown printing.'),
       ],
     });
     await screen.findByRole('header', { name: 'Review 6 cards' });
-    fireEvent.press(addButton());
-    // No answer: the cards may have been added; adding again is safe (the scan's key).
-    expect(await screen.findByTestId('review-add-error')).toHaveTextContent(
-      "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
-      { exact: false }
-    );
-    expect(useScanStore.getState().session.tiles).toHaveLength(5);
+    const footer = screen.getByTestId('screen-scan-review-footer');
 
     // A binder deleted meanwhile: back to "No binder".
     fireEvent.press(screen.getByLabelText('Binder: no binder'));
@@ -536,28 +540,340 @@ describe('adding', () => {
     fireEvent.press(await within(sheet).findByRole('radio', { name: 'Trade binder, Private' }));
     await waitFor(() => expect(screen.getByLabelText('Binder: Trade binder')).toBeOnTheScreen());
     fireEvent.press(addButton());
+    const gone =
+      'That binder is gone. Nothing was added: pick another binder, or No binder, and add again.';
     await waitFor(() =>
-      expect(screen.getByTestId('review-add-error')).toHaveTextContent(
-        /That binder is gone\. Nothing was added: pick another binder, or No binder, and add again\./
-      )
+      expect(within(footer).getByTestId('review-add-error-message')).toHaveTextContent(gone)
     );
+    expect(announce).toHaveBeenLastCalledWith(gone);
     expect(screen.getByLabelText('Binder: no binder')).toBeOnTheScreen();
 
     fireEvent.press(addButton());
+    const off =
+      'Adding scanned cards is turned off for now. Nothing was added: add them by name or code from Add cards.';
     await waitFor(() =>
-      expect(screen.getByTestId('review-add-error')).toHaveTextContent(
-        /Adding scanned cards is turned off for now\. Nothing was added: add them by name or code from Add cards\./
-      )
+      expect(within(footer).getByTestId('review-add-error-message')).toHaveTextContent(off)
     );
+    expect(announce).toHaveBeenLastCalledWith(off);
+
+    fireEvent.press(addButton());
+    const other = 'Unknown printing. Nothing was added: try again.';
+    await waitFor(() =>
+      expect(within(footer).getByTestId('review-add-error-message')).toHaveTextContent(other)
+    );
+    expect(announce).toHaveBeenLastCalledWith(other);
+    // Refused each time: nothing was added, nothing left the scan, nothing is "Not confirmed yet".
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
     expect(mockFiles.deleted).toEqual([]);
-    // Every add of this scan carries the same key: a repeat after a lost answer adds nothing twice.
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    // Each refused add was a new add: its own key.
     const keys = api
       .callsTo('POST /api/v1/inventory/items/batch')
       .map((call) => call.headers.get('Idempotency-Key'));
     expect(keys).toHaveLength(3);
     expect(keys[0]).toMatch(/^scan-[0-9a-f-]{36}$/);
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('without an answer, keeps what it sent: "Not confirmed yet", the pills locked, then the same add again before the cards fixed since', async () => {
+    countUuids();
+    const ids = seedMockupScan();
+    const { api } = render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        // The same add again: the API repeats its first answer (it went through meanwhile).
+        ok(ADDED),
+        // Then the card fixed since.
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-lantern'] }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(screen.getByLabelText('Private: only you see them. Change'));
+    fireEvent.press(addButton());
+    const unsure =
+      "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. They stay as they were sent: add again when you're online, and nothing will be added twice.";
+    const footer = screen.getByTestId('screen-scan-review-footer');
+    expect(await within(footer).findByTestId('review-add-error-message')).toHaveTextContent(unsure);
+    expect(announce).toHaveBeenLastCalledWith(unsure);
+
+    // What was sent stays as it was sent: no copy changed, no Remove, no check of the match.
+    for (const id of [ids.yew, ids.lyra]) {
+      expect(screen.getByTestId(`review-row-${id}-not-confirmed`)).toHaveTextContent(
+        'Not confirmed yet'
+      );
+      expect(screen.getByTestId(`review-row-${id}-more`)).toBeDisabled();
+      expect(screen.getByTestId(`review-row-${id}-less`)).toBeDisabled();
+      expect(screen.queryByTestId(`review-row-${id}-remove`)).toBeNull();
+      expect(screen.queryByTestId(`review-row-${id}-open`)).toBeNull();
+    }
+    // The pills show what was sent and stay as they are.
+    const visibility = screen.getByLabelText(
+      'Public: collectors in your region can find them. Change'
+    );
+    expect(visibility).toBeDisabled();
+    fireEvent.press(visibility);
+    expect(
+      screen.getByLabelText('Public: collectors in your region can find them. Change')
+    ).toBeOnTheScreen();
+    expect(screen.getByLabelText('Binder: no binder')).toBeDisabled();
+    // A card fixed meanwhile is ready, and added after the add sent before.
+    fireEvent.press(screen.getByTestId(`review-row-${ids.lantern}-pick-rarity`));
+    await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Ultra Rare' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('4 ready · 2 to check');
+    expect(addButton()).toHaveTextContent(/Add 4 cards to inventory/);
+
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const calls = api.callsTo('POST /api/v1/inventory/items/batch');
+    expect(calls).toHaveLength(3);
+    // The same body under the same key: what was sent can never change on the way.
+    expect(calls[1]?.body).toEqual(calls[0]?.body);
+    expect(calls[0]?.body).toEqual({
+      visibility: 'PUBLIC',
+      lines: [
+        { printingId: FOUND_YEW.printing?.id, quantity: 2 },
+        { printingId: FOUND_LYRA.printing?.id, quantity: 1 },
+      ],
+    });
+    const keys = calls.map((call) => call.headers.get('Idempotency-Key'));
+    expect(keys[1]).toBe(keys[0]);
+    // The card fixed since: an add of its own, under a new key.
+    expect(keys[2]).not.toBe(keys[0]);
+    expect(calls[2]?.body).toEqual({
+      visibility: 'PUBLIC',
+      lines: [{ printingId: 'p-zra1-075-u', quantity: 1 }],
+    });
+    expect(await screen.findByText('Saved · 4 cards')).toBeOnTheScreen();
+  });
+
+  it('opened again with an add not confirmed, says so again above the button', async () => {
+    seedMockupScan();
+    const first = render({
+      'POST /api/v1/inventory/items/batch': () => {
+        throw new TypeError('Network request failed');
+      },
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    first.unmount();
+
+    // Back to scanning, then Review again: a new review of the same scan.
+    render();
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    expect(screen.getByTestId('review-add-error-message')).toHaveTextContent(REVIEW_COPY.unsure);
+    expect(screen.getAllByText('Not confirmed yet')).toHaveLength(2);
+  });
+
+  it('answered while other cards are left to add: exactly the cards it sent leave, their photos are deleted', async () => {
+    countUuids();
+    const ids = seedMockupScan();
+    render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(ADDED),
+        problem(429, 'LIMIT_REACHED', 'You have reached the limit for this action', {
+          limitKey: 'inventory.items.max',
+          limit: 500,
+          used: 500,
+          requested: 1,
+        }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    fireEvent.press(screen.getByTestId(`review-row-${ids.lantern}-pick-rarity`));
+    await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Ultra Rare' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+
+    fireEvent.press(addButton());
+    const footer = screen.getByTestId('screen-scan-review-footer');
+    await within(footer).findByTestId('review-limit');
+    // The add sent before went through: its cards left the scan, with their photos only.
+    expect(await screen.findByText('Saved · 3 cards')).toBeOnTheScreen();
+    expect(screen.queryByTestId(`review-row-${ids.yew}`)).toBeNull();
+    expect(screen.queryByTestId(`review-row-${ids.lyra}`)).toBeNull();
+    expect(mockFiles.deleted.sort()).toEqual(
+      ['yew-1', 'yew-2', 'lyra'].map((name) => libraryPhoto(name).uri).sort()
+    );
+    // The card refused stays, and can be changed: the limit added nothing.
+    expect(screen.getByTestId(`review-row-${ids.lantern}-more`)).toBeEnabled();
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(
+      useScanStore
+        .getState()
+        .session.tiles.map((tile) => tile.id)
+        .sort()
+    ).toEqual([ids.lantern, ids.fox, ids.blur].sort());
+    // Said last, with what was saved: the toast's own words do not cut it off.
+    expect(announce).toHaveBeenLastCalledWith(
+      `Saved · 3 cards. Your inventory is full. Your inventory holds at most 500 cards and has 500. These cards need 1 new place and 0 are left. Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.`
+    );
+  });
+
+  it('keeps a card that became ready while the add was on its way, for the next add', async () => {
+    countUuids();
+    const [yew = '', lyra = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lyra', waiting: READ_LYRA },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(FOUND_LYRA),
+      ],
+      'POST /api/v1/inventory/items/batch': [
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-lyra'] }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    await waitFor(() => expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1));
+    fireEvent.press(addButton());
+    await waitFor(() => expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(1));
+    // The waiting card is matched while the add is on its way: it was not in that add.
+    await act(async () => {
+      await scanRunner.retryWaiting();
+    });
+    expect(findTile(useScanStore.getState().session, lyra)?.status).toBe('FOUND');
+    await act(async () => {
+      answer(ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-yew'] }));
+    });
+    // The scan goes on with it: only the card added left, with its photo.
+    expect(await screen.findByText('Saved · 1 card')).toBeOnTheScreen();
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(`review-row-${yew}`)).toBeNull();
+    expect(screen.getByTestId(`review-row-${lyra}`)).toBeOnTheScreen();
+    expect(mockFiles.deleted).toEqual([libraryPhoto('yew-1').uri]);
+    expect(addButton()).toHaveTextContent(/Add 1 card to inventory/);
+
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const calls = api.callsTo('POST /api/v1/inventory/items/batch');
+    expect(calls[1]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: FOUND_LYRA.printing?.id, quantity: 1 }],
+    });
+    expect(calls[1]?.headers.get('Idempotency-Key')).not.toBe(
+      calls[0]?.headers.get('Idempotency-Key')
+    );
+  });
+
+  it('sent again and refused for the limit: nothing was added, the cards can change and go under a new key', async () => {
+    countUuids();
+    const ids = seedMockupScan();
+    const { api } = render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        problem(429, 'LIMIT_REACHED', 'You have reached the limit for this action', {
+          limitKey: 'inventory.items.max',
+          limit: 500,
+          used: 499,
+          requested: 2,
+        }),
+        ok(ADDED),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-limit');
+    // The limit is decided after the key: the first try did not go through either.
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    expect(screen.getByTestId(`review-row-${ids.lyra}-more`)).toBeEnabled();
+    expect(screen.getByLabelText('Private: only you see them. Change')).toBeEnabled();
+    fireEvent.press(screen.getByTestId(`review-row-${ids.lyra}-remove`));
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const calls = api.callsTo('POST /api/v1/inventory/items/batch');
+    const keys = calls.map((call) => call.headers.get('Idempotency-Key'));
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+    expect(calls[2]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: FOUND_YEW.printing?.id, quantity: 2 }],
+    });
+  });
+
+  it('sent again and refused before the key (adding off): still cannot tell, what was sent stays', async () => {
+    countUuids();
+    const ids = seedMockupScan();
+    const { api } = render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        problem(404, 'FEATURE_DISABLED', 'Feature is disabled', { feature: 'cardTextScan' }),
+        ok(ADDED),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    fireEvent.press(addButton());
+    await waitFor(() => expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2));
+    await waitFor(() => expect(addButton()).toBeEnabled());
+    // The first try may have gone through: the cards stay as they were sent.
+    expect(screen.getByTestId('review-add-error')).toHaveTextContent(
+      /we can't tell whether your cards were added/
+    );
+    expect(screen.getByTestId(`review-row-${ids.yew}-not-confirmed`)).toBeOnTheScreen();
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const keys = api
+      .callsTo('POST /api/v1/inventory/items/batch')
+      .map((call) => call.headers.get('Idempotency-Key'));
     expect(new Set(keys).size).toBe(1);
+  });
+
+  it('keeps the failure in view at the largest text size: above the button, its words capped, all of it spoken', async () => {
+    const WINDOW = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...WINDOW, fontScale: 3.1 },
+        screen: { ...WINDOW, fontScale: 3.1 },
+      });
+    });
+    try {
+      seedMockupScan();
+      render({
+        'POST /api/v1/inventory/items/batch': () => {
+          throw new TypeError('Network request failed');
+        },
+      });
+      await screen.findByRole('header', { name: 'Review 6 cards' });
+      fireEvent.press(addButton());
+      const footer = screen.getByTestId('screen-scan-review-footer');
+      const notice = await within(footer).findByTestId('review-add-error');
+      const message = within(notice).getByTestId('review-add-error-message');
+      // Its first words are in the bar that stays on screen, right above the button.
+      expect(message).toHaveTextContent(/^We couldn't hear back from OrenjiTrade/);
+      expect(message.props.maxFontSizeMultiplier).toBe(PINNED_MAX_FONT_SCALE);
+      expect(notice.props.accessibilityLabel).toBe(REVIEW_COPY.unsure);
+      // Not in the list that scrolls.
+      expect(
+        within(screen.getByTestId('screen-scan-review-scroll')).queryByTestId('review-add-error')
+      ).toBeNull();
+    } finally {
+      act(() => {
+        Dimensions.set({ window: WINDOW, screen: WINDOW });
+      });
+    }
   });
 
   it('adds a new scan with a new key', async () => {
@@ -622,6 +938,49 @@ describe('leaving the review', () => {
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith({ type: 'GO_BACK' }));
     expect(mockFiles.deleted).toHaveLength(6);
     expect(useScanStore.getState().session.tiles).toEqual([]);
+  });
+
+  it('with an add not confirmed, asks counting only the cards not added, and says to check Inventory', async () => {
+    mockParams.current = { from: 'photos' };
+    seedMockupScan();
+    render({
+      'POST /api/v1/inventory/items/batch': () => {
+        throw new TypeError('Network request failed');
+      },
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    act(() => mockLeave.tryToLeave());
+    const sheet = await screen.findByTestId('scan-leave-sheet');
+    // Yew ×2 and Lyra were sent: they may be in the inventory already.
+    expect(within(sheet).getByTestId('scan-leave-text')).toHaveTextContent(
+      "The 3 cards in this scan won't be added to your inventory."
+    );
+    expect(within(sheet).getByTestId('scan-leave-unconfirmed')).toHaveTextContent(
+      "We couldn't tell whether the 3 cards you added went through: check Inventory."
+    );
+    fireEvent.press(screen.getByTestId('scan-leave-stay'));
+    await waitFor(() => expect(screen.queryByTestId('scan-leave-sheet')).toBeNull());
+
+    // Only the cards sent are left: nothing is said to be left out.
+    act(() => {
+      for (const tile of useScanStore.getState().session.tiles) {
+        scanRunner.removeTile(tile.id);
+      }
+    });
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('3 ready');
+    // Only the photos of the cards not sent were deleted: the ones sent stay with their cards.
+    await waitFor(() => expect(mockFiles.deleted).toHaveLength(3));
+    expect(mockFiles.deleted.sort()).toEqual(
+      ['lantern', 'fox', 'blur'].map((name) => libraryPhoto(name).uri).sort()
+    );
+    act(() => mockLeave.tryToLeave());
+    const only = await screen.findByTestId('scan-leave-sheet');
+    expect(within(only).queryByTestId('scan-leave-text')).toBeNull();
+    expect(within(only).getByTestId('scan-leave-unconfirmed')).toHaveTextContent(
+      "We couldn't tell whether the 3 cards you added went through: check Inventory."
+    );
   });
 
   it('opened from the photos, every row removed then back: the scan ends and its photos are deleted', async () => {

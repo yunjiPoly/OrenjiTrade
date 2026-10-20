@@ -10,9 +10,11 @@ import { scanRunner as appScanRunner, type ScanRunner } from './scanRunner';
  * What a screen of the scan (the camera, the review) keeps running while it is on screen:
  *
  * - the tiles waiting for the connection are matched again by themselves ("Waiting for
- *   connection" resolves when the connection is back): as soon as the phone is online again, when
- *   the screen comes back or the app returns to the front, and on a timer that waits longer each
- *   time while the screen is open (the phone can stay online while the API cannot be reached);
+ *   connection" resolves when the connection is back): as soon as the phone is online again (NetInfo
+ *   says so through TanStack Query's `onlineManager`, which the root layout wires to it with
+ *   `connectQueryManagers`), when the screen comes back or the app returns to the front, and on a
+ *   timer that waits longer each time while the screen is open (the phone can stay online while
+ *   the API cannot be reached);
  * - each photo's result is said by the screen reader when it lands in the tray ("Ash Blossom &
  *   Joyous Spring, found"), by the screen on top only (the camera stays under the review);
  * - the photo files of a scan an earlier run of the app lost (closed before the scan ended) are

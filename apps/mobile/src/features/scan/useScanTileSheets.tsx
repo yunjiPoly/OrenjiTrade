@@ -10,6 +10,7 @@ import { scanRunner } from './scanRunner';
 import {
   chooseOtherMatch,
   findTile,
+  isSent,
   pickPrinting,
   pickRarity,
   replaceMatch,
@@ -20,9 +21,13 @@ import {
 import { useScanStore } from './scanStore';
 import type { CardScanPrinting } from './types';
 import { UnreadSheet } from './UnreadSheet';
+import { WaitingSheet } from './WaitingSheet';
 
-/** The sheet a tile opens: 28, the rarity list, the printing list, or 29. */
-export type TileSheet = 'DETAILS' | 'RARITY_LIST' | 'PRINTING_LIST' | 'UNREAD';
+/**
+ * The sheet a tile opens: 28, the rarity list, the printing list, 29, or the one of a tile waiting
+ * for the connection.
+ */
+export type TileSheet = 'DETAILS' | 'RARITY_LIST' | 'PRINTING_LIST' | 'UNREAD' | 'WAITING';
 
 export interface ScanTileSheetsOptions {
   /** "Search by name or code" for a tile (29, 28's "Not here? Search", the two lists). */
@@ -35,22 +40,30 @@ export interface ScanTileSheetsOptions {
  * The quick fixes of a tile, opened in place over the camera (27) or the review (30), owner spec
  * 2026-10-15, section 4: a found card opens 28 (Check the match), "Pick rarity" the rarity list,
  * "Pick printing" the printing list (a code in several rarities opens the rarity list next), and
- * "Couldn't read" 29; a tile waiting for the connection is matched again. Every pick changes the
- * scan at once (`scanStore`), and the screen reader says the card's new result ("Ash Blossom &
- * Joyous Spring, found"), as the search inside the scan does.
+ * "Couldn't read" 29; a tile waiting for the connection is matched again, and its sheet offers
+ * "Try again" and "Search by name or code" (it closes once the tile is matched). A tile of an add
+ * sent without an answer opens nothing: it stays as it was sent. Every pick changes the scan at
+ * once (`scanStore`), and the screen reader says the card's new result ("Ash Blossom & Joyous
+ * Spring, found"), as the search inside the scan does.
  */
 export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptions) {
   const [open, setOpen] = useState<{ sheet: TileSheet; tileId: string } | null>(null);
   const session = useScanStore((state) => state.session);
+  const trying = useScanStore((state) => state.trying);
   const apply = useScanStore((state) => state.apply);
   const tile = open ? findTile(session, open.tileId) : null;
   const tileId = open?.tileId ?? '';
 
   const openTile = useCallback((target: ScanTile) => {
+    if (isSent(useScanStore.getState().session, target.id)) {
+      return; // Sent without an answer: it stays as it was sent.
+    }
     const action = tileAction(target);
     if (action === 'RETRY') {
-      // Asked by the collector: the result is said even when the card still waits.
+      // Asked by the collector: the result is said even when the card still waits; the search is
+      // one tap away in the sheet meanwhile.
       void scanRunner.retryWaiting({ explicit: true });
+      setOpen({ sheet: 'WAITING', tileId: target.id });
     } else if (action) {
       setOpen({ sheet: action, tileId: target.id });
     }
@@ -91,6 +104,8 @@ export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptio
   };
 
   const sheetTile = (sheet: TileSheet) => (open?.sheet === sheet ? tile : null);
+  // The sheet of a waiting tile goes once the tile is matched (or removed).
+  const waitingTile = sheetTile('WAITING')?.status === 'WAITING' ? tile : null;
 
   const sheets = (
     <>
@@ -142,6 +157,14 @@ export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptio
           follow('PRINTING_LIST');
         }}
         onSearch={search}
+        onClose={close}
+      />
+      <WaitingSheet
+        tile={waitingTile}
+        trying={trying.includes(tileId)}
+        onRetry={() => void scanRunner.retryWaiting({ explicit: true })}
+        onSearch={search}
+        onRemove={remove}
         onClose={close}
       />
       <UnreadSheet

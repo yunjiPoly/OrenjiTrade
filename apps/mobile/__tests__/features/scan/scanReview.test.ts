@@ -125,7 +125,7 @@ describe('a failed add', () => {
       expect(addFailure(unsure, false)).toEqual({
         kind: 'UNSURE',
         message:
-          "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
+          "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. They stay as they were sent: add again when you're online, and nothing will be added twice.",
       });
     }
     expect(addFailure(problemError(404, 'NOT_FOUND'), true).kind).toBe('BINDER_GONE');
@@ -140,6 +140,31 @@ describe('a failed add', () => {
       kind: 'OTHER',
       message: 'Unknown printing. Nothing was added: try again.',
     });
+  });
+
+  it('sent again after no answer, still cannot tell unless the refusal comes after the key', () => {
+    // The limit and the binder are decided after the API looked the key up: the first try did not
+    // go through, nothing was added.
+    expect(
+      addFailure(
+        problemError(429, 'LIMIT_REACHED', { limit: 3, used: 3, requested: 1 }),
+        false,
+        true
+      ).kind
+    ).toBe('LIMIT');
+    expect(addFailure(problemError(404, 'NOT_FOUND'), true, true).kind).toBe('BINDER_GONE');
+    // Decided before it (the flag, the body, the account): the first try may have gone through.
+    for (const refusal of [
+      problemError(404, 'FEATURE_DISABLED'),
+      problemError(404, 'NOT_FOUND'),
+      problemError(400, 'VALIDATION_FAILED'),
+      problemError(403, 'ACCOUNT_SUSPENDED'),
+      problemError(429, 'RATE_LIMITED'),
+    ]) {
+      expect(addFailure(refusal, false, true).kind).toBe('UNSURE');
+    }
+    expect(addFailure(problemError(404, 'FEATURE_DISABLED'), true, true).kind).toBe('UNSURE');
+    expect(addFailure(ApiError.timeout(30_000), false, true).kind).toBe('UNSURE');
   });
 });
 

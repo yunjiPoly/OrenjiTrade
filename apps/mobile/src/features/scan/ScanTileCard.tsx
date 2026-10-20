@@ -41,6 +41,11 @@ export interface ScanTileCardProps {
   tile: ScanTile;
   /** A waiting tile whose match is being tried again: "Trying again…", not tappable. */
   trying?: boolean;
+  /**
+   * A tile of an add sent without an answer: "Not confirmed yet", not tappable (it stays as it
+   * was sent until that add is answered).
+   */
+  sent?: boolean;
   /** A tile that can be fixed or checked was tapped (found, pick, couldn't read, waiting). */
   onPress: (tile: ScanTile) => void;
 }
@@ -49,13 +54,14 @@ export interface ScanTileCardProps {
  * One tile of the tray (mockup screen 27): the card's picture (the collector's photo while it is
  * read, or when it could not be read), its name and code, its status, and "×n" for repeats. A
  * tile that is still being read cannot be tapped; one waiting for the connection is tried again
- * when tapped ("Trying again…" while it is, and it cannot be tapped then).
+ * when tapped, and its sheet offers the search ("Trying again…" while it is tried, and it cannot be
+ * tapped then). A tile of an add sent without an answer cannot be tapped either.
  */
-export function ScanTileCard({ tile, trying = false, onPress }: ScanTileCardProps) {
+export function ScanTileCard({ tile, trying = false, sent = false, onPress }: ScanTileCardProps) {
   const { palette } = useTheme();
   const scale = useTextScale();
-  const text = tileText(tile, trying);
-  const tappable = tileAction(tile) !== null && !(trying && tile.status === 'WAITING');
+  const text = tileText(tile, trying, sent);
+  const tappable = tileAction(tile) !== null && !(trying && tile.status === 'WAITING') && !sent;
   const tone = tileTone(tile.status, palette);
   const known = tile.card !== null && tile.status !== 'NOT_FOUND';
   const content = (
@@ -123,9 +129,10 @@ export function ScanTileCard({ tile, trying = false, onPress }: ScanTileCardProp
         ) : null}
         {text.status ? (
           <Text
-            numberOfLines={1}
+            // "Not confirmed yet" takes two lines of a tile rather than being cut.
+            numberOfLines={sent ? 2 : 1}
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={[styles.status, { color: tone.status }]}
+            style={[styles.status, { color: sent ? palette.warning : tone.status }]}
           >
             {text.status}
           </Text>

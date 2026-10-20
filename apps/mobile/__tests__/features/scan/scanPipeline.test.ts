@@ -101,11 +101,15 @@ describe('one photo, from the reader to its tile', () => {
       new ApiError({ status: 404, errorCode: 'FEATURE_DISABLED', message: 'off' }),
       new ApiError({ status: 400, errorCode: 'VALIDATION_FAILED', message: 'bad' }),
       new ApiError({ status: 403, errorCode: 'ACCOUNT_SUSPENDED', message: 'suspended' }),
-      new Error('not an API error'),
     ]) {
       const outcome = await matchRead(async () => Promise.reject(refusal), FOUND.read);
-      expect(outcome).toEqual({ kind: 'UNREAD', read: FOUND.read, reason: null });
+      // The API answered (a refusal): it can be reached.
+      expect(outcome).toEqual({ kind: 'UNREAD', read: FOUND.read, reason: null, refused: true });
     }
+    // Not an answer of the API: nothing is said of it.
+    await expect(
+      matchRead(async () => Promise.reject(new Error('not an API error')), FOUND.read)
+    ).resolves.toEqual({ kind: 'UNREAD', read: FOUND.read, reason: null });
   });
 
   it('waits when the API could not answer this time (server error, restart, too many requests)', async () => {

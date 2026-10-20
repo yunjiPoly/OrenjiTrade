@@ -15,6 +15,7 @@ import {
   toCheckTitle,
   toCheckWarning,
   trayTitle,
+  unconfirmedWarning,
 } from '@/src/features/scan/scanCopy';
 import {
   addPhoto,
@@ -84,6 +85,21 @@ describe('a tile in the tray', () => {
       status: '✓ Found',
       badge: null,
       accessibilityLabel: 'Yew Flowers & Velvet Breeze, ZACR-EN036, found',
+    });
+  });
+
+  it('says "Not confirmed yet" for a card of an add sent without an answer', () => {
+    const text = tileText(
+      tileFor({ status: 'FOUND', card: YEW, printing: ZACR_036 }, 2),
+      false,
+      true
+    );
+    expect(text).toMatchObject({
+      title: 'Yew Flowers & Velvet Breeze',
+      code: 'ZACR-EN036',
+      status: 'Not confirmed yet',
+      badge: '×2',
+      accessibilityLabel: 'Yew Flowers & Velvet Breeze, ZACR-EN036, not confirmed yet, 2 copies',
     });
   });
 
@@ -201,6 +217,13 @@ describe('the tray and the review', () => {
     );
     expect(leaveWarning(counts(1, 1))).toBe(
       "The card in this scan won't be added to your inventory."
+    );
+    // An add sent without an answer: its cards may be in the inventory already.
+    expect(unconfirmedWarning(3)).toBe(
+      "We couldn't tell whether the 3 cards you added went through: check Inventory."
+    );
+    expect(unconfirmedWarning(1)).toBe(
+      "We couldn't tell whether the card you added went through: check Inventory."
     );
   });
 

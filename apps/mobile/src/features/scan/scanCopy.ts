@@ -25,6 +25,12 @@ export const TAP_TO_TRY_AGAIN = 'Tap to try again';
 /** "Trying again…": a waiting tile whose match is being tried again (it still waits). */
 export const TRYING_AGAIN = 'Trying again…';
 
+/**
+ * "Not confirmed yet": a card of an add sent without an answer; it stays as it was sent until "Add
+ * {n} cards to inventory" sends that add again and the API answers.
+ */
+export const NOT_CONFIRMED = 'Not confirmed yet';
+
 /** What a screen reader hears for a status ("Ash Blossom & Joyous Spring, found"). */
 const STATUS_SPOKEN: Readonly<Record<TileStatus, string>> = {
   READING: 'reading',
@@ -54,7 +60,11 @@ function codeOf(tile: ScanTile): string {
   return printing?.printingCode ?? '';
 }
 
-export function tileText(tile: ScanTile, trying = false): TileText {
+/**
+ * How a tile shows: `trying`, a waiting tile is being tried again; `sent`, the tile belongs to an
+ * add sent without an answer ("Not confirmed yet").
+ */
+export function tileText(tile: ScanTile, trying = false, sent = false): TileText {
   const badge = tile.copies > 1 ? `×${tile.copies}` : null;
   // A photo not matched yet shows its state in place of a name, like the mockup's "Reading…" tile.
   if (tile.status === 'READING') {
@@ -90,13 +100,13 @@ export function tileText(tile: ScanTile, trying = false): TileText {
   const spoken = [
     tile.card.name,
     tile.status === 'PICK_PRINTING' ? 'set code unreadable' : code,
-    STATUS_SPOKEN[tile.status],
+    sent ? NOT_CONFIRMED.toLowerCase() : STATUS_SPOKEN[tile.status],
     tile.copies > 1 ? `${tile.copies} copies` : '',
   ].filter((part) => part.length > 0);
   return {
     title: tile.card.name,
     code,
-    status: TILE_STATUS_TEXT[tile.status],
+    status: sent ? NOT_CONFIRMED : TILE_STATUS_TEXT[tile.status],
     badge,
     accessibilityLabel: spoken.join(', '),
   };
@@ -166,6 +176,16 @@ export function leaveWarning(counts: ScanCounts): string {
   return counts.cards === 1
     ? "The card in this scan won't be added to your inventory."
     : `The ${counts.cards} cards in this scan won't be added to your inventory.`;
+}
+
+/**
+ * The leave question about an add sent without an answer (its cards may be in the inventory
+ * already): "We couldn't tell whether the {n} cards you added went through: check Inventory."
+ */
+export function unconfirmedWarning(copies: number): string {
+  return copies === 1
+    ? "We couldn't tell whether the card you added went through: check Inventory."
+    : `We couldn't tell whether the ${copies} cards you added went through: check Inventory.`;
 }
 
 /** The rarity list's text: "{name} · {code}. This code comes in {n} rarities: pick the one on your card." */
@@ -379,9 +399,11 @@ export const REVIEW_COPY = {
         : '';
     return `${holds}${fit} Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.`;
   },
-  // No answer to the add (offline, none in time, a server error): it may have gone through.
+  // No answer to the add (offline, none in time, a server error): it may have gone through. Its
+  // cards stay as they were sent ("Not confirmed yet"), and adding again sends that same add.
   unsure:
-    "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
+    "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. They stay as they were sent: add again when you're online, and nothing will be added twice.",
+  notConfirmed: NOT_CONFIRMED,
   binderGone:
     'That binder is gone. Nothing was added: pick another binder, or No binder, and add again.',
   scanOff:

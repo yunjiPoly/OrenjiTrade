@@ -5,12 +5,17 @@ import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, textStyle, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
-import { leaveWarning, SCAN_COPY } from './scanCopy';
+import { leaveWarning, SCAN_COPY, unconfirmedWarning } from './scanCopy';
 import type { ScanCounts } from './scanSession';
 
 export interface LeaveScanSheetProps {
   visible: boolean;
   counts: ScanCounts;
+  /**
+   * The copies of an add sent without an answer: they may be in the inventory already, so they are
+   * not counted as cards that won't be added, and the question says to check Inventory.
+   */
+  sent?: number;
   onStay: () => void;
   onLeave: () => void;
 }
@@ -18,10 +23,18 @@ export interface LeaveScanSheetProps {
 /**
  * Closing the scanner with cards in the tray asks first (mockup screen 27): "Leave without
  * adding?", "The {n} cards in this scan won't be added to your inventory.", "Keep scanning" (the
- * main button) and "Leave" (red).
+ * main button) and "Leave" (red). The cards of an add sent without an answer are not counted
+ * there: "We couldn't tell whether the {n} cards you added went through: check Inventory."
  */
-export function LeaveScanSheet({ visible, counts, onStay, onLeave }: LeaveScanSheetProps) {
+export function LeaveScanSheet({
+  visible,
+  counts,
+  sent = 0,
+  onStay,
+  onLeave,
+}: LeaveScanSheetProps) {
   const { palette } = useTheme();
+  const notAdded = Math.max(0, counts.cards - sent);
   return (
     <BottomSheet visible={visible} onClose={onStay} testID="scan-leave-sheet">
       <View style={styles.body} accessibilityLabel={SCAN_COPY.leaveDialog}>
@@ -32,9 +45,19 @@ export function LeaveScanSheet({ visible, counts, onStay, onLeave }: LeaveScanSh
         >
           {SCAN_COPY.leaveTitle}
         </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="scan-leave-text">
-          {leaveWarning(counts)}
-        </Text>
+        {notAdded > 0 ? (
+          <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="scan-leave-text">
+            {leaveWarning({ ...counts, cards: notAdded })}
+          </Text>
+        ) : null}
+        {sent > 0 ? (
+          <Text
+            style={[textStyle('sm'), { color: palette.textMuted }]}
+            testID="scan-leave-unconfirmed"
+          >
+            {unconfirmedWarning(sent)}
+          </Text>
+        ) : null}
         <PillButton
           label={SCAN_COPY.keepScanning}
           onPress={onStay}

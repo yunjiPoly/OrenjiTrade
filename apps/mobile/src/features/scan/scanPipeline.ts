@@ -1,3 +1,4 @@
+import { ApiError } from '@/src/api/ApiError';
 import { scanCallFailure } from '@/src/api/hooks/cardScan';
 
 import type { ReadCardInput } from './readCardText';
@@ -12,7 +13,7 @@ import { hasText, type CardScanMatch, type CardScanNotFoundReason, type ScanRead
  * - The API unreachable (offline, or no answer in time: `NETWORK`), or unable to answer this time
  *   (a server error, a restart, too many requests: `SERVER`): "Waiting for connection", the read
  *   kept to match again later (`scanRunner.ts` tries again, and gives a tile up whose match keeps
- *   failing while the API answers the scan's other photos).
+ *   failing with a server error).
  * - The reader failing, or the API refusing (the flag off, a bad request): "Couldn't read" (the
  *   search is one tap away).
  */
@@ -20,7 +21,13 @@ import { hasText, type CardScanMatch, type CardScanNotFoundReason, type ScanRead
 export type PhotoOutcome =
   | { kind: 'MATCHED'; read: ScanRead; match: CardScanMatch }
   | { kind: 'OFFLINE'; read: ScanRead; cause: 'NETWORK' | 'SERVER' }
-  | { kind: 'UNREAD'; read: ScanRead | null; reason: CardScanNotFoundReason | null };
+  | {
+      kind: 'UNREAD';
+      read: ScanRead | null;
+      reason: CardScanNotFoundReason | null;
+      /** The API answered with a refusal (a 4xx): it can be reached. */
+      refused?: true;
+    };
 
 export type CardReader = (input: ReadCardInput) => Promise<ScanRead>;
 export type CardMatcher = (read: ScanRead) => Promise<CardScanMatch>;
@@ -34,9 +41,13 @@ export async function matchRead(matcher: CardMatcher, read: ScanRead): Promise<P
     return { kind: 'MATCHED', read, match: await matcher(read) };
   } catch (error) {
     const failure = scanCallFailure(error);
-    return failure === 'REFUSED'
-      ? { kind: 'UNREAD', read, reason: null }
-      : { kind: 'OFFLINE', read, cause: failure };
+    if (failure !== 'REFUSED') {
+      return { kind: 'OFFLINE', read, cause: failure };
+    }
+    // A refusal of the API (a 4xx) says it can be reached; another failure says nothing of it.
+    return error instanceof ApiError
+      ? { kind: 'UNREAD', read, reason: null, refused: true }
+      : { kind: 'UNREAD', read, reason: null };
   }
 }
 

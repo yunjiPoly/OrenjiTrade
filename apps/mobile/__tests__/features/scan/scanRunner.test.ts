@@ -3,6 +3,7 @@ import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fake
 import { memoryScanPhotoJournal } from '@/src/features/scan/scanPhotoJournal';
 import {
   createScanRunner,
+  SERVER_FAILURES_MAX,
   SERVER_FAILURES_WHILE_UP,
   type PhotoToRead,
 } from '@/src/features/scan/scanRunner';
@@ -298,7 +299,24 @@ describe('the API could not answer this time (a server error)', () => {
     }
   });
 
-  it('keeps waiting through a long outage, however many tries fail', async () => {
+  it('keeps waiting through a long loss of the connection, however many tries fail', async () => {
+    jest.useFakeTimers();
+    try {
+      const { runner, match } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
+        throw offline();
+      });
+      const stop = runner.watchWaiting();
+      runner.addPhotos([library('file:///a.jpg')]);
+      await jest.advanceTimersByTimeAsync(10 * 60_000);
+      expect(match.mock.calls.length).toBeGreaterThan(SERVER_FAILURES_MAX + 2);
+      expect(tiles()[0]?.status).toBe('WAITING');
+      stop();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('rides out a short server outage, and gives a tile up after its own server errors, whatever the other photos do', async () => {
     jest.useFakeTimers();
     try {
       const { runner, match } = setup({ 'file:///a.jpg': YEW_TEXT }, async () => {
@@ -306,13 +324,86 @@ describe('the API could not answer this time (a server error)', () => {
       });
       const stop = runner.watchWaiting();
       runner.addPhotos([library('file:///a.jpg')]);
-      await jest.advanceTimersByTimeAsync(10 * 60_000);
-      expect(match.mock.calls.length).toBeGreaterThan(SERVER_FAILURES_WHILE_UP + 2);
+      // Its first failure, then the timer's tries at 5, 15 and 35 s: still waiting.
+      await jest.advanceTimersByTimeAsync(35_000);
+      expect(match).toHaveBeenCalledTimes(SERVER_FAILURES_MAX - 1);
       expect(tiles()[0]?.status).toBe('WAITING');
+      // No other photo of the scan is answered; its own next server error gives it up.
+      await jest.advanceTimersByTimeAsync(40_000);
+      expect(match).toHaveBeenCalledTimes(SERVER_FAILURES_MAX);
+      expect(tiles()[0]).toMatchObject({
+        status: 'NOT_FOUND',
+        notFoundReason: null,
+        read: READ_YEW,
+      });
+      // Given up: no more tries.
+      await jest.advanceTimersByTimeAsync(10 * 60_000);
+      expect(match).toHaveBeenCalledTimes(SERVER_FAILURES_MAX);
       stop();
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('never lets a tile that always gets a server error hold back a newer waiting tile', async () => {
+    jest.useFakeTimers();
+    try {
+      let reachable = false;
+      const { runner, match } = setup(
+        { 'file:///bad.jpg': LANTERN_TEXT, 'file:///a.jpg': YEW_TEXT },
+        async (read) => {
+          if (read.codes[0] === 'ZRA1-EN075') {
+            throw unavailable(); // Always, for this read only.
+          }
+          if (!reachable) {
+            throw offline(); // The newer photo's first match had no connection.
+          }
+          return FOUND_YEW;
+        }
+      );
+      const stop = runner.watchWaiting();
+      const [bad, newer] = runner.addPhotos([library('file:///bad.jpg'), library('file:///a.jpg')]);
+      await jest.advanceTimersByTimeAsync(0);
+      const status = (id: string | undefined) =>
+        findTile(useScanStore.getState().session, id ?? '')?.status;
+      expect([status(bad), status(newer)]).toEqual(['WAITING', 'WAITING']);
+      reachable = true;
+      // The timer's next round: the older tile fails again, the newer one is tried all the same.
+      await jest.advanceTimersByTimeAsync(5_000);
+      expect(status(newer)).toBe('FOUND');
+      expect(match.mock.calls.filter(([read]) => read.codes[0] === 'ZACR-EN036')).toHaveLength(2);
+      stop();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('counts a refusal of the API as an answer: the API is up', async () => {
+    const { runner, match } = setup(
+      {
+        'file:///bad.jpg': LANTERN_TEXT,
+        'file:///a.jpg': YEW_TEXT,
+        'file:///b.jpg': YEW_TEXT,
+      },
+      async (read) => {
+        if (read.codes[0] === 'ZRA1-EN075') {
+          throw unavailable(); // Always, for this read only.
+        }
+        // The others are refused (a bad request): the API answered.
+        throw new ApiError({ status: 400, errorCode: 'VALIDATION_FAILED', message: 'bad' });
+      }
+    );
+    const [bad] = runner.addPhotos([library('file:///bad.jpg')]);
+    await runner.idle();
+    for (const uri of ['file:///a.jpg', 'file:///b.jpg']) {
+      runner.addPhotos([library(uri)]);
+      await runner.idle();
+    }
+    // Each refusal tried the waiting tile again, and counted as the API being up.
+    expect(findTile(useScanStore.getState().session, bad ?? '')?.status).toBe('NOT_FOUND');
+    expect(match.mock.calls.filter(([read]) => read.codes[0] === 'ZRA1-EN075')).toHaveLength(
+      1 + SERVER_FAILURES_WHILE_UP
+    );
   });
 
   it('gives a tile up whose match keeps failing while the API answers the other photos', async () => {
@@ -411,6 +502,11 @@ describe('trying a waiting tile again', () => {
 
       // "Try again": the collector hears that it still waits.
       await runner.retryWaiting({ explicit: true });
+      expect(landed).toEqual(['WAITING', 'WAITING']);
+      // The timer's tries after it are not said again: the ask was for that try only.
+      const before = match.mock.calls.length;
+      await jest.advanceTimersByTimeAsync(2 * 60_000);
+      expect(match.mock.calls.length).toBeGreaterThan(before);
       expect(landed).toEqual(['WAITING', 'WAITING']);
 
       reachable = true;

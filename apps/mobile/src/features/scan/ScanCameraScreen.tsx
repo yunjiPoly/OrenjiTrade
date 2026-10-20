@@ -27,7 +27,7 @@ import { SCAN_COPY } from './scanCopy';
 import { pickScanPhotos } from './scanPhotos';
 import { SCAN_REVIEW_ROUTE, SCAN_SEARCH_ROUTE } from './scanRoutes';
 import { scanRunner } from './scanRunner';
-import { scanCounts } from './scanSession';
+import { scanCounts, sentCopies } from './scanSession';
 import { useScanStore } from './scanStore';
 import { ScanTray } from './ScanTray';
 import { useScanEffects } from './useScanEffects';
@@ -327,7 +327,13 @@ export function ScanCameraScreen() {
       >
         {SCAN_COPY.hint}
       </Text>
-      <ScanTray tiles={session.tiles} counts={counts} trying={trying} onTile={openTile} />
+      <ScanTray
+        tiles={session.tiles}
+        counts={counts}
+        trying={trying}
+        sent={session.pendingAdd?.tileIds}
+        onTile={openTile}
+      />
       <View style={styles.bar}>
         <ScanBottomBar
           counts={counts}
@@ -348,6 +354,7 @@ export function ScanCameraScreen() {
       <LeaveScanSheet
         visible={askingToLeave}
         counts={{ ...counts, cards: counts.cards + counts.reading }}
+        sent={sentCopies(session)}
         onStay={stay}
         onLeave={confirmLeave}
       />

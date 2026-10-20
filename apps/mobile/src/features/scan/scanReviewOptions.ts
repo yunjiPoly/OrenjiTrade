@@ -57,17 +57,12 @@ export function resetScanReviewOptions(): void {
   useOptionsStore.setState({ generation: -1, visibility: 'PRIVATE', binderId: null });
 }
 
-/** The key of the scan's add (`Idempotency-Key`), made once for each scan. */
-let addKey: { generation: number; key: string } | null = null;
-
 /**
- * The `Idempotency-Key` of "Add {n} cards to inventory" for the scan of this `generation`: the
- * same for every add of the scan, so adding again after an answer that was lost (no signal, no
- * answer in time) gets the first answer back and adds nothing twice; a new scan gets a new key.
+ * A new `Idempotency-Key` for an add of the review (`scan-<uuid>`). An add keeps its key with what
+ * it sent (`PendingAdd` of the scan session): sent again after an answer that was lost (no signal,
+ * no answer in time), the same body under the same key gets the first answer back and adds nothing
+ * twice. The next add, of cards that became ready since, gets a new key.
  */
-export function scanAddKey(generation: number): string {
-  if (!addKey || addKey.generation !== generation) {
-    addKey = { generation, key: `scan-${newRequestId()}` };
-  }
-  return addKey.key;
+export function newScanAddKey(): string {
+  return `scan-${newRequestId()}`;
 }

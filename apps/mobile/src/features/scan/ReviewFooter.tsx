@@ -7,6 +7,7 @@ import { Text } from '@/src/components/ui/Text';
 import { fontWeight, PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 import { addButtonLabel, REVIEW_COPY, toCheckWarning } from './scanCopy';
+import type { AddFailure } from './scanReview';
 import type { ScanCounts } from './scanSession';
 import type { ScanVisibility } from './types';
 
@@ -22,6 +23,13 @@ export interface ReviewFooterProps {
   /** Photos are still read: the add waits for them, and its button says so. */
   reading: boolean;
   saving: boolean;
+  /**
+   * An add was sent without an answer: the pills show what it sent and stay as they are until "Add
+   * {n} cards to inventory" sends it again and the API answers.
+   */
+  locked?: boolean;
+  /** Why the last add failed, said right above its button. */
+  failure?: AddFailure | null;
   onAdd: () => void;
 }
 
@@ -30,7 +38,8 @@ export interface ReviewFooterProps {
  * ("Private"/"Public" and "No binder"), "Add {n} cards to inventory" (off, "Nothing ready to add",
  * when nothing is ready; off, "Wait until every photo is read", while photos are read) and "Add
  * prices and photos later by tapping a card in Inventory." It stays on screen: its words follow
- * the text size as far as the pinned scale.
+ * the text size as far as the pinned scale. Why the last add failed sits right above the button,
+ * so it is in view at every text size (the screen reader also hears it when it happens).
  */
 export function ReviewFooter({
   counts,
@@ -40,6 +49,8 @@ export function ReviewFooter({
   onBinder,
   reading,
   saving,
+  locked = false,
+  failure = null,
   onAdd,
 }: ReviewFooterProps) {
   const { palette } = useTheme();
@@ -61,7 +72,7 @@ export function ReviewFooter({
           icon={isPrivate ? 'lock-outline' : 'earth'}
           label={isPrivate ? REVIEW_COPY.private : REVIEW_COPY.public}
           accessibilityLabel={isPrivate ? REVIEW_COPY.privateLabel : REVIEW_COPY.publicLabel}
-          disabled={saving}
+          disabled={saving || locked}
           onPress={onToggleVisibility}
           testID="review-visibility"
         />
@@ -69,11 +80,12 @@ export function ReviewFooter({
           icon="book-outline"
           label={binderName ?? REVIEW_COPY.noBinder}
           accessibilityLabel={REVIEW_COPY.binderLabel(binderName)}
-          disabled={saving}
+          disabled={saving || locked}
           onPress={onBinder}
           testID="review-binder"
         />
       </View>
+      {failure ? <AddFailureNotice failure={failure} /> : null}
       <PillButton
         label={reading ? REVIEW_COPY.waitForReading : addButtonLabel(counts)}
         loading={saving}
@@ -90,6 +102,51 @@ export function ReviewFooter({
         {REVIEW_COPY.footer}
       </Text>
     </>
+  );
+}
+
+/**
+ * Why the add failed, above its button: an outlined box (amber for the limit, red otherwise) whose
+ * words follow the text size as far as the pinned scale, the whole text its spoken name.
+ */
+function AddFailureNotice({ failure }: { failure: AddFailure }) {
+  const { palette } = useTheme();
+  const limit = failure.kind === 'LIMIT';
+  const color = limit ? palette.warning : palette.danger;
+  const spoken = limit ? `${REVIEW_COPY.limitTitle}. ${failure.message}` : failure.message;
+  return (
+    <View
+      accessible
+      accessibilityRole="alert"
+      accessibilityLabel={spoken}
+      style={[styles.notice, { borderColor: color, backgroundColor: palette.surfaceVariant }]}
+      testID={limit ? 'review-limit' : 'review-add-error'}
+    >
+      <MaterialCommunityIcons
+        name={limit ? 'speedometer' : 'alert-circle-outline'}
+        size={18}
+        color={color}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      />
+      <View style={styles.noticeTexts}>
+        {limit ? (
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.noticeTitle, { color: palette.ink }]}
+          >
+            {REVIEW_COPY.limitTitle}
+          </Text>
+        ) : null}
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[styles.noticeText, { color: palette.ink }]}
+          testID={limit ? 'review-limit-message' : 'review-add-error-message'}
+        >
+          {failure.message}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -120,6 +177,8 @@ function Pill({
         styles.pill,
         { borderColor: palette.borderStrong, backgroundColor: palette.surface },
         pressed && styles.pressed,
+        // Locked (an add sent without an answer, or adding): it looks it.
+        disabled && styles.locked,
       ]}
       testID={testID}
     >
@@ -154,5 +213,18 @@ const styles = StyleSheet.create({
   },
   pillLabel: { flexShrink: 1, fontSize: 14, lineHeight: 18, fontWeight: fontWeight.semibold },
   footer: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  noticeTexts: { flex: 1, minWidth: 0, gap: 2 },
+  noticeTitle: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
+  noticeText: { fontSize: 13, lineHeight: 18 },
   pressed: { opacity: 0.75 },
+  locked: { opacity: 0.6 },
 });
