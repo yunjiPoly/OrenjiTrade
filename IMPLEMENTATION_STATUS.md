@@ -6984,19 +6984,26 @@ on the map" until you are discoverable; your languages show only in Edit profile
 
 ## NEXT TASK
 
+> **Owner order of 2026-10-20: stop all work on the French version, and the app supports English
+> cards only** (no French text, no French legal work, no language switch, no card-language choice
+> beyond English; the existing French legal texts and their flow stay as they are for now).
+
 > **Stage R6 of the phone redesign is built** ("Profiles", mockup screens 19 to 21, and Settings
 > behind the gear; section "Phone redesign R6: profiles (2026-10-19)" above; branch
 > `feature/r6-profiles`, builder done, not pushed): another collector's profile (the "⋯" sheet,
 > the header and its one line, Message, Cards, Binders, Looking for with "I have it", About,
-> Ratings & references, each "See all"), "I have it" (the chat with your copy pinned and the text
-> in the box, nothing sent before send), your Profile tab with the gear that opens Settings. API:
+> Ratings & references, each "See all"), "I have it" (the chat with your copy and the text in the
+> box, nothing sent and the chat's card unchanged before send), your Profile tab with the gear
+> that opens Settings. Its reviews ran and **review fix 1 is done** (section "Review fix 1" of
+> R6). API:
 > `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET
 > /collectors/{handle}/inventory`, both optional; no migration (the next one is still **V128**;
 > V124 is kept for the card-scan branch). Native flow 6 of the spec
 > (`profile-pages-settings-gear.yaml`).
 >
-> **Exact next task: the reviews of stage R6** (a functional verifier and a product / UX lens as a
-> collector, the spec's section 15; at most two fix rounds), then its ship step (merge `main`, the
+> **Exact next task: the reviewers' check of R6's review fix 1** (a functional verifier and a
+> product / UX lens as a collector, the spec's section 15; at most one more fix round), then its
+> ship step (merge `main`, the
 > handoff's full check list, the pull request, the merge on green). **Then stage G** of
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
 > (one game at a time), **then R7** with
@@ -7011,7 +7018,7 @@ on the map" until you are discoverable; your languages show only in Edit profile
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
 > (Home, stage R7) and
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
-> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (built, its reviews next),
+> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (built, review fix 1 done),
 > then G, then R7 with the Home prompt, then R8, then R9 to R15 (R15 after R12). R5 is merged
 > (#78); the paragraphs below predate these prompts where they say otherwise.
 

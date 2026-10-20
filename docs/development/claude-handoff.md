@@ -120,7 +120,11 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
 
 ## 3. Exact next steps
 
-0. **The owner's two prompts of 2026-10-19, saved word for word:**
+0. **Owner order of 2026-10-20: stop all work on the French version, and the app supports
+   English cards only.** Add no French text, no French legal work, no language switch and no
+   card-language choice beyond English; the existing French legal texts and their flow stay as
+   they are for now (removing them is not a stage's job until the owner asks).
+   **The owner's two prompts of 2026-10-19, saved word for word:**
    [`docs/product/specs/2026-10-19-home-full-design.md`](../product/specs/2026-10-19-home-full-design.md)
    (Home, stage R7; it replaces the redesign spec's section 5 and adds to its feed endpoint) and
    [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](../product/specs/2026-10-20-finish-the-phone-ui.md)
@@ -130,8 +134,11 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    after R12), one branch and one PR each. The mockup is version 50 of the owner's design canvas;
    ask the owner for a screenshot of any screen you need. Item 1 below predates these prompts: R5
    is merged (#78), and **R6 is built** on `feature/r6-profiles` (IMPLEMENTATION_STATUS.md, "Phone
-   redesign R6: profiles"): **its reviews are next** (a functional verifier and a product / UX
-   lens as a collector, at most two fix rounds), then its ship step, then G.
+   redesign R6: profiles"): its reviews (a functional verifier and a product / UX lens as a
+   collector) ran and **review fix 1 is done** (the "⋯" sheet's Share profile, "I have it" leaving
+   the chat's card alone until send, the Inventory link, the block rule of the references page,
+   deck cores first, the own page's notes); **next: the reviewers' check of those fixes** (at
+   most one more fix round), then its ship step, then G.
 1. **The reviews of stage R5** (branch `feature/r5-search`, builder done; IMPLEMENTATION_STATUS.md,
    "Phone redesign R5: search"): a functional verifier, a privacy lens and a product / UX lens (as
    a collector), at most two fix rounds, then the ship step (merge `main`, the full check list
