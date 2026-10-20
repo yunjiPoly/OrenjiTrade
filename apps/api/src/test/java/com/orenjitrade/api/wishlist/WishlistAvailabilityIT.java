@@ -111,6 +111,43 @@ class WishlistAvailabilityIT extends AbstractWishlistIT {
     }
 
     @Test
+    void theBrowsedGameKeepsItsOwnWishesOnly() {
+        Collector owner = collector("avail-game", americasNorth());
+        UUID yugioh = printing(AZURE);
+        UUID pokemon = printing("pkm-p002a");
+        String yugiohWish = wishId(owner, wish(yugioh, true));
+        String pokemonWish = wishId(owner, wish(pokemon, true));
+        Collector seller = collector("avail-game-seller", new Place("CA", "CA-ON"));
+        publicItem(seller, yugioh, Map.of());
+        publicItem(seller, pokemon, Map.of());
+
+        // Without game=: every wish, as before stage G.
+        assertThat(availability(owner, "region=americas-north"))
+                .containsEntry(yugiohWish, true)
+                .containsEntry(pokemonWish, true);
+        JsonNode pokemonOnly =
+                callJson(
+                        HttpMethod.GET,
+                        PATH + "/availability?region=americas-north&game=pokemon",
+                        owner.uid(),
+                        null,
+                        200);
+        assertThat(pokemonOnly.path("available").toString())
+                .contains(pokemonWish)
+                .doesNotContain(yugiohWish);
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        PATH + "/availability?game=mtg",
+                                        owner.uid(),
+                                        null,
+                                        200)
+                                .path("available"))
+                .isEmpty();
+        callJson(HttpMethod.GET, PATH + "/availability?game=chess", owner.uid(), null, 400);
+    }
+
+    @Test
     void privateStaleHiddenOwnAndBlockedCopiesNeverMakeAWishAvailable() {
         Collector owner = collector("avail-rules", americasNorth());
         UUID printing = printing(AZURE);
