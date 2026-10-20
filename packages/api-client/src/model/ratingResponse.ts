@@ -31,7 +31,8 @@ export interface RatingResponse {
 export enum RatingResponseInteractionKindEnum {
     Trade = 'TRADE',
     OfferAccepted = 'OFFER_ACCEPTED',
-    ConversationQualified = 'CONVERSATION_QUALIFIED'
+    ConversationQualified = 'CONVERSATION_QUALIFIED',
+    Sale = 'SALE'
 };
 
 

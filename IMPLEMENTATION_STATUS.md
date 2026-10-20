@@ -7,6 +7,10 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
+**Last updated:** 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
+**Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
+**Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R3 of the phone redesign, "Binders and deck cores", mockup screens 16 to 18 and Inventory › Binders: V126 — `sells_as_core`, the deck core's price as typed (`asking_price_text`, a plain amount also in `asking_price`), `sold_at`, `binder_image` with `POST` / `DELETE /binders/{id}/images`; photos, preview pictures and key cards in the binder responses; a public deck core shows without cards; the search API of R5 (`excludeDeckCoreItems`, `GET /search/deck-cores`, `deckCore` and `q` on the binder searches, `GET /regions/{region}/binders`, `deckCoreCount`); on the phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core page with its photo pager and "Message {handle}", the public binder restyled; native flow 2 as far as R3 reaches; review fix 1: a public deck core shows every card in it as a key card and the cards keep their own visibility, Edit binder follows saves made elsewhere; review fix 2: the sheets at the largest text size, a delete from the binder's own link, the profile rows after a save, the key card hint, tests for the rule's untested terms — branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed; see "Phone redesign R3: binders and deck cores (2026-10-15)")
 **Last updated:** 2026-10-15 (stage R2 merged with `main` after stage F1, "free for all" (#73): R2's Inventory and Add cards screens keep no sponsored row, upgrade offer or paid entry point, and its screens that reach a limit say it as F1's plain caps; R2's API additions (`asking_price_text`, the condition not stated, the restore, the photo purge job, `sort=created`, `PATCH … confirm`, the richer suggestions) sit next to F1's `limits` module; R2's migration renumbered after F1's V120–V123; the generated OpenAPI and clients regenerated on the merged code — branch `feature/r2-inventory-adding-cards`, not pushed; see "Merged with free for all (2026-10-15)" in the R2 section)
 **Last updated:** 2026-10-15 (stage R2 of the phone redesign, "Inventory and adding cards", mockup screens 1 to 9: V117 (V125 since the merge with F1) — the asking price as typed (`asking_price_text`, plain amounts parsed into `asking_price`), a condition not stated (`conditionStated`), the undo of a delete for 10 minutes (`POST /inventory/items/{id}/restore`, the `inventory-photo-purge` job); `PATCH … confirm`, `sort=created`, catalog suggestions with set, rarity and printing count; on the phone the Inventory with its own header, Filter and sort, Add cards, Choose the printing, Add to inventory with photos, Edit card, the toasts with "View" and "Undo", the bulk delete undone — branch `feature/r2-inventory-adding-cards`, builder done, review fixes 1 and 2 done (the emptied price, native flow 1's photo, twin printings, a truthful Public hint, photo failures, the largest text, `markedPublic`, the lock tests; then the photo's creation date, toasts clear of the photo failures, the hint from the card itself), not pushed; see "Phone redesign R2: inventory and adding cards (2026-10-14)")
@@ -6082,6 +6086,694 @@ reader reads them whole); the profile row reads "Deck core · $120" right after 
 from that row's Edit binder lands on Inventory › Binders ("1 binder", "Binder deleted"). The
 owner's appearance (light) and text size (Large) were not changed.
 
+## Phone redesign R4: messages and Mark as sold (2026-10-15)
+
+Stage R4 of the phone redesign approved by the owner on 2026-10-14
+([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+sections 10, 12 "Messaging and sales", 13 to 17): mockup screens 22 (the inbox), 23 (a chat while
+buying), 24 (a chat while selling) and 25 (Mark as sold), with Settings › Shipping details.
+Branch `feature/r4-messages-mark-as-sold`, cut from `main` after R3's merge (#75, `2f9c5506`). One migration,
+**V127**; every API change is additive (the paused web builds and passes every check against the
+regenerated client, unchanged: no file of `apps/web-angular` changed). Free for all (stage F1): no
+sponsored row, upgrade offer or price for a feature. The tab bar keeps today's six tabs until R5.
+
+**Deals happen in the chat and ship by mail** (ADR 0018): collectors agree in the chat, the buyer
+sends an address and pays the seller outside the app (Interac e-Transfer), the seller ships with
+tracking and marks the card sold, then both rate each other. OrenjiTrade never handles the money and
+claims no protection; a sale records that two collectors agreed, nothing more.
+
+**First, R3's leftovers** (one commit each): native flow 2 waits for the "Saved" toast to leave
+before it taps the deck core's row (R2-1); bulk card changes refresh the profile rows, the map and
+search (`refreshBinderListings` in `src/api/hooks/listingRefresh.ts`, R2-2); a sold deck core leaves
+the Binders count, Reorder and the binder pickers (`liveBinders`, U10); the binders tip reads its
+words to VoiceOver, not the icon's glyph (U8, on the screen R4 touches through the deck core).
+
+**What a collector can now do on the phone**
+
+- **See their chats** (Messages, screen 22): the title "Messages", "Live" and the round bell; rows
+  with the avatar and its online dot, the handle, the time ("now", "2 min", "1 h", "Yesterday",
+  "Mon", "Sep 28"), the last message ("You: " before theirs, a sale worded for the reader, an old
+  offer as "Offer (no longer available)") and, on the right, the picture of the card or the deck
+  core photo the chat is about. Unread chats are bold with an orange time and an orange dot; muted
+  ones keep the muted icon. Empty: "No messages yet" and "Find a card in Search and message its
+  owner." with "Open search". The Inbox | Community switch shows only while the `publicChat` flag is
+  on (it is on in the local seed, off in the mockup). The tab's badge counts the unread chats.
+- **Open a chat** (screens 23 and 24): back; the avatar, the handle and "Online · {province}" or
+  "{province}" (never a city), which opens the profile; "⋯" with Rate {handle} (when a rating is
+  due), Mute, Archive, Report {handle} and Block {handle} in red. Under it the **pinned bar**: the
+  card's picture, name and "{code} · {rarity}" with its price on the right (buying: the bar opens the
+  card's page, or the deck core page), or "{code} · {price} · your card" with a teal **Mark as
+  sold** (selling), "Deck core" for a deck core, **Sold** after a sale and **No longer listed**
+  (no price) once it is private, deleted or sold elsewhere. A **safety tip** with a shield at the
+  top of the chat: buying "Check their rating before you send an e-Transfer, and ask for
+  tracking.", selling "Ship after the e-Transfer arrives, and add the tracking number when you mark
+  it sold.", a chat without a card "Agree on the price and shipping here. Check ratings before you
+  send an e-Transfer." Bubbles: orange on the right, dark (light: warm grey) on the left, line
+  breaks kept, day separators, the time under each group with "· Sent" or "· Seen"; shared cards
+  (picture, name, code, price), binders and photos.
+- **Send with one tap** (quick replies, in one sideways row above the message box): buying "Is it
+  still available?", "How much with shipping?" until the seller has written, then "e-Transfer
+  sent!", "Tracking number?", "Thanks!"; selling "Yes, still available", "Send me your address" until
+  the seller has written, then "Got your e-Transfer", "Shipped!", "Thanks for buying!". A reply sent
+  once in the chat (that exact text) is hidden.
+- **Share from "+"**: buying "Send my address", selling "Send my e-Transfer email" (both in a chat
+  without a card), each "Saved on this phone only"; then "Send a photo", "Share a card from your
+  inventory" (one of the collector's own cards, with its price: the chat is about it from then on),
+  "Share a binder", "Cancel". The first time, the address (several lines) or the email or phone
+  number is asked in a sheet and **kept only on the phone** (`expo-secure-store`, per account, this
+  device only); a tap puts "Ship to:\n{address}" or "e-Transfer to {email}" into the message box,
+  checked before sending; only the message sent carries it. **Settings › Shipping details** edits
+  or clears both.
+- **Mark a card or a deck core sold** (screen 25, the seller only): the sheet "Mark as sold?" with
+  the card row ("{code} · {n} copy/copies"), "Copies sold" when there are more than one, "Tracking
+  number · optional" (mono, "So {buyer} can follow the package"), "Sold to {buyer}. It was your last
+  copy, so the card leaves your inventory. You can rate each other next." (or "You'll have {n}
+  left."), the orange "Mark as sold" and "Not yet". Then the toast "Marked as sold" with **Undo**,
+  the bar reads Sold, and a sale message both see: "You marked {card} as sold to {buyer}." /
+  "{seller} marked {card} as sold to you.", "Tracking {number}" and "Rate {other}" (the rating of the
+  sale, kind Sale). The copies leave the inventory (at 0 the card leaves it and its binder; a deck
+  core leaves Search and its cards the inventory). Undo (the toast; the server accepts it for 10
+  minutes and before anyone rated) puts back exactly what left, removes the message, the rating
+  right and the buyer's notification: "Sale undone. It is back in your inventory."
+- **Be told as the buyer**: the in-app notification "{seller} marked {card} as sold to you" ("Sold to
+  you"), which opens the chat.
+- **Message a deck core's seller with the core pinned** (the deck core page's "Message {handle}":
+  R3 opened the chat without a pinned card). "Message {handle}" on a profile keeps the chat's pinned
+  card.
+
+**What the API does** (V127; contract [`docs/api/contracts/r4-messages-sales.md`](docs/api/contracts/r4-messages-sales.md))
+
+| Part | What |
+| --- | --- |
+| Chat subject | `conversation.subject_item_id` / `subject_binder_id` (at most one, `SET NULL`), `subject_set_at`, `subject_set_by`; `POST /conversations {recipientId, subjectItemId?, subjectBinderId?}` pins the recipient's public card or deck core, or the caller's own (404 private, deleted or sold, 400 both or a third collector's); without one the pin stays; `GET /conversations/{id}` (new); `ConversationSummary.subject` (`kind`, `id`, `ownerId`, `name`, `printingCode`, `rarity`, `cardId`, `printingId`, `imageUrl`, `askingPriceText` — null for the buyer while not listed —, `sold`, `listed`, `copies` for the owner) |
+| Sharing one's own card | `CARD_LINK` with `inventoryItemId` (the caller's live card; payload `item {itemId, ownerId, askingPriceText, rarity}`); it becomes the subject, visible with its price to the other collector even while private |
+| Participants | `ConversationParticipant.place` (state or province and country) while that collector is discoverable; `LastMessage.systemTopic` (`OFFER`, `SALE`) and `sale` |
+| Sales (`deals` module) | `sale` table; `POST /conversations/{id}/sales {quantity?, trackingNumber?}` → 201 `SaleResponse` (the seller only: 403 for the buyer, 409 `CONFLICT` without a subject, 409 `NOTHING_LEFT_TO_SELL`, 400 quantity or tracking); `POST /sales/{id}/undo` (the seller, 10 minutes: 409 `SALE_UNDO_CLOSED`; before a rating: 409 `SALE_ALREADY_RATED`; repeated: the undone sale) |
+| Effects of a sale | the copies leave (`InventorySales`; at 0 a soft delete restorable for 10 minutes with its photos, R2's `restorable_until`); a deck core gets `sold_at` and its cards soft-deleted the same way; a `SALE` interaction; a SYSTEM message `sale:<id>:SOLD` with a neutral body (no tracking number), read for the seller; the buyer's `SALE_RECORDED` notification; the undo reverses each |
+| Ratings | `InteractionKind.SALE` (subject type `SALE`; V127 replaces the two check constraints); `POST /ratings` holds its interaction `FOR KEY SHARE`, the undo takes it `FOR UPDATE` then checks for a rating |
+| Export and purge | export section `deals`; an account purge deletes its sales (the other collector keeps the chat's message) |
+| Locks | a sale and its undo: `BinderService.lockOwners`, binders, items, ascending, `FOR NO KEY UPDATE` (`InventoryLockOrderIT`: `SALE`, `SALE_UNDO`, `DECK_CORE_SALE`, `DECK_CORE_SALE_UNDO`); a pin holds the item or binder `FOR KEY SHARE` before it writes the conversation row |
+| Privacy | `GeoPrivacyContractTest.chatSubjectsAndSalesCarryThePlaceOnly`: the participants, the subjects, the sale message and the sale — a state and a country, never a city; tracking numbers only for the two collectors; the saved address and e-Transfer email never stored by the API |
+
+**Decisions, and why**
+
+1. **The pin is the latest card or deck core opened from a listing or shared by its owner** (default
+   8); "Message {handle}" from a profile keeps it, so a chat about a card is not unpinned by a visit
+   to the profile.
+2. **A card its owner shares in the chat stays visible to the other collector, with its price,
+   while it is live**, even private (spec: "Sharing a private card shows it to that person only");
+   anything else is shown to the buyer without a price once it is not listed ("No longer listed").
+3. **"Sold" means a sale in this chat made at or after the card was pinned** (`subject_set_at`):
+   a card sold, undone, or pinned again later is not shown as sold by an older sale.
+4. **A sale reuses R2's 10-minute restore** (`restorable_until`, photos kept until the purge job):
+   the undo puts back the same card with its copies, binder, visibility, price, note and photos,
+   not a new one. The window is the same constant as R2's (not an admin setting).
+5. **The undo is never refused by `inventory.items.max`** (the copies were there minutes ago), and
+   it is refused (409 `SALE_UNDO_CLOSED`, nothing undone) when the card's binder was deleted since; a
+   card restored by hand in the meantime is not put back twice.
+6. **A deck core sells as one** (quantity 1); its cards leave with it and come back with an undo.
+7. **The sale message is read for the seller and unread for the buyer**; its body is neutral and
+   carries no tracking number (other clients, the paused web, show it); the phone words it per side.
+8. **The buyer's notification is not configurable** (in-app only, like system notices).
+9. **The "Sold" flag comes from the `deals` module through an interface of `messaging`
+   (`ChatSaleStatus`)**, so messaging never depends on deals (deals depends on messaging, inventory,
+   binders, ratings and notifications).
+10. **A tracking number is letters, digits, spaces, dots and dashes, at most 64**, trimmed and with
+    inner spaces collapsed; it is seen by the two collectors only.
+11. **The province in the status line comes from the participant's place, shown only while they
+    are discoverable** (ADR 0017: never a city).
+12. **The saved address and e-Transfer email are kept per account** in the phone's secure storage
+    (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`; the Expo web build used by the end-to-end suite keeps them in
+    the browser's storage); "Clear" in Settings › Shipping details removes them.
+13. **A chat without a card shows no quick replies** (the spec lists replies for buying and selling
+    only) and both saved details in "+".
+14. **The tab badge counts unread chats**, as the inbox's dots do (it counted messages).
+15. **The toast is R2's** (dark, "Undo" in orange), and the undo is offered from it only; the
+    server accepts it for 10 minutes.
+16. **New tokens**: the mobile-only `chat` family (the pinned bar, the other collector's bubble, the
+    sale message's teal surface, border, text, tracking box, label and button, the Sold tag), dark and
+    light.
+17. **At the largest text sizes** the + sheet's rows, the chat menu's actions and the saved
+    detail's field scroll with their last buttons in reach; the message box grows up to twice its
+    size; the inbox row puts the time under the handle; "Live" and the bell's count stay within the
+    header (found in the walk, fixed in `881cf0ba`, `4c1ccb0c` and `94ad9ab5`).
+18. **The chat names the other collector by handle** (the top bar, the "⋯" rows, the block
+    confirmation "Block {handle}?" and its toasts), as the mockup does; the display name stays on
+    the profile.
+
+**The defaults of section 16 this stage applies** (the owner may change them): 3 (the saved
+address and e-Transfer email stay on the phone and go into the message box to be checked before
+sending), 4 (a sale can be undone for 10 minutes, and only before anyone has rated it; R2's 10
+minutes for a deleted card stay), 6 (a sold deck core is hidden and its cards leave the inventory),
+8 (one chat per pair of collectors; the latest card or deck core opened becomes its pinned card), 10
+(the quick reply wording of section 10).
+
+**What changed on the phone**
+
+| Part | What |
+| --- | --- |
+| Inbox (22) | `InboxView.tsx` (rows, thumbnails, times, unread), `app/(tabs)/messages.tsx` (its own header), `SubjectThumb.tsx`, `messageText.ts` (sale and offer previews, unread chats) |
+| Chat (23, 24) | `ThreadHeader.tsx` (top bar and "⋯"), `PinnedBar.tsx`, `MessageBubble.tsx`, `ThreadMessageList.tsx`, `LinkCards.tsx`, `MessageComposer.tsx` (quick replies, "+"), `OwnCardPicker.tsx`, `messageDraft.ts`, `app/messages/[id].tsx` |
+| Mark as sold (25) | `MarkSoldSheet.tsx`, `SaleMessage.tsx`, `useMarkSold` / `useUndoSale` in `src/api/hooks/messaging.ts` |
+| Rules and copy | `dealRules.ts` (side, quick replies, + rows, pinned line, status line, sale sentences, tracking, inbox times), `chatCopy.ts` |
+| Shipping details | `src/features/shipping/savedDetails.ts`, `SavedDetailSheet.tsx`, `app/settings/shipping.tsx`, the Settings link |
+| Elsewhere | the deck core page pins the core; ratings of kind Sale; the `SALE_RECORDED` notification opens the chat; `BottomSheet` rises above the keyboard (`avoidKeyboard`); the `chat` tokens |
+| Tests | jest `screens/conversation` (+ "Deals in the chat", 11), `screens/messages-tab`, `screens/shipping-details` (new), `features/dealRules` (new), `features/chatSafetyTip`, `api/messaging`, `notifications`, `settings`, `tabs-layout`, `binders`; Playwright `deals.spec.ts` (new: as the seller and as the buyer), `messages`, `blocked`, `map`, `ratings`, `safety-notice` specs on the new chat; Maestro native flow 4 `deal-mark-sold.yaml` (new) and flow 3 `deal-deck-core-chat.yaml` (new, as far as R4 reaches), `scripts/deals.js` (new) |
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-15, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 40 s: **169 classes / 1041 tests** (+3 classes, +24 tests: `ChatSubjectIT` 7, `SaleIT` 8, `SaleRulesTest` 4, `InventoryLockOrderIT` +4 cases, `GeoPrivacyContractTest` +1) + 12 catalog tests in 2 classes, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed (`d97d81ce`), git clean afterwards (again at the end) |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed: `git diff 2f9c5506 -- apps/web-angular` is empty) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests** against the regenerated client; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.3 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **93 suites / 1001 tests** (+2 suites, +35 tests: `features/dealRules` and `screens/shipping-details` new, `screens/conversation` +11 with "Deals in the chat", `screens/messages-tab`, `api/messaging`, `features/chatSafetyTip`, `notifications`, `settings`, `tabs-layout`, `api/catalogInventoryHooks`, `features/binderForm`, `screens/inventory`, `screens/binders`) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (1.0 min; +2: `deals.spec.ts`) |
+| `npm run test:mobile:maestro -- --platform ios` | **32 / 33** in 53 min 3 s on the owner's iPhone 18 Pro, on the final app code (`94ad9ab5`): native flow 4 `deal-mark-sold.yaml` (1 min 31 s) and flow 3 `deal-deck-core-chat.yaml` (1 min 8 s) passed, and so did every chat flow (inbox and thread, rating, safety tip, community). The one failure was `blocked-users.yaml`, which still expected the block confirmation to name the display name ("Block Ben Maestro?"); R4's chat names collectors by handle ("Block {handle}?", the spec's menu row), so the flow now expects the handle (`03526c60`) and passed alone (1 / 1, 1 min 4 s). No app code changed after the run |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**The walk on the simulator** (scratch Maestro flows on the isolated stack, on the owner's iPhone 18 Pro
+under the lock; per run a fictional seller in Quebec with "Lantern Fox Spirit" at "$32" and a buyer
+in Ontario; screenshots kept outside the repository, compared with the mockup's screens 22 to 25):
+in dark and in light at the default text size, then in dark and in light at the largest
+accessibility size (the app's own theme setting and the launch argument of
+`subflows/relaunch-large-text.yaml`): the inbox as the seller and as the buyer, the chat selling
+(24) and buying (23), the "+" sheet of each side, the address asked the first time, Mark as sold
+(25) with a tracking number, the toast with Undo, the sale message for the seller and for the
+buyer, the buyer's notification and the chat it opens. The screens match the mockup in order,
+wording, colours and sizes; the differences are the decisions above (R2's toast, the Inbox |
+Community switch while the local flag is on) and the tip's place (known gaps). Found at the largest
+size and fixed, each with a jest test: the "+" sheet's Cancel off the screen, the inbox handle held
+small beside a huge last message, "Live" and the bell's count outgrowing the header (`881cf0ba`);
+the Mark as sold card row hiding the tracking number behind the buttons (`4c1ccb0c`); the saved
+address sheet's hint pushing its field out of view (`94ad9ab5`). Found, not R4's: the notification
+centre's "Mark all as read" and "Preferences" grow without bound at the largest size (M4's screen,
+recorded for R6, which moves Settings behind the gear). Native flows 3 and 4 passed alone after each
+fix (2 / 2 in 2 min 43 s). The walk's accounts (36, twelve runs) were deleted from the Auth
+emulator; the owner's appearance (light) and text size (Large) were not changed.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the new flows keep no
+Android-only step); VoiceOver on a real iPhone (the accessibility names are covered by jest and the
+native flows' labels); the secure storage on a real device (the simulator's keychain only); push
+notifications (the buyer's notice is in-app only, by the spec); a real Interac e-Transfer
+(OrenjiTrade never handles the money).
+
+**Known gaps, by design or for a later stage**
+
+- "I have it" (Home and profiles, spec section 10) is R6's and R7's; the API it needs is here
+  (`CARD_LINK` with `inventoryItemId` pins the sharer's card).
+- "Message" on the rows of Who has this card is R5's (the holder rows have no Message button today);
+  native flow 3 therefore starts on a deck core page (a link) and stops at the pinned card, the
+  buying tip and the address.
+- The safety tip sits under "This is the beginning of your conversation…" and above the first day
+  separator (the mockup shows it at the top of the chat, the same place in a new chat).
+- A seller who never wrote in the chat still gets "Yes, still available" and "Send me your
+  address" after a sale (the spec's rule: until you have replied).
+- In light, the app's orange under white text or as text reads under 4.5 : 1 (R2's known gap,
+  unchanged); the sale message's teal reads above 4.5 : 1 in both schemes.
+
+**Owner follow-ups:** confirm decisions 2 (a private card shared in the chat shows its price to that
+collector), 3 (Sold only for a sale after the pin), 13 (no quick replies in a chat without a card),
+14 (the tab badge counts chats) and the tracking number format (10); whether the 10-minute undo
+should become an admin setting with R2's; whether the seller's quick replies should change after a
+sale.
+
+### Review fix 1 (2026-10-16)
+
+Two independent reviewers (a privacy and safety lens, and a functional verifier who ran the API
+attack scripts, the stress soak and the walk on the owner's iPhone 18 Pro) found two blockers, two
+major and ten minor findings. Each is fixed at its cause with a test that would have caught it (the
+ones checked by putting the defect back are listed under the checks), one commit each; nothing was
+widened. No migration: V127 stays as it was.
+
+- **F1 (blocker) Mark as sold sold the chat's current subject, not the card the seller saw.** The
+  buyer could pin another listing (a deck core page's Message) without writing; the seller's bar did
+  not follow (no push, and every message copied the inbox's older subject into the chat), and the
+  sale took the deck core. Now `POST /conversations/{id}/sales` takes the optional `subjectItemId` /
+  `subjectBinderId` the sheet shows and answers **409 `SUBJECT_CHANGED`** (new error code) when it is
+  no longer the chat's subject, before the copies are checked and with nothing sold; the web, which
+  names nothing, is unchanged. Every pin is pushed to both collectors on the new realtime queue
+  `/user/queue/conversations` `{conversationId}`; the phone reads the conversation again on it (and
+  after a reconnection), a message patches only the last message, archived and unread count of the
+  conversation's own entry, and the chat is read again whenever it opens. The sheet keeps the card it
+  opened with and sends it; on 409 it closes, says "{handle} opened another of your listings. Check
+  the card above, then mark it sold." and the bar shows the new subject. (`6e75703d`, `e40f6b95`;
+  `SaleIT` re-pins between the look and the sale, `RealtimeIT` receives the push, jest
+  `conversation` and `messaging` cover the refusal, the push and the cache.)
+- **F2 (blocker) The "Marked as sold" toast and its Undo were drawn under the keyboard** when the
+  seller had used the message box (spec flow 4's order): iOS gave the keyboard back to the box when
+  the sheet closed. Mark as sold now dismisses the keyboard first; the toast rises above the iOS
+  keyboard (Android resizes the window for it, as the sheets assume); dragging the thread puts the
+  keyboard away. Native flow 4 keeps the keyboard up through send and Mark as sold instead of hiding
+  it. (`d375f76b`; jest `ui` and `conversation`.)
+- **F3 (major) A sold deck core kept its `binders.max` slot** although the phone hides it and cannot
+  delete it: the count now leaves sold cores out (an undo may pass the cap, like every undo).
+  (`e395ed7a`; `SaleIT` sells a core, then creates binders up to the cap.)
+- **P1 (major) "Tracking numbers never in the logs" had no test.** `SaleIT` runs every path that
+  receives one (card and deck core sales, a refused number, a refused quantity, an undo, a refused
+  undo) under output capture and checks the logs, the outbox (`event_publication`) and the
+  notifications; `GeoPrivacyContractTest` checks its sale's number in the logs. Both fail when
+  `SaleService` logs it. (`3739a3f8`)
+- **F4** The undo of an older sale after a later sale (another chat) took the last copies put the
+  copy into the deleted card: the card now comes back with the older sale's copies and the later sale
+  is marked as not having taken the last copies, so its own undo adds its copies back
+  (`ebfc0e0c`; `SaleIT`, `InventoryLockOrderIT` case `SALE_UNDO_BEFORE_LATER_SALE`).
+- **F5, F6** Pinning the chat's card again (the seller sharing it, the buyer opening it again) now
+  counts from that pin: Mark as sold comes back for the copies left after a partial sale, and a card
+  its owner shares is listed for the buyer even when it is private (`e22f516d`; `ChatSubjectIT` +2).
+- **F7** A deck core without photos keeps its picture once sold: the first card its sale took
+  (`e2290a4f`; `SaleIT`, bar and inbox for both).
+- **F8** Mark as sold with several copies shows "Copies sold" once (the Stepper drew a second), and
+  that label, the stepper's value and the tracking label follow the text size as far as the card
+  row, which keeps the tracking field in view at the largest size (`8196baaa`; jest at font scale 3.1).
+- **F9** The chat's words for a refused undo (`SALE_UNDO_CLOSED`, `SALE_ALREADY_RATED`) and a refused
+  sale are tested (`2281537e`).
+- **F10** Every sale can be rated, but a seller's summary (average and count) counts only the newest
+  sale rating each buyer gave: a pair cannot stack ratings through many one-copy sales; every rating
+  stays listed (`b94b7ad8`; `SaleIT`). A default for the owner to confirm.
+- **F11** The quick reply chips, "+", send and "Rate {other}" reach 44 pt touch targets through hit
+  slop, without changing how they look (`64f5f97c`; jest measures each).
+- **P2** The ten fixed quick replies, sent exactly, skip the repeated-content threshold (one seller
+  answering six buyers "Yes, still available" was flagged); rate limits and banned terms still apply
+  (spec section 13). The API's list (`messaging.domain.QuickReplies`) is kept equal to the phone's by
+  a jest test (`cde86721`; `ModerationIT`).
+- **P3** The saved address and e-Transfer email are deleted from the phone with the account's
+  deletion request; a sign-out leaves nothing of them in memory (the secure storage keeps them,
+  keyed by account, for the next sign-in) (`a91fe44e`; jest `settings`, `session`).
+
+Not changed (nits of the reviews, outside the findings of this round): the saved-detail hint's
+wording once sent, "Delete from this phone" without a confirmation, the withdrawn sale message pushed
+to a buyer blocked after the sale, Mark as sold offered on a deck core switched off after the pin
+(the error then names a card), a public deck core's key card pinnable alone, "Is it still
+available?" offered after a sale, `isUndoneSale` unused, Inter's contextual "3×5" in handles, and the
+two `wip(...)` commit subjects of the builder.
+
+**Checks of review fix 1** (retries off, the real numbers; this Mac, 2026-10-16)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 57 s: **169 classes / 1052 tests** (+11: `SaleIT` +6, `ChatSubjectIT` +2, `RealtimeIT` +1, `ModerationIT` +1, `InventoryLockOrderIT` +1 case) + 12 catalog tests in 2 classes, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed with F1 (`6e75703d`); git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests** against the regenerated client; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.4 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **94 suites / 1010 tests** (+1 suite `features/quickRepliesServer`, +9 tests) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` | **33 / 33** in 52 min 27 s on the owner's iPhone 18 Pro (under the lock), native flow 4 `deal-mark-sold.yaml` in its new order (the keyboard up through send and Mark as sold; 1 min 30 s) |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**Walked on the simulator** (scratch Maestro flows on the suite's kept stack, a fictional seller in
+Quebec with "Lantern Fox Spirit" at "85% TCG", 3 copies, and a deck core at "$150", and a buyer in
+Ontario driven through the API): the buyer pins the deck core without writing and the seller's bar
+follows at once; the seller writes in the box, sends with the keyboard up and taps Mark as sold: the
+sheet shows the deck core, the keyboard is put away, the toast shows with its Undo above the message
+box and Undo works; with the sheet open on the deck core the buyer pins the card: Mark as sold
+answers "{buyer} opened another of your listings. Check the card above, then mark it sold.", the bar
+shows the card and nothing was sold (the API: 3 copies, the core unsold); the card's sheet with 3
+copies shows "Copies sold" once. Dark, default size; the owner's appearance (light) and text size
+(Large) were not changed; the walk's two accounts were deleted.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the toast relies on Android
+resizing the window for the keyboard, as the sheets do).
+
+Every fix was also checked by putting its defect back: the tracking number logged (P1: both tests
+fail), the old `setSubject` and no subject check (F1, F5, F6: four tests fail), the binder count, the
+undo and the sold core's picture (F3, F4, F7: three `SaleIT` tests fail), the repeated-content
+exemption ignored (P2), the inbox's copy written over the conversation and the pin push ignored on
+the phone (F1: two jest tests fail), the Rate button's hit slop removed (F11).
+
+**Owner follow-ups of this round:** F10 (one counted sale rating per pair, the newest) and P2 (the
+fixed quick replies exempt from the repeated-content threshold) are defaults to confirm; F5 means a
+buyer opening the same card again re-arms Mark as sold.
+
+### Review fix 2 (2026-10-16)
+
+A second review round (a functional verifier who ran the API attack scripts and the stress soak
+again, put the defect of every fix back, and walked the fixes on the owner's iPhone 18 Pro) found
+every finding of round 1 fixed except F11 in part, no blocker and no major finding, and two minor
+findings. Each is fixed at its cause with a test that would have caught it, one commit each; nothing
+was widened, and there is no migration and no API change.
+
+- **R1-1 Nothing tested that the Mark as sold sheet keeps the card it opened with.** With the
+  freeze removed (`setSaleSubject` when the sheet opens), the sheet follows the live subject and
+  sells it, and every jest test still passed: the F1 test changed the subject without reading the
+  chat again while the sheet was open. A new jest test pushes a pin on `/user/queue/conversations`
+  while the sheet is open: the bar under it follows the deck core, the sheet still shows the card
+  ("SVX-001 · 3 copies" and its stepper) and the sale names `subjectItemId` (the server answers
+  `SUBJECT_CHANGED`). With the freeze removed, the test fails (the sheet shows "Deck core").
+  (`df4de8ce`)
+- **R1-2 The quick reply chips were still 38 pt to the finger.** Their 5 pt hit slop reached
+  outside the sideways row, which padded the 34 pt chips by 2 pt only, and iOS (Fabric) drops a
+  touch outside a scroll view's frame before it reaches a chip: taps 4 pt above or under a chip sent
+  nothing. The row now pads 5 pt above and under the chips (44 pt tall) and takes the room back
+  with a negative margin, so it looks and sits as before. The jest test checks that the row holds
+  the chips' slop, is 44 pt tall and keeps its 2 pt around the chips; it fails with the old padding.
+  (`c0abb279`)
+
+Not changed (outside the findings of this round): the verifier's nit R1-3 (the `SUBJECT_CHANGED`
+toast says "Check the card above" when the new subject is a deck core) and the nits listed under
+review fix 1.
+
+**Checks of review fix 2** (retries off, the real numbers; this Mac, 2026-10-16)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 58 s: **169 classes / 1052 tests**, 0 failures, 0 skipped, + 12 catalog tests in 2 classes |
+| `./gradlew exportOpenApi` + `npm run generate:api` | nothing changed (no API change); git clean afterwards |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **94 suites / 1011 tests** (+1, R1-1) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (60 s) |
+| `npm run test:mobile:maestro -- --platform ios` | **33 / 33** in 52 min 30 s on the owner's iPhone 18 Pro (under the lock), native flow 4 `deal-mark-sold.yaml` in 1 min 34 s |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**Walked on the simulator** (scratch Maestro flows on the suite's kept stack, a fictional seller in
+Quebec and a buyer in Ontario who asked about her card, default text size): the quick reply row is
+now 44 pt tall ([0,740]–[402,784], 38 pt before) while the chips and "+" sit where they did (chips
+745–779, "+" from 790, as the verifier measured). Taps 4 pt above "Yes, still available", 4 pt
+under "Shipped!" (the verifier's dead spot) and 4 pt above "Thanks for buying!" each sent their
+reply; a tap 7 pt above a chip, outside its slop, sent nothing. The owner's appearance (light) and
+text size (Large) were not changed; the walk's two accounts were deleted.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the chips' touch targets
+there were not measured on a device).
+
+## Phone redesign R5: search (2026-10-16)
+
+Stage R5 of the phone redesign approved by the owner on 2026-10-14
+([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+sections 3, 4, 8, 12 "Search, wishlist and recent searches", 13 to 16): mockup screens 11 (the
+map), 12 (typing a card), 13 (Who has this card), 14 (Binders) and 15 (Wishlist), version 43 for
+the looks and the copy. Branch `feature/r5-search`, cut from `main` at b92710cf (R1, F1, R2, R3, R4
+and the owner's inventory change of 2026-10-16). **No migration** (V128 stays free); every API
+change is additive: the paused web builds and passes its checks against the regenerated client,
+unchanged (no file of `apps/web-angular` changed). Free for all (stage F1): no sponsored row, no
+upgrade offer, no price for a feature; the wishlist's usage line shows only near the cap.
+
+**What a collector can now do on the phone**
+
+- **Four tabs**: Search | Inventory | Messages | Profile (Home comes with R7 as the first of five).
+  The bell is top right on Search, Inventory and Messages (and in Profile's header); Messages keeps
+  its unread badge. The Map tab is Search's default view, the Wishlist tab its Wishlist segment.
+- **Search's map** (screen 11): the title "Search" with the bell, the segments Cards | Binders |
+  Wishlist ({n} wishes), the field "Card name or code, like LOB-EN001", then the M9 region map
+  shaded by public binders with the region pill top left, "My province" (the declared state or
+  province, never a device location) and zoom + / − on the right, and the legend "Public binders"
+  (None, 1, 2–4, 5–9, 10+). The map opens centred on the collector's province with its card:
+  the state and its country ("Canada · your province"), "{n} binders · {n} deck cores" (only the
+  parts above 0; "No public binders here yet"), "See binders" (Search › Binders on that state) and
+  a close button. A tap (or a hold) on any state opens its card. Browsing another region says "Not
+  your region. Back to {home}" under the field. No Filters button. With a screen reader the map is
+  replaced by the list of states and provinces (a row opens its binders).
+- **Typing a card** (screen 12): the focused field with Clear and "Cancel"; with no text the
+  recent searches of this phone (up to 8, "Clear", "Only you see your searches. You can turn this
+  off in Settings › Privacy."); while typing the game chips (All games, then the catalogue's games:
+  the only filter, the card filters sheet is gone) and the cards with their picture, the name with
+  the typed part highlighted and the game; under them "Collectors" (at most 3: avatar, handle,
+  state or province) when the text matches a collector's handle or name. "No card matches “{text}”"
+  with the hint. A card opens Who has this card, a collector their profile.
+- **Who has this card** (screen 13), the one card page (the card detail and the holders list are
+  gone; `/cards/<id>` links, `/holders` links and notification links land on it): back and "Add to
+  wishlist" / "On your wishlist" (teal; adding makes an "Any printing" wish without terms, taking it
+  off asks first); the picture, the game in capitals, the name and "Check TCGplayer price" (the
+  browser, TCGplayer's own search); "Any printing ▾" (a sheet of "{code} · {rarity}" that filters
+  the rows); "Also in a deck core" ("{core} · {handle} · {province} · {price}", at most 3, each opens
+  the deck core page); then the holders grouped by province — "{province} · your province" first,
+  then the other provinces of the country, then the rest of the region, the newest listing first
+  in each — with the handle (opens the profile), "{code} · {rarity}", the price as typed, "×{copies}"
+  and a round Message button that opens or reuses the chat with that card pinned. No card text,
+  type line, market price, filters or counts. Empty: "Nobody in {region} lists this card yet." with
+  the wishlist button. The picture's provider credit stays at the bottom (ADR 0015).
+- **Search › Binders** (screen 14): "Deck, binder or collector, like Yubel" (binder names, handles,
+  a deck core's key cards), the state chip from the map ("Quebec" with ×, back to the whole region)
+  or "Pick on the map", "Binders | Deck cores"; deck core rows (the 56 pt photo, the name, the
+  handle, the price) and binder rows (a fan of 3 cards, the name, "{handle} · {n} cards"), the
+  state or province added to the line when the whole region is listed; the three empty texts.
+- **Search › Wishlist** (screen 15): "Tell me when someone in my region lists one" (the account-wide
+  wishlist alert, the same setting as Settings › Notifications), "Add a wish" (the card search,
+  then the S2 wish form), the wishes with their picture, name and terms ("Any printing · NM only ·
+  100% TCG", "TN19-EN013 · NM only") and on the right "Available" (opens Who has this card on the
+  wished printing) or "None yet"; a row edits the wish, and the edit screen now has "Remove from
+  wishlist" (asked first). "{used} of {limit} wishes" only from 80 % of the cap.
+- **Settings › Privacy**: "Remember my searches" (on by default; off clears this account's recent
+  searches on this phone and stops them), and "Let others see what you want" (now only there).
+
+**What the API does** (contract [`docs/api/contracts/r5-search.md`](docs/api/contracts/r5-search.md))
+
+| Part | What |
+| --- | --- |
+| Collectors while typing | **new** `GET /search/collectors?q=&region=&limit=3` → `[CollectorByName]`: discoverable collectors of the region who allow name search, handle or display name containing the text (no fuzzy match), never the caller nor a blocked collector (in SQL, before the limit); no analytics event |
+| Who has this card | `sort=province` on `/search/card-holders`: own province, own country by province name, rest of the region by country and province name, freshest first inside (`ProvinceOrder`) |
+| Wishlist "Available" | `available` on `GET /wishlist` items (home region) and **new** `GET /wishlist/availability?region=` → `{region, available: [id]}`; the alert's fit (NM only, not stated condition), a card listed or in a public deck core, fresh, a discoverable collector of the region, not the wisher, no block; **one grouped query** |
+| Hardening | the collectors section of `GET /search` leaves blocked collectors out in SQL before the limit (viewer-keyed discovery cache); search analytics events carry no search text (only its length) |
+| Privacy | `GeoPrivacyContractTest.searchOfStageR5CarriesPlacesOnly` |
+
+**Decisions, and why**
+
+1. **"Available" is teal** (the accent), as both mockups draw it (v32 and v43; v43 wins on looks);
+   the prompt's text says orange. Orange stays the colour of actions on these screens.
+2. **"Available" uses the wishlist alert's fit**: a Near Mint only wish is not available for a
+   played copy, a condition not stated fits (default 5), so the alert and "Available" never
+   disagree. A card of a public deck core counts (Who has this card shows the core in its banner);
+   the copy must be fresh (ACTIVE or AGING).
+3. **The region of "Available" has its own endpoint** (`GET /wishlist/availability?region=`):
+   adding a parameter to `GET /wishlist` changed the generated Angular `listWishlist()` signature,
+   which the paused web calls positionally (`listWishlist('body', …)`): the web build would break.
+   `available` on `GET /wishlist` is the home region's; the phone asks the browsed region.
+4. **Collectors while typing are a new endpoint** (`GET /search/collectors`), not `/search?types=
+   collectors`: that section lists the holders of a card instead of collectors when the text is an
+   exact card name or code. Substring matches only (trigram similarity brought unrelated collectors
+   for card names), never the caller, no analytics event.
+5. **Between province groups, the order is by name** (the country's, then the province's) inside
+   each tier: predictable to scan, and nothing else (no distance, no count) may order them.
+6. **While typing, the first page of cards (24) and then "Collectors"**, no endless list: typing
+   narrows the cards, and the collectors stay a short scroll away.
+7. **The map opens on the collector's province with its card** (v43's first state), centred a
+   little above the middle so the card covers no part of the province; tap and hold both open a
+   state's card (the hold's name callout of M9 is gone); "Show the whole region" is gone, zoom −
+   reaches it. A collector without a declared province (or browsing another region) gets the
+   region's first view, no card and no "My province".
+8. **Screen readers get the list of states and provinces instead of the drawn map** (as M9 did by
+   default); a row opens Search › Binders on that state. The "Map | List" switch and its saved
+   preference are gone (the app store's version 7 drops it).
+9. **"Not your region. Back to {home}" stays** (M9) under the field: the pill over the map has no
+   room for it.
+10. **No location prompt on the map** (the mockup has none); Search › Wishlist keeps its prompt
+    (alerts need a location) and Settings › Location is where it is chosen.
+11. **The card page has no "Add to inventory"** (the mockup has none; Inventory › Add cards does it)
+    and no region switcher (Search's applies); the provider credit of the picture stays at the
+    bottom (ADR 0015). Its empty text names the region browsed ("Nobody in Americas (North) …").
+12. **"On your wishlist" asks before it removes** the card's wishes (they may carry terms set in
+    Wishlist); the wish's edit screen gained "Remove from wishlist" (the Wishlist tab's remove left
+    with its cards).
+13. **Search › Binders rows name the owner's province only when the whole region is listed** (v43:
+    in a state the chip already says where).
+14. **Old routes**: `/` and `/wishlist` stay as hidden routes of the tabs that redirect into Search
+    (only while they are the screen on display; Search is the tabs' first route); `/holders` and
+    `/regions/<region>/<code>` replace themselves one turn later (a Redirect in the same turn broke
+    the web history). `/` alone opens Search without parameters, so the sign-in gate never
+    remembers it as a link to reopen (it took a new collector out of the onboarding).
+15. **Recent searches are one list per account** (the per-segment lists of M7 are dropped with the
+    segments), and "Remember my searches" is per account on the device.
+16. **The Wishlist tab shows its count, 0 included** ("Wishlist 0").
+17. **The wishlist alert switch now really saves**: the phone's `PUT /me/settings/notifications`
+    never sent `wishlistAlerts` (the API keeps the stored value when it is absent), so the switch
+    of Settings › Notifications did nothing; found here because Search › Wishlist shows the same
+    setting.
+
+18. **At large text sizes the rows stack** (from a system text size of 1.3, `useStackedRows`): a
+    holder's price and copies under the handle, a deck core's price under its name, a wish's
+    "Available" or "None yet" under the card, and Search › Wishlist's alert sentence under the bell
+    and the switch. Beside a second column, the walk at the largest size found handles and names
+    broken in the middle of a word ("leo_ / uzm / b", "someon / e").
+19. **At large text sizes the map keeps its smallest height (380 pt)** and the state card stands
+    under it (F4 of the build): the card's top shows without scrolling and a finger on the card
+    scrolls the page, since a map zoomed in on the province keeps a finger for itself (M9's rule).
+20. **The map opens on the province even when the location answers after the map was drawn**
+    (the view starts over once the province is known): the walk at the largest size found it on
+    the whole region when the location came second.
+
+**The defaults of section 16 this stage applies:** 2 (recent searches stay on the phone, no server
+history; "Remember my searches" on by default), 7 (the card search also lists matching collectors),
+8 (one chat per pair; "Message" on a holder row pins that card, the latest one winning: R4's `POST
+/conversations` with `subjectItemId`) and 9 (TCGplayer's search of the game, `/search/all` for a game
+it has no category for). Default 1 (dark on a new install) is R1's and every R5 screen follows it;
+default 5 (a not-stated condition fits a Near Mint only wish) also decides "Available".
+
+**What changed on the phone**
+
+| Part | What |
+| --- | --- |
+| Tabs | `src/navigation/tabs.ts` (four tabs, `HIDDEN_TAB_ROUTES`), `app/(tabs)/_layout.tsx` (Search first, the hidden `index` and `wishlist`), `app/(tabs)/index.tsx` and `wishlist.tsx` (redirects into Search while on display), `src/navigation/DeferredRedirect.tsx` (`/holders`, `/regions/…`), `backTitles.ts`, `src/account/pendingLink.ts` |
+| Search (11, 12) | `app/(tabs)/search.tsx` (header, segments, the map or the card search, a link's state), `src/features/search/SearchField.tsx`, `SearchMap.tsx` (the map, its state card, the legend, the screen reader list), `CardTyping.tsx` (game chips, highlighted results, Collectors, recent searches), `highlight.ts`, `searchCopy.ts`, `searchLinks.ts`, `searchSegments.ts`; `features/map/RegionMap.tsx` (tap and hold pick a state, zoom buttons on the right), `mapWindow.ts` (the window on a province), `places.ts`, `MapLegend.tsx`; `features/regions/RegionBar.tsx` (the pill, `RegionAwayNote`) |
+| Who has this card (13) | `app/cards/[id].tsx`, `src/features/cards/WhoHasThisCard.tsx`, `HolderRow.tsx`, `holderGroups.ts`, `printingOptions.ts`, `tcgplayer.ts` |
+| Binders (14) | `src/features/search/BindersSegment.tsx`, `features/binders/binderCopy.ts` |
+| Wishlist (15) | `src/features/search/WishlistSegment.tsx`, `features/wishlist/WishEditor.tsx` (Remove), `wishlistLabels.ts`, `WishlistNotices.tsx`, `app/wishlist/edit.tsx` |
+| Data | `src/api/hooks/search.ts` (`useCollectorsByName`, `sort=province`), `wishlist.ts` (`useWishlistAvailability`), `notifications.ts` (sends `wishlistAlerts`), `regionMap.ts`, `queryKeys.ts`, `types.ts`, `realtime/RealtimeCacheSync.tsx` |
+| Settings and stores | `app/settings/privacy.tsx` + `privacyOptions.ts` ("Remember my searches"), `features/catalog/recentSearchesStore.ts` (one list per account, the switch), `RecentSearches.tsx`, `store/useAppStore.ts` (version 7: the Map / List preference dropped) |
+| Large text | `src/theme/stackedRows.ts` (`useStackedRows`, from a text size of 1.3) in `HolderRow`, `BindersSegment` and `WishlistSegment`; `SearchMap` (the card under a 380 pt map above the overlay's size); `RegionMap` (the view starts over once the province is known) |
+| Removed | `features/search/UnifiedResults.tsx`, `SearchResultRows.tsx`, `catalog/CardFiltersSheet.tsx`, `catalog/cardSearch.ts`, `holders/HolderFiltersSheet.tsx`, `holders/HolderRow.tsx`, `holders/holderFilters.ts`, `map/PlaceBinderRow.tsx`, `wishlist/WishCard.tsx` |
+| Tests | API: `CollectorsByNameIT`, `WhoHasThisCardIT`, `WishlistAvailabilityIT`, `ProvinceOrderTest` (new), `GeoPrivacyContractTest` (+1), `AnalyticsIT`; jest `screens/search` (rewritten: map, typing, segments), `screens/card-detail` (Who has this card), `screens/wishlist`, `features/searchRules` (new), `navigation/searchRedirects` (new), `features/searchSegments`, `features/notifications`, `privacy/placePrivacy`, `app/tabs-layout`, `app/auth-gate`, `screens/settings`, `store/useAppStore` (the replaced `screens/map`, `place`, `holders`, `search-segments` and `features/cardSearch` suites are gone with their screens); Playwright `catalog`, `holders`, `map`, `regions`, `search-segments`, `wishlist`, `session`, `age-confirmation`, `safety-notice` on the four tabs; Maestro native flow 2 `deck-core.yaml` (finds the deck core in Search › Binders) and flow 3 `search-who-has-this-card.yaml` (new, in full: Search, a card, its holders, Message pins the card), `large-text.yaml` (the province's card under the map, the typed card opened from its game chip), every other flow on the four tabs (`holders-filters.yaml` removed with the filters); `legal-french.yaml` matches the French draft banner by its accessible name (not R5's: since Xcode 27.1, installed on this Mac on 2026-10-16 at 05:13, iOS's accessibility tree no longer lists the banner's first line apart, and the flow failed on the unchanged legal screen) |
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-16, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed in 3 min 16 s: **174 classes / 1074 tests** (+16 over `main`'s 1058: `WhoHasThisCardIT`, `CollectorsByNameIT`, `WishlistAvailabilityIT` and `ProvinceOrderTest` new, `GeoPrivacyContractTest` +1, `AnalyticsIT` extended) + 12 catalog tests in 2 classes, 0 failures, 0 skipped |
+| `./gradlew exportOpenApi` + `npm run generate:api` | committed with the API (`1b65c6f4`, `9d42eb16`); nothing changed when run again at the end, git clean |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** (no web file changed: `git diff b92710cf -- apps/web-angular` is empty) |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests** against the regenerated client; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **92 suites / 1031 tests** (main: 95 / 1070; the suites of the replaced screens left with them: `screens/map`, `place`, `holders`, `search-segments`, `features/cardSearch`; new: `features/searchRules`, `navigation/searchRedirects`; rewritten: `screens/search`, `card-detail`, `wishlist`) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **58 / 58** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` | **32 / 33** in 50 min 5 s on the owner's iPhone 18 Pro, on the final app code (`fdca0f15`): native flow 2 `deck-core.yaml` failed once in R3's part (New binder at the largest size: iOS gave the keyboard back to the name field when the card picker sheet closed, and the tap on "Create binder" typed a space instead; not R5 code, see "Found, not R5's") and **passed alone (1 / 1, 4 min 40 s)**; native flow 3 `search-who-has-this-card.yaml` passed (1 min 5 s), and so did every Search flow. The suite before the walk's fixes ran 31 / 33 (`large-text.yaml`, `legal-french.yaml`, both fixed as told above and passed alone) |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**The walk on the simulator** (scratch Maestro flows on the isolated stack, on the owner's iPhone 18
+Pro under the lock; collector1 of the seed (Quebec) and, per run, eight fictional collectors made
+through the API: seven listing "Verdant Moth Queen" in Quebec (two), Ontario, British Columbia,
+New York, California and Jalisco, priced "85% TCG", "Trade only", "$18", "$29", "$45", "100% TCG"
+and "$20", and one in Quebec at "$1" whom collector1 blocked; collector1 wishes the card (Near Mint
+only, "85% TCG") and "Starlit Unicorn"; the seed's deck core "Moth Queen core" in Ontario; the
+screenshots are kept outside the repository and compared with the mockup's screens 11 to 15): in
+dark and in light at the default text size, then in dark and in light at the largest accessibility
+size (the app's own theme setting and the launch argument of `subflows/relaunch-large-text.yaml`):
+Search's map on Quebec with its card ("2 binders", See binders), typing "moth" (the typed part in
+orange), "maya" (no card, one collector), the recent searches, Who has this card (On your wishlist,
+Check TCGplayer price, Any printing ▾ and its sheet, "Also in a deck core" with the Ontario core,
+Quebec · your province first with the newest listing first, then British Columbia and Ontario,
+then Jalisco, then the United States; the blocked collector in none of them), Search › Binders on
+Quebec and on the whole region, Deck cores, Search › Wishlist (the switch, "Add a wish", "None yet"
+for Starlit Unicorn, "Available" for the moth queen). The screens match the mockup in order,
+wording, colours and sizes; the differences are the decisions above. Found at the largest size and
+fixed, each with a jest test that fails with the defect put back: the alert sentence broken in the
+middle of "someone" (`ec06601b`), the holder, deck core and wish rows breaking handles and names
+(`16dbab30`), the map as tall as the page with the card under it (`b93a0e7e`), the map on the whole
+region when the location answered second (`643603de`). Found, not R5's: Settings › Appearance's
+theme chips do not wrap at the largest size ("Dark" is off the screen; M1's screen, recorded for
+R6, which moves Settings behind the gear); on New binder at the largest size, iOS gives the
+keyboard back to the name field when the card picker sheet closes, so the keyboard covers "Create
+binder" (R3's screen; it made native flow 2 fail once, see the checks). The walk's 40 Auth emulator accounts (five runs) were
+deleted; the owner's appearance (light) and text size (Large) were put back as they were.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; the flows keep no
+Android-only step for Search); VoiceOver on a real iPhone (the screen reader list of states replaces
+the map; the names are covered by jest and the native flows' labels). (The Expo web build's crash on
+an old `/regions/<region>/<code>` page, recorded here first as a browser Back issue, crashed the
+phone too: fixed at its cause by review fix 1 below.)
+
+**Known gaps, by design or for a later stage**
+
+- Home (R7) does not exist yet: the hidden `index` route of the tabs redirects to Search; R7 makes
+  it Home and points its field at `/search?typing=1`.
+- Profiles and Settings behind the gear are R6's: Search's bell is the notification centre of M4
+  (its "Mark all as read" and "Preferences" grow without bound at the largest size, recorded by R4).
+- A single long word wider than the row (a card name such as "Emberfang" at the largest size)
+  still wraps inside the word: nothing is left beside it to move.
+- "Available" and the alerts count a copy whose condition was not stated as Near Mint (default 5);
+  a wish's "Available" is the browsed region's, the alert the home region's.
+- The deck core banner lists at most three cores and has no "more" link (the mockup has none).
+
+**Owner follow-ups:** confirm decisions 1 ("Available" in teal, as the mockups draw it, not the
+orange of the spec's text), 2 ("Available" uses the alert's fit: Near Mint only respected, a
+condition not stated fits), 5 (the province groups by name after the collector's own province and
+country), 6 (the first 24 cards while typing, then "Collectors"), 10 (no location prompt on the
+map), 11 (no "Add to inventory" on the card page) and 18 (the rows stack at large text sizes);
+decision 17 fixed a defect of Settings › Notifications (the wishlist alert switch never saved).
+
+**Review fix 1** (2026-10-16; three independent reviewers: privacy (P1), product and UX (U1 to U4)
+and a functional verifier (F1 to F5); every fix with a test that fails on the old code):
+
+- **P1 / U1 / F1, an old `/regions/<region>/<code>` link crashed the app** (the iPhone and the web
+  build alike, "Cannot read property 'find' of undefined" in the tab router), instead of opening
+  Search › Binders on that state. The cause was not the redirect: Search's link named the state
+  `?state=`, and React Navigation reads a route parameter named `state` as a navigator's own state.
+  A link from a screen of the root stack (the old route, the sign-in gate reopening a link) hands
+  its parameters to every navigator on the way, so the tabs tried to rehydrate "CA-QC". The
+  parameter is now `place` (`/search?segment=binders&region=&place=`, also in the sign-in gate's
+  list of links to reopen); `/` and `/wishlist` never had it, which is why they worked. Tests: a
+  jest test that renders the real router (a root stack over the tabs) opens the old link and lands
+  on Binders on Quebec (it threw the reviewers' error before the fix); a guard that no link target
+  of Search uses a name React Navigation keeps (`state`, `screen`, `params`, `initial`, `path`);
+  the phone's web-build E2E (`apps/mobile/e2e/regions.spec.ts`) follows
+  `/regions/americas-south/UY-MO` inside the app (Binders on Montevideo, the Uruguayan binder
+  listed); native `map-gestures-links.yaml` opens
+  `/regions/americas-north/CA-QC` and `/wishlist`, and `card-holders-region.yaml` opens
+  `/holders?card=<id>`. A full page load of a dynamic route is not tested on the web build: `expo
+  serve` answers "Not Found" for it (no spec loads one; the phone is the product).
+- **F3, a wish of any printing in one rarity opened the card page on "Any printing"**, so
+  "Available" and its alert listed copies of every rarity. `GET /search/card-holders` takes an
+  optional **`rarity`** (additive: exact, at most 64 characters, blank is none; rows and
+  `totalItems` alike; `WhoHasThisCardIT.aRarityKeepsTheHoldersOfTheCardsPrintingsInThatRarity`,
+  `SearchDomainTest`), and `/cards/<id>?rarity=` starts on "Any printing · <rarity>", a choice of
+  the sheet beside "Any printing" and the printings, with "Nobody in {region} lists this card in
+  {rarity} yet." when empty (an unknown rarity is ignored). The paused web's client gains the
+  optional parameter only; no web file changed.
+- **F4, a link to the card page already on screen kept the old printing**: the page is keyed on
+  the link's card, printing and rarity, so a new link starts it again on what it names (jest:
+  `printing=A`, then `any`, then `B` on the same route).
+- **U3, holder rows of twin printings read alike** ("GLM-EN022 · Rare" for a 1st Edition and an
+  Unlimited copy): the row adds the copy's edition or finish when it is not the usual one
+  ("GLM-EN022 · Rare · 1st Edition", "SVX-001 · Rare · Reverse holo"), in its accessible name too.
+- **U2 / F5, the Search key right after typing remembered nothing, or a prefix**: it remembers the
+  text in the field (not the 350 ms debounced query) and searches it at once (jest: "mer", a
+  pause, then "mermaid" and the Search key at once remember "mermaid").
+- **U4, the region pill read "Region: Americas (…" at the largest size**: it shows the globe and
+  the region's name alone, as on mockup screen 11 (`SelectSheet`'s new `hideLabel`); a screen
+  reader still hears "Region: Americas (North)", so the flows and specs that find it by name are
+  unchanged.
+- **F2, two native flows flaked once each in full runs**: `deal-mark-sold.yaml` checks the typed
+  e-Transfer address (typed again if the simulator dropped a key) and taps Save once more only
+  while its sheet is still up after 15 s (a sheet that took the tap has gone by then, so the
+  detail is never put in twice); in `deck-core.yaml` the binder form now lets go of the keyboard
+  when "Add cards" opens the picker (iOS gave it back to the name field when the picker left, over
+  "Create binder"; jest checks `Keyboard.dismiss`), and the flow puts away a keyboard still up
+  before tapping the form's button (`subflows/keyboard-down.yaml`).
+- **Found in this round's full native run, `large-text.yaml` failed once**: after the hide-keyboard
+  drag had scrolled the card results, the Pokémon chip narrowed them but the list kept its
+  offset, so the first card sat half under the chips and the tap on it pressed "Yu-Gi-Oh!".
+  Typing a card now starts the results at the first card for each new text or game (jest checks
+  the scroll to the top on a game chip); the flow then passed alone.
+- Not changed: the reviewers' failed "subset run of 11 flows" is Maestro's (a media file is not
+  found when several flow files are passed; the whole folder and a flow alone both work).
+
+Checks of review fix 1 (retries off, this Mac, 2026-10-16): `spotlessCheck --rerun-tasks` passed;
+`npm run test:api` passed in 3 min 43 s, **174 classes / 1075 tests** (+1) and 12 catalog tests,
+0 failures; `exportOpenApi` + `generate:api` committed with the API change, nothing changed when
+run again, git clean; the web build **896.09 kB** initial, `test:web` 136 files / 633 tests, web
+lint and format clean against the regenerated client; `test:e2e` **70 / 70**; mobile typecheck,
+lint and format clean; `test:mobile` jest **92 suites / 1039 tests** (+8) and 28 guard tests;
+`expo export` for iOS, Android and web passed (again on the final code); `test:mobile:e2e` first
+57 / 58, the one failure the full page load of `/regions/...` that `expo serve` does not serve (the
+step was dropped, see above), then **58 / 58** on the final code; `test:mobile:maestro --platform
+ios` on the owner's iPhone 18 Pro under the lock: **32 / 33** in 52 min 59 s, every changed flow
+passing (`map-gestures-links.yaml` with `/regions/americas-north/CA-QC` and `/wishlist`,
+`card-holders-region.yaml` with `/holders?card=`, `deal-mark-sold.yaml`, `deck-core.yaml`), the one
+failure `large-text.yaml` (the scrolled results above, fixed) which then **passed alone (2 min
+13 s)**; `test:scripts` 135 / 135; `audit:gate` passed. The owner's simulator kept its appearance
+(light) and text size (Large). The Android run could not be verified (no Android SDK on this Mac).
+
 ## NEXT TASK
 
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
@@ -6130,10 +6822,11 @@ owner's appearance (light) and text size (Large) were not changed.
 > S5, the inventory import on the phone and the API (#69, 2026-10-13); the scrim fix, a dark
 > backdrop iOS took for a modal (#70, 2026-10-14); stage S6, the final documents (#71, 2026-10-14);
 > stage R1 of the phone redesign (#72, 2026-10-14); stage F1, free for all (#73, 2026-10-15);
-> stage R2 of the phone redesign (its pull request, after this merge). Migrations V001 to V114
-> are applied and frozen; R1's V115 and V116, F1's V120–V123, R2's V125 and R3's V126 freeze as
-> each lands on `main` (V117–V119 are unused; V124 is kept for another branch); the next one is
-> **V127**. R2
+> stage R2 of the phone redesign (#74, 2026-10-15); stage R3 of the phone redesign (#75,
+> 2026-10-15); stage R4 of the phone redesign (#76, 2026-10-16). Migrations V001 to V114
+> are applied and frozen; R1's V115 and V116, F1's V120–V123, R2's V125, R3's V126 and R4's V127
+> freeze as each lands on `main` (V117–V119 are unused; V124 is kept for another branch); the next
+> one is **V128**. R2
 > wrote its migration as V117 and renumbered it to V125 when it merged F1: Flyway runs without
 > `outOfOrder`, and a database already at V123 would refuse a V117 it has not applied. The owner's
 > local database migrates on the next `npm run dev` and loses its trading areas by design (S1).
@@ -6150,53 +6843,80 @@ owner's appearance (light) and text size (Large) were not changed.
 > UDID>`; nothing boots, creates, erases or shuts down a simulator); this Mac has no Android SDK
 > ("the Android run could not be verified").
 >
-> **Stage R3 of the phone redesign is built** ("Binders and deck cores", mockup screens 16 to 18
-> and Inventory › Binders; section "Phone redesign R3: binders and deck cores (2026-10-15)" above;
-> branch `feature/r3-binders-deck-cores`, builder done, review fixes 1 and 2 done, not pushed): V126 (`sells_as_core`, the
-> price as typed, `sold_at`, `binder_image`), binder photos, key cards and preview pictures, deck
-> cores in the public lists, and the search API of R5 (`excludeDeckCoreItems`, `GET
-> /search/deck-cores`, `deckCore` and `q`, `GET /regions/{region}/binders`, `deckCoreCount`); on the
-> phone Inventory › Binders, Edit binder and New binder with "Sell as a deck core", the deck core
-> page and the public binder restyled. Its review found 3 blockers (fixed in review fix 1: a
-> public deck core shows all its cards as key cards and the cards keep their own visibility; Edit
-> binder follows saves made elsewhere) and review fix 2 the round after it (tests for the rule's
-> terms, the sheets at the largest text size, a delete from the binder's own link, the profile
-> rows after a save, the key card hint); its pull request comes first.
+> **Stage R3 of the phone redesign is on `main`** (#75; "Binders and deck cores", mockup screens 16
+> to 18 and Inventory › Binders; section "Phone redesign R3: binders and deck cores (2026-10-15)"
+> above, with its review fixes 1 and 2): V126, binder photos, key cards and preview pictures, deck
+> cores in the public lists, the search API of R5; on the phone Inventory › Binders, Edit binder
+> and New binder with "Sell as a deck core", the deck core page and the public binder restyled.
 >
-> **R5 acceptance items left by R3** (its review, U5 and U3): Who has this card passes
-> `excludeDeckCoreItems=true` **together with** the "Also in a deck core" banner (`GET
-> /search/deck-cores`), so a deck core's cards never show as separate rows; the map's state list
-> and Search › Binders show deck cores as the mockup's rows (R3 shows the tag and the photo in
-> today's rows meanwhile).
+> **Stage R4 of the phone redesign is on `main`** (#76; "Messages and Mark as sold", mockup screens
+> 22 to 25; section "Phone redesign R4: messages and Mark as sold (2026-10-15)" above):
+> R3's leftovers first (R2-1, R2-2, U10, U8); V127 (the chat's subject, the `sale` table, the SALE
+> interaction), the `deals` module, `GET /conversations/{id}`, `POST /conversations` pinning a card
+> or a deck core, sharing one's own card (`inventoryItemId`), `POST /conversations/{id}/sales` and
+> `POST /sales/{id}/undo`, the sale message and the buyer's notification; on the phone the inbox,
+> the chat with its top bar, pinned bar, safety tip per side, quick replies and "+" sheet, Settings ›
+> Shipping details (kept on the phone only), Mark as sold with its toast and Undo, the sale message
+> per side and "Rate {other}"; native flows 4 and 3 (as far as R4 reaches). **Its review fix 1 is
+> done** (2026-10-16, "Review fix 1" in the R4 section): Mark as sold names the card the seller saw
+> (409 `SUBJECT_CHANGED`) and every pin is pushed on `/user/queue/conversations`; the toast's Undo
+> stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has
+> its test; nine minor fixes (no migration). **Its review fix 2 is done** (2026-10-16, "Review fix
+> 2" in the R4 section): a jest test that the open Mark as sold sheet keeps the card it opened with
+> while a pushed pin re-reads the chat, and the quick reply row's padding that gives the chips their
+> 44 pt touch targets on iOS (no migration, no API change).
 >
-> **Exact next task: stage R4 of the phone redesign, "Messages and Mark as sold"** (mockup screens
-> 22 to 25), on a new branch from the `main` that holds R3, as
-> [`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md)
-> says in sections 10 (the inbox, the chat with its pinned bar, tips and quick replies, the + sheet
-> with Settings › Shipping details, Mark as sold and its undo), 12 ("Messaging and sales": the chat
-> subject `subject_item_id` / `subject_binder_id` with `POST /conversations` pinning a card or a
-> deck core, `inventoryItemId` on `CARD_LINK`, the `sale` table with `POST
-> /conversations/{id}/sales` and `POST /sales/{id}/undo`, the sale message, the SALE interaction,
-> the buyer's notification, a deals module), 13, 14 (native flow 4) and 15; spec section 16
-> defaults 3, 4, 6, 8 and 10. R3 leaves for R4: the deck core page's "Message {handle}" opens the
-> chat **without** a pinned card (R4 pins the deck core), and `binder.sold_at` exists but nothing
-> sets it (R4's Mark as sold of a deck core sets it and soft-deletes its cards; a sold binder is
-> already hidden by the visibility rule). Its migration is **V127** (V124 is kept for another
-> branch). Then R5 to R8 in order, one branch and one PR each, each with its builder, at least two
-> independent reviewers and at most two fix rounds (the spec's section 15); none of them builds a
-> paid feature (ADR 0019). Read first: `CLAUDE.md`; `docs/development/claude-handoff.md` (where
-> things stand, the working agreements, the check list, the simulator rules and lock); this
-> section; the spec (the owner's prompt, verbatim; sections 0 to 3, 10 to 17); ADR 0018 and ADR
-> 0019; R1's, F1's, R2's and R3's sections of this file; `docs/api/contracts/r2-inventory-phone.md`
-> and `r3-binders-deck-cores.md`; then the delivery report's sections (f) and (h) for the decisions
-> and defects that the redesign meets.
+> **The owner's inventory change of 2026-10-16 is on `main`** (#77, `b92710cf`; mockup v43,
+> screens 1 and 6 to 9; the "Last updated" lines at the top of this file; the dated note at the end
+> of `docs/product/specs/2026-10-14-phone-redesign.md`): the Public / Private tag on every Inventory
+> row, the asking price typed in "$" or "% TCG", Copies on its own row; phone only, no migration, no
+> API change.
+>
+> **Stage R5 of the phone redesign is built** ("Search", mockup screens 11 to 15; section "Phone
+> redesign R5: search (2026-10-16)" above; branch `feature/r5-search`, builder done, review fix 1
+> done, not pushed):
+> four tabs (Search | Inventory | Messages | Profile), Search's map with the state card, typing a
+> card with the collectors, Who has this card (the one card page, holders by province, Message
+> pinning the card, "Also in a deck core" with `excludeDeckCoreItems=true`), Search › Binders with
+> Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy ›
+> "Remember my searches"; the old routes and links redirect. API: `GET /search/collectors`,
+> `sort=province`, `available` and `GET /wishlist/availability`; two hardening items closed (blocked
+> collectors in the collectors section of search, the search text in the search analytics events).
+> No migration: the next one is still **V128** (V124 is kept for another branch). R3's and R4's R5
+> items are done (the banner with `excludeDeckCoreItems`, the deck cores as rows on the map's state
+> card and in Search › Binders, "Message" on a holder row with `subjectItemId`, native flows 2 and
+> 3 in full). Found during R5, not R5's (recorded in its section): Settings › Appearance's theme
+> chips do not wrap at the largest text size (for R6); since Xcode 27.1 (on this Mac since
+> 2026-10-16) `legal-french.yaml` matches the French draft banner by its accessible name. Review
+> fix 1 (privacy, product / UX and functional reviews): the old `/regions/<region>/<code>` link no
+> longer crashes the tabs (Search's `state` parameter is now `place`), `rarity` on
+> `GET /search/card-holders` (additive) for the card page's `?rarity=`, a new link to the card page
+> on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region
+> pill's name alone, the two native flakes (the binder form lets go of the keyboard before the
+> card picker) and, found in its full native run, the card results starting at the first card for
+> each new text or game.
+>
+> **Exact next task: the re-review of stage R5 after review fix 1** (at most one more fix round),
+> then the ship step (merge `main`, the handoff's full check list, the pull request, the merge on
+> green).
+> **Then stage R6** (profiles, mockup screens 19 to 21, and Settings behind the gear), then R7 (Home,
+> the first of five tabs, and the feed endpoint) and R8, one branch and one PR each, each with its
+> builder, at least two independent reviewers and at most two fix rounds; none of them builds a paid
+> feature (ADR 0019); "I have it" (Home and profiles) uses R4's `CARD_LINK` with `inventoryItemId`.
+> R6 moves Settings behind the gear (Settings › Privacy keeps "Remember my searches" and "Let others
+> see what you want"); R7 makes the hidden `index` route of the tabs Home (today it redirects to
+> Search) and points Home's field "Search cards or collectors" at `/search?typing=1`. Read first:
+> `CLAUDE.md`; `docs/development/claude-handoff.md`; this section; the spec (sections 0 to 4, 9, 12
+> to 17); ADR 0017, ADR 0018 and ADR 0019; R2's to R5's sections of this file;
+> `docs/api/contracts/r3-binders-deck-cores.md`, `r4-messages-sales.md` and `r5-search.md`.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
 > it", "Wanted by N" and holder counts and keeps recent searches on the phone; S4 stays skipped);
 > the Android SDK on the Mac; the hardening list (a lock timeout on inventory writes, the
-> after-commit analytics listeners, blocked collectors in the collectors section of search, the
-> search text in the search analytics events, the photo orientation on upload, Phase 13); the open launch decisions of the handoff's section 6
+> after-commit analytics listeners, the photo orientation on upload, Phase 13; stage R5 closed
+> "blocked collectors in the collectors section of search" and "the search text in the search
+> analytics events"); the open launch decisions of the handoff's section 6
 > (an arm64 PostGIS image, the npm advisories that expire on 2026-11-30, the legal
 > placeholders, OrbStack's licence, VoiceOver on a real iPhone). Proposed CLAUDE.md sentences wait
 > for the owner (the end of the delivery report).

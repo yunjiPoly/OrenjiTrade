@@ -1,5 +1,7 @@
 import type {
   BlockedUser,
+  CollectorByName,
+  WishlistAvailability,
   CardHolderResult,
   CardHoldersPage,
   SetDetail,
@@ -22,10 +24,12 @@ import type {
   CardDetail,
   CollectorMarker,
   CollectorRatingsPage,
+  ConversationSubject,
   ConversationSummary,
   MatchingItem,
   MessagePage,
   MessageResponse,
+  SaleNotice,
   MyLimits,
   Place,
   PublicBinderCursorPage,
@@ -838,6 +842,72 @@ export function conversationFixture(
   };
 }
 
+/** The card a chat is about (stage R4): collector2's public card, as the buyer sees it. */
+export function subjectFixture(overrides: Partial<ConversationSubject> = {}): ConversationSubject {
+  return {
+    kind: 'CARD',
+    id: ITEM_ID,
+    ownerId: '00000000-0000-4000-8000-0000000000b1',
+    name: 'Emberfang Fox VMAX',
+    printingCode: 'SVX-001',
+    rarity: 'Ultra Rare',
+    cardId: CARD_ID,
+    printingId: PRINTING_A,
+    imageUrl: '/api/v1/public/card-images/pa',
+    askingPriceText: '$32',
+    sold: false,
+    listed: true,
+    copies: null,
+    ...overrides,
+  };
+}
+
+/** A deck core a chat is about (stage R4). */
+export function deckCoreSubjectFixture(
+  overrides: Partial<ConversationSubject> = {}
+): ConversationSubject {
+  return subjectFixture({
+    kind: 'DECK_CORE',
+    id: BINDER_ID,
+    name: 'Snake-Eye core',
+    printingCode: null,
+    rarity: null,
+    cardId: null,
+    printingId: null,
+    imageUrl: null,
+    askingPriceText: '$95',
+    ...overrides,
+  });
+}
+
+/** The SYSTEM message of a sale (stage R4). */
+export function saleMessageFixture(
+  sale: Partial<SaleNotice> = {},
+  overrides: Partial<MessageResponse> = {}
+): MessageResponse {
+  return messageFixture({
+    id: 'm-sale',
+    kind: 'SYSTEM',
+    senderId: null,
+    body: 'collector2 marked Emberfang Fox VMAX as sold to maika.',
+    createdAt: '2026-10-04T12:10:00Z',
+    payload: {
+      sale: {
+        saleId: 'sale-1',
+        sellerId: '00000000-0000-4000-8000-0000000000b1',
+        buyerId: SELF_ID,
+        kind: 'CARD',
+        name: 'Emberfang Fox VMAX',
+        quantity: 1,
+        trackingNumber: '7023 2109 8876 5432',
+        undone: false,
+        ...sale,
+      },
+    },
+    ...overrides,
+  });
+}
+
 export function messageFixture(overrides: Partial<MessageResponse> = {}): MessageResponse {
   return {
     id: '00000000-0000-4000-8e10-000000000001',
@@ -1187,4 +1257,24 @@ export function setDetailFixture(overrides: Partial<SetDetail> = {}): SetDetail 
     },
     ...overrides,
   };
+}
+
+/** A collector of `GET /search/collectors` (stage R5: collectors while a card is typed). */
+export function collectorByNameFixture(overrides: Partial<CollectorByName> = {}): CollectorByName {
+  return {
+    id: OTHER_ID,
+    handle: 'collector2',
+    displayName: 'Noé Verdun',
+    avatarUrl: null,
+    place: ONTARIO,
+    ...overrides,
+  };
+}
+
+/** `GET /wishlist/availability` (stage R5): the wishes "Available" in a region. */
+export function wishlistAvailabilityFixture(
+  available: string[] = [],
+  region = 'americas-north'
+): WishlistAvailability {
+  return { region, available };
 }

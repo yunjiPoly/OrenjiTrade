@@ -2,6 +2,10 @@
 
 ## Ratings and references
 
+> **Stage R4 (2026-10-15):** a sale marked from the chat records an interaction `SALE`
+> (`subject_type SALE`), removed by its undo while nobody rated it; a rating holds its interaction
+> `FOR KEY SHARE` until it is stored. See [r4-messages-sales.md](r4-messages-sales.md).
+
 Tables: `interaction(id, kind TRADE|OFFER_ACCEPTED|CONVERSATION_QUALIFIED, user_a, user_b, subject_type, subject_id, occurred_at, unique(kind, subject_id))` — an eligible interaction exists when: a trade completed, an offer was accepted, or a conversation has ≥ 3 messages from each side (qualified). `rating(id, interaction_id, rater_id, ratee_id, overall 1–5, communication 1–5 null, condition_accuracy null, shipping null, meetup_reliability null, comment ≤ 600, created_at, updated_at, moderation_state OK|HIDDEN, unique(interaction_id, rater_id))`. `reference(id, author_id, subject_id, body ≤ 400, created_at, moderation_state, unique(author_id, subject_id))` (requires ≥1 interaction). `rating_summary(user_id, average, count, communication_avg, …)` maintained.
 
 - `GET /ratings/eligibility?userId=` → `{ eligible: bool, interactions: [ { id, kind, occurredAt, alreadyRated } ] }`

@@ -43,7 +43,11 @@ tags:
 - extendedWaitUntil:
     visible: 'Mentions légales'
     timeout: 30000
-- assertVisible: 'Ébauche — doit être révisée par un conseiller juridique qualifié avant le lancement en production'
+# The banner is one element for VoiceOver ("{banner}, {marking}"): since Xcode 27.1 the iOS
+# accessibility tree no longer lists its first line apart, so the banner is matched by its name.
+- assertVisible:
+    id: 'legal-draft-banner'
+    text: 'Ébauche — doit être révisée par un conseiller juridique qualifié avant le lancement en production.*'
 - assertVisible:
     id: 'legal-translation-notice'
 - assertVisible: 'Traduction de l’ébauche anglaise, à faire valider par un conseiller juridique\.'

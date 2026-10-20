@@ -81,13 +81,14 @@ export const meKeys = {
     [...ME_ROOT, uidKey(uid), 'search', 'holders', params] as const,
   /**
    * The region map as this viewer sees it (blocked collectors are never counted or listed):
-   * every read (prefix), the binder counts of a region, the binders of one state or province.
+   * every read (prefix), the binder counts of a region, the binders of Search › Binders.
    */
   regionMap: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'region-map'] as const,
   regionBinderCounts: (uid: Uid, region: string) =>
     [...ME_ROOT, uidKey(uid), 'region-map', region, 'counts'] as const,
-  subdivisionBinders: (uid: Uid, region: string, code: string) =>
-    [...ME_ROOT, uidKey(uid), 'region-map', region, 'binders', code] as const,
+  /** Search › Binders (stage R5): one state or the whole region, binders or deck cores, a text. */
+  regionBinderSearch: (uid: Uid, params: { region: string }) =>
+    [...ME_ROOT, uidKey(uid), 'region-map', params.region, 'binder-search', params] as const,
   /** A collector's public wishlist (`GET /collectors/{handle}/wishlist`; 404 when hidden). */
   collectorWishlist: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), 'wishlist'] as const,
@@ -105,6 +106,9 @@ export const meKeys = {
   wishlist: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist'] as const,
   wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,
   wishPriceTerms: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'price-terms'] as const,
+  /** Which wishes are "Available" in a region (stage R5, `GET /wishlist/availability`). */
+  wishlistAvailability: (uid: Uid, region: string) =>
+    [...ME_ROOT, uidKey(uid), 'wishlist', 'availability', { region }] as const,
   /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
   notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
   notificationUnread: (uid: Uid) =>
@@ -118,6 +122,8 @@ export const meKeys = {
   /** Ratings (Phase 7): what the caller may still rate about one collector. */
   ratingEligibility: (uid: Uid, userId: string) =>
     [...ME_ROOT, uidKey(uid), 'rating-eligibility', userId] as const,
+  /** Every rating eligibility of this viewer (prefix: a sale or its undo changes them). */
+  ratingEligibilities: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'rating-eligibility'] as const,
   /** The caller's collector reports (`GET /me/reports`). */
   reports: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'reports'] as const,
 };

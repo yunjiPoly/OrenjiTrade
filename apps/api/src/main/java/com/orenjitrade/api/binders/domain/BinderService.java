@@ -466,6 +466,81 @@ public class BinderService {
     }
 
     // ---------------------------------------------------------------------------------------
+    // Chats and sales (stage R4)
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * Binders as the subjects of chats, whatever their state (deleted ones are absent): the deck
+     * core a chat is about, its price as typed, its first photo (else the first card picture buyers
+     * see), whether it is sold and whether buyers can find it now.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, ChatDeckCore> chatDeckCores(Collection<UUID> binderIds) {
+        if (binderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<BinderView> binders = repository.findByIds(binderIds, timeProvider.now());
+        // A sold deck core's cards left the inventory with it: without a photo, its picture is
+        // the first card the sale took (review fix 1, F7), so both still see it.
+        List<UUID> sold =
+                binders.stream()
+                        .filter(binder -> binder.soldAt() != null)
+                        .map(BinderView::id)
+                        .toList();
+        @Nullable BinderContents binderContents = contents.getIfAvailable();
+        Map<UUID, String> soldPictures =
+                sold.isEmpty() || binderContents == null
+                        ? Map.of()
+                        : binderContents.soldDeckCorePicturesOf(sold);
+        Map<UUID, ChatDeckCore> result = new HashMap<>();
+        for (BinderDetails details : details(binders, true)) {
+            BinderView binder = details.binder();
+            List<String> previews = details.showcase().previewImages();
+            @Nullable String picture =
+                    previews.isEmpty() ? soldPictures.get(binder.id()) : previews.get(0);
+            result.put(
+                    binder.id(),
+                    new ChatDeckCore(
+                            binder.id(),
+                            binder.ownerId(),
+                            binder.name(),
+                            binder.sellsAsCore(),
+                            binder.askingPriceText(),
+                            picture,
+                            binder.soldAt(),
+                            binder.effectivePublic()));
+        }
+        return result;
+    }
+
+    /**
+     * Holds a binder {@code FOR KEY SHARE} before a chat names it as its subject (see {@link
+     * BinderRepository#lockKeyShare}); joins the caller's transaction.
+     *
+     * @return whether the binder exists
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean lockForReference(UUID binderId) {
+        return repository.lockKeyShare(binderId);
+    }
+
+    /**
+     * Marks a deck core sold (stage R4, Mark as sold): {@code sold_at}, so it is never public again
+     * until the sale is undone. The caller holds the owner lock and the binder, sells its cards
+     * with it and reconciles the listing.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void markSold(UUID binderId, Instant now) {
+        repository.setSoldAt(binderId, now, now);
+    }
+
+    /** The undo of a deck core's sale: unsold again (same locks as {@link #markSold}). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void clearSold(UUID binderId, Instant now) {
+        repository.setSoldAt(binderId, null, now);
+    }
+
+    // ---------------------------------------------------------------------------------------
     // For the inventory module
     // ---------------------------------------------------------------------------------------
 
@@ -488,7 +563,7 @@ public class BinderService {
         return result;
     }
 
-    /** Number of binders of an owner ({@code binders.max} usage). */
+    /** Number of binders of an owner that count toward {@code binders.max} (sold ones do not). */
     @Transactional(readOnly = true)
     public long countOf(UUID ownerId) {
         return repository.countByOwner(ownerId);

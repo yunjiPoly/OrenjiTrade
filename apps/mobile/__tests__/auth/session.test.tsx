@@ -7,6 +7,7 @@ import { AuthError } from '@/src/auth/authErrors';
 import { AUTH_READY_TIMEOUT_MS, SessionProvider, useSession } from '@/src/auth/session';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
 import { getIdToken } from '@/src/auth/tokenProvider';
+import { useSavedDetailsStore } from '@/src/features/shipping/savedDetailsStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { createTestQueryClient } from '../test-utils';
@@ -82,6 +83,8 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     queryClient.setQueryData(['me', 'uid-maika', 'profile'], { handle: 'maika' });
     useAccountSignalStore.getState().report({ kind: 'deletion-pending', at: 1 });
+    // The saved shipping details read for this account (review fix 1, P3).
+    useSavedDetailsStore.getState().setAll('uid-maika', '1 Rue Exemple', 'maika@example.com');
 
     await act(async () => {
       await result.current.signOut();
@@ -90,6 +93,13 @@ describe('SessionProvider', () => {
     expect(result.current.status).toBe('anonymous');
     expect(queryClient.getQueryData(['me', 'uid-maika', 'profile'])).toBeUndefined();
     expect(useAccountSignalStore.getState().signal).toBeNull();
+    // Nothing of them stays in memory for the next account.
+    expect(useSavedDetailsStore.getState()).toMatchObject({
+      uid: null,
+      loaded: false,
+      address: null,
+      etransfer: null,
+    });
   });
 
   it('signs out when the session ended on its own, until the collector signs in again', async () => {

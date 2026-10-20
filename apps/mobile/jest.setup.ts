@@ -28,6 +28,24 @@ jest.mock('expo-localization', () => {
   return { __esModule: true, mockLocales, getLocales: () => mockLocales };
 });
 
+// The phone's secure storage (saved shipping details, stage R4): an in-memory keychain per test
+// file; `require('expo-secure-store').mockStore` lets a test look inside.
+jest.mock('expo-secure-store', () => {
+  const mockStore = new Map<string, string>();
+  return {
+    __esModule: true,
+    mockStore,
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    getItemAsync: jest.fn(async (key: string) => mockStore.get(key) ?? null),
+    setItemAsync: jest.fn(async (key: string, value: string) => {
+      mockStore.set(key, value);
+    }),
+    deleteItemAsync: jest.fn(async (key: string) => {
+      mockStore.delete(key);
+    }),
+  };
+});
+
 // `react-native-safe-area-context` provides a jest mock (default export) with zero insets.
 jest.mock(
   'react-native-safe-area-context',

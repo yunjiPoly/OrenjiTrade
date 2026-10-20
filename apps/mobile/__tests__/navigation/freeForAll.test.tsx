@@ -132,8 +132,11 @@ describe('old links to the removed screens', () => {
         upgradeUrl: '/premium',
       },
     };
-    expect(notificationLink(notice)).toBe('/wishlist');
-    expect(notificationTarget(notice)).toEqual({ kind: 'route', href: '/wishlist' });
+    expect(notificationLink(notice)).toBe('/search?segment=wishlist');
+    expect(notificationTarget(notice)).toEqual({
+      kind: 'route',
+      href: '/search?segment=wishlist',
+    });
     // An old notice that kept its deep link to Premium says the app is free.
     expect(
       notificationTarget({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED', deepLink: '/premium' } })

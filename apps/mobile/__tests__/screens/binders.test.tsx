@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Dimensions, View } from 'react-native';
+import { Dimensions, Keyboard, View } from 'react-native';
 
 import BinderScreen from '@/app/binders/[id]';
 import type { BinderResponse, UpdateBinderRequest } from '@/src/api/types';
@@ -277,8 +277,13 @@ describe('Edit binder (screen 18)', () => {
       })
     );
     renderWithProviders(<EditBinderScreen />, { port: port() });
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
     fireEvent.press(await screen.findByTestId('binder-add-cards'));
     const sheet = await screen.findByTestId('card-picker-sheet');
+    // The name or note typed last lets go of the keyboard: iOS would give it back to that field
+    // when the picker leaves, over the form's button (stage R5 review, F2).
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
     expect(
       within(sheet).getByText(
         'Cards in another binder move here. Buyers see them when the deck core is public.'
@@ -780,7 +785,7 @@ describe('Deck core page (screen 16)', () => {
     });
   });
 
-  it('“Message {handle}” opens the chat with the seller', async () => {
+  it('“Message {handle}” opens the chat with the seller about the deck core', async () => {
     const api = mockApi(
       coreRoutes({ 'POST /api/v1/conversations': ok(conversationFixture({ id: 'conv-9' })) })
     );
@@ -794,9 +799,10 @@ describe('Deck core page (screen 16)', () => {
         params: { id: 'conv-9' },
       })
     );
-    // Stage R3 pins nothing yet (the chat subject is stage R4's).
+    // The chat opens about this deck core (stage R4: its pinned bar).
     expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({
       recipientId: publicDeckCoreFixture().owner.id,
+      subjectBinderId: publicDeckCoreFixture().id,
     });
   });
 

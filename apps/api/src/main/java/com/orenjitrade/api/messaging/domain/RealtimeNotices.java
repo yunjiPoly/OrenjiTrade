@@ -21,4 +21,11 @@ public final class RealtimeNotices {
 
     /** {@code /user/queue/presence}: a conversation partner came online or went offline. */
     public record Presence(UUID userId, OnlineStatus status) {}
+
+    /**
+     * {@code /user/queue/conversations} (stage R4): the card or deck core {@code conversationId} is
+     * about was pinned (again) by one of its two collectors; nothing else is said, the client reads
+     * the conversation.
+     */
+    public record ConversationChanged(UUID conversationId) {}
 }

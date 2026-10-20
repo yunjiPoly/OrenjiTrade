@@ -277,8 +277,13 @@ public class BinderRepository {
         return ids.stream().filter(id -> !owned.contains(id)).toList();
     }
 
+    /**
+     * The owner's binders that count toward {@code binders.max}: a sold deck core (stage R4) is
+     * left out, as the owner can neither see nor delete it on the phone (review fix 1, F3); its
+     * undo may take the owner past the cap, like every undo.
+     */
     public long countByOwner(UUID ownerId) {
-        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId")
+        return jdbc.sql("SELECT count(*) FROM binder WHERE owner_id = :ownerId AND sold_at IS NULL")
                 .param("ownerId", ownerId)
                 .query(Long.class)
                 .single();
@@ -418,6 +423,40 @@ public class BinderRepository {
                 .param("publicUntil", timestamp(publicUntil), Types.TIMESTAMP)
                 .param("now", Timestamp.from(now))
                 .update();
+    }
+
+    /**
+     * Marks a deck core sold ({@code soldAt}) or unsold again ({@code null}, the undo of its sale):
+     * stage R4. A sold binder is never public. The caller holds the owner lock and the binder.
+     */
+    public void setSoldAt(UUID id, @Nullable Instant soldAt, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE binder SET sold_at = :soldAt, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("soldAt", timestamp(soldAt), Types.TIMESTAMP)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * Holds a binder {@code FOR KEY SHARE} until the transaction ends, before a row of another
+     * module references it (a chat's subject, stage R4): the lock of that row's foreign key check,
+     * taken first, so a binder delete never waits for that row while the row waits for the binder.
+     * It conflicts with no owner write ({@code FOR NO KEY UPDATE}) and waits for a delete in
+     * progress.
+     *
+     * @return whether the binder exists
+     */
+    public boolean lockKeyShare(UUID id) {
+        return jdbc.sql("SELECT id FROM binder WHERE id = :id FOR KEY SHARE")
+                .param("id", id)
+                .query(UUID.class)
+                .optional()
+                .isPresent();
     }
 
     public void setSortOrder(UUID id, int sortOrder) {

@@ -21,7 +21,7 @@ tags:
       PASSWORD: ${output.lee.password}
 - extendedWaitUntil:
     visible:
-      id: 'tab-index'
+      id: 'tab-search'
     timeout: 60000
 
 # The sixth binder: the limit, explained, and no way to buy more.

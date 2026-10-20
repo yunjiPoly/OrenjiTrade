@@ -1,4 +1,4 @@
-import { TABS } from './tabs';
+import { HIDDEN_TAB_ROUTES, TABS } from './tabs';
 
 /**
  * What the iOS back button says on a screen opened over a route group.
@@ -33,7 +33,11 @@ export type RouteGroup = '(tabs)' | '(auth)' | '(account)';
 const GROUPS: Record<RouteGroup, { initial: string; titles: Readonly<Record<string, string>> }> = {
   '(tabs)': {
     initial: TABS[0]?.name ?? 'index',
-    titles: Object.fromEntries(TABS.map((tab) => [tab.name, tab.title])),
+    // The old Map and Wishlist tabs redirect into Search (stage R5).
+    titles: {
+      ...Object.fromEntries(HIDDEN_TAB_ROUTES.map((name) => [name, 'Search'])),
+      ...Object.fromEntries(TABS.map((tab) => [tab.name, tab.title])),
+    },
   },
   '(auth)': { initial: 'sign-in', titles: AUTH_SCREEN_TITLES },
   '(account)': { initial: 'verify-email', titles: ACCOUNT_SCREEN_TITLES },

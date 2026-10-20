@@ -67,6 +67,7 @@ export function RootNavigator() {
         <Stack.Screen name="settings/profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
         <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />
+        <Stack.Screen name="settings/shipping" options={{ title: 'Shipping details' }} />
         <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
         <Stack.Screen name="settings/blocked" options={{ title: 'Blocked users' }} />

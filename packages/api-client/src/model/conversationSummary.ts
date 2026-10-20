@@ -8,6 +8,7 @@
  * Do not edit the class manually.
  */
 import { LastMessage } from './lastMessage';
+import { ConversationSubject } from './conversationSubject';
 import { ConversationParticipant } from './conversationParticipant';
 
 
@@ -22,5 +23,6 @@ export interface ConversationSummary {
     muted: boolean;
     archived: boolean;
     createdAt: string;
+    subject?: ConversationSubject;
 }
 

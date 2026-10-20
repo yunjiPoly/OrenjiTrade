@@ -54,6 +54,8 @@ api/collectors.service.ts
 api/collectors.serviceInterface.ts
 api/community.service.ts
 api/community.serviceInterface.ts
+api/deals.service.ts
+api/deals.serviceInterface.ts
 api/disputes.service.ts
 api/disputes.serviceInterface.ts
 api/featureFlags.service.ts
@@ -180,6 +182,7 @@ model/catalogSyncRun.ts
 model/channelPreferences.ts
 model/channelPreferencesRequest.ts
 model/closeOfferRequest.ts
+model/collectorByName.ts
 model/collectorMarker.ts
 model/collectorProfileResponse.ts
 model/collectorRating.ts
@@ -191,6 +194,7 @@ model/communityChannel.ts
 model/consentRequest.ts
 model/consentSummary.ts
 model/conversationParticipant.ts
+model/conversationSubject.ts
 model/conversationSummary.ts
 model/counterOfferRequest.ts
 model/countryRegionRequest.ts
@@ -274,6 +278,7 @@ model/limitStatus.ts
 model/listingOwner.ts
 model/listingStatus.ts
 model/markConversationReadRequest.ts
+model/markSoldRequest.ts
 model/marketPrice.ts
 model/matchingItem.ts
 model/meResponse.ts
@@ -391,6 +396,8 @@ model/resolveDisputeRequest.ts
 model/resolveModerationFlagRequest.ts
 model/resolveReportRequest.ts
 model/resumeListingsRequest.ts
+model/saleNotice.ts
+model/saleResponse.ts
 model/searchResolution.ts
 model/searchSuggestion.ts
 model/sellerAccount.ts
@@ -399,6 +406,7 @@ model/sellerOnboardingRequest.ts
 model/sendMessageRequest.ts
 model/setDetail.ts
 model/setSummary.ts
+model/sharedItem.ts
 model/shipTradeRequest.ts
 model/shipmentSummary.ts
 model/staleListing.ts
@@ -439,6 +447,7 @@ model/uploadCleanupJobResponse.ts
 model/visibilityCounts.ts
 model/wishPriceTerm.ts
 model/wishPriceTermsResponse.ts
+model/wishlistAvailability.ts
 model/wishlistCardRef.ts
 model/wishlistItemResponse.ts
 model/wishlistSettingsResponse.ts

@@ -46,7 +46,7 @@ tags:
     visible:
       id: 'block-dialog'
     timeout: 30000
-- assertVisible: 'Block ${output.ben.displayName}\?'
+- assertVisible: 'Block ${output.ben.handle}\?'
 - tapOn:
     id: 'block-dialog-confirm'
 - extendedWaitUntil:

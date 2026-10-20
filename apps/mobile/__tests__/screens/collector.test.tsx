@@ -429,7 +429,7 @@ describe('Collector profile: Block / Unblock (launch readiness)', () => {
     );
     const { queryClient } = render();
     const counts = meKeys.regionBinderCounts('uid-maika', 'americas-north');
-    const binders = meKeys.subdivisionBinders('uid-maika', 'americas-north', 'CA-ON');
+    const binders = meKeys.regionBinderSearch('uid-maika', { region: 'americas-north' });
     queryClient.setQueryData(counts, { region: 'americas-north', total: 1, subdivisions: [] });
     queryClient.setQueryData(binders, { pages: [], pageParams: [] });
     const stale = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;

@@ -44,7 +44,7 @@ test.describe('mobile session', () => {
     });
     // Back leads to the tabs underneath.
     await page.goBack();
-    await expect(screen(page, 'map')).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
   });
 
   test('a session the API refuses ends in sign-in with an explanation, then comes back', async ({
@@ -55,8 +55,12 @@ test.describe('mobile session', () => {
     const collector = await createOnboardedCollector(request, 'sess', 'Mobile Session');
     await page.goto('/sign-in');
     await signIn(page, collector.email, collector.password);
-    await openTab(page, 'Wishlist');
-    await expect(screen(page, 'wishlist').getByTestId('wishlist-empty')).toBeVisible({
+    // Search › Wishlist (the old Wishlist tab, stage R5).
+    await openTab(page, 'Search');
+    await screen(page, 'search')
+      .getByRole('tab', { name: /^Wishlist/ })
+      .click();
+    await expect(screen(page, 'search').getByTestId('wishlist-empty')).toBeVisible({
       timeout: 30_000,
     });
 

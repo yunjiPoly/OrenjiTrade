@@ -164,6 +164,12 @@ describe('auth gate (RootNavigator)', () => {
     );
     expect(resumableHref(['(tabs)'], '/', { region: 'europe' })).toBe('/?region=europe');
     expect(resumableHref(['(tabs)'], '/', { tab: 'cards' })).toBeNull();
+    // Search is the first tab since stage R5: only a link into it is reopened (the onboarding
+    // was left the moment the profile was saved when Search itself was remembered).
+    expect(resumableHref(['(tabs)', 'search'], '/search', {})).toBeNull();
+    expect(resumableHref(['(tabs)', 'search'], '/search', { segment: 'wishlist' })).toBe(
+      '/search?segment=wishlist'
+    );
     expect(
       resumableHref(['regions', '[region]', '[code]'], '/regions/europe/FR-IDF', {
         region: 'europe',

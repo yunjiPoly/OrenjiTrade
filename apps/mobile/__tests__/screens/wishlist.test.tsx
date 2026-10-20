@@ -1,6 +1,7 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
-import WishlistScreen from '@/app/(tabs)/wishlist';
+import SearchScreen from '@/app/(tabs)/search';
 import EditWishScreen from '@/app/wishlist/edit';
 import NewWishScreen from '@/app/wishlist/new';
 
@@ -14,8 +15,9 @@ import {
   locationFixture,
   limitsFixture,
   printingFixture,
-  privacyFixture,
+  notificationsFixture,
   wishFixture,
+  wishlistAvailabilityFixture,
 } from '../support/fixtures';
 import { mockApi, noContent, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -67,118 +69,171 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 
 const port = () => new FakeAuthPort(testUser());
 
-describe('Wishlist tab', () => {
-  it('lists wishes with which copy, the public note, the chips and the usage; no matches', async () => {
-    mockApi(routes());
-    renderWithProviders(<WishlistScreen />, { port: port() });
-    expect(screen.getByTestId('wishlist-loading')).toBeOnTheScreen();
-    expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
-    expect(screen.getByTestId(`wish-copy-${WISH_ID}`)).toHaveTextContent(
-      'SVX-001 · Ultra Rare · Stellar Vortex · Holo'
-    );
-    expect(screen.getByTestId(`wish-note-${WISH_ID}`)).toHaveTextContent('“For my deck.”');
-    expect(screen.getByTestId(`wish-chips-${WISH_ID}`)).toHaveTextContent(
-      /Near Mint only.*85% TCG ≈ 32\.30 CAD/
-    );
-    expect(screen.getByTestId('wish-copy-wish-rarity')).toHaveTextContent(
-      'Any printing · Secret Rare'
-    );
-    expect(screen.getByTestId('wish-chips-wish-rarity')).toHaveTextContent(/100% TCG\+$/);
-    expect(screen.queryByTestId('wish-note-wish-rarity')).toBeNull();
-    expect(screen.getByTestId('wishlist-count')).toHaveTextContent('2 wishes');
-    expect(await screen.findByTestId('wishlist-usage')).toHaveTextContent('2 of 20 wishes');
-    // A location is set: no prompt. No matches, filters or alert switches any more.
-    expect(screen.queryByTestId('wishlist-location-prompt')).toBeNull();
-    expect(screen.queryByText(/match/i)).toBeNull();
-    expect(screen.queryByTestId('wishlist-filter')).toBeNull();
-    expect(screen.queryByTestId(`wish-active-${WISH_ID}`)).toBeNull();
+describe('Search › Wishlist (screen 15)', () => {
+  function renderWishlist() {
+    mockParams.current = { segment: 'wishlist' };
+    return renderWithProviders(<SearchScreen />, { port: port() });
+  }
 
-    fireEvent.press(screen.getByTestId(`wish-name-${WISH_ID}`));
+  it('lists the wishes with their terms, Available or None yet, and no count', async () => {
+    const api = mockApi(
+      routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture([WISH_ID])) })
+    );
+    renderWishlist();
+    expect(await screen.findByTestId(`wish-${WISH_ID}`)).toHaveTextContent(/Azure-Eyes Sky Dragon/);
+    expect(screen.getByTestId(`wish-${WISH_ID}-terms`)).toHaveTextContent(
+      'SVX-001 · NM only · 85% TCG'
+    );
+    expect(screen.getByTestId('wish-wish-rarity-terms')).toHaveTextContent(
+      'Any printing · Secret Rare · 100% TCG+'
+    );
+    expect(await screen.findByTestId(`wish-${WISH_ID}-available`)).toHaveTextContent('Available');
+    expect(screen.getByTestId('wish-wish-rarity-none')).toHaveTextContent('None yet');
+    // The browsed region is asked for; no usage line while the cap is far.
+    expect(api.callsTo('GET /api/v1/wishlist/availability')[0]?.query.get('region')).toBe(
+      'americas-north'
+    );
+    expect(screen.queryByTestId('wishlist-usage')).toBeNull();
+    // "Let others see what you want" lives in Settings › Privacy now.
+    expect(screen.queryByText('Let others see what you want')).toBeNull();
+    // The segment's tab carries the number of wishes.
+    expect(screen.getByRole('tab', { name: 'Wishlist, 2' })).toBeSelected();
+
+    // Available opens Who has this card on the wished printing; a row edits the wish.
+    fireEvent.press(screen.getByTestId(`wish-${WISH_ID}-available`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: PRINTING_A },
     });
-    fireEvent.press(screen.getByTestId('wish-name-wish-rarity'));
-    expect(mockRouter.push).toHaveBeenCalledWith({
-      pathname: '/cards/[id]',
-      params: { id: 'card-2', rarity: 'Secret Rare' },
-    });
-    fireEvent.press(screen.getByTestId(`wish-edit-${WISH_ID}`));
+    fireEvent.press(screen.getByTestId('wish-wish-rarity-edit'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/wishlist/edit',
-      params: { id: WISH_ID },
+      params: { id: 'wish-rarity' },
     });
-    fireEvent.press(screen.getByTestId('wishlist-add'));
+    fireEvent.press(screen.getByRole('button', { name: 'Add a wish' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 
-  it('turns "Let others see what you want" off and on (privacy setting wishlistVisible)', async () => {
+  it('turns the wishlist alerts on and off (the setting of Settings › Notifications)', async () => {
     const api = mockApi(
       routes({
-        'PUT /api/v1/me/settings/privacy': (request) => ok(request.body as object),
+        'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()),
+        'GET /api/v1/me/settings/notifications': ok(notificationsFixture({ wishlistAlerts: true })),
+        'PUT /api/v1/me/settings/notifications': (request) =>
+          ok(
+            notificationsFixture({
+              wishlistAlerts: (request.body as { wishlistAlerts: boolean }).wishlistAlerts,
+            })
+          ),
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port() });
-    const toggle = await screen.findByTestId('wishlist-visible');
-    expect(toggle).toHaveTextContent(/Let others see what you want/);
-    await waitFor(() => expect(toggle).toHaveTextContent(/Your wishlist alerts work either way\./));
-    fireEvent.press(toggle);
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Your wishlist is hidden from others.'
+    renderWishlist();
+    const alerts = await screen.findByTestId('wishlist-alerts-switch');
+    await waitFor(() => expect(alerts).toHaveProp('value', true));
+    fireEvent(alerts, 'valueChange', false);
+    await waitFor(() =>
+      expect(api.callsTo('PUT /api/v1/me/settings/notifications')).toHaveLength(1)
     );
-    expect(api.callsTo('PUT /api/v1/me/settings/privacy')[0]?.body).toEqual({
-      ...privacyFixture(),
-      wishlistVisible: false,
+    expect(api.callsTo('PUT /api/v1/me/settings/notifications')[0]?.body).toMatchObject({
+      wishlistAlerts: false,
     });
+    expect(await screen.findByText('Wishlist alerts are off.')).toBeOnTheScreen();
   });
 
-  it('prompts for a location so alerts can arrive, and removes a wish after confirming', async () => {
-    const api = mockApi(
+  it("puts the alert sentence under the bell and the switch, and a wish's status under it, at the largest text size", async () => {
+    mockApi(routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()) }));
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    const order = () => {
+      const row = screen.getByTestId('wishlist-alerts-row');
+      const ids = (row.children as { props: { testID?: string } }[])
+        .map((child) => child.props.testID)
+        .filter((id) => id === 'wishlist-alerts-switch' || id === 'wishlist-alerts-text');
+      return ids;
+    };
+    textSize(3.1);
+    try {
+      renderWishlist();
+      await screen.findByTestId('wishlist-alerts-switch');
+      // The switch shares the first line with the bell; the sentence takes the whole width
+      // under them (beside them, "someone" broke in the middle).
+      expect(order()).toEqual(['wishlist-alerts-switch', 'wishlist-alerts-text']);
+      expect(screen.getByTestId('wishlist-alerts-text')).toHaveStyle({ width: '100%' });
+      expect(screen.getByTestId('wishlist-alerts-row')).toHaveStyle({ flexWrap: 'wrap' });
+      // A wish: "Available" or "None yet" under the card, not beside it.
+      await screen.findByTestId(`wish-${WISH_ID}-none`);
+      expect(screen.getByTestId(`wish-${WISH_ID}`)).toHaveStyle({ flexDirection: 'column' });
+    } finally {
+      textSize(window.fontScale);
+    }
+  });
+
+  it('keeps the alert sentence and its switch on one line at the default text size', async () => {
+    mockApi(routes({ 'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()) }));
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    textSize(1);
+    try {
+      renderWishlist();
+      await screen.findByTestId('wishlist-alerts-switch');
+      const row = screen.getByTestId('wishlist-alerts-row');
+      const ids = (row.children as { props: { testID?: string } }[])
+        .map((child) => child.props.testID)
+        .filter((id) => id === 'wishlist-alerts-switch' || id === 'wishlist-alerts-text');
+      expect(ids).toEqual(['wishlist-alerts-text', 'wishlist-alerts-switch']);
+      expect(screen.getByTestId('wishlist-alerts-text')).not.toHaveStyle({ width: '100%' });
+      await screen.findByTestId(`wish-${WISH_ID}-none`);
+      expect(screen.getByTestId(`wish-${WISH_ID}`)).toHaveStyle({ flexDirection: 'row' });
+    } finally {
+      textSize(window.fontScale);
+    }
+  });
+
+  it('shows a usage line only near the cap, and the location prompt without a location', async () => {
+    mockApi(
       routes({
-        'GET /api/v1/me/location': ok({ discoverable: false }),
-        'DELETE /api/v1/wishlist/{id}': noContent,
+        'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture()),
+        'GET /api/v1/me/location': ok(locationFixture({ location: undefined })),
+        'GET /api/v1/me/limits': ok({
+          ...LIMITS,
+          limits: [
+            {
+              key: 'wishlist.items.max',
+              allowed: true,
+              kind: 'CAP',
+              window: 'TOTAL',
+              limit: 20,
+              used: 18,
+            },
+          ],
+        }),
       })
     );
-    renderWithProviders(<WishlistScreen />, { port: port() });
-    expect(await screen.findByTestId('wishlist-location-prompt')).toHaveTextContent(
-      /Set your country and state to get wishlist alerts/
-    );
-    // Without a location no alert can arrive: the visibility help does not promise any.
-    expect(await screen.findByTestId('wishlist-visible')).toHaveTextContent(
-      /find you on your profile and offer them\.$/
-    );
-    expect(screen.queryByText(/wishlist alerts work either way/)).toBeNull();
-    fireEvent.press(screen.getByTestId('wishlist-location-action'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/settings/location');
-
-    fireEvent.press(screen.getByTestId(`wish-remove-${WISH_ID}`));
-    const dialog = await screen.findByTestId('wish-remove-dialog');
-    expect(dialog).toHaveTextContent(/Remove Azure-Eyes Sky Dragon\?/);
-    expect(dialog).toHaveTextContent(
-      /Your wish for Azure-Eyes Sky Dragon \(SVX-001 · Ultra Rare · Stellar Vortex · Holo\) will be removed\./
-    );
-    fireEvent.press(within(dialog).getByTestId('wish-remove-dialog-confirm'));
-    await waitFor(() => expect(screen.queryByTestId(`wish-${WISH_ID}`)).not.toBeOnTheScreen());
-    expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1);
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
-      'Azure-Eyes Sky Dragon (SVX-001 · Ultra Rare · Stellar Vortex · Holo) removed from your wishlist.'
-    );
+    renderWishlist();
+    expect(await screen.findByTestId('wishlist-usage')).toHaveTextContent('18 of 20 wishes');
+    expect(await screen.findByTestId('wishlist-location-prompt')).toBeOnTheScreen();
   });
 
   it('shows the empty wishlist and an error with retry', async () => {
-    mockApi(
-      routes({
-        'GET /api/v1/wishlist': [problem(500, 'INTERNAL_ERROR', 'Boom'), ok([])],
-        'GET /api/v1/me/location': ok(locationFixture({ location: undefined })),
-      })
-    );
-    renderWithProviders(<WishlistScreen />, { port: port() });
+    mockApi(routes({ 'GET /api/v1/wishlist': ok([]) }));
+    const first = renderWishlist();
+    expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/No wishes yet/);
+    first.unmount();
+    mockApi(routes({ 'GET /api/v1/wishlist': problem(500, 'INTERNAL_ERROR', 'Down') }));
+    renderWishlist();
     expect(await screen.findByTestId('wishlist-error')).toBeOnTheScreen();
-    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/Your wishlist is empty/);
-    expect(await screen.findByTestId('wishlist-location-prompt')).toBeOnTheScreen();
-    fireEvent.press(screen.getByText('Add a card'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
   });
 });
 
@@ -375,6 +430,29 @@ describe('Add and edit a wish', () => {
       priceTerm: '100% TCG+',
     });
     expect(screen.getByTestId('snackbar')).toHaveTextContent('Wish updated.');
+  });
+
+  it('removes a wish from its edit screen after asking (the Wishlist tab is gone)', async () => {
+    mockParams.current = { id: WISH_ID };
+    mockRouter.canGoBack.mockReturnValue(false);
+    const api = mockApi(routes({ 'DELETE /api/v1/wishlist/{id}': noContent }));
+    renderWithProviders(<EditWishScreen />, { port: port() });
+    fireEvent.press(await screen.findByRole('button', { name: 'Remove from wishlist' }));
+    expect(await screen.findByTestId('wish-remove-dialog')).toHaveTextContent(
+      /Your wish for Azure-Eyes Sky Dragon .* will be removed/
+    );
+    fireEvent.press(screen.getByTestId('wish-remove-dialog-confirm'));
+    await waitFor(() => expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1));
+    await waitFor(() =>
+      expect(mockRouter.replace).toHaveBeenCalledWith({
+        pathname: '/search',
+        params: { segment: 'wishlist' },
+      })
+    );
+    expect(screen.getByTestId('snackbar')).toHaveTextContent(
+      'Azure-Eyes Sky Dragon left your wishlist.'
+    );
+    mockRouter.canGoBack.mockReturnValue(true);
   });
 
   it('says when the wish to edit no longer exists', async () => {

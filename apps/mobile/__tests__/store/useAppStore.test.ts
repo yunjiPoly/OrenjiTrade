@@ -50,11 +50,12 @@ describe('useAppStore', () => {
       ...DEFAULT_PREFS,
       lastSignedInEmail: 'ayumi@example.test',
     });
-    // The Map tab's view (map or list) is kept the same way; a patch leaves the rest alone.
-    useAppStore.getState().updatePrefs({ mapView: 'list' });
+    // The price mode used last ("$" or "% TCG", owner change of 2026-10-16) the same way; a
+    // patch leaves the rest alone.
+    useAppStore.getState().updatePrefs({ priceMode: 'pct' });
     expect(useAppStore.getState().prefs).toEqual({
       lastSignedInEmail: 'ayumi@example.test',
-      mapView: 'list',
+      priceMode: 'pct',
     });
   });
 
@@ -75,7 +76,7 @@ describe('useAppStore', () => {
       state: Record<string, unknown>;
       version: number;
     };
-    expect(persisted.version).toBe(5);
+    expect(persisted.version).toBe(7);
     expect(persisted.state).toEqual({ themeOverride: 'light', prefs: DEFAULT_PREFS });
   });
 
@@ -120,7 +121,7 @@ describe('useAppStore', () => {
     expect(useAppStore.getState().prefs).not.toHaveProperty('distanceUnit');
   });
 
-  it('gives version 4 (before the Map tab had a list) no view choice yet', async () => {
+  it('gives version 4 (before the price modes) no price mode yet', async () => {
     await AsyncStorage.setItem(
       APP_STORE_STORAGE_KEY,
       JSON.stringify({
@@ -131,8 +132,24 @@ describe('useAppStore', () => {
     await useAppStore.persist.rehydrate();
     expect(useAppStore.getState().prefs).toEqual({
       lastSignedInEmail: 'kept@example.test',
-      mapView: null,
+      priceMode: null,
     });
+  });
+
+  it('drops the Map tab view of versions 5 and 6 (the Map tab left with stage R5)', async () => {
+    await AsyncStorage.setItem(
+      APP_STORE_STORAGE_KEY,
+      JSON.stringify({
+        version: 5,
+        state: { themeOverride: 'dark', prefs: { lastSignedInEmail: null, mapView: 'list' } },
+      })
+    );
+    await useAppStore.persist.rehydrate();
+    expect(useAppStore.getState().prefs).toEqual({
+      lastSignedInEmail: null,
+      priceMode: null,
+    });
+    expect(useAppStore.getState().prefs).not.toHaveProperty('mapView');
   });
 
   it('drops the map viewport versions 1 and 2 kept on the device', async () => {

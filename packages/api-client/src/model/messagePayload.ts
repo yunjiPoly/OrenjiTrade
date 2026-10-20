@@ -8,8 +8,10 @@
  * Do not edit the class manually.
  */
 import { BinderLink } from './binderLink';
+import { SaleNotice } from './saleNotice';
 import { CardLink } from './cardLink';
 import { OfferLink } from './offerLink';
+import { SharedItem } from './sharedItem';
 import { MessageImage } from './messageImage';
 
 
@@ -21,5 +23,7 @@ export interface MessagePayload {
     binder?: BinderLink;
     offer?: OfferLink;
     image?: MessageImage;
+    item?: SharedItem;
+    sale?: SaleNotice;
 }
 

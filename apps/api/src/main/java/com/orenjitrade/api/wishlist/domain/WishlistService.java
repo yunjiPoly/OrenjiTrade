@@ -9,6 +9,9 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.games.domain.GameView;
 import com.orenjitrade.api.limits.domain.Limits;
+import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.RegionCatalog;
+import com.orenjitrade.api.location.domain.RegionView;
 import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationVerdict;
 import com.orenjitrade.api.moderation.domain.TextModerationService;
@@ -24,6 +27,7 @@ import com.orenjitrade.api.wishlist.domain.WishlistChanges.WishlistPatch;
 import com.orenjitrade.api.wishlist.domain.WishlistItemView.CardRef;
 import com.orenjitrade.api.wishlist.events.WishlistItemCreated;
 import com.orenjitrade.api.wishlist.infra.WishlistAlertRepository;
+import com.orenjitrade.api.wishlist.infra.WishlistAvailabilityRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository;
 import com.orenjitrade.api.wishlist.infra.WishlistRepository.Values;
 import java.time.Instant;
@@ -75,6 +79,7 @@ public class WishlistService {
 
     private final WishlistRepository repository;
     private final WishlistAlertRepository alertRepository;
+    private final WishlistAvailabilityRepository availabilityRepository;
     private final WishlistSettings settings;
     private final CatalogService catalog;
     private final GameService games;
@@ -84,12 +89,15 @@ public class WishlistService {
     private final PrivacySettingsService privacySettings;
     private final PrivacyPolicyService privacyPolicy;
     private final ObjectProvider<BlockRelationProvider> blocks;
+    private final RegionCatalog regions;
+    private final LocationService locations;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
 
     public WishlistService(
             WishlistRepository repository,
             WishlistAlertRepository alertRepository,
+            WishlistAvailabilityRepository availabilityRepository,
             WishlistSettings settings,
             CatalogService catalog,
             GameService games,
@@ -99,10 +107,13 @@ public class WishlistService {
             PrivacySettingsService privacySettings,
             PrivacyPolicyService privacyPolicy,
             ObjectProvider<BlockRelationProvider> blocks,
+            RegionCatalog regions,
+            LocationService locations,
             ApplicationEventPublisher events,
             TimeProvider timeProvider) {
         this.repository = repository;
         this.alertRepository = alertRepository;
+        this.availabilityRepository = availabilityRepository;
         this.settings = settings;
         this.catalog = catalog;
         this.games = games;
@@ -112,6 +123,8 @@ public class WishlistService {
         this.privacySettings = privacySettings;
         this.privacyPolicy = privacyPolicy;
         this.blocks = blocks;
+        this.regions = regions;
+        this.locations = locations;
         this.events = events;
         this.timeProvider = timeProvider;
     }
@@ -124,6 +137,60 @@ public class WishlistService {
     @Transactional(readOnly = true)
     public List<WishlistItemView> list(UUID ownerId) {
         return views(repository.findByOwner(ownerId));
+    }
+
+    /**
+     * {@code GET /wishlist?region=}: the caller's items, newest first, and which of them are
+     * available in the region (stage R5: "Available" or "None yet"), computed by one grouped query
+     * for the whole list.
+     *
+     * @param region platform region code; {@code null} for the caller's home region, else the
+     *     default region (400 VALIDATION_FAILED on {@code region} for an unknown code)
+     */
+    @Transactional(readOnly = true)
+    public Listing listWithAvailability(UUID ownerId, @Nullable String region) {
+        RegionView scope = scope(ownerId, region);
+        List<WishlistItemView> items = list(ownerId);
+        return new Listing(items, available(ownerId, items, scope.code()), scope.code());
+    }
+
+    /**
+     * Which of {@code items} (wishes of {@code ownerId}) a public holder of the caller's home
+     * region has right now (the answer of a write: {@code POST} and {@code PATCH /wishlist}).
+     */
+    @Transactional(readOnly = true)
+    public Set<UUID> availableAtHome(UUID ownerId, List<WishlistItemView> items) {
+        return available(ownerId, items, scope(ownerId, null).code());
+    }
+
+    private Set<UUID> available(UUID ownerId, List<WishlistItemView> items, String regionCode) {
+        return availabilityRepository.availableAmong(
+                ownerId,
+                items.stream().map(view -> view.row().id()).toList(),
+                regionCode,
+                timeProvider.now());
+    }
+
+    private RegionView scope(UUID ownerId, @Nullable String requested) {
+        if (requested != null && !requested.isBlank()) {
+            return regions.requireRegion(requested, "region");
+        }
+        return regions.resolve(null, locations.homeRegionOf(ownerId).orElse(null));
+    }
+
+    /**
+     * The caller's wishlist with its availability.
+     *
+     * @param items the wishes, newest first
+     * @param available ids of the wishes a public holder of the region has right now
+     * @param region the platform region the availability is computed for
+     */
+    public record Listing(List<WishlistItemView> items, Set<UUID> available, String region) {
+
+        public Listing {
+            items = List.copyOf(items);
+            available = Set.copyOf(available);
+        }
     }
 
     @Transactional(readOnly = true)

@@ -15,6 +15,13 @@ export interface StepperProps {
   next?: (value: number, direction: 1 | -1) => number;
   onChange: (value: number) => void;
   disabled?: boolean;
+  /**
+   * Draws the label next to the buttons (default). False when the screen shows its own label:
+   * the label is then the control's spoken name only (one "Copies sold", not two).
+   */
+  labelVisible?: boolean;
+  /** Caps how far the label and the value follow the text size (a sheet at the largest sizes). */
+  maxFontSizeMultiplier?: number;
   testID?: string;
 }
 
@@ -31,6 +38,8 @@ export function Stepper({
   next = (current, direction) => current + direction,
   onChange,
   disabled,
+  labelVisible = true,
+  maxFontSizeMultiplier,
   testID = 'stepper',
 }: StepperProps) {
   const { palette } = useTheme();
@@ -55,7 +64,14 @@ export function Stepper({
       }
       style={styles.row}
     >
-      <Text style={[textStyle('md'), styles.label, { color: palette.ink }]}>{label}</Text>
+      {labelVisible ? (
+        <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
+          style={[textStyle('md'), styles.label, { color: palette.ink }]}
+        >
+          {label}
+        </Text>
+      ) : null}
       <View style={styles.controls}>
         <Pressable
           accessibilityRole="button"
@@ -75,6 +91,7 @@ export function Stepper({
         <Text
           testID={`${testID}-value`}
           accessibilityLiveRegion="polite"
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
           style={[textStyle('md'), styles.value, { color: palette.ink }]}
         >
           {text}

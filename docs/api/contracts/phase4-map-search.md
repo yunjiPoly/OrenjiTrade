@@ -51,7 +51,8 @@ All under `/api/v1`. Discovery reads work for anonymous users with reduced detai
 Behaviour: if `q` matches a printing code or a single card unambiguously, `resolved` is set and
 `collectors` lists nearby holders of it (same engine as `/collectors/nearby` with
 `hasPrintingId`/`hasCardId`). Text matching per ADR 0012. Analytics events `search_performed`
-/ `search_no_results` emitted (query text truncated, geo cell only).
+/ `search_no_results` emitted (query text truncated, geo cell only; since stage R5 they carry
+no query text at all, only its length, and a region code: [r5-search.md](r5-search.md)).
 
 `GET /search/card-holders?printingId=|cardId=&lat=&lng=&radiusKm=&availability=&condition=&minPrice=&maxPrice=&freshness=&edition=&language=&acceptsOffers=&sort=distance|price|freshness&page=&size=` →
 `PageResponse<CardHolderResult>` `{ collector: CollectorMarker, item: PublicInventoryItem }` —

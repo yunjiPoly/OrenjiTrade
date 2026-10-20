@@ -147,6 +147,65 @@ class ModerationIT extends AbstractIntegrationTest {
                 .isEqualTo("OK");
     }
 
+    /**
+     * Stage R4, review fix 1 (P2): a seller answering many buyers with the same quick reply is not
+     * flagged for repeated content (the fixed texts repeat by design); a text that only looks like
+     * one still is, and the banned-term rules apply to quick replies like any message (spec section
+     * 13).
+     */
+    @Test
+    void quickRepliesRepeatWithoutAFlagButBannedTermsStillApply() {
+        Member seller = member("quick-s");
+        List<String> chats = new java.util.ArrayList<>();
+        for (int index = 0; index < 7; index++) {
+            chats.add(conversation(seller, member("quick-b" + index)));
+        }
+        for (String chat : chats) {
+            assertThat(
+                            send(seller, chat, "Yes, still available", 201)
+                                    .path("moderationState")
+                                    .asString())
+                    .isEqualTo("OK");
+        }
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM moderation_flag WHERE author_id = ? AND"
+                                        + " reason = 'REPEATED_CONTENT'",
+                                seller.id()))
+                .isZero();
+        // Not the exact text of a quick reply: the threshold counts it as before.
+        for (int index = 0; index < 5; index++) {
+            send(seller, chats.get(index), "Yes, still available!!", 201);
+        }
+        assertThat(
+                        send(seller, chats.get(5), "Yes, still available!!", 201)
+                                .path("moderationState")
+                                .asString())
+                .isEqualTo("FLAGGED");
+
+        // A banned term matches a quick reply as any message.
+        testUsers.update(
+                "INSERT INTO moderation_rule (kind, pattern, action, scope) VALUES ('BANNED_TERM',"
+                        + " 'shipped', 'FLAG', 'MESSAGE')");
+        moderationService.invalidate();
+        try {
+            JsonNode shipped = send(seller, chats.get(6), "Shipped!", 201);
+            assertThat(shipped.path("moderationState").asString()).isEqualTo("FLAGGED");
+            assertThat(
+                            testUsers.query(
+                                    "SELECT reason FROM moderation_flag WHERE subject_id ="
+                                            + " ?::uuid",
+                                    shipped.path("id").asString()))
+                    .extracting(row -> row.get("reason"))
+                    .containsExactly("BANNED_TERM");
+        } finally {
+            testUsers.update(
+                    "DELETE FROM moderation_rule WHERE kind = 'BANNED_TERM' AND pattern ="
+                            + " 'shipped'");
+            moderationService.invalidate();
+        }
+    }
+
     @Test
     void aFlagRateRuleFlagsTheAuthorOnceWithoutBlocking() {
         UUID ruleId = UUID.randomUUID();

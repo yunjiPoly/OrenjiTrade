@@ -1,28 +1,38 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Screen } from '@/src/components/ui/Screen';
+import { FEATURE, useFeature } from '@/src/api/hooks/featureFlags';
 import { Segmented } from '@/src/components/ui/Segmented';
+import { Text } from '@/src/components/ui/Text';
 import { ChannelList } from '@/src/features/community/ChannelList';
+import { INBOX_COPY } from '@/src/features/messages/chatCopy';
 import { InboxView } from '@/src/features/messages/InboxView';
 import { RealtimeStatus } from '@/src/features/messages/RealtimeStatus';
-import { spacing } from '@/src/theme';
+import { NotificationBell } from '@/src/features/notifications/NotificationBell';
+import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 type MessagesView = 'inbox' | 'community';
 
 const VIEWS = [
-  { value: 'inbox', label: 'Inbox' },
-  { value: 'community', label: 'Community' },
+  { value: 'inbox', label: INBOX_COPY.inbox },
+  { value: 'community', label: INBOX_COPY.community },
 ] as const;
 
 /**
- * Messages tab (the web's `/messages` and, as on the web's mobile navigation, `/community`): the
- * private inbox (live over realtime, unread counts, last message previews) and the public
- * community channels, side by side in a segmented control. `?view=community` opens the channels.
+ * Messages (owner spec 2026-10-14, section 10, mockup screen 22): the title "Messages" with the
+ * bell (and the small "Live" status of the realtime channel, so a stale inbox is never a surprise),
+ * then the inbox. The community channels keep today's "Inbox | Community" switch above the list
+ * only while the `publicChat` flag is on; without it there is no switch. `?view=community` opens
+ * the channels.
  */
 export default function MessagesScreen() {
   const router = useRouter();
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
+  const community = useFeature(FEATURE.publicChat).enabled;
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<MessagesView>(
     params.view === 'community' ? 'community' : 'inbox'
@@ -40,38 +50,66 @@ export default function MessagesScreen() {
     setView(next);
     router.setParams({ view: next });
   };
+  const shown: MessagesView = community ? view : 'inbox';
 
   return (
-    <Screen edgeToEdge testID="screen-messages">
-      <View style={styles.bar}>
-        <Segmented
-          label="Messages view"
-          options={VIEWS}
-          value={view}
-          onChange={change}
-          style={styles.segmented}
-          testID="messages-view"
-        />
-        <RealtimeStatus />
+    <View
+      key={`text-size-${fontScale}`}
+      testID="screen-messages"
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
+      <View style={styles.top}>
+        <View style={styles.titleRow}>
+          <Text
+            accessibilityRole="header"
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.title, { color: palette.ink }]}
+          >
+            {INBOX_COPY.title}
+          </Text>
+          <View style={styles.actions}>
+            <RealtimeStatus />
+            <NotificationBell testID="notification-bell-messages" variant="round" />
+          </View>
+        </View>
+        {community ? (
+          <Segmented
+            label={INBOX_COPY.viewLabel}
+            options={VIEWS}
+            value={view}
+            onChange={change}
+            testID="messages-view"
+          />
+        ) : null}
       </View>
       <View style={styles.fill}>
-        {view === 'inbox' ? <InboxView /> : <ChannelList onOpenInbox={() => change('inbox')} />}
+        {shown === 'inbox' ? <InboxView /> : <ChannelList onOpenInbox={() => change('inbox')} />}
       </View>
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  bar: {
+  top: {
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[5],
+    paddingBottom: spacing[2],
+    gap: spacing[3],
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: spacing[3],
-    paddingHorizontal: spacing[4],
-    paddingTop: spacing[3],
-    paddingBottom: spacing[2],
   },
-  // Narrow enough that the status pill never reaches the top-right corner, where Expo Go floats
-  // its tools button.
-  segmented: { flex: 1, maxWidth: 232 },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.4,
+  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
 });

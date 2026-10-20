@@ -181,3 +181,38 @@ export function addedMessage(item: WishlistItemResponse): string {
   const name = item.card?.name ?? 'The card';
   return `${name} is on your wishlist. We'll tell you when a collector of your region lists it.`;
 }
+
+/**
+ * The terms of a wish in one line (Search › Wishlist, mockup screen 15): which copy ("Any
+ * printing", "Any printing · Ultra Rare" or the printing code), then "NM only" and the price term
+ * when the wish has them: "Any printing · NM only · 100% TCG", "TN19-EN013 · NM only".
+ */
+export function wishTerms(
+  wish: Pick<WishlistItemResponse, 'printing' | 'rarity' | 'nearMintOnly' | 'priceTerm'>
+): string {
+  const copy = wish.printing
+    ? printingCode(wish.printing)
+    : wish.rarity
+      ? `Any printing · ${wish.rarity}`
+      : 'Any printing';
+  return [copy, wish.nearMintOnly ? 'NM only' : null, wish.priceTerm?.label ?? null]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * A usage line only when the wishlist is near its cap (owner spec 2026-10-14, section 8: "plan
+ * usage notices show only when a plan limit is near"; the same cap for everyone, stage F1): from
+ * 80 % of it, "18 of 20 wishes", and at the cap "20 of 20 wishes. Remove one to add another.".
+ */
+export function nearCapNotice(usage: { used: number; limit: number | null } | null): string | null {
+  if (!usage || usage.limit === null || usage.limit <= 0) {
+    return null;
+  }
+  if (usage.used >= usage.limit) {
+    return `${usage.used} of ${usage.limit} wishes. Remove one to add another.`;
+  }
+  return usage.used >= Math.ceil(usage.limit * 0.8)
+    ? `${usage.used} of ${usage.limit} wishes`
+    : null;
+}

@@ -6,15 +6,22 @@ import type {
 } from '@/src/api/types';
 
 import { CARD_FORM_COPY } from './inventoryCopy';
-import { ASKING_PRICE_MAX, priceFieldText, priceTextOf } from './itemPrice';
+import {
+  askingPriceTextOf,
+  checkPrice,
+  priceInputOf,
+  readAskingPrice,
+  type PriceMode,
+} from './itemPrice';
 import { temporaryPublicationEnded } from './visibilityStatus';
 
 /**
  * The card form of Add to inventory and Edit card (owner spec 2026-10-14, section 6, screens 6
- * and 7): copies, the asking price as typed, who can see it, the binder and the public note (the
- * photos are kept beside it). Condition, language, edition, finish, "Available for", "Accepts
- * offers", currency, "Temporarily public" and private notes are gone from the phone: the API
- * keeps them for the paused web, and the phone never changes them.
+ * and 7): copies, the asking price, who can see it, the binder and the public note (the photos are
+ * kept beside it). Condition, language, edition, finish, "Available for", "Accepts offers",
+ * currency, "Temporarily public" and private notes are gone from the phone: the API keeps them for
+ * the paused web, and the phone never changes them. The asking price is a number in "$" or in
+ * "% TCG" since the owner's change of 2026-10-16, saved as one text ("$12.50", "85% TCG").
  */
 
 export const QUANTITY_MIN = 1;
@@ -26,8 +33,15 @@ export type CardVisibility = 'PRIVATE' | 'PUBLIC';
 export interface CardFormValue {
   /** Copies as typed (digits). */
   quantity: string;
-  /** The asking price as typed; empty = no price. */
+  /** How the asking price is typed: "$" or "% TCG". */
+  priceMode: PriceMode;
+  /** The asking price's number as typed ("12.50", "85"); empty = no price. */
   price: string;
+  /**
+   * Edit card: a saved price text neither mode can show ("Trade only"), shown as "Was: {text}"
+   * and kept by a save until a price is typed or the field is cleared; null otherwise.
+   */
+  priceWas: string | null;
   visibility: CardVisibility;
   binderId: string | null;
   publicNote: string;
@@ -36,21 +50,43 @@ export interface CardFormValue {
 export type CardField = 'quantity' | 'price' | 'publicNote';
 export type CardFormErrors = Partial<Record<CardField, string>>;
 
-/** A new card: one copy, no price, private, the binder it is added from (if any), no note. */
-export function newCardForm(binderId: string | null = null): CardFormValue {
-  return { quantity: '1', price: '', visibility: 'PRIVATE', binderId, publicNote: '' };
+/**
+ * A new card: one copy, no price in the mode the collector used last on this phone ("$" the first
+ * time), private, the binder it is added from (if any), no note.
+ */
+export function newCardForm(
+  binderId: string | null = null,
+  priceMode: PriceMode = 'usd'
+): CardFormValue {
+  return {
+    quantity: '1',
+    priceMode,
+    price: '',
+    priceWas: null,
+    visibility: 'PRIVATE',
+    binderId,
+    publicNote: '',
+  };
 }
 
 /**
  * The form of an existing card. A temporary publication reads as Public while it runs (the phone
  * offers no end date any more), and as Private once it has ended (review fix 2 of stage R2: nobody
- * can see it, and choosing Public publishes it again); a card priced on the paused web shows its
- * amount ("42.00").
+ * can see it, and choosing Public publishes it again). The price reads back in its mode
+ * (`readAskingPrice`: a card priced on the paused web shows its amount, "42.00"); a card without a
+ * price starts in `priceMode`, the mode used last.
  */
-export function cardFormOf(item: InventoryItemResponse, now = Date.now()): CardFormValue {
+export function cardFormOf(
+  item: InventoryItemResponse,
+  now = Date.now(),
+  priceMode: PriceMode = 'usd'
+): CardFormValue {
+  const price = readAskingPrice(item);
   return {
     quantity: String(item.quantity),
-    price: priceFieldText(item),
+    priceMode: price.mode ?? priceMode,
+    price: price.number,
+    priceWas: price.was,
     visibility:
       item.visibility === 'PUBLIC' ||
       (item.visibility === 'TEMPORARILY_PUBLIC' && !temporaryPublicationEnded(item, now))
@@ -74,6 +110,46 @@ export function stepQuantity(text: string, direction: 1 | -1): string {
   return String(Math.min(QUANTITY_MAX, Math.max(QUANTITY_MIN, base + direction)));
 }
 
+/**
+ * The mode switched (the "$" | "% TCG" switch): the number is cleared, 85% is not $85. A saved
+ * text shown as "Was: {text}" stays: nothing was typed.
+ */
+export function switchPriceMode(
+  value: Pick<CardFormValue, 'priceMode'>,
+  priceMode: PriceMode
+): Partial<CardFormValue> {
+  return priceMode === value.priceMode ? {} : { priceMode, price: '' };
+}
+
+/**
+ * A price typed in the number box (or the box cleared): what the box keeps of it; a saved text
+ * shown as "Was: {text}" is replaced from now on.
+ */
+export function typePrice(
+  value: Pick<CardFormValue, 'priceMode'>,
+  text: string
+): Partial<CardFormValue> {
+  return { price: priceInputOf(value.priceMode, text), priceWas: null };
+}
+
+/**
+ * What a save does to the price: keep the saved text (`keep`), or write `text` (null: no price).
+ * `key` tells two forms that save the same price apart from two that do not.
+ */
+function priceOutcome(value: CardFormValue): { key: string; text: string | null } {
+  if (value.priceWas !== null) {
+    return { key: `was:${value.priceWas}`, text: value.priceWas };
+  }
+  const check = checkPrice(value.priceMode, value.price);
+  if (check.kind === 'ok') {
+    return { key: check.text, text: check.text };
+  }
+  if (check.kind === 'empty') {
+    return { key: 'none', text: null };
+  }
+  return { key: `typed:${value.priceMode}:${value.price.trim()}`, text: null };
+}
+
 /** The inline errors of the form (the API's bounds); empty when it can be sent. */
 export function validateCardForm(value: CardFormValue): CardFormErrors {
   const errors: CardFormErrors = {};
@@ -87,10 +163,11 @@ export function validateCardForm(value: CardFormValue): CardFormErrors {
   } else if (quantity > QUANTITY_MAX) {
     errors.quantity = `At most ${QUANTITY_MAX} copies.`;
   }
-  if ([...value.price.trim()].length > ASKING_PRICE_MAX) {
-    errors.price = CARD_FORM_COPY.priceTooLong;
-  } else if (/[\n\r\t]/.test(value.price)) {
-    errors.price = 'Write the price on one line.';
+  if (value.priceWas === null) {
+    const price = checkPrice(value.priceMode, value.price);
+    if (price.kind === 'error') {
+      errors.price = price.message;
+    }
   }
   if (value.publicNote.trim().length > PUBLIC_NOTE_MAX) {
     errors.publicNote = CARD_FORM_COPY.noteTooLong;
@@ -116,7 +193,7 @@ export function toCreateBody(value: CardFormValue, printingId: string): CreateIn
     acceptsOffers: false,
     conditionStated: false,
   };
-  const price = priceTextOf(value.price);
+  const price = askingPriceTextOf(value.priceMode, value.price);
   if (price) {
     body.askingPriceText = price;
   }
@@ -131,10 +208,12 @@ export function toCreateBody(value: CardFormValue, printingId: string): CreateIn
 }
 
 /**
- * `PATCH /inventory/items/{id}` of Edit card: only the fields that changed (absent = unchanged,
- * null clears), and `confirm: true` (a save counts as "still available", section 6). Visibility is
- * sent when it changed and whenever the binder changes, so the card is exactly as the form shows
- * it. `null` when nothing in the form changed.
+ * What Edit card's form changes on the card (`PATCH /inventory/items/{id}`): only the fields that
+ * changed (absent = unchanged, null clears), and `confirm: true` (a save counts as "still
+ * available", section 6). Visibility is sent when it changed and whenever the binder changes, so
+ * the card is exactly as the form shows it. The price counts only when it is another price than
+ * the card's: "$12" read back as 12.00 and left so is no change. `null` when nothing in the form
+ * changed ("No changes yet"). The body a save sends is `toSaveBody`.
  */
 export function toPatch(
   value: CardFormValue,
@@ -146,8 +225,9 @@ export function toPatch(
   if (quantity !== item.quantity) {
     patch.quantity = quantity;
   }
-  if (value.price.trim() !== before.price.trim()) {
-    patch.askingPriceText = priceTextOf(value.price);
+  const price = priceOutcome(value);
+  if (price.key !== priceOutcome(before).key) {
+    patch.askingPriceText = price.text;
   }
   if (value.publicNote.trim() !== before.publicNote.trim()) {
     patch.publicNotes = value.publicNote.trim() || null;
@@ -164,6 +244,32 @@ export function toPatch(
   }
   patch.confirm = true;
   return patch;
+}
+
+/**
+ * The body of an Edit card save: the changes (`toPatch`), or only `confirm: true` when just the
+ * photos changed. A saved text that reads back into a mode but was written another way ("85 %
+ * tcg", "12,50 $", "$12") is rewritten the one way ("85% TCG", "$12.50", "$12.00") by any save, as
+ * every price the phone saves is (fix round 2 of the owner's change of 2026-10-16): the same
+ * price, so it is no change by itself and the amount the API reads from it stays the same. A text
+ * neither mode can show ("Trade only") stays until a price is typed; an old amount without a text
+ * (the paused web's) has no text to rewrite and stays as it is.
+ */
+export function toSaveBody(
+  value: CardFormValue,
+  item: InventoryItemResponse
+): UpdateInventoryItemRequest {
+  const body: UpdateInventoryItemRequest = toPatch(value, item) ?? { confirm: true };
+  if (!('askingPriceText' in body)) {
+    // The price is the card's own: write its text the one way when it reads back into a mode.
+    const stored = item.askingPriceText?.trim();
+    const saved = cardFormOf(item);
+    const text = saved.priceWas === null ? askingPriceTextOf(saved.priceMode, saved.price) : null;
+    if (stored && text !== null && text !== stored) {
+      body.askingPriceText = text;
+    }
+  }
+  return body;
 }
 
 /** Whether the form differs from the card (the photos are counted by the screen). */

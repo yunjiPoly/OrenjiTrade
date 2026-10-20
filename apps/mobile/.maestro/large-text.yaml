@@ -1,18 +1,18 @@
-# The largest text size (mobile stage M9, review fix 1): a seed collector of Americas (North)
-# (collector1, Quebec) reopens the app at the last accessibility size of iOS
+# The largest text size (mobile stage M9, review fix 1; Search of stage R5): a seed collector of
+# Americas (North) (collector1, Quebec) reopens the app at the last accessibility size of iOS
 # (subflows/relaunch-large-text.yaml; an Android device keeps its own size and walks the same
-# paths). In the Search tab only the region switcher and the segments stay on screen: the field
-# is under them, a card that was found is scrolled to and opened; in Europe the "Not your
-# region" line stands above the segments, the field is still there and a collector who was found
-# opens. On the Map tab a finger dragged over the map scrolls the page down to the note under it.
-# (Before the fix the pinned controls took the whole screen: no result at home, no field in
-# another region, and the map swallowed the drag.)
+# paths). On Search the title, the segments and the field stay within reach above the map, the
+# card of the collector's province shows under the map, and a finger dragged over the whole region
+# scrolls the page down to the note under it; a card that is typed is narrowed to its game and
+# opened; in Europe the "Not your region" line stands under the field, and a collector who is
+# typed is found and opened; one press goes home.
 # Seed accounts are only signed in to; who lives in Île-de-France is read on the host from the
 # public API (scripts/region-map.js).
 appId: ${APP_ID}
-name: Largest text size, the Search tab and the Map tab stay within reach
+name: Largest text size, Search's map, the card search and the collectors stay within reach
 tags:
   - mobile-m9
+  - mobile-r5
   - search
   - map
   - large-text
@@ -36,76 +36,117 @@ tags:
       PASSWORD: ${SEED_PASSWORD}
 - extendedWaitUntil:
     visible:
-      id: 'map-title'
-      text: 'Binders in Americas \(North\)'
+      id: 'screen-search'
     timeout: 60000
 - runFlow: subflows/relaunch-large-text.yaml
 - extendedWaitUntil:
     visible:
-      id: 'map-title'
-      text: 'Binders in Americas \(North\)'
+      id: 'search-field'
     timeout: 60000
-- extendedWaitUntil:
-    visible:
-      id: 'map-status'
-      text: '[0-9]+ public binders? in Americas \(North\)'
-    timeout: 30000
-# iOS: the text really is that large. The line that counts the binders is one line of about
-# 24 points at the default size and four or five lines of 85 points at this one (heights are in
-# points); without this the flow would pass at the default size if the launch argument stopped
-# working.
+- assertVisible:
+    id: 'search-segment-cards'
+- assertVisible:
+    id: 'search-segment-binders'
+- assertVisible:
+    id: 'search-segment-wishlist'
+# iOS: the text really is that large. The field is one line of about 52 points at the default
+# size and well over a hundred at this one (heights are in points); without this the flow would
+# pass at the default size if the launch argument stopped working.
 - runFlow:
     when:
       platform: iOS
     commands:
       - assertVisible:
-          id: 'map-status'
-          height: 340
-          tolerance: 200
-- takeScreenshot: large-text-map
-
-# Search, at home: the switcher, the segments and the field are on screen together.
-- tapOn:
-    id: 'tab-search'
-- extendedWaitUntil:
-    visible:
-      id: 'search-input'
-    timeout: 60000
-- assertVisible:
-    id: 'search-region'
-    text: 'Region: Americas \(North\)'
-- assertVisible:
-    id: 'search-segment-cards'
-- assertVisible:
-    id: 'search-segment-collectors'
-- assertVisible:
-    id: 'search-segment-binders'
+          id: 'search-title'
+          height: 80
+          tolerance: 40
 - takeScreenshot: large-text-search
 
-# A card that is found can be scrolled to and opened.
-- tapOn:
-    id: 'search-input'
-- inputText: 'emberfang'
-- runFlow: subflows/hide-keyboard.yaml
+# The map opens on the collector's province (zoomed in: a finger on it moves the map). At this
+# size its card stands under the map, which keeps its smallest height, so the card's top is in
+# view without scrolling.
+- extendedWaitUntil:
+    visible:
+      id: 'search-state-name'
+      text: 'Quebec'
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-map-zoom-out'
+      enabled: true
+    timeout: 15000
+- takeScreenshot: large-text-province-card
+# Zoomed out to the whole region, a finger dragged over the map scrolls the page on, down to the
+# note under the map.
+- repeat:
+    while:
+      visible:
+        id: 'search-region-map-zoom-out'
+        enabled: true
+    times: 6
+    commands:
+      - tapOn:
+          id: 'search-region-map-zoom-out'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'card-result-emberfang-fox'
+      ID: 'search-region-map'
+- swipe:
+    from:
+      id: 'search-region-map'
+    direction: UP
+    duration: 600
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'search-map-privacy'
+- assertVisible:
+    id: 'search-map-privacy'
+- takeScreenshot: large-text-map-scrolled
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'search-field'
+
+# A card that is typed can be narrowed to its game and opened. At this size a result is about a
+# third of the screen tall (its name wraps) and the list scrolls under the field and the game
+# chips: a row scrolled half under them is still "on screen" for iOS's accessibility tree, and a
+# tap at its middle would land on a chip. The game chip (the card search's only filter) puts the
+# card first, in full view.
 - tapOn:
-    id: 'card-result-emberfang-fox'
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: 'emberfang'
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'search-game-pokemon'
+- extendedWaitUntil:
+    visible: 'Emberfang Fox, Pokémon'
+    timeout: 30000
+- takeScreenshot: large-text-typing
+- tapOn: 'Emberfang Fox, Pokémon'
 - extendedWaitUntil:
     visible:
       id: 'card-name'
       text: 'Emberfang Fox'
     timeout: 60000
+- takeScreenshot: large-text-card-page
 - runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
-      id: 'search-region'
+      id: 'search-input'
     timeout: 30000
+- tapOn:
+    id: 'search-input-cancel'
 
-# Another region: its name and "Not your region" stand above the segments, and the field of the
-# segment is still on screen under them.
+# Another region: its name, and "Not your region" under the field.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'search-region'
 - tapOn:
     id: 'search-region'
 - extendedWaitUntil:
@@ -114,41 +155,35 @@ tags:
     timeout: 15000
 - tapOn:
     id: 'search-region-option-europe'
-- extendedWaitUntil:
-    visible:
-      id: 'search-region'
-      text: 'Region: Europe'
-    timeout: 30000
-- assertVisible: 'Not your region.'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'search-region-away-home'
 - assertVisible:
-    id: 'search-region-home'
+    id: 'search-region-away-home'
     text: 'Back to Americas \(North\)'
-- tapOn:
-    id: 'search-segment-collectors'
-- extendedWaitUntil:
-    visible:
-      id: 'search-collectors-input'
-    timeout: 30000
 - takeScreenshot: large-text-search-europe
 
-# A collector of Europe is found, scrolled to and opened.
+# A collector of Europe is typed, found under the cards and opened.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'search-field'
 - tapOn:
-    id: 'search-collectors-input'
-- inputText: ${output.binder.owner}
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: ${output.binder.handle}
 - runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'collector-result-${output.binder.handle}'
-# The row at this size: the line with the handle wraps down to the state and the country (held
-# to one line it was cut after a few letters of the handle). The row is one element for a screen
-# reader, so the picture is the proof for the eye; the label is what VoiceOver says.
+      ID: 'search-collector-${output.binder.handle}'
 - takeScreenshot: large-text-search-collector-row
-- assertVisible:
-    id: 'collector-result-${output.binder.handle}'
-    text: '.*${output.binder.place}'
 - tapOn:
-    id: 'collector-result-${output.binder.handle}'
+    id: 'search-collector-${output.binder.handle}'
 - extendedWaitUntil:
     visible:
       id: 'collector-name'
@@ -157,51 +192,19 @@ tags:
 - runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
     visible:
-      id: 'search-region-home'
+      id: 'search-input'
     timeout: 30000
 
-# One press goes home, from the line that stayed on screen.
+# One press goes home, from the line under the field.
 - tapOn:
-    id: 'search-region-home'
-- extendedWaitUntil:
-    visible:
-      id: 'search-region'
-      text: 'Region: Americas \(North\)'
-    timeout: 30000
-- assertNotVisible:
-    id: 'search-region-home'
-
-# The Map tab: the map is a screen further down at this size; a finger dragged over it scrolls
-# the page on, down to the note under the legend.
-- tapOn:
-    id: 'tab-index'
-- extendedWaitUntil:
-    visible:
-      id: 'map-title'
-      text: 'Binders in Americas \(North\)'
-    timeout: 30000
+    id: 'search-input-cancel'
 - runFlow:
-    file: subflows/scroll-down-to.yaml
+    file: subflows/scroll-up-to.yaml
     env:
-      ID: 'region-map'
-# The map sits in the middle of the screen, the Map | List switch just above it. One drag from
-# the middle of the map towards the top of the screen takes that switch off the screen: the page
-# followed the finger.
-- assertVisible:
-    id: 'map-view'
-- swipe:
-    from:
-      id: 'region-map'
-    direction: UP
-    duration: 600
+      ID: 'search-region-away-home'
+- tapOn:
+    id: 'search-region-away-home'
 - extendedWaitUntil:
     notVisible:
-      id: 'map-view'
-    timeout: 10000
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'map-privacy-note'
-- assertVisible:
-    id: 'map-privacy-note'
-- takeScreenshot: large-text-map-scrolled
+      id: 'search-region-away-home'
+    timeout: 30000

@@ -1,65 +1,45 @@
-/**
- * The Search tab's segments (the web's `/search` tabs, `SEARCH_TABS`): the card catalog (the
- * app's own catalog search, richer than the web's cards tab), collectors by name or handle and
- * public binders by name, both from `GET /search`.
- */
-export type SearchSegment = 'cards' | 'collectors' | 'binders';
+import { SEARCH_COPY } from './searchCopy';
 
-export const SEARCH_SEGMENTS: readonly { value: SearchSegment; label: string }[] = [
-  { value: 'cards', label: 'Cards' },
-  { value: 'collectors', label: 'Collectors' },
-  { value: 'binders', label: 'Binders' },
-];
+/**
+ * The segments of Search (owner spec 2026-10-14, sections 4 and 8): Cards (the region map, then
+ * the card search while typing), Binders (binders and deck cores of the region or of one state)
+ * and Wishlist (the old Wishlist tab, with the number of wishes). No Collectors segment: collectors
+ * show under the cards while a card is typed.
+ */
+export type SearchSegment = 'cards' | 'binders' | 'wishlist';
+
+export const SEARCH_SEGMENTS: readonly SearchSegment[] = ['cards', 'binders', 'wishlist'];
 
 export function isSearchSegment(value: unknown): value is SearchSegment {
-  return SEARCH_SEGMENTS.some((segment) => segment.value === value);
+  return SEARCH_SEGMENTS.includes(value as SearchSegment);
 }
 
-/** The `types` sections of `GET /search` a segment needs (never the heavy card sections). */
-export function searchTypesFor(segment: Exclude<SearchSegment, 'cards'>): string[] {
-  return segment === 'collectors' ? ['collectors'] : ['binders'];
+/** The label of a segment ("Wishlist" carries its count beside it, see `UnderlineTabs`). */
+export function segmentLabel(segment: SearchSegment): string {
+  switch (segment) {
+    case 'cards':
+      return SEARCH_COPY.cards;
+    case 'binders':
+      return SEARCH_COPY.binders;
+    case 'wishlist':
+      return SEARCH_COPY.wishlist;
+  }
 }
-
-/** Results per section (the API allows 1–50). */
-export const SEARCH_SECTION_LIMIT = 30;
-
-/** Field wording per segment. */
-export const SEGMENT_FIELDS: Record<SearchSegment, { label: string; placeholder: string }> = {
-  cards: { label: 'Find a card', placeholder: 'Card name, text or printing code' },
-  collectors: { label: 'Find a collector', placeholder: 'Name or handle' },
-  binders: { label: 'Find a public binder', placeholder: 'Binder name' },
-};
-
-/** Empty-state wording per segment (the web's unified results). */
-export const SEGMENT_EMPTY: Record<
-  Exclude<SearchSegment, 'cards'>,
-  { title: string; description: string }
-> = {
-  collectors: {
-    title: 'No collectors match',
-    description: 'Collectors appear when they are on the map and allow name search.',
-  },
-  binders: {
-    title: 'No public binders match',
-    description: 'Binders appear here while their owner keeps them public and fresh.',
-  },
-};
 
 /**
- * The invitation of an empty segment. `where` is "your region", or the name of the region being
- * browsed when it is another one (`regionPhrase`).
+ * The segment a link asks for: `?segment=`, or the `?tab=` of the links before stage R5
+ * (`collectors` opens the cards, where collectors now show while typing; `binders` the binders).
+ * `null` when the link names none.
  */
-export function segmentInvite(
-  segment: Exclude<SearchSegment, 'cards'>,
-  where = 'your region'
-): { title: string; description: string } {
-  return segment === 'collectors'
-    ? {
-        title: `Who trades in ${where}?`,
-        description: `Search a collector of ${where} by name or handle.`,
-      }
-    : {
-        title: 'What is in their binders?',
-        description: `Search public binders by name to see what collectors of ${where} trade.`,
-      };
+export function segmentOfLink(params: { segment?: unknown; tab?: unknown }): SearchSegment | null {
+  if (isSearchSegment(params.segment)) {
+    return params.segment;
+  }
+  if (params.tab === 'binders') {
+    return 'binders';
+  }
+  if (params.tab === 'collectors' || params.tab === 'cards') {
+    return 'cards';
+  }
+  return null;
 }

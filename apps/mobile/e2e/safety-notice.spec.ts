@@ -55,7 +55,7 @@ test.describe('mobile trading safety', () => {
     // The composer is never blocked by the tip.
     const reply = `How much with shipping? ${suffix()}`;
     await thread.getByLabel('Message', { exact: true }).fill(reply);
-    await thread.getByRole('button', { name: 'Send message' }).click();
+    await thread.getByRole('button', { name: 'Send', exact: true }).click();
     await expect(thread.getByText(reply)).toBeVisible({ timeout: 30_000 });
     await expect(tip).toBeVisible();
 
@@ -70,7 +70,7 @@ test.describe('mobile trading safety', () => {
     await expect(tip).toBeVisible({ timeout: 30_000 });
 
     // Report and Block live in the conversation menu.
-    await page.getByTestId('conversation-menu').click(); // in the navigation header
+    await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-report').click();
     const report = screen(page, 'report');
     await expect(report.getByTestId('report-target')).toHaveText(ben.displayName, {
@@ -78,20 +78,20 @@ test.describe('mobile trading safety', () => {
     });
     await page.goBack();
     await expect(tip).toBeVisible({ timeout: 30_000 });
-    await page.getByTestId('conversation-menu').click(); // in the navigation header
+    await page.getByTestId('conversation-menu').click();
     await page.getByTestId('conversation-block').click();
     const dialog = page.getByTestId('block-dialog');
-    await expect(dialog).toContainText(`Block ${ben.displayName}?`);
+    await expect(dialog).toContainText(`Block ${ben.handle}?`);
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toBeHidden();
     expect(await apiMyBlocks(request, ada)).toEqual([]);
 
-    // Not dismissed: still at the start of the chat after a reload. (Reload on the Map tab, `/`:
+    // Not dismissed: still at the start of the chat after a reload. (Reload on Search, `/search`:
     // the static export serves no page for `/messages` or a thread.)
     await page.goBack();
     await expect(screen(page, 'messages')).toBeVisible({ timeout: 30_000 });
-    await openTab(page, 'Map');
-    await expect(page).toHaveURL(/\/$/);
+    await openTab(page, 'Search');
+    await expect(page).toHaveURL(/\/search$/);
     await page.reload();
     await openTab(page, 'Messages');
     await screen(page, 'messages').getByTestId(`conversation-row-${ben.handle}`).click();

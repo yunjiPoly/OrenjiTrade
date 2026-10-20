@@ -4,11 +4,12 @@
 // GET /api/v1/binders when a binder is expected).
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, EXPECT_COUNT, and optionally
-// EXPECT_QUANTITY, EXPECT_AVAILABILITY, EXPECT_FINISH, EXPECT_PRICE_TEXT (the asking price as
-// typed), EXPECT_PRICE (its amount, or "null"), EXPECT_CONDITION_STATED, EXPECT_IMAGES (the number
-// of photos), EXPECT_IMAGE_SIZE (each photo's "<width>x<height>": the flow's fictional picture, not
-// another photo of the device), EXPECT_VISIBILITY (of the only item), EXPECT_BINDER (its binder's
-// name) and EXPECT_BINDER_VISIBILITY (that binder's visibility).
+// EXPECT_QUANTITY, EXPECT_AVAILABILITY, EXPECT_FINISH, EXPECT_PRICE_TEXT (the asking price text the
+// card saved: "$12.50" or "85% TCG" since the price switch of 2026-10-16), EXPECT_PRICE (its
+// amount, or "null"), EXPECT_CONDITION_STATED, EXPECT_IMAGES (the number of photos),
+// EXPECT_IMAGE_SIZE (each photo's "<width>x<height>": the flow's fictional picture, not another
+// photo of the device), EXPECT_VISIBILITY (of the only item), EXPECT_BINDER (its binder's name) and
+// EXPECT_BINDER_VISIBILITY (that binder's visibility).
 // Outputs: output.inventory.{count}.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';

@@ -19,7 +19,7 @@ tags:
       PASSWORD: ${output.ada.password}
 - extendedWaitUntil:
     visible:
-      id: 'tab-index'
+      id: 'tab-search'
     timeout: 60000
 
 # Bo's profile (deep link, like a shared https://www.orenjitrade.com/collectors/<handle>).

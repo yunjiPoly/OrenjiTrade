@@ -7,8 +7,9 @@ import org.jspecify.annotations.Nullable;
  * Notification types (Phase 6 contract). Each type belongs to a preference category (channels per
  * category in {@code notification_preferences}); {@link #WISHLIST_ALERT} has its own on/off switch
  * instead ({@code wishlistAlerts}: in-app and push, never email; stage S2); {@link #SYSTEM} notices
- * are in-app only and not configurable. Types with a daily limit key are counted per UTC day
- * against that usage limit ({@code usage_limit}, ADR 0014; the same for every collector).
+ * and {@link #SALE_RECORDED} (stage R4) are in-app only and not configurable. Types with a daily
+ * limit key are counted per UTC day against that usage limit ({@code usage_limit}, ADR 0014; the
+ * same for every collector).
  */
 @Schema(name = "NotificationType")
 public enum NotificationType {
@@ -33,6 +34,12 @@ public enum NotificationType {
     /** A dispute of a protected trade changed: opened, evidence, messages, hold, decision. */
     DISPUTE_UPDATE(NotificationCategory.TRADE, null),
     REPORT_DECISION(NotificationCategory.REPORT_DECISION, null),
+    /**
+     * The seller marked the chat's card or deck core as sold to the recipient (stage R4, Mark as
+     * sold): in-app only and not configurable, like SYSTEM notices; it opens the chat. Withdrawn
+     * when the seller undoes the sale.
+     */
+    SALE_RECORDED(null, null),
     SYSTEM(null, null);
 
     private final @Nullable NotificationCategory category;

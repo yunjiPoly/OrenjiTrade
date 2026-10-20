@@ -39,10 +39,12 @@ import {
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
 import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/inventoryUiStore';
 import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
+import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
 import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { useAddCardsScanRows } from '@/src/features/scan/useAddCardsScanRows';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
+import { useAppStore } from '@/src/store';
 import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
 type Step = 'start' | 'typing' | 'printing' | 'details';
@@ -52,11 +54,12 @@ type Params = { cardId?: string; printingId?: string; binderId?: string };
 /**
  * Adding cards (owner spec 2026-10-14, section 6, mockup screens 3 to 6): Add cards (the search
  * first, the two imports, the camera "Coming later") → typing (cards and exact printings) →
- * Choose the printing → Add to inventory (copies, the asking price as typed, who can see it, the
- * binder, the public note and up to four photos). The card is created first, then its photos are
- * uploaded: a photo that fails keeps the card and opens Edit card with "Try again". Saving goes
- * back with "Saved · {card}" and "View". Opened from a binder (preselected) or a card page (card
- * and printing preselected) too.
+ * Choose the printing → Add to inventory (copies, the asking price in "$" or "% TCG", who can see
+ * it, the binder, the public note and up to four photos). The price starts in the mode used last
+ * on this phone ("$" the first time), remembered when a card is added with a price. The card is
+ * created first, then its photos are uploaded: a photo that fails keeps the card and opens Edit
+ * card with "Try again". Saving goes back with "Saved · {card}" and "View". Opened from a binder
+ * (preselected) or a card page (card and printing preselected) too.
  */
 export default function AddCardsScreen() {
   const params = useLocalSearchParams<Params>();
@@ -73,7 +76,11 @@ export default function AddCardsScreen() {
   const [detailsFrom, setDetailsFrom] = useState<'printing' | 'typing' | 'link'>(
     params.printingId ? 'link' : 'printing'
   );
-  const [form, setForm] = useState<CardFormValue>(() => newCardForm(params.binderId || null));
+  // The mode of the price used last on this phone (owner change of 2026-10-16).
+  const updatePrefs = useAppStore((state) => state.updatePrefs);
+  const [form, setForm] = useState<CardFormValue>(() =>
+    newCardForm(params.binderId || null, useAppStore.getState().prefs.priceMode ?? 'usd')
+  );
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [errors, setErrors] = useState<CardFormErrors>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -216,6 +223,9 @@ export default function AddCardsScreen() {
     }
     setSaving(false);
     markSaved(created.id);
+    if (askingPriceTextOf(form.priceMode, form.price)) {
+      updatePrefs({ priceMode: form.priceMode });
+    }
     const name = created.card.name;
     if (failed.length > 0) {
       // The card is kept; its Edit card opens on the photos that were not saved, with "Try

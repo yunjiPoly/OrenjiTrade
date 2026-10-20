@@ -7,6 +7,7 @@ import EditCardScreen from '@/app/items/[id]';
 import AddCardsScreen from '@/app/items/new';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
+import { useAppStore } from '@/src/store';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -270,7 +271,7 @@ describe('Add cards (screens 3 and 4)', () => {
 });
 
 describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
-  it('adds a card with a text price, a binder, a note and a photo, then says Saved with View', async () => {
+  it('adds a card with a price in % TCG, a binder, a note and a photo, then says Saved with View', async () => {
     libraryPick('front.jpg');
     let created = false;
     const api = mockApi(
@@ -312,7 +313,16 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     expect(screen.getByTestId('card-header-code')).toHaveTextContent('SVX-001 · Stellar Vortex');
     expect(screen.getByTestId('card-header-variant')).toHaveTextContent('French · Reverse holo');
     expect(screen.getByTestId('card-quantity').props.value).toBe('1');
-    expect(screen.getByTestId('card-price').props.placeholder).toBe('85% TCG or 12.50');
+    // The price: "$" the first time, with its keyboard, placeholder and hint.
+    expect(screen.getByLabelText('Price in')).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Dollars' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).not.toBeChecked();
+    expect(screen.getByTestId('card-price').props.placeholder).toBe('12.50');
+    expect(screen.getByTestId('card-price').props.keyboardType).toBe('decimal-pad');
+    expect(screen.getByLabelText('Asking price in dollars')).toBeOnTheScreen();
+    expect(screen.getByTestId('card-price-hint')).toHaveTextContent(
+      'Leave it empty to agree on a price in the chat.'
+    );
     expect(screen.getByRole('radio', { name: 'Private' })).toBeChecked();
     expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
       'Only you see it until you make it public.'
@@ -344,7 +354,22 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'One more' }));
     expect(screen.getByTestId('card-quantity').props.value).toBe('2');
-    fireEvent.changeText(screen.getByTestId('card-price'), '85% TCG');
+    // "% TCG": the number pad, "85", the hint of the mode.
+    fireEvent.changeText(screen.getByTestId('card-price'), '12');
+    fireEvent.press(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' }));
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    // Switching clears the number: 12 % is not $12.
+    expect(screen.getByTestId('card-price').props.value).toBe('');
+    expect(screen.getByTestId('card-price').props.placeholder).toBe('85');
+    expect(screen.getByTestId('card-price').props.keyboardType).toBe('number-pad');
+    expect(
+      screen.getByLabelText('Asking price in percent of the TCGplayer price')
+    ).toBeOnTheScreen();
+    expect(screen.getByTestId('card-price-hint')).toHaveTextContent(
+      'Percent of the TCGplayer market price.'
+    );
+    fireEvent.changeText(screen.getByTestId('card-price'), '85%');
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
     fireEvent.press(screen.getByRole('radio', { name: 'Public' }));
     expect(screen.getByTestId('card-visibility-hint')).toHaveTextContent(
       'Collectors in Americas (North) can find it.'
@@ -364,6 +389,8 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
 
     fireEvent.press(screen.getByTestId('add-item-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    // The mode is remembered on this phone for the next card.
+    expect(useAppStore.getState().prefs.priceMode).toBe('pct');
     expect(api.callsTo('POST /api/v1/inventory/items')[0]?.body).toEqual({
       printingId: PRINTING_B,
       quantity: 2,
@@ -555,18 +582,88 @@ describe('Choose the printing and Add to inventory (screens 5 and 6)', () => {
     await screen.findByTestId('card-header-name');
     expect(screen.getByRole('button', { name: 'Binder: Trade binder' })).toBeOnTheScreen();
     fireEvent.changeText(screen.getByTestId('card-quantity'), '0');
-    fireEvent.changeText(screen.getByTestId('card-price'), 'x'.repeat(41));
+    fireEvent.changeText(screen.getByTestId('card-price'), '12.505');
     fireEvent.press(screen.getByTestId('add-item-submit'));
     expect(await screen.findByText('Check the highlighted fields.')).toBeOnTheScreen();
     expect(screen.getByText('At least 1 copy.')).toBeOnTheScreen();
-    expect(screen.getByText('At most 40 characters.')).toBeOnTheScreen();
+    expect(screen.getByTestId('card-price-error')).toHaveTextContent(
+      'Use at most 2 decimals, like 12.50.'
+    );
     expect(api.callsTo('POST /api/v1/inventory/items')).toHaveLength(0);
+    // Each wrong value says why, and blocks the add.
+    for (const [typed, message] of [
+      ['0', 'Enter more than $0, or leave it empty.'],
+      ['100000', 'At most $99,999.99.'],
+      ['1,250.00', 'Enter an amount like 12.50.'],
+    ] as const) {
+      fireEvent.changeText(screen.getByTestId('card-price'), typed);
+      expect(screen.queryByTestId('card-price-error')).toBeNull();
+      fireEvent.press(screen.getByTestId('add-item-submit'));
+      expect(await screen.findByTestId('card-price-error')).toHaveTextContent(message);
+    }
+    fireEvent.press(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' }));
+    // The switch clears the number, and its error with it.
+    expect(screen.queryByTestId('card-price-error')).toBeNull();
+    fireEvent.changeText(screen.getByTestId('card-price'), '201');
+    fireEvent.press(screen.getByTestId('add-item-submit'));
+    expect(await screen.findByTestId('card-price-error')).toHaveTextContent(
+      'Enter a percent from 1 to 200.'
+    );
+    expect(api.callsTo('POST /api/v1/inventory/items')).toHaveLength(0);
+    fireEvent.press(screen.getByRole('radio', { name: 'Dollars' }));
 
     fireEvent.changeText(screen.getByTestId('card-quantity'), '1');
-    fireEvent.changeText(screen.getByTestId('card-price'), '12');
+    fireEvent.changeText(screen.getByTestId('card-price'), '12,5');
     fireEvent.press(screen.getByTestId('add-item-submit'));
     expect(await screen.findByText('must be at most 40 characters')).toBeOnTheScreen();
     expect(screen.getByTestId('add-item-error')).toBeOnTheScreen();
+    // Written one way, the comma read as the decimal point.
+    expect(api.callsTo('POST /api/v1/inventory/items')[0]?.body).toMatchObject({
+      askingPriceText: '$12.50',
+    });
+    // Refused by the server: nothing is remembered.
+    expect(useAppStore.getState().prefs.priceMode).toBeNull();
+  });
+
+  it('starts a new card in the price mode used last on this phone', async () => {
+    useAppStore.getState().updatePrefs({ priceMode: 'pct' });
+    mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'POST /api/v1/inventory/items': ok(itemFixture(), 201),
+      })
+    );
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.placeholder).toBe('85');
+    // Back to "$", with a price: "$" is the mode used last from now on.
+    fireEvent.press(screen.getByRole('radio', { name: 'Dollars' }));
+    fireEvent.changeText(screen.getByTestId('card-price'), '3');
+    fireEvent.press(screen.getByTestId('add-item-submit'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/inventory/items')[0]?.body).toMatchObject({
+      askingPriceText: '$3.00',
+    });
+    expect(useAppStore.getState().prefs.priceMode).toBe('usd');
+  });
+
+  it('keeps Copies on its own row above the price', async () => {
+    mockParams.current = { cardId: CARD_ID, printingId: PRINTING_A };
+    mockApi(signedInRoutes({ 'GET /api/v1/cards/{id}': ok(cardDetailFixture()) }));
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    const order = screen
+      .getAllByText(/^(Copies|Asking price|Who can see it)$/)
+      .map((node) => node.props.children);
+    expect(order).toEqual(['Copies', 'Asking price', 'Who can see it']);
+    // The label and the stepper share one row; the price is not beside it any more.
+    const row = screen.getByTestId('card-copies');
+    expect(row).toHaveStyle({ flexDirection: 'row', justifyContent: 'space-between' });
+    expect(within(row).getByText('Copies')).toBeOnTheScreen();
+    expect(within(row).getByTestId('card-quantity-more')).toBeOnTheScreen();
+    expect(within(row).queryByTestId('card-price')).toBeNull();
   });
 
   it('explains a reached limit as a plain cap', async () => {
@@ -665,7 +762,10 @@ describe('Edit card (screen 7)', () => {
       'You are hidden from the map, so nobody can find it yet. Turn on “Show me on the map” in Settings › Location.'
     );
     expect(screen.getByTestId('card-quantity').props.value).toBe('2');
-    expect(screen.getByTestId('card-price').props.value).toBe('85% TCG');
+    // "85% TCG" reads back as "% TCG" with 85.
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
+    expect(screen.queryByTestId('card-price-was')).toBeNull();
     expect(screen.getByRole('radio', { name: 'Public' })).toBeChecked();
     expect(screen.getByTestId('card-note').props.value).toBe('Sleeved.');
     const save = screen.getByTestId('edit-item-save');
@@ -681,7 +781,7 @@ describe('Edit card (screen 7)', () => {
     expect(screen.getByTestId('edit-item-save')).toBeDisabled();
 
     fireEvent.press(screen.getByRole('button', { name: 'One more' }));
-    fireEvent.changeText(screen.getByTestId('card-price'), '90% TCG');
+    fireEvent.changeText(screen.getByTestId('card-price'), '90');
     fireEvent.press(screen.getByTestId('edit-item-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
@@ -1133,6 +1233,183 @@ describe('Edit card (screen 7)', () => {
       `/api/v1/inventory/items/${ITEM_ID}/restore`
     );
     expect(useInventoryUiStore.getState().lastSavedId).toBe(ITEM_ID);
+  });
+
+  it('keeps an old text as "Was:" on a save that leaves the price, and replaces it once typed', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: 'Trade only', askingPrice: null })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    const { unmount } = renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    // "$" mode, empty, with the old text under the field.
+    expect(screen.getByRole('radio', { name: 'Dollars' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('');
+    expect(screen.getByTestId('card-price-was')).toHaveTextContent('Was: Trade only');
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+    // A switch alone types nothing: still no change, the text stays.
+    fireEvent.press(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' }));
+    expect(screen.getByTestId('card-price-was')).toHaveTextContent('Was: Trade only');
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+    fireEvent.press(screen.getByRole('radio', { name: 'Dollars' }));
+    // Saved without touching the price: the text is kept.
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      quantity: 3,
+      confirm: true,
+    });
+    // Nothing typed: no mode to remember.
+    expect(useAppStore.getState().prefs.priceMode).toBeNull();
+    unmount();
+
+    // Typed: the price replaces it, and "Was:" goes.
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    fireEvent.changeText(screen.getByTestId('card-price'), '7');
+    expect(screen.queryByTestId('card-price-was')).toBeNull();
+    // Cleared: no price at all.
+    fireEvent.changeText(screen.getByTestId('card-price'), '');
+    expect(screen.getByTestId('edit-item-save')).toBeEnabled();
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')).toHaveLength(2));
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[1]?.body).toEqual({
+      askingPriceText: null,
+      confirm: true,
+    });
+  });
+
+  it('reads an old amount as "$", clears the number on a switch, and an error blocks Save', async () => {
+    useAppStore.getState().updatePrefs({ priceMode: 'pct' });
+    const api = mockApi(
+      signedInRoutes({
+        // A card priced on the paused web: an amount, no text.
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: null, askingPrice: 40 })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Dollars' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('40.00');
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+    fireEvent.press(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' }));
+    expect(screen.getByTestId('card-price').props.value).toBe('');
+    expect(screen.getByTestId('card-price-hint')).toHaveTextContent(
+      'Percent of the TCGplayer market price.'
+    );
+    fireEvent.changeText(screen.getByTestId('card-price'), '250');
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    expect(await screen.findByTestId('card-price-error')).toHaveTextContent(
+      'Enter a percent from 1 to 200.'
+    );
+    expect(screen.getByText('Check the highlighted fields.')).toBeOnTheScreen();
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')).toHaveLength(0);
+    fireEvent.changeText(screen.getByTestId('card-price'), '120');
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      askingPriceText: '120% TCG',
+      confirm: true,
+    });
+  });
+
+  it('opens a card without a price in the mode used last', async () => {
+    useAppStore.getState().updatePrefs({ priceMode: 'pct' });
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: null, askingPrice: null })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('');
+    // The mode alone is no change.
+    fireEvent.press(screen.getByRole('radio', { name: 'Dollars' }));
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+  });
+
+  it('remembers the mode only when a price is saved, not a price left as it was (fix round 1)', async () => {
+    // The last price typed on this phone was in "$".
+    useAppStore.getState().updatePrefs({ priceMode: 'usd' });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: '85% TCG', askingPrice: null, quantity: 1 })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    const { unmount } = renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
+    // Only the copies change: the price read back is no price typed in "% TCG".
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      quantity: 2,
+      confirm: true,
+    });
+    expect(useAppStore.getState().prefs.priceMode).toBe('usd');
+    unmount();
+
+    // A new price typed in "% TCG" and saved: the next card starts in "% TCG".
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    fireEvent.changeText(screen.getByTestId('card-price'), '90');
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')).toHaveLength(2));
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[1]?.body).toEqual({
+      askingPriceText: '90% TCG',
+      confirm: true,
+    });
+    await waitFor(() => expect(useAppStore.getState().prefs.priceMode).toBe('pct'));
+  });
+
+  it('writes an old price the one way on a save that leaves it, as no change of its own (fix round 2)', async () => {
+    useAppStore.getState().updatePrefs({ priceMode: 'usd' });
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items/{id}': ok(
+          itemFixture({ askingPriceText: '85 % tcg', askingPrice: null, quantity: 1 })
+        ),
+        'GET /api/v1/cards/{id}': ok(cardDetailFixture()),
+        'PATCH /api/v1/inventory/items/{id}': ok(itemFixture()),
+      })
+    );
+    renderWithProviders(<EditCardScreen />, { port: port() });
+    await screen.findByTestId('card-header-name');
+    expect(screen.getByRole('radio', { name: 'Percent of the TCGplayer price' })).toBeChecked();
+    expect(screen.getByTestId('card-price').props.value).toBe('85');
+    // Read back and left: no change by itself.
+    expect(screen.getByTestId('edit-item-save')).toBeDisabled();
+    // Only the copies change: the save writes "85% TCG" with them.
+    fireEvent.press(screen.getByRole('button', { name: 'One more' }));
+    fireEvent.press(screen.getByTestId('edit-item-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('PATCH /api/v1/inventory/items/{id}')[0]?.body).toEqual({
+      quantity: 2,
+      askingPriceText: '85% TCG',
+      confirm: true,
+    });
+    // No price was typed: the mode used last stays "$".
+    expect(useAppStore.getState().prefs.priceMode).toBe('usd');
   });
 
   it('says when the card is gone, and shows errors with retry', async () => {

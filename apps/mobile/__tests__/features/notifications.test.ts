@@ -53,9 +53,16 @@ describe('notification kinds', () => {
     );
     // Without a printing, "any printing" is said explicitly (the screen picks none itself).
     expect(link('WISHLIST_ALERT', { cardId: 'c1' })).toBe('/cards/c1?printing=any');
-    expect(link('WISHLIST_ALERT', { cardId: '../x' })).toBe('/wishlist');
+    expect(link('WISHLIST_ALERT', { cardId: '../x' })).toBe('/search?segment=wishlist');
     expect(link('MESSAGE', { conversationId: 'c1' })).toBe('/messages/c1');
     expect(link('MESSAGE', {})).toBe('/messages');
+    // Stage R4: "{seller} marked {card} as sold to you" opens the chat.
+    expect(link('SALE_RECORDED', { conversationId: 'c1', saleId: 's1' })).toBe('/messages/c1');
+    expect(notificationKind({ type: 'SALE_RECORDED', data: {} })).toEqual({
+      icon: 'package-variant-closed',
+      tone: 'trade',
+      label: 'Sold to you',
+    });
     expect(link('BINDER_HIDDEN', { binderId: 'b1' })).toBe('/inventory?binder=b1');
     expect(link('OFFER_RECEIVED', { offerId: 'o1' })).toBe('/offers/o1');
     expect(link('OFFER_ACCEPTED', { offerId: 'o1', tradeId: 't1' })).toBe('/trades/t1');
@@ -65,7 +72,7 @@ describe('notification kinds', () => {
     // notice's `upgradeUrl` is ignored and an old `deepLink` to Premium says the app is free.
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED' })).toBe('/notifications');
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' })).toBe(
-      '/wishlist'
+      '/search?segment=wishlist'
     );
     expect(link('SYSTEM', { kind: 'LIMIT_REACHED', upgradeUrl: '/premium' })).toBe(
       '/notifications'
@@ -82,7 +89,10 @@ describe('notification kinds', () => {
 
   it('maps web paths to app screens, with a note for the settings that stay on the web', () => {
     // The matches screen is gone (stage S2): an old wish link opens the list.
-    expect(mobileTarget('/wishlist/w1')).toEqual({ kind: 'route', href: '/wishlist' });
+    expect(mobileTarget('/wishlist/w1')).toEqual({
+      kind: 'route',
+      href: '/search?segment=wishlist',
+    });
     // A wishlist alert's card page keeps the wish's printing or rarity.
     expect(mobileTarget(`/cards/${CARD_ID}?printing=p1`)).toEqual({
       kind: 'route',
@@ -127,7 +137,16 @@ describe('notification kinds', () => {
       kind: 'route',
       href: '/legal/community-guidelines',
     });
-    expect(mobileTarget('/map')).toEqual({ kind: 'route', href: '/' });
+    // The Map tab is Search's default view since stage R5, on the region and state of the link.
+    expect(mobileTarget('/map')).toEqual({ kind: 'route', href: '/search' });
+    expect(mobileTarget('/map?region=europe&subdivision=FR-IDF')).toEqual({
+      kind: 'route',
+      href: '/search?region=europe&subdivision=FR-IDF',
+    });
+    expect(mobileTarget('/map?region=../x&subdivision=<b>')).toEqual({
+      kind: 'route',
+      href: '/search',
+    });
     // Phase 7 screens (mobile stage M5).
     expect(mobileTarget('/settings/reports')).toEqual({ kind: 'route', href: '/settings/reports' });
     // Offers, trades, disputes, offer settings and payouts left the phone (ADR 0018): no screen
@@ -155,17 +174,30 @@ describe('notification kinds', () => {
     // A settings page the app does not have stays a website note.
     const unknown = mobileTarget('/settings/something-new');
     expect(unknown.kind === 'note' && unknown.note).toMatch(/orenjitrade\.com/);
-    // The web's holders view and the search tabs map to the app's screens.
+    // The web's holders view is the card page, Who has this card, since stage R5; a printing
+    // alone is looked up by /holders first; the search tabs map to Search's segments.
     expect(mobileTarget('/search?card=00000000-0000-4000-8a00-000000000001')).toEqual({
       kind: 'route',
-      href: '/holders?card=00000000-0000-4000-8a00-000000000001',
+      href: '/cards/00000000-0000-4000-8a00-000000000001',
+    });
+    expect(
+      mobileTarget(
+        '/search?card=00000000-0000-4000-8a00-000000000001&printing=00000000-0000-4000-8a10-00000000000a'
+      )
+    ).toEqual({
+      kind: 'route',
+      href: '/cards/00000000-0000-4000-8a00-000000000001?printing=00000000-0000-4000-8a10-00000000000a',
     });
     expect(
       mobileTarget('/search?printing=00000000-0000-4000-8a10-00000000000a&sort=price')
     ).toEqual({ kind: 'route', href: '/holders?printing=00000000-0000-4000-8a10-00000000000a' });
     expect(mobileTarget('/search?q=fox&tab=collectors')).toEqual({
       kind: 'route',
-      href: '/search?tab=collectors',
+      href: '/search',
+    });
+    expect(mobileTarget('/search?tab=binders')).toEqual({
+      kind: 'route',
+      href: '/search?segment=binders',
     });
     expect(mobileTarget('/sets/00000000-0000-4000-8a20-000000000001')).toEqual({
       kind: 'route',

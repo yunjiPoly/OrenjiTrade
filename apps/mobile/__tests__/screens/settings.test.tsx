@@ -7,7 +7,9 @@ import SettingsScreen from '@/app/settings/index';
 import LocationSettingsScreen from '@/app/settings/location';
 import NotificationSettingsScreen from '@/app/settings/notifications';
 import PrivacySettingsScreen from '@/app/settings/privacy';
+import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import ProfileSettingsScreen from '@/app/settings/profile';
+import { savedDetailKey } from '@/src/features/shipping/savedDetails';
 import { useAppStore } from '@/src/store/useAppStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -51,6 +53,7 @@ describe('Settings home', () => {
       'Profile',
       'Location and discoverability',
       'Privacy',
+      'Shipping details',
       'Notifications',
       'Blocked users',
       'My reports',
@@ -67,6 +70,8 @@ describe('Settings home', () => {
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/notifications');
     fireEvent.press(screen.getByRole('link', { name: 'My reports' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/reports');
+    fireEvent.press(screen.getByRole('link', { name: 'Shipping details' }));
+    expect(mockRouter.push).toHaveBeenCalledWith('/settings/shipping');
     fireEvent.press(screen.getByTestId('settings-sign-out'));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
   });
@@ -273,6 +278,24 @@ describe('Settings → Privacy', () => {
   });
 });
 
+describe('Settings → Privacy › Remember my searches (stage R5)', () => {
+  it('is on by default; off clears the recent searches of this phone and stops them', async () => {
+    useRecentSearchesStore.setState({ byUser: { 'uid-maika': ['ash'] }, forgetting: {} });
+    const api = mockApi(signedInRoutes());
+    renderWithProviders(<PrivacySettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    const remember = await screen.findByRole('switch', { name: 'Remember my searches' });
+    expect(remember).toBeChecked();
+    fireEvent.press(remember);
+    expect(screen.getByRole('switch', { name: 'Remember my searches' })).not.toBeChecked();
+    expect(useRecentSearchesStore.getState().byUser['uid-maika']).toBeUndefined();
+    expect(useRecentSearchesStore.getState().forgetting['uid-maika']).toBe(true);
+    // A setting of this phone only: nothing is sent to the server.
+    expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
+    fireEvent.press(screen.getByRole('switch', { name: 'Remember my searches' }));
+    expect(useRecentSearchesStore.getState().forgetting['uid-maika']).toBeUndefined();
+  });
+});
+
 describe('Settings → Notifications', () => {
   it('saves channel and topic preferences', async () => {
     const api = mockApi(
@@ -304,6 +327,8 @@ describe('Settings → Notifications', () => {
       typeof notificationsFixture
     >;
     expect(body.emailEnabled).toBe(false);
+    // The wishlist alerts switch reaches the server too (it did not before stage R5).
+    expect(body.wishlistAlerts).toBe(true);
     expect(body.categories.MESSAGE).toEqual({ inApp: true, push: true, email: true });
     // Offers and trades left the phone (ADR 0018): no row under any label, and the stored
     // values go back unchanged.
@@ -430,6 +455,12 @@ describe('Settings → Delete account', () => {
   });
 
   it('re-authenticates, then files the request (the gate shows the pending screen)', async () => {
+    // The saved shipping details of this account, and those of another account on this phone.
+    const secureStore = (require('expo-secure-store') as { mockStore: Map<string, string> })
+      .mockStore;
+    secureStore.set(savedDetailKey('address', 'uid-maika'), '1 Rue Exemple');
+    secureStore.set(savedDetailKey('etransfer', 'uid-maika'), 'maika@example.com');
+    secureStore.set(savedDetailKey('address', 'uid-other'), '2 Rue Autre');
     const port = new FakeAuthPort(testUser());
     const api = mockApi(
       signedInRoutes({
@@ -447,6 +478,13 @@ describe('Settings → Delete account', () => {
       exportFirst: false,
     });
     expect(exportMock()).not.toHaveBeenCalled();
+    // The account's saved address and e-Transfer email leave the phone with it (review fix 1,
+    // P3); another account's stay.
+    await waitFor(() =>
+      expect(secureStore.has(savedDetailKey('address', 'uid-maika'))).toBe(false)
+    );
+    expect(secureStore.has(savedDetailKey('etransfer', 'uid-maika'))).toBe(false);
+    expect(secureStore.get(savedDetailKey('address', 'uid-other'))).toBe('2 Rue Autre');
   });
 
   it('confirms with Google for an account without a password', async () => {

@@ -1,5 +1,10 @@
 # Phase 5 contract — private messaging, realtime, public community chat, blocking
 
+> **Stage R4 (2026-10-15):** a conversation has a subject (the card or deck core it is about),
+> `GET /conversations/{id}`, `POST /conversations` with `subjectItemId` / `subjectBinderId`, a
+> `CARD_LINK` of one's own card (`inventoryItemId`), the participant's place, and the SYSTEM sale
+> messages of Mark as sold: see [r4-messages-sales.md](r4-messages-sales.md).
+
 All under `/api/v1`, authenticated. Trading-focused messaging only.
 
 ## Tables
@@ -33,7 +38,9 @@ STOMP over WebSocket at `/ws` (SockJS fallback off; native WS). Handshake auth: 
 header or `?access_token=` (ID token) validated by the same `IdentityTokenVerifier`.
 Subscriptions (server-enforced ownership): `/user/queue/messages` (new MessageResponse +
 conversationId), `/user/queue/receipts` (`{conversationId, userId, lastReadMessageId}`),
-`/user/queue/notifications` (Phase 6), `/user/queue/presence`. Client sends `/app/typing`
+`/user/queue/notifications` (Phase 6), `/user/queue/presence`, `/user/queue/conversations`
+(stage R4: `{conversationId}` when the chat's card or deck core was pinned, see
+[r4-messages-sales.md](r4-messages-sales.md)). Client sends `/app/typing`
 `{conversationId}` → other participant receives `/user/queue/typing`. Cross-instance fan-out:
 `RealtimePublisher` publishes to Redis channel `rt:user:{userId}`; every instance subscribes
 and forwards to local sessions. Presence: Redis key `presence:{userId}` TTL 60 s refreshed by
@@ -53,7 +60,10 @@ heartbeat; exposed only when `showOnlineStatus`.
 `ModerationService.check(scope, text, authorId)` applies active `moderation_rule`s (banned
 terms → FLAG or BLOCK), per-user rate thresholds (Redis), and repeated-content detection;
 BLOCK returns `422 MESSAGE_BLOCKED`/`POST_BLOCKED`; FLAG stores a `moderation_flag` for review.
-No automatic permanent bans; thresholds create flags/strikes only.
+No automatic permanent bans; thresholds create flags/strikes only. Stage R4 (review fix 1): the
+ten fixed quick replies of the phone's chat (`messaging.domain.QuickReplies`, the same texts as
+`QUICK_REPLIES` in the phone's `chatCopy.ts`), sent as TEXT exactly, skip the repeated-content
+thresholds only; rate limits and banned terms apply to them like any message.
 
 ## Web
 

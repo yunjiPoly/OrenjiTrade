@@ -11,14 +11,16 @@ import { useBrowsingRegion } from './browsingRegion';
 export interface RegionBarProps {
   /**
    * `bar` (default): the switcher with the region's name, and the "not your region" line under
-   * it. `header`: a round button for a navigation header, on a screen whose own texts already
-   * name the region.
+   * it (Search's list of states for screen readers). `pill`: the switcher alone over the map of
+   * Search, the globe and the region's name without "Region:" (mockup screen 11; a screen reader
+   * still hears it). The accent colour says when another region than the collector's is shown;
+   * the line is `RegionAwayNote`, under the field.
    */
-  variant?: 'bar' | 'header';
+  variant?: 'bar' | 'pill';
   /**
-   * The bar stays on screen above a list that scrolls under it (the Search tab): its texts follow
-   * the system text size only a little, so the bar stays a line or two at any size instead of
-   * taking the screen. Where the bar scrolls with the page (the Map tab) it follows it fully.
+   * The bar stays on screen above a list that scrolls under it: its texts follow the system text
+   * size only a little, so the bar stays a line or two at any size instead of taking the screen.
+   * Where the bar scrolls with the page it follows it fully.
    */
   pinned?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -50,14 +52,15 @@ export function RegionBar({
   }));
   const homeName = options.find((option) => option.value === home)?.label ?? regionName(home);
 
-  if (variant === 'header') {
+  if (variant === 'pill') {
     return (
       <SelectSheet
         compact
-        iconOnly
+        hideLabel
         label="Region"
         icon="earth"
         tone={away ? 'accent' : 'default'}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         options={options}
         value={region}
         onChange={select}
@@ -108,6 +111,46 @@ export function RegionBar({
           </Pressable>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/**
+ * "Not your region. Back to {home}" alone, while another region than the collector's is browsed
+ * (Search's map shows it under its field: the pill over the map has no room for it).
+ */
+export function RegionAwayNote({ testID = 'region-away' }: { testID?: string }) {
+  const { palette } = useTheme();
+  const { home, away, select } = useBrowsingRegion();
+  const homeName =
+    useRegionOptions().find((option) => option.code === home)?.name ?? regionName(home);
+  if (!away || !home) {
+    return null;
+  }
+  return (
+    <View style={styles.away} testID={testID}>
+      <Text
+        accessibilityLiveRegion="polite"
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        style={[textStyle('sm'), styles.strong, { color: palette.ink }]}
+      >
+        Not your region.
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Back to ${homeName}`}
+        onPress={() => select(home)}
+        hitSlop={8}
+        testID={`${testID}-home`}
+        style={({ pressed }) => [styles.back, pressed && styles.pressed]}
+      >
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[textStyle('sm'), styles.link, { color: palette.accent }]}
+        >
+          Back to {homeName}
+        </Text>
+      </Pressable>
     </View>
   );
 }
