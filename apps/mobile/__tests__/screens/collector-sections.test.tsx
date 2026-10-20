@@ -118,9 +118,10 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
     );
     renderWithProviders(<CollectorBindersScreen />, { port: port() });
     const core = await screen.findByTestId('collector-all-binder-core-1');
-    expect(
-      screen.getAllByTestId(/^collector-all-binder-/).map((row) => row.props.testID)
-    ).toEqual(['collector-all-binder-core-1', `collector-all-binder-${PUBLIC_BINDER_ID}`]);
+    expect(screen.getAllByTestId(/^collector-all-binder-/).map((row) => row.props.testID)).toEqual([
+      'collector-all-binder-core-1',
+      `collector-all-binder-${PUBLIC_BINDER_ID}`,
+    ]);
     expect(core).toHaveTextContent(/Yubel core.*Deck core · \$95/);
     expect(screen.getByTestId(`collector-all-binder-${PUBLIC_BINDER_ID}`)).toHaveTextContent(
       /Magic trades.*14 cards/
