@@ -19,11 +19,13 @@
 //   public PFT-002 copy at "$12.50") and Dana (in Quebec, city "Laval" shown on her profile,
 //   wishes shown: a public binder with a PFT-002 copy at "85% TCG", a deck core "Maestro profile
 //   core" at "$95", a wish for the card: any printing, Near Mint only, "90% TCG").
-//   Outputs: output.vic.{email, password, displayName}, output.dana.{handle, displayName},
-//            output.card.{id, name}, output.items.{dana, vic}
+//   Outputs: output.vic.{id, email, password, displayName},
+//            output.dana.{id, email, password, handle, displayName}, output.card.{id, name},
+//            output.items.{dana, vic}
 // ACTION=check-have checks, as EMAIL / PASSWORD, the chat with HANDLE: its card is ITEM (the card
 //   it was about before send, the copy sent after) and it holds EXPECT_COUNT messages (EXPECT_KIND
 //   among them, if any).
+// ACTION=block blocks, as EMAIL / PASSWORD, the collector whose id is TARGET.
 // ACTION=expect-blocks checks, as EMAIL / PASSWORD, that `GET /me/blocks` holds EXPECT_COUNT
 //   collectors (HANDLE among them when given).
 // ACTION=verify-email marks the e-mail of EMAIL / PASSWORD as verified in the emulator (a
@@ -31,7 +33,7 @@
 //   keeps the password when Google signs in with the same e-mail instead of replacing it.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
-// EXPECT_COUNT, HANDLE, ITEM, EXPECT_KIND.
+// EXPECT_COUNT, HANDLE, ITEM, EXPECT_KIND, TARGET.
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -333,8 +335,19 @@ if (action === 'looking-for') {
     { recipientId: dana.id, subjectItemId: danaCard.id },
     "POST /conversations (about Dana's card)"
   );
-  output.vic = { email: vic.email, password: vic.password, displayName: vic.displayName };
-  output.dana = { handle: dana.handle, displayName: dana.displayName };
+  output.vic = {
+    id: vic.id,
+    email: vic.email,
+    password: vic.password,
+    displayName: vic.displayName,
+  };
+  output.dana = {
+    id: dana.id,
+    email: dana.email,
+    password: dana.password,
+    handle: dana.handle,
+    displayName: dana.displayName,
+  };
   output.card = { id: wished.cardId, name: wished.cardName };
   output.items = { dana: danaCard.id, vic: vicCard.id };
 } else if (action === 'check-have') {
@@ -378,6 +391,14 @@ if (action === 'looking-for') {
       throw new Error('No ' + EXPECT_KIND + ' message: ' + JSON.stringify(thread));
     }
   }
+} else if (action === 'block') {
+  check(
+    http.post(api + '/api/v1/users/' + TARGET + '/block', {
+      headers: jsonHeaders(signIn(EMAIL, PASSWORD)),
+      body: '{}',
+    }),
+    'POST /users/{id}/block'
+  );
 } else if (action === 'expect-blocks') {
   var blocks = check(
     http.get(api + '/api/v1/me/blocks', { headers: jsonHeaders(signIn(EMAIL, PASSWORD)) }),

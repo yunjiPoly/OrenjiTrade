@@ -7,7 +7,9 @@
 # and the text in the box: nothing is sent and the chat's card stays hers until send; sent, it
 # shares the card and the text and his copy becomes the chat's card. Then Vic's Profile tab, its
 # gear opening Settings, and "See all" of the cards and of the binders leading to the Inventory,
-# twice for the binders (scripts/parity.js, ACTION=profiles and check-have).
+# twice for the binders. Last, the "See all" pages across a block, their titles in view: Vic blocks
+# Dana ("You blocked", Unblock), then Dana blocks Vic ("not available") (scripts/parity.js,
+# ACTION=profiles, check-have and block).
 appId: ${APP_ID}
 name: Profile pages and the Settings gear
 tags:
@@ -266,3 +268,62 @@ tags:
       id: 'binders-list'
     timeout: 30000
 - takeScreenshot: r6-see-all-binders-again
+
+# The "See all" pages across a block, their titles and texts on screen (iOS showed only a cut-off
+# icon and the button before review fix 2). Vic blocks Dana from the "⋯" sheet: her references
+# page says so, and Unblock brings her ratings back.
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-menu'
+    timeout: 60000
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-block'
+    timeout: 15000
+- tapOn:
+    id: 'collector-block'
+- extendedWaitUntil:
+    visible:
+      id: 'block-dialog'
+    timeout: 30000
+- tapOn:
+    id: 'block-dialog-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-blocked'
+    timeout: 60000
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}/references
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible: 'You blocked ${output.dana.handle}'
+    timeout: 60000
+- assertVisible: 'You blocked ${output.dana.handle}\. Unblock them to see their cards, .*'
+- takeScreenshot: r6-see-all-blocked-by-me
+- tapOn:
+    id: 'collector-references-page-blocked-action'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-ratings'
+    timeout: 60000
+
+# Dana blocks Vic: her "See all" pages are not available to him.
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: block
+      EMAIL: ${output.dana.email}
+      PASSWORD: ${output.dana.password}
+      TARGET: ${output.vic.id}
+- openLink: ${APP_URL}/--/collectors/${output.dana.handle}/cards
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible: 'This collector is not available'
+    timeout: 60000
+- assertVisible: 'The profile does not exist, is private, or is no longer active\.'
+- assertVisible:
+    id: 'collector-cards-page-not-found-action'
+- takeScreenshot: r6-see-all-not-available
