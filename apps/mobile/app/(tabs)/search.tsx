@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWishlist } from '@/src/api/hooks/wishlist';
 import { Text } from '@/src/components/ui/Text';
 import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
+import { GamePill } from '@/src/features/games/GamePill';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { placeCodeFrom } from '@/src/features/map/places';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
@@ -74,16 +76,18 @@ const LINK_KEYS: readonly (keyof SearchParams)[] = [
 
 /**
  * Search (owner spec 2026-10-14, sections 4 and 8; mockup screens 11 to 15): the title "Search"
- * with the bell, then the segments Cards | Binders | Wishlist (Wishlist with the number of wishes).
- * Cards opens on the region map (the old Map tab) and turns into the card search while a card is
- * typed; Binders lists the binders and deck cores of the region or of the state the map chose;
- * Wishlist is the old Wishlist tab. No Filters button and no counts beyond the map's and the
- * number of wishes.
+ * with the game pill and the bell, then the segments Cards | Binders | Wishlist (Wishlist with the
+ * number of wishes). Every segment shows the browsed game (stage G, one game at a time). Cards
+ * opens on the region map (the old Map tab) and turns into the card search while a card is typed;
+ * Binders lists the binders and deck cores of the region or of the state the map chose; Wishlist
+ * is the old Wishlist tab. No Filters button and no counts beyond the map's and the number of
+ * wishes.
  *
  * Links: `?segment=cards|binders|wishlist` (and the old `?tab=`), `?q=` and `?typing=1` (the card
- * search), `?region=` and `?subdivision=` (the old Map tab: the region browsed, the state shown),
- * `?segment=binders&place=` (the old public binders of a state). A link is used up once followed:
- * its parameters are cleared, so the same link opens the same place every time it is tapped.
+ * search), `?game=` (browses that game when it can be browsed), `?region=` and `?subdivision=`
+ * (the old Map tab: the region browsed, the state shown), `?segment=binders&place=` (the old
+ * public binders of a state). A link is used up once followed: its parameters are cleared, so the
+ * same link opens the same place every time it is tapped.
  */
 export default function SearchScreen() {
   const params = useLocalSearchParams<SearchParams>();
@@ -92,10 +96,11 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const { fontScale } = useWindowDimensions();
   const { select, knows, ready } = useBrowsingRegion();
+  const browsing = useBrowsingGame();
   const wishlist = useWishlist();
   const [segment, setSegment] = useState<SearchSegment>(() => segmentOfLink(params) ?? 'cards');
-  const [typing, setTyping] = useState<{ text: string; game: string | null } | null>(() =>
-    params.q || params.typing === '1' ? { text: params.q ?? '', game: params.game || null } : null
+  const [typing, setTyping] = useState<{ text: string } | null>(() =>
+    params.q || params.typing === '1' ? { text: params.q ?? '' } : null
   );
   const [state, setState] = useState<string | null>(() => placeCodeFrom(params.place));
   // The state a link names, on the region it names (applied once per link: `nonce`).
@@ -113,7 +118,7 @@ export default function SearchScreen() {
       const linkedSegment = segmentOfLink(params);
       if (params.q || params.typing === '1') {
         setSegment('cards');
-        setTyping({ text: params.q ?? '', game: params.game || null });
+        setTyping({ text: params.q ?? '' });
       } else if (linkedSegment) {
         setSegment(linkedSegment);
         if (linkedSegment === 'cards') {
@@ -133,6 +138,8 @@ export default function SearchScreen() {
     }
   }
   const linkedRegion = typeof params.region === 'string' ? params.region : undefined;
+  const linkedGame = typeof params.game === 'string' ? params.game : undefined;
+  const selectGame = browsing.select;
   useEffect(() => {
     if (!ready || link.replace(/\|/g, '') === '') {
       return;
@@ -140,14 +147,21 @@ export default function SearchScreen() {
     if (linkedRegion && isRegionCode(linkedRegion) && knows(linkedRegion)) {
       select(linkedRegion);
     }
+    // A link that names a game browses it (stage G), when it can be browsed.
+    if (linkedGame) {
+      selectGame(linkedGame);
+    }
     const cleared: Partial<SearchParams> = {};
     for (const key of LINK_KEYS) {
       cleared[key] = undefined;
     }
     navigation.setParams(cleared);
-  }, [knows, link, linkedRegion, navigation, ready, select]);
+  }, [knows, link, linkedGame, linkedRegion, navigation, ready, select, selectGame]);
 
-  const wishes = wishlist.data?.length ?? null;
+  // Search › Wishlist shows the browsed game's wishes (stage G), and so does its count.
+  const wishes = wishlist.data
+    ? wishlist.data.filter((wish) => wish.game === browsing.game).length
+    : null;
   const tabs = SEARCH_SEGMENTS.map((value) => ({
     value,
     label: segmentLabel(value),
@@ -170,16 +184,12 @@ export default function SearchScreen() {
     body = <WishlistSegment />;
   } else if (typing) {
     body = (
-      <CardTyping
-        initialText={typing.text}
-        initialGame={typing.game}
-        onCancel={() => setTyping(null)}
-      />
+      <CardTyping initialText={typing.text} onCancel={() => setTyping(null)} />
     );
   } else {
     body = (
       <SearchMap
-        onType={() => setTyping({ text: '', game: null })}
+        onType={() => setTyping({ text: '' })}
         onSeeBinders={(code) => {
           setState(code);
           setSegment('binders');
@@ -197,14 +207,17 @@ export default function SearchScreen() {
     >
       <View style={styles.top}>
         <View style={styles.titleRow}>
-          <Text
-            accessibilityRole="header"
-            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-            style={[styles.title, { color: palette.ink }]}
-            testID="search-title"
-          >
-            {SEARCH_COPY.title}
-          </Text>
+          <View style={styles.titleGroup}>
+            <Text
+              accessibilityRole="header"
+              maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+              style={[styles.title, { color: palette.ink }]}
+              testID="search-title"
+            >
+              {SEARCH_COPY.title}
+            </Text>
+            <GamePill testID="search-game" />
+          </View>
           <NotificationBell testID="notification-bell-search" variant="round" />
         </View>
         <UnderlineTabs<SearchSegment>
@@ -238,6 +251,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: spacing[3],
+  },
+  titleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing[3],
+    flexShrink: 1,
+    minWidth: 0,
   },
   title: {
     fontFamily: fontFamily.display,

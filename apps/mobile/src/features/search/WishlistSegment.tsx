@@ -21,6 +21,7 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   AlertReadinessNotice,
   alertReadiness,
@@ -47,6 +48,8 @@ import { WISHLIST_COPY } from './searchCopy';
  * and on the right "Available" when at least one public holder of the browsed region has a copy
  * that fits (it opens Who has this card on that printing) or "None yet". A row edits the wish. No
  * counts; a usage line only near the cap. "Let others see what you want" is in Settings › Privacy.
+ * Only the browsed game's wishes show (stage G); with wishes of other games only, the empty state
+ * names the game.
  */
 export function WishlistSegment() {
   const { palette } = useTheme();
@@ -61,7 +64,13 @@ export function WishlistSegment() {
   const stacked = useStackedRows();
   const settings = useNotificationSettings();
   const saveSettings = useSaveNotificationSettings();
-  const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
+  // The browsed game's wishes only (stage G); the others show when the collector switches game.
+  const browsing = useBrowsingGame();
+  const items = useMemo(
+    () => (wishlist.data ?? []).filter((wish) => wish.game === browsing.game),
+    [wishlist.data, browsing.game]
+  );
+  const otherGames = (wishlist.data?.length ?? 0) > 0;
   const available = useMemo(() => new Set(availability.data?.available ?? []), [availability.data]);
   const notice = nearCapNotice(wishUsage(limits.data));
 
@@ -161,8 +170,10 @@ export function WishlistSegment() {
       <EmptyState
         testID="wishlist-empty"
         icon="heart-outline"
-        title={WISHLIST_COPY.empty}
-        description={WISHLIST_COPY.emptyHint}
+        title={otherGames ? WISHLIST_COPY.emptyGame(browsing.current.name) : WISHLIST_COPY.empty}
+        description={
+          otherGames ? WISHLIST_COPY.emptyGameHint(browsing.current.name) : WISHLIST_COPY.emptyHint
+        }
       />
     );
   }

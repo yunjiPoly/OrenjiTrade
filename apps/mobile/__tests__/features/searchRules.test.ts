@@ -129,12 +129,15 @@ describe('the old links of the Map and Wishlist tabs and the holders list', () =
 });
 
 describe("the map's state card (screen 11)", () => {
-  it('says the binders and the deck cores above 0 only, or that there are none', () => {
-    expect(MAP_COPY.stats(12, 5)).toBe('7 binders · 5 deck cores');
-    expect(MAP_COPY.stats(1, 0)).toBe('1 binder');
-    expect(MAP_COPY.stats(2, 2)).toBe('2 deck cores');
-    expect(MAP_COPY.stats(2, 1)).toBe('1 binder · 1 deck core');
-    expect(MAP_COPY.stats(0, 0)).toBe('No public binders here yet');
+  it('says the binders and the deck cores above 0 only, or that the game has none', () => {
+    expect(MAP_COPY.stats(12, 5, 'Yu-Gi-Oh!')).toBe('7 binders · 5 deck cores');
+    expect(MAP_COPY.stats(1, 0, 'Yu-Gi-Oh!')).toBe('1 binder');
+    expect(MAP_COPY.stats(2, 2, 'Yu-Gi-Oh!')).toBe('2 deck cores');
+    expect(MAP_COPY.stats(2, 1, 'Yu-Gi-Oh!')).toBe('1 binder · 1 deck core');
+    expect(MAP_COPY.stats(0, 0, 'Pokémon')).toBe('No public Pokémon binders here yet');
+    expect(MAP_COPY.mapLabel('Pokémon', 'Europe')).toBe(
+      'Map of public Pokémon binders by state or province in Europe'
+    );
     expect(MAP_COPY.stateSubtitle('Canada', true)).toBe('Canada · your province');
     expect(MAP_COPY.stateSubtitle('Canada', false)).toBe('Canada');
   });

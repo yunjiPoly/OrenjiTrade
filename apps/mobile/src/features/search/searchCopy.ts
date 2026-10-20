@@ -1,14 +1,15 @@
 /**
  * The approved English copy of Search (owner spec 2026-10-14, section 8; mockup screens 11 to 15,
- * version 43), one object per screen so the French translation (on hold) can slot in later. No
- * counts in Search: no "N in your region", no printing or holder counts, no "wanted by"; the counts
- * the design keeps are the map's binders and deck cores and the number of your wishes.
+ * version 43; the game of stage G, version 50), one object per screen. No counts in Search: no "N
+ * in your region", no printing or holder counts, no "wanted by"; the counts the design keeps are
+ * the map's binders and deck cores and the number of your wishes. Search shows one game at a time
+ * (stage G): its empty states name the browsed game.
  */
 
 import { gameLabel } from '@/src/lib/profile';
 
-/** The short names of the game chips and results (mockup screen 12: "Magic"). */
-const SHORT_GAME_NAMES: Readonly<Record<string, string>> = { mtg: 'Magic' };
+/** The short names of the games (mockup screens 12 and 34: "Magic", "One Piece"). */
+const SHORT_GAME_NAMES: Readonly<Record<string, string>> = { mtg: 'Magic', onepiece: 'One Piece' };
 
 /** The name of a game in Search: its short name, else `fallback`, else the app's label. */
 export function gameName(slug: string, fallback?: string): string {
@@ -41,17 +42,20 @@ export const MAP_COPY = {
   myProvince: 'Show my province',
   /**
    * The state card: "{n} binders · {n} deck cores", only the parts above 0 ("1 binder" alone, "2
-   * deck cores" alone), "No public binders here yet" without any. `binderCount` of the API counts
-   * every public binder, deck cores included (stage R3).
+   * deck cores" alone), "No public {game} binders here yet" without any. `binderCount` of the API
+   * counts every public binder of the browsed game, deck cores included (stages R3 and G).
    */
-  stats(binders: number, deckCores: number): string {
+  stats(binders: number, deckCores: number, game: string): string {
     const plain = Math.max(0, binders - deckCores);
     const parts = [
       plain > 0 ? binderCount(plain) : null,
       deckCores > 0 ? deckCoreCount(deckCores) : null,
     ].filter(Boolean);
-    return parts.length > 0 ? parts.join(' · ') : 'No public binders here yet';
+    return parts.length > 0 ? parts.join(' · ') : `No public ${game} binders here yet`;
   },
+  /** What a screen reader says for the drawn map (stage G). */
+  mapLabel: (game: string, region: string) =>
+    `Map of public ${game} binders by state or province in ${region}`,
   /** "Canada · your province", or the country alone. */
   stateSubtitle(country: string, mine: boolean): string {
     return mine ? `${country} · your province` : country;
@@ -66,20 +70,18 @@ export const MAP_COPY = {
     'OrenjiTrade never uses your GPS: collectors choose their state or province, and that is all anyone sees.',
 } as const;
 
-/** Typing a card (screen 12). */
+/** Typing a card (screen 12): the browsed game's cards only, no game chips (stage G). */
 export const TYPING_COPY = {
-  fieldLabel: 'Card name or code',
-  placeholder: 'Card name or code',
+  /** The field's name and placeholder: "{game} card name or code". */
+  field: (game: string) => `${game} card name or code`,
   clear: 'Clear search',
   cancel: 'Cancel',
-  gamesLabel: 'Game',
-  allGames: 'All games',
   collectors: 'Collectors',
   recent: 'Recent searches',
   clearRecent: 'Clear',
   clearRecentLabel: 'Clear recent searches',
   privacy: 'Only you see your searches. You can turn this off in Settings › Privacy.',
-  noMatch: (text: string) => `No card matches “${text}”`,
+  noMatch: (game: string, text: string) => `No ${game} card matches “${text}”`,
   noMatchHint: 'Try fewer letters, or the code printed on the card, like LAVD-EN008.',
   loading: 'Loading cards',
   error: 'Cards could not load',
@@ -140,8 +142,8 @@ export const BINDERS_COPY = {
   /** A deck core row: "{handle}", with the province when the whole region is listed. */
   coreLine: (handle: string, province: string | null) =>
     [handle, province].filter(Boolean).join(' · '),
-  noBinders: 'No public binders here yet.',
-  noDeckCores: 'No deck cores for sale here yet.',
+  noBinders: (game: string) => `No public ${game} binders here yet.`,
+  noDeckCores: (game: string) => `No ${game} deck cores for sale here yet.`,
   noMatch: 'Nothing matches. Try a deck name, a card name or a collector.',
   loading: 'Loading binders',
   error: 'Binders could not load',
@@ -161,6 +163,10 @@ export const WISHLIST_COPY = {
   nearMintOnly: 'NM only',
   empty: 'No wishes yet',
   emptyHint: 'Add the cards you are looking for. Wishlist alerts tell you when someone lists one.',
+  /** Wishes of other games only: the browsed game has none (stage G). */
+  emptyGame: (game: string) => `No ${game} wishes yet`,
+  emptyGameHint: (game: string) =>
+    `Add the ${game} cards you are looking for. Your other games' wishes show when you switch game.`,
   loading: 'Loading your wishlist',
   error: 'Your wishlist could not load',
   needsLocation:
