@@ -32,7 +32,9 @@ export const PROFILE_COPY = {
   notOnMapHint: 'Opens Location and discoverability',
   // Sections.
   seeAll: 'See all',
-  seeAllOf: (section: string) => `See all ${section.toLowerCase()}`,
+  seeAllCards: 'See all cards',
+  seeAllBinders: 'See all binders',
+  seeAllWishes: 'See all wishes',
   cards: 'Cards',
   binders: 'Binders',
   lookingFor: 'Looking for',

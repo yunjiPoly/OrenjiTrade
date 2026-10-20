@@ -36,10 +36,13 @@ export interface SectionQuery<T> {
 export function SectionHeader({
   title,
   onSeeAll,
+  seeAllLabel,
   testID,
 }: {
   title: string;
   onSeeAll?: () => void;
+  /** What a screen reader says for "See all" ("See all cards"). */
+  seeAllLabel?: string;
   testID: string;
 }) {
   const { palette } = useTheme();
@@ -51,7 +54,7 @@ export function SectionHeader({
       {onSeeAll ? (
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={PROFILE_COPY.seeAllOf(title)}
+          accessibilityLabel={seeAllLabel ?? PROFILE_COPY.seeAll}
           onPress={onSeeAll}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
           testID={`${testID}-see-all`}
@@ -210,6 +213,7 @@ export function CardsSection({
       <SectionHeader
         title={PROFILE_COPY.cards}
         onSeeAll={own || list.length > 0 ? onSeeAll : undefined}
+        seeAllLabel={PROFILE_COPY.seeAllCards}
         testID="profile-cards"
       />
       {body}
@@ -369,6 +373,7 @@ export function BindersSection({
       <SectionHeader
         title={PROFILE_COPY.binders}
         onSeeAll={own || list.length > 0 ? onSeeAll : undefined}
+        seeAllLabel={PROFILE_COPY.seeAllBinders}
         testID="profile-binders"
       />
       {body}

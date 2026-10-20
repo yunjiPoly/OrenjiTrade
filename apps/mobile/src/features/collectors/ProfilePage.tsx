@@ -227,6 +227,7 @@ export function ProfilePage({
       <View style={styles.section} testID="profile-wishes">
         <SectionHeader
           title={PROFILE_COPY.lookingFor}
+          seeAllLabel={PROFILE_COPY.seeAllWishes}
           onSeeAll={
             own
               ? () => router.navigate({ pathname: '/search', params: { segment: 'wishlist' } })
