@@ -823,7 +823,8 @@ profile with its line, Message, Cards, Binders, Looking for, the compact top bar
 "See all references", Share profile from the "⋯" sheet (the system's share sheet); "I have it"
 sending nothing and leaving the chat's card alone before send, then pinning your copy
 (`scripts/parity.js` ACTION=profiles and check-have); your Profile tab, the gear that opens
-Settings, and "See all binders" twice),
+Settings, and "See all binders" twice; then the "See all" pages across a block, their titles on
+screen: "You blocked {handle}" with Unblock, and "This collector is not available" (ACTION=block)),
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a
