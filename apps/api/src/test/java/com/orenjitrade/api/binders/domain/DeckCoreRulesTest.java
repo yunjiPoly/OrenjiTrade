@@ -40,7 +40,9 @@ class DeckCoreRulesTest {
                 priceText,
                 null,
                 "CAD",
-                soldAt);
+                soldAt,
+                UUID.randomUUID(),
+                "yugioh");
     }
 
     static BinderDetails details(BinderView binder, long publicItems) {

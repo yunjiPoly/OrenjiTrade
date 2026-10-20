@@ -37,7 +37,8 @@ public class GameService implements GameCatalog {
     public static final String ACTION_UPDATE = "game.update";
     public static final String TARGET_GAME = "GAME";
 
-    static final String CACHE_KEY = "games:v1";
+    // v2: the games carry hasCards (stage G); entries of the earlier shape are not read.
+    static final String CACHE_KEY = "games:v2";
 
     private final GameRepository repository;
     private final RedisJsonCache cache;
@@ -138,7 +139,8 @@ public class GameService implements GameCatalog {
                 draft.status(),
                 draft.sortOrder(),
                 draft.schema(),
-                now);
+                now,
+                false);
     }
 
     @Transactional
@@ -175,7 +177,8 @@ public class GameService implements GameCatalog {
                 draft.status(),
                 draft.sortOrder(),
                 draft.schema(),
-                now);
+                now,
+                current.hasCards());
     }
 
     /** Drops the cached games (admin writes, tests). */

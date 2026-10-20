@@ -20,6 +20,8 @@ public final class BinderChanges {
      * @param coverPrintingId printing whose image is the cover
      * @param sellsAsCore "Sell as a deck core" (stage R3); false when null
      * @param askingPriceText the deck core's asking price as typed (at most 40 characters)
+     * @param gameId the game whose cards the binder holds (stage G): an ACTIVE game with cards;
+     *     {@code null} only from the paused web, which has no game picker: Yu-Gi-Oh!
      */
     public record NewBinder(
             String name,
@@ -29,7 +31,30 @@ public final class BinderChanges {
             @Nullable Instant publicUntil,
             @Nullable UUID coverPrintingId,
             @Nullable Boolean sellsAsCore,
-            @Nullable String askingPriceText) {
+            @Nullable String askingPriceText,
+            @Nullable UUID gameId) {
+
+        /** A binder of stage R3 (no game: Yu-Gi-Oh!). */
+        public NewBinder(
+                String name,
+                @Nullable String description,
+                @Nullable BinderKind kind,
+                @Nullable ListingVisibility visibility,
+                @Nullable Instant publicUntil,
+                @Nullable UUID coverPrintingId,
+                @Nullable Boolean sellsAsCore,
+                @Nullable String askingPriceText) {
+            this(
+                    name,
+                    description,
+                    kind,
+                    visibility,
+                    publicUntil,
+                    coverPrintingId,
+                    sellsAsCore,
+                    askingPriceText,
+                    null);
+        }
 
         /** A plain binder (before stage R3). */
         public NewBinder(
@@ -39,7 +64,16 @@ public final class BinderChanges {
                 @Nullable ListingVisibility visibility,
                 @Nullable Instant publicUntil,
                 @Nullable UUID coverPrintingId) {
-            this(name, description, kind, visibility, publicUntil, coverPrintingId, null, null);
+            this(
+                    name,
+                    description,
+                    kind,
+                    visibility,
+                    publicUntil,
+                    coverPrintingId,
+                    null,
+                    null,
+                    null);
         }
     }
 
@@ -47,7 +81,8 @@ public final class BinderChanges {
      * A partial update: {@code null} scalar fields are unchanged; {@code publicUntil}, {@code
      * coverPrintingId} and {@code askingPriceText} are changed only when their {@code *Set} flag is
      * true (so they can be cleared). {@code confirm} also confirms the binder and its items, as
-     * {@code POST /binders/{id}/confirm} does (the phone's "Save changes").
+     * {@code POST /binders/{id}/confirm} does (the phone's "Save changes"). {@code gameId} changes
+     * the binder's game only while it holds no card (stage G).
      */
     public record BinderPatch(
             @Nullable String name,
@@ -61,5 +96,6 @@ public final class BinderChanges {
             @Nullable Boolean sellsAsCore,
             boolean askingPriceTextSet,
             @Nullable String askingPriceText,
-            boolean confirm) {}
+            boolean confirm,
+            @Nullable UUID gameId) {}
 }

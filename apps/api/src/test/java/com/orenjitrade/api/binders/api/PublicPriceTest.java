@@ -37,7 +37,9 @@ class PublicPriceTest {
                 "$180",
                 new BigDecimal("180.00"),
                 "CAD",
-                null);
+                null,
+                UUID.randomUUID(),
+                "yugioh");
     }
 
     @Test

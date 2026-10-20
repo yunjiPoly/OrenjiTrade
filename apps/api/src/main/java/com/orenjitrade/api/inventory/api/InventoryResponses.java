@@ -240,8 +240,10 @@ public final class InventoryResponses {
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
                             description =
-                                    "NOT_FOUND (unknown, deleted or not the caller's item) or"
-                                            + " UNCHANGED (already in the requested state)")
+                                    "NOT_FOUND (unknown, deleted or not the caller's item),"
+                                            + " UNCHANGED (already in the requested state) or"
+                                            + " BINDER_GAME_MISMATCH (MOVE_TO_BINDER: a card of"
+                                            + " another game than the binder, stage G)")
                     SkipReason reason) {}
 
     /** {@code GET /inventory/summary}. */

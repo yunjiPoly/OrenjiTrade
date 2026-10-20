@@ -98,6 +98,11 @@ public class InventoryExtensions {
                 inventoryService.releaseBinderItems(
                         ownerId, binderId, deleteItems, keepVisibility, now);
             }
+
+            @Override
+            public boolean holdsRestorableCards(UUID binderId, Instant now) {
+                return inventoryService.holdsRestorableCards(binderId, now);
+            }
         };
     }
 

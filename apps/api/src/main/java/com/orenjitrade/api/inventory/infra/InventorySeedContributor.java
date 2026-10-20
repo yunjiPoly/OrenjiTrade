@@ -113,10 +113,11 @@ public class InventorySeedContributor implements SeedContributor {
                                     INSERT INTO binder (id, owner_id, name, description, kind,
                                         visibility, public_until, sort_order, freshness_state,
                                         created_at, updated_at, confirmed_at, last_owner_activity_at,
-                                        sells_as_core, asking_price_text, asking_price)
+                                        sells_as_core, asking_price_text, asking_price, game_id)
                                     VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
                                         :publicUntil, :sortOrder, :state, :at, :at, :at, :at,
-                                        :sellsAsCore, :priceText, :price)
+                                        :sellsAsCore, :priceText, :price,
+                                        (SELECT id FROM game WHERE slug = :game))
                                     ON CONFLICT (id) DO NOTHING
                                     """)
                             .param("id", UUID.fromString(binder.id()))
@@ -130,6 +131,7 @@ public class InventorySeedContributor implements SeedContributor {
                                     publicUntil == null ? null : Timestamp.from(publicUntil),
                                     Types.TIMESTAMP)
                             .param("sortOrder", binder.sortOrder())
+                            .param("game", binder.game())
                             .param("sellsAsCore", Boolean.TRUE.equals(binder.sellsAsCore()))
                             .param("priceText", binder.askingPriceText(), Types.VARCHAR)
                             .param(
@@ -255,10 +257,11 @@ public class InventorySeedContributor implements SeedContributor {
     /** JSON shape of {@value #RESOURCE}. */
     record SeedFile(List<SeedBinder> binders, List<SeedItem> unfiled) {}
 
-    /** A seeded binder. */
+    /** A seeded binder; it holds cards of its {@code game} only (stage G). */
     record SeedBinder(
             String id,
             String owner,
+            String game,
             String name,
             String description,
             String kind,

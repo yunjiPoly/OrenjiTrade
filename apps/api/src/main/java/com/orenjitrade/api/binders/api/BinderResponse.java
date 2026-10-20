@@ -104,7 +104,18 @@ public record BinderResponse(
                         description =
                                 "A deck core's cards with their copies, most copies first (at most"
                                         + " 30); empty for other binders. Always sent")
-                List<KeyCard> keyCards) {
+                List<KeyCard> keyCards,
+        @Schema(
+                        requiredMode = RequiredMode.NOT_REQUIRED,
+                        example = "yugioh",
+                        description =
+                                "Slug of the one game whose cards the binder holds (stage G)."
+                                        + " Always sent")
+                String game,
+        @Schema(
+                        requiredMode = RequiredMode.NOT_REQUIRED,
+                        description = "Id of that game (GET /games). Always sent")
+                UUID gameId) {
 
     /** The owner's view of a binder (also for the inventory module's binder photo routes). */
     public static BinderResponse from(BinderDetails details, Instant now) {
@@ -134,6 +145,8 @@ public record BinderResponse(
                 binder.soldAt(),
                 details.showcase().photos(),
                 details.showcase().previewImages(),
-                details.showcase().keyCards());
+                details.showcase().keyCards(),
+                binder.game(),
+                binder.gameId());
     }
 }

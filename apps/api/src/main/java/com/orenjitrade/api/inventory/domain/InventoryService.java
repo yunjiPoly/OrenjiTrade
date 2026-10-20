@@ -137,6 +137,10 @@ public class InventoryService {
     static final Pattern LANGUAGE = Pattern.compile("^[a-z]{2}$");
     static final BigDecimal PRICE_MAX = new BigDecimal("9999999999.99");
 
+    /** The 409 BINDER_GAME_MISMATCH message (stage G). */
+    static final String GAME_MISMATCH =
+            "This card is of another game than the binder: a binder holds the cards of one game";
+
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
     private final InventoryItemRepository items;
@@ -274,10 +278,11 @@ public class InventoryService {
         binders.lockOwners(List.of(ownerId));
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable PrintingDetail printing = requirePrinting(input.printingId(), true, errors);
+        @Nullable BinderView binder = null;
         if (input.binderId() != null) {
             // Binder first (lock order): the insert counts the item in it and confirms it.
             binders.lockInOrder(ownerId, List.of(input.binderId()));
-            binders.requireOwned(ownerId, input.binderId());
+            binder = binders.requireOwned(ownerId, input.binderId());
         }
         ListingVisibility visibility =
                 input.visibility() != null
@@ -290,6 +295,7 @@ public class InventoryService {
         if (printing == null) {
             throw ApiException.validation("Validation failed", errors);
         }
+        requireBinderGame(binder, printing.card().game());
         boolean conditionStated = !Boolean.FALSE.equals(input.conditionStated());
         if (!conditionStated && !blank(input.condition())) {
             errors.add(
@@ -378,6 +384,9 @@ public class InventoryService {
         @Nullable BinderView target =
                 binderId == null ? null : binders.requireOwned(ownerId, binderId);
         boolean moved = !Objects.equals(binderId, current.binderId());
+        if (moved || printingChanged) {
+            requireBinderGame(target, printing.card().game());
+        }
 
         ListingVisibility visibility =
                 patch.has("visibility") && patch.visibility() != null
@@ -641,6 +650,13 @@ public class InventoryService {
                 continue;
             }
             ItemRow row = owned.get(id);
+            if (request.action() == BulkAction.MOVE_TO_BINDER
+                    && target != null
+                    && !target.game().equals(row.game())) {
+                // A binder holds the cards of one game (stage G): this card stays where it was.
+                skipped.add(new Skipped(id, SkipReason.BINDER_GAME_MISMATCH));
+                continue;
+            }
             boolean applied =
                     switch (request.action()) {
                         case SET_VISIBILITY -> setVisibility(row, request, now);
@@ -1169,6 +1185,14 @@ public class InventoryService {
         recordRestored(items.confirm(ownerId, null, binderId, now), now);
     }
 
+    /**
+     * Whether a deleted card that an undo can still bring back names the binder (stage G; the
+     * binder's game is locked meanwhile).
+     */
+    public boolean holdsRestorableCards(UUID binderId, Instant now) {
+        return items.countRestorableInBinder(binderId, now) > 0;
+    }
+
     /** The binder is being deleted: soft-delete or unfile its items, then reconcile them. */
     @Transactional
     public void releaseBinderItems(
@@ -1333,6 +1357,16 @@ public class InventoryService {
         }
         items.moveToBinder(row.id(), targetId, visibility, publicUntil, now);
         return true;
+    }
+
+    /**
+     * A card goes only into a binder of its own game (stage G): {@code 409 BINDER_GAME_MISMATCH}
+     * otherwise.
+     */
+    static void requireBinderGame(@Nullable BinderView binder, String cardGame) {
+        if (binder != null && !binder.game().equals(cardGame)) {
+            throw new ApiException(ErrorCode.BINDER_GAME_MISMATCH, GAME_MISMATCH);
+        }
     }
 
     /**

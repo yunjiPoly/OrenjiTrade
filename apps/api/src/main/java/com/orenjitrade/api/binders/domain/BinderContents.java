@@ -65,6 +65,14 @@ public interface BinderContents {
             UUID ownerId, UUID binderId, boolean deleteItems, boolean keepVisibility, Instant now);
 
     /**
+     * Whether the binder still names a deleted card that an undo can bring back into it (the
+     * owner's own delete, a sale: {@code restorable_until} not yet passed). Stage G: a binder's
+     * game changes only while it holds no card, and such a card would come back into a binder of
+     * another game.
+     */
+    boolean holdsRestorableCards(UUID binderId, Instant now);
+
+    /**
      * Item statistics of one binder.
      *
      * @param itemCount non-deleted items

@@ -20,7 +20,8 @@ public class GameRepository {
 
     private static final String COLUMNS =
             "id, slug, name, short_name, publisher, status, sort_order, schema::text AS schema,"
-                    + " updated_at";
+                    + " updated_at, EXISTS (SELECT 1 FROM card c WHERE c.game_id = game.id) AS"
+                    + " has_cards";
 
     private final JdbcClient jdbc;
     private final JsonMapper jsonMapper;
@@ -118,6 +119,7 @@ public class GameRepository {
                 GameStatus.valueOf(rs.getString("status")),
                 rs.getInt("sort_order"),
                 jsonMapper.readValue(rs.getString("schema"), GameSchema.class),
-                rs.getTimestamp("updated_at").toInstant());
+                rs.getTimestamp("updated_at").toInstant(),
+                rs.getBoolean("has_cards"));
     }
 }

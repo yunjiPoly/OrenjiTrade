@@ -207,7 +207,8 @@ public class InventoryController {
                             + " needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED"
                             + " (limitKey `inventory.items.max`) beyond the inventory size limit,"
                             + " the same for every collector; unlimited until an admin gives it a"
-                            + " number.")
+                            + " number. A card goes only into a binder of its own game (409"
+                            + " BINDER_GAME_MISMATCH, stage G).")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "429",
@@ -226,6 +227,14 @@ public class InventoryController {
     @ApiResponse(
             responseCode = "404",
             description = "binderId is not one of the caller's binders",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description =
+                    "BINDER_GAME_MISMATCH: the card is of another game than the binder (stage G)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -285,7 +294,9 @@ public class InventoryController {
                         + " a plain amount); `askingPrice` without it clears the text."
                         + " TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. Making"
                         + " the item public confirms it, and so does `confirm: true` (the phone's"
-                        + " Edit card: a save counts as still available).",
+                        + " Edit card: a save counts as still available). A card goes only into a"
+                        + " binder of its own game, and a filed card keeps its binder's game (409"
+                        + " BINDER_GAME_MISMATCH, stage G).",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
@@ -301,6 +312,14 @@ public class InventoryController {
     @ApiResponse(
             responseCode = "404",
             description = "Unknown, deleted or not the caller's item (or binder)",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description =
+                    "BINDER_GAME_MISMATCH: the card is of another game than the binder (stage G)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -510,8 +529,10 @@ public class InventoryController {
                             + " SET_AVAILABILITY (`availability`), CONFIRM, DELETE (each item"
                             + " restorable for 10 minutes). Items that are not the caller's (or"
                             + " unknown/deleted) are skipped as NOT_FOUND, items already in the"
-                            + " requested state as UNCHANGED. 404 when `binderId` is not one of the"
-                            + " caller's binders.")
+                            + " requested state as UNCHANGED, and for MOVE_TO_BINDER the cards"
+                            + " of another game than the binder as BINDER_GAME_MISMATCH (stage G: a"
+                            + " binder holds the cards of one game; they stay where they were)."
+                            + " 404 when `binderId` is not one of the caller's binders.")
     @ApiResponse(responseCode = "200", description = "Outcome")
     @ApiResponse(
             responseCode = "400",

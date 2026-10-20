@@ -200,7 +200,12 @@ public final class InventoryChanges {
         /** Unknown, deleted or not the caller's item. */
         NOT_FOUND,
         /** Already in the requested state. */
-        UNCHANGED
+        UNCHANGED,
+        /**
+         * MOVE_TO_BINDER: the card is of another game than the binder, which holds the cards of one
+         * game (stage G); the card stays where it was.
+         */
+        BINDER_GAME_MISMATCH
     }
 
     /**

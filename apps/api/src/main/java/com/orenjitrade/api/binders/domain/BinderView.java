@@ -31,6 +31,8 @@ import org.jspecify.annotations.Nullable;
  * @param askingPrice the amount of a plain-amount price text, in {@code currency}
  * @param currency ISO 4217 currency of {@code askingPrice}
  * @param soldAt when the deck core was sold (a sold binder is never public), {@code null} if not
+ * @param gameId the one game whose cards the binder holds (stage G)
+ * @param game that game's slug
  */
 public record BinderView(
         UUID id,
@@ -53,7 +55,9 @@ public record BinderView(
         @Nullable String askingPriceText,
         @Nullable BigDecimal askingPrice,
         String currency,
-        @Nullable Instant soldAt) {
+        @Nullable Instant soldAt,
+        UUID gameId,
+        String game) {
 
     /**
      * Whether the binder shows in public lists (a collector's binders, search, the map) without

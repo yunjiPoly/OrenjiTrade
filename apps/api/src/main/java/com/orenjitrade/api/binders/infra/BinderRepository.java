@@ -53,7 +53,8 @@ public class BinderRepository {
             b.id, b.owner_id, b.name, b.description, b.kind, b.visibility, b.public_until,
             b.sort_order, b.cover_printing_id, b.item_count, b.freshness_state, b.confirmed_at,
             b.created_at, b.updated_at, b.last_owner_activity_at, b.sells_as_core,
-            b.asking_price_text, b.asking_price, b.currency, b.sold_at,
+            b.asking_price_text, b.asking_price, b.currency, b.sold_at, b.game_id,
+            (SELECT gm.slug FROM game gm WHERE gm.id = b.game_id) AS game_slug,
             """
                     + PublicVisibilityRules.binderEffectivelyPublic("b")
                     + " AS effective_public";
@@ -337,18 +338,20 @@ public class BinderRepository {
             int sortOrder,
             @Nullable UUID coverPrintingId,
             CoreFields core,
+            UUID gameId,
             Instant now) {
         jdbc.sql(
                         """
                         INSERT INTO binder (id, owner_id, name, description, kind, visibility,
                             public_until, sort_order, cover_printing_id, freshness_state, created_at,
                             updated_at, confirmed_at, last_owner_activity_at, sells_as_core,
-                            asking_price_text, asking_price)
+                            asking_price_text, asking_price, game_id)
                         VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
                             :publicUntil, :sortOrder, :cover, 'ACTIVE', :now, :now, :now, :now,
-                            :sellsAsCore, :priceText, :price)
+                            :sellsAsCore, :priceText, :price, :gameId)
                         """)
                 .param("id", id)
+                .param("gameId", gameId)
                 .param("ownerId", ownerId)
                 .param("name", name)
                 .param("description", description)
@@ -360,6 +363,23 @@ public class BinderRepository {
                 .param("sellsAsCore", core.sellsAsCore())
                 .param("priceText", core.askingPriceText(), Types.VARCHAR)
                 .param("price", core.askingPrice(), Types.NUMERIC)
+                .param("now", Timestamp.from(now))
+                .update();
+    }
+
+    /**
+     * Sets the binder's game (stage G). The caller holds the binder's row lock and has checked that
+     * it holds no live card ({@code item_count = 0}).
+     */
+    public void setGame(UUID id, UUID gameId, Instant now) {
+        jdbc.sql(
+                        """
+                        UPDATE binder SET game_id = :gameId, updated_at = :now,
+                               last_owner_activity_at = :now
+                         WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("gameId", gameId)
                 .param("now", Timestamp.from(now))
                 .update();
     }
@@ -681,7 +701,9 @@ public class BinderRepository {
                 rs.getString("asking_price_text"),
                 rs.getBigDecimal("asking_price"),
                 rs.getString("currency"),
-                instant(rs.getTimestamp("sold_at")));
+                instant(rs.getTimestamp("sold_at")),
+                rs.getObject("game_id", UUID.class),
+                rs.getString("game_slug"));
     }
 
     private static @Nullable Instant instant(@Nullable Timestamp timestamp) {

@@ -1049,6 +1049,20 @@ public class InventoryItemRepository {
                 .list();
     }
 
+    /** Deleted items of a binder whose undo window is still open (stage G). */
+    public long countRestorableInBinder(UUID binderId, Instant now) {
+        return jdbc.sql(
+                        """
+                        SELECT count(*) FROM inventory_item
+                         WHERE binder_id = :binderId AND deleted_at IS NOT NULL
+                           AND restorable_until > :now
+                        """)
+                .param("binderId", binderId)
+                .param("now", Timestamp.from(now))
+                .query(Long.class)
+                .single();
+    }
+
     /**
      * Ends the restore windows of the owner's deleted items filed in a binder that is being deleted
      * (its row goes, so such an item could no longer come back where it was) and returns them: the
