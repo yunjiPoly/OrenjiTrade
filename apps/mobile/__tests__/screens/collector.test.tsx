@@ -14,9 +14,11 @@ import {
   ONTARIO,
   PUBLIC_BINDER_ID,
   TAGS,
+  binderFixture,
   blockedUserFixture,
   collectorFixture,
   conversationFixture,
+  deckCoreFixture,
   inventoryPage,
   itemFixture,
   printingFixture,
@@ -399,7 +401,7 @@ describe('"I have it" (owner spec 2026-10-14, section 10)', () => {
       updatedAt,
     });
 
-  it('pins your copy as the chat card and puts the text in the box, sending nothing', async () => {
+  it('puts your copy and the text in the box, leaving the chat card alone until send', async () => {
     const api = mockApi(
       routes({
         'GET /api/v1/inventory/items': ok(
@@ -421,11 +423,9 @@ describe('"I have it" (owner spec 2026-10-14, section 10)', () => {
     );
     const lookup = api.callsTo('GET /api/v1/inventory/items')[0];
     expect(lookup?.query.get('cardId')).toBe(CARD_ID);
-    // R4's chat subject: your public copy first, you are the seller.
-    expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({
-      recipientId: OTHER.id,
-      subjectItemId: 'public-copy',
-    });
+    // The chat opens as "Message" opens it: its card is not changed before send (the other
+    // collector would see your copy, even a private one, in their inbox at once).
+    expect(api.callsTo('POST /api/v1/conversations')[0]?.body).toEqual({ recipientId: OTHER.id });
     expect(peekPendingDraft(CONVERSATION_ID)).toEqual({
       text: 'I have Azure-Eyes Sky Dragon for your wishlist. Interested?',
       attachment: {
@@ -442,6 +442,33 @@ describe('"I have it" (owner spec 2026-10-14, section 10)', () => {
     });
     // Nothing is sent until the collector taps send in the chat.
     expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(0);
+  });
+
+  it('never offers a copy filed in one of your deck cores (it sells only with its core)', async () => {
+    const core = deckCoreFixture();
+    const api = mockApi(
+      routes({
+        'GET /api/v1/binders': ok([binderFixture(), core]),
+        'GET /api/v1/inventory/items': ok(
+          inventoryPage([
+            {
+              ...mine('core-copy', 'PUBLIC', '2026-10-10T12:00:00Z'),
+              binder: { id: core.id, name: core.name },
+            },
+          ])
+        ),
+        'POST /api/v1/conversations': ok(conversationFixture()),
+      })
+    );
+    render();
+    fireEvent.press(await screen.findByTestId(`profile-have-${CARD_ID}`));
+    await waitFor(() => expect(api.callsTo('POST /api/v1/conversations')).toHaveLength(1));
+    await waitFor(() =>
+      expect(peekPendingDraft(CONVERSATION_ID)).toEqual({
+        text: 'I have Azure-Eyes Sky Dragon for your wishlist. Interested?',
+        attachment: null,
+      })
+    );
   });
 
   it('without a copy, opens the chat with the text only and no card pinned', async () => {
@@ -480,13 +507,25 @@ describe('"I have it" (owner spec 2026-10-14, section 10)', () => {
 });
 
 describe('The "⋯" sheet: Share profile, Report, Block', () => {
-  it('shares the public link of the profile', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+  it('shares the public link of the profile once iOS has dismissed the sheet', async () => {
+    // iOS takes a share sheet asked for while it still dismisses the "⋯" sheet away with it: the
+    // share waits for the sheet's Modal to report `onDismiss` (stage R6, review fix 1).
+    const { mockDismissals } = require('react-native/Libraries/Modal/Modal') as {
+      mockDismissals: { count: number };
+    };
+    const before = mockDismissals.count;
+    let dismissalsAtShare = -1;
+    const share = jest.spyOn(Share, 'share').mockImplementation(async () => {
+      dismissalsAtShare = mockDismissals.count;
+      return { action: 'sharedAction' };
+    });
     mockApi(routes());
     render();
     fireEvent.press(await screen.findByRole('button', { name: 'More for collector2' }));
     fireEvent.press(within(screen.getByTestId('collector-menu-sheet')).getByText('Share profile'));
     await waitFor(() => expect(share).toHaveBeenCalled());
+    expect(dismissalsAtShare).toBe(before + 1);
+    expect(screen.queryByTestId('collector-menu-sheet')).toBeNull();
     expect(JSON.stringify(share.mock.calls[0]?.[0])).toContain(
       'https://www.orenjitrade.com/collectors/collector2'
     );

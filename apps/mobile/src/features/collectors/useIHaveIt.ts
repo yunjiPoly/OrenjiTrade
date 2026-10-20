@@ -8,7 +8,7 @@ import { friendlyError } from '@/src/api/errorMessages';
 import { useStartConversation } from '@/src/api/hooks/messaging';
 import { useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
-import type { InventoryPage } from '@/src/api/types';
+import type { BinderResponse, InventoryPage } from '@/src/api/types';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { ownCardChoice } from '@/src/features/messages/OwnCardPicker';
 import { setPendingDraft } from '@/src/features/messages/pendingDraft';
@@ -21,12 +21,15 @@ const COPIES_PAGE = 50;
 
 /**
  * "I have it" (owner spec 2026-10-14, section 10; on profiles since stage R6, on Home with R7):
- * opens or reuses your chat with the collector who wishes the card, with "I have {card} for your
- * wishlist. Interested?" in the message box. When your inventory holds the card (any printing; the
- * wished printing, then its rarity, then a public copy first), that copy becomes the chat's card
- * (R4's chat subject: `POST /conversations` with `subjectItemId`, you are the seller) and waits in
- * the message box to be shared before the text (R4's `CARD_LINK` with `inventoryItemId`). Nothing is
- * sent until you tap send. A refusal (a block, their messaging setting) is said in a snackbar.
+ * opens or reuses your chat with the collector who wishes the card (`POST /conversations` with the
+ * recipient only, as "Message" does), with "I have {card} for your wishlist. Interested?" in the
+ * message box. When your inventory holds the card (any printing; the wished printing, then its
+ * rarity, then a public copy first; never a card filed in a deck core, which sells only with its
+ * core), that copy waits in the message box to be shared with the text. Nothing is sent and
+ * nothing changes in the chat until you tap send: the chat's card stays what it was (the other
+ * collector sees no copy of yours, not even a private one), and sending R4's `CARD_LINK` with
+ * `inventoryItemId` pins your copy as the chat's card then (you are the seller). A refusal (a
+ * block, their messaging setting) is said in a snackbar.
  */
 export function useIHaveIt() {
   const router = useRouter();
@@ -56,11 +59,17 @@ export function useIHaveIt() {
             ),
           staleTime: 0,
         });
-        const item = matchingItem(copies.items ?? [], wish);
-        const conversation = await start.mutateAsync({
-          recipientId,
-          ...(item ? { subjectItemId: item.id } : {}),
+        // Your deck cores (with the binders "Message" and the Inventory read): their cards sell only
+        // with the core, so none of them answers a wish alone.
+        const binders = await queryClient.fetchQuery<BinderResponse[]>({
+          queryKey: meKeys.binderList(uid),
+          queryFn: async () => required((await api.GET('/api/v1/binders')).data),
+          staleTime: 30_000,
         });
+        const cores = new Set(binders.filter((binder) => binder.sellsAsCore).map((b) => b.id));
+        const item = matchingItem(copies.items ?? [], wish, cores);
+        // The chat's card is left alone: your copy is pinned only when you send it (R4).
+        const conversation = await start.mutateAsync({ recipientId });
         setPendingDraft(conversation.id, {
           text: PROFILE_COPY.haveMessage(wish.cardName),
           attachment: item ? { kind: 'item', item: ownCardChoice(item) } : null,

@@ -140,4 +140,21 @@ describe('"I have it" picks your copy of the wished card (owner spec, section 10
     expect(matchingItem([privateNew, publicOld, publicNew], wish)?.id).toBe('public-new');
     expect(matchingItem([privateNew], wish)?.id).toBe('private-new');
   });
+
+  it('never takes a copy filed in one of your deck cores: it sells only with its core', () => {
+    const exact = copy('in-core', {
+      printing: printingFixture({ id: PRINTING_B }),
+      binder: { id: 'core-1', name: 'Yubel core' },
+    });
+    const loose = copy('loose', {
+      printing: printingFixture({ id: 'p3', rarity: 'Common' }),
+      binder: { id: 'binder-1', name: 'Trades' },
+    });
+    const cores = new Set(['core-1']);
+    const wished = { ...wish, printing: { id: PRINTING_B } };
+    expect(matchingItem([exact, loose], wished, cores)?.id).toBe('loose');
+    expect(matchingItem([exact], wished, cores)).toBeNull();
+    // A binder that is not a deck core keeps its cards eligible.
+    expect(matchingItem([exact, loose], wished)?.id).toBe('in-core');
+  });
 });

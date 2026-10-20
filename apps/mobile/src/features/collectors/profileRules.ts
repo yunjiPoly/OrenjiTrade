@@ -150,13 +150,20 @@ export interface WishTarget {
 /**
  * Your copy that answers a wish (owner spec, section 10: "If your inventory holds that card, it
  * becomes the chat's card"): the wished printing first, then the wished rarity, then any printing
- * of the card; a public copy before a private one, then the newest. Null when you hold none.
+ * of the card; a public copy before a private one, then the newest. Never a copy filed in one of
+ * your deck cores (`deckCoreIds`): it sells only with its core (section 7). Null when you hold none.
  */
 export function matchingItem(
   items: readonly InventoryItemResponse[],
-  wish: WishTarget
+  wish: WishTarget,
+  deckCoreIds: ReadonlySet<string> = new Set()
 ): InventoryItemResponse | null {
-  const ofCard = items.filter((item) => item.card?.id === wish.cardId && item.quantity > 0);
+  const ofCard = items.filter(
+    (item) =>
+      item.card?.id === wish.cardId &&
+      item.quantity > 0 &&
+      !(item.binder?.id && deckCoreIds.has(item.binder.id))
+  );
   if (ofCard.length === 0) {
     return null;
   }
