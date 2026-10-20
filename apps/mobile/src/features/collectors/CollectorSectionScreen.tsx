@@ -378,7 +378,9 @@ function ReferencesPage({ handle }: { handle: string }) {
 }
 
 const styles = StyleSheet.create({
-  padded: { padding: spacing[4] },
+  // Fills the page: the EmptyState inside grows (flex: 1) and, in a wrapper without a height,
+  // iOS gave it none, cutting off its icon, title and text (review fix 2).
+  padded: { flex: 1, padding: spacing[4] },
   list: { padding: spacing[4], gap: spacing[2], flexGrow: 1 },
   row: {
     flexDirection: 'row',

@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 
 import CollectorBindersScreen from '@/app/collectors/[id]/binders';
 import CollectorCardsScreen from '@/app/collectors/[id]/cards';
@@ -51,6 +52,15 @@ function routes(extra: MockRoutes = {}): MockRoutes {
 }
 
 const port = () => new FakeAuthPort(testUser());
+
+/** The nearest native view above `node` (skipping the components in between). */
+function hostParent(node: ReactTestInstance): ReactTestInstance | null {
+  let parent = node.parent;
+  while (parent && typeof parent.type !== 'string') {
+    parent = parent.parent;
+  }
+  return parent;
+}
 
 describe('"See all" of another collector\'s profile (stage R6)', () => {
   it('titles each page with the section and the handle', () => {
@@ -218,6 +228,64 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
       /This collector is not available/
     );
   });
+
+  // The EmptyState grows (flex: 1): in a wrapper without a height iOS gave it none and showed
+  // only part of its icon and its button, without the title or the text (review fix 2).
+  it.each([
+    [
+      'cards: not available',
+      CollectorCardsScreen,
+      { 'GET /api/v1/collectors/{handle}/inventory': problem(404, 'NOT_FOUND', 'hidden') },
+      'collector-cards-page-not-found',
+      /This collector is not available/,
+    ],
+    [
+      'binders: not available',
+      CollectorBindersScreen,
+      { 'GET /api/v1/collectors/{handle}/binders': problem(404, 'NOT_FOUND', 'hidden') },
+      'collector-binders-page-not-found',
+      /This collector is not available/,
+    ],
+    [
+      'wishes: not available',
+      CollectorWishesScreen,
+      // A hidden wishlist answers 404 too, but that is an empty list: the profile says hidden.
+      { 'GET /api/v1/collectors/{handle}': problem(404, 'NOT_FOUND', 'hidden') },
+      'collector-wishes-page-not-found',
+      /This collector is not available/,
+    ],
+    [
+      'references: blocked by them',
+      CollectorReferencesScreen,
+      {
+        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, isBlocked: true, canMessage: false }),
+        'GET /api/v1/me/blocks': ok([]),
+      },
+      'collector-references-page-not-found',
+      /This collector is not available/,
+    ],
+    [
+      'references: blocked by you',
+      CollectorReferencesScreen,
+      {
+        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, isBlocked: true, canMessage: false }),
+        'GET /api/v1/me/blocks': ok([blockedUserFixture({ id: OTHER.id, handle: OTHER.handle })]),
+      },
+      'collector-references-page-blocked',
+      /You blocked collector2/,
+    ],
+  ] as const)(
+    '%s: the state fills the page, so iOS lays out its title and text',
+    async (_name, Screen, extra, testId, title) => {
+      mockApi(routes(extra));
+      renderWithProviders(<Screen />, { port: port() });
+      const state = await screen.findByTestId(testId);
+      expect(state).toHaveTextContent(title);
+      expect(state).toHaveStyle({ flex: 1 });
+      // Its wrapper is the page's top view and fills the screen, so the state has a height.
+      expect(hostParent(state)).toHaveStyle({ flex: 1 });
+    }
+  );
 
   it('retries a list that failed', async () => {
     const api = mockApi(
