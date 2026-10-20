@@ -1335,9 +1335,13 @@ descriptions say "trades and sales by mail"); stage F1 ("free for all", ADR 0019
 which drop the Phase 10 tables (V011's plans and entitlements, V090–V093) and give `usage_limit` one
 row per key; stage R2 (inventory and adding cards) adds V125 (the asking price as typed, a
 condition not stated, the undo of a delete; written as V117 and renumbered after V123, as Flyway
-refuses an out-of-order version). V001 to V114 are applied and frozen; V115, V116, V120–V123 and
-V125 freeze as they land on `main` (V117–V119 are unused; V124 is kept for another branch). The
-next migration is V126.
+refuses an out-of-order version); stage R3 (binders and deck cores) adds V126, stage R4 (messages
+and Mark as sold) V127, and the camera card scan (ADR 0020) V129 (the flag `cardTextScan`; written
+as V124 and renumbered when it merged `main`). V001 to V114 are applied and frozen; V115, V116,
+V120–V123, V125–V127 and V129 freeze as they land on `main` (V117–V119, V124 and V128 are unused:
+V124 was kept for the card scan, which took V129, and V128 for the redesign's next stage, which has
+none so far). The next migration is V130 (Flyway runs without `outOfOrder` and refuses a version
+older than the database's newest one).
 Details and column lists: `docs/database/schema.md`.
 
 ## Module layout

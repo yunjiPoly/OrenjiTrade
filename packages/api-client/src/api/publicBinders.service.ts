@@ -188,6 +188,7 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
         const availability = requestParameters?.availability;
         const page = requestParameters?.page;
         const size = requestParameters?.size;
+        const excludeDeckCoreItems = requestParameters?.excludeDeckCoreItems;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -231,6 +232,15 @@ export class PublicBindersService extends BaseService implements PublicBindersSe
             localVarQueryParameters,
             'size',
             <any>size,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'excludeDeckCoreItems',
+            <any>excludeDeckCoreItems,
             QueryParamStyle.Form,
             true,
         );

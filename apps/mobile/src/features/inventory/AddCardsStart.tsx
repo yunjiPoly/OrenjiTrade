@@ -16,14 +16,27 @@ export interface AddCardsStartProps {
   onImportDeck: () => void;
   /** "Import from Collectr" (the stage S5 import screen, CSV export). */
   onImportCollectr: () => void;
+  /**
+   * The card scan's two rows, before the imports (owner spec 2026-10-15, screen 26), when the scan
+   * is available here (the flag `cardTextScan` on and a build with the reader); otherwise the
+   * camera stays "Coming later".
+   */
+  scan?: { onCamera: () => void; onPhotos: () => void } | null;
 }
 
 /**
  * Add cards (owner spec 2026-10-14, section 6, screen 3): the big search first ("The fastest way
  * to add one card"), then "Add many at once" with the two imports of stage S5, and the camera
- * marked "Coming later" (card scanning is on hold). New cards start private.
+ * marked "Coming later" (card scanning is on hold). New cards start private. Where the card scan
+ * is available, "Scan with camera" ("New") and "Choose from photos" take the camera's place, before
+ * the imports (owner spec 2026-10-15, screen 26).
  */
-export function AddCardsStart({ onSearch, onImportDeck, onImportCollectr }: AddCardsStartProps) {
+export function AddCardsStart({
+  onSearch,
+  onImportDeck,
+  onImportCollectr,
+  scan = null,
+}: AddCardsStartProps) {
   const { palette } = useTheme();
   return (
     <View style={styles.root} testID="add-cards-start">
@@ -60,6 +73,29 @@ export function AddCardsStart({ onSearch, onImportDeck, onImportCollectr }: AddC
         <Text accessibilityRole="header" style={[styles.section, { color: palette.textMuted }]}>
           {ADD_CARDS_COPY.manyAtOnce.toUpperCase()}
         </Text>
+        {scan ? (
+          <>
+            <Option
+              icon="camera-outline"
+              iconColor={palette.onPrimary}
+              iconBackground={palette.primary}
+              title={ADD_CARDS_COPY.scanTitle}
+              tag={ADD_CARDS_COPY.scanNew}
+              body={ADD_CARDS_COPY.scanCameraBody}
+              onPress={scan.onCamera}
+              testID="add-cards-scan-camera"
+            />
+            <Option
+              icon="image-multiple-outline"
+              iconColor={palette.ink}
+              iconBackground={palette.surfaceVariant}
+              title={ADD_CARDS_COPY.photosTitle}
+              body={ADD_CARDS_COPY.photosBody}
+              onPress={scan.onPhotos}
+              testID="add-cards-scan-photos"
+            />
+          </>
+        ) : null}
         <Option
           icon="cards-outline"
           iconColor={palette.onPrimaryContainer}
@@ -78,32 +114,34 @@ export function AddCardsStart({ onSearch, onImportDeck, onImportCollectr }: AddC
           onPress={onImportCollectr}
           testID="add-cards-import-collectr"
         />
-        <View
-          accessible
-          accessibilityRole="button"
-          accessibilityLabel={`${ADD_CARDS_COPY.scanTitle}, ${ADD_CARDS_COPY.comingLater}`}
-          accessibilityHint={ADD_CARDS_COPY.scanBody}
-          aria-disabled
-          testID="add-cards-scan"
-          style={[styles.option, styles.scan, { borderColor: palette.borderStrong }]}
-        >
-          <View style={[styles.icon, { backgroundColor: palette.surfaceVariant }]}>
-            <MaterialCommunityIcons name="camera-outline" size={22} color={palette.textMuted} />
-          </View>
-          <View style={styles.texts}>
-            <Text style={[styles.optionTitle, { color: palette.ink }]}>
-              {ADD_CARDS_COPY.scanTitle}
-            </Text>
-            <Text style={[styles.optionBody, { color: palette.textMuted }]}>
-              {ADD_CARDS_COPY.scanBody}
-            </Text>
-          </View>
-          <Text
-            style={[styles.tag, { backgroundColor: palette.surfaceVariant, color: palette.ink }]}
+        {scan ? null : (
+          <View
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel={`${ADD_CARDS_COPY.scanTitle}, ${ADD_CARDS_COPY.comingLater}`}
+            accessibilityHint={ADD_CARDS_COPY.scanBody}
+            aria-disabled
+            testID="add-cards-scan"
+            style={[styles.option, styles.scan, { borderColor: palette.borderStrong }]}
           >
-            {ADD_CARDS_COPY.comingLater}
-          </Text>
-        </View>
+            <View style={[styles.icon, { backgroundColor: palette.surfaceVariant }]}>
+              <MaterialCommunityIcons name="camera-outline" size={22} color={palette.textMuted} />
+            </View>
+            <View style={styles.texts}>
+              <Text style={[styles.optionTitle, { color: palette.ink }]}>
+                {ADD_CARDS_COPY.scanTitle}
+              </Text>
+              <Text style={[styles.optionBody, { color: palette.textMuted }]}>
+                {ADD_CARDS_COPY.scanBody}
+              </Text>
+            </View>
+            <Text
+              style={[styles.tag, { backgroundColor: palette.surfaceVariant, color: palette.ink }]}
+            >
+              {ADD_CARDS_COPY.comingLater}
+            </Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.grow} />
@@ -119,6 +157,7 @@ function Option({
   iconColor,
   iconBackground,
   title,
+  tag,
   body,
   onPress,
   testID,
@@ -127,6 +166,8 @@ function Option({
   iconColor: string;
   iconBackground: string;
   title: string;
+  /** A small tag after the title ("New"). */
+  tag?: string;
   body: string;
   onPress: () => void;
   testID: string;
@@ -135,7 +176,7 @@ function Option({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={title}
+      accessibilityLabel={tag ? `${title}, ${tag}` : title}
       accessibilityHint={body}
       onPress={onPress}
       testID={testID}
@@ -149,7 +190,21 @@ function Option({
         <MaterialCommunityIcons name={icon} size={22} color={iconColor} />
       </View>
       <View style={styles.texts}>
-        <Text style={[styles.optionTitle, { color: palette.ink }]}>{title}</Text>
+        {tag ? (
+          <View style={styles.titleRow}>
+            <Text style={[styles.optionTitle, { color: palette.ink }]}>{title}</Text>
+            <Text
+              style={[
+                styles.newTag,
+                { backgroundColor: palette.accentContainer, color: palette.onAccentContainer },
+              ]}
+            >
+              {tag}
+            </Text>
+          </View>
+        ) : (
+          <Text style={[styles.optionTitle, { color: palette.ink }]}>{title}</Text>
+        )}
         <Text style={[styles.optionBody, { color: palette.textMuted }]}>{body}</Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textMuted} />
@@ -207,6 +262,16 @@ const styles = StyleSheet.create({
   },
   texts: { flex: 1, gap: 3 },
   optionTitle: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.semibold },
+  titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  newTag: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: fontWeight.bold,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
   optionBody: { fontSize: 13, lineHeight: 18 },
   tag: {
     fontSize: 12,

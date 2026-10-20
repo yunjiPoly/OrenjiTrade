@@ -101,7 +101,10 @@ test.describe('mobile trading safety', () => {
     );
   });
 
-  test('Block and Unblock on the collector profile, next to Report', async ({ page, request }) => {
+  test('Block and Unblock on the collector profile, in its "⋯" sheet with Report', async ({
+    page,
+    request,
+  }) => {
     test.setTimeout(150_000);
     const ada = await createOnboardedCollector(request, 'blka', `Ada Blocker ${suffix()}`);
     const ben = await createOnboardedCollector(request, 'blkb', `Ben Blockee ${suffix()}`);
@@ -111,27 +114,29 @@ test.describe('mobile trading safety', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText(ben.displayName, {
       timeout: 30_000,
     });
-    await expect(profile.getByTestId('collector-report')).toBeVisible();
 
-    await profile.getByRole('button', { name: `Block ${ben.displayName}` }).click();
+    // The "⋯" sheet (stage R6): Share profile, Report and Block.
+    await page.getByRole('button', { name: `More for ${ben.handle}` }).click();
+    await expect(page.getByTestId('collector-report')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('collector-share')).toBeVisible();
+    await page.getByTestId('collector-block').click();
     const dialog = page.getByTestId('block-dialog');
-    await expect(dialog).toContainText(`Block ${ben.displayName}?`);
+    await expect(dialog).toContainText(`Block ${ben.handle}?`, { timeout: 30_000 });
     await dialog.getByRole('button', { name: 'Block' }).click();
-    await expect(snackbar(page)).toHaveText(`${ben.displayName} is blocked.`, { timeout: 30_000 });
+    await expect(snackbar(page)).toHaveText(`${ben.handle} is blocked.`, { timeout: 30_000 });
     expect((await apiMyBlocks(request, ada)).map((user) => user.handle)).toEqual([ben.handle]);
-    // The profile reloads as blocked: Message unavailable, Unblock in place of Block.
-    await expect(profile.getByRole('button', { name: `Unblock ${ben.displayName}` })).toBeVisible({
-      timeout: 30_000,
-    });
-    await expect(profile.getByTestId('collector-message')).toHaveAttribute('aria-disabled', 'true');
+    // The profile reloads as blocked: the header and Unblock, no Message.
+    await expect(profile.getByTestId('collector-blocked')).toContainText(
+      `You blocked ${ben.handle}.`,
+      { timeout: 30_000 }
+    );
+    await expect(profile.getByTestId('collector-message')).toHaveCount(0);
 
-    await profile.getByRole('button', { name: `Unblock ${ben.displayName}` }).click();
-    await expect(snackbar(page)).toHaveText(`${ben.displayName} is unblocked.`, {
+    await profile.getByRole('button', { name: `Unblock ${ben.handle}` }).click();
+    await expect(snackbar(page)).toHaveText(`${ben.handle} is unblocked.`, {
       timeout: 30_000,
     });
-    await expect(profile.getByRole('button', { name: `Block ${ben.displayName}` })).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(profile.getByTestId('collector-message')).toBeVisible({ timeout: 30_000 });
     expect(await apiMyBlocks(request, ada)).toEqual([]);
   });
 });

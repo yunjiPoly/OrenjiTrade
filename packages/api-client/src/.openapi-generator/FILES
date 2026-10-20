@@ -46,6 +46,8 @@ api/binders.service.ts
 api/binders.serviceInterface.ts
 api/blocks.service.ts
 api/blocks.serviceInterface.ts
+api/cardScan.service.ts
+api/cardScan.serviceInterface.ts
 api/catalog.service.ts
 api/catalog.serviceInterface.ts
 api/collectors.service.ts
@@ -116,6 +118,9 @@ index.ts
 model/acceptOfferRequest.ts
 model/accountDeletionJobResponse.ts
 model/accountExport.ts
+model/addInventoryItemsBatchLine.ts
+model/addInventoryItemsBatchRequest.ts
+model/addInventoryItemsBatchResponse.ts
 model/addReportNoteRequest.ts
 model/adminBinder.ts
 model/adminCardRequest.ts
@@ -163,6 +168,12 @@ model/cardImageCacheGameStatus.ts
 model/cardImageCacheReconcileResult.ts
 model/cardImageCacheStatus.ts
 model/cardLink.ts
+model/cardScanCard.ts
+model/cardScanMatch.ts
+model/cardScanMatchRequest.ts
+model/cardScanOtherMatch.ts
+model/cardScanPrinting.ts
+model/cardScanRead.ts
 model/cardSuggestion.ts
 model/cardSummary.ts
 model/catalogImportReport.ts

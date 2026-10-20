@@ -3,12 +3,13 @@
 # search of Search (Hal in Wyoming,
 # the same platform region; name search allowed, wishlist shown on his profile; scripts/parity.js),
 # opens his profile from the result (his state only, never a distance) and reads what he is
-# looking for; the wish opens the card.
+# looking for, with "I have it" (stage R6).
 appId: ${APP_ID}
 name: Collector search, profile and Looking for
 tags:
   - mobile-m7
   - mobile-r5
+  - mobile-r6
   - search
 ---
 - runScript:
@@ -52,7 +53,8 @@ tags:
 - assertNotVisible: '.*km away.*'
 - takeScreenshot: search-collectors
 
-# His profile, then "Looking for" with the Emberfang Fox wish (condition only, no price, no radius).
+# His profile (stage R6), then "Looking for": the Emberfang Fox wish with its terms and "I have
+# it" (no note on the row, no price limit, no radius).
 - tapOn:
     id: 'search-collector-${output.hal.handle}'
 - extendedWaitUntil:
@@ -60,35 +62,13 @@ tags:
       id: 'collector-name'
       text: ${output.hal.displayName}
     timeout: 60000
-# The section sits at the bottom of the profile; its top edge shows before its text does.
+- assertVisible:
+    id: 'collector-line'
+    text: 'Wyoming · Member since \d{4}.*'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'collector-wishlist'
-- runFlow:
-    file: subflows/scroll-down-to-text.yaml
-    env:
-      TEXT: '1 card ${output.hal.displayName} is looking for'
-- assertVisible: '1 card ${output.hal.displayName} is looking for'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'collector-wish-${output.card.id}'
-- assertVisible:
-    id: 'collector-wish-${output.card.id}'
-    text: '.*Near Mint only.*'
-# The wish's public note and its price term are shown (a wish has no private price any more).
-- assertVisible:
-    id: 'collector-wish-${output.card.id}'
-    text: '.*Fictional Maestro wish.*'
-- assertVisible:
-    id: 'collector-wish-${output.card.id}'
-    text: '.*85% TCG.*'
+      ID: 'profile-have-${output.card.id}'
+- assertVisible: 'Any printing · NM only · 85% TCG'
+- assertNotVisible: '.*km away.*'
 - takeScreenshot: collector-looking-for
-- tapOn:
-    id: 'collector-wish-${output.card.id}'
-- extendedWaitUntil:
-    visible:
-      id: 'card-name'
-      text: ${output.card.name}
-    timeout: 60000

@@ -129,21 +129,15 @@ tags:
       id: 'collector-name'
       text: 'Sofia Nguyen'
     timeout: 60000
+# The one line under the header (stage R6): the city she shows and her state, no country.
 - assertVisible:
-    id: 'collector-location'
-    text: 'Los Angeles, California, United States'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'collector-area-note'
-- assertVisible:
-    id: 'collector-area-note'
-    text: 'On the map in California, United States.*'
+    id: 'collector-line'
+    text: 'Los Angeles, California · Member since \d{4}.*'
 - assertNotVisible: '.*km away.*'
 - takeScreenshot: collector-profile-place
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'collector-binders'
+      ID: 'profile-references-see-all'
 - assertVisible:
-    id: 'collector-ratings'
+    id: 'profile-ratings'

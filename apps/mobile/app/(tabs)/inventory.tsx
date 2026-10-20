@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
@@ -84,8 +84,11 @@ export default function InventoryScreen() {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ view?: string }>();
+  const navigation = useNavigation<{ setParams: (params: { view?: string }) => void }>();
   const [view, setView] = useState<View_>(params.view === 'binders' ? 'binders' : 'cards');
-  // A link into the tab (`?view=binders`) switches the view once per new parameter.
+  // A link into the tab (`?view=binders`) switches the view once per new parameter, and is then
+  // used up (as Search's links are): the same link switches the view again the next time, after
+  // the collector chose the other view by hand (your Profile's "See all binders", stage R6).
   const [linkedView, setLinkedView] = useState(params.view);
   if (params.view !== linkedView) {
     setLinkedView(params.view);
@@ -93,6 +96,11 @@ export default function InventoryScreen() {
       setView(params.view);
     }
   }
+  useEffect(() => {
+    if (params.view !== undefined) {
+      navigation.setParams({ view: undefined });
+    }
+  }, [navigation, params.view]);
   const summary = useInventorySummary();
   const binders = useMyBinders();
   // A text size changed while the app is open: React Native keeps the old measurements of the

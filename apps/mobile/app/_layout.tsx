@@ -10,6 +10,7 @@ import { connectQueryManagers, queryClient } from '@/src/api/queryClient';
 import { SessionProvider } from '@/src/auth/session';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import { SnackbarProvider } from '@/src/components/ui/Snackbar';
+import { scanRunner } from '@/src/features/scan/scanRunner';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
 import { RealtimeProvider } from '@/src/realtime/RealtimeProvider';
@@ -29,6 +30,8 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
   useEffect(() => connectQueryManagers(), []);
+  // The card scan's photo copies of a scan lost when the app was closed are deleted at start-up.
+  useEffect(() => void scanRunner.sweepLeftovers(), []);
   // The icon font is preloaded (not awaited): the web static render then embeds it, so the
   // server HTML and the first client render draw the same glyphs (no hydration mismatch), and
   // native screens do not flash empty icons.

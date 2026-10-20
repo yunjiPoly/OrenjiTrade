@@ -20,20 +20,14 @@ tags:
     env:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
+# The Profile tab is the page others see (stage R6): no public place yet, so its line says "Not
+# on the map", and the line opens Location and discoverability.
 - runFlow: subflows/open-profile-tab.yaml
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'profile-visibility'
 - assertVisible:
-    id: 'profile-visibility'
-    text: 'Hidden from the map.'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'profile-location'
+    id: 'profile-line'
+    text: 'Not on the map · Member since \d{4}'
 - tapOn:
-    id: 'profile-location'
+    id: 'profile-line'
 - extendedWaitUntil:
     visible:
       id: 'location-none'

@@ -190,14 +190,9 @@ tags:
 - assertVisible:
     id: 'profile-handle-label'
     text: '@.+'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'profile-visibility'
+# Not discoverable yet (the default): the Profile tab, the page others see (stage R6), has no
+# public place; its line says so and links to Location.
 - assertVisible:
-    id: 'profile-area'
-    text: 'Quebec, Canada'
-- assertVisible:
-    id: 'profile-visibility'
-    text: 'Hidden from the map.'
+    id: 'profile-line'
+    text: 'Not on the map · Member since \d{4}'
 - takeScreenshot: sign-up-onboarded-profile

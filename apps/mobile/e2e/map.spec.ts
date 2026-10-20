@@ -50,7 +50,7 @@ test.describe('mobile map and places', () => {
     expect(elsewhere).toEqual([]);
   });
 
-  test('a profile shows the state and the shown city; "Message" opens the conversation', async ({
+  test('a profile shows the province and the shown city; "Message" opens the conversation', async ({
     page,
   }) => {
     test.setTimeout(150_000);
@@ -60,9 +60,9 @@ test.describe('mobile map and places', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText('Devon Okafor', {
       timeout: 30_000,
     });
-    await expect(profile.getByTestId('collector-location')).toHaveText('Toronto, Ontario, Canada');
-    await expect(profile.getByTestId('collector-area-note')).toContainText(
-      'On the map in Ontario, Canada.'
+    // The one line under the header (stage R6): the shown city and the province, no country.
+    await expect(profile.getByTestId('collector-line')).toHaveText(
+      /^Toronto, Ontario · Member since \d{4}/
     );
     // Distance wording only: a seeded reference says "shipped right away" (stage R1), and the
     // ratings section loading before this check made a plain "away" fail (found in stage R3).

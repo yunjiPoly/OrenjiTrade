@@ -88,6 +88,11 @@ tags:
       id: 'profile-name'
       text: 'Maestro Editor Renamed'
     timeout: 30000
+# The bio is the profile's About section (stage R6), under the cards, binders and wishes.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'profile-bio-text'
 - assertVisible:
     id: 'profile-bio-text'
     text: 'Updated from the Android app.'

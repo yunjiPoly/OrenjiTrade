@@ -12,10 +12,25 @@ import PlaceBindersRedirect from '@/app/regions/[region]/[code]';
 import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { conversationFixture, conversationPage } from '../support/fixtures';
-import { mockApi, ok } from '../support/mockApi';
+import {
+  collectorFixture,
+  conversationFixture,
+  conversationPage,
+  publicItemsPage,
+  referencesPageFixture,
+} from '../support/fixtures';
+import { mockApi, ok, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { TestProviders, resetAppState } from '../test-utils';
+
+/** The Profile tab reads your public page (stage R6). */
+const PROFILE_ROUTES: MockRoutes = {
+  'GET /api/v1/collectors/{handle}': ok(collectorFixture()),
+  'GET /api/v1/collectors/{handle}/inventory': ok(publicItemsPage([])),
+  'GET /api/v1/collectors/{handle}/binders': ok([]),
+  'GET /api/v1/collectors/{handle}/references': ok(referencesPageFixture({ items: [] })),
+  'GET /api/v1/wishlist': ok([]),
+};
 
 function TestRootLayout() {
   return (
@@ -48,7 +63,7 @@ const routes = {
 describe('(tabs) layout', () => {
   beforeEach(() => {
     resetAppState();
-    mockApi(signedInRoutes());
+    mockApi(signedInRoutes(PROFILE_ROUTES));
   });
 
   it('declares the four product tabs of stage R5 in order (Home comes with R7)', () => {

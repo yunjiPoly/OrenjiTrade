@@ -250,6 +250,10 @@ public class InventoryItemRepository {
             where.append(" AND i.binder_id = :binderId");
             params.put("binderId", query.binderId());
         }
+        if (query.cardId() != null) {
+            where.append(" AND p.card_id = :cardId");
+            params.put("cardId", query.cardId());
+        }
         if (query.unfiled()) {
             where.append(" AND i.binder_id IS NULL");
         }
@@ -314,6 +318,10 @@ public class InventoryItemRepository {
         if (query.availability() != null) {
             where.append(" AND i.availability = :availability");
             params.put("availability", query.availability().name());
+        }
+        if (query.excludeDeckCoreItems()) {
+            // The cards of a deck core sell only with it (owner spec 2026-10-14, section 7).
+            where.append(" AND (i.binder_id IS NULL OR NOT b.sells_as_core)");
         }
         return page(
                 where.toString(),

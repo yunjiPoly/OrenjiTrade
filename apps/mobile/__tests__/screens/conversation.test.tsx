@@ -3,6 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Dimensions, Keyboard, ScrollView, StyleSheet } from 'react-native';
 
 import ConversationScreen from '@/app/messages/[id]';
+import { peekPendingDraft, setPendingDraft } from '@/src/features/messages/pendingDraft';
 import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -192,6 +193,51 @@ describe('Conversation', () => {
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: PRINTING_A },
+    });
+  });
+
+  it('"I have it": starts with the text and your card in the box, sends both only on send', async () => {
+    // Left by the profile's "I have it" (stage R6) for this chat, which pinned your card already.
+    setPendingDraft(CONVERSATION_ID, {
+      text: 'I have Emberfang Fox VMAX for your wishlist. Interested?',
+      attachment: {
+        kind: 'item',
+        item: {
+          itemId: ITEM_ID,
+          name: 'Emberfang Fox VMAX',
+          printingCode: 'SVX-001',
+          imageUrl: null,
+          game: 'pokemon',
+          askingPriceText: '$12.50',
+        },
+      },
+    });
+    const api = mockApi(
+      routes({
+        'POST /api/v1/conversations/{id}/messages': ok(
+          sentMessage({ body: 'I have Emberfang Fox VMAX for your wishlist. Interested?' }),
+          201
+        ),
+      })
+    );
+    render();
+    await screen.findByText('Hi! Still have the Lantern Fox?');
+    expect(screen.getByTestId('conversation-input').props.value).toBe(
+      'I have Emberfang Fox VMAX for your wishlist. Interested?'
+    );
+    expect(screen.getByTestId('composer-attachment')).toHaveTextContent(/Emberfang Fox VMAX/);
+    // Read once: the draft is not left for a later visit.
+    await waitFor(() => expect(peekPendingDraft(CONVERSATION_ID)).toBeNull());
+    expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(0);
+    fireEvent.press(screen.getByTestId('conversation-send'));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/conversations/{id}/messages')).toHaveLength(1)
+    );
+    // Your card first, then the text: one CARD_LINK with your copy (R4) and the text.
+    expect(api.callsTo('POST /api/v1/conversations/{id}/messages')[0]?.body).toEqual({
+      kind: 'CARD_LINK',
+      inventoryItemId: ITEM_ID,
+      body: 'I have Emberfang Fox VMAX for your wishlist. Interested?',
     });
   });
 

@@ -588,6 +588,23 @@ describe('Inventory (screen 1)', () => {
 });
 
 describe('Inventory › Binders (screen 17)', () => {
+  it('follows the same "?view=binders" link again after Cards was chosen by hand', async () => {
+    // Your Profile's "See all binders" (stage R6, review fix 1): the second time it left the
+    // Inventory on Cards, because the link was never used up.
+    mockApi(signedInRoutes());
+    mockParams.current = { view: 'binders' };
+    const view = render();
+    expect(await screen.findByTestId('binders-list')).toBeOnTheScreen();
+    await waitFor(() => expect(mockRouter.setParams).toHaveBeenCalledWith({ view: undefined }));
+    mockParams.current = {};
+    view.rerender(<InventoryScreen />);
+    fireEvent.press(screen.getByTestId('inventory-view-cards'));
+    await waitFor(() => expect(screen.queryByTestId('binders-list')).toBeNull());
+    mockParams.current = { view: 'binders' };
+    view.rerender(<InventoryScreen />);
+    expect(await screen.findByTestId('binders-list')).toBeOnTheScreen();
+  });
+
   it('reorders the binders with the arrows and saves the order', async () => {
     const second = binderFixture({ id: 'b-2', name: 'Sale binder', sortOrder: 1 });
     const api = mockApi(
