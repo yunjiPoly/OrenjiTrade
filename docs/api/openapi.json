@@ -234,6 +234,10 @@
       "description": "Analytics summary (admin console)"
     },
     {
+      "name": "card-scan",
+      "description": "Scan with camera: match the text read on a card"
+    },
+    {
       "name": "inventory",
       "description": "The caller's inventory items, photos and bulk operations"
     },
@@ -7854,6 +7858,119 @@
         }
       }
     },
+    "/api/v1/inventory/items/batch": {
+      "post": {
+        "tags": [
+          "inventory"
+        ],
+        "summary": "Add several cards at once (camera scan)",
+        "description": "One transaction. Lines of the same printing are summed. Each line adds its copies to the caller's equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing's language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. `inventory.items.max` is checked for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing written. 404 when `binderId` is not one of the caller's binders, 404 FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key repeats the first answer for 24 hours, whatever the body: nothing is added a second time.",
+        "operationId": "addInventoryItemsBatch",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "The caller's key for this add (1 to 100 letters, digits or . _ : -): the same key again gets the first answer back for 24 hours",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddInventoryItemsBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "What was added",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddInventoryItemsBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (bad lines, unknown printings, a malformed Idempotency-Key)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND (binder) or FEATURE_DISABLED (cardTextScan is off)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "LIMIT_REACHED (inventory.items.max), nothing written",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/inventory/imports": {
       "get": {
         "tags": [
@@ -9609,6 +9726,108 @@
           },
           "422": {
             "description": "POST_BLOCKED",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cards/scan-match": {
+      "post": {
+        "tags": [
+          "card-scan"
+        ],
+        "summary": "Find the card a scan read",
+        "description": "Yu-Gi-Oh! English cards only. The codes are tried as read, in the other form of an old code (LOB-005 / LOB-EN005, LOB-E001 → LOB-EN001), with a missing dash at each place, then with look-alike characters (O/0, D/0, I/1, L/1, S/5, B/8, Z/2, G/6) only when the catalog has the result; the names as /cards/suggest finds them. FOUND: one card and one printing; PICK_RARITY: the code comes in several rarities (`rarities`); PICK_PRINTING: the card is known, not its printing (`printings`, newest set first); NOT_FOUND (`reason`). A code with another language's region (MACR-FR036) is NOT_FOUND whatever the name says. `otherMatches`: at most 6 other cards (look-alike codes, also 3/8, 6/8, 5/6, 0/8 and 1/7, then close names). Pictures are this API's card-images addresses. 404 FEATURE_DISABLED while the flag cardTextScan is off.",
+        "operationId": "matchScannedCard",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardScanMatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardScanMatch"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (another game than yugioh, a bad body)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "FEATURE_DISABLED (cardTextScan is off)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -30333,6 +30552,100 @@
           "reason"
         ]
       },
+      "AddInventoryItemsBatchLine": {
+        "type": "object",
+        "description": "A printing and its copies",
+        "properties": {
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 9999,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "printingId",
+          "quantity"
+        ]
+      },
+      "AddInventoryItemsBatchRequest": {
+        "type": "object",
+        "description": "Cards to add in one go",
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "description": "PRIVATE by default",
+            "enum": [
+              "PRIVATE",
+              "PUBLIC"
+            ]
+          },
+          "binderId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "One of the caller's binders; none by default"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddInventoryItemsBatchLine"
+            },
+            "maxItems": 500,
+            "minItems": 1
+          }
+        },
+        "required": [
+          "lines"
+        ]
+      },
+      "AddInventoryItemsBatchResponse": {
+        "type": "object",
+        "description": "What a batch added",
+        "properties": {
+          "itemsCreated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemsRaised": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "copiesAdded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "copiesNotAdded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "raisedItemIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "copiesAdded",
+          "copiesNotAdded",
+          "createdItemIds",
+          "itemsCreated",
+          "itemsRaised",
+          "raisedItemIds"
+        ]
+      },
       "InventoryImportResponse": {
         "type": "object",
         "description": "An inventory import of the caller: a preview, then its commit",
@@ -31516,6 +31829,216 @@
           "moderationState",
           "payload",
           "replyCount"
+        ]
+      },
+      "CardScanMatchRequest": {
+        "type": "object",
+        "description": "What the phone read on one card",
+        "properties": {
+          "game": {
+            "type": "string",
+            "example": "yugioh",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "codes": {
+            "type": "array",
+            "description": "0 to 3 printing codes as read, best first",
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "minLength": 0
+            },
+            "maxItems": 3,
+            "minItems": 0
+          },
+          "names": {
+            "type": "array",
+            "description": "0 to 3 card names as read, best first",
+            "items": {
+              "type": "string",
+              "maxLength": 150,
+              "minLength": 0
+            },
+            "maxItems": 3,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "game"
+        ]
+      },
+      "CardScanCard": {
+        "type": "object",
+        "description": "The matched card",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ash Blossom & Joyous Spring"
+          },
+          "imageUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "CardScanMatch": {
+        "type": "object",
+        "description": "The card a scan read points to",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "FOUND",
+              "PICK_RARITY",
+              "PICK_PRINTING",
+              "NOT_FOUND"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "OTHER_LANGUAGE",
+              "AMBIGUOUS",
+              "NO_MATCH",
+              "NOTHING_READ"
+            ]
+          },
+          "card": {
+            "$ref": "#/components/schemas/CardScanCard"
+          },
+          "printing": {
+            "$ref": "#/components/schemas/CardScanPrinting"
+          },
+          "rarities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardScanPrinting"
+            }
+          },
+          "printings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardScanPrinting"
+            }
+          },
+          "otherMatches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardScanOtherMatch"
+            }
+          },
+          "read": {
+            "$ref": "#/components/schemas/CardScanRead"
+          }
+        },
+        "required": [
+          "otherMatches",
+          "printings",
+          "rarities",
+          "read",
+          "status"
+        ]
+      },
+      "CardScanOtherMatch": {
+        "type": "object",
+        "description": "Another card the scan could be",
+        "properties": {
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "CODE",
+              "NAME"
+            ]
+          },
+          "printingCode": {
+            "type": "string"
+          },
+          "setName": {
+            "type": "string"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rarity": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardId",
+          "kind",
+          "name"
+        ]
+      },
+      "CardScanPrinting": {
+        "type": "object",
+        "description": "A printing of the matched card",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingCode": {
+            "type": "string",
+            "example": "MACR-EN036"
+          },
+          "setCode": {
+            "type": "string",
+            "example": "MACR"
+          },
+          "setName": {
+            "type": "string",
+            "example": "Maximum Crisis"
+          },
+          "rarity": {
+            "type": "string",
+            "example": "Secret Rare"
+          }
+        },
+        "required": [
+          "id",
+          "setCode",
+          "setName"
+        ]
+      },
+      "CardScanRead": {
+        "type": "object",
+        "description": "What the phone read, as the server cleaned it",
+        "properties": {
+          "codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "codes",
+          "names"
         ]
       },
       "CreateBinderRequest": {

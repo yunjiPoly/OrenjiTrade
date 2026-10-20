@@ -38,6 +38,10 @@ export interface AddCardSearchProps {
   onCard: (suggestion: CardSuggestion) => void;
   /** An exact printing: Add to inventory (screen 6) at once. */
   onPrinting: (suggestion: CardSuggestion) => void;
+  /** Only this game's cards (the card scan: Yu-Gi-Oh!); every game when not given. */
+  game?: string;
+  /** The hint at the bottom, when the search is used elsewhere (the card scan's own words). */
+  hint?: string;
 }
 
 /**
@@ -47,7 +51,15 @@ export interface AddCardSearchProps {
  * straight to the details; and the hint at the bottom. Printings that share a code are each a row
  * of their own with what tells them apart ("1st Edition", "Unlimited"): the one tapped is added.
  */
-export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: AddCardSearchProps) {
+export function AddCardSearch({
+  text,
+  onText,
+  onCancel,
+  onCard,
+  onPrinting,
+  game,
+  hint,
+}: AddCardSearchProps) {
   const { palette } = useTheme();
   const [query, setQuery] = useState(text.trim());
 
@@ -56,7 +68,7 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
     return () => clearTimeout(timer);
   }, [text]);
 
-  const suggestions = useCardSuggestions(query, ADD_SEARCH_LIMIT, true);
+  const suggestions = useCardSuggestions(query, ADD_SEARCH_LIMIT, true, game);
   const cards = (suggestions.data ?? []).filter((entry) => entry.kind === 'CARD');
   const printings = (suggestions.data ?? []).filter((entry) => entry.kind === 'PRINTING');
   const tooShort = query.length < SUGGEST_MIN_CHARS;
@@ -125,7 +137,13 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
         <View
           style={[styles.field, { backgroundColor: palette.surface, borderColor: palette.primary }]}
         >
-          <MaterialCommunityIcons name="magnify" size={22} color={palette.primary} />
+          <MaterialCommunityIcons
+            name="magnify"
+            size={22}
+            color={palette.primary}
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+          />
           <TextInput
             value={text}
             onChangeText={onText}
@@ -179,7 +197,7 @@ export function AddCardSearch({ text, onText, onCancel, onCard, onPrinting }: Ad
         style={[styles.hint, { backgroundColor: palette.surface, color: palette.textMuted }]}
         testID="add-search-hint"
       >
-        {ADD_CARDS_COPY.typingHint}
+        {hint ?? ADD_CARDS_COPY.typingHint}
       </Text>
     </View>
   );

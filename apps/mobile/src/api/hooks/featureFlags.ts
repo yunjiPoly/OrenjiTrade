@@ -15,6 +15,7 @@ export const FEATURE = {
   publicChat: 'publicChat',
   protectedPayments: 'protectedPayments',
   mlScanning: 'mlScanning',
+  cardTextScan: 'cardTextScan',
 } as const;
 
 export type KnownFeature = (typeof FEATURE)[keyof typeof FEATURE];

@@ -75,16 +75,24 @@ export function useCardSearch(query: CardSearchQuery, enabled = true) {
   });
 }
 
-/** `GET /api/v1/cards/suggest`: card and printing suggestions (debounce `q` in the caller). */
-export function useCardSuggestions(q: string, limit = 10, keepTwins = false) {
+/**
+ * `GET /api/v1/cards/suggest`: card and printing suggestions (debounce `q` in the caller), of one
+ * game when `game` is given (the card scan: Yu-Gi-Oh! only).
+ */
+export function useCardSuggestions(q: string, limit = 10, keepTwins = false, game?: string) {
   const trimmed = q.trim();
   return useQuery<CardSuggestion[], ApiError>({
-    queryKey: catalogKeys.suggest(`${trimmed}|${limit}${keepTwins ? '|twins' : ''}`),
+    queryKey: catalogKeys.suggest(
+      `${trimmed}|${limit}${keepTwins ? '|twins' : ''}${game ? `|${game}` : ''}`
+    ),
     queryFn: async () =>
       uniqueSuggestions(
         required(
-          (await api.GET('/api/v1/cards/suggest', { params: { query: { q: trimmed, limit } } }))
-            .data
+          (
+            await api.GET('/api/v1/cards/suggest', {
+              params: { query: { q: trimmed, limit, ...(game ? { game } : {}) } },
+            })
+          ).data
         ),
         keepTwins
       ),

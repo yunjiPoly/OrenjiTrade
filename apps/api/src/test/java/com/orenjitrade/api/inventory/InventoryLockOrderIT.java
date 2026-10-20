@@ -717,6 +717,7 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         ITEM_CONFIRM,
         ITEM_BULK,
         IMPORT_COMMIT,
+        BATCH_ADD,
         ITEM_ADMIN_RESTORE,
         ITEM_ADMIN_HIDE,
         TRADE_TRANSFER,
@@ -766,7 +767,15 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         UUID ownerId = collector(uid);
         String binderId = createBinder(uid, "One", "PRIVATE");
         String otherBinderId = createBinder(uid, "Two", "PRIVATE");
-        String filed = createItem(uid, binderId, Map.of());
+        // The batch add raises a card whose condition is not stated, like every card added on the
+        // phone (stage R2): the filed card is one for that case.
+        String filed =
+                createItem(
+                        uid,
+                        binderId,
+                        write == OwnerWrite.BATCH_ADD
+                                ? Map.of("conditionStated", false)
+                                : Map.of());
         String unfiled = createItem(uid, null, Map.of());
         // A private mint card filed in the binder: the one an import adds its mint copies to (an
         // import never raises a card its owner shows), so the commit locks a binder and an item.
@@ -938,6 +947,13 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                 JsonNode result = commit(uid, importId);
                 assertThat(result.path("itemsMerged").asInt()).isEqualTo(1);
                 assertThat(result.path("itemsCreated").asInt()).isEqualTo(2);
+            }
+            case BATCH_ADD -> {
+                // The copies of a scan go to the card the collector shows in the binder (same
+                // visibility and binder): the binder and that item are locked.
+                JsonNode result = batchAdd(uid, "PUBLIC", binderId, 2);
+                assertThat(result.path("itemsRaised").asInt()).isEqualTo(1);
+                assertThat(result.path("itemsCreated").asInt()).isZero();
             }
             case ITEM_ADMIN_RESTORE ->
                     assertThat(inventoryService.restoreListing(uuid(filed))).isPresent();
@@ -1811,6 +1827,142 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
                                         + " deleted_at IS NULL",
                                 ownerId))
                 .isEqualTo(3);
+    }
+
+    /**
+     * Bounded stress for the batch add of the camera scan ({@code POST /inventory/items/batch}):
+     * batches of one collector, one raising an unfiled private card and one raising a card the
+     * collector shows in a binder, next to that collector's item writes (creations, edits, deletes,
+     * moves between the two binders), privacy reconciliations and two workers that run the
+     * freshness job. None may fail, in particular not with a deadlock; the binder counts stay right
+     * and every copy of every batch is in the inventory exactly once.
+     */
+    @Test
+    void aBatchAddNextToTheOtherWritesNeverDeadlocks() throws Exception {
+        int rounds = 10;
+        String uid = uniqueUid("lock-batch");
+        UUID ownerId = collector(uid);
+        setDiscoverable(ownerId, true);
+        String first = createBinder(uid, "First", "PUBLIC");
+        String second = createBinder(uid, "Second", "PUBLIC");
+        // The card the binder batches raise (public in its binder, no condition stated: a card
+        // added on the phone, stage R2) and the cards another worker moves between the binders
+        // (private mint ones: never equal to a batch line).
+        String shown = createItem(uid, first, Map.of("conditionStated", false));
+        List<String> movers = new ArrayList<>();
+        for (int index = 0; index < 2; index++) {
+            movers.add(
+                    createItem(uid, first, Map.of("visibility", "PRIVATE", "condition", "MINT")));
+        }
+        List<String> doomed = new ArrayList<>();
+        for (int index = 0; index < rounds; index++) {
+            doomed.add(
+                    createItem(
+                            uid,
+                            index % 2 == 0 ? first : second,
+                            Map.of("condition", "LIGHTLY_PLAYED")));
+        }
+        List<IntConsumer> writers =
+                List.of(
+                        round -> {
+                            JsonNode result = batchAdd(uid, null, null, 1);
+                            assertThat(result.path("copiesAdded").asInt()).isEqualTo(1);
+                        },
+                        round -> {
+                            JsonNode result = batchAdd(uid, "PUBLIC", first, 2);
+                            assertThat(result.path("itemsRaised").asInt()).isEqualTo(1);
+                        },
+                        round -> {
+                            String created = createItem(uid, first, Map.of("condition", "DAMAGED"));
+                            callJson(
+                                    HttpMethod.PATCH,
+                                    ITEMS + "/" + created,
+                                    uid,
+                                    Map.of("quantity", round + 2),
+                                    200);
+                            callJson(HttpMethod.DELETE, ITEMS + "/" + created, uid, null, 204);
+                        },
+                        round -> {
+                            callJson(
+                                    HttpMethod.DELETE,
+                                    ITEMS + "/" + doomed.get(round),
+                                    uid,
+                                    null,
+                                    204);
+                            bulk(
+                                    uid,
+                                    "MOVE_TO_BINDER",
+                                    movers,
+                                    Map.of("binderId", round % 2 == 0 ? second : first));
+                        },
+                        round -> {
+                            setDiscoverable(ownerId, round % 2 == 1);
+                            reconciler.owner(ownerId);
+                        },
+                        round -> freshnessService.run(),
+                        round -> freshnessService.run());
+
+        ExecutorService pool = Executors.newFixedThreadPool(writers.size());
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<?>> running = new ArrayList<>();
+            for (IntConsumer writer : writers) {
+                running.add(
+                        pool.submit(
+                                () -> {
+                                    awaitQuietly(start);
+                                    for (int round = 0; round < rounds; round++) {
+                                        writer.accept(round);
+                                    }
+                                }));
+            }
+            start.countDown();
+            for (Future<?> writer : running) {
+                writer.get(4 * STEP.toSeconds(), TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertItemCountsMatch(ownerId);
+        assertThat(doomed).noneMatch(this::isLive);
+        assertThat(column("inventory_item", "quantity", shown))
+                .as("two copies per binder batch, added to the same card every time")
+                .isEqualTo(1 + 2 * rounds);
+        assertThat(
+                        testUsers.query(
+                                "SELECT quantity, visibility FROM inventory_item WHERE owner_id = ?"
+                                        + " AND deleted_at IS NULL AND binder_id IS NULL",
+                                ownerId))
+                .as("the card of the first unfiled batch, raised by every later one")
+                .singleElement()
+                .satisfies(
+                        row -> {
+                            assertThat(row.get("quantity")).isEqualTo(rounds);
+                            assertThat(row.get("visibility")).isEqualTo("PRIVATE");
+                        });
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE owner_id = ? AND"
+                                        + " deleted_at IS NULL",
+                                ownerId))
+                .isEqualTo(4);
+    }
+
+    /** Adds copies of the card of this test through the batch add of the camera scan. */
+    private JsonNode batchAdd(
+            String uid, @Nullable String visibility, @Nullable String binderId, int quantity) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        if (visibility != null) {
+            body.put("visibility", visibility);
+        }
+        if (binderId != null) {
+            body.put("binderId", binderId);
+        }
+        body.put(
+                "lines",
+                List.of(Map.of("printingId", printingId.toString(), "quantity", quantity)));
+        return callJson(HttpMethod.POST, ITEMS + "/batch", uid, body, 200);
     }
 
     /**

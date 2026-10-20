@@ -17,6 +17,10 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
+import { AddInventoryItemsBatchRequest } from '../model/addInventoryItemsBatchRequest';
+// @ts-ignore
+import { AddInventoryItemsBatchResponse } from '../model/addInventoryItemsBatchResponse';
+// @ts-ignore
 import { BulkInventoryRequest } from '../model/bulkInventoryRequest';
 // @ts-ignore
 import { BulkInventoryResponse } from '../model/bulkInventoryResponse';
@@ -39,6 +43,7 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     InventoryServiceInterface,
+    AddInventoryItemsBatchRequestParams,
     BulkUpdateInventoryItemsRequestParams,
     ConfirmInventoryItemRequestParams,
     CreateInventoryItemRequestParams,
@@ -60,6 +65,82 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     constructor(protected httpClient: HttpClient, @Optional() @Inject(BASE_PATH) basePath: string|string[], @Optional() configuration?: Configuration) {
         super(basePath, configuration);
+    }
+
+    /**
+     * Add several cards at once (camera scan)
+     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key repeats the first answer for 24 hours, whatever the body: nothing is added a second time.
+     * @endpoint post /api/v1/inventory/items/batch
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public addInventoryItemsBatch(requestParameters: AddInventoryItemsBatchRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<AddInventoryItemsBatchResponse>;
+    public addInventoryItemsBatch(requestParameters: AddInventoryItemsBatchRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<AddInventoryItemsBatchResponse>>;
+    public addInventoryItemsBatch(requestParameters: AddInventoryItemsBatchRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<AddInventoryItemsBatchResponse>>;
+    public addInventoryItemsBatch(requestParameters: AddInventoryItemsBatchRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const addInventoryItemsBatchRequest = requestParameters?.addInventoryItemsBatchRequest;
+        if (addInventoryItemsBatchRequest === null || addInventoryItemsBatchRequest === undefined) {
+            throw new Error('Required parameter addInventoryItemsBatchRequest was null or undefined when calling addInventoryItemsBatch.');
+        }
+        const idempotencyKey = requestParameters?.idempotencyKey;
+
+        let localVarHeaders = this.defaultHeaders;
+        if (idempotencyKey !== undefined && idempotencyKey !== null) {
+            localVarHeaders = localVarHeaders.set('Idempotency-Key', String(idempotencyKey));
+        }
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        // to determine the Content-Type header
+        const consumes: string[] = [
+            'application/json'
+        ];
+        const httpContentTypeSelected: string | undefined = this.configuration.selectHeaderContentType(consumes);
+        if (httpContentTypeSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Content-Type', httpContentTypeSelected);
+        }
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/inventory/items/batch`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<AddInventoryItemsBatchResponse>('post', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                body: addInventoryItemsBatchRequest,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
     }
 
     /**

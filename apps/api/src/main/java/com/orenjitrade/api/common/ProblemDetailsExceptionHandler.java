@@ -409,7 +409,17 @@ public class ProblemDetailsExceptionHandler extends ResponseEntityExceptionHandl
                     detail.getStatus(),
                     errorCode,
                     detail.getInstance(),
-                    ex.getMessage());
+                    rejectionReason(ex));
         }
+    }
+
+    /**
+     * Why a request was rejected, for the DEBUG log, without what the client sent: an application
+     * exception's message is the safe one it answers with; any other exception (a body that fails
+     * validation or cannot be read, a value of the wrong type) is named by its type only, since its
+     * message echoes the rejected values (a card scan's read text, the words of a message).
+     */
+    private static @Nullable String rejectionReason(Throwable ex) {
+        return ex instanceof ApiException ? ex.getMessage() : ex.getClass().getSimpleName();
     }
 }

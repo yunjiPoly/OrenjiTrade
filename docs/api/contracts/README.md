@@ -23,6 +23,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R3 | [Binders and deck cores: the deck core fields, binder photos, key cards, deck cores in search and on the map (extends 3, 4 and the map of S1)](r3-binders-deck-cores.md) |
 | R4 | [Messages and Mark as sold: the chat's subject, sharing one's own card, sales and their undo, the SALE interaction, the buyer's notification (extends 5, 6 and 7)](r4-messages-sales.md) |
 | R5 | [Search: collectors by name while a card is typed, the holders of a card grouped by province, wishlist availability, blocked collectors left out of the collectors of search, no search text in analytics (extends 4, 6 and S2)](r5-search.md) |
+| Scan | [Card scan: match the text read on a card, add the scanned cards](card-scan.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
