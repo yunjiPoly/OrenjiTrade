@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -7030,6 +7030,52 @@ this round):
 **Could not be verified in this round:** the Android run (no Android SDK on this Mac); the share
 sheet's targets beyond its appearing ("Copy" is shown, nothing is shared).
 
+**Review fix 2 (2026-10-20).** The reviewers' check of review fix 1 (on the owner's iPhone 18 Pro,
+at `89508533`) found one major finding; no blocker. It is fixed at its cause with tests that fail
+without the fix; nothing was widened, and there is no migration and no API or web change.
+
+- **R1-1 (major) On iOS the "See all" pages' "not available" state and review fix 1's "You blocked
+  {handle}" state showed a cut-off icon and the button only, without the title or the text** (and
+  VoiceOver had nothing to read). Their `EmptyState` grows (`flex: 1`) and sat in a wrapper with
+  padding only: the wrapper had no height, so iOS gave the state none (a browser sizes it to its
+  content, so the mobile web E2E did not see it, and jest lays nothing out). The wrapper of every
+  state of `CollectorSectionScreen` (loading, error, not available, You blocked) now fills the page
+  (`padded: { flex: 1, … }`). Tests: `screens/collector-sections` (+5: the cards, binders and wishes
+  pages' "not available", the references page blocked by them and by you; each state and its wrapper
+  fill the page; all five fail with the old wrapper); native flow 6 now ends with the "See all"
+  pages across a block: Vic blocks Dana from the "⋯" sheet, her references page shows "You blocked
+  {handle}" and its text, Unblock brings her ratings back; then Dana blocks Vic (`scripts/parity.js`
+  ACTION=block) and her cards page shows "This collector is not available" and its text. With the
+  old wrapper flow 6 fails at that step on the owner's iPhone 18 Pro (its screenshot: a cut-off icon
+  and Unblock, nothing else); with the fix it passed alone in 2 min 23 s and its two new screenshots
+  show each title, its text and its button in the middle of the page. (`ad26895b`, `02a33bea`)
+
+Found on the way, not R6's and not changed: `WishlistAlertsIT` checks that a wishlist alert's body
+does not contain "km", and the body starts with a random fixture card name; one run in about a
+hundred fails when the name holds those two letters (it did once in this round, "Zqiuqgkmgh";
+re-run alone it passed). Recorded as an owner follow-up.
+
+**Checks of review fix 2** (retries off; this Mac, 2026-10-20, the owner's iPhone 18 Pro simulator
+with its appearance (light) and text size (Large) left as they were):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | 1082 tests, **1 failure**: `WishlistAlertsIT` (the random "km" above), which passed re-run alone (7 / 7); the catalog tests (**12** in 2 classes) and `check` then passed on their own (the failure had stopped the script before them) |
+| `./gradlew exportOpenApi` + `npm run generate:api` | nothing changed, git clean |
+| `npm run build -w apps/web-angular` | passed, initial total **896.09 kB** |
+| `npm run test:web`, web `lint`, `format:check` | passed: 136 files / **633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 / 70** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `lint`, `format:check` | clean |
+| `npm run test:mobile` | passed: jest **94 suites / 1081 tests** (+5) + 28 guard tests |
+| `npx expo export --platform ios / android / web` | all three passed (into the scratch folder) |
+| `npm run test:mobile:e2e -- --retries=0` | **60 / 60** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` | **34 / 34** in 53 min 55 s on the owner's iPhone 18 Pro (native flow 6 with its new steps in 2 min 19 s; it failed on the old wrapper and passed with the fix alone first, above) |
+| `npm run test:scripts` | **135 / 135** |
+| `npm run audit:gate` | passed (the two allowlisted advisories, expiring 2026-11-30) |
+
+**Could not be verified in this round:** the Android run (no Android SDK on this Mac).
+
 ## NEXT TASK
 
 > **Owner order of 2026-10-20: stop all work on the French version, and the app supports English
@@ -7042,16 +7088,14 @@ sheet's targets beyond its appearing ("Copy" is shown, nothing is shared).
 > the header and its one line, Message, Cards, Binders, Looking for with "I have it", About,
 > Ratings & references, each "See all"), "I have it" (the chat with your copy and the text in the
 > box, nothing sent and the chat's card unchanged before send), your Profile tab with the gear
-> that opens Settings. Its reviews ran and **review fix 1 is done** (section "Review fix 1" of
-> R6). API:
+> that opens Settings. Its reviews ran and **review fixes 1 and 2 are done** (sections "Review
+> fix 1" and "Review fix 2" of R6). API:
 > `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET
 > /collectors/{handle}/inventory`, both optional; no migration (the next one is still **V128**;
 > V124 is kept for the card-scan branch). Native flow 6 of the spec
 > (`profile-pages-settings-gear.yaml`).
 >
-> **Exact next task: the reviewers' check of R6's review fix 1** (a functional verifier and a
-> product / UX lens as a collector, the spec's section 15; at most one more fix round), then its
-> ship step (merge `main`, the
+> **Exact next task: R6's ship step** (its two fix rounds are used up: merge `main`, the
 > handoff's full check list, the pull request, the merge on green). **Then stage G** of
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
 > (one game at a time), **then R7** with
@@ -7066,7 +7110,7 @@ sheet's targets beyond its appearing ("Copy" is shown, nothing is shared).
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
 > (Home, stage R7) and
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
-> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (built, review fix 1 done),
+> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (built, review fixes 1 and 2 done),
 > then G, then R7 with the Home prompt, then R8, then R9 to R15 (R15 after R12). R5 is merged
 > (#78); the paragraphs below predate these prompts where they say otherwise.
 
