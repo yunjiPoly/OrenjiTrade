@@ -288,15 +288,18 @@ public class InventoryBatchService {
         if (binderId != null) {
             BinderView binder = binders.requireOwned(ownerId, binderId);
             // A binder holds the cards of one game (stage G): the whole batch or nothing. A
-            // binder made without a game that holds no card takes the game of the first line.
+            // binder made without a game (the paused web) takes the game of the first line while
+            // it holds no card, and refuses none.
             if (binder.gameFollowsCards() && !lines.isEmpty()) {
                 boolean empty =
                         binder.itemCount() == 0
                                 && items.countRestorableInBinder(binderId, now) == 0;
                 binder = binders.followCardGame(binder, lines.get(0).game(), empty);
             }
-            for (Planned line : lines) {
-                InventoryService.requireBinderGame(binder, line.game());
+            if (!binder.gameFollowsCards()) {
+                for (Planned line : lines) {
+                    InventoryService.requireBinderGame(binder, line.game());
+                }
             }
         }
         Map<UUID, LockedItem> locked = new HashMap<>();

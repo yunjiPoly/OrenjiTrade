@@ -125,7 +125,7 @@ export class BindersService extends BaseService implements BindersServiceInterfa
 
     /**
      * Create a binder
-     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector. &#x60;gameId&#x60; (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none.
+     * Added at the end of the caller\&#39;s list. PRIVATE unless &#x60;visibility&#x60; says otherwise; TEMPORARILY_PUBLIC needs &#x60;publicUntil&#x60; at most 30 days ahead. 429 LIMIT_REACHED (limitKey &#x60;binders.max&#x60;) beyond the binder limit, the same for every collector. &#x60;gameId&#x60; (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none and refuses no card.
      * @endpoint post /api/v1/binders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

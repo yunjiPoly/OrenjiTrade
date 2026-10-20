@@ -643,8 +643,8 @@ public class InventoryService {
             owned.put(row.id(), row);
         }
         if (target != null && target.gameFollowsCards()) {
-            // A binder made without a game takes the game of the first card moved in while it
-            // holds none (stage G); the cards of another game are then skipped.
+            // A binder made without a game (the paused web) takes the game of the first card moved
+            // in while it holds none, and refuses none (stage G).
             for (UUID id : ids) {
                 ItemRow first = owned.get(id);
                 if (first != null) {
@@ -663,6 +663,7 @@ public class InventoryService {
             ItemRow row = owned.get(id);
             if (request.action() == BulkAction.MOVE_TO_BINDER
                     && target != null
+                    && !target.gameFollowsCards()
                     && !target.game().equals(row.game())) {
                 // A binder holds the cards of one game (stage G): this card stays where it was.
                 skipped.add(new Skipped(id, SkipReason.BINDER_GAME_MISMATCH));
@@ -1381,22 +1382,24 @@ public class InventoryService {
     }
 
     /**
-     * A card of {@code cardGame} goes into {@code binder} (held by the caller): a binder made
-     * without a game that holds no card takes the card's game ({@link
-     * BinderService#followCardGame}); then the card must be of the binder's game ({@code 409
-     * BINDER_GAME_MISMATCH}). Returns the binder as it now is.
+     * A card of {@code cardGame} goes into {@code binder} (held by the caller). A binder made with
+     * a game takes the cards of that game only ({@code 409 BINDER_GAME_MISMATCH}). A binder made
+     * without one (the paused web, which has no game picker) takes the game of its first card while
+     * it holds none ({@link BinderService#followCardGame}) and refuses no card: the web's own
+     * binders keep mixing games as they did. Returns the binder as it now is.
      */
     private @Nullable BinderView binderForCard(
             @Nullable BinderView binder, String cardGame, Instant now) {
         if (binder == null) {
             return null;
         }
-        BinderView current =
-                binder.gameFollowsCards()
-                        ? binders.followCardGame(binder, cardGame, binderEmpty(binder, now))
-                        : binder;
-        requireBinderGame(current, cardGame);
-        return current;
+        if (binder.gameFollowsCards()) {
+            // Made without a game (the paused web): it takes its first card's game and refuses
+            // none, as the web's binders always did.
+            return binders.followCardGame(binder, cardGame, binderEmpty(binder, now));
+        }
+        requireBinderGame(binder, cardGame);
+        return binder;
     }
 
     /** No live card, and no deleted card whose undo can still bring it back (stage G). */

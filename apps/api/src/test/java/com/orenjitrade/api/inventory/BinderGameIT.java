@@ -114,34 +114,29 @@ class BinderGameIT extends AbstractIntegrationTest {
 
     @Test
     void aBinderMadeWithoutAGameTakesTheGameOfItsFirstCard() {
-        // The paused web makes binders without a game: the first card filed sets it.
+        // The paused web makes binders without a game: the first card filed sets it, and the web's
+        // binders take any card, as they always did (its suites file several games in one).
         String web =
                 callJson(HttpMethod.POST, BINDERS, uid, binder("Web binder", "PRIVATE"), 201)
                         .path("id")
                         .asString();
         String first = add(pkm, web);
-        assertThat(
-                        callJson(HttpMethod.GET, BINDERS + "/" + web, uid, null, 200)
-                                .path("game")
-                                .asString())
-                .isEqualTo("pokemon");
-        // From then on it holds Pokémon cards only.
-        Map<String, Object> other = item(ygo);
-        other.put("binderId", web);
-        assertThat(callJson(HttpMethod.POST, ITEMS, uid, other, 409).path("errorCode").asString())
-                .isEqualTo("BINDER_GAME_MISMATCH");
-        // Empty again (its card left and its undo closed), the next card sets the game again.
+        assertThat(gameOf(web)).isEqualTo("pokemon");
+        add(ygo, web);
+        assertThat(gameOf(web)).as("the first card's game stays").isEqualTo("pokemon");
+        // Empty again (its cards left), the next card sets the game again.
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("binderId", null);
         callJson(HttpMethod.PATCH, ITEMS + "/" + first, uid, out, 200);
-        add(ygo, web);
-        assertThat(
-                        callJson(HttpMethod.GET, BINDERS + "/" + web, uid, null, 200)
-                                .path("game")
-                                .asString())
-                .isEqualTo("yugioh");
+        for (JsonNode card :
+                callJson(HttpMethod.GET, ITEMS + "?binderId=" + web, uid, null, 200)
+                        .path("items")) {
+            callJson(HttpMethod.PATCH, ITEMS + "/" + card.path("id").asString(), uid, out, 200);
+        }
+        add(mtg, web);
+        assertThat(gameOf(web)).isEqualTo("mtg");
 
-        // The bulk move: the first card sets the game, a card of another game is skipped.
+        // The bulk move: the first card sets the game.
         String bulkBinder =
                 callJson(HttpMethod.POST, BINDERS, uid, binder("Web bulk", "PRIVATE"), 201)
                         .path("id")
@@ -153,21 +148,24 @@ class BinderGameIT extends AbstractIntegrationTest {
         body.put("action", "MOVE_TO_BINDER");
         body.put("itemIds", List.of(magic, pokemon));
         body.put("binderId", bulkBinder);
-        JsonNode result = callJson(HttpMethod.POST, ITEMS + "/bulk", uid, body, 200);
-        assertThat(result.path("updated").asInt()).isEqualTo(1);
-        assertThat(result.path("skipped").get(0).path("reason").asString())
-                .isEqualTo("BINDER_GAME_MISMATCH");
         assertThat(
-                        callJson(HttpMethod.GET, BINDERS + "/" + bulkBinder, uid, null, 200)
-                                .path("game")
-                                .asString())
-                .isEqualTo("mtg");
+                        callJson(HttpMethod.POST, ITEMS + "/bulk", uid, body, 200)
+                                .path("updated")
+                                .asInt())
+                .isEqualTo(2);
+        assertThat(gameOf(bulkBinder)).isEqualTo("mtg");
 
-        // A binder made with a game never follows its cards.
+        // A binder made with a game (the phone) never follows its cards.
         String chosen = create("pokemon");
         Map<String, Object> wrong = item(ygo);
         wrong.put("binderId", chosen);
         callJson(HttpMethod.POST, ITEMS, uid, wrong, 409);
+    }
+
+    private String gameOf(String binderId) {
+        return callJson(HttpMethod.GET, BINDERS + "/" + binderId, uid, null, 200)
+                .path("game")
+                .asString();
     }
 
     @Test

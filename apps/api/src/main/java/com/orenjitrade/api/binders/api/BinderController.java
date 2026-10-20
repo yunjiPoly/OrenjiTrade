@@ -77,7 +77,8 @@ public class BinderController {
                             + " limit, the same for every collector. `gameId` (stage G): the one"
                             + " game whose cards it holds, an ACTIVE game with cards (400"
                             + " otherwise); without it (the paused web) the binder takes the"
-                            + " game of the first card filed in it while it holds none.")
+                            + " game of the first card filed in it while it holds none and"
+                            + " refuses no card.")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",
