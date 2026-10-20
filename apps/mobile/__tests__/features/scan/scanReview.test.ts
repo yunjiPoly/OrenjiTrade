@@ -113,9 +113,21 @@ describe('a failed add', () => {
     );
   });
 
-  it('tells offline, a binder gone, scanning off and anything else apart', () => {
+  it('tells no answer, a binder gone, scanning off and anything else apart', () => {
+    // No answer (offline, none in time, a server error): the cards may have been added.
     const offline = new ApiError({ status: 0, errorCode: 'NETWORK_ERROR', message: 'offline' });
-    expect(addFailure(offline, false).kind).toBe('OFFLINE');
+    for (const unsure of [
+      offline,
+      ApiError.timeout(30_000),
+      problemError(500, 'INTERNAL_ERROR'),
+      problemError(503, 'SERVICE_UNAVAILABLE'),
+    ]) {
+      expect(addFailure(unsure, false)).toEqual({
+        kind: 'UNSURE',
+        message:
+          "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
+      });
+    }
     expect(addFailure(problemError(404, 'NOT_FOUND'), true).kind).toBe('BINDER_GONE');
     // Without a binder, a 404 is no binder gone.
     expect(addFailure(problemError(404, 'NOT_FOUND'), false).kind).toBe('OTHER');

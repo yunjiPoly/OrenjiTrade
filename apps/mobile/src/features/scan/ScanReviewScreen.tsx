@@ -31,7 +31,7 @@ import {
   toCheckTitle,
 } from './scanCopy';
 import { addFailure, readingProgress, type AddFailure } from './scanReview';
-import { useScanReviewOptions } from './scanReviewOptions';
+import { scanAddKey, useScanReviewOptions } from './scanReviewOptions';
 import { REVIEW_FROM_PHOTOS, SCAN_CAMERA_ROUTE, SCAN_SEARCH_ROUTE } from './scanRoutes';
 import { scanRunner } from './scanRunner';
 import {
@@ -56,7 +56,8 @@ const READING_ROWS = 3;
  * search inside the scan). "Private"/"Public" and "No binder" choose how the cards are added;
  * "Add {n} cards to inventory" adds the ready cards only, in one request that writes everything
  * or nothing, then ends the scan (its photos are deleted) and opens Inventory with "Saved · {n}
- * cards". A refusal keeps the scan as it was and says how to go on.
+ * cards". A refusal keeps the scan as it was and says how to go on; without an answer the review
+ * says it cannot tell, and adding again is safe (the scan's key: nothing is added twice).
  *
  * Opened from the camera's "Review {n}", "Back to scanning" goes back to the camera. Opened from
  * Add cards' "Choose from photos" (`from=photos`), it shows "Reading 3 of 12…" while the photos are
@@ -69,6 +70,8 @@ export function ScanReviewScreen() {
   const snackbar = useSnackbar();
   const { palette } = useTheme();
   const live = useScanStore((state) => state.session);
+  const generation = useScanStore((state) => state.generation);
+  const trying = useScanStore((state) => state.trying);
   const apply = useScanStore((state) => state.apply);
   const options = useScanReviewOptions();
   const binders = useMyBinders();
@@ -164,7 +167,7 @@ export function ScanReviewScreen() {
     }
     setFailure(null);
     try {
-      const result = await add.mutateAsync(body);
+      const result = await add.mutateAsync({ body, idempotencyKey: scanAddKey(generation) });
       setSaved({ session: live, result });
       scanRunner.endScan();
     } catch (error) {
@@ -192,7 +195,8 @@ export function ScanReviewScreen() {
       onSearch={(target) =>
         router.push({ pathname: SCAN_SEARCH_ROUTE, params: { tileId: target.id } })
       }
-      onRetry={() => void scanRunner.retryWaiting()}
+      trying={trying.includes(tile.id)}
+      onRetry={() => void scanRunner.retryWaiting({ explicit: true })}
       onCopies={(target, copies) => apply((current) => setCopies(current, target.id, copies))}
       // Its photo files are deleted at once.
       onRemove={(target) => scanRunner.removeTile(target.id)}

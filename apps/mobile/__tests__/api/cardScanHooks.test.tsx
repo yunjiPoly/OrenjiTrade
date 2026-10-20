@@ -6,6 +6,7 @@ import {
   addInventoryItemsBatch,
   isOfflineError,
   matchScannedCard,
+  scanCallFailure,
   scanMatchBody,
   useAddScannedCards,
 } from '@/src/api/hooks/cardScan';
@@ -151,15 +152,21 @@ describe('POST /inventory/items/batch', () => {
     raisedItemIds: ['item-2'],
   };
 
-  it('adds the ready cards, then reads the inventory and the binders again', async () => {
+  const KEY = 'scan-0b7c3f7e-6d3c-4d1e-9a51-3f1f0f0e6a11';
+  const REQUEST = { body: BODY, idempotencyKey: KEY };
+
+  it("adds the ready cards with the scan's key, then reads the inventory and the binders again", async () => {
     const api = mockApi(signedInRoutes({ 'POST /api/v1/inventory/items/batch': ok(ADDED) }));
     const { queryClient, wrapper } = setup();
     const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => useAddScannedCards(), { wrapper });
     await act(async () => {
-      await expect(result.current.mutateAsync(BODY)).resolves.toEqual(ADDED);
+      await expect(result.current.mutateAsync(REQUEST)).resolves.toEqual(ADDED);
     });
-    expect(api.callsTo('POST /api/v1/inventory/items/batch')[0]?.body).toEqual(BODY);
+    const sent = api.callsTo('POST /api/v1/inventory/items/batch')[0];
+    expect(sent?.body).toEqual(BODY);
+    // Adding again after a lost answer gets the first answer back: nothing is added twice.
+    expect(sent?.headers.get('Idempotency-Key')).toBe(KEY);
     const keys = invalidate.mock.calls.map(([filters]) => JSON.stringify(filters?.queryKey));
     expect(keys).toContain(JSON.stringify(meKeys.inventory('uid-maika')));
     expect(keys).toContain(JSON.stringify(meKeys.binders('uid-maika')));
@@ -179,7 +186,7 @@ describe('POST /inventory/items/batch', () => {
     const { wrapper } = setup();
     const { result } = renderHook(() => useAddScannedCards(), { wrapper });
     await act(async () => {
-      await result.current.mutateAsync(BODY).catch(() => undefined);
+      await result.current.mutateAsync(REQUEST).catch(() => undefined);
     });
     await waitFor(() => expect(result.current.error?.errorCode).toBe('LIMIT_REACHED'));
     expect(result.current.error?.status).toBe(429);
@@ -187,7 +194,101 @@ describe('POST /inventory/items/batch', () => {
 
   it('is a plain function too', async () => {
     mockApi({ 'POST /api/v1/inventory/items/batch': ok(ADDED) });
-    await expect(addInventoryItemsBatch(BODY)).resolves.toEqual(ADDED);
+    await expect(addInventoryItemsBatch(REQUEST)).resolves.toEqual(ADDED);
+  });
+
+  it('gives the add up without an answer in time, as a network error', async () => {
+    let aborted = false;
+    globalThis.fetch = jest.fn(
+      (input: RequestInfo | URL) =>
+        new Promise<Response>((_resolve, reject) => {
+          (input as Request).signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(new Error('aborted'));
+          });
+        })
+    ) as unknown as typeof fetch;
+    const error = await addInventoryItemsBatch(REQUEST, { timeoutMs: 30 }).catch(
+      (caught: unknown) => caught
+    );
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).isTimeout).toBe(true);
+    expect(aborted).toBe(true);
+  });
+
+  it('reads the inventory again when the add got no answer: it may have gone through', async () => {
+    mockApi(
+      signedInRoutes({
+        'POST /api/v1/inventory/items/batch': [
+          () => {
+            throw new TypeError('Network request failed');
+          },
+          problem(503, 'SERVICE_UNAVAILABLE', 'Try later'),
+          problem(404, 'NOT_FOUND', 'Binder not found'),
+        ],
+      })
+    );
+    const { queryClient, wrapper } = setup();
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useAddScannedCards(), { wrapper });
+    const inventoryReads = () =>
+      invalidate.mock.calls.filter(
+        ([filters]) =>
+          JSON.stringify(filters?.queryKey) === JSON.stringify(meKeys.inventory('uid-maika'))
+      ).length;
+    await act(async () => {
+      await result.current.mutateAsync(REQUEST).catch(() => undefined);
+    });
+    expect(inventoryReads()).toBe(1);
+    await act(async () => {
+      await result.current.mutateAsync(REQUEST).catch(() => undefined);
+    });
+    expect(inventoryReads()).toBe(2);
+    // A refusal wrote nothing: nothing to read again.
+    await act(async () => {
+      await result.current.mutateAsync(REQUEST).catch(() => undefined);
+    });
+    expect(inventoryReads()).toBe(2);
+  });
+
+  it('says the add failed at once, without waiting for the inventory to be read again', async () => {
+    mockApi(
+      signedInRoutes({
+        'POST /api/v1/inventory/items/batch': () => {
+          throw new TypeError('Network request failed');
+        },
+      })
+    );
+    const { queryClient, wrapper } = setup();
+    // A network that stalls: the reads of the inventory never end.
+    jest.spyOn(queryClient, 'invalidateQueries').mockImplementation(() => new Promise(() => {}));
+    const { result } = renderHook(() => useAddScannedCards(), { wrapper });
+    let failed: unknown = null;
+    await act(async () => {
+      failed = await result.current.mutateAsync(REQUEST).catch((caught: unknown) => caught);
+    });
+    expect((failed as ApiError).isNetworkError).toBe(true);
+    expect(queryClient.invalidateQueries).toHaveBeenCalled();
+  });
+});
+
+describe('why a call of the scan failed', () => {
+  it('tells no answer, a service that could not answer this time, and a refusal apart', () => {
+    expect(scanCallFailure(ApiError.network(new TypeError('Network request failed')))).toBe(
+      'NETWORK'
+    );
+    expect(scanCallFailure(ApiError.timeout(20_000))).toBe('NETWORK');
+    for (const status of [500, 502, 503, 504, 408, 429]) {
+      expect(scanCallFailure(new ApiError({ status, errorCode: 'X', message: 'x' }))).toBe(
+        'SERVER'
+      );
+    }
+    for (const status of [400, 401, 403, 404, 422]) {
+      expect(scanCallFailure(new ApiError({ status, errorCode: 'X', message: 'x' }))).toBe(
+        'REFUSED'
+      );
+    }
+    expect(scanCallFailure(new Error('not an API error'))).toBe('REFUSED');
   });
 });
 

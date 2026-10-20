@@ -11,6 +11,7 @@ import { Text, TextInput } from '@/src/components/ui/Text';
 import {
   fontFamily,
   fontWeight,
+  PINNED_MAX_FONT_SCALE,
   spacing,
   textStyle,
   TITLE_MAX_FONT_SCALE,
@@ -61,6 +62,11 @@ function useTilePrintings(tile: ScanTile | null) {
  * row per code (its set and its rarity, or "{n} rarities"), "No printing of this card has that
  * code…" when nothing is left, "Search by name or code" (the search is always one tap away, spec
  * section 5) and Cancel.
+ *
+ * While the keyboard is up (a code is typed), the rows get the room under the field: the sentence
+ * above the field steps aside, and "Search by name or code" and Cancel follow the last row in the
+ * list, which scrolls. At the largest text sizes the sheet would otherwise leave no room for a row,
+ * and put the link and Cancel under the keyboard.
  */
 export function PrintingListSheet({ tile, onPick, onSearch, onClose }: PrintingListSheetProps) {
   const visible = tile !== null && tile.card !== null;
@@ -90,6 +96,7 @@ function PrintingList({
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
+  const typing = keyboard > 0;
   const [typed, setTyped] = useState('');
   const { printings, loading, error, retry } = useTilePrintings(tile);
   const rows = useMemo(() => printingRows(printings), [printings]);
@@ -98,6 +105,12 @@ function PrintingList({
   const nothingLeft = !loading && !error && filtered.length === 0;
   // Counted in printings, like the search: a code in several rarities counts each one.
   const shownPrintings = filtered.reduce((sum, row) => sum + row.printings.length, 0);
+
+  // Under the rows; when none is left, the sentence above holds the link.
+  const searchLink = nothingLeft ? null : (
+    <SheetSearchLink onPress={onSearch} testID="scan-printing-search-link" />
+  );
+  const cancel = <SheetCancel onPress={onClose} testID="scan-printing-cancel" />;
 
   let list;
   if (loading) {
@@ -194,6 +207,12 @@ function PrintingList({
               </Text>
             </Pressable>
           ) : null}
+          {typing ? (
+            <View style={styles.inList}>
+              {searchLink}
+              {cancel}
+            </View>
+          ) : null}
         </ScrollView>
       </>
     );
@@ -209,12 +228,15 @@ function PrintingList({
         {SCAN_COPY.printingTitle}
       </Text>
       {/* Twice its size at most, like a title: the field, the rows and Cancel keep their room. */}
-      <Text
-        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-        style={[textStyle('sm'), { color: palette.textMuted }]}
-      >
-        {printingListText(tile)}
-      </Text>
+      {typing ? null : (
+        <Text
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[textStyle('sm'), { color: palette.textMuted }]}
+          testID="scan-printing-text"
+        >
+          {printingListText(tile)}
+        </Text>
+      )}
       <View
         style={[
           styles.field,
@@ -228,8 +250,9 @@ function PrintingList({
           accessibilityElementsHidden
           importantForAccessibility="no"
         />
+        {/* A code is short; the placeholder still fits the field at the pinned scale. */}
         <TextInput
-          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           value={typed}
           onChangeText={setTyped}
           accessibilityLabel={SCAN_COPY.codeField}
@@ -244,13 +267,15 @@ function PrintingList({
         />
       </View>
       {list}
-      {/* Under the rows; when none is left, the sentence above holds the link. */}
-      {nothingLeft ? null : (
-        <SheetSearchLink onPress={onSearch} testID="scan-printing-search-link" />
+      {/* While a code is typed, they follow the rows in the list (above). */}
+      {typing && !loading && !error ? null : (
+        <>
+          {searchLink}
+          {cancel}
+        </>
       )}
-      <SheetCancel onPress={onClose} testID="scan-printing-cancel" />
       {/* The sheet rises above the keyboard (the sheet already keeps the home indicator's room). */}
-      {keyboard > 0 ? <View style={{ height: Math.max(0, keyboard - insets.bottom) }} /> : null}
+      {typing ? <View style={{ height: Math.max(0, keyboard - insets.bottom) }} /> : null}
     </View>
   );
 }
@@ -290,6 +315,7 @@ const styles = StyleSheet.create({
   code: { fontFamily: fontFamily.mono, fontSize: 14, lineHeight: 19 },
   sub: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
   none: { minHeight: 44, justifyContent: 'center', paddingVertical: 12, paddingHorizontal: 4 },
+  inList: { gap: spacing[1], paddingTop: spacing[2] },
   link: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
   pressed: { opacity: 0.7 },
 });

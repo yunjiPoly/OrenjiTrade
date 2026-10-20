@@ -291,6 +291,8 @@ describe('the tray', () => {
   });
 
   it('tries a waiting tile again when tapped, while the phone stayed online all along', async () => {
+    // Fake time: only the tap can ask again (the timer's first try is 5 s away).
+    jest.useFakeTimers();
     readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
     pickerGives(['yew']);
     // The phone is online: only the API could not be reached (a server outage, a match that
@@ -311,11 +313,61 @@ describe('the tray', () => {
     const waiting = await screen.findByLabelText('A card waiting for connection, tap to try again');
     expect(waiting.props.accessibilityRole).toBe('button');
     expect(onlineManager.isOnline()).toBe(true);
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
     reachable = true;
-    fireEvent.press(waiting);
+    await act(async () => {
+      fireEvent.press(waiting);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // The tap alone asked again, at once.
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
     await screen.findByLabelText(`${YEW.name}, ZACR-EN036, found`);
     expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
+  });
+
+  it('says "Trying again…" on a waiting tile while it is tried, and still waits after', async () => {
+    jest.useFakeTimers();
+    readerOf({ [libraryPhoto('yew').uri]: PHOTO_TEXT.yew });
+    pickerGives(['yew']);
+    let fail: () => void = () => undefined;
+    const { api } = render(
+      scanRoutes({
+        'POST /api/v1/cards/scan-match': [
+          () => {
+            throw new TypeError('Network request failed');
+          },
+          // The tap's try: a network that stalls, then fails.
+          () =>
+            new Promise((_resolve, reject) => {
+              fail = () => reject(new TypeError('Network request failed'));
+            }),
+        ],
+      })
+    );
+    await screen.findByTestId('screen-scan-camera');
+    fireEvent.press(screen.getByLabelText('Add photos you already took'));
+    const waiting = await screen.findByLabelText('A card waiting for connection, tap to try again');
+    expect(announce).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      fireEvent.press(waiting);
+      await jest.advanceTimersByTimeAsync(0);
+    });
     expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
+    const trying = screen.getByLabelText('A card waiting for connection, trying again');
+    // Not "Reading…", not counted out of the tray, and it cannot be tapped twice.
+    expect(screen.getByText('Trying again…')).toBeTruthy();
+    expect(screen.getByText('Waiting for connection')).toBeTruthy();
+    expect(screen.queryByText('Reading…')).toBeNull();
+    expect(screen.getByText('THIS SCAN · 1')).toBeTruthy();
+    expect(trying.props.accessibilityRole).toBeUndefined();
+    await act(async () => {
+      fail();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByLabelText('A card waiting for connection, tap to try again')).toBeTruthy();
+    // Asked by the collector: told that it still waits.
+    expect(announce).toHaveBeenCalledTimes(2);
+    expect(announce).toHaveBeenLastCalledWith('A card is waiting for connection');
   });
 
   it('tries the waiting tiles again by itself on a timer, without a new photo', async () => {

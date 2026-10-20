@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import { File } from 'expo-file-system';
 import { Platform } from 'react-native';
 
@@ -14,7 +15,6 @@ import {
   addPhoto,
   findTile,
   forgetPhotos,
-  markReading,
   photoFilesToDelete,
   removeTile as removeTileFrom,
   tilesWaiting,
@@ -29,13 +29,21 @@ import { useScanStore, type ScanStore } from './scanStore';
  * a "Reading…" tile at once (the shutter never waits), then the photos are read on the phone in
  * turn, one after another, and each read is matched by the API without holding up the next one.
  *
- * - A tile whose match could not reach the API waits for the connection ("Waiting for
- *   connection"); the waiting tiles are matched again when the connection is back
- *   (`retryWaiting`): when the phone is online again, after any match that got through, when a
- *   scan screen comes back or the app returns to the front, when the collector taps "Try again",
- *   and on a timer that waits longer each time (5 s, 10 s, 20 s, 40 s, then every minute) while a
- *   scan screen is open (`watchWaiting`). The phone can be online while the API cannot be
- *   reached, so the timer does not wait for the phone to say it is back.
+ * - A tile whose match could not reach the API, or that the API could not answer this time (a
+ *   server error, a restart), waits for the connection ("Waiting for connection"); the waiting
+ *   tiles are matched again when the connection is back (`retryWaiting`): when the phone is online
+ *   again, after any match that got through, when a scan screen comes back or the app returns to
+ *   the front, when the collector taps "Try again", and on a timer that waits longer each time
+ *   (5 s, 10 s, 20 s, 40 s, then every minute) while a scan screen is open (`watchWaiting`). The
+ *   phone can be online while the API cannot be reached, so the timer does not wait for the phone
+ *   to say it is back; it only skips its try while the phone says it is offline.
+ * - A waiting tile stays "Waiting for connection" while it is tried again (the store's `trying`
+ *   says that a try is under way): the tray, the review's counts and its add do not change until
+ *   the answer lands, and the screen reader hears a tile again only when its result changed (or
+ *   when the collector asked with "Try again").
+ * - A tile whose match fails with a server error again after the API answered the scan's other
+ *   photos (`SERVER_FAILURES_WHILE_UP` times) is given up: "Couldn't read", the search one tap
+ *   away, rather than waiting for ever on an error that does not go away.
  * - A removed tile's photo files are deleted once no sheet shows them any more (`removeTile`).
  * - Ending the scan (cards added, or the scan left) deletes every photo file it made or copied and
  *   empties the tray; what the reader or the API answers later for that scan is dropped, and so is
@@ -66,11 +74,29 @@ export interface ScanRunnerDeps {
   afterSheets?: () => Promise<void>;
   /** How long the waiting tiles wait before each new try, in ms (the last one repeats). */
   retryDelaysMs?: readonly number[];
+  /**
+   * Whether the phone says it is online; the timer skips its try while it is not (the scan screens
+   * try again as soon as it is). Online when not given.
+   */
+  isOnline?: () => boolean;
 }
 
 /** The waiting tiles are tried again after 5 s, 10 s, 20 s, 40 s, then every minute. */
 export const RETRY_DELAYS_MS: readonly number[] = [5_000, 10_000, 20_000, 40_000, 60_000];
 
+/**
+ * A tile whose match fails with a server error, again, after the API answered another photo of the
+ * scan since its last try, this many times, is given up ("Couldn't read").
+ */
+export const SERVER_FAILURES_WHILE_UP = 2;
+
+export interface RetryOptions {
+  /**
+   * The collector asked ("Try again", a tap on a waiting tile): each tile tried is said again by
+   * the screen reader even when it still waits.
+   */
+  explicit?: boolean;
+}
 export interface ScanRunner {
   /** The scan going on now (it changes when a scan ends). */
   currentScan: () => number;
@@ -80,8 +106,11 @@ export interface ScanRunner {
    * after that scan ended are deleted instead, and nothing of them is read or sent.
    */
   addPhotos: (photos: readonly PhotoToRead[], forScan?: number) => string[];
-  /** Matches the tiles that wait for the connection again, oldest first. */
-  retryWaiting: () => Promise<void>;
+  /**
+   * Matches the tiles that wait for the connection again, oldest first, until one still cannot be
+   * matched. A try already under way is not doubled (an explicit one then has its results said).
+   */
+  retryWaiting: (options?: RetryOptions) => Promise<void>;
   /**
    * While a scan screen is open: the tiles that wait for the connection are tried again on a
    * timer that waits longer each time. Returns the function to call when the screen closes.
@@ -114,6 +143,13 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
   let watchers = 0;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let retries = 0;
+  let explicitRetry = false;
+  // Answers the API gave (any status): a server error after one is not the API being down.
+  let answered = 0;
+  // The tiles of this scan whose match failed with a server error: the answers counted at their
+  // last failure, and how many of their failures came after the API answered another photo.
+  const serverFailures = new Map<string, { seen: number; whileUp: number }>();
+  const isOnline = deps.isOnline ?? (() => true);
 
   const state = (): ScanStore => store.getState();
   const track = <T>(work: Promise<T>): Promise<T> => {
@@ -183,19 +219,66 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     retries += 1;
     retryTimer = setTimeout(() => {
       retryTimer = null;
+      if (!isOnline()) {
+        // The phone says it is offline: no try now (the screens try again once it is online).
+        planRetry();
+        return;
+      }
       void retryWaiting().finally(planRetry);
     }, delay);
   }
 
-  function land(generation: number, tileId: string, outcome: PhotoOutcome): void {
-    if (state().generation !== generation) {
-      return;
+  /**
+   * What an outcome becomes for its tile: a server error waits for the connection, unless the
+   * tile's match failed that way again and again while the API answered the scan's other photos.
+   */
+  function settle(tileId: string, outcome: PhotoOutcome): PhotoOutcome {
+    if (outcome.kind === 'MATCHED') {
+      answered += 1;
+      serverFailures.delete(tileId);
+      return outcome;
     }
+    if (outcome.kind === 'UNREAD') {
+      serverFailures.delete(tileId);
+      return outcome;
+    }
+    if (outcome.cause !== 'SERVER') {
+      return outcome;
+    }
+    const last = serverFailures.get(tileId);
+    const whileUp = (last?.whileUp ?? 0) + (last && answered > last.seen ? 1 : 0);
+    if (whileUp >= SERVER_FAILURES_WHILE_UP) {
+      serverFailures.delete(tileId);
+      return { kind: 'UNREAD', read: outcome.read, reason: null };
+    }
+    serverFailures.set(tileId, { seen: answered, whileUp });
+    return outcome;
+  }
+
+  /**
+   * Lands an answer on its tile. The screen reader hears the tile when its result changed (a photo
+   * read, a waiting tile matched), or when the collector asked (`explicit`). Returns what landed.
+   */
+  function land(
+    generation: number,
+    tileId: string,
+    answer: PhotoOutcome,
+    explicit = false
+  ): PhotoOutcome {
+    if (state().generation !== generation) {
+      return answer;
+    }
+    const outcome = settle(tileId, answer);
     const before = findTile(state().session, tileId);
     const photoUri = before?.photos[0]?.uri ?? null;
     state().apply((session) => applyOutcome(session, tileId, outcome));
     const tile = landedTile(state().session, tileId, photoUri);
-    if (tile && before && tile.status !== 'READING') {
+    if (
+      tile &&
+      before &&
+      tile.status !== 'READING' &&
+      (explicit || tile.status !== before.status)
+    ) {
       for (const listener of [...listeners]) {
         listener(tile);
       }
@@ -205,6 +288,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
       void retryWaiting();
     }
     planRetry();
+    return outcome;
   }
 
   async function readOne(generation: number, tileId: string, input: PhotoToRead): Promise<void> {
@@ -258,9 +342,12 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     return ids;
   }
 
-  async function retryWaiting(): Promise<void> {
+  async function retryWaiting({ explicit = false }: RetryOptions = {}): Promise<void> {
+    if (explicit) {
+      explicitRetry = true;
+    }
     if (retrying) {
-      return;
+      return; // Under way already (an explicit ask has its results said).
     }
     retrying = true;
     const generation = state().generation;
@@ -269,15 +356,23 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
         if (state().generation !== generation) {
           return;
         }
-        state().apply((session) => markReading(session, tileId));
+        if (findTile(state().session, tileId)?.status !== 'WAITING') {
+          continue; // Removed while an older tile was tried.
+        }
+        // The tile stays "Waiting for connection" while it is tried: only `trying` says so.
+        state().setTrying(tileId, true);
         const outcome = await track(matchRead(deps.matcher, read));
-        land(generation, tileId, outcome);
-        if (outcome.kind === 'OFFLINE') {
+        if (state().generation === generation) {
+          state().setTrying(tileId, false);
+        }
+        const landed = land(generation, tileId, outcome, explicitRetry);
+        if (landed.kind === 'OFFLINE') {
           return; // Still no connection: the others keep waiting.
         }
       }
     } finally {
       retrying = false;
+      explicitRetry = false;
     }
   }
 
@@ -329,6 +424,7 @@ export function createScanRunner(deps: ScanRunnerDeps): ScanRunner {
     const files = photoFilesToDelete(state().session);
     stopRetryTimer();
     retries = 0;
+    serverFailures.clear();
     state().reset();
     for (const uri of files) {
       deps.deleteFile(uri);
@@ -386,4 +482,5 @@ export const scanRunner: ScanRunner = createScanRunner({
   deleteFile: deleteScanPhotoFile,
   journal: storedScanPhotoJournal,
   afterSheets: afterModals,
+  isOnline: () => onlineManager.isOnline(),
 });

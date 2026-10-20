@@ -39,20 +39,23 @@ export function tileTone(status: TileStatus, palette: Palette): { status: string
 
 export interface ScanTileCardProps {
   tile: ScanTile;
-  /** A tile that can be fixed or checked was tapped (found, pick, couldn't read). */
+  /** A waiting tile whose match is being tried again: "Trying again…", not tappable. */
+  trying?: boolean;
+  /** A tile that can be fixed or checked was tapped (found, pick, couldn't read, waiting). */
   onPress: (tile: ScanTile) => void;
 }
 
 /**
  * One tile of the tray (mockup screen 27): the card's picture (the collector's photo while it is
  * read, or when it could not be read), its name and code, its status, and "×n" for repeats. A
- * tile that is still being read, or waits for the connection, cannot be tapped.
+ * tile that is still being read cannot be tapped; one waiting for the connection is tried again
+ * when tapped ("Trying again…" while it is, and it cannot be tapped then).
  */
-export function ScanTileCard({ tile, onPress }: ScanTileCardProps) {
+export function ScanTileCard({ tile, trying = false, onPress }: ScanTileCardProps) {
   const { palette } = useTheme();
   const scale = useTextScale();
-  const text = tileText(tile);
-  const tappable = tileAction(tile) !== null;
+  const text = tileText(tile, trying);
+  const tappable = tileAction(tile) !== null && !(trying && tile.status === 'WAITING');
   const tone = tileTone(tile.status, palette);
   const known = tile.card !== null && tile.status !== 'NOT_FOUND';
   const content = (

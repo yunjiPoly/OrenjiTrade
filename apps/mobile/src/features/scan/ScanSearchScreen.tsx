@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Keyboard, StyleSheet, View } from 'react-native';
 
 import type { CardSuggestion } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { afterModals } from '@/src/components/ui/modalTurns';
+import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { AddCardSearch } from '@/src/features/inventory/AddCardSearch';
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
 
@@ -29,17 +30,26 @@ import { SCAN_GAME, type CardScanCard, type CardScanPrinting } from './types';
  * here? Search", 29's "Search by name or code", a review row and the printing list): R2's "Add
  * cards, typing" screen (its screen 4), opened with what was read, with Yu-Gi-Oh! cards only and
  * its own hint. An exact printing fixes the tile at once; a card opens the printing list (and the
- * rarity list next for a code in several rarities). Every pick goes back to where the search was
- * opened: the scan and its tray are kept.
+ * rarity list next for a code in several rarities). The tile changes only once the printing is
+ * known, or when the rarity list is cancelled (the tile then asks for the rarity of that card);
+ * the rarity list's "Search by name or code" leaves the tile as it was. Every pick goes back to
+ * where the search was opened: the scan and its tray are kept. An exact printing in another
+ * language than English says that the scan adds English cards only.
  */
 export function ScanSearchScreen() {
   const router = useRouter();
   const { tileId = '' } = useLocalSearchParams<{ tileId?: string }>();
   const tile = useScanStore((state) => findTile(state.session, tileId));
   const apply = useScanStore((state) => state.apply);
+  const snackbar = useSnackbar();
   const [text, setText] = useState(() => searchTextOf(tile?.read ?? null));
   const [candidate, setCandidate] = useState<CardScanCard | null>(null);
-  const [rarityOpen, setRarityOpen] = useState(false);
+  // A code of the card picked that comes in several rarities: kept here until one is picked.
+  const [rarityCandidate, setRarityCandidate] = useState<{
+    card: CardScanCard;
+    printings: CardScanPrinting[];
+    row: PrintingRow;
+  } | null>(null);
   const leaving = useRef(false);
 
   const back = useCallback(() => {
@@ -83,6 +93,13 @@ export function ScanSearchScreen() {
   const pickExact = (suggestion: CardSuggestion) => {
     const card = scanCardOf(suggestion);
     const printing = scanPrintingOf(suggestion);
+    if (card && !printing && suggestion.printingId) {
+      // A printing in another language (the search lists every printing of the code). The
+      // keyboard steps aside so the notice can be read whole, at every text size.
+      Keyboard.dismiss();
+      snackbar.show(REVIEW_COPY.englishOnly);
+      return;
+    }
     if (!card || !printing) {
       return;
     }
@@ -110,21 +127,39 @@ export function ScanSearchScreen() {
       }
     : null;
 
+  /** The card picked with the code picked, on the tile (a code in several rarities: Pick rarity). */
+  const applyPick = (card: CardScanCard, printings: CardScanPrinting[], row: PrintingRow) =>
+    apply((current) =>
+      pickPrinting(replaceMatch(current, tileId, { card, printings }), tileId, row)
+    );
+
   const pickRow = (row: PrintingRow, printings: readonly CardScanPrinting[]) => {
     if (!candidate) {
       return;
     }
     const card = candidate;
-    apply((current) =>
-      pickPrinting(replaceMatch(current, tileId, { card, printings: [...printings] }), tileId, row)
-    );
     setCandidate(null);
-    if (findTile(useScanStore.getState().session, tileId)?.status === 'PICK_RARITY') {
-      setRarityOpen(true);
-    } else {
-      void finish();
+    if (row.printings.length > 1) {
+      // Its rarity next: the tile stays as it was until one is picked.
+      setRarityCandidate({ card, printings: [...printings], row });
+      return;
     }
+    applyPick(card, [...printings], row);
+    void finish();
   };
+
+  // The rarity list for the code picked: the tile as it would be, not changed yet.
+  const rarityListed: ScanTile | null = rarityCandidate
+    ? {
+        ...tile,
+        status: 'PICK_RARITY',
+        card: rarityCandidate.card,
+        printing: null,
+        rarities: rarityCandidate.row.printings,
+        printings: rarityCandidate.printings,
+        otherMatches: [],
+      }
+    : null;
 
   return (
     <>
@@ -147,17 +182,25 @@ export function ScanSearchScreen() {
         onClose={() => setCandidate(null)}
       />
       <RarityListSheet
-        tile={rarityOpen ? tile : null}
+        tile={rarityListed}
         onPick={(printingId) => {
-          apply((current) => pickRarity(current, tileId, printingId));
-          setRarityOpen(false);
+          if (rarityCandidate) {
+            const { card, printings, row } = rarityCandidate;
+            applyPick(card, printings, row);
+            apply((current) => pickRarity(current, tileId, printingId));
+          }
+          setRarityCandidate(null);
           void finish();
         }}
-        // "Search by name or code": not this card after all, back to this search.
-        onSearch={() => setRarityOpen(false)}
+        // "Search by name or code": not this card after all, back to this search (tile unchanged).
+        onSearch={() => setRarityCandidate(null)}
         onClose={() => {
           // The card and its code are picked: the tile asks for its rarity where it was opened.
-          setRarityOpen(false);
+          if (rarityCandidate) {
+            const { card, printings, row } = rarityCandidate;
+            applyPick(card, printings, row);
+          }
+          setRarityCandidate(null);
           void finish();
         }}
       />

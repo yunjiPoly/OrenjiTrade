@@ -1,6 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import * as Crypto from 'expo-crypto';
+import { AccessibilityInfo, AppState, type AppStateStatus } from 'react-native';
 
+import ScanCameraRoute from '@/app/scan/index';
 import ScanReviewRoute from '@/app/scan/review';
 import { scanRunner } from '@/src/features/scan/scanRunner';
 import { resetScanReviewOptions } from '@/src/features/scan/scanReviewOptions';
@@ -9,10 +11,18 @@ import { useScanStore } from '@/src/features/scan/scanStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { binderFixture } from '../support/fixtures';
-import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer, type MockRoutes } from '../support/mockApi';
 import { mockDispatch, mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { FOUND_YEW, LANTERN, LYRA, READ_YEW, YEW } from '../support/scanFixtures';
-import { libraryPhoto, mockFiles, resetScanMocks, scanRoutes } from '../support/scanScreen';
+import {
+  libraryPhoto,
+  mockFiles,
+  mockFocus,
+  PHOTO_TEXT,
+  readerOf,
+  resetScanMocks,
+  scanRoutes,
+} from '../support/scanScreen';
 import { FOUND_LYRA, READ_BLUR, seedMockupScan, seedScan } from '../support/scanSeed';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
@@ -22,7 +32,11 @@ import { renderWithProviders, resetAppState } from '../test-utils';
  * the store directly (fictional cards and photo names); the API is the fake one.
  */
 
-jest.mock('expo-router', () => require('../support/router').expoRouterMock());
+jest.mock('expo-router', () => ({
+  ...require('../support/router').expoRouterMock(),
+  // The screens' focus: the review tries the waiting cards again when it comes into view.
+  useFocusEffect: require('../support/scanScreen').useFocusEffectMock,
+}));
 const mockLeave = { held: false, tryToLeave: () => undefined as void };
 jest.mock('expo-router/react-navigation', () => ({
   usePreventRemove: (held: boolean, callback: (options: { data: { action: unknown } }) => void) => {
@@ -62,6 +76,14 @@ function render(routes: MockRoutes = {}) {
 
 const addButton = () => screen.getByTestId('review-add');
 
+/** A new UUID each time it is asked for (request ids use them too). */
+function countUuids() {
+  let made = 0;
+  (Crypto.randomUUID as jest.Mock).mockImplementation(
+    () => `00000000-0000-4000-8000-${String((made += 1)).padStart(12, '0')}`
+  );
+}
+
 let announce: jest.SpyInstance;
 
 beforeEach(() => {
@@ -74,9 +96,11 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  jest.useRealTimers();
   await scanRunner.idle();
   scanRunner.endScan();
   announce.mockRestore();
+  (Crypto.randomUUID as jest.Mock).mockImplementation(() => '00000000-0000-4000-8000-000000000000');
 });
 
 describe('the review', () => {
@@ -231,21 +255,129 @@ describe('a row', () => {
     expect(screen.getByTestId(`review-row-${ids.lyra}-more`)).toBeDisabled();
   });
 
-  it('waiting for the connection offers "Try again", and resolves with the phone online all along', async () => {
-    const [waiting = ''] = seedScan([{ photo: 'yew-1', waiting: READ_YEW }]);
+  it('tries the cards waiting for the connection again as soon as the review opens', async () => {
+    jest.useFakeTimers();
+    seedScan([{ photo: 'yew-1', waiting: READ_YEW }]);
     const { api } = render({
       'POST /api/v1/cards/scan-match': ok({ ...FOUND_YEW, read: READ_YEW }),
     });
-    await screen.findByRole('header', { name: 'Review 1 card' });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // No tap, and long before the timer's first try (5 s).
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('1 ready');
+  });
+
+  it('waiting for the connection offers "Try again": the tap alone asks again, the row stays while it is tried', async () => {
+    jest.useFakeTimers();
+    const [, waiting = ''] = seedScan([
+      { photo: 'lyra', match: FOUND_LYRA },
+      { photo: 'yew-1', waiting: READ_YEW },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        // The try when the review opens: still no connection.
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        // "Try again": an answer that takes its time.
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+      ],
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
     expect(screen.getByTestId(`review-row-${waiting}`)).toHaveTextContent(/Waiting for connection/);
     expect(screen.getByTestId(`review-row-${waiting}-remove`)).toHaveProp(
       'accessibilityLabel',
       'Remove this card'
     );
+    // Said once when it began to wait, not at each try that changed nothing.
+    expect(announce).not.toHaveBeenCalled();
+
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // The tap asked at once: no timer had to fire.
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
+    // While it is tried the row stays as it is: no "Reading…", the counts and the add unchanged.
+    const retry = screen.getByTestId(`review-row-${waiting}-retry`);
+    expect(retry).toHaveTextContent('Trying again…');
+    expect(retry).toBeDisabled();
+    expect(retry.props.accessibilityState).toMatchObject({ busy: true });
+    expect(screen.getByTestId(`review-row-${waiting}`)).toHaveTextContent(/Waiting for connection/);
+    expect(screen.queryByTestId('review-reading')).toBeNull();
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('1 ready · 1 to check');
+    expect(addButton()).toHaveTextContent(/Add 1 card to inventory/);
+    expect(addButton()).toBeEnabled();
+
+    await act(async () => {
+      answer(ok({ ...FOUND_YEW, read: READ_YEW }));
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('2 ready');
+    expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
+  });
+
+  it('tries the waiting cards again when the app comes back to the front', async () => {
+    jest.useFakeTimers();
+    // AppState is jest's stand-in: the screens' listeners are in its calls.
+    const addListener = AppState.addEventListener as unknown as jest.Mock;
+    const before = addListener.mock.calls.length;
+    seedScan([{ photo: 'yew-1', waiting: READ_YEW }]);
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok({ ...FOUND_YEW, read: READ_YEW }),
+      ],
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
+    const changes = addListener.mock.calls
+      .slice(before)
+      .filter(([type]) => type === 'change')
+      .map(([, listener]) => listener as (status: AppStateStatus) => void);
+    expect(changes.length).toBeGreaterThan(0);
+    await act(async () => {
+      changes.forEach((change) => change('active'));
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // Back in front: tried at once, long before the timer's first try.
+    expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(2);
+    expect(screen.getByTestId('review-summary')).toHaveTextContent('1 ready');
+  });
+
+  it('with the camera still under it, the result of a photo is said once, by the review', async () => {
+    readerOf({ [libraryPhoto('yew-1').uri]: PHOTO_TEXT.yew });
+    const api = mockApi(scanRoutes());
+    renderWithProviders(<ScanCameraRoute />, {
+      port: new FakeAuthPort(testUser()),
+      scheme: 'dark',
+    });
+    await screen.findByTestId('screen-scan-camera');
+    // The review is pushed over the camera: the camera loses the focus, and stays mounted.
+    act(() => mockFocus.blurAll());
+    renderWithProviders(<ScanReviewRoute />, {
+      port: new FakeAuthPort(testUser()),
+      scheme: 'dark',
+    });
+    await screen.findByRole('header', { name: 'Review 0 cards' });
+    act(() => {
+      scanRunner.addPhotos([
+        { photo: { ...libraryPhoto('yew-1'), owned: true }, source: 'LIBRARY' },
+      ]);
+    });
     await waitFor(() => expect(screen.getByTestId('review-summary')).toHaveTextContent('1 ready'));
     expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1);
-    expect(announce).toHaveBeenCalledWith(`${YEW.name}, found`);
+    expect(announce.mock.calls.filter(([text]) => text === `${YEW.name}, found`)).toHaveLength(1);
   });
 });
 
@@ -271,6 +403,29 @@ describe('adding', () => {
       ['yew-1', 'yew-2', 'lyra', 'lantern', 'fox', 'blur']
         .map((name) => libraryPhoto(name).uri)
         .sort()
+    );
+  });
+
+  it('sends no binder once the binder picked is gone from the list', async () => {
+    seedMockupScan();
+    let binders = [binderFixture()];
+    const { api, queryClient } = render({ 'GET /api/v1/binders': () => ok(binders) });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(screen.getByLabelText('Binder: no binder'));
+    const sheet = await screen.findByTestId('review-binder-sheet');
+    fireEvent.press(await within(sheet).findByRole('radio', { name: 'Trade binder, Private' }));
+    await waitFor(() => expect(screen.getByLabelText('Binder: Trade binder')).toBeOnTheScreen());
+
+    // Deleted on another screen meanwhile: the list read again no longer has it.
+    binders = [];
+    await act(async () => {
+      await queryClient.invalidateQueries();
+    });
+    await waitFor(() => expect(screen.getByLabelText('Binder: no binder')).toBeOnTheScreen());
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    expect(api.callsTo('POST /api/v1/inventory/items/batch')[0]?.body).not.toHaveProperty(
+      'binderId'
     );
   });
 
@@ -354,9 +509,10 @@ describe('adding', () => {
     expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2);
   });
 
-  it('says what to do when offline, when the binder is gone, and when adding is off', async () => {
+  it('says what to do without an answer, when the binder is gone, and when adding is off', async () => {
+    countUuids();
     seedMockupScan();
-    render({
+    const { api } = render({
       'POST /api/v1/inventory/items/batch': [
         () => {
           throw new TypeError('Network request failed');
@@ -367,8 +523,10 @@ describe('adding', () => {
     });
     await screen.findByRole('header', { name: 'Review 6 cards' });
     fireEvent.press(addButton());
+    // No answer: the cards may have been added; adding again is safe (the scan's key).
     expect(await screen.findByTestId('review-add-error')).toHaveTextContent(
-      /We could not reach OrenjiTrade\. Nothing was added and your cards are still here: check your connection and add again\./
+      "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
+      { exact: false }
     );
     expect(useScanStore.getState().session.tiles).toHaveLength(5);
 
@@ -393,6 +551,42 @@ describe('adding', () => {
     );
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
     expect(mockFiles.deleted).toEqual([]);
+    // Every add of this scan carries the same key: a repeat after a lost answer adds nothing twice.
+    const keys = api
+      .callsTo('POST /api/v1/inventory/items/batch')
+      .map((call) => call.headers.get('Idempotency-Key'));
+    expect(keys).toHaveLength(3);
+    expect(keys[0]).toMatch(/^scan-[0-9a-f-]{36}$/);
+    expect(new Set(keys).size).toBe(1);
+  });
+
+  it('adds a new scan with a new key', async () => {
+    countUuids();
+    seedMockupScan();
+    const { api } = render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(ADDED),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    act(() => {
+      scanRunner.endScan();
+      seedMockupScan();
+    });
+    await screen.findByRole('header', { name: 'Review 6 cards' });
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    const [first, second] = api
+      .callsTo('POST /api/v1/inventory/items/batch')
+      .map((call) => call.headers.get('Idempotency-Key'));
+    expect(first).toMatch(/^scan-[0-9a-f-]{36}$/);
+    expect(second).toMatch(/^scan-[0-9a-f-]{36}$/);
+    expect(second).not.toBe(first);
   });
 });
 

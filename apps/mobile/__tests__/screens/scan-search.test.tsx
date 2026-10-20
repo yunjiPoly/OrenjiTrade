@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Keyboard } from 'react-native';
 
 import ScanSearchRoute from '@/app/scan/search';
 import { scanRunner } from '@/src/features/scan/scanRunner';
@@ -246,8 +246,9 @@ describe('the search inside the scan', () => {
     expect(tileOf(tileId)?.printing?.id).toBe('p-zrar-010-s');
   });
 
-  it('"Search by name or code" on the rarity list goes back to this search', async () => {
-    openForUnread();
+  it('"Search by name or code" on the rarity list goes back to this search, the tile as it was', async () => {
+    const tileId = openForUnread();
+    const before = tileOf(tileId);
     render();
     fireEvent.press(await screen.findByTestId(`add-card-${WYVERN.id}`));
     const sheet = await screen.findByTestId('scan-printing-sheet');
@@ -258,6 +259,57 @@ describe('the search inside the scan', () => {
     expect(screen.getByTestId('add-search-input')).toBeOnTheScreen();
     expect(mockRouter.back).not.toHaveBeenCalled();
     expect(mockRouter.push).not.toHaveBeenCalled();
+    // Not this card after all: the tile is still the photo's own, not the card left behind.
+    expect(tileOf(tileId)).toEqual(before);
+
+    // Leaving the search now leaves the tile as it was too.
+    fireEvent.press(screen.getByTestId('add-search-cancel'));
+    expect(mockRouter.back).toHaveBeenCalled();
+    expect(tileOf(tileId)).toEqual(before);
+  });
+
+  it('Cancel on the rarity list keeps the card and its code: the tile asks for the rarity', async () => {
+    const tileId = openForUnread();
+    render();
+    fireEvent.press(await screen.findByTestId(`add-card-${WYVERN.id}`));
+    const sheet = await screen.findByTestId('scan-printing-sheet');
+    fireEvent.press(await within(sheet).findByTestId('scan-printing-row-ZRAR-EN010'));
+    const rarities = await screen.findByTestId('scan-rarity-sheet');
+    // Until a rarity is picked (or the list is cancelled), the tile is as it was.
+    expect(tileOf(tileId)?.status).toBe('NOT_FOUND');
+    fireEvent.press(within(rarities).getByTestId('scan-rarity-cancel'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(tileOf(tileId)).toMatchObject({ status: 'PICK_RARITY', card: { id: WYVERN.id } });
+    expect(tileOf(tileId)?.rarities.map((printing) => printing.id)).toEqual([
+      'p-zrar-010-s',
+      'p-zrar-010-u',
+    ]);
+  });
+
+  it('says that the scan adds English cards only when a printing in another language is tapped', async () => {
+    const tileId = openForUnread();
+    render({
+      'GET /api/v1/cards/suggest': ok([
+        {
+          ...SUGGESTIONS[1],
+          printingId: 'p-zwyv-fr-001',
+          printingCode: 'ZWYV-FR001',
+          language: 'FR',
+        },
+      ]),
+    });
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    fireEvent.press(await screen.findByTestId('add-printing-ZWYV-FR001'));
+    // The keyboard steps aside: the notice is read whole at every text size.
+    expect(dismiss).toHaveBeenCalled();
+    dismiss.mockRestore();
+    expect(
+      await screen.findByText(
+        'The scan adds English cards only. Pick an English printing, or tap the card.'
+      )
+    ).toBeOnTheScreen();
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(tileOf(tileId)?.status).toBe('NOT_FOUND');
   });
 
   it('Cancel on the printing list changes nothing and stays; Cancel goes back', async () => {

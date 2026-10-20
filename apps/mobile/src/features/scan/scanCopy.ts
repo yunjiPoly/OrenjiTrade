@@ -22,6 +22,9 @@ export const TILE_STATUS_TEXT: Readonly<Record<TileStatus, string>> = {
 /** "Tap to try again": a tile waiting for the connection is matched again when tapped. */
 export const TAP_TO_TRY_AGAIN = 'Tap to try again';
 
+/** "Trying again…": a waiting tile whose match is being tried again (it still waits). */
+export const TRYING_AGAIN = 'Trying again…';
+
 /** What a screen reader hears for a status ("Ash Blossom & Joyous Spring, found"). */
 const STATUS_SPOKEN: Readonly<Record<TileStatus, string>> = {
   READING: 'reading',
@@ -51,7 +54,7 @@ function codeOf(tile: ScanTile): string {
   return printing?.printingCode ?? '';
 }
 
-export function tileText(tile: ScanTile): TileText {
+export function tileText(tile: ScanTile, trying = false): TileText {
   const badge = tile.copies > 1 ? `×${tile.copies}` : null;
   // A photo not matched yet shows its state in place of a name, like the mockup's "Reading…" tile.
   if (tile.status === 'READING') {
@@ -67,9 +70,11 @@ export function tileText(tile: ScanTile): TileText {
     return {
       title: TILE_STATUS_TEXT.WAITING,
       code: '',
-      status: TAP_TO_TRY_AGAIN,
+      status: trying ? TRYING_AGAIN : TAP_TO_TRY_AGAIN,
       badge,
-      accessibilityLabel: 'A card waiting for connection, tap to try again',
+      accessibilityLabel: trying
+        ? 'A card waiting for connection, trying again'
+        : 'A card waiting for connection, tap to try again',
     };
   }
   if (tile.status === 'NOT_FOUND' || !tile.card) {
@@ -340,6 +345,7 @@ export const REVIEW_COPY = {
   // A row with no card yet (couldn't read, waiting for the connection).
   removeThisCard: 'Remove this card',
   tryAgain: 'Try again',
+  tryingAgain: TRYING_AGAIN,
   // The two pills.
   private: 'Private',
   public: 'Public',
@@ -359,7 +365,7 @@ export const REVIEW_COPY = {
     count === 1
       ? "1 copy didn't fit: a card holds at most 9999 copies."
       : `${count} copies didn't fit: a card holds at most 9999 copies.`,
-  // What went wrong with the add: nothing was added, the scan is kept.
+  // What went wrong with the add: the scan is kept.
   limitTitle: 'Your inventory is full',
   limitMessage: (limit: number | null, used: number | null, needed: number | null) => {
     const room = limit !== null && used !== null ? Math.max(0, limit - used) : null;
@@ -373,8 +379,9 @@ export const REVIEW_COPY = {
         : '';
     return `${holds}${fit} Nothing was added: remove some cards here, or delete cards you no longer have in Inventory, then add again.`;
   },
-  offline:
-    'We could not reach OrenjiTrade. Nothing was added and your cards are still here: check your connection and add again.',
+  // No answer to the add (offline, none in time, a server error): it may have gone through.
+  unsure:
+    "We couldn't hear back from OrenjiTrade, so we can't tell whether your cards were added. Your cards are still here: add again when you're online, and the ones already added won't be added twice.",
   binderGone:
     'That binder is gone. Nothing was added: pick another binder, or No binder, and add again.',
   scanOff:
@@ -384,4 +391,5 @@ export const REVIEW_COPY = {
   searchTitle: 'Search by name or code',
   searchHint: 'Tap a card to pick its printing, or an exact printing to use it for this photo.',
   tileGone: 'This card is no longer in the scan.',
+  englishOnly: 'The scan adds English cards only. Pick an English printing, or tap the card.',
 } as const;

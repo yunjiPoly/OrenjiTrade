@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
@@ -37,6 +37,8 @@ export interface ReviewRowProps {
   onSearch: (tile: ScanTile) => void;
   /** "Try again" (a card waiting for the connection): its match is asked for again. */
   onRetry: (tile: ScanTile) => void;
+  /** A card waiting for the connection whose match is being tried again: "Trying again…". */
+  trying?: boolean;
   onCopies: (tile: ScanTile, copies: number) => void;
   onRemove: (tile: ScanTile) => void;
 }
@@ -60,10 +62,18 @@ function rowBorder(kind: ReviewRowKind, palette: Palette): string {
  * One card of the review (mockup screen 30): its picture, name, code and rarity, "− copies +" and
  * Remove. A ready row opens 28 (Check the match); a row to check shows its fix: "Pick rarity",
  * "Pick printing" under "Set code not readable", or "Search by name or code". A row still waiting
- * for the connection says so and offers "Try again". Past the pinned text size, the copies go
- * under the name.
+ * for the connection says so and offers "Try again" ("Trying again…" while it is tried; the row stays
+ * where it is). Past the pinned text size, the copies go under the name.
  */
-export function ReviewRow({ tile, onOpen, onSearch, onRetry, onCopies, onRemove }: ReviewRowProps) {
+export function ReviewRow({
+  tile,
+  onOpen,
+  onSearch,
+  onRetry,
+  trying = false,
+  onCopies,
+  onRemove,
+}: ReviewRowProps) {
   const { palette } = useTheme();
   const { fontScale } = useWindowDimensions();
   const kind = reviewRowKind(tile);
@@ -100,7 +110,14 @@ export function ReviewRow({ tile, onOpen, onSearch, onRetry, onCopies, onRemove 
       <Text maxFontSizeMultiplier={ROW_TEXT_SCALE} style={[styles.name, { color: palette.ink }]}>
         {name}
       </Text>
-      <Details tile={tile} kind={kind} onOpen={onOpen} onSearch={onSearch} onRetry={onRetry} />
+      <Details
+        tile={tile}
+        kind={kind}
+        onOpen={onOpen}
+        onSearch={onSearch}
+        onRetry={onRetry}
+        trying={trying}
+      />
     </View>
   );
 
@@ -178,12 +195,14 @@ function Details({
   onOpen,
   onSearch,
   onRetry,
+  trying,
 }: {
   tile: ScanTile;
   kind: ReviewRowKind;
   onOpen: (tile: ScanTile) => void;
   onSearch: (tile: ScanTile) => void;
   onRetry: (tile: ScanTile) => void;
+  trying: boolean;
 }) {
   const { palette } = useTheme();
   const code = (value: string | null | undefined): ReactNode =>
@@ -251,7 +270,8 @@ function Details({
     case 'WAITING':
       return (
         <TextButton
-          label={REVIEW_COPY.tryAgain}
+          label={trying ? REVIEW_COPY.tryingAgain : REVIEW_COPY.tryAgain}
+          busy={trying}
           onPress={() => onRetry(tile)}
           testID={`review-row-${tile.id}-retry`}
         />
@@ -261,14 +281,19 @@ function Details({
   }
 }
 
-/** "Search by name or code" / "Try again": a word in the accent colour, 44 points tall. */
+/**
+ * "Search by name or code" / "Try again": a word in the accent colour, 44 points tall. Busy (a try
+ * under way): a small spinner before the word, and off.
+ */
 function TextButton({
   label,
   onPress,
+  busy = false,
   testID,
 }: {
   label: string;
   onPress: () => void;
+  busy?: boolean;
   testID: string;
 }) {
   const { palette } = useTheme();
@@ -276,10 +301,20 @@ function TextButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy }}
+      disabled={busy}
       onPress={onPress}
       style={({ pressed }) => [styles.search, pressed && styles.pressed]}
       testID={testID}
     >
+      {busy ? (
+        <ActivityIndicator
+          size="small"
+          color={palette.primary}
+          accessibilityElementsHidden
+          importantForAccessibility="no"
+        />
+      ) : null}
       <Text
         maxFontSizeMultiplier={ROW_TEXT_SCALE}
         style={[styles.searchLabel, { color: palette.primary }]}
@@ -398,7 +433,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   fixLabel: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.bold },
-  search: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  search: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   searchLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
   copies: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   step: {

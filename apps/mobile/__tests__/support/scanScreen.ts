@@ -213,3 +213,45 @@ export function resetScanMocks(): void {
   mockReader.provider = null;
   mockFiles.deleted = [];
 }
+
+/**
+ * Focus in the scan's screen tests (expo-router's `useFocusEffect`, a no-op in the shared router
+ * stand-in): a screen is focused when it mounts, and a test can take the focus away from the
+ * screens on screen so far (the camera stays mounted under the review). Use with:
+ *
+ *   jest.mock('expo-router', () => ({
+ *     ...require('../support/router').expoRouterMock(),
+ *     useFocusEffect: require('../support/scanScreen').useFocusEffectMock,
+ *   }));
+ */
+export const mockFocus = {
+  entries: [] as { blur: () => void }[],
+  /** Every screen mounted so far loses the focus (a screen is pushed over them). */
+  blurAll(): void {
+    for (const entry of mockFocus.entries) {
+      entry.blur();
+    }
+  },
+};
+
+export function useFocusEffectMock(effect: () => void | (() => void)): void {
+  const React = require('react');
+  const latest = React.useRef(effect);
+  latest.current = effect;
+  React.useEffect(() => {
+    let cleanup: void | (() => void) = latest.current();
+    const entry = {
+      blur: () => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+        cleanup = undefined;
+      },
+    };
+    mockFocus.entries.push(entry);
+    return () => {
+      entry.blur();
+      mockFocus.entries = mockFocus.entries.filter((other) => other !== entry);
+    };
+  }, []);
+}

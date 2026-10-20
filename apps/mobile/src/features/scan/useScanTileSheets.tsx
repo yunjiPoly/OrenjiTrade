@@ -49,7 +49,8 @@ export function useScanTileSheets({ onSearch, onTakeAgain }: ScanTileSheetsOptio
   const openTile = useCallback((target: ScanTile) => {
     const action = tileAction(target);
     if (action === 'RETRY') {
-      void scanRunner.retryWaiting();
+      // Asked by the collector: the result is said even when the card still waits.
+      void scanRunner.retryWaiting({ explicit: true });
     } else if (action) {
       setOpen({ sheet: action, tileId: target.id });
     }

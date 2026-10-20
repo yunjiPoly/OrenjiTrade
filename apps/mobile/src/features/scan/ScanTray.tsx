@@ -11,6 +11,8 @@ import { ScanTileCard } from './ScanTileCard';
 export interface ScanTrayProps {
   tiles: readonly ScanTile[];
   counts: ScanCounts;
+  /** The waiting tiles being tried again right now ("Trying again…"). */
+  trying?: readonly string[];
   onTile: (tile: ScanTile) => void;
 }
 
@@ -18,7 +20,7 @@ export interface ScanTrayProps {
  * The tray under the camera's frame (mockup screen 27): "This scan · {n}", "Photos stay on your
  * phone", and the scanned cards, newest first, in one row that scrolls sideways.
  */
-export function ScanTray({ tiles, counts, onTile }: ScanTrayProps) {
+export function ScanTray({ tiles, counts, trying = [], onTile }: ScanTrayProps) {
   const { palette } = useTheme();
   return (
     <View style={styles.root} testID="scan-tray">
@@ -60,7 +62,14 @@ export function ScanTray({ tiles, counts, onTile }: ScanTrayProps) {
             </Text>
           </View>
         ) : (
-          tiles.map((tile) => <ScanTileCard key={tile.id} tile={tile} onPress={onTile} />)
+          tiles.map((tile) => (
+            <ScanTileCard
+              key={tile.id}
+              tile={tile}
+              trying={trying.includes(tile.id)}
+              onPress={onTile}
+            />
+          ))
         )}
       </ScrollView>
     </View>

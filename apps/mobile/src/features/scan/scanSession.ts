@@ -23,8 +23,8 @@ import type {
  * - PICK_RARITY: "Pick rarity": the code comes in several rarities;
  * - PICK_PRINTING: "Pick printing": the card is known, not its printing ("Code unreadable");
  * - NOT_FOUND: "Couldn't read" ("Tap to search");
- * - WAITING: "Waiting for connection": read, not matched yet (offline); it resolves when the
- *   connection is back.
+ * - WAITING: "Waiting for connection": read, not matched yet (offline, or the API could not answer);
+ *   it resolves when the connection is back, and stays WAITING while it is tried again.
  */
 export type TileStatus =
   'READING' | 'FOUND' | 'PICK_RARITY' | 'PICK_PRINTING' | 'NOT_FOUND' | 'WAITING';
@@ -244,13 +244,6 @@ export function tilesWaiting(session: ScanSession): { tileId: string; read: Scan
     .filter((tile) => tile.status === 'WAITING' && tile.read !== null)
     .reverse()
     .map((tile) => ({ tileId: tile.id, read: tile.read as ScanRead }));
-}
-
-/** A waiting tile is matched again: "Reading…" until the answer comes. */
-export function markReading(session: ScanSession, tileId: string): ScanSession {
-  return updateTile(session, tileId, (tile) =>
-    tile.status === 'WAITING' ? { ...tile, status: 'READING' } : null
-  );
 }
 
 /**

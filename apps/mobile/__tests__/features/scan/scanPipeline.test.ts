@@ -6,7 +6,6 @@ import {
   addPhoto,
   emptyScanSession,
   findTile,
-  markReading,
   tilesWaiting,
 } from '@/src/features/scan/scanSession';
 import type { CardScanMatch } from '@/src/features/scan/types';
@@ -85,26 +84,43 @@ describe('one photo, from the reader to its tile', () => {
       offline,
       INPUT
     );
-    expect(outcome).toEqual({ kind: 'OFFLINE', read: FOUND.read });
+    expect(outcome).toEqual({ kind: 'OFFLINE', read: FOUND.read, cause: 'NETWORK' });
     const added = addPhoto(emptyScanSession(), { ...PHOTO, owned: true });
     let session = applyOutcome(added.session, added.tileId, outcome);
     expect(findTile(session, added.tileId)?.status).toBe('WAITING');
 
     // The connection is back: every waiting tile is matched again with what it read.
     for (const { tileId, read } of tilesWaiting(session)) {
-      session = markReading(session, tileId);
       session = applyOutcome(session, tileId, await matchRead(async () => FOUND, read));
     }
     expect(findTile(session, added.tileId)?.status).toBe('FOUND');
   });
 
-  it('says "Couldn\'t read" when the API refuses (flag off, server error)', async () => {
+  it('says "Couldn\'t read" when the API refuses (flag off, a bad request, the account)', async () => {
     for (const refusal of [
       new ApiError({ status: 404, errorCode: 'FEATURE_DISABLED', message: 'off' }),
-      new ApiError({ status: 500, errorCode: 'INTERNAL_ERROR', message: 'boom' }),
+      new ApiError({ status: 400, errorCode: 'VALIDATION_FAILED', message: 'bad' }),
+      new ApiError({ status: 403, errorCode: 'ACCOUNT_SUSPENDED', message: 'suspended' }),
+      new Error('not an API error'),
     ]) {
       const outcome = await matchRead(async () => Promise.reject(refusal), FOUND.read);
       expect(outcome).toEqual({ kind: 'UNREAD', read: FOUND.read, reason: null });
+    }
+  });
+
+  it('waits when the API could not answer this time (server error, restart, too many requests)', async () => {
+    for (const [status, errorCode] of [
+      [500, 'INTERNAL_ERROR'],
+      [502, 'BAD_GATEWAY'],
+      [503, 'SERVICE_UNAVAILABLE'],
+      [504, 'GATEWAY_TIMEOUT'],
+      [408, 'REQUEST_TIMEOUT'],
+      [429, 'RATE_LIMITED'],
+    ] as const) {
+      const failure = new ApiError({ status, errorCode, message: 'not now' });
+      const outcome = await matchRead(async () => Promise.reject(failure), FOUND.read);
+      // The read is kept, to match again later: never "Couldn't read" for a good read.
+      expect(outcome).toEqual({ kind: 'OFFLINE', read: FOUND.read, cause: 'SERVER' });
     }
   });
 });

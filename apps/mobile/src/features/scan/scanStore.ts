@@ -15,8 +15,16 @@ export interface ScanStore {
    * comes back for an ended scan is dropped (`scanRunner.ts`).
    */
   generation: number;
+  /**
+   * The tiles waiting for the connection whose match is being tried again right now. They stay
+   * "Waiting for connection" (a try changes nothing until its answer lands): the tray and the
+   * review only show that a try is under way.
+   */
+  trying: readonly string[];
   /** Applies a pure change of `scanSession.ts` (nothing happens when it returns the same session). */
   apply: (change: (session: ScanSession) => ScanSession) => void;
+  /** Marks a waiting tile as being tried again (or no longer). */
+  setTrying: (tileId: string, trying: boolean) => void;
   /** An empty scan, the next generation. */
   reset: () => void;
 }
@@ -24,10 +32,28 @@ export interface ScanStore {
 export const useScanStore = create<ScanStore>()((set) => ({
   session: emptyScanSession(),
   generation: 0,
+  trying: [],
   apply: (change) =>
     set((state) => {
       const session = change(state.session);
       return session === state.session ? state : { session };
     }),
-  reset: () => set((state) => ({ session: emptyScanSession(), generation: state.generation + 1 })),
+  setTrying: (tileId, trying) =>
+    set((state) => {
+      const has = state.trying.includes(tileId);
+      if (has === trying) {
+        return state;
+      }
+      return {
+        trying: trying
+          ? [...state.trying, tileId]
+          : state.trying.filter((other) => other !== tileId),
+      };
+    }),
+  reset: () =>
+    set((state) => ({
+      session: emptyScanSession(),
+      generation: state.generation + 1,
+      trying: [],
+    })),
 }));

@@ -1,9 +1,10 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Keyboard } from 'react-native';
 
 import ScanCameraRoute from '@/app/scan/index';
 import { scanRunner } from '@/src/features/scan/scanRunner';
+import { useScanStore } from '@/src/features/scan/scanStore';
 import { PINNED_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -12,6 +13,7 @@ import { mockRouter, resetRouterMock } from '../support/router';
 import { FOX, LANTERN, YEW } from '../support/scanFixtures';
 import {
   libraryPhoto,
+  mockFiles,
   PHOTO_TEXT,
   readerOf,
   resetScanMocks,
@@ -103,6 +105,16 @@ function tile(label: string) {
 
 async function sheetGone(testID: string) {
   await waitFor(() => expect(screen.queryByTestId(testID)).toBeNull());
+}
+
+/**
+ * The removed tile's photo is deleted once its sheet has left, while the scan goes on (not only
+ * when the scan ends): the other three photos stay.
+ */
+async function photoDeletedDuringTheScan(name: string) {
+  await waitFor(() => expect(mockFiles.deleted).toEqual([libraryPhoto(name).uri]));
+  expect(useScanStore.getState().session.tiles).toHaveLength(3);
+  expect(useScanStore.getState().session.discarded).toEqual([]);
 }
 
 beforeEach(() => {
@@ -226,6 +238,7 @@ describe('28 Check the match', () => {
     await sheetGone('scan-check-sheet');
     expect(screen.queryByLabelText(FOUND_LABEL)).toBeNull();
     expect(screen.getByText('THIS SCAN · 3')).toBeTruthy();
+    await photoDeletedDuringTheScan('yew');
   });
 });
 
@@ -324,6 +337,60 @@ describe('the printing list', () => {
     await sheetGone('scan-printing-sheet');
   });
 
+  it('gives the rows the room under the field while a code is typed (the largest text sizes)', async () => {
+    // The iOS keyboard, as the sheet hears it.
+    const listeners = new Map<
+      string,
+      ((event: { endCoordinates: { height: number } }) => void)[]
+    >();
+    const real = Keyboard.addListener.bind(Keyboard);
+    jest.spyOn(Keyboard, 'addListener').mockImplementation(((
+      name: string,
+      listener: (event: { endCoordinates: { height: number } }) => void
+    ) => {
+      if (name !== 'keyboardWillShow' && name !== 'keyboardWillHide') {
+        return real(name as never, listener as never);
+      }
+      listeners.set(name, [...(listeners.get(name) ?? []), listener]);
+      return { remove: () => undefined };
+    }) as never);
+    const keyboard = (name: string, height: number) =>
+      act(() =>
+        listeners.get(name)?.forEach((listener) => listener({ endCoordinates: { height } }))
+      );
+
+    await scanFour();
+    fireEvent.press(tile(PRINTING_LABEL));
+    const sheet = await screen.findByTestId('scan-printing-sheet');
+    const field = within(sheet).getByLabelText('Set code on your card');
+    // The placeholder fits the field at the largest sizes: the field grows to the pinned scale.
+    expect(field.props.maxFontSizeMultiplier).toBe(PINNED_MAX_FONT_SCALE);
+    expect(within(sheet).getByTestId('scan-printing-text')).toBeTruthy();
+    expect(
+      within(within(sheet).getByTestId('scan-printing-list')).queryByTestId('scan-printing-cancel')
+    ).toBeNull();
+
+    keyboard('keyboardWillShow', 336);
+    fireEvent.changeText(field, 'zdup');
+    // The sentence steps aside; the link and Cancel follow the row in the list, which scrolls:
+    // under the field there is room for a row, and nothing is left under the keyboard.
+    expect(within(sheet).queryByTestId('scan-printing-text')).toBeNull();
+    const list = within(sheet).getByTestId('scan-printing-list');
+    expect(within(list).getByLabelText('ZDUP-EN077, Paper Power, Ultra Rare')).toBeTruthy();
+    expect(within(list).getByTestId('scan-printing-search-link')).toBeTruthy();
+    expect(within(list).getByTestId('scan-printing-cancel')).toBeTruthy();
+    expect(within(sheet).getAllByTestId('scan-printing-cancel')).toHaveLength(1);
+
+    // The keyboard goes: the sheet as before.
+    keyboard('keyboardWillHide', 0);
+    expect(within(sheet).getByTestId('scan-printing-text')).toBeTruthy();
+    expect(
+      within(within(sheet).getByTestId('scan-printing-list')).queryByTestId('scan-printing-cancel')
+    ).toBeNull();
+    fireEvent.press(within(sheet).getByTestId('scan-printing-cancel'));
+    await sheetGone('scan-printing-sheet');
+  });
+
   it('a code in one rarity finds the card; a code in several opens the rarity list next', async () => {
     await scanFour();
     fireEvent.press(tile(PRINTING_LABEL));
@@ -371,6 +438,7 @@ describe("29 Couldn't read this card", () => {
     await sheetGone('scan-unread-sheet');
     expect(screen.queryByLabelText(UNREAD_LABEL)).toBeNull();
     expect(screen.getByText('THIS SCAN · 3')).toBeTruthy();
+    await photoDeletedDuringTheScan('blank');
   });
 
   it('"Remove" takes the card out too', async () => {
@@ -380,5 +448,6 @@ describe("29 Couldn't read this card", () => {
     fireEvent.press(within(sheet).getByLabelText('Remove'));
     await sheetGone('scan-unread-sheet');
     expect(screen.queryByLabelText(UNREAD_LABEL)).toBeNull();
+    await photoDeletedDuringTheScan('blank');
   });
 });

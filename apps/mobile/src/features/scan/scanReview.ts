@@ -46,15 +46,20 @@ export function readingProgress(session: ScanSession): { current: number; total:
   return reading === 0 ? null : { current: photos - reading + 1, total: photos };
 }
 
-/** Why "Add {n} cards to inventory" failed, and what the collector can do. Nothing was added. */
+/**
+ * Why "Add {n} cards to inventory" failed, and what the collector can do. A refusal added nothing;
+ * without an answer (`UNSURE`) the cards may have been added.
+ */
 export interface AddFailure {
-  kind: 'LIMIT' | 'OFFLINE' | 'BINDER_GONE' | 'SCAN_OFF' | 'OTHER';
+  kind: 'LIMIT' | 'UNSURE' | 'BINDER_GONE' | 'SCAN_OFF' | 'OTHER';
   message: string;
 }
 
 /**
  * The batch add is one transaction (`POST /inventory/items/batch`): a refusal writes nothing, so
- * the scan is kept as it was and every failure says how to go on.
+ * the scan is kept as it was and every failure says how to go on. Without an answer (offline,
+ * none in time, a server error) the request may have gone through: the review says it cannot
+ * tell, and adding again is safe (the scan's `Idempotency-Key` gets the first answer back).
  */
 export function addFailure(error: ApiError, binderChosen: boolean): AddFailure {
   if (error.errorCode === 'LIMIT_REACHED') {
@@ -64,8 +69,8 @@ export function addFailure(error: ApiError, binderChosen: boolean): AddFailure {
       message: REVIEW_COPY.limitMessage(info.limit, info.used, info.requested),
     };
   }
-  if (error.isNetworkError) {
-    return { kind: 'OFFLINE', message: REVIEW_COPY.offline };
+  if (error.isNetworkError || error.isServerError || error.status === 408) {
+    return { kind: 'UNSURE', message: REVIEW_COPY.unsure };
   }
   if (error.errorCode === 'FEATURE_DISABLED') {
     return { kind: 'SCAN_OFF', message: REVIEW_COPY.scanOff };

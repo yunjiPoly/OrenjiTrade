@@ -53,6 +53,7 @@ export function ScanCameraScreen() {
   const snackbar = useSnackbar();
   const { palette } = useTheme();
   const session = useScanStore((state) => state.session);
+  const trying = useScanStore((state) => state.trying);
   const counts = scanCounts(session);
   const hasCards = session.tiles.length > 0;
 
@@ -326,7 +327,7 @@ export function ScanCameraScreen() {
       >
         {SCAN_COPY.hint}
       </Text>
-      <ScanTray tiles={session.tiles} counts={counts} onTile={openTile} />
+      <ScanTray tiles={session.tiles} counts={counts} trying={trying} onTile={openTile} />
       <View style={styles.bar}>
         <ScanBottomBar
           counts={counts}

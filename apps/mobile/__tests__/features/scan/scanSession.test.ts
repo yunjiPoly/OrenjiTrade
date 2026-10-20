@@ -6,7 +6,6 @@ import {
   emptyScanSession,
   filterPrintingRows,
   findTile,
-  markReading,
   markUnread,
   markWaiting,
   MAX_COPIES,
@@ -350,8 +349,7 @@ describe('offline and unread', () => {
     let session = markWaiting(reading, tileId, READ);
     expect(findTile(session, tileId)).toMatchObject({ status: 'WAITING', read: READ });
     expect(tilesWaiting(session)).toEqual([{ tileId, read: READ }]);
-    session = markReading(session, tileId);
-    expect(findTile(session, tileId)?.status).toBe('READING');
+    // Tried again, it stays waiting until the answer lands.
     session = applyMatch(session, tileId, READ, FOUND_YEW);
     expect(findTile(session, tileId)?.status).toBe('FOUND');
     expect(tilesWaiting(session)).toEqual([]);

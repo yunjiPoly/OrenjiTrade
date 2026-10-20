@@ -1,4 +1,4 @@
-import { isOfflineError } from '@/src/api/hooks/cardScan';
+import { scanCallFailure } from '@/src/api/hooks/cardScan';
 
 import type { ReadCardInput } from './readCardText';
 import { applyMatch, markUnread, markWaiting, type ScanSession } from './scanSession';
@@ -9,14 +9,17 @@ import { hasText, type CardScanMatch, type CardScanNotFoundReason, type ScanRead
  * and the matcher are passed in (the device's and `matchScannedCard` in the app, fakes in tests).
  *
  * - Nothing read: "Couldn't read" at once (`NOTHING_READ`); nothing is sent.
- * - The API unreachable (offline, or no answer in time): "Waiting for connection", the read kept to
- *   match again when the connection is back.
- * - The reader failing, or the API refusing: "Couldn't read" (the search is one tap away).
+ * - The API unreachable (offline, or no answer in time: `NETWORK`), or unable to answer this time
+ *   (a server error, a restart, too many requests: `SERVER`): "Waiting for connection", the read
+ *   kept to match again later (`scanRunner.ts` tries again, and gives a tile up whose match keeps
+ *   failing while the API answers the scan's other photos).
+ * - The reader failing, or the API refusing (the flag off, a bad request): "Couldn't read" (the
+ *   search is one tap away).
  */
 
 export type PhotoOutcome =
   | { kind: 'MATCHED'; read: ScanRead; match: CardScanMatch }
-  | { kind: 'OFFLINE'; read: ScanRead }
+  | { kind: 'OFFLINE'; read: ScanRead; cause: 'NETWORK' | 'SERVER' }
   | { kind: 'UNREAD'; read: ScanRead | null; reason: CardScanNotFoundReason | null };
 
 export type CardReader = (input: ReadCardInput) => Promise<ScanRead>;
@@ -30,9 +33,10 @@ export async function matchRead(matcher: CardMatcher, read: ScanRead): Promise<P
   try {
     return { kind: 'MATCHED', read, match: await matcher(read) };
   } catch (error) {
-    return isOfflineError(error)
-      ? { kind: 'OFFLINE', read }
-      : { kind: 'UNREAD', read, reason: null };
+    const failure = scanCallFailure(error);
+    return failure === 'REFUSED'
+      ? { kind: 'UNREAD', read, reason: null }
+      : { kind: 'OFFLINE', read, cause: failure };
   }
 }
 
