@@ -7231,6 +7231,171 @@ answered 404: a 404 now wins over cached rows; R2-2 (minor), a blocked pair read
 wishes." on the wishes page: it is "not available" now. Three jest cases fail with the old code.
 Still open: R2-3 (minor), at the largest accessibility text size the "not available" and "You
 blocked {handle}" states run off a page that does not scroll.
+## Phone redesign G: one game at a time (2026-10-20)
+
+Stage G of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section G, "Privacy and safety for every stage", "Documents and the report"): mockup v50 screens 34
+(Choose a game) and 35 (Choose a region), and the changes to 11, 12, 14, 15, 17 and 18 (Home, 10,
+is stage R7: the game pill is a component R7 places). Branch `feature/g-one-game`, cut from `main`
+at 3d56a090 (R1 to R6, F1, the owner's inventory change and the card scan). Migrations **V130** and
+**V131** (V124 and V128 stay unused). Every API change is additive: the paused web builds (initial
+total 893.82 kB) and passes its checks against the regenerated client, unchanged (no file of
+`apps/web-angular` changed). Free for all (ADR 0019): nothing paid. English cards only (owner,
+2026-10-20): One Piece's GameSchema lists English alone, and no language choice was added.
+
+**What a collector can now do on the phone**
+
+- **Browse one game at a time.** Search opens on the collector's game: the first game of their
+  profile that has cards, else Yu-Gi-Oh!; the choice is remembered per account on the phone (the
+  slug alone). Right of "Search" sits the **game pill** (the game's 22 pt monogram tile, its short
+  name, a chevron; spoken "Game: {name}. Change game") on every segment. It opens **Choose a game**
+  (screen 34): "Home and Search show one game at a time.", one row per game in the games' order
+  (Yu-Gi-Oh!, Pokémon, Magic, One Piece, Riftbound) with its 38 pt tile, its name, "{n} of your
+  cards" or "None of your cards yet", and a radio; **One Piece is dimmed with "Cards coming
+  soon"** and cannot be picked (no card in the catalogue yet); picking a game closes the sheet and
+  everything reloads; the footnote "Your inventory keeps every game, with binders grouped by game.
+  Chats and the bell show every game."
+- **Search follows the game.** The map (screen 11) shades and counts the browsed game's binders
+  only ("No public {game} binders here yet" on a state without any; spoken "Map of public {game}
+  binders by state or province in {region}"). **Typing a card** (screen 12) has no game chips any
+  more: the field says "{game} card name or code", a result is the card's picture and its name with
+  the typed part in orange, nothing else, and no match says "No {game} card matches “{text}”"; the
+  collectors under the cards are those who list the game or show a card of it. **Binders** (14)
+  lists the game's binders and deck cores ("No public {game} binders here yet.", "No {game} deck
+  cores for sale here yet."). **Wishlist** (15) shows the game's wishes and its count, with "No
+  {game} wishes yet" when the collector only wishes for other games. A card page (Who has this
+  card) is not scoped: the card says which game it is. Inventory › Cards, chats and the bell keep
+  every game.
+- **Choose a region** (screen 35): the region pill (globe, name, chevron; spoken "Region: {name}.
+  Change region") opens the restyled sheet: "Home, Search and the map show one region at a time.
+  Cards ship within a region.", one row per region with the globe tile, its name, "Your region ·
+  Canada, United States, Mexico" for the collector's own, a few countries for the others, a radio,
+  and "Your own region comes from Settings › Location. Browsing another one changes nothing on your
+  profile." Browsing another region turns the pill's border orange and "Not your region. Back to
+  {home}" shows under the top row, as before.
+- **Binders have a game.** Inventory › Binders (screen 17) has one section per game that has
+  binders, in the games' order (tile, name, "{n} binders"), deck cores first in each with their
+  purple tag. **New binder** (the current screen until R14 rebuilds it) gains **Game**: the games
+  two by two (one per row at large text sizes), the chosen one with an orange border and a check,
+  games without cards dimmed ("Cards coming soon"), and "A binder holds cards of one game. You
+  can’t change it once it has cards."; it starts on the browsed game. **Edit binder** (18) shows
+  the **Name and the Game side by side** (stacked at large sizes): with cards the game is read-only
+  with a lock, spoken "Game: {name}. It can't change once the binder has cards"; an empty binder's
+  game opens a sheet of the games that can hold binders. "Add cards" offers the binder's game's
+  cards only. Every binder picker lists the binders of the card's game: Add to inventory, Edit card,
+  the camera scan (Yu-Gi-Oh! binders), the bulk "Move to binder" (the selected cards' game, or every
+  binder for cards of several games, the toast then says "{n} skipped: of another game than the
+  binder").
+- "Check TCGplayer price" knows One Piece (`one-piece-card-game`) and Riftbound
+  (`riftbound-league-of-legends-trading-card-game`).
+
+**What the API does** (contract [`docs/api/contracts/g-one-game.md`](docs/api/contracts/g-one-game.md))
+
+| Part | What |
+| --- | --- |
+| Games | V130 `onepiece` (sort 35, English only, finishes NORMAL / PARALLEL, rarities C UC R SR SEC L SP TR P); `hasCards` on every game response (games cache `games:v2`, dropped after each catalogue import) |
+| Binders | V131 `binder.game_id NOT NULL`; `POST /binders` `gameId` (an ACTIVE game with cards, 400 otherwise; Yu-Gi-Oh! without one: the paused web); `PATCH /binders/{id}` `gameId` only while no live card and no undoable deleted card (409 `BINDER_GAME_LOCKED`); `BinderResponse.game` / `gameId` |
+| Cards into binders | 409 `BINDER_GAME_MISMATCH` on `POST` / `PATCH /inventory/items` (a move, or another printing while filed) and on the scan's batch add (nothing written); the bulk `MOVE_TO_BINDER` skips such a card with reason `BINDER_GAME_MISMATCH` |
+| `game=` | optional on `GET /regions/{r}/binder-counts` (cache keyed by game), `/regions/{r}/binders`, `/regions/{r}/subdivisions/{c}/binders`, `/search/card-holders` (and its `totalItems`), `/search/deck-cores`, `/search/collectors`, `/wishlist/availability`; 400 for an unknown game; without it, as before |
+| Privacy | `GeoPrivacyContractTest.oneGameAtATimeCarriesPlacesOnly` (every endpoint above, each game, signed out, a new collector and two seed collectors) |
+| Seeds | `db/seed/inventory.json` binders carry `game`; the five that mixed games were split per game (18 binders); the seed contributor writes `game_id` |
+
+**The migration of existing binders (V131)**: each binder takes the game most of its live cards
+belong to; a tie takes the tied game that comes first in the owner's profile games, else Yu-Gi-Oh!
+when it is tied, else the first tied game in the games' order; a binder without a live card takes
+the owner's first profile game that is ACTIVE with cards, else Yu-Gi-Oh!. The cards of another game
+(live or deleted) leave the binder and stay in the inventory without one; they keep their
+visibility only from a PUBLIC, not hidden, unsold binder, else they turn PRIVATE: nothing becomes
+more public. Each binder that lost cards gets an `audit_log` row (`binder.game.cards_moved_out`
+with how many) and the migration log a NOTICE with the totals. It takes every owner lock first,
+then the binders and their cards in ascending id (`docs/database/schema.md`).
+
+**Decisions, and why**
+
+1. **`POST /binders` without `gameId` makes a Yu-Gi-Oh! binder** instead of a 400: the paused web
+   has no game picker and must keep working; its E2E collectors list Pokémon on their profile but
+   file Yu-Gi-Oh! cards, so the profile's game would have refused their cards. The phone always
+   sends the game. When the web resumes it needs a Game picker (owner follow-up).
+2. **The tie rule** of the migration reads "the owner's first profile game" as the first of the
+   *tied* games in the profile (Yu-Gi-Oh! next, then the games' order): taking a profile game that
+   is not tied would have sent every card of the binder out. **An empty binder** takes the first
+   profile game *that has cards*: a game without cards holds no binder (default 5).
+3. **Cards that leave a binder in V131 turn private unless the binder was public and listed**
+   (stricter than a binder delete, which keeps the visibility of a PUBLIC binder even when hidden):
+   a migration the owner did not run must not show a card that was not already public.
+4. **A binder's game is also locked while a deleted card can still come back to it** (the owner's
+   10-minute undo, a sale's undo): otherwise the undo would put a card into a binder of another
+   game. The API checks it under the binder's row lock.
+5. **`hasCards` decides what can be browsed and hold binders** (ACTIVE and at least one card), and
+   the games cache is dropped after every catalogue import so a game's first cards count at once.
+6. **`game=` on card holders and deck cores exists but the phone does not send it on the card
+   page**: the card says which game it is, and a card of another game opened from a chat or the
+   inventory must still show its holders.
+7. **Collectors while typing are those who list the game or show a public card of it** (the rule
+   of the collector search's game filter), so a Yu-Gi-Oh! search shows no Pokémon-only collector.
+8. **`GET /wishlist` takes no `game`**: a first parameter changes the paused web's generated call
+   (R5, decision 3); the phone keeps the browsed game's wishes from it (each wish carries its game);
+   `GET /wishlist/availability` takes `game`.
+9. **The second line of a sheet row is said after its name** (an accessibility hint, as R5's
+   region sheet did): the radios keep short names ("Pokémon", "Europe"); VoiceOver says "dimmed"
+   for One Piece and then "Cards coming soon".
+10. **The monogram tiles are a mobile-only token group** (`gameTile`, `$platforms: ["mobile"]`):
+    the web's CSS and typed constants are unchanged (its 900 kB budget).
+11. **One Piece's parallel art is a printing of the same code with the finish `PARALLEL`**: the
+    catalogue's variant key holds the finish, so both printings stay apart with one code.
+12. **New binder starts on the browsed game** (or the game of a link `?game=`), and follows it until
+    the collector picks one; cards picked in "Add cards" lock the choice.
+13. **At the largest text size** the radio sheets scroll as one (title, line, rows, footnote), the
+    card names of the typed results stop at twice the size (whole words), New binder's games go one
+    per row and Edit binder's Name and Game stack — all found by the walk.
+
+**The defaults of the prompt this stage applies** (for the owner to change):
+
+1. One game at a time on Home and Search (Search › Wishlist included); Inventory › Cards, chats and
+   the bell show every game.
+2. The browsed game is remembered per account on the phone; it starts on the first profile game
+   that has cards, else Yu-Gi-Oh!.
+3. Existing binders take the game most of their cards belong to; cards of another game leave the
+   binder and stay in the inventory.
+4. A binder's game changes only while the binder is empty.
+5. Games without cards can't be browsed or hold binders, but can be on a profile.
+
+**What changed on the phone**
+
+| Part | What |
+| --- | --- |
+| Games | `src/features/games/` (`browsingGame.ts`: the store per uid, the default rule, `gameOptions`; `GamePill.tsx`; `GameSheet.tsx`; `GameTile.tsx`; `gameTiles.ts`; `gameCopy.ts`), `src/components/ui/RadioSheet.tsx`, `packages/design-tokens/tokens.json` `gameTile` (synced into `src/theme/tokens.ts`), `src/lib/profile.ts` (One Piece) |
+| Region sheet | `src/features/regions/RegionBar.tsx` (the pill and "Choose a region"), `regionCopy.ts` |
+| Search | `app/(tabs)/search.tsx` (the pill, `?game=` links, the wish count), `SearchMap.tsx`, `CardTyping.tsx` (no chips), `BindersSegment.tsx`, `WishlistSegment.tsx`, `searchCopy.ts`, `src/api/hooks/search.ts` and `regionMap.ts` (`game=`), `queryKeys.ts`, `features/map/RegionMap.tsx` (the spoken name), `features/cards/tcgplayer.ts` |
+| Binders | `InventoryBinders.tsx` (sections), `BinderEditor.tsx` + `BinderGameField.tsx` (Game picker, locked game), `binderForm.ts` (`game`, `bindersByGame`, `bindersForGame`), `CardPickerSheet.tsx`, `binderCopy.ts`, `app/binders/new.tsx` (`?game=`), `app/items/new.tsx` and `[id].tsx`, `app/(tabs)/inventory.tsx` + `features/inventory/bulkActions.ts`, `features/scan/ScanReviewScreen.tsx` |
+| Tests | jest `features/oneGameAtATime` (new: the default, per account, the sheet, sections, words), `features/binderForm`, `features/searchRules`, `features/browsingRegion`, `screens/search`, `screens/wishlist` (+2), `screens/binders`, `scan-review`, `lib/profile`; Playwright `catalog`, `binders`, `bulk-actions`, `holders` and the stack helpers (binders of the cards' game); Maestro **native flow G `one-game-at-a-time.yaml`** (new), `search-card-detail.yaml`, `large-text.yaml`, `map-region-binders.yaml`, `region-switch.yaml`, `map-gestures-links.yaml`, `deck-core.yaml`, `binder-create-add-item.yaml`, `dialog-after-sheet.yaml` and the scripts `create-collector.js` (`GAMES`), `parity.js`, `deals.js`, `wishlist.js`, `region-map.js` (`GAME`) |
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-20)
+
+CHECKS_TABLE
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 14:36 to 15:17; scratch
+Maestro flows on the isolated stack; dark and light, the default and the largest text size;
+collector1: binders of Yu-Gi-Oh! and Pokémon, One Piece without cards): screens 34, 35, 11, 12, 14,
+15, 17, 18 and New binder's Game picker match mockup v50 in layout and words. Fixed from the walk:
+the radio sheets at the largest size (the title and its line took the whole sheet and the rows got
+no height: one scroll now), the typed card names broken in mid-word, New binder's games two by two
+at the largest size. The simulator's appearance (light) and text size (large) were left as the
+owner had them.
+
+**Not done / could not be verified**: Home (R7) does not exist yet, so the prompt's Maestro case
+"switch Home to Pokémon and see the empty state, then back to Yu-Gi-Oh!" runs on Search (native
+flow G: Pokémon's empty state "No Pokémon card matches “azure-eyes”", then Yu-Gi-Oh! finds the
+card again). The Android run could not be verified (no
+Android SDK on this Mac). No catalogue holds One Piece cards (Bandai's permission), so a One Piece
+binder was never made on a device.
+
+**Owner follow-ups**: (1) the paused web has no Game picker: a web binder is a Yu-Gi-Oh! binder and
+a web user filing another game's card gets the 409 message; (2) the owner's local database migrates
+V130 and V131 on the next `npm run dev`: binders that mixed games are split by the migration's rule
+(see the audit log `binder.game.cards_moved_out`); (3) defaults 1 to 5 above.
+
 ## NEXT TASK
 
 > **Owner order of 2026-10-20: stop all work on the French version, and the app supports English

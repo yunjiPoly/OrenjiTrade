@@ -3,8 +3,9 @@
 # games Yu-Gi-Oh! then Pokémon) opens Search on Yu-Gi-Oh!, the first game of the profile that has
 # cards. Search typing finds only the browsed game: a Pokémon card is no match, with an empty
 # state that names the game. The game pill opens "Choose a game" (One Piece is dimmed, "Cards
-# coming soon"); Pokémon shows the Pokémon cards, Search › Binders of Quebec lists the Pokémon
-# binder and not the Yu-Gi-Oh! one; back to Yu-Gi-Oh!, the same search finds its card. The region
+# coming soon"); Pokémon shows the Pokémon cards, Search › Binders lists her Pokémon binder and
+# not the Yu-Gi-Oh! one, and a Yu-Gi-Oh! card is no Pokémon card (Pokémon's empty state, by name);
+# back to Yu-Gi-Oh!, the same text finds the card and Binders the Yu-Gi-Oh! binder. The region
 # pill opens "Choose a region" (screen 35). Inventory › Binders shows one section per game, and
 # Edit binder shows the game of a binder with cards, locked. Home is stage R7: this runs on
 # Search. Seed accounts are only signed in to.
@@ -105,19 +106,8 @@ tags:
 - assertNotVisible: 'Yu-Gi-Oh! trade binder.*'
 - takeScreenshot: g-binders-pokemon
 
-# Back to Yu-Gi-Oh!: its binder, and the card search finds its cards again.
-- tapOn:
-    id: 'search-game'
-- extendedWaitUntil:
-    visible:
-      id: 'search-game-sheet-option-yugioh'
-    timeout: 15000
-- tapOn:
-    id: 'search-game-sheet-option-yugioh'
-- extendedWaitUntil:
-    visible: 'Yu-Gi-Oh! trade binder.*'
-    timeout: 60000
-- assertNotVisible: 'Pokémon holo binder.*'
+# Pokémon's empty state: a Yu-Gi-Oh! card is no Pokémon card; back to Yu-Gi-Oh!, the same text
+# finds it, and Search › Binders shows her Yu-Gi-Oh! binder, not the Pokémon one.
 - tapOn:
     id: 'search-segment-cards'
 - tapOn:
@@ -129,10 +119,43 @@ tags:
 - inputText: 'azure-eyes'
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
+    visible: 'No Pokémon card matches “azure-eyes”'
+    timeout: 30000
+- takeScreenshot: g-typing-pokemon-empty
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game-sheet-option-yugioh'
+    timeout: 15000
+- tapOn:
+    id: 'search-game-sheet-option-yugioh'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Yu-Gi-Oh!\. Change game'
+    timeout: 15000
+- extendedWaitUntil:
     visible: 'Azure-Eyes Sky Dragon'
     timeout: 30000
 - tapOn:
     id: 'search-input-cancel'
+- tapOn:
+    id: 'search-segment-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-input'
+    timeout: 30000
+- tapOn:
+    id: 'binders-input'
+- inputText: 'collector1'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: 'Yu-Gi-Oh! trade binder.*'
+    timeout: 60000
+- assertNotVisible: 'Pokémon holo binder.*'
+- tapOn:
+    id: 'search-segment-cards'
 
 # "Choose a region" (screen 35): the three regions, the home one first with its line.
 - tapOn:
