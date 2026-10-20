@@ -3,9 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * The photo files of the scan, written down while the scan runs (their local addresses only,
  * never the photos). A scan lives in memory (the owner's default 1): closing the app loses it, and
- * its photo files would stay in the app's cache. The next scan of a later run deletes the files an
- * earlier run wrote down (`ScanRunner.sweepLeftovers`), so every photo the scan made or copied is
- * deleted, even when the scan never ended in the app.
+ * its photo files would stay in the app's cache. The next run of the app deletes the files an
+ * earlier run wrote down, at start-up (`ScanRunner.sweepLeftovers`, called from `app/_layout.tsx`),
+ * so every photo the scan made or copied is deleted, even when the scan never ended in the app.
  */
 export interface ScanPhotoJournal {
   /** The files written down. */

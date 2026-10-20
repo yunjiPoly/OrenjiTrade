@@ -52,7 +52,9 @@ image binaries or snapshots.
 Do **not** start Phase 11 (ML card identification model, the camera → upload → Pub/Sub → ML
 worker scan pipeline, `/v1/identify` beyond the existing stub, mobile card scanning) until the
 owner explicitly lifts this hold. Leave `apps/ml` as the Phase 0 skeleton; keep the `mlScanning`
-feature flag off. Everything else proceeds.
+feature flag off. Everything else proceeds. On 2026-10-15 the owner lifted the hold for the
+on-device text scan only (ADR 0020: the phone reads a Yu-Gi-Oh! card's name and set code, the API
+matches the text, flag `cardTextScan`); no model, no photo upload, no pipeline: the rest stays held.
 
 ### Explicitly out of scope for the MVP (do not build)
 Stores, events/meetups, binder-to-binder matching, unboxing-video evidence, Kubernetes/GKE,

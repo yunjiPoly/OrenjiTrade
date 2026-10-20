@@ -2689,12 +2689,138 @@ product/UX reviewer, each on its own stack, both **approve** (no blocker, no maj
 
 **[!] ON HOLD — owner instruction (2026-09-29): do not start the Python ML card recognition work until a new order is given. The Phase 0 FastAPI skeleton stays as-is.**
 
+_Lifted on 2026-10-15 for the on-device text scan only (section "Card scan", ADR 0020: the phone reads a Yu-Gi-Oh! card's name and set code, the API matches the text; no model, no photo upload, no pipeline). Everything below stays on hold; `mlScanning` stays off._
+
 _Final verification (2026-09-30): `apps/ml` untouched since Phase 0, `mlScanning` feature flag off in every seed, the API never calls the ML service locally; `npm run test:ml` (optional) runs the skeleton's pytest suite when `apps/ml/.venv` exists._
 
 - [!] Card scanning pipeline: upload → storage → event → ML worker → candidates → user confirmation → inventory
 - [!] ML service `/v1/identify` with confidence, graceful degradation
 - [!] Mobile camera scan flow
 - [!] Tests: pytest for service; API tolerance when ML unavailable
+
+## Card scan: "Scan with camera" for Yu-Gi-Oh! cards (owner spec 2026-10-15, ADR 0020)
+
+**[-] Built, reviewed and merged with `main` on its branch; its pull request next.** Branch `feature/card-scan`
+(worktree `OrenjiTrade-card-scan`), built by a separate session beside the phone redesign, from the
+owner's spec [`docs/product/specs/2026-10-15-card-scan.md`](docs/product/specs/2026-10-15-card-scan.md)
+(verbatim) and mockup screens 26 to 30 (kept outside git). Decision record:
+[ADR 0020](docs/architecture/adr/0020-camera-card-scan-reads-text-on-the-phone.md); contract:
+[`docs/api/contracts/card-scan.md`](docs/api/contracts/card-scan.md). The collector photographs
+cards one after another (or picks library photos), the phone reads each card's name and set code
+on the device, and the API finds the exact printing in our catalog.
+
+**The owner's decisions.** 2026-10-14 (recorded in the spec of 2026-10-15, the date CLAUDE.md, the
+handoff and the Phase 11 note give): the ML hold is lifted for this on-device text scan only
+(no rarity, art or image detection). 2026-10-15: the easiest free way (read the name and the set
+code); no French cards; only Pendulum cards get a second spot for the code; it has to work on
+Android too; simulator only for now (no phone builds yet; Android later on the owner's own Android
+phone); ML Kit's anonymous usage metrics accepted; an old European code read without its dash and
+with a misread digit stays refused (the collector searches). 2026-10-20: English cards only, no
+French version (no French text, language choice or French-code work; other-language codes stay
+refused); a third narrow fix round; the wordings "Trying again…", the unsure-add message, "The scan
+adds English cards only. Pick an English printing, or tap the card.", "Not confirmed yet", the Close
+line "We couldn't tell whether the {n} cards you added went through: check Inventory." (and its
+one-card form), and for a card given up after server errors the tile "Couldn't match" and the sheet
+"We couldn't match this card right now. Search for it by name or code, or try again later." with
+"Try again".
+
+**What a collector can do** (on a build with the reader and with `cardTextScan` on):
+
+- **Add cards (screen 26):** "Scan with camera" ("New") and "Choose from photos" take the place of
+  R2's "Coming later" row, before the imports; in Expo Go, on the web and with the flag off the
+  "Coming later" row stays.
+- **Scan cards (screen 27):** the camera with the card-shaped frame (Name and Set code areas), the
+  torch, one still photo per tap read while the collector keeps shooting; the tray "This scan · {n}"
+  with "Photos stay on your phone", tiles newest first ("✓ Found", "Pick rarity", "Pick printing"
+  with "Code unreadable", "Couldn't read", "Reading…", "Waiting for connection", "Couldn't match",
+  "Not confirmed yet" while an add has no answer), repeats grouped (×2, at most 99 copies a tile);
+  the rarity list and the printing list (a code field that filters, newest first); "Photos" adds
+  library photos; Close asks "Leave without adding?" when cards are in the tray. A refused camera
+  permission offers the phone's Settings and "Choose from photos"; a phone without a camera (the
+  simulator) says "There is no camera here." with "Choose from photos".
+- **Check the match (28), Couldn't read this card (29)** and its "Couldn't match" variant (the
+  search and "Try again", no photo tips), **Review (30)** ("{n} ready · {n} to check", To check
+  above Ready, copies, remove, "Private" / "Public" and "No binder" pills, "The {n} cards to check
+  won't be added.", "Add {n} cards to inventory" → Inventory with "Saved · {n} cards"), and the
+  **search inside the scan** (R2's typing search, Yu-Gi-Oh! only, opened with what was read).
+- **Choose from photos:** up to 50 at a time, read one after another ("Reading 3 of 12…"), then the
+  review.
+
+**API** (no table: the scan stores nothing of its own):
+
+- `POST /api/v1/cards/scan-match` (`CardScanController`, the `cards/domain/scan` package:
+  `CardMatcher` with `TextCardMatcher`, `ScanCodes`, `ScanRules`, `NameSimilarity`;
+  `CardScanQueryRepository`, `CatalogScanLookup`): the codes and names read → FOUND, PICK_RARITY,
+  PICK_PRINTING or NOT_FOUND (`OTHER_LANGUAGE`, `AMBIGUOUS`, `NO_MATCH`, `NOTHING_READ`), the
+  printings, the other matches; at most five grouped queries (a sixth for a dashless read in doubt);
+  English only; never the passcode; the text read is never logged.
+- `POST /api/v1/inventory/items/batch` (`InventoryBatchController`, `InventoryBatchService`,
+  `InventoryBatchRepository`): 1 to 500 lines, one transaction, the equal item raised or a new one
+  with the phone's defaults (no condition stated, `TRADE_OR_SALE`, offers off), the owner lock and
+  the lock order (`BATCH_ADD` in `InventoryLockOrderIT`), `inventory.items.max` for the whole batch,
+  the reconciliation, the freshness confirmation, an optional `Idempotency-Key` (Redis, 24 hours,
+  fail-open).
+- **V129** `V129__card_text_scan_flag.sql`: the flag `cardTextScan`, on (both endpoints 404
+  `FEATURE_DISABLED` when off). Written as V124 and renumbered when the card scan first merged
+  `main` (2026-10-15); V124 stays unused, and V128 was left to the redesign's next stage.
+
+**Phone:** `app/scan/index.tsx`, `review.tsx`, `search.tsx`; `src/features/scan/*` (the reader
+seam `ocr/` with `OcrProvider`, the device reader, the fake and the web stub; `cardAreas.ts`, the
+areas config; `frameMapping.ts`; `textPicking.ts`, `readCardText.ts`, `orientation.ts`;
+`scanSession.ts`, `scanStore.ts`, `scanRunner.ts` with the waiting and give-up rules and the photo
+journal; the screens and sheets); `src/api/hooks/cardScan.ts`; the local module
+`modules/orenji-text-reader` (Swift, Kotlin); `plugins/withIosSceneLifecycle.js` and the variant
+`ORENJI_APP_VARIANT=scan` in `app.config.ts`. In files of the redesign, small additive changes only:
+`AddCardsStart.tsx` (the optional `scan` rows), `inventoryCopy.ts` (their four texts),
+`app/items/new.tsx` (`useAddCardsScanRows`), `AddCardSearch.tsx` (optional `game` and `hint`, the
+magnifier hidden from the screen reader), `src/api/hooks/catalog.ts` (`useCardSuggestions`' optional
+`game`), `src/api/hooks/featureFlags.ts` (`cardTextScan`), `src/account/gate.ts` (the `scan` root),
+`app/_layout.tsx` (the photo sweep at start-up), and the flag lists of
+`PaidFeaturesRemovalMigrationIT` and `freeForAll.test.tsx`.
+
+**Privacy** (ADR 0020, point 7): photos never leave the phone and are deleted when the scan ends
+(and, for a scan lost when the app closed, at the next start); no EXIF; the server never logs what
+was read; no analytics event of the scan; no places in either response.
+
+**Real cards on the finished screens** (2026-10-20, merge `1d199ba5`, iPhone 17 simulator, the
+owner's 32 photos as library photos, the real Yu-Gi-Oh! catalog imported offline from the stored
+snapshot 147.23, no provider call): Add cards › Choose from photos with all 32 at once → review.
+**Found right away 28** (14 "Found", every printing right; 14 "Pick rarity" at the right code, one
+tap), **after one quick pick 2** ("Pick printing" with the right card), **matched to a wrong card
+0**, **not read 2** (one card is missing from the catalog snapshot, one gave no code). Time from
+picking to each tile resolved: median 27.8 s, max 49.6 s, the first 4.6 s (the photos are read one
+after another, about 1.3 s each, at most 3.2 s). The 15 ready cards (one rarity picked) were added:
+Inventory "Saved · 15 cards", the database 15 new items, all Private, no binder, no condition
+stated, with the right printings; the photo copies deleted. The camera path cannot run on the
+simulator (no camera): these numbers are library photos. They equal the matcher-level runs of
+2026-10-15.
+
+**Defaults chosen for the owner** (spec section 10): the tray in memory; up to 50 library photos;
+Private and no binder, copies to the equal card; `cardTextScan` on; at most 99 copies a tile.
+
+**For the owner** (new wording, to approve or change): the sheet title "Couldn't match this card";
+the spoken tile "Couldn't match this card, tap to search" (while tried: "…, trying again") and the
+announcement "Couldn't match this card"; the Couldn't-match sheet drops the three photo tips and
+"Take it again" and has "Try again" as the outlined button under the search; the review row's photo
+stays blurred like a Couldn't-read row. Observed on the finished screens: for one photo (the card
+that gave no code) the search opens with a line of the card's effect text read as its name (Clear
+is one tap); a review opened again while an add is on its way shows "Nothing scanned yet" once
+every add is answered (the toast still says "Saved"). Open proposals: an effect-text fallback for
+the code, a B read for the E of a region code, the camera's code crops on real framed photos.
+
+**Not verified:** the Android run (no Android SDK on this Mac; the module's Android half is written,
+not compiled, built or run); the camera path on a real phone (simulator only, owner's order); phone
+builds (the phone-install task, not started: the scan app's own URL scheme and Google sign-in
+redirect are for it). Before an Android release, ML Kit's metrics go into the Play data-safety form
+and the privacy policy.
+
+**Merged with `main`** (2026-10-20, `1d199ba5`: R4, the inventory tags and $ / % price, R5):
+conflicts only in the contracts index and `schema.md`'s migration table (both sides kept) and the
+generated client (regenerated). Checked: R4 refuses no item write into a sold deck core on the API
+(the batch add's `requireOwned` is the same as item creation's), and the scan's binder pill uses
+`useMyBinders`, which leaves sold deck cores out (R3 leftover U10); the tags and the price are
+phone-only; the lock order holds (`InventoryLockOrderIT` with R4's sale cases); "Add {n} cards"
+lands on R5's Inventory tab with "Saved".
 
 ## Phase 12 — Data Platform
 
@@ -2792,7 +2918,8 @@ Mobile halves (owner decision 2026-10-04: mobile resumed, local and free only): 
 
 - **Cloud (apply deferred by owner; configuration prepared 2026-10-05, ADR 0016):** the owner runs `terraform apply` (GCP project, state bucket, WIF, the low-cost prod profile incl. the generated `ANALYTICS_ACTOR_SALT` / `ADS_TOKEN_SECRET` / `SERVICE_TOKEN` secrets), the Cloudflare apply and the console steps (`docs/deployment/README.md`); still missing in code: the `/internal/events/pubsub` receiver (domain-events push stays off), sendgrid/ses e-mail adapters (`log` only), the Stripe live keys, device push (FCM) and the first real Pub/Sub → BigQuery run; the sidecar probe / fractional CPU / Certificate Manager questions listed in that section can only be settled at the first apply.
 - **Mobile (resumed 2026-10-04, local and free only):** Phases 1–10 done in stages M1–M6 (merged as #41, #45–#48, #51) and the web parity gaps closed in stage M7 (see "Mobile app (stage M1)" to "(stage M7)"; admin consoles stay web-only); the launch-readiness mobile half done in stage M8 (18+ confirmation, French legal pages, safety notice, money-off; branch `feature/launch-readiness`); open: the Expo SDK 58 upgrade (owner-approved, its own PR), the full French UI translation (after the upgrade), Google sign-in against a real Firebase project (OAuth client ids; proven only against the Auth emulator), signed-out browsing (the web's anonymous routes are not mirrored), the owner's decision on app-store purchases before any store build sells Premium or takes donations (ADR 0011 open question: in-app purchase, link out to the web, or web-only purchases), device push delivery (needs an EAS project and real FCM), fonts; EAS stays unused (project id placeholder). **iOS (2026-10-10):** proven in Expo Go on the iOS 27 simulator with the whole native suite (`npm run test:mobile:maestro -- --platform ios`, "Mobile app on the iOS simulator"); not proven: a physical iPhone and a store or TestFlight build (an Apple developer account and a native build, owner cost rule). **Android on the Mac:** not re-run (no Android SDK; skipped by owner decision); photo uploads from the Android app are expected to fail as they did on iOS (same Expo fetch) and keep their old code until an Android run can prove the fix; the API drops the EXIF orientation of uploaded photos on every client (see that section's "Open").
-- **ML (on hold):** Phase 11 card recognition and scanning.
+- **ML (on hold):** Phase 11 card recognition and scanning (the on-device text scan excepted since
+  2026-10-15: "Card scan" below, ADR 0020).
 - **Legal:** counsel review of the 9 draft legal pages and validation of their French translation (criterion 38); the `[to confirm]` placeholders of the Privacy Policy (privacy officer, data locations).
 - **Backend debt (local):** Phase 10 analytics events (subscription, credit spend, ad served/clicked, donation) and AnalyticsIT coverage of the Phase 9 payment/dispute events; declare the Phase 8 `ProblemDetail` extensions (`latestOfferId`, `offerId`, `currentVersion`) in OpenAPI, regenerate the clients and drop the web's `problemExtension()` reads; join blocks into the Phase 4 discovery SQL; binder names/descriptions and public notes through `TextModerationService`; `Idempotency-Key` replay fail-open without Redis; avatars re-encoded as JPEG (no WebP encoder); OpenAPI `info.license` lacks `identifier`/`url`; generated client sends `application/problem+json` on 204 operations (web `accept-header.interceptor.ts` workaround).
 - **Web debt:** `/sets` index page; admin set/printing creation UI; E2E for the admin plan editor, admin subscription cancel and donation refund/settings; `metadata.<key>` catalog filters not exposed; Leaflet `_leaflet_pos` console error on map teardown during zoom; fake checkouts poll up to ~45 s for the synthetic webhook; initial bundle 887.66 kB close to the 900 kB warning budget (887.59 kB before the map privacy rendering, 877.57 kB before the card pictures); the admin seed account lands on `/onboarding` after sign-in (staff profile not onboarded).
@@ -5750,8 +5877,9 @@ absence.
 **The migration renumbered (`461f03b`).** `main` holds V120–V123 and Flyway runs without
 `outOfOrder`, so R2's `V117__inventory_price_text_restore.sql` would be refused by any database
 already at V123 (the owner's dev database after pulling `main`, any deployed environment). It is now
-**`V125__inventory_price_text_restore.sql`** (V124 is kept for another branch; V117–V119 stay
-unused; the next migration is V126). Its content is unchanged (only its header comment says so): it
+**`V125__inventory_price_text_restore.sql`** (V124 is kept for another branch: the card scan,
+which took V129 when it merged `main`, so V124 stays unused; V117–V119 stay unused; the next
+migration is V126). Its content is unchanged (only its header comment says so): it
 touches `inventory_item` alone, which F1 left as it was, and every Testcontainers suite migrates
 through V123 then V125. The API README, `schema.md`, the R2 contract, the handoff and this file name
 V125. A scratch database where an earlier R2 run applied V117 is refused by Flyway ("applied
@@ -6825,8 +6953,8 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 > stage R2 of the phone redesign (#74, 2026-10-15); stage R3 of the phone redesign (#75,
 > 2026-10-15); stage R4 of the phone redesign (#76, 2026-10-16). Migrations V001 to V114
 > are applied and frozen; R1's V115 and V116, F1's V120–V123, R2's V125, R3's V126 and R4's V127
-> freeze as each lands on `main` (V117–V119 are unused; V124 is kept for another branch); the next
-> one is **V128**. R2
+> freeze as each lands on `main` (V117–V119 and V124 are unused: V124 was kept for the card scan,
+> which took V129); the next one is **V128**, **V130** once the card scan's V129 lands. R2
 > wrote its migration as V117 and renumbered it to V125 when it merged F1: Flyway runs without
 > `outOfOrder`, and a database already at V123 would refuse a V117 it has not applied. The owner's
 > local database migrates on the next `npm run dev` and loses its trading areas by design (S1).
@@ -6882,7 +7010,7 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 > "Remember my searches"; the old routes and links redirect. API: `GET /search/collectors`,
 > `sort=province`, `available` and `GET /wishlist/availability`; two hardening items closed (blocked
 > collectors in the collectors section of search, the search text in the search analytics events).
-> No migration: the next one is still **V128** (V124 is kept for another branch). R3's and R4's R5
+> No migration: the next one is still **V128** (V124 is unused: the card scan took V129). R3's and R4's R5
 > items are done (the banner with `excludeDeckCoreItems`, the deck cores as rows on the map's state
 > card and in Search › Binders, "Message" on a holder row with `subjectItemId`, native flows 2 and
 > 3 in full). Found during R5, not R5's (recorded in its section): Settings › Appearance's theme
@@ -6909,6 +7037,8 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 > `CLAUDE.md`; `docs/development/claude-handoff.md`; this section; the spec (sections 0 to 4, 9, 12
 > to 17); ADR 0017, ADR 0018 and ADR 0019; R2's to R5's sections of this file;
 > `docs/api/contracts/r3-binders-deck-cores.md`, `r4-messages-sales.md` and `r5-search.md`.
+>
+> **Card scan** (separate session; section "Card scan", ADR 0020): built, reviewed and merged with `main` on `feature/card-scan`; next, its pull request (merge on green CI: CI, E2E, Docker build), then the owner's answers on the new wording listed there.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
