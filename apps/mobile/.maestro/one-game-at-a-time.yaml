@@ -54,7 +54,9 @@ tags:
 - extendedWaitUntil:
     visible: 'No Yu-Gi-Oh! card matches “emberfang fox”'
     timeout: 30000
-- assertNotVisible: 'Emberfang Fox'
+# (The field holds the typed text: no result row is the check, not the words.)
+- assertNotVisible:
+    id: 'search-result-.*'
 - takeScreenshot: g-typing-no-match
 
 # "Choose a game" (screen 34): every game, One Piece dimmed without cards; Pokémon.
@@ -64,9 +66,10 @@ tags:
     visible: 'Choose a game'
     timeout: 15000
 - assertVisible: 'Home and Search show one game at a time.'
+# One Piece has no cards yet: dimmed, "Cards coming soon" (said after its name), not pickable.
 - assertVisible:
     id: 'search-game-sheet-option-onepiece'
-- assertVisible: 'Cards coming soon'
+    enabled: false
 - assertVisible: 'Your inventory keeps every game, with binders grouped by game. Chats and the bell show every game.'
 - takeScreenshot: g-game-sheet
 - tapOn:
@@ -77,8 +80,10 @@ tags:
       text: 'Game: Pokémon\. Change game'
     timeout: 15000
 - extendedWaitUntil:
-    visible: 'Emberfang Fox'
+    visible: 'Emberfang Fox VMAX'
     timeout: 30000
+- assertVisible:
+    id: 'search-result-.*'
 - takeScreenshot: g-typing-pokemon
 
 # Search › Binders, her own handle: her public Pokémon binder, not her Yu-Gi-Oh! one.

@@ -72,88 +72,99 @@ export function RadioSheet({
   const { palette } = useTheme();
   return (
     <BottomSheet visible={visible} onClose={onClose} testID={testID}>
-      <View style={styles.head}>
-        <Text
-          accessibilityRole="header"
-          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-          style={[styles.title, { color: palette.ink }]}
-          testID={`${testID}-title`}
-        >
-          {title}
-        </Text>
-        {description ? (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{description}</Text>
-        ) : null}
-      </View>
+      {/* One scroll for the whole sheet: at the largest text sizes the title, its line and the
+          footnote alone fill the sheet, and a list scrolled on its own got no height at all. */}
       <ScrollView
-        accessibilityRole="radiogroup"
-        accessibilityLabel={groupLabel}
-        style={styles.list}
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        testID={`${testID}-scroll`}
       >
-        {options.map((option) => {
-          const selected = option.value === value;
-          const disabled = option.disabled === true;
-          return (
-            <Pressable
-              key={option.value}
-              accessibilityRole="radio"
-              accessibilityLabel={option.label}
-              // The second line ("38 of your cards", "Your region · …") is said after the name.
-              accessibilityHint={option.detail}
-              accessibilityState={{ checked: selected, disabled }}
-              aria-checked={selected}
-              aria-disabled={disabled}
-              disabled={disabled}
-              onPress={() => {
-                onClose();
-                if (!selected) {
-                  onPick(option.value);
-                }
-              }}
-              testID={`${rowTestID}-${option.value}`}
-              style={({ pressed }) => [
-                styles.row,
-                { borderBottomColor: palette.border },
-                disabled && styles.dimmed,
-                pressed && styles.pressed,
-              ]}
-            >
-              {option.leading}
-              <View style={styles.texts}>
-                <Text style={[styles.name, { color: palette.ink }]}>{option.label}</Text>
-                {option.detail ? (
-                  <Text style={[styles.detail, { color: palette.textMuted }]}>{option.detail}</Text>
-                ) : null}
-              </View>
-              {disabled ? null : (
-                <View
-                  accessible={false}
-                  importantForAccessibility="no-hide-descendants"
-                  style={[
-                    styles.ring,
-                    { borderColor: selected ? palette.primary : palette.borderStrong },
-                  ]}
-                >
-                  {selected ? (
-                    <View style={[styles.dot, { backgroundColor: palette.primary }]} />
+        <View style={styles.head}>
+          <Text
+            accessibilityRole="header"
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.title, { color: palette.ink }]}
+            testID={`${testID}-title`}
+          >
+            {title}
+          </Text>
+          {description ? (
+            <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{description}</Text>
+          ) : null}
+        </View>
+        <View accessibilityRole="radiogroup" accessibilityLabel={groupLabel}>
+          {options.map((option) => {
+            const selected = option.value === value;
+            const disabled = option.disabled === true;
+            return (
+              <Pressable
+                key={option.value}
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                // The second line ("38 of your cards", "Your region · …") is said after the name.
+                accessibilityHint={option.detail}
+                accessibilityState={{ checked: selected, disabled }}
+                aria-checked={selected}
+                aria-disabled={disabled}
+                disabled={disabled}
+                onPress={() => {
+                  onClose();
+                  if (!selected) {
+                    onPick(option.value);
+                  }
+                }}
+                testID={`${rowTestID}-${option.value}`}
+                style={({ pressed }) => [
+                  styles.row,
+                  { borderBottomColor: palette.border },
+                  disabled && styles.dimmed,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {option.leading}
+                <View style={styles.texts}>
+                  <Text style={[styles.name, { color: palette.ink }]}>{option.label}</Text>
+                  {option.detail ? (
+                    <Text style={[styles.detail, { color: palette.textMuted }]}>
+                      {option.detail}
+                    </Text>
                   ) : null}
                 </View>
-              )}
-            </Pressable>
-          );
-        })}
+                {disabled ? null : (
+                  <View
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                    style={[
+                      styles.ring,
+                      { borderColor: selected ? palette.primary : palette.borderStrong },
+                    ]}
+                  >
+                    {selected ? (
+                      <View style={[styles.dot, { backgroundColor: palette.primary }]} />
+                    ) : null}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+        {footnote ? (
+          <Text
+            style={[styles.footnote, { color: palette.textMuted }]}
+            testID={`${testID}-footnote`}
+          >
+            {footnote}
+          </Text>
+        ) : null}
       </ScrollView>
-      {footnote ? (
-        <Text style={[styles.footnote, { color: palette.textMuted }]} testID={`${testID}-footnote`}>
-          {footnote}
-        </Text>
-      ) : null}
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flexGrow: 0 },
+  content: { gap: spacing[3] },
   head: { gap: spacing[1] },
   title: {
     fontFamily: fontFamily.display,
@@ -162,7 +173,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     letterSpacing: -0.2,
   },
-  list: { flexGrow: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
