@@ -1401,7 +1401,7 @@ export interface paths {
         put?: never;
         /**
          * Add several cards at once (camera scan)
-         * @description One transaction. Lines of the same printing are summed. Each line adds its copies to the caller's equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing's language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. `inventory.items.max` is checked for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing written. 404 when `binderId` is not one of the caller's binders, 404 FEATURE_DISABLED while the flag cardTextScan is off.
+         * @description One transaction. Lines of the same printing are summed. Each line adds its copies to the caller's equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing's language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. `inventory.items.max` is checked for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing written. 404 when `binderId` is not one of the caller's binders, 404 FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key repeats the first answer for 24 hours, whatever the body: nothing is added a second time.
          */
         post: operations["addInventoryItemsBatch"];
         delete?: never;
@@ -15960,7 +15960,10 @@ export interface operations {
     addInventoryItemsBatch: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The caller's key for this add (1 to 100 letters, digits or . _ : -): the same key again gets the first answer back for 24 hours */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -15979,7 +15982,7 @@ export interface operations {
                     "application/json": components["schemas"]["AddInventoryItemsBatchResponse"];
                 };
             };
-            /** @description VALIDATION_FAILED (bad lines, unknown printings) */
+            /** @description VALIDATION_FAILED (bad lines, unknown printings, a malformed Idempotency-Key) */
             400: {
                 headers: {
                     [name: string]: unknown;

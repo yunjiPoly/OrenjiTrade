@@ -19,19 +19,28 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.client.EntityExchangeResult;
 import tools.jackson.databind.JsonNode;
 
 /**
  * {@code POST /api/v1/inventory/items/batch} (camera scan, owner spec 2026-10-15, section 3.6): new
  * items with the phone's defaults, copies added to an equal item (visibility and binder included),
  * someone else's binder 404, the limit for the whole batch (429, nothing written), validation 400,
- * the event of a public card, the confirmation of a raised item, 401 and the flag.
+ * the event of a public card, the confirmation of a raised item, 401 and the flag, and the
+ * Idempotency-Key (the first answer repeated, nothing added twice, also while the first add runs).
  */
 class InventoryBatchIT extends AbstractIntegrationTest {
 
@@ -95,6 +104,29 @@ class InventoryBatchIT extends AbstractIntegrationTest {
 
     private JsonNode add(Map<String, Object> body) {
         return callJson(HttpMethod.POST, BATCH, uid, body, 200);
+    }
+
+    private JsonNode addWithKey(String owner, Map<String, Object> body, String key, int status) {
+        EntityExchangeResult<byte[]> result =
+                http.post()
+                        .uri(BATCH)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(owner))
+                        .header("Idempotency-Key", key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .exchange()
+                        .expectBody()
+                        .returnResult();
+        assertThat(result.getStatus().value()).isEqualTo(status);
+        return json(result);
+    }
+
+    private int copiesOf(UUID printingId) {
+        return testUsers.count(
+                "SELECT coalesce(sum(quantity), 0) FROM inventory_item WHERE owner_id = ? AND"
+                        + " printing_id = ? AND deleted_at IS NULL",
+                ownerId,
+                printingId);
     }
 
     private Map<String, Object> row(String itemId) {
@@ -470,6 +502,99 @@ class InventoryBatchIT extends AbstractIntegrationTest {
                                 InventoryItemPublished.class,
                                 event -> event.itemId().toString().equals(shown)))
                 .hasSize(1);
+    }
+
+    @Test
+    void theSameIdempotencyKeyRepeatsTheFirstAnswerAndAddsNothingTwice() {
+        String key = "scan-" + UUID.randomUUID();
+        Map<String, Object> body = batch(null, null, List.of(line(card.printingId(), 2)));
+        JsonNode first = addWithKey(uid, body, key, 200);
+        assertThat(first.path("itemsCreated").asInt()).isEqualTo(1);
+        assertThat(first.path("copiesAdded").asInt()).isEqualTo(2);
+
+        // The answer was lost: the phone adds again with the scan's key, whatever it sends now.
+        JsonNode again = addWithKey(uid, body, key, 200);
+        assertThat(again).isEqualTo(first);
+        JsonNode changed =
+                addWithKey(
+                        uid,
+                        batch("PUBLIC", null, List.of(line(card.printingId(), 5), line(other, 1))),
+                        key,
+                        200);
+        assertThat(changed).isEqualTo(first);
+        assertThat(liveItems()).isEqualTo(1);
+        assertThat(copiesOf(card.printingId())).isEqualTo(2);
+        assertThat(copiesOf(other)).isZero();
+
+        // Another add of the collector (another key, or none) adds as usual.
+        JsonNode next = addWithKey(uid, body, "scan-" + UUID.randomUUID(), 200);
+        assertThat(next.path("itemsRaised").asInt()).isEqualTo(1);
+        add(body);
+        assertThat(copiesOf(card.printingId())).isEqualTo(6);
+
+        // A key is the collector's own: another collector's add with it is theirs.
+        String otherUid = uniqueUid("batch-key");
+        provisionCompliant(otherUid);
+        JsonNode theirs = addWithKey(otherUid, body, key, 200);
+        assertThat(theirs.path("itemsCreated").asInt()).isEqualTo(1);
+        assertThat(ids(theirs.path("createdItemIds")))
+                .doesNotContainAnyElementsOf(ids(first.path("createdItemIds")));
+    }
+
+    @Test
+    void aRefusedAddIsNotRepeatedAndAMalformedKeyIs400() {
+        String key = "scan-" + UUID.randomUUID();
+        // Someone else's binder: 404, nothing kept for the key.
+        String theirBinder = createBinder(provisionedOther(), "Not yours");
+        addWithKey(uid, batch(null, theirBinder, List.of(line(card.printingId(), 1))), key, 404);
+        JsonNode added =
+                addWithKey(uid, batch(null, null, List.of(line(card.printingId(), 1))), key, 200);
+        assertThat(added.path("itemsCreated").asInt()).isEqualTo(1);
+
+        JsonNode bad =
+                addWithKey(
+                        uid,
+                        batch(null, null, List.of(line(card.printingId(), 1))),
+                        "not a key!",
+                        400);
+        assertThat(bad.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        assertThat(liveItems()).isEqualTo(1);
+    }
+
+    @Test
+    void repeatsSentWhileTheFirstAddRunsWaitForItAndGetItsAnswer() throws Exception {
+        String key = "scan-" + UUID.randomUUID();
+        Map<String, Object> body = batch(null, null, List.of(line(card.printingId(), 1)));
+        int senders = 4;
+        ExecutorService pool = Executors.newFixedThreadPool(senders);
+        List<JsonNode> answers = new ArrayList<>();
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<JsonNode>> running = new ArrayList<>();
+            for (int index = 0; index < senders; index++) {
+                running.add(
+                        pool.submit(
+                                () -> {
+                                    start.await(30, TimeUnit.SECONDS);
+                                    return addWithKey(uid, body, key, 200);
+                                }));
+            }
+            start.countDown();
+            for (Future<JsonNode> sender : running) {
+                answers.add(sender.get(60, TimeUnit.SECONDS));
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(answers).allSatisfy(answer -> assertThat(answer).isEqualTo(answers.get(0)));
+        assertThat(liveItems()).isEqualTo(1);
+        assertThat(copiesOf(card.printingId())).isEqualTo(1);
+    }
+
+    private String provisionedOther() {
+        String otherUid = uniqueUid("batch-other");
+        provisionCompliant(otherUid);
+        return otherUid;
     }
 
     @Test

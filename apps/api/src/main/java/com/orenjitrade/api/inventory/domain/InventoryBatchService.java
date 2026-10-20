@@ -19,6 +19,7 @@ import com.orenjitrade.api.inventory.infra.InventoryItemRepository.Values;
 import com.orenjitrade.api.limits.domain.LimitDecision;
 import com.orenjitrade.api.limits.domain.LimitReachedException;
 import com.orenjitrade.api.limits.domain.Limits;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,13 +28,18 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -57,6 +63,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>It does not call {@link InventoryService#importLines} itself: an import writes private unfiled
  * items only and raises any private item of the printing, never confirms; the batch chooses the
  * visibility and the binder, raises only an item in that binder with that visibility, and confirms.
+ *
+ * <p>An {@code Idempotency-Key} repeats the first answer for 24 hours, whatever the body of the
+ * repeat: the phone keeps one key for a scan's add, so adding again after an answer that was lost
+ * (no signal, a timeout) never adds the cards a second time. The key is looked up under the owner
+ * lock, so a repeat that arrives while the first add still runs waits for it and gets its answer;
+ * the answer is kept before the commit and forgotten when the transaction rolls back. Like the
+ * reports' and the offers' keys, it lives in Redis and fails open (Redis down: no repeat check).
  */
 @Service
 public class InventoryBatchService {
@@ -74,6 +87,10 @@ public class InventoryBatchService {
      */
     public static final @Nullable String PHONE_CONDITION = null;
 
+    static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
+    static final String IDEMPOTENCY_PREFIX = "idem:inventory-batch:";
+    static final Pattern IDEMPOTENCY_KEY = Pattern.compile("^[A-Za-z0-9_.:-]{1,100}$");
+
     private static final Logger log = LoggerFactory.getLogger(InventoryBatchService.class);
 
     private final InventoryItemRepository items;
@@ -84,6 +101,7 @@ public class InventoryBatchService {
     private final FreshnessEventLog freshnessEvents;
     private final Limits limits;
     private final TimeProvider timeProvider;
+    private final StringRedisTemplate redis;
     private final TransactionTemplate transaction;
 
     public InventoryBatchService(
@@ -95,6 +113,7 @@ public class InventoryBatchService {
             FreshnessEventLog freshnessEvents,
             Limits limits,
             TimeProvider timeProvider,
+            StringRedisTemplate redis,
             PlatformTransactionManager transactionManager) {
         this.items = items;
         this.batch = batch;
@@ -104,6 +123,7 @@ public class InventoryBatchService {
         this.freshnessEvents = freshnessEvents;
         this.limits = limits;
         this.timeProvider = timeProvider;
+        this.redis = redis;
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
@@ -151,17 +171,21 @@ public class InventoryBatchService {
     /**
      * Adds the lines to the owner's inventory in one transaction.
      *
+     * @param idempotencyKey the caller's key ({@code Idempotency-Key}); the same key again gets the
+     *     first answer back for 24 hours, nothing added again; {@code null}: no repeat check
      * @throws ApiException 400 VALIDATION_FAILED (bad lines, unknown printings, a visibility other
-     *     than PRIVATE or PUBLIC), 404 when {@code binderId} is not one of the owner's binders
+     *     than PRIVATE or PUBLIC, a malformed key), 404 when {@code binderId} is not one of the
+     *     owner's binders
      * @throws LimitReachedException 429 when the new items would pass {@code inventory.items.max}
      */
-    public Outcome add(UUID ownerId, Batch request) {
+    public Outcome add(UUID ownerId, Batch request, @Nullable String idempotencyKey) {
+        @Nullable String key = idempotencyKey(idempotencyKey);
         List<Planned> lines = plan(request);
         ListingVisibility visibility =
                 request.visibility() == null ? ListingVisibility.PRIVATE : request.visibility();
         Outcome outcome =
                 transaction.execute(
-                        status -> write(ownerId, visibility, request.binderId(), lines));
+                        status -> write(ownerId, visibility, request.binderId(), lines, key));
         return Objects.requireNonNull(outcome);
     }
 
@@ -233,11 +257,21 @@ public class InventoryBatchService {
             UUID ownerId,
             ListingVisibility visibility,
             @Nullable UUID binderId,
-            List<Planned> lines) {
+            List<Planned> lines,
+            @Nullable String key) {
         Instant now = timeProvider.now();
         // The owner lock, before any row: the equal items are read under it, so no other write of
         // the collector deletes, moves or changes one between that read and the row locks.
         binders.lockOwners(List.of(ownerId));
+        // A repeat of an add that went through: its answer, nothing written. Under the owner lock,
+        // a repeat sent while the first add still ran sees the first add's answer.
+        if (key != null) {
+            Optional<Outcome> previous = previousFor(ownerId, key);
+            if (previous.isPresent()) {
+                log.info("Inventory batch add owner={} repeated (Idempotency-Key)", ownerId);
+                return previous.get();
+            }
+        }
         Map<Key, EqualItem> targets = targets(ownerId, visibility, binderId, lines);
         List<UUID> targetIds = targets.values().stream().map(EqualItem::id).toList();
         // Then the binders (the target and those of the items it raises), then the items, each in
@@ -340,7 +374,126 @@ public class InventoryBatchService {
                 raised.size(),
                 copies,
                 visibility);
-        return new Outcome(List.copyOf(created), List.copyOf(raised), copies, notAdded);
+        Outcome outcome = new Outcome(List.copyOf(created), List.copyOf(raised), copies, notAdded);
+        if (key != null) {
+            remember(ownerId, key, outcome);
+        }
+        return outcome;
+    }
+
+    // Idempotency-Key (Redis, fail-open)
+
+    private static @Nullable String idempotencyKey(@Nullable String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String key = raw.trim();
+        if (!IDEMPOTENCY_KEY.matcher(key).matches()) {
+            throw ApiException.validation(
+                    "Validation failed",
+                    List.of(
+                            new ProblemFieldError(
+                                    "Idempotency-Key",
+                                    "must be 1 to 100 letters, digits or . _ : -")));
+        }
+        return key;
+    }
+
+    private static String redisKey(UUID ownerId, String key) {
+        return IDEMPOTENCY_PREFIX + ownerId + ":" + key;
+    }
+
+    private Optional<Outcome> previousFor(UUID ownerId, String key) {
+        try {
+            return Optional.ofNullable(redis.opsForValue().get(redisKey(ownerId, key)))
+                    .flatMap(StoredOutcome::decode);
+        } catch (RuntimeException e) {
+            log.debug("Idempotency lookup failed: {}", e.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Keeps the answer before the commit, while the owner lock is held (a repeat waiting for the
+     * lock then finds it), and forgets it when the transaction rolls back.
+     */
+    private void remember(UUID ownerId, String key, Outcome outcome) {
+        String stored = redisKey(ownerId, key);
+        try {
+            redis.opsForValue().set(stored, StoredOutcome.encode(outcome), IDEMPOTENCY_TTL);
+        } catch (RuntimeException e) {
+            log.debug("Idempotency store failed: {}", e.getClass().getSimpleName());
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            if (status != STATUS_COMMITTED) {
+                                forget(stored);
+                            }
+                        }
+                    });
+        }
+    }
+
+    private void forget(String stored) {
+        try {
+            redis.delete(stored);
+        } catch (RuntimeException e) {
+            log.debug("Idempotency forget failed: {}", e.getClass().getSimpleName());
+        }
+    }
+
+    /** An answer kept for its key: {@code v1|copiesAdded|copiesNotAdded|created ids|raised ids}. */
+    static final class StoredOutcome {
+
+        private static final String VERSION = "v1";
+
+        private StoredOutcome() {}
+
+        static String encode(Outcome outcome) {
+            return String.join(
+                    "|",
+                    VERSION,
+                    Integer.toString(outcome.copiesAdded()),
+                    Integer.toString(outcome.copiesNotAdded()),
+                    join(outcome.created()),
+                    join(outcome.raised()));
+        }
+
+        static Optional<Outcome> decode(String stored) {
+            String[] parts = stored.split("\\|", -1);
+            if (parts.length != 5 || !VERSION.equals(parts[0])) {
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(
+                        new Outcome(
+                                ids(parts[3]),
+                                ids(parts[4]),
+                                Integer.parseInt(parts[1]),
+                                Integer.parseInt(parts[2])));
+            } catch (IllegalArgumentException e) {
+                return Optional.empty();
+            }
+        }
+
+        private static String join(List<UUID> ids) {
+            return String.join(",", ids.stream().map(UUID::toString).toList());
+        }
+
+        private static List<UUID> ids(String joined) {
+            if (joined.isEmpty()) {
+                return List.of();
+            }
+            List<UUID> ids = new ArrayList<>();
+            for (String id : joined.split(",")) {
+                ids.add(UUID.fromString(id));
+            }
+            return List.copyOf(ids);
+        }
     }
 
     /**

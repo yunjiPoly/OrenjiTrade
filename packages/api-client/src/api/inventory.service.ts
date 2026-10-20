@@ -69,7 +69,7 @@ export class InventoryService extends BaseService implements InventoryServiceInt
 
     /**
      * Add several cards at once (camera scan)
-     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off.
+     * One transaction. Lines of the same printing are summed. Each line adds its copies to the caller\&#39;s equal item (same printing, language, condition, edition and finish, same visibility and binder) or creates one with the defaults of a card added on the phone (the printing\&#39;s language, edition and finish, no condition stated, TRADE_OR_SALE, offers off, CAD, no price). The items count as confirmed. &#x60;inventory.items.max&#x60; is checked for the whole batch: 429 LIMIT_REACHED (with &#x60;requested&#x60;) and nothing written. 404 when &#x60;binderId&#x60; is not one of the caller\&#39;s binders, 404 FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key repeats the first answer for 24 hours, whatever the body: nothing is added a second time.
      * @endpoint post /api/v1/inventory/items/batch
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -84,8 +84,12 @@ export class InventoryService extends BaseService implements InventoryServiceInt
         if (addInventoryItemsBatchRequest === null || addInventoryItemsBatchRequest === undefined) {
             throw new Error('Required parameter addInventoryItemsBatchRequest was null or undefined when calling addInventoryItemsBatch.');
         }
+        const idempotencyKey = requestParameters?.idempotencyKey;
 
         let localVarHeaders = this.defaultHeaders;
+        if (idempotencyKey !== undefined && idempotencyKey !== null) {
+            localVarHeaders = localVarHeaders.set('Idempotency-Key', String(idempotencyKey));
+        }
 
         // authentication (bearerAuth) required
         localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');

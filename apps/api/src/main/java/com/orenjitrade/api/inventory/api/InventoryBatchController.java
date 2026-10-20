@@ -6,6 +6,7 @@ import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.domain.InventoryBatchService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -24,6 +25,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -112,11 +114,14 @@ public class InventoryBatchController {
                         + " price). The items count as confirmed. `inventory.items.max` is checked"
                         + " for the whole batch: 429 LIMIT_REACHED (with `requested`) and nothing"
                         + " written. 404 when `binderId` is not one of the caller's binders, 404"
-                        + " FEATURE_DISABLED while the flag cardTextScan is off.")
+                        + " FEATURE_DISABLED while the flag cardTextScan is off. An Idempotency-Key"
+                        + " repeats the first answer for 24 hours, whatever the body: nothing is"
+                        + " added a second time.")
     @ApiResponse(responseCode = "200", description = "What was added")
     @ApiResponse(
             responseCode = "400",
-            description = "VALIDATION_FAILED (bad lines, unknown printings)",
+            description =
+                    "VALIDATION_FAILED (bad lines, unknown printings, a malformed Idempotency-Key)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -137,6 +142,13 @@ public class InventoryBatchController {
                             schema = @Schema(ref = PROBLEM_REF)))
     public AddInventoryItemsBatchResponse addBatch(
             @AuthenticationPrincipal AuthenticatedUser principal,
+            @Parameter(
+                            description =
+                                    "The caller's key for this add (1 to 100 letters, digits or"
+                                            + " . _ : -): the same key again gets the first"
+                                            + " answer back for 24 hours")
+                    @RequestHeader(name = "Idempotency-Key", required = false)
+                    @Nullable String idempotencyKey,
             @Valid @RequestBody AddInventoryItemsBatchRequest body) {
         featureFlags.require(FeatureFlagKeys.CARD_TEXT_SCAN, principal.userId());
         InventoryBatchService.Outcome outcome =
@@ -152,7 +164,8 @@ public class InventoryBatchController {
                                                 line ->
                                                         new InventoryBatchService.Line(
                                                                 line.printingId(), line.quantity()))
-                                        .toList()));
+                                        .toList()),
+                        idempotencyKey);
         return new AddInventoryItemsBatchResponse(
                 outcome.created().size(),
                 outcome.raised().size(),

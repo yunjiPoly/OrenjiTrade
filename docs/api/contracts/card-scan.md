@@ -27,6 +27,17 @@ never logs it (only the status and how many codes and names were read, without t
 rejected body is logged at DEBUG with its request id, path and the exception's type, never with the
 values it held.
 
+The search inside the scan is another matter: it opens with what was read (the first name read,
+else the first code) and asks `GET /api/v1/cards/suggest?q=…&game=yugioh` like any typed search,
+so that text is in the address of that request (and of the edge's and Cloud Run's request logs),
+as typed text always is. The API's own log holds no query strings.
+
+On the phone, a match that gets no answer within 20 s, or that the API cannot answer this time
+(5xx, 408, 429), leaves its tile "Waiting for connection" and is tried again later; any other
+refusal (400, 404 `FEATURE_DISABLED`, 401/403) makes it "Couldn't read". A tile whose match keeps
+failing with a server error while the API answers the scan's other photos is given up ("Couldn't
+read") after its second such failure.
+
 ### Body `CardScanMatchRequest`
 
 | Field | Type | Rule |
@@ -209,6 +220,17 @@ one look-alike character (6/8) from the code read; Luna is the first other match
 
 The review list's "Add {n} cards to inventory": only the ready cards.
 
+### Header `Idempotency-Key` (optional)
+
+1 to 100 letters, digits or `. _ : -` (another value: 400 `VALIDATION_FAILED` on
+`Idempotency-Key`). The same key from the same collector repeats the **first answer** for 24 hours,
+**whatever the body of the repeat**, and adds nothing again. The phone keeps one key per scan
+(`scan-<uuid>`), so adding again after an answer that was lost (no signal, no answer within the
+phone's 30 s) never adds the cards twice; a new scan has a new key. The key is looked up under the
+owner lock: a repeat sent while the first add still runs waits for it and gets its answer. Only an
+add that went through is kept (a 400, 404 or 429 is not: the same key may add once the refusal is
+fixed). Like the reports' and the offers' keys it lives in Redis and fails open.
+
 ### Body `AddInventoryItemsBatchRequest`
 
 | Field | Type | Rule |
@@ -240,8 +262,8 @@ One transaction:
   and is not raised.
 - `inventory.items.max` is checked **for the whole batch** before anything is written: when the new
   items would pass it, **429 `LIMIT_REACHED`** (extensions `limitKey`, `limit`, `used`, `requested`
-  = the new items the batch needed, `planCode`, `upgradeUrl`) and nothing is written. Lines that
-  only raise items need no room.
+  = the new items the batch needed; the limit is the same for every collector, ADR 0019) and
+  nothing is written. Lines that only raise items need no room.
 - The items count as **confirmed** (freshness): a new item is confirmed by its creation, an equal
   item a line reached is confirmed, raised or full (a hidden one comes back, `RESTORED` freshness
   event).
@@ -262,13 +284,16 @@ One transaction:
 | `raisedItemIds` | the items that got extra copies, in the order of the lines |
 
 The phone's toast "Saved · {n} cards" counts the copies of the ready cards it sent
-(`copiesAdded`).
+(`copiesAdded`). Without an answer (offline, none within 30 s, a 5xx) the phone cannot tell whether
+the cards were added: it says so, keeps the scan, reads the inventory again, and adding again sends
+the same key.
 
 ### Example
 
 ```http
 POST /api/v1/inventory/items/batch
 Authorization: Bearer <ID token>
+Idempotency-Key: scan-8c0f2a4e-3b1d-4f6a-9e2c-5d7b1a0c3e9f
 Content-Type: application/json
 
 {"visibility": "PRIVATE",
@@ -285,22 +310,24 @@ Content-Type: application/json
 ```json
 {"type": "https://api.orenjitrade.com/problems/limit-reached", "title": "Limit reached",
  "status": 429, "errorCode": "LIMIT_REACHED",
- "message": "You have reached the limit of your plan for this action",
+ "message": "You have reached the limit for this action",
  "limitKey": "inventory.items.max", "limit": 3, "used": 2, "requested": 2,
- "planCode": "FREE", "upgradeUrl": "/premium", "requestId": "…", "timestamp": "…"}
+ "requestId": "…", "timestamp": "…"}
 ```
 
 ## Generated clients
 
 - Phone (`packages/shared-types`, `openapi-fetch`): `api.POST('/api/v1/cards/scan-match', { body })`
   with `components['schemas']['CardScanMatchRequest']` → `CardScanMatch`; `api.POST(
-  '/api/v1/inventory/items/batch', { body })` with `AddInventoryItemsBatchRequest` →
-  `AddInventoryItemsBatchResponse` (operations `matchScannedCard`, `addInventoryItemsBatch`).
+  '/api/v1/inventory/items/batch', { body, params: { header: { 'Idempotency-Key': key } } })` with
+  `AddInventoryItemsBatchRequest` → `AddInventoryItemsBatchResponse` (operations
+  `matchScannedCard`, `addInventoryItemsBatch`).
 - Web (`packages/api-client`, paused): `CardScanService.matchScannedCard({cardScanMatchRequest})`,
-  `InventoryService.addInventoryItemsBatch({addInventoryItemsBatchRequest})`.
+  `InventoryService.addInventoryItemsBatch({addInventoryItemsBatchRequest, idempotencyKey})`.
 
 ## Tests
 
 `CardScanMatchIT`, `TextCardMatcherTest`, `ScanCodesTest`, `NameSimilarityTest` (the matcher);
-`InventoryBatchIT` and `InventoryLockOrderIT` (`BATCH_ADD`,
-`aBatchAddNextToTheOtherWritesNeverDeadlocks`) (the batch add); `FeatureFlagsIT` (the flag).
+`InventoryBatchIT` (with the `Idempotency-Key`: repeats, refusals not kept, concurrent repeats) and
+`InventoryLockOrderIT` (`BATCH_ADD`, `aBatchAddNextToTheOtherWritesNeverDeadlocks`) (the batch add);
+`FeatureFlagsIT` (the flag).
