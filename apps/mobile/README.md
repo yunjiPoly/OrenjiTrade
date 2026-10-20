@@ -62,7 +62,8 @@ Phase 1 (accounts) is implemented and verified on the web build (Playwright), on
 simulator, the same Maestro flows): sign-up with the versioned legal documents, email
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
-Profile tab with a public preview, and Settings (profile, location and discoverability, privacy,
+Profile tab (since stage R6: your page as others see it, with Edit profile, Share profile and a
+gear that opens Settings), and Settings (profile, location and discoverability, privacy,
 notifications, account with data export and deletion, appearance, legal).
 
 Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Search** tab (card
@@ -283,7 +284,9 @@ app/                       expo-router routes
                            (`/search?segment=binders&region=&place=`: never a parameter named
                            `state`, `screen`, `params`, `initial` or `path`, which React
                            Navigation reads as its own and which crashed the tabs)
-  collectors/[id].tsx      public profile (also the "Public preview" of the own profile)
+  collectors/[id]/index    a collector's profile (stage R6: the "⋯" sheet, the sections, "I have
+                           it"; your own when it is yours); `/cards`, `/binders`, `/wishes`,
+                           `/references`: its "See all" pages
   (tabs)/messages.tsx      Inbox | Community (`?view=community`), realtime status
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
   community/[slug].tsx     a public channel (posts, replies, own edits)
@@ -640,7 +643,8 @@ npm run test:mobile:e2e -- --reuse-running --skip-build e2e/profile.spec.ts
 
 Specs: `auth.spec.ts` (sign-up -> verification -> onboarding -> tabs -> sign-out, seed sign-in with
 session restore, friendly errors, consent screen, password reset), `profile.spec.ts` (edit,
-validation, tags, public preview), `location.spec.ts` (the pickers: region, country, state,
+validation, tags, the Profile tab read again), `profiles.spec.ts` (stage R6: another collector's
+sections, See all, "I have it" sending nothing before send, the Profile tab and the gear), `location.spec.ts` (the pickers: region, country, state,
 city; what is missing; the `PUT /me/location` body; map opt-in; the city on the profile only;
 removal), `account.spec.ts` (export, deletion request and cancel, privacy and notification
 settings), `catalog.spec.ts` (the field back on screen when the Search tab is pressed again down
@@ -814,6 +818,11 @@ created are deleted from the Auth emulator at the end on both platforms.
 
 Flows: `sign-in.yaml`,
 `sign-up-onboarding.yaml` (the location step with the pickers), `profile-edit.yaml`,
+`profile-pages-settings-gear.yaml` (native flow 6 of the redesign, stage R6: another collector's
+profile with its line, Message, Cards, Binders, Looking for, the compact top bar, the "⋯" sheet and
+"See all references"; "I have it" pinning your copy and sending nothing before send
+(`scripts/parity.js` ACTION=profiles and check-have); your Profile tab and the gear that opens
+Settings),
 `discoverability.yaml` (Canada, Ontario and a city with the pickers, save,
 `scripts/check-location.js` checks on the host the declared codes and that `GET /me/location`
 carries no coordinate, radius or distance; map opt-in), `sign-out.yaml` (session restore after a

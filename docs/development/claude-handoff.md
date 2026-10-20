@@ -1,4 +1,4 @@
-# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-16 after stages R1, F1, R2, R3 and R4, the owner's inventory change of 2026-10-16 (#77) and the builder of stage R5): continuing OrenjiTrade on the Mac
+# Claude Code handoff (2026-10-09, machine notes updated 2026-10-10, state updated 2026-10-20 after stages R1 to R5, F1, the owner's inventory change of 2026-10-16 (#77) and the builder of stage R6): continuing OrenjiTrade on the Mac
 
 Read this after `CLAUDE.md` and before `IMPLEMENTATION_STATUS.md` when you start a Claude Code
 session on a new machine or after a long break. It records where the work stands, what to do next,
@@ -53,7 +53,8 @@ Merged PRs from 2026-10-05 on: #39 #40 #41 #45 #46 #47 #48 #49 #50 #51 #52 #53 #
 | `backup/expo-sdk-58-deps` | branch only | A local experiment from the Windows machine, pushed as a backup. Not needed; do not merge. |
 | Stage R3 of the phone redesign (binders and deck cores, mockup screens 16 to 18) | merged as #75 (`2f9c5506`) | Builder done (V126; IMPLEMENTATION_STATUS.md, "Phone redesign R3"); reviewed, review fixes 1 and 2 done; on `main`. |
 | Stage R4 of the phone redesign (messages and Mark as sold, mockup screens 22 to 25) | merged as #76 (`f26d531f`), from branch `feature/r4-messages-mark-as-sold` | Builder done (V127, the `deals` module; IMPLEMENTATION_STATUS.md, "Phone redesign R4"): the R3 leftovers R2-1, R2-2, U10 (and U8) fixed first; the chat's subject, `GET /conversations/{id}`, sharing one's own card, `POST /conversations/{id}/sales` and `POST /sales/{id}/undo`, the SALE interaction, the buyer's notification; on the phone the inbox, the chat with its pinned bar, tips, quick replies and + sheet, Settings › Shipping details, Mark as sold with its toast and Undo; native flows 3 (as far as R4 reaches) and 4; walked on the iPhone 18 Pro in dark and light at the default and the largest text size (three large-text fixes); the full check list run (the native suite 32 / 33, the one stale flow fixed and passing alone). Reviewed (a functional verifier and a privacy lens); **review fix 1 done** (IMPLEMENTATION_STATUS.md, R4 section, "Review fix 1"): Mark as sold names the card the seller saw (409 `SUBJECT_CHANGED`) and pins are pushed on `/user/queue/conversations`; the toast's Undo stays above the keyboard; sold deck cores leave `binders.max`; the tracking-number log rule has its test; nine minor fixes. **Review fix 2 done** ("Review fix 2"): a jest test that the open Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS (the row's padding). On `main`. |
-| Stage R5 of the phone redesign (Search, mockup screens 11 to 15) | branch `feature/r5-search` (worktree `OrenjiTrade-r2`) | Builder done (no migration; IMPLEMENTATION_STATUS.md, "Phone redesign R5: search"): four tabs (Search \| Inventory \| Messages \| Profile), Search's map with the state card, typing a card with the collectors, Who has this card (holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", recent searches with Settings › Privacy › "Remember my searches", the old routes and links redirected; API `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out in SQL from the collectors of search, no search text in analytics; native flows 2 and 3 in full. Not pushed; its reviews next. |
+| Stage R5 of the phone redesign (Search, mockup screens 11 to 15) | merged as #78 (`108655e8`), from branch `feature/r5-search` | Builder done, reviewed, review fix 1 done (IMPLEMENTATION_STATUS.md, "Phone redesign R5: search"): four tabs, Search's map, typing a card with the collectors, Who has this card, Search › Binders with Deck cores, Search › Wishlist with "Available", recent searches. On `main`. |
+| Stage R6 of the phone redesign (Profiles, mockup screens 19 to 21, and Settings behind the gear) | branch `feature/r6-profiles` (worktree `OrenjiTrade-r2`) | Builder done (no migration; IMPLEMENTATION_STATUS.md, "Phone redesign R6: profiles"): another collector's profile (the "⋯" sheet with Share profile, Report and Block; the header and its one line; Message; Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all"; the compact top bar on scroll), "I have it" (the chat with your copy pinned and the text in the box, nothing sent before send), your Profile tab with Edit profile, Share profile and the gear that opens Settings; API `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory` (both optional); native flow 6 (`profile-pages-settings-gear.yaml`); walked on the iPhone 18 Pro in dark and light at the default and the largest text size (two large-text fixes). Not pushed; its reviews next. |
 
 **Not built, by the owner's decisions:** stage S3 of the 2026-10-08 change (the printing picker
 with holder counts on the card page, holders by rarity, "Find this card", "Who wants it", "Wanted by
@@ -68,13 +69,15 @@ verbatim). **R1 and R2 are on `main`** (#72; R2, mockup screens 1 to 9, by its o
 after it merged F1 on 2026-10-15); **R3 is on `main`** (#75, binders and deck cores,
 mockup screens 16 to 18); **R4 is on `main`** (#76, messages and Mark as sold, mockup screens
 22 to 25); the owner's inventory change of 2026-10-16 (mockup v43: the Public / Private tag, the
-price in "$" or "% TCG") is on `main` (#77); **R5 is built on its branch** (Search, mockup screens
-11 to 15), waiting for its reviews; R6 to R8 are not built. The documents describe the phone as R1
-to R5 leave it: four tabs (Search, Inventory, Messages, Profile) until R7 adds Home, no offers,
-trades, protected payments or disputes on the phone
+price in "$" or "% TCG") is on `main` (#77); **R5 is on `main`** (#78, Search, mockup screens 11
+to 15); **R6 is built on its branch** (profiles, mockup screens 19 to 21, and Settings behind the
+gear), waiting for its reviews; R7 and R8 are not built. The documents describe the phone as R1 to
+R6 leave it: four tabs (Search, Inventory, Messages, Profile) until R7 adds Home, the Profile tab
+being your page as others see it with a gear that opens Settings, no offers, trades, protected
+payments or disputes on the phone
 (ADR 0018), deals in the chat by mail with Mark as sold and its undo, nothing to buy (ADR 0019),
-the Inventory and the adding of cards, the binders and deck cores, and the Messages of the
-redesign.
+the Inventory and the adding of cards, the binders and deck cores, the Messages and the profiles
+of the redesign.
 
 **Free for all (owner, 2026-10-14, after the redesign spec):** *"can you remove the implementation
 of premium subscription and ads? Just save pay service feature in a new branch for later. I am
@@ -126,7 +129,9 @@ itself: export from Collectr, header aliases, never call Collectr, never store C
    from the redesign spec), then G, then R7 with the Home prompt, then R8, then R9 to R15 (R15
    after R12), one branch and one PR each. The mockup is version 50 of the owner's design canvas;
    ask the owner for a screenshot of any screen you need. Item 1 below predates these prompts: R5
-   is merged (#78).
+   is merged (#78), and **R6 is built** on `feature/r6-profiles` (IMPLEMENTATION_STATUS.md, "Phone
+   redesign R6: profiles"): **its reviews are next** (a functional verifier and a product / UX
+   lens as a collector, at most two fix rounds), then its ship step, then G.
 1. **The reviews of stage R5** (branch `feature/r5-search`, builder done; IMPLEMENTATION_STATUS.md,
    "Phone redesign R5: search"): a functional verifier, a privacy lens and a product / UX lens (as
    a collector), at most two fix rounds, then the ship step (merge `main`, the full check list
@@ -159,7 +164,8 @@ apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobil
 native flow 1 of the redesign; R3 added `deck-core.yaml`, native flow 2; R4 added
 `deal-deck-core-chat.yaml` and `deal-mark-sold.yaml`, native flows 3 and 4; R5 replaced
 `holders-filters.yaml` with `search-who-has-this-card.yaml`, native flow 3 in full, and extended
-`deck-core.yaml`, native flow 2 in full), about 55 minutes) on
+`deck-core.yaml`, native flow 2 in full; R6 added `profile-pages-settings-gear.yaml`, native flow
+6, so 34 flows), about 55 minutes) on
 the owner's simulator (section 4). Since Xcode 27.1 (on this Mac since 2026-10-16) iOS's
 accessibility tree no longer lists the texts inside an accessible view apart: a flow matches such a
 view (a banner, a form message) by its whole name, as `legal-french.yaml` now does. While the web is paused its checks are regression checks: a web failure is

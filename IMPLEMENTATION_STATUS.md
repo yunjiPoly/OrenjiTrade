@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -6774,15 +6774,232 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 13 s)**; `test:scripts` 135 / 135; `audit:gate` passed. The owner's simulator kept its appearance
 (light) and text size (Large). The Android run could not be verified (no Android SDK on this Mac).
 
+## Phone redesign R6: profiles (2026-10-19)
+
+Stage R6 of the phone redesign approved by the owner on 2026-10-14
+([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+sections 3, 9, 10 ("I have it"), 13 to 16): mockup screens 19 (another collector's profile), 20
+(the same, scrolled) and 21 (your Profile tab), version 50 for the looks and the copy, and Settings
+behind the gear. Branch `feature/r6-profiles`, cut from `main` at 108655e8 (R1 to R5, F1 and the
+owner's inventory change) plus the commit that saved the owner's two prompts of 2026-10-19 (they
+are for stages G, R7 and R9 to R15: nothing of them is built here). **No migration** (V128 stays
+free; V124 is kept for the card-scan branch); two optional query parameters, both additive: the
+paused web builds and passes its checks against the regenerated client, unchanged (no file of
+`apps/web-angular` changed). Free for all (stage F1): nothing paid comes back; Settings has no
+Offers, Payouts, Premium, Credits or Support.
+
+**What a collector can now do on the phone**
+
+- **Another collector's profile** (screens 19 and 20; `/collectors/<handle>`, from Search's
+  collectors, a holder row, a deck core's seller, a chat's top bar, a rating, a reference, a link):
+  - the top bar: back and "⋯", a sheet with **Share profile** (the system's share sheet with
+    `https://www.orenjitrade.com/collectors/<handle>`), **Report {handle}** and **Block {handle}**
+    (red, confirmed first) or Unblock, and Cancel; once the header has scrolled away the bar also
+    shows the avatar, the name and a small orange **Message**;
+  - the header: a 64 pt avatar with the online dot (only when the collector shows it), the name,
+    "@{handle} · ★ {rating}" (the star scrolls to the ratings), the chips beside the avatar: the
+    games first in an orange tint, then the tags (a game tag that repeats a game is left out);
+  - one small line: "{city, }{province} · Member since {year} · Active this week" — the city only
+    while its owner shows it, the province without the country, "Active this week" or "Active this
+    month" only (today counts as this week; nothing older, nothing when the collector hides it);
+  - one orange **Message {handle}** (opens or reuses the chat without changing its card; off with
+    the reason when the collector takes no messages from you);
+  - **Cards**: a sideways rail of their public cards with the price as typed under each (the cards
+    of a deck core are left out: they sell only with the core); a card opens Who has this card on
+    that printing; **Binders**: deck cores with their photo and the purple "Deck core" tag, the
+    price under the name, binders with a fan of three cards and "{n} cards"; a tile opens the deck
+    core page or the public binder; **Looking for**: their public wishes (at most 3: picture, name,
+    terms "Any printing · NM only · 90% TCG") with **I have it**; **About** (the bio); **Ratings &
+    references**: "4.7 ★★★★½ 3 ratings" in a card, the 2 latest references (handle, month, text)
+    and **See all references**;
+  - each section's **See all**: every public card (pages of 24), every binder and deck core, every
+    public wish (with I have it), and the full ratings and references (the breakdown, Rate this
+    collector after a deal or a real conversation, Write a reference, more on demand);
+  - empty sections say so quietly ("No public cards yet.", "No public wishes." — a hidden wishlist
+    reads like an empty one), a section that failed says so with "Try again"; skeletons while
+    loading.
+- **I have it** (section 10): opens or reuses the chat with that collector. When your inventory
+  holds the card (the wished printing first, then its rarity, then any printing; a public copy
+  before a private one; the newest), that copy becomes the chat's card (you are the seller: "·
+  your card" and Mark as sold in the pinned bar) and waits in the message box beside the text "I
+  have {card} for your wishlist. Interested?"; without a copy, the text alone. **Nothing is sent**
+  until you tap send, which shares your card and then the text (one `CARD_LINK` with your copy, as
+  screen 24 shows it). You can change or remove either first.
+- **Your Profile tab** (screen 21): "Profile", the bell and a **gear** that opens Settings; then
+  the same page others see of you (your public cards and binders, your wishes, your bio, your
+  ratings and references), with **Edit profile** and **Share profile** instead of Message; your
+  line has no activity; your wishes have no "I have it" and open the wish to edit it (a line says
+  when others cannot see them: "Let others see what you want" off); "See all" leads to your
+  Inventory, Inventory › Binders and Search › Wishlist; your card opens Edit card, your binder Edit
+  binder; "Not on the map" on the line (no public place yet) opens Location and discoverability.
+  Coming back to the tab reads the page again.
+- **Settings behind the gear**: today's Settings screens as they are (Profile, Location and
+  discoverability, Privacy with "Remember my searches" and "Let others see what you want",
+  Shipping details, Notifications, Blocked users, My reports, Account, Appearance, Legal, Sign
+  out); their restyle is stage R13. Everything the Profile tab reached before stays reachable (the
+  gear, Edit profile, or the page itself). Settings › Appearance's theme chips now wrap at the
+  largest text size (found by R5).
+- **Blocks** (today's rule kept): a collector you blocked shows the header and "You blocked
+  {handle}. Unblock them to see their cards, binders and wishes, and to message each other." with
+  Unblock; a collector who blocked you is "This collector is not available" (they are not told,
+  and neither are you).
+
+**What the API does** (contract [`docs/api/contracts/r6-profiles.md`](docs/api/contracts/r6-profiles.md))
+
+| Part | What |
+| --- | --- |
+| I have it | `GET /inventory/items?cardId=` (optional): the caller's live items of the printings of one card, private ones too; combines with the other filters |
+| A profile's Cards | `GET /collectors/{handle}/inventory?excludeDeckCoreItems=true` (optional, default false): the cards filed in a deck core left out of the rows and of `totalItems` |
+| The page's contract | `CollectorProfilePageIT`: public cards and binders only, wishes only while shown, a block in either direction leaving the header only, the city only on its owner's profile while shown, the last-active buckets and HIDDEN, the cards of a deck core, the caller's own copies of one card |
+| Privacy | `GeoPrivacyContractTest.profilePagesOfStageR6CarryThePlaceOnly` (every seed collector's page read by every seed collector, and their own copies of a card) |
+
+**Decisions, and why**
+
+1. **"I have it" pins your copy when the chat opens and shares it on send.** The prompt says the
+   card "becomes the chat's card" and that "nothing is sent until you tap send": the pin is R4's
+   chat subject (`POST /conversations` with `subjectItemId`, allowed for your own card), the share
+   is R4's `CARD_LINK` with `inventoryItemId`, waiting in the message box (one message: the card,
+   then the text; R4 draws it as screen 24). One way into the chat, no new endpoint.
+2. **Which copy "I have it" picks**: the wished printing, then the wished rarity, then any printing
+   of the card ("If your inventory holds that card"); a public copy before a private one (a
+   private one shows to that collector only once shared, R4), then the newest. A new `cardId`
+   filter on the caller's own list finds them (one request, whatever the inventory's size).
+3. **A block keeps today's rule on the API** (the profile's header answers with `isBlocked`, the
+   listings do not, either way; the paused web shows Unblock there). The phone tells the two
+   directions apart with `GET /me/blocks`: the blocker sees the header and Unblock, the blocked
+   collector sees "not available" (the block dialog promises "They are not told").
+4. **"Active this week" covers today** (the spec: nothing finer); the API still sends `TODAY` for
+   the paused web. Your own line shows no activity.
+5. **The cards of a deck core stay out of a profile's Cards** (section 7: they sell only with the
+   core, as on Who has this card); the Binders show the core. A new optional parameter, not a
+   change of the list the web reads.
+6. **Version 50's looks and copy win over the PNGs of version 32** (the owner's rule for this
+   stage): the deck core tile's tag reads "Deck core" with the price under the name (the spec's
+   text: "Deck core · {price}"), About and Ratings & references have no "See all" of their own
+   (the ratings' is "See all references"), the compact top bar on scroll. Version 50's game pill
+   and other parts of later stages are left out.
+7. **Another collector's "See all" has its own pages** (`/collectors/<handle>/cards`, `/binders`,
+   `/wishes`, `/references`); "See all references" holds the full ratings section of before, with
+   Rate this collector and Write a reference, which the page itself no longer carries (the mockup
+   shows two references). The rows of another collector's wishes are not links (the mockup has
+   only "I have it"); your own open the wish.
+8. **Empty sections**: another collector's say only that there is nothing ("No public wishes."
+   whether the wishlist is empty or hidden: nothing leaks), and "See all" hides on them; yours say
+   how to fill them and keep "See all".
+9. **Your Profile tab reads your public profile** (`GET /collectors/{your handle}`), so it is
+   exactly what others see: without a public place (not discoverable) the line says "Not on the
+   map", a link to Location; your wishes come from `GET /wishlist` (they carry the ids the rows
+   need), with a line when others cannot see them. The languages of your profile are no longer
+   shown on the tab (the public profile has none; Edit profile keeps them; the language tags show
+   as chips).
+10. **The chips**: games in an orange tint, tags in grey, as the mockup; a new mobile-only token
+    family `color.profile` (light and dark) in `packages/design-tokens` (the web's `tokens.css`
+    is unchanged).
+11. **Share profile** uses the system's share sheet; a browser without one (the web build) shows
+    the link in a snackbar.
+12. **At the larger text sizes** (from 1.3, as R5's rows) the avatar stands above the name, the
+    Cards and Binders rails become rows (four at most, "See all" has the rest), a wish puts "I have
+    it" under the card, and the name, the section titles and "See all" follow the text size up to
+    twice their size (the walk at the largest size found the handle and "Looking for" broken in the
+    middle of a word, and the tiles' names cut).
+13. **The Profile tab draws its own header** (`ownHeader`, like Search, Inventory and Messages);
+    another collector's profile draws its own top bar (back keeps the id of the navigation
+    header's back button, so the flows go back the same way).
+
+**The defaults of section 16 this stage applies:** 1 (new installs start in dark: every R6 screen
+follows R1's theme, light included) and 8 (one chat per pair: "Message {handle}" opens it without
+changing its card; "I have it" pins your copy, the latest one winning, as R4's Message on a holder
+row). Default 3 (saved details stay on the phone) is untouched: "I have it" puts its text in the
+message box to be checked, like a saved detail.
+
+**What changed on the phone**
+
+| Part | What |
+| --- | --- |
+| Another collector's profile (19, 20) | `app/collectors/[id]/index.tsx` (moved from `app/collectors/[id].tsx`: the top bar, the "⋯" sheet, the compact bar, blocks, `?tab=ratings`), `src/features/collectors/ProfilePage.tsx`, `ProfileHeader.tsx`, `ProfileSections.tsx`, `ProfileTopBar.tsx`, `profileCopy.ts`, `profileRules.ts`, `useShareProfile.ts` |
+| See all | `app/collectors/[id]/cards.tsx`, `binders.tsx`, `wishes.tsx`, `references.tsx`, `src/features/collectors/CollectorSectionScreen.tsx` |
+| I have it | `src/features/collectors/useIHaveIt.ts`, `src/features/messages/pendingDraft.ts`, `MessageComposer.tsx` (`initialDraft`), `app/messages/[id].tsx` |
+| Your Profile tab (21) and the gear | `app/(tabs)/profile.tsx`, `src/navigation/tabs.ts` (`ownHeader`), `app/settings/appearance.tsx` (the chips wrap) |
+| Data | `src/api/hooks/collectors.ts` (`excludeDeckCoreItems`, `useCollectorPublicItemPages`), `wishlist.ts` and `location.ts` (an `enabled` flag), `queryKeys.ts`, `src/navigation/RootNavigator.tsx` (the new routes), `packages/design-tokens/tokens.json` + `src/theme/tokens.ts` (`color.profile`) |
+| Removed | `src/features/collectors/CollectorProfileView.tsx`, `CollectorListings.tsx`, `CollectorWishlistSection.tsx`, `MessageAction.tsx`, `LAST_ACTIVE_LABELS` (only today's profile layout used them) |
+| Tests | API: `CollectorProfilePageIT` (new, 6 tests), `GeoPrivacyContractTest` (+1); jest `features/profileRules` (new), `screens/collector` (rewritten: the header and its line in every bucket, the sections and their empty states, See all, Message, I have it with and without a copy, the "⋯" sheet, the compact bar, blocks both ways, your own profile, the largest text size), `screens/profile` (rewritten: the gear, Edit and Share, See all, your wishes, "Not on the map"), `screens/collector-sections` (new), `screens/conversation` (+1: the "I have it" draft sent only on send), `screens/ratings` (the references page), `screens/blocked`, `features/moneyOff`, `privacy/placePrivacy`, `app/tabs-layout`; Playwright `profiles` (new), `auth`, `location`, `profile`, `collector-wishlist`, `blocked`, `map`, `safety-notice`, `reports`; Maestro **native flow 6** `profile-pages-settings-gear.yaml` (new; `scripts/parity.js` ACTION=profiles and check-have), and `sign-out`, `sign-in`, `google-sign-in`, `discoverability`, `profile-edit`, `deck-core`, `map-region-binders`, `report-collector`, `collector-search-looking-for` on the new pages |
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-20, the owner's iPhone 18 Pro simulator
+under the lock)
+
+CHECKS_TABLE
+
+**The walk on the simulator** (scratch Maestro flows on the isolated stack, on the owner's iPhone 18
+Pro under the lock; the screenshots are kept outside the repository and compared with the mockup's
+screens 19 to 21): a fresh fictional viewer in Quebec (Laval shown) opened **collector2** of the
+seed (Ontario, Toronto shown: three public cards, a binder and the deck core "Moth Queen core" at
+$95, three public wishes, a bio, and for the walk two fictional buyers who bought a card each,
+rated him 5 and 4 and wrote a reference each: "4.7 · 3 ratings") and a fictional collector with
+almost nothing (no bio, no listings, no wishes, no ratings); then his own Profile tab, and
+collector2's own Profile tab (signed in as him on the isolated stack), in dark and in light, at the
+default size and at the largest accessibility size (the launch argument of
+`subflows/relaunch-large-text.yaml`). The screens match the mockup in order, wording, colours and
+sizes; the differences are the decisions above. Found at the largest size and fixed, each with a
+jest test: the handle broken in the middle beside the avatar and "Looking for" broken as "Looki /
+ng for" (`75f27f83`), the tiles' names cut in the middle of a word (`4c5136cc`). Found on the way
+and fixed: "@handle ·" read with its dot (`6982acbb`), "See all looking for" read by a screen
+reader (`ea58b19a`). The walk's fictional accounts were deleted from the Auth emulator; the
+owner's appearance (light) and text size (Large) were put back as they were.
+
+**Could not be verified:** the Android run (no Android SDK on this Mac; native flow 6 and the
+changed flows keep their Android steps in the shared subflows); VoiceOver on a real iPhone (the
+names are covered by jest and the flows' labels); the system share sheet's targets (the flows
+check the "⋯" sheet's Share profile; jest checks the link handed to it).
+
+**Known gaps, by design or for a later stage**
+
+- Settings is today's list until stage R13 restyles it (version 50's Settings is a later stage).
+- Home's "I have it" comes with R7 (`useIHaveIt` is ready for it).
+- A single long word wider than the row (a long handle at the largest size) still wraps inside the
+  word (R5's note).
+- The "⋯" sheet's rows scroll at the largest size, as the chat's (R4).
+- The rating stars use half stars from .25 and full ones from .75; the number beside them is the
+  average with one decimal.
+
+**Owner follow-ups:** confirm decisions 1 ("I have it" pins your copy when the chat opens; nothing
+is sent before send), 3 (a collector who blocked you reads "not available"; the API keeps today's
+rule), 4 ("Active this week" also for today), 5 (a deck core's cards stay out of a profile's
+Cards), 6 (version 50's "Deck core" tag with the price under the name), 7 (the full ratings and
+"Write a reference" behind "See all references"), 9 (your Profile tab is your public profile: "Not
+on the map" until you are discoverable; your languages show only in Edit profile).
+
 ## NEXT TASK
+
+> **Stage R6 of the phone redesign is built** ("Profiles", mockup screens 19 to 21, and Settings
+> behind the gear; section "Phone redesign R6: profiles (2026-10-19)" above; branch
+> `feature/r6-profiles`, builder done, not pushed): another collector's profile (the "⋯" sheet,
+> the header and its one line, Message, Cards, Binders, Looking for with "I have it", About,
+> Ratings & references, each "See all"), "I have it" (the chat with your copy pinned and the text
+> in the box, nothing sent before send), your Profile tab with the gear that opens Settings. API:
+> `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET
+> /collectors/{handle}/inventory`, both optional; no migration (the next one is still **V128**;
+> V124 is kept for the card-scan branch). Native flow 6 of the spec
+> (`profile-pages-settings-gear.yaml`).
+>
+> **Exact next task: the reviews of stage R6** (a functional verifier and a product / UX lens as a
+> collector, the spec's section 15; at most two fix rounds), then its ship step (merge `main`, the
+> handoff's full check list, the pull request, the merge on green). **Then stage G** of
+> [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
+> (one game at a time), **then R7** with
+> [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
+> (Home, the first of five tabs; its "I have it" reuses R6's `useIHaveIt`), then R8, then R9 to R15
+> (R15 after R12), one branch and one PR each, none bringing back a paid feature (ADR 0019).
+> Read first: `CLAUDE.md`, `docs/development/claude-handoff.md`, this section, the two prompts, R2's
+> to R6's sections of this file, `docs/api/contracts/r3-binders-deck-cores.md`,
+> `r4-messages-sales.md`, `r5-search.md` and `r6-profiles.md`.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
 > (Home, stage R7) and
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
-> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (now), then G, then R7 with
-> the Home prompt, then R8, then R9 to R15 (R15 after R12). R5 is merged (#78); the paragraphs
-> below predate these prompts where they say otherwise.
+> (stage G, one game at a time, and stages R9 to R15). **Order:** R6 (built, its reviews next),
+> then G, then R7 with the Home prompt, then R8, then R9 to R15 (R15 after R12). R5 is merged
+> (#78); the paragraphs below predate these prompts where they say otherwise.
 
 > **Stages R1, F1 and R2 are merged into `main`** (R2 by its own pull request, after it merged
 > `main` with F1 on 2026-10-15). Stage R1 of the phone redesign ("Offers out, shipping wording,
@@ -6904,9 +7121,8 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 > card picker) and, found in its full native run, the card results starting at the first card for
 > each new text or game.
 >
-> **Exact next task: the re-review of stage R5 after review fix 1** (at most one more fix round),
-> then the ship step (merge `main`, the handoff's full check list, the pull request, the merge on
-> green).
+> (Done since: R5's re-review and its ship step, merged as #78; stage R6 is built, see the top of
+> this section.)
 > **Then stage R6** (profiles, mockup screens 19 to 21, and Settings behind the gear), then R7 (Home,
 > the first of five tabs, and the feed endpoint) and R8, one branch and one PR each, each with its
 > builder, at least two independent reviewers and at most two fix rounds; none of them builds a paid
