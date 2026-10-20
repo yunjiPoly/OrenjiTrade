@@ -99,7 +99,7 @@ describe('Edit binder form (screen 18)', () => {
       sellsAsCore: true,
       price: '$180',
       note: 'All NM, English. Sleeves and a deck box included.',
-      game: 'yugioh',
+      game: 'pokemon',
     });
     expect(
       binderVisibilityChoice(
@@ -196,7 +196,7 @@ describe('Edit binder form (screen 18)', () => {
       confirm: true,
       gameId: 'game-mtg',
     });
-    expect(toBinderPatch(form, binder, NOW, 'game-yugioh')).toEqual({ confirm: true });
+    expect(toBinderPatch(form, binder, NOW, 'game-pokemon')).toEqual({ confirm: true });
   });
 });
 

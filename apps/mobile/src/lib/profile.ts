@@ -130,6 +130,7 @@ export const GAMES: readonly GameInfo[] = [
   { slug: 'pokemon', label: 'Pokémon' },
   { slug: 'yugioh', label: 'Yu-Gi-Oh!' },
   { slug: 'mtg', label: 'Magic: The Gathering' },
+  { slug: 'onepiece', label: 'One Piece Card Game' },
   { slug: 'riftbound', label: 'Riftbound' },
 ];
 

@@ -70,10 +70,15 @@ describe('"Check TCGplayer price" (default 9 of section 16)', () => {
       "https://www.tcgplayer.com/search/pokemon/product?q=Ash's%20Pikachu"
     );
     expect(tcgplayerCategory('mtg')).toBe('magic');
-    expect(tcgplayerCategory('riftbound')).toBe('all');
+    expect(tcgplayerCategory('onepiece')).toBe('one-piece-card-game');
+    expect(tcgplayerCategory('riftbound')).toBe('riftbound-league-of-legends-trading-card-game');
+    expect(tcgplayerCategory('lorcana')).toBe('all');
     expect(tcgplayerCategory(null)).toBe('all');
     expect(tcgplayerSearchUrl('riftbound', ' Jinx ')).toBe(
-      'https://www.tcgplayer.com/search/all/product?q=Jinx'
+      'https://www.tcgplayer.com/search/riftbound-league-of-legends-trading-card-game/product?q=Jinx'
+    );
+    expect(tcgplayerSearchUrl('lorcana', ' Elsa ')).toBe(
+      'https://www.tcgplayer.com/search/all/product?q=Elsa'
     );
   });
 });
