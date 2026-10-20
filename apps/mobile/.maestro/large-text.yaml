@@ -116,7 +116,7 @@ tags:
     id: 'search-game'
 - extendedWaitUntil:
     visible:
-      id: 'search-game-sheet-option-pokemon'
+      id: 'search-game-sheet-title'
     timeout: 15000
 - takeScreenshot: large-text-game-sheet
 # At this size the sheet's title, its line and the rows scroll together.
@@ -139,11 +139,16 @@ tags:
     timeout: 30000
 - inputText: 'emberfang fox'
 - runFlow: subflows/hide-keyboard.yaml
+# (The field holds the typed words too: the result rows are found by their ids.)
 - extendedWaitUntil:
-    visible: 'Emberfang Fox'
+    visible:
+      id: 'search-result-.*'
     timeout: 30000
 - takeScreenshot: large-text-typing
-- tapOn: 'Emberfang Fox'
+# The best match comes first: Emberfang Fox, then Emberfang Fox VMAX.
+- tapOn:
+    id: 'search-result-.*'
+    index: 0
 - extendedWaitUntil:
     visible:
       id: 'card-name'
@@ -165,9 +170,11 @@ tags:
       ID: 'search-region'
 - tapOn:
     id: 'search-region'
+# "Choose a region" (stage G, screen 35): at this size its title and line come first, the rows
+# under them.
 - extendedWaitUntil:
     visible:
-      id: 'search-region-option-europe'
+      id: 'search-region-sheet-title'
     timeout: 15000
 - runFlow:
     file: subflows/scroll-down-to.yaml
