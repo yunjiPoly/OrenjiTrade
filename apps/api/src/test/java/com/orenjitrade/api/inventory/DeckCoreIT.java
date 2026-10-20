@@ -475,13 +475,16 @@ class DeckCoreIT extends AbstractIntegrationTest {
                     "UPDATE card SET game_id = (SELECT id FROM game WHERE slug = ?) WHERE id = ?",
                     slug,
                     card.cardId());
-            String id = create(uid, core("Two games core", "PUBLIC", "$45"));
-            fileItem(uid, id, "ygo-p012a", 1, "PRIVATE");
+            // The game now holds a card: a binder of it can be made (stage G: one game per binder).
+            gameService.invalidate();
+            Map<String, Object> body = core("One game core", "PUBLIC", "$45");
+            body.put("gameId", InventoryTestSupport.gameId(testUsers, slug).toString());
+            String id = create(uid, body);
             fileCopies(uid, id, card, 2, "PRIVATE");
             JsonNode page =
                     callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
-            assertThat(keyCardNames(page)).containsExactly(card.name(), "Verdant Moth Queen");
-            assertThat(gameSlugs(page)).containsExactlyInAnyOrder("yugioh", slug);
+            assertThat(keyCardNames(page)).containsExactly(card.name());
+            assertThat(gameSlugs(page)).containsExactly(slug);
 
             testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", slug);
             gameService.invalidate();
@@ -489,8 +492,8 @@ class DeckCoreIT extends AbstractIntegrationTest {
                     callJson(HttpMethod.GET, "/api/v1/public/binders/" + id, viewer, null, 200);
             assertThat(keyCardNames(hidden))
                     .as("the hidden game's card is no longer shown")
-                    .containsExactly("Verdant Moth Queen");
-            assertThat(gameSlugs(hidden)).containsExactly("yugioh");
+                    .isEmpty();
+            assertThat(gameSlugs(hidden)).isEmpty();
         } finally {
             testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", slug);
             gameService.invalidate();

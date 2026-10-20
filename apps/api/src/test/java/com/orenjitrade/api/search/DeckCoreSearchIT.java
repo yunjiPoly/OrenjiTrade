@@ -4,6 +4,7 @@ import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import java.util.ArrayList;
 import java.util.List;
@@ -36,11 +37,16 @@ class DeckCoreSearchIT extends AbstractSearchIT {
     }
 
     private String plainBinder(Collector owner, String name) {
+        return plainBinder(owner, name, "yugioh");
+    }
+
+    /** A public binder of {@code game} (stage G: a binder holds the cards of one game). */
+    private String plainBinder(Collector owner, String name, String game) {
         return callJson(
                         HttpMethod.POST,
                         "/api/v1/binders",
                         owner.uid(),
-                        binder(name, "PUBLIC"),
+                        binder(name, "PUBLIC", InventoryTestSupport.gameId(testUsers, game)),
                         201)
                 .path("id")
                 .asString();
@@ -199,7 +205,7 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         String emptyCore = deckCore(owner, word + " empty core", "$40");
         String core = deckCore(owner, token() + " engine", "$120");
         file(owner, core, card.printingId(), 2);
-        String plain = plainBinder(owner, word + " plain");
+        String plain = plainBinder(owner, word + " plain", "pokemon");
         file(owner, plain, printing("pkm-p002a"), 1);
         String plainWithCard = plainBinder(owner, token() + " not a core");
         file(owner, plainWithCard, card.printingId(), 1);
@@ -258,7 +264,7 @@ class DeckCoreSearchIT extends AbstractSearchIT {
                 .containsExactly(List.of(core), List.of(core), List.of(core));
         // Never the private card of a plain binder (only a deck core's cards count, and a plain
         // binder shows its public cards only), a deleted card, or a card hidden as stale.
-        IsolatedCard privateInPlain = isolatedPrinting("ygo-p012a");
+        IsolatedCard privateInPlain = isolatedPrinting("pkm-p001a");
         fileWith(owner, plain, privateInPlain.printingId(), "PRIVATE");
         assertThat(textHits(privateInPlain.name()))
                 .containsExactly(List.of(), List.of(), List.of());
@@ -302,7 +308,8 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         Collector owner = collector("core-plain-private");
         String binder = plainBinder(owner, word + " shelf");
         file(owner, binder, printing("ygo-p012a"), 1);
-        fileWith(owner, binder, printing("pkm-p002a"), "PRIVATE");
+        // Stage G: a binder holds the cards of one game, so the private card is a Yu-Gi-Oh! card.
+        fileWith(owner, binder, printing("ygo-p019a"), "PRIVATE");
         String viewer = uniqueUid("core-plain-private-viewer");
         provisionCompliant(viewer);
 
@@ -312,11 +319,11 @@ class DeckCoreSearchIT extends AbstractSearchIT {
                 .containsExactly("yugioh");
         assertThat(plain.path("previewImages")).as("the public card's picture only").hasSize(1);
         assertThat(plain.path("keyCards")).isEmpty();
-        assertThat(gameHits(word, "pokemon", viewer)).as("the private card's game").isEmpty();
+        assertThat(gameHits(word, "pokemon", viewer)).isEmpty();
         assertThat(gameHits(word, "yugioh", viewer)).containsExactly(binder);
 
-        // "Sell as a deck core": the private card is one of its key cards, so its game, its
-        // picture and the game filter's hit come with it.
+        // "Sell as a deck core": the private card is one of its key cards, so its picture comes
+        // with it.
         callJson(
                 HttpMethod.PATCH,
                 "/api/v1/binders/" + binder,
@@ -324,11 +331,10 @@ class DeckCoreSearchIT extends AbstractSearchIT {
                 Map.of("sellsAsCore", true),
                 200);
         JsonNode core = publicBinder(binder, viewer);
-        assertThat(strings(core.path("games"))).containsExactlyInAnyOrder("yugioh", "pokemon");
+        assertThat(strings(core.path("games"))).containsExactly("yugioh");
         assertThat(core.path("previewImages")).hasSize(2);
         assertThat(core.path("keyCards")).hasSize(2);
-        assertThat(gameHits(word, "pokemon", viewer)).containsExactly(binder);
-        assertThat(gameHits(word, "pokemon", null)).as("anonymously too").containsExactly(binder);
+        assertThat(gameHits(word, "yugioh", null)).as("anonymously too").containsExactly(binder);
 
         // The switch off: a plain binder again, nothing of the private card.
         callJson(
@@ -340,7 +346,7 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         JsonNode again = publicBinder(binder, viewer);
         assertThat(strings(again.path("games"))).containsExactly("yugioh");
         assertThat(again.path("previewImages")).hasSize(1);
-        assertThat(gameHits(word, "pokemon", viewer)).isEmpty();
+        assertThat(again.path("keyCards")).isEmpty();
         assertThat(gameHits(word, "yugioh", viewer)).containsExactly(binder);
     }
 
@@ -411,7 +417,7 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         String core = deckCore(owner, token() + " state core", "$75");
         file(owner, core, card.printingId(), 3);
         String emptyCore = deckCore(owner, token() + " bare core", "$10");
-        String plain = plainBinder(owner, token() + " state binder");
+        String plain = plainBinder(owner, token() + " state binder", "pokemon");
         file(owner, plain, printing("pkm-p002a"), 1);
         plainBinder(owner, token() + " empty plain");
 

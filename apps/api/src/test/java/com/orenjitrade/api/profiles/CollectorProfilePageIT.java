@@ -1,6 +1,5 @@
 package com.orenjitrade.api.profiles;
 
-import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.ids;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
@@ -73,11 +72,17 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
     }
 
     private String createBinder(Collector owner, String name, String visibility) {
+        return createBinder(owner, name, visibility, "yugioh");
+    }
+
+    /** A binder of {@code game} (stage G: a binder holds the cards of one game). */
+    private String createBinder(Collector owner, String name, String visibility, String game) {
         return callJson(
                         HttpMethod.POST,
                         "/api/v1/binders",
                         owner.uid(),
-                        binder(name, visibility),
+                        InventoryTestSupport.binder(
+                                name, visibility, InventoryTestSupport.gameId(testUsers, game)),
                         201)
                 .path("id")
                 .asString();
@@ -133,10 +138,12 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
         location(owner, true);
         UUID azure = printing(testUsers, "ygo-p001a");
         UUID ember = printing(testUsers, "pkm-p001a");
+        UUID dragon = printing(testUsers, "ygo-p005a");
         String publicBinder = createBinder(owner, "Trade binder " + prefix, "PUBLIC");
-        String privateBinder = createBinder(owner, "Private binder " + prefix, "PRIVATE");
+        String privateBinder =
+                createBinder(owner, "Private binder " + prefix, "PRIVATE", "pokemon");
         String publicCard = createItem(owner, azure, "PUBLIC", publicBinder, "85% TCG");
-        String privateCard = createItem(owner, ember, "PRIVATE", publicBinder, "$5");
+        String privateCard = createItem(owner, dragon, "PRIVATE", publicBinder, "$5");
         String hiddenByBinder = createItem(owner, ember, "PUBLIC", privateBinder, "$7");
         callJson(
                 HttpMethod.POST,
@@ -190,7 +197,11 @@ class CollectorProfilePageIT extends AbstractIntegrationTest {
     void theCardsOfADeckCoreStayOutOfTheCardsWhenAsked() {
         Page page = collectorWithListings("r6-core");
         Collector viewer = collector("r6-core-viewer");
-        Map<String, Object> core = binder("Core " + page.owner().handle(), "PUBLIC");
+        Map<String, Object> core =
+                InventoryTestSupport.binder(
+                        "Core " + page.owner().handle(),
+                        "PUBLIC",
+                        InventoryTestSupport.gameId(testUsers, "pokemon"));
         core.put("sellsAsCore", true);
         core.put("askingPriceText", "$95");
         String coreId =

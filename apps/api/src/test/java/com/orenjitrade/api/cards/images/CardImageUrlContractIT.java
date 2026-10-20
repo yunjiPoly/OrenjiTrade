@@ -130,7 +130,10 @@ class CardImageUrlContractIT extends AbstractCardImageIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner,
-                                InventoryTestSupport.binder("Real art", "PUBLIC"),
+                                InventoryTestSupport.binder(
+                                        "Real art",
+                                        "PUBLIC",
+                                        InventoryTestSupport.gameId(testUsers, GAME)),
                                 201)
                         .path("id")
                         .asString();

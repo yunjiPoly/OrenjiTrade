@@ -166,7 +166,10 @@ class TestAccountPurgeIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 uid,
-                                InventoryTestSupport.binder("Purge test binder", "PUBLIC"),
+                                InventoryTestSupport.binder(
+                                        "Purge test binder",
+                                        "PUBLIC",
+                                        InventoryTestSupport.gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();

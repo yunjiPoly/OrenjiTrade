@@ -549,7 +549,10 @@ class InventoryPhoneFormIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 uid,
-                                InventoryTestSupport.binder("Staples", "PUBLIC"),
+                                InventoryTestSupport.binder(
+                                        "Staples",
+                                        "PUBLIC",
+                                        InventoryTestSupport.gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();

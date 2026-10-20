@@ -153,6 +153,18 @@ public final class InventoryTestSupport {
         return body;
     }
 
+    /** A binder body for the game {@code gameId} (stage G: a binder holds one game's cards). */
+    public static Map<String, Object> binder(String name, String visibility, UUID gameId) {
+        Map<String, Object> body = binder(name, visibility);
+        body.put("gameId", gameId.toString());
+        return body;
+    }
+
+    /** Id of a game by its slug. */
+    public static UUID gameId(TestUsers testUsers, String slug) {
+        return (UUID) testUsers.query("SELECT id FROM game WHERE slug = ?", slug).get(0).get("id");
+    }
+
     /** Ids of the items of a page or array. */
     public static List<String> ids(JsonNode pageOrArray) {
         JsonNode items = pageOrArray.has("items") ? pageOrArray.path("items") : pageOrArray;
