@@ -7295,7 +7295,7 @@ total 893.82 kB) and passes its checks against the regenerated client, unchanged
 | Part | What |
 | --- | --- |
 | Games | V130 `onepiece` (sort 35, English only, finishes NORMAL / PARALLEL, rarities C UC R SR SEC L SP TR P); `hasCards` on every game response (games cache `games:v2`, dropped after each catalogue import) |
-| Binders | V131 `binder.game_id NOT NULL`; `POST /binders` `gameId` (an ACTIVE game with cards, 400 otherwise; Yu-Gi-Oh! without one: the paused web); `PATCH /binders/{id}` `gameId` only while no live card and no undoable deleted card (409 `BINDER_GAME_LOCKED`); `BinderResponse.game` / `gameId` |
+| Binders | V131 `binder.game_id NOT NULL` and `game_follows_cards`; `POST /binders` `gameId` (an ACTIVE game with cards, 400 otherwise; without one, the paused web's binder takes its first card's game and refuses no card); `PATCH /binders/{id}` `gameId` only while no live card and no undoable deleted card (409 `BINDER_GAME_LOCKED`); `BinderResponse.game` / `gameId` |
 | Cards into binders | 409 `BINDER_GAME_MISMATCH` on `POST` / `PATCH /inventory/items` (a move, or another printing while filed) and on the scan's batch add (nothing written); the bulk `MOVE_TO_BINDER` skips such a card with reason `BINDER_GAME_MISMATCH` |
 | `game=` | optional on `GET /regions/{r}/binder-counts` (cache keyed by game), `/regions/{r}/binders`, `/regions/{r}/subdivisions/{c}/binders`, `/search/card-holders` (and its `totalItems`), `/search/deck-cores`, `/search/collectors`, `/wishlist/availability`; 400 for an unknown game; without it, as before |
 | Privacy | `GeoPrivacyContractTest.oneGameAtATimeCarriesPlacesOnly` (every endpoint above, each game, signed out, a new collector and two seed collectors) |
@@ -7313,10 +7313,13 @@ then the binders and their cards in ascending id (`docs/database/schema.md`).
 
 **Decisions, and why**
 
-1. **`POST /binders` without `gameId` makes a Yu-Gi-Oh! binder** instead of a 400: the paused web
-   has no game picker and must keep working; its E2E collectors list Pokémon on their profile but
-   file Yu-Gi-Oh! cards, so the profile's game would have refused their cards. The phone always
-   sends the game. When the web resumes it needs a Game picker (owner follow-up).
+1. **A binder made without `gameId` (only the paused web makes them) follows its cards** instead
+   of a 400: it takes the game of the first card filed in it while it holds none (Yu-Gi-Oh! until
+   then; `binder.game_follows_cards`) and refuses no card. The web has no game picker and its suites,
+   which must keep passing unchanged, file a Yu-Gi-Oh! and a Pokémon card into one binder (a
+   Yu-Gi-Oh! default refused 5 of its 68 E2E tests, "the first card decides" still 3). Every binder
+   the phone makes has its game and the one-game rule; so has every binder V131 migrated. When the
+   web resumes it needs a Game picker (owner follow-up).
 2. **The tie rule** of the migration reads "the owner's first profile game" as the first of the
    *tied* games in the profile (Yu-Gi-Oh! next, then the games' order): taking a profile game that
    is not tied would have sent every card of the binder out. **An empty binder** takes the first
@@ -7391,8 +7394,9 @@ card again). The Android run could not be verified (no
 Android SDK on this Mac). No catalogue holds One Piece cards (Bandai's permission), so a One Piece
 binder was never made on a device.
 
-**Owner follow-ups**: (1) the paused web has no Game picker: a web binder is a Yu-Gi-Oh! binder and
-a web user filing another game's card gets the 409 message; (2) the owner's local database migrates
+**Owner follow-ups**: (1) the paused web has no Game picker: a binder made on the web takes the game
+of its first card and still takes cards of any game (only the phone's binders keep to one game);
+give the web the Game picker when it resumes; (2) the owner's local database migrates
 V130 and V131 on the next `npm run dev`: binders that mixed games are split by the migration's rule
 (see the audit log `binder.game.cards_moved_out`); (3) defaults 1 to 5 above.
 

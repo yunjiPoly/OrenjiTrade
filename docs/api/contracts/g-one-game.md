@@ -21,12 +21,12 @@ a place, a count to search results or a paid feature (ADR 0019).
 
 ## Binders hold the cards of one game
 
-`binder.game_id` (V131, `NOT NULL`, FK to `game`). Responses: `BinderResponse` gains `game` (the
-slug) and `gameId`, always sent.
+`binder.game_id` (V131, `NOT NULL`, FK to `game`) and `binder.game_follows_cards` (V131, default
+`false`). Responses: `BinderResponse` gains `game` (the slug) and `gameId`, always sent.
 
 | Request | Rule | Error |
 | --- | --- | --- |
-| `POST /binders` | `gameId` (optional in the schema): an `ACTIVE` game with cards. The phone always sends it. Without it (the paused web, which has no game picker) the binder is a Yu-Gi-Oh! binder | 400 `VALIDATION_FAILED`, field `gameId`, for an unknown, hidden or card-less game |
+| `POST /binders` | `gameId` (optional in the schema): an `ACTIVE` game with cards. The phone always sends it. Without it (the paused web, which has no game picker) the binder **follows its cards** (`binder.game_follows_cards`): it takes the game of the first card filed in it while it holds none (Yu-Gi-Oh! until then) and refuses no card, as the web's binders always did (its suites file several games into one binder). The one-game rules below apply to every other binder | 400 `VALIDATION_FAILED`, field `gameId`, for an unknown, hidden or card-less game |
 | `PATCH /binders/{id}` | `gameId` (not null) changes the game only while the binder holds no card: no live card, and no deleted card that an undo can still bring back (`restorable_until` not passed: the owner's delete, a sale) | 409 `BINDER_GAME_LOCKED`; 400 as above |
 | `POST /inventory/items` with `binderId` | the card's game is the binder's | 409 `BINDER_GAME_MISMATCH` |
 | `PATCH /inventory/items/{id}` | a move into a binder, or another printing while filed, keeps the card's game equal to the binder's (a printing of another game may leave the binder in the same request with `binderId: null`) | 409 `BINDER_GAME_MISMATCH` |
