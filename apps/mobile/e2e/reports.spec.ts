@@ -79,9 +79,8 @@ test.describe('mobile collector reports', () => {
 
     // A second report while the first is open: 409 REPORT_ALREADY_OPEN, explained.
     await openInApp(page, `/collectors/${ben.handle}`);
-    await screen(page, 'collector')
-      .getByRole('button', { name: `Report ${ben.displayName}` })
-      .click({ timeout: 30_000 });
+    await page.getByRole('button', { name: `More for ${ben.handle}` }).click({ timeout: 30_000 });
+    await page.getByRole('button', { name: `Report ${ben.handle}` }).click({ timeout: 30_000 });
     const again = screen(page, 'report');
     await again.getByRole('radio', { name: 'Spam' }).click({ timeout: 30_000 });
     await again.getByRole('button', { name: 'Confirm' }).click();

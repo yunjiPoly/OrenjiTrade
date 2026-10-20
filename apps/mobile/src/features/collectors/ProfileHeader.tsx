@@ -70,8 +70,17 @@ export function ProfileHeader({ profile, own, onRating, onLocation }: ProfileHea
                 style={[styles.handle, { color: palette.textMuted }]}
               >
                 @{profile.handle}
-                {rating ? ' ·' : ''}
               </Text>
+              {rating ? (
+                <Text
+                  accessible={false}
+                  importantForAccessibility="no"
+                  aria-hidden
+                  style={[styles.handle, { color: palette.textMuted }]}
+                >
+                  ·
+                </Text>
+              ) : null}
               {rating ? (
                 <Pressable
                   accessibilityRole="button"

@@ -58,7 +58,7 @@ describe('Your Profile tab (mockup screen 21)', () => {
 
     expect(await screen.findByTestId('profile-name')).toHaveTextContent('Maïka Test');
     expect(await screen.findByTestId('notification-bell-profile')).toBeOnTheScreen();
-    expect(screen.getByTestId('profile-handle-label')).toHaveTextContent('@maika ·');
+    expect(screen.getByTestId('profile-handle-label')).toHaveTextContent('@maika');
     expect(screen.getByTestId('profile-rating')).toHaveTextContent(/4\.5$/);
     // Your line: the city you show, the province, member since; no "Active" (you are here).
     expect(screen.getByTestId('profile-line')).toHaveTextContent(

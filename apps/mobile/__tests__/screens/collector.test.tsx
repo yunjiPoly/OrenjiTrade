@@ -93,7 +93,7 @@ describe("Another collector's profile (mockup screens 19 and 20)", () => {
     render();
     expect(screen.getByTestId('collector-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId('collector-name')).toHaveTextContent('Noé Verdun');
-    expect(screen.getByTestId('collector-handle')).toHaveTextContent('@collector2 ·');
+    expect(screen.getByTestId('collector-handle')).toHaveTextContent('@collector2');
     expect(screen.getByTestId('collector-rating')).toHaveTextContent(/4\.8$/);
     expect(screen.getByTestId('collector-rating').props.accessibilityLabel).toBe(
       'Rated 4.8 out of 5. Go to ratings and references'
