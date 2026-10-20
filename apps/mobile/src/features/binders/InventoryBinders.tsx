@@ -4,27 +4,37 @@ import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useMyBinders } from '@/src/api/hooks/binders';
+import { useGames } from '@/src/api/hooks/profile';
 import type { BinderResponse } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
+import { gameOptions } from '@/src/features/games/browsingGame';
+import { GameTile } from '@/src/features/games/GameTile';
 import { ListingsPausedBanner } from '@/src/features/inventory/ListingsPausedBanner';
+import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, PINNED_MAX_FONT_SCALE, spacing, useTheme } from '@/src/theme';
 
 import { INVENTORY_BINDERS_COPY } from './binderCopy';
-import { orderBinders } from './binderForm';
+import { bindersByGame, orderBinders } from './binderForm';
 import { OwnBinderRow } from './BinderRows';
 import { ReorderBindersSheet } from './ReorderBindersSheet';
 
-type Entry = { kind: 'binder'; binder: BinderResponse } | { kind: 'tip' } | { kind: 'reorder' };
+type Entry =
+  | { kind: 'section'; game: string; name: string; count: number }
+  | { kind: 'binder'; binder: BinderResponse }
+  | { kind: 'tip' }
+  | { kind: 'reorder' };
 
 /**
  * Inventory › Binders (owner spec 2026-10-14, section 7, mockup screen 17): "{n} binders · {n}
- * deck cores" with "New binder"; the deck cores first (photo, name, "{n} photos · Public", the
- * purple tag "Deck core · {price}"), then the binders (a fan of three cards, the name, "{n} cards ·
- * Public" or "· Private"); the tip "Selling a whole deck?" at the end. A row opens Edit binder.
- * Reordering the binders stays, as a small link under the tip (the least clutter, section 2).
+ * deck cores" with "New binder"; one section per game that has binders, in the games' order (stage
+ * G: the game's 22 pt tile, its name and "{n} binders"), each with its deck cores first (photo,
+ * name, "{n} photos · Public", the purple tag "Deck core · {price}"), then its binders (a fan of
+ * three cards, the name, "{n} cards · Public" or "· Private"); the tip "Selling a whole deck?" at
+ * the end. A row opens Edit binder. Reordering the binders stays, as a small link under the tip
+ * (the least clutter, section 2).
  */
 export function InventoryBinders() {
   const router = useRouter();
@@ -38,11 +48,25 @@ export function InventoryBinders() {
     [router]
   );
   const ordered = useMemo(() => orderBinders(binders.data ?? []), [binders.data]);
+  const games = useGames().data;
   const entries = useMemo<Entry[]>(() => {
-    const rows: Entry[] = [...ordered.cores, ...ordered.binders].map((binder) => ({
-      kind: 'binder',
-      binder,
-    }));
+    const options = gameOptions(games);
+    const rows: Entry[] = [];
+    for (const section of bindersByGame(
+      binders.data ?? [],
+      options.map((option) => option.slug)
+    )) {
+      rows.push({
+        kind: 'section',
+        game: section.game,
+        name:
+          options.find((option) => option.slug === section.game)?.name ?? gameLabel(section.game),
+        count: section.binders.length,
+      });
+      for (const binder of section.binders) {
+        rows.push({ kind: 'binder', binder });
+      }
+    }
     if (rows.length === 0) {
       return rows;
     }
@@ -51,7 +75,7 @@ export function InventoryBinders() {
       rows.push({ kind: 'reorder' });
     }
     return rows;
-  }, [binders.data?.length, ordered]);
+  }, [binders.data, games]);
 
   if (!binders.data && binders.error) {
     return (
@@ -74,11 +98,18 @@ export function InventoryBinders() {
         testID="binders-list"
         data={entries}
         keyExtractor={(entry) =>
-          entry.kind === 'binder' ? entry.binder.id : `inventory-binders-${entry.kind}`
+          entry.kind === 'binder'
+            ? entry.binder.id
+            : entry.kind === 'section'
+              ? `inventory-binders-section-${entry.game}`
+              : `inventory-binders-${entry.kind}`
         }
         renderItem={({ item }) => {
           if (item.kind === 'binder') {
             return <OwnBinderRow binder={item.binder} onPress={open} />;
+          }
+          if (item.kind === 'section') {
+            return <GameSection game={item.game} name={item.name} count={item.count} />;
           }
           if (item.kind === 'tip') {
             return <DeckCoreTip />;
@@ -165,6 +196,26 @@ export function InventoryBinders() {
   );
 }
 
+/** A game's section title (stage G, screen 17): its 22 pt tile, its name, "{n} binders". */
+function GameSection({ game, name, count }: { game: string; name: string; count: number }) {
+  const { palette } = useTheme();
+  return (
+    <View
+      accessible
+      accessibilityRole="header"
+      accessibilityLabel={INVENTORY_BINDERS_COPY.sectionLabel(name, count)}
+      style={styles.section}
+      testID={`binders-section-${game}`}
+    >
+      <GameTile slug={game} name={name} size={22} />
+      <Text style={[styles.sectionName, { color: palette.ink }]}>{name}</Text>
+      <Text style={[styles.sectionCount, { color: palette.textMuted }]}>
+        {INVENTORY_BINDERS_COPY.sectionCount(count)}
+      </Text>
+    </View>
+  );
+}
+
 /** "Selling a whole deck?" (screen 17): the tip at the end of the list, in a dashed frame. */
 function DeckCoreTip() {
   const { palette } = useTheme();
@@ -219,6 +270,15 @@ const styles = StyleSheet.create({
   },
   newBinderLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
   separator: { height: 10 },
+  section: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+    marginTop: 4,
+  },
+  sectionName: { fontSize: 14, lineHeight: 20, fontWeight: fontWeight.semibold },
+  sectionCount: { fontSize: 14, lineHeight: 20, fontWeight: fontWeight.medium },
   tip: {
     flexDirection: 'row',
     alignItems: 'flex-start',

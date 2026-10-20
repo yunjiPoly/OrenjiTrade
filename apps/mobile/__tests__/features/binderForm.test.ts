@@ -86,7 +86,10 @@ describe('Edit binder form (screen 18)', () => {
       sellsAsCore: false,
       price: '',
       note: '',
+      game: 'yugioh',
     });
+    // Stage G: a new binder starts on the browsed game.
+    expect(binderFormOf(null, NOW, 'pokemon').game).toBe('pokemon');
   });
 
   it('reads a deck core as saved, a running temporary publication as Public', () => {
@@ -96,6 +99,7 @@ describe('Edit binder form (screen 18)', () => {
       sellsAsCore: true,
       price: '$180',
       note: 'All NM, English. Sleeves and a deck box included.',
+      game: 'yugioh',
     });
     expect(
       binderVisibilityChoice(
@@ -154,19 +158,24 @@ describe('Edit binder form (screen 18)', () => {
       sellsAsCore: false,
     });
     expect(
-      toCreateBinderBody({
-        name: 'Core',
-        visibility: 'PUBLIC',
-        sellsAsCore: true,
-        price: ' $95 ',
-        note: ' All NM. ',
-      })
+      toCreateBinderBody(
+        {
+          name: 'Core',
+          visibility: 'PUBLIC',
+          sellsAsCore: true,
+          price: ' $95 ',
+          note: ' All NM. ',
+          game: 'pokemon',
+        },
+        'game-pokemon'
+      )
     ).toEqual({
       name: 'Core',
       visibility: 'PUBLIC',
       sellsAsCore: true,
       askingPriceText: '$95',
       description: 'All NM.',
+      gameId: 'game-pokemon',
     });
   });
 
@@ -182,6 +191,12 @@ describe('Edit binder form (screen 18)', () => {
     expect(
       toBinderPatch({ ...form, sellsAsCore: false, visibility: 'PRIVATE' }, binder, NOW)
     ).toEqual({ confirm: true, sellsAsCore: false, visibility: 'PRIVATE' });
+    // Stage G: another game is sent with its id.
+    expect(toBinderPatch({ ...form, game: 'mtg' }, binder, NOW, 'game-mtg')).toEqual({
+      confirm: true,
+      gameId: 'game-mtg',
+    });
+    expect(toBinderPatch(form, binder, NOW, 'game-yugioh')).toEqual({ confirm: true });
   });
 });
 

@@ -24,6 +24,11 @@ export interface CardPickerSheetProps {
   excluded: ReadonlySet<string>;
   /** A deck core: the hint says buyers see the cards with it. */
   deckCore: boolean;
+  /**
+   * The binder's game (stage G): only its cards are offered, and the hint says so with its name
+   * ("Only your Yu-Gi-Oh! cards can go in").
+   */
+  game?: { slug: string; name: string } | null;
   onPick: (items: InventoryItemResponse[]) => void;
   onClose: () => void;
 }
@@ -42,6 +47,7 @@ export function CardPickerSheet({
   binderId,
   excluded,
   deckCore,
+  game = null,
   onPick,
   onClose,
 }: CardPickerSheetProps) {
@@ -50,7 +56,11 @@ export function CardPickerSheet({
   const [text, setText] = useState('');
   const [q, setQ] = useState('');
   const [selected, setSelected] = useState<ReadonlyMap<string, InventoryItemResponse>>(new Map());
-  const filters = useMemo(() => ({ ...DEFAULT_INVENTORY_FILTERS, q, sort: 'name' as const }), [q]);
+  const gameSlug = game?.slug ?? null;
+  const filters = useMemo(
+    () => ({ ...DEFAULT_INVENTORY_FILTERS, q, sort: 'name' as const, game: gameSlug }),
+    [q, gameSlug]
+  );
   const items = useInventoryItems(filters, visible);
 
   useEffect(() => {
@@ -67,9 +77,12 @@ export function CardPickerSheet({
   const candidates = useMemo(
     () =>
       (items.data?.pages.flatMap((page) => page.items ?? []) ?? []).filter(
-        (item) => item.binder?.id !== binderId && !excluded.has(item.id)
+        (item) =>
+          item.binder?.id !== binderId &&
+          !excluded.has(item.id) &&
+          (!gameSlug || item.card.game === gameSlug)
       ),
-    [binderId, excluded, items.data]
+    [binderId, excluded, gameSlug, items.data]
   );
 
   const toggle = (item: InventoryItemResponse, checked: boolean) =>
@@ -138,7 +151,11 @@ export function CardPickerSheet({
         testID="card-picker-search"
       />
       <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-        {deckCore ? EDIT_BINDER_COPY.pickerCoreHint : EDIT_BINDER_COPY.pickerHint}
+        {deckCore
+          ? EDIT_BINDER_COPY.pickerCoreHint
+          : game
+            ? EDIT_BINDER_COPY.pickerGameHint(game.name)
+            : EDIT_BINDER_COPY.pickerHint}
       </Text>
     </View>
   );

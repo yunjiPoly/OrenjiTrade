@@ -50,6 +50,7 @@ import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { ListingsPausedBanner } from '@/src/features/inventory/ListingsPausedBanner';
 import { NeedsConfirmationNotice } from '@/src/features/inventory/NeedsConfirmationNotice';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
+import { bindersForGame } from '@/src/features/binders/binderForm';
 import { boundedQuery, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import {
   activeInventoryFilterCount,
@@ -222,6 +223,17 @@ function CardsView() {
     setSelected(new Set());
   };
   const allSelected = list.length > 0 && list.every((item) => selected.has(item.id));
+  // "Move to binder" offers the binders of the selected cards' game when they share one (stage G:
+  // a binder holds one game); cards of several games see every binder, and the cards of another
+  // game than the binder chosen stay where they were (the API skips them, the toast says so).
+  const selectedGames = new Set(
+    list.filter((item) => selected.has(item.id)).map((item) => item.card.game)
+  );
+  const oneGame =
+    selectedGames.size === 1 && list.filter((item) => selected.has(item.id)).length === selected.size
+      ? [...selectedGames][0]
+      : null;
+  const bulkBinders = bindersForGame(binders.data ?? [], oneGame);
   const toggleAll = () =>
     setSelected(allSelected ? new Set() : new Set(list.map((item) => item.id)));
 
@@ -454,7 +466,7 @@ function CardsView() {
             count={selected.size}
             allSelected={allSelected}
             busy={bulk.isPending}
-            binders={binders.data ?? []}
+            binders={bulkBinders}
             onAction={(action) => void runBulk(action)}
             onToggleAll={toggleAll}
             onClear={() => setSelected(new Set())}

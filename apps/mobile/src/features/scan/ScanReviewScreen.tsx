@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -10,6 +10,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
+import { bindersForGame } from '@/src/features/binders/binderForm';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
 import { InventoryFormScreen } from '@/src/features/inventory/InventoryFormScreen';
 import { fontWeight, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
@@ -32,6 +33,7 @@ import { addFailure, readingProgress, type AddFailure } from './scanReview';
 import { newScanAddKey, useScanReviewOptions } from './scanReviewOptions';
 import { REVIEW_FROM_PHOTOS, SCAN_CAMERA_ROUTE, SCAN_SEARCH_ROUTE } from './scanRoutes';
 import { scanRunner } from './scanRunner';
+import { SCAN_GAME } from './types';
 import {
   addRefused,
   addSent,
@@ -107,6 +109,11 @@ export function ScanReviewScreen() {
   const apply = useScanStore((state) => state.apply);
   const options = useScanReviewOptions();
   const binders = useMyBinders();
+  // The scan reads Yu-Gi-Oh! cards: only Yu-Gi-Oh! binders can take them (stage G).
+  const scanBinders = useMemo(
+    () => (binders.data ? bindersForGame(binders.data, SCAN_GAME) : undefined),
+    [binders.data]
+  );
   const add = useAddScannedCards();
 
   // Once added, the screen keeps showing what it added while it leaves (the scan is emptied).
@@ -127,11 +134,12 @@ export function ScanReviewScreen() {
   const pending = live.pendingAdd;
 
   const chosenBinder = options.binderId
-    ? (binders.data?.find((binder) => binder.id === options.binderId) ?? null)
+    ? (scanBinders?.find((binder) => binder.id === options.binderId) ?? null)
     : null;
-  // A binder deleted meanwhile is no binder any more, once the list says so.
+  // A binder deleted meanwhile (or turned to another game) is no binder any more, once the list
+  // says so.
   const binderToSend =
-    options.binderId && (chosenBinder || !binders.data) ? options.binderId : null;
+    options.binderId && (chosenBinder || !scanBinders) ? options.binderId : null;
   const shownVisibility = pending ? (pending.body.visibility ?? 'PRIVATE') : options.visibility;
   // An add sent without an answer says so whenever the review shows it (opened again from the
   // camera too), not only right after the tap; while it is still on its way, the button says
@@ -454,7 +462,7 @@ export function ScanReviewScreen() {
       {sheets}
       <BinderPickerSheet
         visible={choosingBinder}
-        binders={binders.data}
+        binders={scanBinders}
         error={binders.error}
         onRetry={() => void binders.refetch()}
         value={chosenBinder?.id ?? null}

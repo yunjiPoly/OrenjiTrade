@@ -15,6 +15,7 @@ import {
   useUpdateBinder,
 } from '@/src/api/hooks/binders';
 import { useBulkInventory } from '@/src/api/hooks/inventory';
+import { useGames } from '@/src/api/hooks/profile';
 import type { BinderResponse, InventoryItemResponse } from '@/src/api/types';
 import { BackBar } from '@/src/components/ui/BackBar';
 import { Button } from '@/src/components/ui/Button';
@@ -26,6 +27,7 @@ import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text, TextInput } from '@/src/components/ui/Text';
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { VisibilityToggle } from '@/src/features/inventory/CardFormFields';
 import { CardPhotos, type PhotoTile } from '@/src/features/inventory/CardPhotos';
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
@@ -45,6 +47,7 @@ import {
   radius,
   spacing,
   textStyle,
+  useStackedRows,
   useTheme,
 } from '@/src/theme';
 
@@ -66,12 +69,15 @@ import {
   type BinderFormValue,
 } from './binderForm';
 import { BinderCardsSection } from './BinderCardsSection';
+import { BinderGameField, BinderGameGrid, binderGameName } from './BinderGameField';
 import { useBinderUiStore } from './binderUiStore';
 import { CardPickerSheet } from './CardPickerSheet';
 
 export interface BinderEditorScreenProps {
   /** The binder to edit; `null` for New binder. */
   id: string | null;
+  /** New binder: the game it starts on (a link's), else the browsed game (stage G). */
+  game?: string | null;
 }
 
 /**
@@ -82,8 +88,12 @@ export interface BinderEditorScreenProps {
  * inventory), "Save changes" (disabled until a change; a save also confirms the binder is still
  * available) and "Delete binder", asked in a sheet. Everything is saved with the button: the
  * fields, then the cards moved in or out, then the photos.
+ *
+ * Stage G: a binder holds one game. New binder has the Game picker (two by two, games without
+ * cards dimmed); Edit binder shows the Name and the Game side by side, the game read-only with a
+ * lock once the binder has cards. "Add cards" offers the cards of the binder's game only.
  */
-export function BinderEditorScreen({ id }: BinderEditorScreenProps) {
+export function BinderEditorScreen({ id, game = null }: BinderEditorScreenProps) {
   const router = useRouter();
   const binder = useBinder(id, id !== null);
   const leave = () => {
@@ -118,6 +128,7 @@ export function BinderEditorScreen({ id }: BinderEditorScreenProps) {
         <BinderEditor
           key={binder.data?.id ?? 'new'}
           binder={binder.data ?? null}
+          startGame={game}
           header={header}
           onLeave={leave}
           onDeleted={leaveDeleted}
@@ -166,11 +177,13 @@ interface LocalTile {
 
 function BinderEditor({
   binder,
+  startGame,
   header,
   onLeave,
   onDeleted,
 }: {
   binder: BinderResponse | null;
+  startGame: string | null;
   header: (action?: ReactNode) => ReactNode;
   onLeave: () => void;
   onDeleted: () => void;
@@ -188,8 +201,21 @@ function BinderEditor({
   const keepFailedPhotos = useBinderUiStore((state) => state.keepFailedPhotos);
   const takeFailedPhotos = useBinderUiStore((state) => state.takeFailedPhotos);
   const items = useBinderItems(binder?.id ?? '', '', binder !== null);
+  const browsing = useBrowsingGame();
+  const games = useGames().data;
+  // At the larger text sizes the game goes under the name: side by side, the name had no room.
+  const stacked = useStackedRows();
+  const gameOptions = browsing.options;
 
-  const [form, setForm] = useState<BinderFormValue>(() => binderFormOf(binder));
+  const [form, setForm] = useState<BinderFormValue>(() =>
+    binderFormOf(
+      binder,
+      Date.now(),
+      startGame && gameOptions.some((option) => option.slug === startGame && option.browsable)
+        ? startGame
+        : browsing.game
+    )
+  );
   // The binder as saved when the form last caught up with it. When it changes elsewhere (another
   // Edit binder saved it), the fields not touched here follow it (render-time, no effect), so this
   // screen never shows old values with "Save changes" on, nor writes them back.
@@ -359,6 +385,11 @@ function BinderEditor({
     setTakenOut(new Set());
   };
 
+  const gameIdOf = (slug: string) => games?.find((entry) => entry.slug === slug)?.id ?? null;
+  // A binder's game stays once it holds a card, or once cards were picked for it (stage G).
+  const gameLocked = (binder?.itemCount ?? 0) > 0 || added.size > 0;
+  const gameName = binderGameName(gameOptions, form.game);
+
   const save = async () => {
     const found = validateBinderForm(form);
     setErrors(found);
@@ -372,8 +403,11 @@ function BinderEditor({
     let saved: BinderResponse;
     try {
       saved = binder
-        ? await update.mutateAsync({ id: binder.id, patch: toBinderPatch(form, binder) })
-        : await create.mutateAsync(toCreateBinderBody(form));
+        ? await update.mutateAsync({
+            id: binder.id,
+            patch: toBinderPatch(form, binder, Date.now(), gameIdOf(form.game)),
+          })
+        : await create.mutateAsync(toCreateBinderBody(form, gameIdOf(form.game)));
     } catch (error) {
       const apiError = error as ApiError;
       setFailure(apiError);
@@ -382,6 +416,10 @@ function BinderEditor({
         price: apiError.fieldErrors?.askingPriceText,
         note: apiError.fieldErrors?.description,
       });
+      if (apiError.errorCode === 'BINDER_GAME_LOCKED') {
+        // A card came back into the binder meanwhile (an undo): its game stays.
+        change({ game: binder?.game ?? form.game });
+      }
       setMessage(isLimitReached(apiError) ? null : friendlyMessage(apiError));
       setSaving(false);
       return;
@@ -580,23 +618,46 @@ function BinderEditor({
         </View>
       ) : null}
 
-      <Field label={EDIT_BINDER_COPY.name} error={errors.name}>
-        <TextInput
-          value={form.name}
-          onChangeText={(name) => change({ name })}
-          placeholder={EDIT_BINDER_COPY.namePlaceholder}
-          placeholderTextColor={palette.textDisabled}
-          maxLength={BINDER_NAME_MAX + 10}
-          editable={!busy}
-          accessibilityLabel={EDIT_BINDER_COPY.name}
-          testID="binder-name"
-          style={[
-            ...inputStyle,
-            styles.nameInput,
-            errors.name ? { borderColor: palette.danger } : null,
-          ]}
-        />
-      </Field>
+      <View style={binder && !stacked ? styles.nameRow : styles.nameColumn}>
+        <View style={binder && !stacked ? styles.grow : null}>
+          <Field label={EDIT_BINDER_COPY.name} error={errors.name}>
+            <TextInput
+              value={form.name}
+              onChangeText={(name) => change({ name })}
+              placeholder={EDIT_BINDER_COPY.namePlaceholder}
+              placeholderTextColor={palette.textDisabled}
+              maxLength={BINDER_NAME_MAX + 10}
+              editable={!busy}
+              accessibilityLabel={EDIT_BINDER_COPY.name}
+              testID="binder-name"
+              style={[
+                ...inputStyle,
+                styles.nameInput,
+                errors.name ? { borderColor: palette.danger } : null,
+              ]}
+            />
+          </Field>
+        </View>
+        {binder ? (
+          <View style={stacked ? null : styles.gameBeside}>
+            <BinderGameField
+              options={gameOptions}
+              value={form.game}
+              onChange={(next) => change({ game: next })}
+              locked={gameLocked}
+              disabled={busy}
+            />
+          </View>
+        ) : (
+          <BinderGameGrid
+            options={gameOptions}
+            value={form.game}
+            onChange={(next) => change({ game: next })}
+            locked={gameLocked}
+            disabled={busy}
+          />
+        )}
+      </View>
 
       <View style={styles.field}>
         <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>
@@ -791,6 +852,7 @@ function BinderEditor({
         binderId={binder?.id ?? null}
         excluded={new Set(added.keys())}
         deckCore={form.sellsAsCore}
+        game={{ slug: form.game, name: gameName }}
         onPick={(items) =>
           setAdded((current) => {
             const next = new Map(current);
@@ -893,6 +955,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2],
   },
   nameInput: { fontWeight: fontWeight.semibold },
+  nameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  nameColumn: { gap: spacing[4] },
+  gameBeside: { flexShrink: 0, maxWidth: '50%' },
   priceInput: { fontWeight: fontWeight.semibold },
   note: { minHeight: 64, paddingTop: 10, textAlignVertical: 'top' },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },

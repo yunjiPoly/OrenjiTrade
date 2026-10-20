@@ -22,6 +22,8 @@ export interface BinderFormValue {
   price: string;
   /** The public note: the binder's description. */
   note: string;
+  /** The game whose cards the binder holds (stage G): a slug. */
+  game: string;
 }
 
 export interface BinderFormErrors {
@@ -44,10 +46,20 @@ export function binderVisibilityChoice(
   return 'PUBLIC';
 }
 
-/** The form of a new binder (private, a plain binder) or of a binder as saved. */
-export function binderFormOf(binder?: BinderResponse | null, now = Date.now()): BinderFormValue {
+/** The game of a binder the API sent without one (an answer older than stage G). */
+export const BINDER_DEFAULT_GAME = 'yugioh';
+
+/**
+ * The form of a new binder (private, a plain binder of `game`: the browsed game) or of a binder as
+ * saved.
+ */
+export function binderFormOf(
+  binder?: BinderResponse | null,
+  now = Date.now(),
+  game = BINDER_DEFAULT_GAME
+): BinderFormValue {
   if (!binder) {
-    return { name: '', visibility: 'PRIVATE', sellsAsCore: false, price: '', note: '' };
+    return { name: '', visibility: 'PRIVATE', sellsAsCore: false, price: '', note: '', game };
   }
   return {
     name: binder.name,
@@ -55,6 +67,7 @@ export function binderFormOf(binder?: BinderResponse | null, now = Date.now()): 
     sellsAsCore: binder.sellsAsCore ?? false,
     price: binder.askingPriceText ?? '',
     note: binder.description ?? '',
+    game: binder.game ?? BINDER_DEFAULT_GAME,
   };
 }
 
@@ -82,7 +95,8 @@ export function binderFormChanged(
     form.visibility !== saved.visibility ||
     form.sellsAsCore !== saved.sellsAsCore ||
     form.price.trim() !== saved.price.trim() ||
-    form.note.trim() !== saved.note.trim()
+    form.note.trim() !== saved.note.trim() ||
+    form.game !== saved.game
   );
 }
 
@@ -93,7 +107,8 @@ export function sameBinderForm(a: BinderFormValue, b: BinderFormValue): boolean 
     a.visibility === b.visibility &&
     a.sellsAsCore === b.sellsAsCore &&
     a.price === b.price &&
-    a.note === b.note
+    a.note === b.note &&
+    a.game === b.game
   );
 }
 
@@ -114,6 +129,7 @@ export function rebaseBinderForm(
     sellsAsCore: form.sellsAsCore === before.sellsAsCore ? after.sellsAsCore : form.sellsAsCore,
     price: form.price === before.price ? after.price : form.price,
     note: form.note === before.note ? after.note : form.note,
+    game: form.game === before.game ? after.game : form.game,
   };
 }
 
@@ -145,15 +161,21 @@ export function hasBinderErrors(errors: BinderFormErrors): boolean {
 }
 
 /**
- * `POST /binders` of New binder. A plain binder sends no price and no note (the phone shows them
- * for a deck core only).
+ * `POST /binders` of New binder, with the id of the binder's game (stage G; `GET /games`). A plain
+ * binder sends no price and no note (the phone shows them for a deck core only).
  */
-export function toCreateBinderBody(form: BinderFormValue): CreateBinderRequest {
+export function toCreateBinderBody(
+  form: BinderFormValue,
+  gameId?: string | null
+): CreateBinderRequest {
   const body: CreateBinderRequest = {
     name: form.name.trim(),
     visibility: form.visibility,
     sellsAsCore: form.sellsAsCore,
   };
+  if (gameId) {
+    body.gameId = gameId;
+  }
   if (form.sellsAsCore) {
     const price = form.price.trim();
     if (price) {
@@ -170,12 +192,14 @@ export function toCreateBinderBody(form: BinderFormValue): CreateBinderRequest {
 /**
  * `PATCH /binders/{id}` of "Save changes": the fields that changed, and `confirm` (a save counts
  * as "still available", as on Edit card). The price and the note are kept when the switch goes off
- * (turning it on again brings them back); public views show them for a deck core only.
+ * (turning it on again brings them back); public views show them for a deck core only. Another
+ * game (stage G, only while the binder holds no card) is sent as `gameId` (`GET /games`).
  */
 export function toBinderPatch(
   form: BinderFormValue,
   binder: BinderResponse,
-  now = Date.now()
+  now = Date.now(),
+  gameId?: string | null
 ): UpdateBinderRequest {
   const saved = binderFormOf(binder, now);
   const patch: UpdateBinderRequest = { confirm: true };
@@ -193,6 +217,9 @@ export function toBinderPatch(
   }
   if (form.note.trim() !== saved.note.trim()) {
     patch.description = form.note.trim();
+  }
+  if (form.game !== saved.game && gameId) {
+    patch.gameId = gameId;
   }
   return patch;
 }
@@ -238,4 +265,50 @@ export function orderBinders(binders: readonly BinderResponse[]): {
     cores: live.filter((binder) => binder.sellsAsCore),
     binders: live.filter((binder) => !binder.sellsAsCore),
   };
+}
+
+/** A game's binders in Inventory › Binders (stage G, mockup screen 17). */
+export interface BinderSection {
+  game: string;
+  binders: BinderResponse[];
+}
+
+/**
+ * Inventory › Binders grouped by game (stage G): one section per game that has binders, in the
+ * games' order (`gameOrder`, the order of `GET /games`; a game it does not list, such as one an
+ * admin hid, comes last), each with its deck cores first and then its other binders, in the
+ * owner's order. Sold deck cores are not listed (`orderBinders`).
+ */
+export function bindersByGame(
+  binders: readonly BinderResponse[],
+  gameOrder: readonly string[]
+): BinderSection[] {
+  const { cores, binders: plain } = orderBinders(binders);
+  const byGame = new Map<string, BinderResponse[]>();
+  for (const binder of [...cores, ...plain]) {
+    const game = binder.game ?? '';
+    const list = byGame.get(game) ?? [];
+    list.push(binder);
+    byGame.set(game, list);
+  }
+  const rank = (game: string) => {
+    const index = gameOrder.indexOf(game);
+    return index === -1 ? gameOrder.length : index;
+  };
+  return [...byGame.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b))
+    .map(([game, list]) => ({ game, binders: list }));
+}
+
+/**
+ * The binders a card can go into (stage G): those of the card's game, sold deck cores left out. A
+ * card whose game is not known yet keeps every live binder (the API refuses another game's binder
+ * anyway: 409 BINDER_GAME_MISMATCH).
+ */
+export function bindersForGame(
+  binders: readonly BinderResponse[],
+  game: string | null | undefined
+): BinderResponse[] {
+  const live = liveBinders(binders);
+  return game ? live.filter((binder) => binder.game === game) : live;
 }
