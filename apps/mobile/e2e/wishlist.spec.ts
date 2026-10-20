@@ -191,7 +191,13 @@ test.describe('mobile wishlist and notifications', () => {
       location: PLACES.montevideo,
       discoverable: true,
     });
-    const binderId = await apiPublicBinder(request, hal, `Mobile any-printing binder ${suffix()}`);
+    // The shared code is a Yu-Gi-Oh! card: a binder holds the cards of one game (stage G).
+    const binderId = await apiPublicBinder(
+      request,
+      hal,
+      `Mobile any-printing binder ${suffix()}`,
+      'yugioh'
+    );
     // The two printings that share the code: the catalog lists the 1st Edition first.
     const { cardId } = await cardOfPrinting(request, hal.idToken, SHARED_CODE);
     const card = await request.get(`${API_URL}/api/v1/cards/${cardId}`, {
@@ -260,7 +266,14 @@ test.describe('mobile wishlist and notifications', () => {
     )[0];
     expect(wish?.printing ?? null, 'the wish is for any printing').toBeNull();
     expect(wish?.rarity ?? null).toBeNull();
-    await expect(wishlist.getByTestId(`wish-${wish!.id}-terms`)).toHaveText('Any printing');
+    // Stage G: Wren browses Pokémon (her profile game); her wish is a Yu-Gi-Oh! card, so the
+    // Wishlist shows it on Yu-Gi-Oh!.
+    await expect(wishlist.getByTestId('wishlist-empty')).toContainText('No Pokémon wishes yet');
+    await wishlist.getByRole('button', { name: 'Game: Pokémon. Change game' }).click();
+    await page.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
+    await expect(wishlist.getByTestId(`wish-${wish!.id}-terms`)).toHaveText('Any printing', {
+      timeout: 30_000,
+    });
 
     // Hal lists the Unlimited copy: the alert for the "Any printing" wish opens the card screen
     // on "Any printing". No printing is selected for Wren, none is checked, no price is shown

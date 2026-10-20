@@ -45,14 +45,17 @@ test.describe('mobile catalog', () => {
     await expect(search).not.toContainText(/printings?|\d+ cards/);
     await expect(search.getByRole('radio', { name: 'All games' })).toHaveCount(0);
 
-    // The game pill chooses the game: Yu-Gi-Oh! has no Emberfang, Pokémon again has it.
+    // The game pill chooses the game: on Yu-Gi-Oh! the same text finds only Yu-Gi-Oh! cards (the
+    // seed's Ember Wyrmling, a near match), no Emberfang; Pokémon again has it. (The empty state
+    // "No Yu-Gi-Oh! card matches" is the next test's.)
     await search.getByRole('button', { name: 'Game: Pokémon. Change game' }).click();
     await page.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
-    await expect(vmax).toHaveCount(0, { timeout: 30_000 });
-    await expect(search.getByTestId('search-no-match')).toContainText(
-      'No Yu-Gi-Oh! card matches “emberfang”',
-      { timeout: 30_000 }
-    );
+    await expect(search.getByLabel('Yu-Gi-Oh! card name or code')).toBeVisible();
+    await expect(search.getByRole('button', { name: 'Ember Wyrmling', exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(vmax).toHaveCount(0);
+    await expect(search.getByRole('button', { name: /^Emberfang/ })).toHaveCount(0);
     await search.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }).click();
     await page.getByRole('radio', { name: 'Pokémon' }).click();
     await expect(vmax).toBeVisible({ timeout: 30_000 });

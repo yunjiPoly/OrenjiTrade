@@ -30,12 +30,13 @@ test.describe('mobile map and places', () => {
     await expect(map.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
     });
-    // The drawing: vectors in the page, the seed's Quebec binders shade Quebec, its card open.
+    // The drawing: vectors in the page, the seed's Quebec binders shade Quebec, its card open. Its
+    // spoken name says the browsed game (stage G; collector1 browses Yu-Gi-Oh!, her first game).
     await expect(map.getByTestId('map-drawing')).toBeVisible({ timeout: 30_000 });
     await expect(map.getByTestId('map-shape-CA-QC')).toBeVisible();
     await expect(
       map.getByRole('img', {
-        name: 'Map of Americas (North): states and provinces shaded by their number of public binders',
+        name: 'Map of public Yu-Gi-Oh! binders by state or province in Americas (North)',
       })
     ).toBeVisible();
     await expect(map.getByTestId('search-state-name')).toHaveText('Quebec', { timeout: 30_000 });
