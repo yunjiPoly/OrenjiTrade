@@ -98,9 +98,9 @@ export function RadioSheet({
             <Pressable
               key={option.value}
               accessibilityRole="radio"
-              accessibilityLabel={
-                option.detail ? `${option.label}, ${option.detail}` : option.label
-              }
+              accessibilityLabel={option.label}
+              // The second line ("38 of your cards", "Your region · …") is said after the name.
+              accessibilityHint={option.detail}
               accessibilityState={{ checked: selected, disabled }}
               aria-checked={selected}
               aria-disabled={disabled}
@@ -123,9 +123,7 @@ export function RadioSheet({
               <View style={styles.texts}>
                 <Text style={[styles.name, { color: palette.ink }]}>{option.label}</Text>
                 {option.detail ? (
-                  <Text style={[styles.detail, { color: palette.textMuted }]}>
-                    {option.detail}
-                  </Text>
+                  <Text style={[styles.detail, { color: palette.textMuted }]}>{option.detail}</Text>
                 ) : null}
               </View>
               {disabled ? null : (

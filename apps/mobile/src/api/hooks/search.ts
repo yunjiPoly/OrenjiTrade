@@ -48,7 +48,8 @@ export function previousOfSameRegion<T>(region: string) {
  */
 export function previousOfSameRegionAndGame<T>(region: string, game: string) {
   return (previous: T | undefined, previousQuery: { queryKey: QueryKey } | undefined) => {
-    const asked = previousQuery?.queryKey.at(-1) as { region?: unknown; game?: unknown } | undefined;
+    const asked = previousQuery?.queryKey.at(-1) as
+      { region?: unknown; game?: unknown } | undefined;
     return asked?.region === region && asked?.game === game ? previous : undefined;
   };
 }
@@ -77,8 +78,7 @@ export function useCollectorsByName(q: string) {
     queryKey: meKeys.search(uid, { collectors: true, ...params }),
     queryFn: async () =>
       required((await api.GET('/api/v1/search/collectors', { params: { query: params } })).data),
-    enabled:
-      authenticated && ready && browsing.ready && text.length >= COLLECTORS_MIN_CHARS,
+    enabled: authenticated && ready && browsing.ready && text.length >= COLLECTORS_MIN_CHARS,
     placeholderData: previousOfSameRegionAndGame<CollectorByName[]>(region, browsing.game),
     staleTime: 60_000,
   });

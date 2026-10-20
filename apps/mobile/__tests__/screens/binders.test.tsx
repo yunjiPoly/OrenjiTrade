@@ -683,6 +683,8 @@ describe('New binder', () => {
       visibility: 'PUBLIC',
       sellsAsCore: true,
       askingPriceText: 'Trade only',
+      // Stage G: the browsed game (the profile's first game with cards).
+      gameId: 'g1',
     });
     expect(useBinderUiStore.getState().failedPhotos['core-new']).toHaveLength(1);
   });

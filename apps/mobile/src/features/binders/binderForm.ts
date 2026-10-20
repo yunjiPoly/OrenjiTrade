@@ -286,7 +286,7 @@ export function bindersByGame(
   const { cores, binders: plain } = orderBinders(binders);
   const byGame = new Map<string, BinderResponse[]>();
   for (const binder of [...cores, ...plain]) {
-    const game = binder.game ?? '';
+    const game = binder.game ?? BINDER_DEFAULT_GAME;
     const list = byGame.get(game) ?? [];
     list.push(binder);
     byGame.set(game, list);
@@ -302,13 +302,14 @@ export function bindersByGame(
 
 /**
  * The binders a card can go into (stage G): those of the card's game, sold deck cores left out. A
- * card whose game is not known yet keeps every live binder (the API refuses another game's binder
- * anyway: 409 BINDER_GAME_MISMATCH).
+ * card whose game is not known yet keeps every live binder, and so does a binder whose game the
+ * answer does not say (one older than stage G): the API refuses another game's binder anyway (409
+ * BINDER_GAME_MISMATCH).
  */
 export function bindersForGame(
   binders: readonly BinderResponse[],
   game: string | null | undefined
 ): BinderResponse[] {
   const live = liveBinders(binders);
-  return game ? live.filter((binder) => binder.game === game) : live;
+  return game ? live.filter((binder) => !binder.game || binder.game === game) : live;
 }

@@ -43,8 +43,7 @@ export const INVENTORY_BINDERS_COPY = {
   rowHint: 'Opens the binder to edit it',
   /** A game's section (stage G): "{n} binders", deck cores included. */
   sectionCount: (count: number) => plural(count, 'binder', 'binders'),
-  sectionLabel: (game: string, count: number) =>
-    `${game}, ${plural(count, 'binder', 'binders')}`,
+  sectionLabel: (game: string, count: number) => `${game}, ${plural(count, 'binder', 'binders')}`,
   loadError: 'Your binders could not load',
   emptyTitle: 'No binders yet',
   emptyBody:
@@ -128,7 +127,8 @@ export const EDIT_BINDER_COPY = {
   gameChange: (game: string) => `Game: ${game}. Change game`,
   gameSheetTitle: 'Choose the binder’s game',
   /** Only the binder's game in the card picker (stage G). */
-  pickerGameHint: (game: string) => `Only your ${game} cards can go in. Cards in another binder move here.`,
+  pickerGameHint: (game: string) =>
+    `Only your ${game} cards can go in. Cards in another binder move here.`,
   pickerCoreHint:
     'Cards in another binder move here. Buyers see them when the deck core is public.',
   pickerEmpty: 'All your cards are already in this binder.',

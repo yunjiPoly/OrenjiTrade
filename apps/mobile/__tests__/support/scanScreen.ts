@@ -2,6 +2,7 @@ import { FakeOcrProvider, type FakeCardText } from '@/src/features/scan/ocr/fake
 import type { CardScanMatch, ScanRead } from '@/src/features/scan/types';
 
 import { ok, type MockAnswer, type MockRequest, type MockRoutes } from './mockApi';
+import { binderFixture } from './fixtures';
 import { signedInRoutes } from './routes';
 import { FOUND_YEW, FOX, notFound, PICK_PRINTING_FOX, PICK_RARITY_LANTERN } from './scanFixtures';
 
@@ -196,6 +197,8 @@ export function matchAnswer(request: MockRequest): MockAnswer {
 export function scanRoutes(overrides: MockRoutes = {}): MockRoutes {
   return signedInRoutes({
     'GET /api/v1/public/feature-flags': ok({ cardTextScan: true, publicChat: true }),
+    // The scan reads Yu-Gi-Oh! cards: its binder picker lists Yu-Gi-Oh! binders (stage G).
+    'GET /api/v1/binders': ok([binderFixture({ game: 'yugioh', gameId: 'g2' })]),
     'POST /api/v1/cards/scan-match': matchAnswer,
     ...overrides,
   });

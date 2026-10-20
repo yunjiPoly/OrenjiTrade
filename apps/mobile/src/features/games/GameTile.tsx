@@ -48,7 +48,11 @@ export function GameTile({ slug, name, size = 22, style, testID }: GameTileProps
         allowFontScaling={false}
         style={[
           styles.letter,
-          { color: tile.foreground, fontSize: shape.font, lineHeight: Math.round(shape.font * 1.2) },
+          {
+            color: tile.foreground,
+            fontSize: shape.font,
+            lineHeight: Math.round(shape.font * 1.2),
+          },
         ]}
       >
         {tile.letter}

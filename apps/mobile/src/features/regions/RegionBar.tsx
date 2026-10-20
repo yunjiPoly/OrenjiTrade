@@ -6,7 +6,14 @@ import { useRegionOptions, useRegions } from '@/src/api/hooks/regions';
 import { RadioSheet } from '@/src/components/ui/RadioSheet';
 import { Text } from '@/src/components/ui/Text';
 import { regionName } from '@/src/lib/place';
-import { PINNED_MAX_FONT_SCALE, fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { useBrowsingRegion } from './browsingRegion';
 import { REGION_COPY, regionLine } from './regionCopy';
@@ -146,9 +153,9 @@ export function RegionSheet({
         detail: regionLine(
           option.code,
           option.code === home,
-          regions?.find((entry) => entry.code === option.code)?.countries?.map(
-            (country) => country.name ?? ''
-          )
+          regions
+            ?.find((entry) => entry.code === option.code)
+            ?.countries?.map((country) => country.name ?? '')
         ),
         leading: (
           <View

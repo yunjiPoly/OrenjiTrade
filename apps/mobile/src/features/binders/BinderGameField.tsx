@@ -76,7 +76,12 @@ export function BinderGameGrid({
             >
               <GameTile slug={option.slug} name={option.name} size={34} />
               <View style={styles.choiceTexts}>
-                <Text style={[styles.choiceName, { color: on ? palette.onPrimaryContainer : palette.ink }]}>
+                <Text
+                  style={[
+                    styles.choiceName,
+                    { color: on ? palette.onPrimaryContainer : palette.ink },
+                  ]}
+                >
                   {option.name}
                 </Text>
                 {option.browsable ? null : (
@@ -154,7 +159,10 @@ export function BinderGameField({
           accessible
           accessibilityRole="text"
           accessibilityLabel={EDIT_BINDER_COPY.gameLocked(name)}
-          style={[styles.box, { borderColor: palette.border, backgroundColor: palette.surfaceVariant }]}
+          style={[
+            styles.box,
+            { borderColor: palette.border, backgroundColor: palette.surfaceVariant },
+          ]}
           testID="binder-game-locked"
         >
           {box}

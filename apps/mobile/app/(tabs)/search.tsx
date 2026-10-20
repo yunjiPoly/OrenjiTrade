@@ -183,9 +183,7 @@ export default function SearchScreen() {
   } else if (segment === 'wishlist') {
     body = <WishlistSegment />;
   } else if (typing) {
-    body = (
-      <CardTyping initialText={typing.text} onCancel={() => setTyping(null)} />
-    );
+    body = <CardTyping initialText={typing.text} onCancel={() => setTyping(null)} />;
   } else {
     body = (
       <SearchMap

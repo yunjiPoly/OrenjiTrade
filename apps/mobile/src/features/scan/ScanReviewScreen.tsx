@@ -138,8 +138,7 @@ export function ScanReviewScreen() {
     : null;
   // A binder deleted meanwhile (or turned to another game) is no binder any more, once the list
   // says so.
-  const binderToSend =
-    options.binderId && (chosenBinder || !scanBinders) ? options.binderId : null;
+  const binderToSend = options.binderId && (chosenBinder || !scanBinders) ? options.binderId : null;
   const shownVisibility = pending ? (pending.body.visibility ?? 'PRIVATE') : options.visibility;
   // An add sent without an answer says so whenever the review shows it (opened again from the
   // camera too), not only right after the tap; while it is still on its way, the button says

@@ -207,15 +207,19 @@ function BinderEditor({
   const stacked = useStackedRows();
   const gameOptions = browsing.options;
 
+  const linkedGame =
+    startGame && gameOptions.some((option) => option.slug === startGame && option.browsable)
+      ? startGame
+      : null;
   const [form, setForm] = useState<BinderFormValue>(() =>
-    binderFormOf(
-      binder,
-      Date.now(),
-      startGame && gameOptions.some((option) => option.slug === startGame && option.browsable)
-        ? startGame
-        : browsing.game
-    )
+    binderFormOf(binder, Date.now(), linkedGame ?? browsing.game)
   );
+  // New binder starts on the browsed game, which may settle after the screen opened (the games
+  // and the profile answer): the form follows it until the collector picks a game.
+  const [gameTouched, setGameTouched] = useState(false);
+  if (!binder && !gameTouched && !linkedGame && browsing.ready && form.game !== browsing.game) {
+    setForm((current) => ({ ...current, game: browsing.game }));
+  }
   // The binder as saved when the form last caught up with it. When it changes elsewhere (another
   // Edit binder saved it), the fields not touched here follow it (render-time, no effect), so this
   // screen never shows old values with "Save changes" on, nor writes them back.
@@ -652,7 +656,10 @@ function BinderEditor({
           <BinderGameGrid
             options={gameOptions}
             value={form.game}
-            onChange={(next) => change({ game: next })}
+            onChange={(next) => {
+              setGameTouched(true);
+              change({ game: next });
+            }}
             locked={gameLocked}
             disabled={busy}
           />

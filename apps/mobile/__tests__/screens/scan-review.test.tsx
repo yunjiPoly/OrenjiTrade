@@ -489,7 +489,7 @@ describe('adding', () => {
 
   it('sends no binder once the binder picked is gone from the list', async () => {
     seedMockupScan();
-    let binders = [binderFixture()];
+    let binders = [binderFixture({ game: 'yugioh' })];
     const { api, queryClient } = render({ 'GET /api/v1/binders': () => ok(binders) });
     await screen.findByRole('header', { name: 'Review 6 cards' });
     fireEvent.press(screen.getByLabelText('Binder: no binder'));
@@ -514,8 +514,13 @@ describe('adding', () => {
     seedMockupScan();
     const { api } = render({
       'GET /api/v1/binders': ok([
-        binderFixture(),
-        binderFixture({ id: 'binder-open', name: 'Open binder', visibility: 'PUBLIC' }),
+        binderFixture({ game: 'yugioh' }),
+        binderFixture({
+          id: 'binder-open',
+          name: 'Open binder',
+          visibility: 'PUBLIC',
+          game: 'yugioh',
+        }),
       ]),
     });
     await screen.findByRole('header', { name: 'Review 6 cards' });

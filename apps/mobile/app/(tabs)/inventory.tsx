@@ -230,7 +230,8 @@ function CardsView() {
     list.filter((item) => selected.has(item.id)).map((item) => item.card.game)
   );
   const oneGame =
-    selectedGames.size === 1 && list.filter((item) => selected.has(item.id)).length === selected.size
+    selectedGames.size === 1 &&
+    list.filter((item) => selected.has(item.id)).length === selected.size
       ? [...selectedGames][0]
       : null;
   const bulkBinders = bindersForGame(binders.data ?? [], oneGame);

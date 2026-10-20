@@ -113,7 +113,13 @@ export const meKeys = {
   wishPriceTerms: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'price-terms'] as const,
   /** Which wishes are "Available" in a region (stage R5, `GET /wishlist/availability`). */
   wishlistAvailability: (uid: Uid, region: string, game?: string) =>
-    [...ME_ROOT, uidKey(uid), 'wishlist', 'availability', game ? { region, game } : { region }] as const,
+    [
+      ...ME_ROOT,
+      uidKey(uid),
+      'wishlist',
+      'availability',
+      game ? { region, game } : { region },
+    ] as const,
   /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
   notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
   notificationUnread: (uid: Uid) =>

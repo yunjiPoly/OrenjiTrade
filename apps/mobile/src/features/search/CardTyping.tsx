@@ -160,9 +160,7 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
 
   return (
     <View style={styles.fill} testID="search-typing">
-      <View style={styles.head}>
-        {field}
-      </View>
+      <View style={styles.head}>{field}</View>
       <FlatList
         ref={list}
         testID="search-results"

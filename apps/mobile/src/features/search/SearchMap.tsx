@@ -81,6 +81,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
   const stacked = fontScale > OVERLAY_MAX_FONT_SCALE;
   const platformRegion = regionOf(regions.data, region);
   const name = platformRegion?.name ?? regionName(region);
+  const mapLabel = MAP_COPY.mapLabel(gameName, name);
   const byCode = useMemo(() => countsByCode(counts.data?.subdivisions), [counts.data]);
   const entries = useMemo(() => {
     const map = new Map<string, SubdivisionBinderCount>();
@@ -203,7 +204,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
       <RegionMap
         region={region}
         regionLabel={name}
-        accessibilityLabel={MAP_COPY.mapLabel(gameName, name)}
+        accessibilityLabel={mapLabel}
         counts={byCode}
         selected={selected}
         onPick={pick}
