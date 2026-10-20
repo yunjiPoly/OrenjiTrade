@@ -470,6 +470,56 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * The profile pages of stage R6 (mockup screens 19 to 21) as the phone reads them, signed in as
+     * every seed collector: the profile, then each section (the first public cards, the binders,
+     * the wishes when shown, the rating summary and the 2 latest references), and the caller's own
+     * copies of a card for "I have it". The city only on its owner's profile while shown; never a
+     * coordinate, a distance or a private note.
+     */
+    @Test
+    void profilePagesOfStageR6CarryThePlaceOnly(CapturedOutput output) {
+        UUID cardId =
+                (UUID)
+                        testUsers
+                                .query(
+                                        "SELECT card_id FROM card_printing WHERE external_ref ->>"
+                                                + " 'id' = 'ygo-p001a'")
+                                .get(0)
+                                .get("card_id");
+        for (String reader : DISCOVERABLE) {
+            String caller =
+                    reader.equals("premium_user")
+                            ? "seed-premium-user:premium@orenjitrade.test"
+                            : "seed-" + reader + ":" + reader + "@orenjitrade.test";
+            for (String handle : DISCOVERABLE) {
+                String base = "/api/v1/collectors/" + handle;
+                JsonNode profile = fetch(base, caller);
+                assertThat(profile.path("location").path("subdivisionName").asString())
+                        .as("province of %s for %s", handle, reader)
+                        .isEqualTo(PLACES.get(handle).split(", ")[0]);
+                fetch(base + "/inventory?size=10", caller);
+                fetch(base + "/binders", caller);
+                fetch(base + "/ratings?limit=1", caller);
+                fetch(base + "/references?limit=2", caller);
+                JsonNode wishes = json(call(HttpMethod.GET, base + "/wishlist", caller, null));
+                if (wishes.isArray()) {
+                    fetched.add(new Fetched(base + "/wishlist", caller, wishes));
+                }
+            }
+            JsonNode mine = fetch("/api/v1/inventory/items?size=50&cardId=" + cardId, caller);
+            for (JsonNode item : mine.path("items")) {
+                assertThat(item.path("card").path("id").asString()).isEqualTo(cardId.toString());
+            }
+        }
+        for (Fetched document : fetched) {
+            if (!document.path().startsWith("/api/v1/inventory/items")) {
+                assertNoPrivateNotes(document.body(), document.path());
+            }
+        }
+        assertContract(output);
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {

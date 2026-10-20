@@ -300,6 +300,8 @@ public final class InventoryChanges {
      * @param descending sort direction
      * @param page zero-based page
      * @param size page size
+     * @param cardId only the printings of this card (stage R6: "I have it" looks for the caller's
+     *     copies of a wished card)
      */
     public record OwnerQuery(
             @Nullable String query,
@@ -314,7 +316,41 @@ public final class InventoryChanges {
             SortKey sort,
             boolean descending,
             int page,
-            int size) {}
+            int size,
+            @Nullable UUID cardId) {
+
+        /** Every card (no card filter). */
+        public OwnerQuery(
+                @Nullable String query,
+                @Nullable String game,
+                @Nullable UUID binderId,
+                boolean unfiled,
+                @Nullable ListingVisibility visibility,
+                boolean markedPublic,
+                @Nullable Availability availability,
+                @Nullable String condition,
+                @Nullable FreshnessState freshness,
+                SortKey sort,
+                boolean descending,
+                int page,
+                int size) {
+            this(
+                    query,
+                    game,
+                    binderId,
+                    unfiled,
+                    visibility,
+                    markedPublic,
+                    availability,
+                    condition,
+                    freshness,
+                    sort,
+                    descending,
+                    page,
+                    size,
+                    null);
+        }
+    }
 
     /**
      * Filters of public item lists.

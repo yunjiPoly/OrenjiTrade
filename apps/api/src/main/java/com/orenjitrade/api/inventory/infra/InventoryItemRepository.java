@@ -250,6 +250,10 @@ public class InventoryItemRepository {
             where.append(" AND i.binder_id = :binderId");
             params.put("binderId", query.binderId());
         }
+        if (query.cardId() != null) {
+            where.append(" AND p.card_id = :cardId");
+            params.put("cardId", query.cardId());
+        }
         if (query.unfiled()) {
             where.append(" AND i.binder_id IS NULL");
         }

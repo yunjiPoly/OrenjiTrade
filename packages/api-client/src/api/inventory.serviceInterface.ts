@@ -63,6 +63,7 @@ export interface ListInventoryItemsRequestParams {
     direction?: 'asc' | 'desc';
     page?: number;
     size?: number;
+    cardId?: string;
 }
 
 export interface RestoreInventoryItemRequestParams {
@@ -141,7 +142,7 @@ export interface InventoryServiceInterface {
 
     /**
      * The caller\&#39;s items (filters, sort, pages)
-     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder. &#x60;sort&#x60;: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); &#x60;direction&#x60; overrides the order.
+     * &#x60;query&#x60; matches card names (accent-insensitive, full text), printing codes (prefix) and set codes/names. &#x60;binderId&#x60; limits to one binder, &#x60;unfiled&#x3D;true&#x60; to items without a binder, &#x60;cardId&#x60; to the printings of one card. &#x60;sort&#x60;: updated (default, newest first), created (newest first), name (A-Z) or price (highest first; prices that are not a plain amount come after every amount, then the cards without a price); &#x60;direction&#x60; overrides the order.
      * @endpoint get /api/v1/inventory/items
 * @param requestParameters
      */
