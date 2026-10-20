@@ -388,6 +388,22 @@ describe('a row', () => {
     expect(announce).toHaveBeenLastCalledWith(`${YEW.name}, found`);
   });
 
+  it("shows the photo of a card given up blurred, like a Couldn't-read row", async () => {
+    const [given = '', unread = ''] = seedScan([
+      { photo: 'yew-1', givenUp: READ_YEW },
+      { photo: 'blur', unread: READ_BLUR },
+    ]);
+    render();
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    // The photo is decorative (hidden from the screen reader): its image carries the blur.
+    const blurOf = (tileId: string) =>
+      screen
+        .getByTestId(`review-row-${tileId}-photo`, { includeHiddenElements: true })
+        .findAll((node) => node.props.blurRadius !== undefined)[0]?.props.blurRadius;
+    expect(blurOf(given)).toBe(2);
+    expect(blurOf(unread)).toBe(2);
+  });
+
   it('tries the waiting cards again when the app comes back to the front', async () => {
     jest.useFakeTimers();
     // AppState is jest's stand-in: the screens' listeners are in its calls.
@@ -958,6 +974,78 @@ describe('adding', () => {
     });
   });
 
+  it('adds with a tap the cards it counted as they were, beside one changed meanwhile: only the unchanged one goes, the changed one stays', async () => {
+    countUuids();
+    const [yew = '', lyra = '', lantern = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lyra', waiting: READ_LYRA },
+      { photo: 'lantern', match: PICK_RARITY_LANTERN },
+    ]);
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const { api } = render({
+      'POST /api/v1/cards/scan-match': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        ok(FOUND_LYRA),
+      ],
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-lantern'] }),
+        ok({ ...ADDED, itemsCreated: 1, copiesAdded: 3, createdItemIds: ['item-lyra'] }),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 3 cards' });
+    await waitFor(() => expect(api.callsTo('POST /api/v1/cards/scan-match')).toHaveLength(1));
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    // Lyra matched and Lantern's rarity picked: the tap counts the card sent before and both.
+    await act(async () => {
+      await scanRunner.retryWaiting();
+    });
+    fireEvent.press(screen.getByTestId(`review-row-${lantern}-pick-rarity`));
+    await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Ultra Rare' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+    expect(addButton()).toHaveTextContent(/Add 3 cards to inventory/);
+    fireEvent.press(addButton());
+    await waitFor(() => expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2));
+    // While the add sent before is on its way, Lyra gets more copies (on the camera's sheet).
+    act(() => {
+      useScanStore.getState().apply((session) => setCopies(session, lyra, 3));
+    });
+    await act(async () => {
+      answer(ok({ ...ADDED, itemsCreated: 1, copiesAdded: 1, createdItemIds: ['item-yew'] }));
+    });
+    expect(await screen.findByText('Saved · 2 cards')).toBeOnTheScreen();
+    // Lantern, unchanged, went under a new key, alone: its add holds only Lantern.
+    const calls = api.callsTo('POST /api/v1/inventory/items/batch');
+    expect(calls).toHaveLength(3);
+    expect(calls[2]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: 'p-zra1-075-u', quantity: 1 }],
+    });
+    // Lyra changed after the tap: it is still in the scan, as it is now, not sent and not
+    // taken out with Lantern's answer.
+    expect(screen.queryByTestId(`review-row-${yew}`)).toBeNull();
+    expect(screen.queryByTestId(`review-row-${lantern}`)).toBeNull();
+    expect(screen.getByTestId(`review-row-${lyra}-copies`)).toHaveTextContent('3');
+    expect(screen.getByTestId(`review-row-${lyra}-more`)).toBeEnabled();
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(addButton()).toHaveTextContent(/Add 3 cards to inventory/);
+
+    fireEvent.press(addButton());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/inventory'));
+    expect(api.callsTo('POST /api/v1/inventory/items/batch')[3]?.body).toEqual({
+      visibility: 'PRIVATE',
+      lines: [{ printingId: FOUND_LYRA.printing?.id, quantity: 3 }],
+    });
+  });
+
   it('opened again while an add is on its way, says "Adding…" until it is answered', async () => {
     seedMockupScan();
     let fail: () => void = () => undefined;
@@ -1027,6 +1115,48 @@ describe('adding', () => {
       visibility: 'PRIVATE',
       lines: [{ printingId: FOUND_YEW.printing?.id, quantity: 2 }],
     });
+  });
+
+  it('sent again and refused for the limit with another card counted at the tap: the tap stops there, nothing more is sent', async () => {
+    countUuids();
+    const [yew = '', lantern = ''] = seedScan([
+      { photo: 'yew-1', match: FOUND_YEW },
+      { photo: 'lantern', match: PICK_RARITY_LANTERN },
+    ]);
+    const { api } = render({
+      'POST /api/v1/inventory/items/batch': [
+        () => {
+          throw new TypeError('Network request failed');
+        },
+        problem(429, 'LIMIT_REACHED', 'You have reached the limit for this action', {
+          limitKey: 'inventory.items.max',
+          limit: 500,
+          used: 499,
+          requested: 2,
+        }),
+        ok(ADDED),
+      ],
+    });
+    await screen.findByRole('header', { name: 'Review 2 cards' });
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-add-error');
+    // Lantern's rarity picked: the tap counts the card sent before and Lantern.
+    fireEvent.press(screen.getByTestId(`review-row-${lantern}-pick-rarity`));
+    await screen.findByTestId('scan-rarity-sheet');
+    fireEvent.press(screen.getByRole('radio', { name: 'Ultra Rare' }));
+    await waitFor(() => expect(screen.queryByTestId('scan-rarity-sheet')).toBeNull());
+    expect(addButton()).toHaveTextContent(/Add 2 cards to inventory/);
+    fireEvent.press(addButton());
+    await screen.findByTestId('review-limit');
+    await waitFor(() => expect(addButton()).toBeEnabled());
+    // The add sent before was refused: Lantern does not go out after it.
+    expect(api.callsTo('POST /api/v1/inventory/items/batch')).toHaveLength(2);
+    // Nothing was added: both cards stay, and can change.
+    expect(screen.getByTestId(`review-row-${yew}-more`)).toBeEnabled();
+    expect(screen.getByTestId(`review-row-${lantern}-more`)).toBeEnabled();
+    expect(screen.queryByText('Not confirmed yet')).toBeNull();
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(addButton()).toHaveTextContent(/Add 2 cards to inventory/);
   });
 
   it('sent again and refused before the key (adding off): still cannot tell, what was sent stays', async () => {

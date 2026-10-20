@@ -2835,6 +2835,12 @@ for both apps; under the simulator lock on the owner's iPhone 18 Pro, the Maestr
 `npm run test:mobile:e2e -- --retries=0` (58 passed). All green. The Android run could not be
 verified (no Android SDK on this Mac).
 
+**After the last verification** (2026-10-20): three review tests for rules that had none (a tap's
+new add leaves out a card it counted that changed during the add sent before, and keeps it in the
+scan; no new add after the add sent before is refused; the photo of a "Couldn't match" row is
+blurred), tests only; `npm run test:mobile` (113 suites, 1,420 tests, and the guard's 28), the
+mobile type, lint and format checks green.
+
 ## Phase 12 — Data Platform
 
 _Final verification (2026-09-30): the local half works (log transport by default, every event checked for PII/coordinates); the cloud half (Pub/Sub topic, BigQuery) is deferred with the rest of the cloud deployment (docs/deployment/DEFERRED.md)._
