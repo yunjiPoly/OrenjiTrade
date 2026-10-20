@@ -27,7 +27,7 @@ import { ProfileTopBar } from '@/src/features/collectors/ProfileTopBar';
 import { useShareProfile } from '@/src/features/collectors/useShareProfile';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { motion, spacing, textStyle, useTheme } from '@/src/theme';
 
 /**
  * Another collector's profile (owner spec 2026-10-14, section 9; mockup screens 19 and 20), and
@@ -62,6 +62,17 @@ export default function CollectorScreen() {
   const actionsBottom = useRef<number>(Number.POSITIVE_INFINITY);
   const [compact, setCompact] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The "⋯" sheet's rows scroll at the largest text sizes (Block went below the fold): the
+  // scroll bar flashes once they do not all fit, so the next row is not missed.
+  const menuScroll = useRef<ScrollView>(null);
+  const menuSize = useRef({ view: 0, content: 0 });
+  const flashIfMenuScrolls = () => {
+    const { view, content } = menuSize.current;
+    if (view > 0 && content > view + 1) {
+      // Once the sheet has slid in, where the flash can be seen.
+      setTimeout(() => menuScroll.current?.flashScrollIndicators(), motion.base);
+    }
+  };
   const [blocking, setBlocking] = useState<BlockTarget | null>(null);
 
   const data = profile.data ?? null;
@@ -199,7 +210,20 @@ export default function CollectorScreen() {
           onClose={() => setMenuOpen(false)}
           testID="collector-menu-sheet"
         >
-          <ScrollView style={styles.menuScroll} bounces={false}>
+          <ScrollView
+            ref={menuScroll}
+            style={styles.menuScroll}
+            bounces={false}
+            onLayout={(event) => {
+              menuSize.current.view = event.nativeEvent.layout.height;
+              flashIfMenuScrolls();
+            }}
+            onContentSizeChange={(_width, height) => {
+              menuSize.current.content = height;
+              flashIfMenuScrolls();
+            }}
+            testID="collector-menu-scroll"
+          >
             <ListRow
               icon="export-variant"
               label={PROFILE_COPY.shareProfile}

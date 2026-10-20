@@ -549,6 +549,26 @@ describe('The "⋯" sheet: Share profile, Report, Block', () => {
     share.mockRestore();
   });
 
+  it('flashes the scroll bar when its rows do not all fit (the largest text size)', async () => {
+    const { ScrollView } = jest.requireActual<typeof import('react-native')>('react-native');
+    const flash = ScrollView.prototype.flashScrollIndicators as jest.Mock;
+    mockApi(routes());
+    render();
+    fireEvent.press(await screen.findByTestId('collector-menu'));
+    const list = screen.getByTestId('collector-menu-scroll');
+    flash.mockClear();
+    // Everything fits: nothing to show.
+    fireEvent(list, 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 400 } } });
+    fireEvent(list, 'contentSizeChange', 390, 300);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(flash).not.toHaveBeenCalled();
+    // Block is below the fold: the scroll bar shows that the rows go on.
+    fireEvent(list, 'contentSizeChange', 390, 900);
+    await waitFor(() => expect(flash).toHaveBeenCalled());
+  });
+
   it('reports the collector', async () => {
     mockApi(routes());
     render();
