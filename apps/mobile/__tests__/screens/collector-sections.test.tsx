@@ -287,6 +287,54 @@ describe('"See all" of another collector\'s profile (stage R6)', () => {
     }
   );
 
+  // Review of fix round 2 (R2-1): a refetch that answers 404 hides the rows the cache still holds.
+  it.each([
+    [
+      'cards',
+      CollectorCardsScreen,
+      'GET /api/v1/collectors/{handle}/inventory',
+      ok({ ...inventoryPage([]), items: [publicItemFixture()], totalItems: 1, totalPages: 1 }),
+      'collector-cards-page',
+    ],
+    [
+      'binders',
+      CollectorBindersScreen,
+      'GET /api/v1/collectors/{handle}/binders',
+      ok([publicBinderSummaryFixture()]),
+      'collector-binders-page',
+    ],
+  ] as const)(
+    '%s: a 404 after a block wins over the cached rows',
+    async (_name, Screen, route, first, page) => {
+      const api = mockApi(routes({ [route]: first }));
+      const { queryClient } = renderWithProviders(<Screen />, { port: port() });
+      expect(await screen.findByTestId(page)).toBeTruthy();
+      expect(screen.queryByTestId(`${page}-not-found`)).toBeNull();
+      // They block you (or hide their profile): the list now answers 404, the cache keeps the rows.
+      api.use({ [route]: problem(404, 'NOT_FOUND', 'hidden') });
+      await act(async () => {
+        await queryClient.invalidateQueries();
+      });
+      expect(await screen.findByTestId(`${page}-not-found`)).toHaveTextContent(
+        /This collector is not available/
+      );
+    }
+  );
+
+  // R2-2: a blocked pair reads "not available" on the wishes page too, not "No public wishes.".
+  it('wishes: a blocked pair is "not available", even with wishes cached', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/collectors/{handle}': ok({ ...OTHER, isBlocked: true, canMessage: false }),
+        'GET /api/v1/collectors/{handle}/wishlist': ok([wishlistEntryFixture()]),
+      })
+    );
+    renderWithProviders(<CollectorWishesScreen />, { port: port() });
+    expect(await screen.findByTestId('collector-wishes-page-not-found')).toHaveTextContent(
+      /This collector is not available/
+    );
+  });
+
   it('retries a list that failed', async () => {
     const api = mockApi(
       routes({

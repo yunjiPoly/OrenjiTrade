@@ -7076,6 +7076,14 @@ with its appearance (light) and text size (Large) left as they were):
 
 **Could not be verified in this round:** the Android run (no Android SDK on this Mac).
 
+
+**Lead fix after the two rounds (2026-10-20).** The second verification left one major and two
+minor findings. Fixed: R2-1 (major), a collector who blocks you, is blocked or hides their
+profile kept their cards and binders on the "See all" pages from the app's cache although the API
+answered 404: a 404 now wins over cached rows; R2-2 (minor), a blocked pair read "No public
+wishes." on the wishes page: it is "not available" now. Three jest cases fail with the old code.
+Still open: R2-3 (minor), at the largest accessibility text size the "not available" and "You
+blocked {handle}" states run off a page that does not scroll.
 ## NEXT TASK
 
 > **Owner order of 2026-10-20: stop all work on the French version, and the app supports English

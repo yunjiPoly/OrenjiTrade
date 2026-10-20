@@ -154,7 +154,9 @@ function CardsList({ handle }: { handle: string }) {
   const router = useRouter();
   const pages = useCollectorPublicItemPages(handle);
   const items = pages.data?.pages.flatMap((page) => page.items ?? []) ?? [];
-  if (!pages.data) {
+  // A 404 wins over cached rows: a collector who blocked you (or was blocked, or hid their
+  // profile) since the last visit stays hidden although the cache still holds their cards.
+  if (!pages.data || pages.error?.status === 404) {
     return (
       <View style={styles.padded}>
         <States
@@ -241,7 +243,8 @@ function BinderListRow({ binder, onPress }: { binder: PublicBinderSummary; onPre
 function BindersList({ handle }: { handle: string }) {
   const router = useRouter();
   const binders = useCollectorBinders(handle);
-  if (!binders.data) {
+  // As for the cards: a 404 wins over the cached binders.
+  if (!binders.data || binders.error?.status === 404) {
     return (
       <View style={styles.padded}>
         <States
@@ -277,10 +280,14 @@ function WishesList({ handle }: { handle: string }) {
   const wishes = useCollectorWishlist(handle);
   const { haveIt, busyKey } = useIHaveIt();
   const data = profile.data;
-  if (!wishes.data || !data) {
+  // A hidden wishlist answers 404 like an empty one, so the profile decides: a blocked pair (either
+  // way) or a profile that answers 404 is "not available", even over cached wishes.
+  const blocked = !!data && !own && data.isBlocked;
+  if (!wishes.data || !data || blocked || profile.error?.status === 404) {
     return (
       <View style={styles.padded}>
         <States
+          notAvailable={blocked}
           error={profile.error ?? wishes.error}
           onRetry={() => {
             void profile.refetch();
