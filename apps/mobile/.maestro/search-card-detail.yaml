@@ -41,8 +41,9 @@ tags:
 - assertVisible: 'Emberfang Fox'
 
 # One game at a time (stage G): the field names the browsed game (the collector's Pokémon), and
-# the game pill chooses it. Yu-Gi-Oh! has no Emberfang: its empty state names the game; Pokémon
-# brings it back.
+# the game pill chooses it. On Yu-Gi-Oh! the same text finds only Yu-Gi-Oh! cards (the seed's
+# Ember Wyrmling, a near match), no Emberfang; Pokémon brings it back. (Yu-Gi-Oh!'s empty state is
+# native flow G's.)
 - assertVisible:
     id: 'search-game'
     text: 'Game: Pokémon\. Change game'
@@ -55,7 +56,7 @@ tags:
 - tapOn:
     id: 'search-game-sheet-option-yugioh'
 - extendedWaitUntil:
-    visible: 'No Yu-Gi-Oh! card matches “emberfang”'
+    visible: 'Ember Wyrmling'
     timeout: 30000
 - assertNotVisible: 'Emberfang Fox VMAX'
 - tapOn:

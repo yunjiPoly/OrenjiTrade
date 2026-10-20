@@ -245,9 +245,16 @@ tags:
     file: subflows/keyboard-down.yaml
 - tapOn:
     id: 'edit-binder-save'
+# At the largest size the game's section title (stage G) and the deck core fill the screen: the
+# plain binder is below them.
 - extendedWaitUntil:
-    visible: 'Maestro plain, .*'
+    visible:
+      id: 'binders-section-yugioh'
     timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro plain, .*'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
