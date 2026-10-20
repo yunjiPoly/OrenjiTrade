@@ -65,8 +65,8 @@ import { useScanStore, type ScanStore } from './scanStore';
  *   empties the tray; what the reader or the API answers later for that scan is dropped, and so is
  *   a photo the camera hands over after its scan ended (its file is deleted).
  * - The scan's photo files are written down while it runs (`scanPhotoJournal.ts`): a scan lost
- *   when the app was closed has its files deleted in a later run, as soon as Add cards or a scan
- *   screen opens.
+ *   when the app was closed has its files deleted at the next start of the app
+ *   (`app/_layout.tsx`).
  * - Nothing of a photo leaves the phone: only the text read goes to the API.
  */
 
@@ -103,12 +103,12 @@ export const RETRY_DELAYS_MS: readonly number[] = [5_000, 10_000, 20_000, 40_000
 
 /**
  * A tile whose match fails with a server error, again, after the API answered another photo of the
- * scan since its last try, this many times, is given up ("Couldn't read").
+ * scan since its last try, this many times, is given up ("Couldn't match").
  */
 export const SERVER_FAILURES_WHILE_UP = 2;
 
 /**
- * A tile whose match failed with a server error this many times is given up ("Couldn't read"),
+ * A tile whose match failed with a server error this many times is given up ("Couldn't match"),
  * whatever the other photos do: on the timer alone, about 75 s after its first failure (0, 5, 15,
  * 35 and 75 s), long enough for a restart of the API.
  */

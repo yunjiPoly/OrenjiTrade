@@ -25,7 +25,7 @@ const SMALL = 36;
 const SLOP = { top: 4, bottom: 4, left: 4, right: 4 };
 /**
  * A row's words follow the text size up to twice their size, like a screen's title: past it, a
- * long word of a card's name ("Majespecter") no longer fits its column and would be broken.
+ * long word of a card's name ("Thundermoth") no longer fits its column and would be broken.
  */
 const ROW_TEXT_SCALE = TITLE_MAX_FONT_SCALE;
 
