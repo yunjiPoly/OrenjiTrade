@@ -137,7 +137,7 @@ export default function CollectorScreen() {
           error={profile.error}
           title={PROFILE_COPY.loadError}
           onRetry={() => void profile.refetch()}
-          retryLabel={profile.isFetching ? 'Retrying…' : 'Try again'}
+          retryLabel={profile.isFetching ? PROFILE_COPY.retrying : PROFILE_COPY.retry}
         />
       </View>
     );
@@ -290,14 +290,18 @@ function MembersOnly() {
       style={[styles.centered, styles.padded]}
     >
       <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
-        Collector profiles are for members
+        {PROFILE_COPY.membersTitle}
       </Text>
       <Text style={[textStyle('md'), styles.title, { color: palette.textMuted }]}>
-        Sign in or create a free account to see who trades in your region.
+        {PROFILE_COPY.membersBody}
       </Text>
-      <Button label="Sign in" onPress={() => go('/sign-in')} testID="collector-sign-in" />
       <Button
-        label="Create account"
+        label={PROFILE_COPY.signIn}
+        onPress={() => go('/sign-in')}
+        testID="collector-sign-in"
+      />
+      <Button
+        label={PROFILE_COPY.createAccount}
         variant="secondary"
         onPress={() => go('/sign-up')}
         testID="collector-sign-up"

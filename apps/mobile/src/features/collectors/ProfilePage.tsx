@@ -139,7 +139,7 @@ export function ProfilePage({
           testID="collector-message-reason"
           style={[styles.blockedText, { color: palette.textMuted }]}
         >
-          {`${profile.handle} does not accept messages from you.`}
+          {PROFILE_COPY.noMessages(profile.handle)}
         </Text>
       ) : null}
     </View>

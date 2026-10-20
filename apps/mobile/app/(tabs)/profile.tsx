@@ -79,7 +79,7 @@ export default function ProfileScreen() {
         <ErrorState
           testID="profile-error"
           error={profile.error}
-          title="We could not load your profile"
+          title={PROFILE_COPY.ownLoadError}
           onRetry={() => void profile.refetch()}
         />
       </View>
@@ -88,7 +88,7 @@ export default function ProfileScreen() {
     content = (
       <View
         testID="profile-loading"
-        accessibilityLabel="Loading your profile"
+        accessibilityLabel={PROFILE_COPY.ownLoading}
         aria-busy
         style={styles.padded}
       >

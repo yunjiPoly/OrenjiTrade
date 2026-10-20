@@ -67,9 +67,7 @@ export function useIHaveIt() {
         });
         router.push({ pathname: '/messages/[id]', params: { id: conversation.id } });
       } catch (error) {
-        const friendly = isApiError(error)
-          ? friendlyError(error)
-          : { title: 'Something went wrong', message: 'Please try again.' };
+        const friendly = isApiError(error) ? friendlyError(error) : PROFILE_COPY.somethingWrong;
         snackbar.show(`${friendly.title}. ${friendly.message}`, { tone: 'error' });
       } finally {
         setBusyKey(null);

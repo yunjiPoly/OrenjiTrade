@@ -20,6 +20,7 @@ export const PROFILE_COPY = {
   message: (handle: string) => `Message ${handle}`,
   messageShort: 'Message',
   messageHint: (handle: string) => `Opens your chat with ${handle}`,
+  noMessages: (handle: string) => `${handle} does not accept messages from you.`,
   opening: 'Opening…',
   // The header and the line under it.
   rating: (average: string) => `Rated ${average} out of 5. Go to ratings and references`,
@@ -91,6 +92,20 @@ export const PROFILE_COPY = {
   notAvailableBody: 'The profile does not exist, is private, or is no longer active.',
   notAvailableAction: 'Back to Search',
   loadError: 'We could not load this profile',
+  retrying: 'Retrying…',
+  // Your Profile tab.
+  ownLoadError: 'We could not load your profile',
+  ownLoading: 'Loading your profile',
+  // Members only (signed out, or a session that ended).
+  membersTitle: 'Collector profiles are for members',
+  membersBody: 'Sign in or create a free account to see who trades in your region.',
+  signIn: 'Sign in',
+  createAccount: 'Create account',
+  // Hints of rows and links.
+  editWishHint: 'Edits this wish',
+  openProfileHint: 'Opens their profile',
+  openCardHint: 'Opens Who has this card',
+  somethingWrong: { title: 'Something went wrong', message: 'Please try again.' },
 } as const;
 
 /** The "See all" pages of another collector's profile. */

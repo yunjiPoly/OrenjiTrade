@@ -115,7 +115,7 @@ function PublicCardRow({ item, onPress }: { item: PublicInventoryItem; onPress: 
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={[item.card.name, line, price, copies].filter(Boolean).join(', ')}
-      accessibilityHint="Opens Who has this card"
+      accessibilityHint={PROFILE_COPY.openCardHint}
       onPress={onPress}
       testID={`collector-all-card-${item.id}`}
       style={({ pressed }) => [

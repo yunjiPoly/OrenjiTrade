@@ -569,7 +569,7 @@ export function WishRow({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${entry.cardName}, ${entry.terms}`}
-        accessibilityHint="Edits this wish"
+        accessibilityHint={PROFILE_COPY.editWishHint}
         onPress={onEdit}
         testID={`profile-wish-${entry.key}`}
         style={({ pressed }) => [...frame, pressed && styles.pressed]}
@@ -693,7 +693,7 @@ export function RatingsSection({
               <View style={styles.refText}>
                 <Pressable
                   accessibilityRole="link"
-                  accessibilityHint="Opens their profile"
+                  accessibilityHint={PROFILE_COPY.openProfileHint}
                   onPress={() => onAuthor(reference.author.handle)}
                   style={({ pressed }) => pressed && styles.pressed}
                 >
