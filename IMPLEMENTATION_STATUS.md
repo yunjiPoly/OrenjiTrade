@@ -2700,7 +2700,7 @@ _Final verification (2026-09-30): `apps/ml` untouched since Phase 0, `mlScanning
 
 ## Card scan: "Scan with camera" for Yu-Gi-Oh! cards (owner spec 2026-10-15, ADR 0020)
 
-**[-] Built, reviewed and merged with `main` on its branch; its pull request next.** Branch `feature/card-scan`
+**[-] Built, reviewed, merged with `main` and checked on its branch; its pull request next.** Branch `feature/card-scan`
 (worktree `OrenjiTrade-card-scan`), built by a separate session beside the phone redesign, from the
 owner's spec [`docs/product/specs/2026-10-15-card-scan.md`](docs/product/specs/2026-10-15-card-scan.md)
 (verbatim) and mockup screens 26 to 30 (kept outside git). Decision record:
@@ -2821,6 +2821,19 @@ generated client (regenerated). Checked: R4 refuses no item write into a sold de
 `useMyBinders`, which leaves sold deck cores out (R3 leftover U10); the tags and the price are
 phone-only; the lock order holds (`InventoryLockOrderIT` with R4's sale cases); "Add {n} cards"
 lands on R5's Inventory tab with "Saved".
+
+**The check list** (the handoff's, 2026-10-20, on the merge `1d199ba5` and these documents; retries
+off): `spotlessCheck --rerun-tasks`; `exportOpenApi` and `generate:api` leave git clean;
+`npm run test:api` (179 classes, 1,154 tests, and the catalog suite's 12; none failed or skipped);
+`npm run test:mobile` (113 suites, 1,417 tests, and the E2E harness guard's 28); `npm run test:scripts`
+(135); `npx expo export` for iOS, Android and the web (with `EXPO_OFFLINE=1`; no development screen
+in any bundle); `npm run build -w apps/web-angular` (initial bundle 896.09 kB, no web file changed);
+`npm run test:web` (633); `npm run audit:gate` (the two allow-listed advisories, expiring
+2026-11-30); `npm run test:e2e -- --retries=0` (70 passed); the lint, format and type checks of CI
+for both apps; under the simulator lock on the owner's iPhone 18 Pro, the Maestro set in Expo Go
+(`npm run test:mobile:maestro -- --platform ios`, 33 flows passed, none failed, 53 minutes) and
+`npm run test:mobile:e2e -- --retries=0` (58 passed). All green. The Android run could not be
+verified (no Android SDK on this Mac).
 
 ## Phase 12 — Data Platform
 
@@ -7038,7 +7051,7 @@ failure `large-text.yaml` (the scrolled results above, fixed) which then **passe
 > to 17); ADR 0017, ADR 0018 and ADR 0019; R2's to R5's sections of this file;
 > `docs/api/contracts/r3-binders-deck-cores.md`, `r4-messages-sales.md` and `r5-search.md`.
 >
-> **Card scan** (separate session; section "Card scan", ADR 0020): built, reviewed and merged with `main` on `feature/card-scan`; next, its pull request (merge on green CI: CI, E2E, Docker build), then the owner's answers on the new wording listed there.
+> **Card scan** (separate session; section "Card scan", ADR 0020): built, reviewed, merged with `main` and checked on `feature/card-scan`; next, its pull request (merge on green CI: CI, E2E, Docker build), then the owner's answers on the new wording listed there.
 >
 > **Then, the owner's choice** (the delivery report, section (j)): resume the web (the import
 > screen, then S3 and S4 on the web); S3 and S4 on the phone (the redesign drops S3's "Who wants
