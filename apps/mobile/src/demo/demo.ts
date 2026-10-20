@@ -3,7 +3,9 @@
  * and no sign-in. Every API call is answered on the phone with the smallest valid answer of its
  * operation (`demoResponses.json`, generated from the OpenAPI document by
  * `scripts/demo-responses.mjs`), plus one collector in Quebec and one card. Writes answer like
- * the server would but keep nothing.
+ * the server would but keep nothing. The card scan is on: the phone reads the card's text, and the
+ * demo recognises its one card (Ash Blossom & Joyous Spring, LAVD-EN008); any other card reads as
+ * not matched.
  */
 import type { AuthPort, AuthUser } from '@/src/auth/authPort';
 
@@ -49,6 +51,7 @@ const card = {
 };
 
 const overrides: Record<string, unknown> = {
+  'GET /api/v1/public/feature-flags': { cardTextScan: true },
   'GET /api/v1/me': {
     ...(operations['GET /api/v1/me']?.body as object),
     handle: 'demo',
@@ -133,6 +136,73 @@ function json(status: number, body: unknown): Response {
   });
 }
 
+const scanPrinting = {
+  id: card.printing.id,
+  printingCode: 'LAVD-EN008',
+  setCode: 'LAVD',
+  setName: 'Legendary Duelists',
+  rarity: 'Ultra Rare',
+};
+
+function texts(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((entry) => String(entry)) : [];
+}
+
+/** POST /cards/scan-match: the demo's one card when its code or name was read, otherwise none. */
+function scanMatch(body: unknown): unknown {
+  const sent = (body ?? {}) as { codes?: unknown; names?: unknown };
+  const read = { codes: texts(sent.codes), names: texts(sent.names) };
+  const found =
+    read.codes.some((code) => /LAVD-?EN008/i.test(code)) ||
+    read.names.some((name) => /ash\s*blossom/i.test(name));
+  if (!found) {
+    const nothing = read.codes.length === 0 && read.names.length === 0;
+    return {
+      status: 'NOT_FOUND',
+      reason: nothing ? 'NOTHING_READ' : 'NO_MATCH',
+      rarities: [],
+      printings: [],
+      otherMatches: [],
+      read,
+    };
+  }
+  return {
+    status: 'FOUND',
+    card: { id: card.card.id, name: card.card.name, imageUrl: null },
+    printing: scanPrinting,
+    rarities: [scanPrinting],
+    printings: [scanPrinting],
+    otherMatches: [],
+    read,
+  };
+}
+
+/** POST /inventory/items/batch: says the cards were added (the demo keeps nothing). */
+function batchAdded(body: unknown): unknown {
+  const items = Array.isArray((body as { items?: unknown } | null)?.items)
+    ? ((body as { items: { quantity?: unknown }[] }).items ?? [])
+    : [];
+  const copies = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+  return {
+    itemsCreated: items.length,
+    itemsRaised: 0,
+    copiesAdded: copies,
+    copiesNotAdded: 0,
+    createdItemIds: [],
+    raisedItemIds: [],
+  };
+}
+
+async function jsonBody(request: Request | null, init?: RequestInit): Promise<unknown> {
+  try {
+    const raw =
+      typeof init?.body === 'string' ? init.body : request ? await request.clone().text() : '';
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The demo's `fetch`: answers every API call on the phone. */
 export const demoFetch: typeof globalThis.fetch = async (input, init) => {
   const request = typeof input === 'object' && 'url' in input ? input : null;
@@ -149,6 +219,12 @@ export const demoFetch: typeof globalThis.fetch = async (input, init) => {
     });
   }
   const answer = operations[route.key]!;
+  if (route.key === 'POST /api/v1/cards/scan-match') {
+    return json(200, scanMatch(await jsonBody(request as Request | null, init)));
+  }
+  if (route.key === 'POST /api/v1/inventory/items/batch') {
+    return json(answer.status, batchAdded(await jsonBody(request as Request | null, init)));
+  }
   const body = route.key in overrides ? overrides[route.key] : answer.body;
   return json(answer.status, body);
 };
