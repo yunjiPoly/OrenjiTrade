@@ -4,6 +4,7 @@ import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.CursorPage;
+import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.location.domain.CountryView;
@@ -41,6 +42,7 @@ public class RegionMapService {
     private final RegionBinderRepository repository;
     private final PublicBinderService publicBinderService;
     private final DiscoveryCache cache;
+    private final CollectorDiscoveryService discovery;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
 
@@ -49,37 +51,44 @@ public class RegionMapService {
             RegionBinderRepository repository,
             PublicBinderService publicBinderService,
             DiscoveryCache cache,
+            CollectorDiscoveryService discovery,
             TimeProvider timeProvider,
             ApplicationEventPublisher events) {
         this.regions = regions;
         this.repository = repository;
         this.publicBinderService = publicBinderService;
         this.cache = cache;
+        this.discovery = discovery;
         this.timeProvider = timeProvider;
         this.events = events;
     }
 
     /**
-     * Public binders per subdivision of {@code regionCode} ({@code 404} for an unknown region). A
-     * signed-in viewer's counts leave out collectors blocked with them (computed live); anonymous
-     * counts are cached.
+     * Public binders per subdivision of {@code regionCode} ({@code 404} for an unknown region),
+     * only those of {@code game} when given (stage G; {@code 400} for a game that is unknown or not
+     * ACTIVE). A signed-in viewer's counts leave out collectors blocked with them (computed live);
+     * anonymous counts are cached per region and game.
      */
     @Transactional(readOnly = true)
-    public BinderCounts binderCounts(@Nullable UUID viewerId, String regionCode) {
+    public BinderCounts binderCounts(
+            @Nullable UUID viewerId, String regionCode, @Nullable String gameSlug) {
         RegionView region = requireRegion(regionCode);
+        @Nullable String game = requireGame(gameSlug);
         Instant now = timeProvider.now();
         if (viewerId != null) {
             return BinderCounts.of(
-                    region.code(), repository.countsBySubdivision(region.code(), viewerId, now));
+                    region.code(),
+                    repository.countsBySubdivision(region.code(), game, viewerId, now));
         }
         // v2: the counts carry the deck cores (stage R3); entries of the earlier shape are skipped.
+        // A game's counts have a key of their own (stage G); the key without one is unchanged.
         return cache.get(
-                "binder-counts:v2|" + region.code(),
+                "binder-counts:v2|" + region.code() + (game == null ? "" : "|game=" + game),
                 BinderCounts.class,
                 () ->
                         BinderCounts.of(
                                 region.code(),
-                                repository.countsBySubdivision(region.code(), null, now)));
+                                repository.countsBySubdivision(region.code(), game, null, now)));
     }
 
     /**
@@ -90,6 +99,8 @@ public class RegionMapService {
      * @param deckCore deck cores only ({@code true}), other binders only ({@code false}) or both
      * @param text a binder's name or description, its owner's handle, a deck core's card names;
      *     blank or {@code null} for every binder
+     * @param gameSlug the binders of this game only (stage G; {@code 400} for a game that is
+     *     unknown or not ACTIVE); {@code null} for every game
      */
     @Transactional(readOnly = true)
     public CursorPage<PublicBinderHit> subdivisionBinders(
@@ -98,9 +109,11 @@ public class RegionMapService {
             String subdivisionCode,
             @Nullable Boolean deckCore,
             @Nullable String text,
+            @Nullable String gameSlug,
             @Nullable String cursor,
             int limit) {
         RegionView region = requireRegion(regionCode);
+        @Nullable String game = requireGame(gameSlug);
         String code = subdivisionCode.trim().toUpperCase(Locale.ROOT);
         boolean inRegion =
                 regions.countryOfSubdivision(code)
@@ -110,7 +123,7 @@ public class RegionMapService {
         if (!inRegion) {
             throw ApiException.notFound(SUBDIVISION_NOT_FOUND);
         }
-        return binders(viewerId, region, code, deckCore, text, cursor, limit);
+        return binders(viewerId, region, code, deckCore, text, game, cursor, limit);
     }
 
     /**
@@ -124,9 +137,12 @@ public class RegionMapService {
             String regionCode,
             @Nullable Boolean deckCore,
             @Nullable String text,
+            @Nullable String gameSlug,
             @Nullable String cursor,
             int limit) {
-        return binders(viewerId, requireRegion(regionCode), null, deckCore, text, cursor, limit);
+        RegionView region = requireRegion(regionCode);
+        return binders(
+                viewerId, region, null, deckCore, text, requireGame(gameSlug), cursor, limit);
     }
 
     private CursorPage<PublicBinderHit> binders(
@@ -135,6 +151,7 @@ public class RegionMapService {
             @Nullable String subdivisionCode,
             @Nullable Boolean deckCore,
             @Nullable String text,
+            @Nullable String game,
             @Nullable String cursor,
             int limit) {
         @Nullable TimeCursor after = TimeCursor.decode(cursor);
@@ -148,6 +165,7 @@ public class RegionMapService {
                         viewerId,
                         deckCore,
                         query,
+                        game,
                         after,
                         size + 1,
                         now);
@@ -166,7 +184,7 @@ public class RegionMapService {
                             List.of(),
                             "none",
                             hits.size(),
-                            filterNames(deckCore, query),
+                            filterNames(deckCore, query, game),
                             region.code(),
                             subdivisionCode,
                             now));
@@ -179,8 +197,12 @@ public class RegionMapService {
     }
 
     /** Names of the filters in use (analytics; never the text). */
-    private static List<String> filterNames(@Nullable Boolean deckCore, @Nullable String text) {
+    private static List<String> filterNames(
+            @Nullable Boolean deckCore, @Nullable String text, @Nullable String game) {
         List<String> names = new java.util.ArrayList<>();
+        if (game != null) {
+            names.add("game");
+        }
         if (deckCore != null) {
             names.add("deck_core");
         }
@@ -188,6 +210,16 @@ public class RegionMapService {
             names.add("text");
         }
         return names;
+    }
+
+    /** The ACTIVE game's slug, {@code null} without one; {@code 400} for an unknown game. */
+    private @Nullable String requireGame(@Nullable String game) {
+        List<ProblemFieldError> errors = new java.util.ArrayList<>();
+        @Nullable String slug = discovery.normaliseGame(game, errors);
+        if (!errors.isEmpty()) {
+            throw ApiException.validation("Validation failed", errors);
+        }
+        return slug;
     }
 
     private RegionView requireRegion(String code) {

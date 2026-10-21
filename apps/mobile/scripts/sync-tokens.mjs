@@ -53,6 +53,14 @@ const FALLBACK_TOKENS = {
     durationSlow: '320ms',
     easingStandard: 'cubic-bezier(0.2, 0, 0, 1)',
   },
+  // The games' monogram tiles (stage G), the same in both themes.
+  gameTile: {
+    yugioh: { letter: 'Y', foreground: '#FDBA74', background: '#4A2A0A' },
+    pokemon: { letter: 'P', foreground: '#FDE68A', background: '#3F3A12' },
+    mtg: { letter: 'M', foreground: '#BFDBFE', background: '#1E3A5F' },
+    onepiece: { letter: 'O', foreground: '#FCA5A5', background: '#4A1D1D' },
+    riftbound: { letter: 'R', foreground: '#86EFAC', background: '#1F3B2A' },
+  },
   color: {
     light: {
       primary: '#F4761A',

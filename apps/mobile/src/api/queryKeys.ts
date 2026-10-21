@@ -87,8 +87,10 @@ export const meKeys = {
    * every read (prefix), the binder counts of a region, the binders of Search › Binders.
    */
   regionMap: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'region-map'] as const,
-  regionBinderCounts: (uid: Uid, region: string) =>
-    [...ME_ROOT, uidKey(uid), 'region-map', region, 'counts'] as const,
+  regionBinderCounts: (uid: Uid, region: string, game?: string) =>
+    game
+      ? ([...ME_ROOT, uidKey(uid), 'region-map', region, 'counts', game] as const)
+      : ([...ME_ROOT, uidKey(uid), 'region-map', region, 'counts'] as const),
   /** Search › Binders (stage R5): one state or the whole region, binders or deck cores, a text. */
   regionBinderSearch: (uid: Uid, params: { region: string }) =>
     [...ME_ROOT, uidKey(uid), 'region-map', params.region, 'binder-search', params] as const,
@@ -110,8 +112,14 @@ export const meKeys = {
   wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,
   wishPriceTerms: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'price-terms'] as const,
   /** Which wishes are "Available" in a region (stage R5, `GET /wishlist/availability`). */
-  wishlistAvailability: (uid: Uid, region: string) =>
-    [...ME_ROOT, uidKey(uid), 'wishlist', 'availability', { region }] as const,
+  wishlistAvailability: (uid: Uid, region: string, game?: string) =>
+    [
+      ...ME_ROOT,
+      uidKey(uid),
+      'wishlist',
+      'availability',
+      game ? { region, game } : { region },
+    ] as const,
   /** Notification centre (Phase 6): every read (prefix), the unread count, the feeds. */
   notificationCentre: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notification-centre'] as const,
   notificationUnread: (uid: Uid) =>

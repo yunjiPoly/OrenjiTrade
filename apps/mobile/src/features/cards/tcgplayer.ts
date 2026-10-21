@@ -8,6 +8,9 @@ const CATEGORIES: Readonly<Record<string, string>> = {
   yugioh: 'yugioh',
   pokemon: 'pokemon',
   mtg: 'magic',
+  // Stage G: TCGplayer's own category slugs of the two newer games.
+  onepiece: 'one-piece-card-game',
+  riftbound: 'riftbound-league-of-legends-trading-card-game',
 };
 
 export function tcgplayerCategory(game: string | null | undefined): string {

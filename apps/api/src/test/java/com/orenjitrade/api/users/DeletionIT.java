@@ -319,7 +319,10 @@ class DeletionIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 uid,
-                                InventoryTestSupport.binder("Leaving soon", "PUBLIC"),
+                                InventoryTestSupport.binder(
+                                        "Leaving soon",
+                                        "PUBLIC",
+                                        InventoryTestSupport.gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();

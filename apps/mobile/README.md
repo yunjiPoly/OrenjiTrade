@@ -37,13 +37,21 @@ card; the cards keep the visibility their collector gave them (none is made publ
 **Stage R5 is built** ("Search", mockup screens 11 to 15, contract `docs/api/contracts/r5-search.md`):
 Search opens on the region map (the region pill, "My province", zoom, the legend; the card of a
 state with "{n} binders · {n} deck cores" and "See binders"), the field opens the card search
-(game chips, the typed part highlighted, "Collectors" by handle or name, the recent searches of
-this phone), a card opens Who has this card (the one card page: "Check TCGplayer price", "Any
+(the typed part highlighted, "Collectors" by handle or name, the recent searches of this phone;
+its game chips were replaced by the game pill of stage G), a card opens Who has this card (the one card page: "Check TCGplayer price", "Any
 printing ▾", "Also in a deck core", the holders grouped by province with Message pinning the
 card), Search › Binders (binders and deck cores of the region or of a state) and Search › Wishlist
 (the alert switch, "Add a wish", "Available" or "None yet"); Settings › Privacy › "Remember my
-searches". Stages R6 to R8 are not built: the rest of this README describes the app as it is (the
-route list below is R5's; some older prose still names the Map and Wishlist tabs of before).
+searches". **Stage R6 is built** (profiles, contract `docs/api/contracts/r6-profiles.md`).
+**Stage G is built** ("One game at a time", mockup v50 screens 34 and 35, contract
+`docs/api/contracts/g-one-game.md`): the browsed game (remembered per account on the phone; the
+first profile game with cards, else Yu-Gi-Oh!), the game pill right of Search's title with
+"Choose a game" (games without cards dimmed, "Cards coming soon"), the restyled "Choose a region";
+every Search segment shows the browsed game (the card search has no game chips any more: "{game}
+card name or code"); Inventory › Binders grouped by game; New binder's Game picker and Edit
+binder's locked game; binder pickers by the card's game. Stages R7 and R8 are not built: the rest
+of this README describes the app as it is (the route list below is R5's; some older prose still
+names the Map and Wishlist tabs of before).
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on

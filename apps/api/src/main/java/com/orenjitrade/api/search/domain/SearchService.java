@@ -270,6 +270,7 @@ public class SearchService {
      *     the phone shows the core instead, stage R5)
      * @param rarity any printing of the card in this rarity, as the catalogue names it (a wish of
      *     any printing in one rarity, stage R5)
+     * @param game that game's cards only (stage G, the phone's browsed game)
      */
     public record HolderQuery(
             @Nullable UUID printingId,
@@ -287,7 +288,47 @@ public class SearchService {
             int page,
             int size,
             boolean excludeDeckCoreItems,
-            @Nullable String rarity) {}
+            @Nullable String rarity,
+            @Nullable String game) {
+
+        /** A query of every game (before stage G). */
+        public HolderQuery(
+                @Nullable UUID printingId,
+                @Nullable UUID cardId,
+                @Nullable String region,
+                @Nullable SearchAvailability availability,
+                @Nullable String condition,
+                @Nullable BigDecimal minPrice,
+                @Nullable BigDecimal maxPrice,
+                @Nullable FreshnessState freshness,
+                @Nullable String edition,
+                @Nullable String language,
+                @Nullable Boolean acceptsOffers,
+                HolderSort sort,
+                int page,
+                int size,
+                boolean excludeDeckCoreItems,
+                @Nullable String rarity) {
+            this(
+                    printingId,
+                    cardId,
+                    region,
+                    availability,
+                    condition,
+                    minPrice,
+                    maxPrice,
+                    freshness,
+                    edition,
+                    language,
+                    acceptsOffers,
+                    sort,
+                    page,
+                    size,
+                    excludeDeckCoreItems,
+                    rarity,
+                    null);
+        }
+    }
 
     /**
      * {@code GET /search/card-holders}: effectively public, fresh (ACTIVE or AGING) items of the
@@ -304,6 +345,7 @@ public class SearchService {
         }
         @Nullable String condition = code("condition", query.condition(), errors);
         @Nullable String edition = code("edition", query.edition(), errors);
+        @Nullable String game = discovery.normaliseGame(query.game(), errors);
         @Nullable String language = null;
         if (query.language() != null && !query.language().isBlank()) {
             language = query.language().trim().toLowerCase(Locale.ROOT);
@@ -333,7 +375,7 @@ public class SearchService {
                 new ItemFilter(
                         query.printingId(),
                         query.cardId(),
-                        null,
+                        game,
                         query.availability(),
                         condition,
                         query.minPrice(),
@@ -410,13 +452,28 @@ public class SearchService {
      */
     @Transactional(readOnly = true)
     public List<PublicBinderHit> deckCoresWithCard(
-            @Nullable UUID viewerId, UUID cardId, @Nullable String regionCode, int limit) {
+            @Nullable UUID viewerId,
+            UUID cardId,
+            @Nullable String regionCode,
+            @Nullable String gameSlug,
+            int limit) {
         RegionView region = discovery.scope(viewerId, regionCode);
+        @Nullable String game = requireGame(gameSlug);
         int size = Math.max(1, Math.min(limit, DECK_CORES_MAX));
         Instant now = timeProvider.now();
         return publicBinderService.publicBinders(
                 viewerId,
-                regionBinders.deckCoresWithCard(cardId, region.code(), viewerId, size, now));
+                regionBinders.deckCoresWithCard(cardId, region.code(), game, viewerId, size, now));
+    }
+
+    /** The ACTIVE game's slug, {@code null} without one; {@code 400} for an unknown game. */
+    private @Nullable String requireGame(@Nullable String game) {
+        List<ProblemFieldError> errors = new ArrayList<>();
+        @Nullable String slug = discovery.normaliseGame(game, errors);
+        if (!errors.isEmpty()) {
+            throw ApiException.validation("Validation failed", errors);
+        }
+        return slug;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -451,10 +508,17 @@ public class SearchService {
      */
     @Transactional(readOnly = true)
     public List<CollectorByName> collectorsByName(
-            @Nullable UUID viewerId, String q, @Nullable String regionCode, int limit) {
+            @Nullable UUID viewerId,
+            String q,
+            @Nullable String regionCode,
+            @Nullable String gameSlug,
+            int limit) {
         RegionView region = discovery.scope(viewerId, regionCode);
+        @Nullable String game = requireGame(gameSlug);
         int size = Math.max(1, Math.min(limit, COLLECTORS_BY_NAME_MAX));
-        return collectors.byName(q, region.code(), viewerId, size, timeProvider.now()).stream()
+        return collectors
+                .byName(q, region.code(), game, viewerId, size, timeProvider.now())
+                .stream()
                 .map(
                         hit ->
                                 new CollectorByName(

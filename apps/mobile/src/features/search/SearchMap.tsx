@@ -16,6 +16,7 @@ import { PlaceList } from '@/src/features/map/PlaceList';
 import { placeParts, regionOf, placeLabelOf } from '@/src/features/map/places';
 import { RegionMap } from '@/src/features/map/RegionMap';
 import { SHADE_OPACITY, countsByCode, shadeLevel } from '@/src/features/map/shading';
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { RegionAwayNote, RegionBar } from '@/src/features/regions/RegionBar';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { useScreenReader } from '@/src/hooks/useScreenReader';
@@ -70,14 +71,17 @@ const OVERLAY_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
 export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps) {
   const { palette } = useTheme();
   const { region, ready } = useBrowsingRegion();
+  const browsing = useBrowsingGame();
+  const gameName = browsing.current.name;
   const regions = useRegions();
-  const counts = useRegionBinderCounts(region, ready);
+  const counts = useRegionBinderCounts(region, ready && browsing.ready, browsing.game);
   const location = useMyLocation();
   const screenReader = useScreenReader();
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale > OVERLAY_MAX_FONT_SCALE;
   const platformRegion = regionOf(regions.data, region);
   const name = platformRegion?.name ?? regionName(region);
+  const mapLabel = MAP_COPY.mapLabel(gameName, name);
   const byCode = useMemo(() => countsByCode(counts.data?.subdivisions), [counts.data]);
   const entries = useMemo(() => {
     const map = new Map<string, SubdivisionBinderCount>();
@@ -112,7 +116,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
       style={styles.field}
       testID="search-field-frame"
     >
-      <SearchFieldButton onPress={onType} />
+      <SearchFieldButton label={MAP_COPY.field(browsing.game)} onPress={onType} />
       <RegionAwayNote testID="search-region-away" />
     </View>
   );
@@ -157,6 +161,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
         subtitle={MAP_COPY.stateSubtitle(place.country, selected === homeCode)}
         binders={entry?.binderCount ?? 0}
         deckCores={entry?.deckCoreCount ?? 0}
+        game={gameName}
         known={!!counts.data}
         onSeeBinders={() => onSeeBinders(selected)}
         onClose={() => pick(null)}
@@ -199,6 +204,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
       <RegionMap
         region={region}
         regionLabel={name}
+        accessibilityLabel={mapLabel}
         counts={byCode}
         selected={selected}
         onPick={pick}
@@ -241,6 +247,7 @@ function StateCard({
   subtitle,
   binders,
   deckCores,
+  game,
   known,
   onSeeBinders,
   onClose,
@@ -250,6 +257,8 @@ function StateCard({
   subtitle: string;
   binders: number;
   deckCores: number;
+  /** The browsed game's name ("No public Pokémon binders here yet"). */
+  game: string;
   /** The counts answered (until then the card says nothing of the binders). */
   known: boolean;
   onSeeBinders: () => void;
@@ -317,7 +326,7 @@ function StateCard({
               style={[textStyle('md'), styles.fill, { color: palette.ink }]}
               testID={`search-state-stats-${code}`}
             >
-              {MAP_COPY.stats(binders, deckCores)}
+              {MAP_COPY.stats(binders, deckCores, game)}
             </Text>
           </View>
           {binders > 0 ? (

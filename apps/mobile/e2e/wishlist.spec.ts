@@ -191,7 +191,13 @@ test.describe('mobile wishlist and notifications', () => {
       location: PLACES.montevideo,
       discoverable: true,
     });
-    const binderId = await apiPublicBinder(request, hal, `Mobile any-printing binder ${suffix()}`);
+    // The shared code is a Yu-Gi-Oh! card: a binder holds the cards of one game (stage G).
+    const binderId = await apiPublicBinder(
+      request,
+      hal,
+      `Mobile any-printing binder ${suffix()}`,
+      'yugioh'
+    );
     // The two printings that share the code: the catalog lists the 1st Edition first.
     const { cardId } = await cardOfPrinting(request, hal.idToken, SHARED_CODE);
     const card = await request.get(`${API_URL}/api/v1/cards/${cardId}`, {
@@ -213,6 +219,13 @@ test.describe('mobile wishlist and notifications', () => {
     await expect(wishlist.getByTestId('wishlist-empty')).toContainText('No wishes yet', {
       timeout: 30_000,
     });
+    // Stage G: Ana browses Pokémon (her profile game); the codes are Yu-Gi-Oh! cards, and "Add a
+    // wish" offers the browsed game's cards only (review fix 1, U1): she switches to Yu-Gi-Oh!.
+    await wishlist.getByRole('button', { name: 'Game: Pokémon. Change game' }).click();
+    await page.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
+    await expect(
+      wishlist.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' })
+    ).toBeVisible();
     await wishlist.getByRole('button', { name: 'Add a wish' }).click();
 
     // A code only one printing has preselects that printing (written out in full).
@@ -260,7 +273,10 @@ test.describe('mobile wishlist and notifications', () => {
     )[0];
     expect(wish?.printing ?? null, 'the wish is for any printing').toBeNull();
     expect(wish?.rarity ?? null).toBeNull();
-    await expect(wishlist.getByTestId(`wish-${wish!.id}-terms`)).toHaveText('Any printing');
+    // On Yu-Gi-Oh!, the game she browses now, the Wishlist shows it.
+    await expect(wishlist.getByTestId(`wish-${wish!.id}-terms`)).toHaveText('Any printing', {
+      timeout: 30_000,
+    });
 
     // Hal lists the Unlimited copy: the alert for the "Any printing" wish opens the card screen
     // on "Any printing". No printing is selected for Wren, none is checked, no price is shown

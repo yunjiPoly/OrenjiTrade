@@ -28,6 +28,7 @@ public final class BinderRequests {
      * @param coverPrintingId printing whose image is the cover
      * @param sellsAsCore "Sell as a deck core" (stage R3); false when omitted
      * @param askingPriceText the deck core's asking price as typed, at most 40 characters
+     * @param gameId the game whose cards the binder holds (stage G)
      */
     @Schema(name = "CreateBinderRequest", description = "A new binder")
     public record CreateBinderRequest(
@@ -55,7 +56,17 @@ public final class BinderRequests {
                                     "The deck core's asking price as typed (at most 40 characters"
                                             + " once trimmed, one line): \"$180\", \"Trade only\"."
                                             + " A plain amount also sets askingPrice")
-                    @Nullable String askingPriceText) {}
+                    @Nullable String askingPriceText,
+            @Schema(
+                            description =
+                                    "The game whose cards the binder holds (stage G): an ACTIVE"
+                                        + " game with cards (GET /games, hasCards), else 400. The"
+                                        + " phone always sends it, and only cards of that game go"
+                                        + " in (409 BINDER_GAME_MISMATCH). Without it (the paused"
+                                        + " web) the binder takes the game of the first card filed"
+                                        + " in it while it holds none (Yu-Gi-Oh! until then) and"
+                                        + " refuses no card, as the web's binders always did")
+                    @Nullable UUID gameId) {}
 
     /**
      * {@code PATCH /binders/{id}}: any subset of the fields. {@code publicUntil} and {@code
@@ -89,7 +100,13 @@ public final class BinderRequests {
                                     "true also confirms the binder and its cards are still"
                                             + " available, as POST /binders/{id}/confirm (the"
                                             + " phone's Save changes)")
-                    @Nullable Boolean confirm) {}
+                    @Nullable Boolean confirm,
+            @Schema(
+                            description =
+                                    "Another game for the binder (stage G; not null): an ACTIVE"
+                                        + " game with cards, else 400; only while the binder holds"
+                                        + " no card, else 409 BINDER_GAME_LOCKED")
+                    @Nullable UUID gameId) {}
 
     /** {@code POST /binders/{id}/publish}. */
     @Schema(name = "PublishBinderRequest", description = "How to publish a binder")

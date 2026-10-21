@@ -72,6 +72,11 @@ export interface RegionMapProps {
   region: string;
   /** "Europe": the map's name for screen readers. */
   regionLabel: string;
+  /**
+   * What a screen reader says for the drawn map, when the screen has its own words ("Map of
+   * public Pokémon binders by state or province in Europe", stage G).
+   */
+  accessibilityLabel?: string;
   /** Public binders per state or province code. */
   counts: ReadonlyMap<string, number>;
   /** The state or province last opened, outlined on the map. */
@@ -161,6 +166,7 @@ function touchCount(event: GestureResponderEvent | undefined): number {
 export function RegionMap({
   region,
   regionLabel,
+  accessibilityLabel,
   counts,
   selected,
   onPick,
@@ -376,7 +382,9 @@ export function RegionMap({
   };
   const zoom = view && base ? zoomOf(view.live, base) : 1;
 
-  const label = `Map of ${regionLabel}: states and provinces shaded by their number of public binders`;
+  const label =
+    accessibilityLabel ??
+    `Map of ${regionLabel}: states and provinces shaded by their number of public binders`;
   const transform =
     view && size && !sameWindow(view.drawn, view.live)
       ? liveTransform(view.drawn, view.live, size)

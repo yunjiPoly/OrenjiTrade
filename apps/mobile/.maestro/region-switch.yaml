@@ -1,8 +1,8 @@
 # The region switcher (ADR 0017, mobile stage M9; over Search's map since stage R5): a seed
 # collector of Americas (North) (collector1, Quebec) opens the switcher, a sheet with the three
-# regions, and browses Europe: the map follows and says "Not your region", Search › Binders lists
-# the seed binder of collector8 with her handle and Île-de-France, never "Paris"; the card search
-# finds collector8 by her handle in Europe; one press goes back to the collector's own region; a
+# regions, and browses Europe: the map follows and says "Not your region"; with Pokémon picked on
+# the game pill (stage G), Search › Binders lists the seed Pokémon binder of collector8 with her
+# handle and Île-de-France, never "Paris"; the card search finds collector8 by her handle in Europe; one press goes back to the collector's own region; a
 # link of the old Map tab opens Search on a region and one of its states. Seed accounts are only signed in to; what Île-de-France holds is read on
 # the host from the public API (scripts/region-map.js).
 appId: ${APP_ID}
@@ -18,6 +18,7 @@ tags:
       REGION: europe
       CODE: FR-IDF
       BINDER: 'Extras for trade'
+      GAME: pokemon
 - runScript:
     file: scripts/confirm-age.js
     env:
@@ -38,7 +39,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(North\)'
+      text: 'Region: Americas \(North\)\. Change region'
     timeout: 30000
 - tapOn:
     id: 'search-region'
@@ -57,17 +58,36 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Europe'
+      text: 'Region: Europe\. Change region'
     timeout: 30000
 - assertVisible:
     id: 'search-region-away-home'
     text: 'Back to Americas \(North\)'
 - assertVisible:
     id: 'search-region-map'
-    text: 'Map of Europe: states and provinces shaded by their number of public binders'
+    text: 'Map of public Yu-Gi-Oh! binders by state or province in Europe'
 - assertNotVisible:
     id: 'search-region-map-home'
 - takeScreenshot: region-europe
+
+# Pokémon with the game pill (stage G: Search shows one game at a time; collector8's binder of
+# Île-de-France is a Pokémon binder). The map says the game.
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game-sheet-option-pokemon'
+    timeout: 15000
+- tapOn:
+    id: 'search-game-sheet-option-pokemon'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Pokémon\. Change game'
+    timeout: 15000
+- assertVisible:
+    id: 'search-region-map'
+    text: 'Map of public Pokémon binders by state or province in Europe'
 
 # Île-de-France through Binders: the seed binder of collector8, her handle and the province (the
 # whole of Europe is listed), never Paris.
@@ -118,7 +138,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(North\)'
+      text: 'Region: Americas \(North\)\. Change region'
     timeout: 30000
 - assertNotVisible:
     id: 'search-region-away-home'
@@ -134,7 +154,7 @@ tags:
     timeout: 60000
 - assertVisible:
     id: 'search-region'
-    text: 'Region: Europe'
+    text: 'Region: Europe\. Change region'
 - assertVisible:
     id: 'search-region-away-home'
 - takeScreenshot: region-link

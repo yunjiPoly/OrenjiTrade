@@ -3,6 +3,7 @@ import { Dimensions, FlatList, StyleSheet } from 'react-native';
 
 import SearchScreen from '@/app/(tabs)/search';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
+import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -16,6 +17,7 @@ import {
   publicBinderSummaryFixture,
   searchBinderFixture,
   wishFixture,
+  profileFixture,
 } from '../support/fixtures';
 import { mockApi, ok, problem, type MockAnswer } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
@@ -46,6 +48,11 @@ const BARRENS = cardSummaryFixture({
 beforeEach(() => {
   resetRouterMock();
   resetAppState();
+  // Search shows one game at a time (stage G): these cases browse Yu-Gi-Oh!.
+  useBrowsingGameStore.setState({
+    picked: { 'uid-maika': 'yugioh' },
+    stored: { 'uid-maika': 'yugioh' },
+  });
   useRecentSearchesStore.setState({ byUser: {}, forgetting: {} });
 });
 
@@ -95,8 +102,9 @@ describe('Search: the map (screen 11)', () => {
     expect(screen.getByLabelText('Show my province')).toBeOnTheScreen();
     expect(screen.getByLabelText('Zoom in')).toBeOnTheScreen();
     // The region pill: the globe and the region's name alone (mockup screen 11), so the name is
-    // what stays at large text sizes; a screen reader hears "Region: …" (stage R5 review, U4).
-    const pill = screen.getByRole('button', { name: 'Region: Americas (North)' });
+    // what stays at large text sizes; a screen reader hears "Region: …. Change region" (stage R5
+    // review, U4; the words of mockup screen 35).
+    const pill = screen.getByRole('button', { name: 'Region: Americas (North). Change region' });
     expect(within(pill).getByText('Americas (North)')).toBeOnTheScreen();
     expect(pill).not.toHaveTextContent(/Region/);
     expect(
@@ -231,7 +239,7 @@ describe('Search: the map (screen 11)', () => {
     render();
     await layOutMap();
     expect(await screen.findByTestId('search-state-stats-CA-QC')).toHaveTextContent(
-      'No public binders here yet'
+      'No public Yu-Gi-Oh! binders here yet'
     );
     expect(screen.queryByRole('button', { name: 'See binders' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
@@ -252,6 +260,26 @@ describe('Search: the map (screen 11)', () => {
     expect(mockRouter.setParams).toHaveBeenCalled();
   });
 
+  it('counts the browsed game’s binders, asks again for another game, and shows its own field (stage G)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(binderCountsFixture()),
+      })
+    );
+    render();
+    const counts = () => api.callsTo('GET /api/v1/regions/{region}/binder-counts');
+    await waitFor(() => expect(counts().at(-1)?.query.get('game')).toBe('yugioh'));
+    // Never the counts of every game (review fix 1, F5).
+    expect(counts().map((call) => call.query.get('game'))).not.toContain(null);
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pokémon' }));
+    await waitFor(() => expect(counts().at(-1)?.query.get('game')).toBe('pokemon'));
+    expect(counts().map((call) => call.query.get('game'))).not.toContain(null);
+    // A Yu-Gi-Oh! code is no example for another game (review fix 1, U3).
+    expect(await screen.findByRole('search', { name: 'Card name or code' })).toBeOnTheScreen();
+    expect(screen.queryByText(/LOB-EN001/)).toBeNull();
+  });
+
   it('explains when the counts could not load, with Try again', async () => {
     mockApi(
       signedInRoutes({
@@ -267,6 +295,8 @@ describe('Search: the map (screen 11)', () => {
 describe('Search: typing a card (screen 12)', () => {
   function typingRoutes(extra = {}) {
     return signedInRoutes({
+      // Yu-Gi-Oh! is the browsed game (the first game of the profile, stage G).
+      'GET /api/v1/me/profile': ok(profileFixture({ games: ['yugioh'] })),
       'GET /api/v1/cards': (request) => {
         const q = request.query.get('query');
         const game = request.query.get('game');
@@ -302,30 +332,43 @@ describe('Search: typing a card (screen 12)', () => {
     expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
   });
 
-  it('shows the cards as the collector types, the typed part highlighted, the game chips filter', async () => {
+  it('shows the browsed game’s cards as the collector types, the typed part highlighted, no game chips', async () => {
     const api = mockApi(typingRoutes());
     render();
     fireEvent.press(await screen.findByRole('search', { name: /Card name or code/ }));
+    // Stage G: the field names the browsed game.
+    expect(await screen.findByLabelText('Yu-Gi-Oh! card name or code')).toBeOnTheScreen();
+    expect(screen.getByTestId('search-input')).toHaveProp(
+      'placeholder',
+      'Yu-Gi-Oh! card name or code'
+    );
     fireEvent.changeText(screen.getByTestId('search-input'), 'ash bl');
     const ash = await screen.findByTestId(`search-result-${ASH.id}`);
     expect(within(ash).getByText('Ash Bl')).toBeOnTheScreen();
-    expect(ash).toHaveTextContent(/Yu-Gi-Oh!/);
-    // The name and the game, nothing else: no printings count, no type line.
+    // The name only: no game, no printings count, no type line.
+    expect(ash).not.toHaveTextContent(/Yu-Gi-Oh!/);
     expect(screen.queryByText(/printing/)).toBeNull();
-    expect(screen.getByTestId(`search-result-${BARRENS.id}`)).toHaveTextContent(/Magic/);
-    expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBe('ash bl');
+    expect(screen.queryByRole('radio', { name: 'All games' })).toBeNull();
+    const asked = api.callsTo('GET /api/v1/cards').at(-1);
+    expect(asked?.query.get('query')).toBe('ash bl');
+    expect(asked?.query.get('game')).toBe('yugioh');
+    // Nothing of another game.
+    expect(screen.queryByTestId(`search-result-${BARRENS.id}`)).toBeNull();
 
-    // A game chip starts the results at the first card, wherever the list was scrolled.
+    // Another game from the pill starts the results at the first card, of that game only.
     const toTop = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pokémon' }));
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('pokemon')
+    );
     expect(toTop).toHaveBeenCalledWith({ offset: 0, animated: false });
     toTop.mockRestore();
-    await waitFor(() =>
-      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('yugioh')
-    );
-    await waitFor(() => expect(screen.queryByTestId(`search-result-${BARRENS.id}`)).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId(`search-result-${ASH.id}`)).toBeNull());
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Pokémon. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
 
-    fireEvent.press(screen.getByTestId(`search-result-${ASH.id}`));
+    fireEvent.press(await screen.findByTestId(`search-result-${ASH.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/cards/[id]',
       params: { id: ASH.id },
@@ -353,6 +396,7 @@ describe('Search: typing a card (screen 12)', () => {
     expect(asked?.query.get('q')).toBe('ash');
     expect(asked?.query.get('limit')).toBe('3');
     expect(asked?.query.get('region')).toBe('americas-north');
+    expect(asked?.query.get('game')).toBe('yugioh');
     fireEvent.press(screen.getByTestId('search-collector-ash_trader'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',
@@ -366,7 +410,21 @@ describe('Search: typing a card (screen 12)', () => {
     fireEvent.press(await screen.findByRole('search', { name: /Card name or code/ }));
     fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
     expect(await screen.findByTestId('search-no-match')).toHaveTextContent(
-      'No card matches “zzzz”Try fewer letters, or the code printed on the card, like LAVD-EN008.'
+      'No Yu-Gi-Oh! card matches “zzzz”Try fewer letters, or the code printed on the card, like LAVD-EN008.'
+    );
+  });
+
+  it('gives no Yu-Gi-Oh! example when another game has no match (review fix 1, U3)', async () => {
+    useBrowsingGameStore.setState({
+      picked: { 'uid-maika': 'pokemon' },
+      stored: { 'uid-maika': 'pokemon' },
+    });
+    mockApi(typingRoutes());
+    render();
+    fireEvent.press(await screen.findByRole('search', { name: 'Card name or code' }));
+    fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
+    expect(await screen.findByTestId('search-no-match')).toHaveTextContent(
+      'No Pokémon card matches “zzzz”Try fewer letters, or the code printed on the card.'
     );
   });
 
@@ -533,14 +591,51 @@ describe('Search › Binders (screen 14)', () => {
     mockParams.current = { segment: 'binders', place: 'CA-ON' };
     render();
     expect(await screen.findByTestId('binders-empty')).toHaveTextContent(
-      'No public binders here yet.'
+      'No public Yu-Gi-Oh! binders here yet.'
     );
     fireEvent.press(screen.getByTestId('binders-kind-cores'));
-    expect(await screen.findByText('No deck cores for sale here yet.')).toBeOnTheScreen();
+    expect(await screen.findByText('No Yu-Gi-Oh! deck cores for sale here yet.')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Showing Ontario. Show the whole region' }));
     await waitFor(() =>
       expect(api.callsTo('GET /api/v1/regions/{region}/binders')).not.toEqual([])
     );
     expect(screen.queryByTestId('binders-state-chip')).toBeNull();
+  });
+
+  it('asks for the browsed game’s binders, and an empty game offers Switch game (stage G)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binders': (request) =>
+          ok(
+            placeBindersPage(request.query.get('game') === 'yugioh' ? [searchBinderFixture()] : [])
+          ),
+      })
+    );
+    mockParams.current = { segment: 'binders' };
+    render();
+    expect(await screen.findByText(/collector2 · Ontario · 14 cards/)).toBeOnTheScreen();
+    const lists = () => api.callsTo('GET /api/v1/regions/{region}/binders');
+    expect(lists().map((call) => call.query.get('game'))).toEqual(lists().map(() => 'yugioh'));
+    expect(screen.getByTestId('binders-input')).toHaveProp(
+      'placeholder',
+      'Deck, binder or collector, like Yubel'
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pokémon' }));
+    expect(await screen.findByTestId('binders-empty')).toHaveTextContent(
+      'No public Pokémon binders here yet.'
+    );
+    expect(lists().at(-1)?.query.get('game')).toBe('pokemon');
+    expect(screen.getByTestId('binders-input')).toHaveProp(
+      'placeholder',
+      'Deck, binder or collector'
+    );
+    // "Switch game" opens "Choose a game" (review fix 1, U4).
+    fireEvent.press(screen.getByRole('button', { name: 'Switch game' }));
+    expect(await screen.findByText('Choose a game')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
+    expect(await screen.findByText(/collector2 · Ontario · 14 cards/)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Switch game' })).toBeNull();
   });
 });

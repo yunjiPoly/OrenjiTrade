@@ -5,6 +5,7 @@ import {
   apiInventoryItem,
   authHeader,
   createOnboardedCollector,
+  gameIdOf,
   openTab,
   printingIdOf,
   requireStack,
@@ -34,7 +35,11 @@ test.describe('mobile inventory bulk actions', () => {
     const third = await apiAddItem(request, owner, printingId, { condition: 'MODERATELY_PLAYED' });
     const binder = await request.post(`${API_URL}/api/v1/binders`, {
       headers: authHeader(owner.idToken),
-      data: { name: 'Mobile bulk binder', visibility: 'PRIVATE' },
+      data: {
+        name: 'Mobile bulk binder',
+        visibility: 'PRIVATE',
+        gameId: await gameIdOf(request, 'pokemon'),
+      },
     });
     expect(binder.status(), 'POST /binders').toBe(201);
     const binderId = ((await binder.json()) as { id: string }).id;

@@ -30,6 +30,9 @@ tags:
 - runScript:
     file: scripts/create-collector.js
     env:
+      # Yu-Gi-Oh! (stage G): the game of its card, Lantern Fox Spirit, so New binder starts on it
+      # and Search browses it.
+      GAMES: 'yugioh'
       PREFIX: core
       DISPLAY_NAME: Maestro Deck Core
       PLACE: 'CA:CA-QC'
@@ -242,9 +245,16 @@ tags:
     file: subflows/keyboard-down.yaml
 - tapOn:
     id: 'edit-binder-save'
+# At the largest size the game's section title (stage G) and the deck core fill the screen: the
+# plain binder is below them.
 - extendedWaitUntil:
-    visible: 'Maestro plain, .*'
+    visible:
+      id: 'binders-section-yugioh'
     timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'Maestro plain, .*'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

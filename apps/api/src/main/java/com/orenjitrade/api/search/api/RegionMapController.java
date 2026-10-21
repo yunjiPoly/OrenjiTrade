@@ -62,7 +62,8 @@ public class RegionMapController {
                         + " are deck cores (other binders = binderCount - deckCoreCount)."
                         + " Subdivisions without binders are absent. Signed-in callers never count"
                         + " collectors blocked with them. Anonymous answers are cached server-side"
-                        + " 60 s.")
+                        + " 60 s. `game` (stage G) counts only that game's binders (400 for an"
+                        + " unknown game); without it every game counts, as before.")
     @ApiResponse(responseCode = "200", description = "Binder counts per subdivision")
     @ApiResponse(
             responseCode = "404",
@@ -73,9 +74,16 @@ public class RegionMapController {
                             schema = @Schema(ref = SearchController.PROBLEM_REF)))
     public RegionBinderCountsResponse binderCounts(
             @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
-            @PathVariable @Size(max = 32) String region) {
+            @PathVariable @Size(max = 32) String region,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
         return RegionBinderCountsResponse.from(
-                regionMapService.binderCounts(SearchController.viewer(principal), region));
+                regionMapService.binderCounts(SearchController.viewer(principal), region, game));
     }
 
     @GetMapping(
@@ -94,7 +102,8 @@ public class RegionMapController {
                         + " price, photos and key cards. `deckCore` keeps the deck cores (true) or"
                         + " the other binders (false); `q` matches a binder's name or description,"
                         + " its owner's handle and a deck core's card names. 404 when the region is"
-                        + " unknown or the subdivision is not one of its own.")
+                        + " unknown or the subdivision is not one of its own. `game` (stage G)"
+                        + " keeps the binders of that game only (400 for an unknown game).")
     @ApiResponse(responseCode = "200", description = "One page of binders")
     @ApiResponse(
             responseCode = "404",
@@ -117,6 +126,13 @@ public class RegionMapController {
                     @RequestParam(required = false)
                     @Size(max = 100)
                     @Nullable String q,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game,
             @Parameter(description = "Opaque cursor of the previous page")
                     @RequestParam(required = false)
                     @Size(max = 200)
@@ -130,6 +146,7 @@ public class RegionMapController {
                         code,
                         deckCore,
                         q,
+                        game,
                         cursor,
                         limit));
     }
@@ -146,7 +163,7 @@ public class RegionMapController {
                             + " province of the region (Search › Binders without a state): public"
                             + " binders and deck cores of discoverable collectors, most recently"
                             + " updated first, cursor paginated, with the same `deckCore` and `q`"
-                            + " filters. 404 for an unknown region.")
+                            + " filters and `game` (stage G). 404 for an unknown region.")
     @ApiResponse(responseCode = "200", description = "One page of binders")
     @ApiResponse(
             responseCode = "404",
@@ -168,6 +185,13 @@ public class RegionMapController {
                     @RequestParam(required = false)
                     @Size(max = 100)
                     @Nullable String q,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game's binders (stage G,"
+                                            + " the phone's browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game,
             @Parameter(description = "Opaque cursor of the previous page")
                     @RequestParam(required = false)
                     @Size(max = 200)
@@ -176,7 +200,13 @@ public class RegionMapController {
                     int limit) {
         return page(
                 regionMapService.regionBinders(
-                        SearchController.viewer(principal), region, deckCore, q, cursor, limit));
+                        SearchController.viewer(principal),
+                        region,
+                        deckCore,
+                        q,
+                        game,
+                        cursor,
+                        limit));
     }
 
     private CursorPage<PublicBinderSummaryResponse> page(CursorPage<PublicBinderHit> page) {

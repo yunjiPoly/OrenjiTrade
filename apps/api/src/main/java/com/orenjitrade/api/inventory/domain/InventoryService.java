@@ -137,6 +137,10 @@ public class InventoryService {
     static final Pattern LANGUAGE = Pattern.compile("^[a-z]{2}$");
     static final BigDecimal PRICE_MAX = new BigDecimal("9999999999.99");
 
+    /** The 409 BINDER_GAME_MISMATCH message (stage G). */
+    static final String GAME_MISMATCH =
+            "This card is of another game than the binder: a binder holds the cards of one game";
+
     private static final Logger log = LoggerFactory.getLogger(InventoryService.class);
 
     private final InventoryItemRepository items;
@@ -274,10 +278,11 @@ public class InventoryService {
         binders.lockOwners(List.of(ownerId));
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable PrintingDetail printing = requirePrinting(input.printingId(), true, errors);
+        @Nullable BinderView binder = null;
         if (input.binderId() != null) {
             // Binder first (lock order): the insert counts the item in it and confirms it.
             binders.lockInOrder(ownerId, List.of(input.binderId()));
-            binders.requireOwned(ownerId, input.binderId());
+            binder = binders.requireOwned(ownerId, input.binderId());
         }
         ListingVisibility visibility =
                 input.visibility() != null
@@ -290,6 +295,7 @@ public class InventoryService {
         if (printing == null) {
             throw ApiException.validation("Validation failed", errors);
         }
+        binder = binderForCard(binder, printing.card().game(), now);
         boolean conditionStated = !Boolean.FALSE.equals(input.conditionStated());
         if (!conditionStated && !blank(input.condition())) {
             errors.add(
@@ -378,6 +384,9 @@ public class InventoryService {
         @Nullable BinderView target =
                 binderId == null ? null : binders.requireOwned(ownerId, binderId);
         boolean moved = !Objects.equals(binderId, current.binderId());
+        if (moved || printingChanged) {
+            target = binderForCard(target, printing.card().game(), now);
+        }
 
         ListingVisibility visibility =
                 patch.has("visibility") && patch.visibility() != null
@@ -633,6 +642,17 @@ public class InventoryService {
         for (ItemRow row : items.findByIds(lockedIds, now)) {
             owned.put(row.id(), row);
         }
+        if (target != null && target.gameFollowsCards()) {
+            // A binder made without a game (the paused web) takes the game of the first card moved
+            // in while it holds none, and refuses none (stage G).
+            for (UUID id : ids) {
+                ItemRow first = owned.get(id);
+                if (first != null) {
+                    target = binders.followCardGame(target, first.game(), binderEmpty(target, now));
+                    break;
+                }
+            }
+        }
         List<Skipped> skipped = new ArrayList<>();
         List<UUID> changed = new ArrayList<>();
         for (UUID id : ids) {
@@ -641,6 +661,14 @@ public class InventoryService {
                 continue;
             }
             ItemRow row = owned.get(id);
+            if (request.action() == BulkAction.MOVE_TO_BINDER
+                    && target != null
+                    && !target.gameFollowsCards()
+                    && !target.game().equals(row.game())) {
+                // A binder holds the cards of one game (stage G): this card stays where it was.
+                skipped.add(new Skipped(id, SkipReason.BINDER_GAME_MISMATCH));
+                continue;
+            }
             boolean applied =
                     switch (request.action()) {
                         case SET_VISIBILITY -> setVisibility(row, request, now);
@@ -1169,6 +1197,20 @@ public class InventoryService {
         recordRestored(items.confirm(ownerId, null, binderId, now), now);
     }
 
+    /**
+     * Whether a deleted card that an undo can still bring back names the binder (stage G; the
+     * binder's game is locked meanwhile).
+     */
+    public boolean holdsRestorableCards(UUID binderId, Instant now) {
+        return items.countRestorableInBinder(binderId, now) > 0;
+    }
+
+    /** The binders among {@code binderIds} that {@link #holdsRestorableCards} (one query). */
+    public java.util.Set<UUID> bindersWithRestorableCards(
+            java.util.Collection<UUID> binderIds, Instant now) {
+        return items.bindersWithRestorable(binderIds, now);
+    }
+
     /** The binder is being deleted: soft-delete or unfile its items, then reconcile them. */
     @Transactional
     public void releaseBinderItems(
@@ -1333,6 +1375,42 @@ public class InventoryService {
         }
         items.moveToBinder(row.id(), targetId, visibility, publicUntil, now);
         return true;
+    }
+
+    /**
+     * A card goes only into a binder of its own game (stage G): {@code 409 BINDER_GAME_MISMATCH}
+     * otherwise.
+     */
+    static void requireBinderGame(@Nullable BinderView binder, String cardGame) {
+        if (binder != null && !binder.game().equals(cardGame)) {
+            throw new ApiException(ErrorCode.BINDER_GAME_MISMATCH, GAME_MISMATCH);
+        }
+    }
+
+    /**
+     * A card of {@code cardGame} goes into {@code binder} (held by the caller). A binder made with
+     * a game takes the cards of that game only ({@code 409 BINDER_GAME_MISMATCH}). A binder made
+     * without one (the paused web, which has no game picker) takes the game of its first card while
+     * it holds none ({@link BinderService#followCardGame}) and refuses no card: the web's own
+     * binders keep mixing games as they did. Returns the binder as it now is.
+     */
+    private @Nullable BinderView binderForCard(
+            @Nullable BinderView binder, String cardGame, Instant now) {
+        if (binder == null) {
+            return null;
+        }
+        if (binder.gameFollowsCards()) {
+            // Made without a game (the paused web): it takes its first card's game and refuses
+            // none, as the web's binders always did.
+            return binders.followCardGame(binder, cardGame, binderEmpty(binder, now));
+        }
+        requireBinderGame(binder, cardGame);
+        return binder;
+    }
+
+    /** No live card, and no deleted card whose undo can still bring it back (stage G). */
+    boolean binderEmpty(BinderView binder, Instant now) {
+        return binder.itemCount() == 0 && items.countRestorableInBinder(binder.id(), now) == 0;
     }
 
     /**

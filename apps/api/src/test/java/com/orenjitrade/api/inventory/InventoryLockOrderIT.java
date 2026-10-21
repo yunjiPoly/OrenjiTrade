@@ -732,6 +732,16 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
         BINDER_DECK_CORE,
         BINDER_PHOTO_ADD,
         BINDER_PHOTO_DELETE,
+        /**
+         * Stage G, review fix 1 (F6): the game of an empty binder changes (PATCH gameId: the read
+         * of its restorable cards and the write of its game, under the binder's row lock).
+         */
+        BINDER_GAME_CHANGE,
+        /**
+         * Stage G, review fix 1 (F6): the first card filed in a binder made without a game (the
+         * paused web's) sets the binder's game, a binder write inside the item create.
+         */
+        FIRST_CARD_SETS_THE_BINDER_GAME,
         /** Stage R4: Mark as sold of a card (its last copy), from the chat. */
         SALE,
         /** Stage R4: the undo of that sale (the card comes back into its binder). */
@@ -1006,6 +1016,41 @@ class InventoryLockOrderIT extends AbstractIntegrationTest {
             case BINDER_PHOTO_DELETE -> {
                 assertThat(photoId).isNotNull();
                 binderService.deletePhoto(ownerId, uuid(binderId), photoId);
+            }
+            // The second binder holds no card; both were made without a game (Yu-Gi-Oh! until
+            // their first card).
+            case BINDER_GAME_CHANGE ->
+                    assertThat(
+                                    callJson(
+                                                    HttpMethod.PATCH,
+                                                    "/api/v1/binders/" + otherBinderId,
+                                                    uid,
+                                                    Map.of(
+                                                            "gameId",
+                                                            InventoryTestSupport.gameId(
+                                                                            testUsers, "pokemon")
+                                                                    .toString()),
+                                                    200)
+                                            .path("game")
+                                            .asString())
+                            .isEqualTo("pokemon");
+            case FIRST_CARD_SETS_THE_BINDER_GAME -> {
+                createItem(
+                        uid,
+                        otherBinderId,
+                        Map.of(
+                                "printingId",
+                                InventoryTestSupport.printing(testUsers, "pkm-p002a").toString()));
+                assertThat(
+                                callJson(
+                                                HttpMethod.GET,
+                                                "/api/v1/binders/" + otherBinderId,
+                                                uid,
+                                                null,
+                                                200)
+                                        .path("game")
+                                        .asString())
+                        .isEqualTo("pokemon");
             }
             // Stage R4: run by everyWriteStartsWithTheOwnerLock through the chat (see there).
             case SALE,

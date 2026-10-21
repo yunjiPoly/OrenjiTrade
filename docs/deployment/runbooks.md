@@ -25,7 +25,10 @@ The `deploy.yml` run summary prints this exact command with the previous revisio
 the fix is ready, re-run **Deploy** with the new image tag; it resets traffic to `LATEST`.
 Web and ml roll back the same way. Database migrations are forward-only (Flyway): a rollback
 of the API must be compatible with the current schema; that is why migrations are additive and
-destructive changes are done in a later release.
+destructive changes are done in a later release. Example (stage G): V131 made `binder.game_id`
+`NOT NULL`, which a revision from before stage G does not write; V132 gave it a default (Yu-Gi-Oh!,
+with `game_follows_cards` defaulting to `true`), so such a revision still creates binders during
+the rolling update or after a rollback: they follow their cards like the paused web's.
 
 ## 2. Scale
 

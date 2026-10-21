@@ -95,8 +95,10 @@ test.describe('mobile search: collectors while typing, binders', () => {
     await expect(search.getByTestId(`search-collector-${hidden.handle}`)).toHaveCount(0);
     await expect(search.getByTestId(`search-collector-${abroad.handle}`)).toHaveCount(0);
     await expect(search.getByTestId(`search-collector-${blocked.handle}`)).toHaveCount(0);
-    // No card has the token in its name.
-    await expect(search.getByTestId('search-no-match')).toContainText(`No card matches “${token}”`);
+    // No card of the browsed game (Pokémon, the collector's profile game, stage G) has the token.
+    await expect(search.getByTestId('search-no-match')).toContainText(
+      `No Pokémon card matches “${token}”`
+    );
 
     // By handle; the row opens the profile, and the search is remembered on this phone.
     const byHandle = page.waitForResponse(

@@ -317,6 +317,8 @@ public class CatalogImportService {
                     report.cardsCreated,
                     report.cardsUpdated,
                     counts.printings());
+            // A game's first cards change its hasCards (stage G): the cached games are read again.
+            gameService.invalidate();
             try {
                 events.publishEvent(
                         new CatalogImportedEvent(

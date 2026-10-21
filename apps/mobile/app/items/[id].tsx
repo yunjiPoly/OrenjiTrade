@@ -47,6 +47,7 @@ import { useInventoryUiStore, type LocalPhoto } from '@/src/features/inventory/i
 import { useLeaveGuard } from '@/src/features/inventory/import/useLeaveGuard';
 import { ITEM_PHOTO_MAX_COUNT, photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
+import { bindersForGame } from '@/src/features/binders/binderForm';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import { useAppStore } from '@/src/store';
@@ -444,7 +445,7 @@ function CardEditor({
           });
         }}
         errors={errors}
-        binders={binders.data ?? []}
+        binders={bindersForGame(binders.data ?? [], item.card.game)}
         findability={findability}
         saved={{ item, changed: dirty }}
         disabled={busy}

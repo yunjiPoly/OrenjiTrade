@@ -96,8 +96,10 @@ describe('profile rules', () => {
 
   it('lists the API games with friendly labels and falls back to the built-in list', () => {
     expect(gamesFrom(GAMES).map((game) => game.label)).toEqual(['Pokémon', 'Yu-Gi-Oh!']);
-    expect(gamesFrom(undefined).length).toBe(4);
+    // Stage G: One Piece joins the built-in list (five games).
+    expect(gamesFrom(undefined).length).toBe(5);
     expect(gameLabel('mtg')).toBe('Magic: The Gathering');
+    expect(gameLabel('onepiece')).toBe('One Piece Card Game');
     expect(gameLabel('unknown')).toBe('unknown');
   });
 

@@ -65,6 +65,13 @@ public enum ErrorCode {
      * collector pinned another one since the seller looked (stage R4).
      */
     SUBJECT_CHANGED(HttpStatus.CONFLICT, "Subject changed"),
+    /**
+     * A binder's game changes only while it holds no card (stage G: a binder holds the cards of one
+     * game).
+     */
+    BINDER_GAME_LOCKED(HttpStatus.CONFLICT, "Binder game locked"),
+    /** A card goes only into a binder of its own game (stage G). */
+    BINDER_GAME_MISMATCH(HttpStatus.CONFLICT, "Binder game mismatch"),
     /** The caller already has an open report against this collector (Phase 7). */
     REPORT_ALREADY_OPEN(HttpStatus.CONFLICT, "Report already open"),
     /** Collectors cannot report themselves (Phase 7). */

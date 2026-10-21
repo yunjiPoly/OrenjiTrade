@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -181,7 +182,7 @@ class WhoHasThisCardIT extends AbstractSearchIT {
     @Test
     void theCardsOfADeckCoreSellWithItAndShowAsTheCore() {
         Collector seller = collector("who-core", "CA", "CA-ON");
-        var core = binder("Who core " + token(), "PUBLIC");
+        var core = binder("Who core " + token(), "PUBLIC", gameId(testUsers, "pokemon"));
         core.put("sellsAsCore", true);
         core.put("askingPriceText", "$95");
         String coreId =

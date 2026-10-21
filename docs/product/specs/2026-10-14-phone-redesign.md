@@ -584,3 +584,39 @@ them (section 6, screens 1, 6 and 7):
 Screens 1 and 7 as built, on the iPhone simulator (dark, default text size, fictional data):
 [Inventory with the tags](../screens/2026-10-16-screen-01-inventory-tags.jpg) and
 [Edit card with the price switch](../screens/2026-10-16-screen-07-edit-card-price.jpg).
+
+---
+
+## Changed by the owner on 2026-10-19
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+saved word for word) asks, among other stages, for **stage G, one game at a time**, between R6 and
+R7: _"Next to Americas(north), put a dropdown section button to select the game. Same in search
+section, on the right of search text at the top. You can remove the "All games" "yugioh" "pokemon"
+below the search bar. For the binder, it needs to section the game for the binder. So that, this
+idea make the user only see one game at the time, in home page and in search."_ The prompt above is
+kept as it was; for stage G these points replace what it says about them (mockup version 50,
+screens 34 and 35, changes to 10 to 18):
+
+1. **Five games**: Yu-Gi-Oh!, Pokémon, Magic: The Gathering, One Piece (new, English cards only)
+   and Riftbound. A game whose catalogue holds no card yet is shown dimmed with "Cards coming
+   soon": it cannot be browsed or hold a binder, but it can be on a profile.
+2. **The browsed game**, like the browsed region: remembered per account on the phone, starting on
+   the first game of the collector's profile that has cards, else Yu-Gi-Oh!. It scopes Home (stage
+   R7) and every Search segment (the map's counts, the card search, the binders and deck cores, the
+   wishlist); Inventory › Cards, chats and the bell keep every game.
+3. **The game pill** right of Search's title (and, with R7, right of the region pill on Home)
+   opens "Choose a game" (screen 34). The region pill opens "Choose a region" (screen 35), and
+   its border turns orange while another region than the collector's is browsed.
+4. **Search typing** (screen 12) has no game chips any more: the field says "{game} card name or
+   code", a result is the card's name with the typed part in orange and nothing else, and no match
+   says "No {game} card matches “{text}”". Section 8's game chips are gone.
+5. **Binders have a game**: every binder holds the cards of one game, chosen when it is made
+   (New binder gains a Game picker until stage R14 rebuilds it) and fixed once it holds a card;
+   Inventory › Binders (screen 17) is grouped by game; Edit binder (screen 18) shows the Name and
+   the Game side by side, the game locked; binder pickers list the binders of the card's game.
+   Existing binders took the game most of their cards belong to; the cards of another game left
+   the binder and stay in the inventory.
+
+Built as stage G (`IMPLEMENTATION_STATUS.md`, "Phone redesign G: one game at a time
+(2026-10-20)"; API contract [`docs/api/contracts/g-one-game.md`](../../api/contracts/g-one-game.md)).

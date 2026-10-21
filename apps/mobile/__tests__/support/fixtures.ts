@@ -256,6 +256,7 @@ export const GAMES: GameResponse[] = [
     status: 'ACTIVE',
     sortOrder: 1,
     schema: POKEMON_SCHEMA,
+    hasCards: true,
   },
   {
     id: 'g2',
@@ -265,6 +266,7 @@ export const GAMES: GameResponse[] = [
     status: 'ACTIVE',
     sortOrder: 2,
     schema: YUGIOH_SCHEMA,
+    hasCards: true,
   },
 ];
 
@@ -523,6 +525,8 @@ export function binderFixture(overrides: Partial<BinderResponse> = {}): BinderRe
     publicItemCount: 0,
     effectivePublic: false,
     games: ['pokemon'],
+    game: 'pokemon',
+    gameId: 'g1',
     coverImageUrl: null,
     coverPrintingId: null,
     freshness: {

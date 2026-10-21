@@ -17,6 +17,7 @@ import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.AskingPriceText;
+import com.orenjitrade.api.common.ErrorCode;
 import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
@@ -25,6 +26,8 @@ import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
+import com.orenjitrade.api.games.domain.GameService;
+import com.orenjitrade.api.games.domain.GameView;
 import com.orenjitrade.api.limits.domain.Limits;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -96,7 +99,15 @@ public class BinderService {
     /** Default currency of a binder's price (as inventory items). */
     public static final String DEFAULT_CURRENCY = "CAD";
 
+    /**
+     * The game of a binder made without one until its first card sets it (the paused web has no
+     * game picker, stage G).
+     */
+    public static final String DEFAULT_GAME = "yugioh";
+
     static final String NOT_FOUND = "Binder not found";
+    static final String GAME_LOCKED = "A binder's game can't change once it has cards";
+    static final String COVER_OF_ANOTHER_GAME = "A binder's cover is a card of its game";
     static final String IMAGE_NAMESPACE = "binders";
     static final String PHOTO_NOT_FOUND = "Photo not found";
 
@@ -108,6 +119,7 @@ public class BinderService {
     private final FreshnessEventLog freshnessEvents;
     private final ObjectProvider<BinderContents> contents;
     private final CatalogService catalogService;
+    private final GameService games;
     private final ObjectStorage storage;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
@@ -120,6 +132,7 @@ public class BinderService {
             FreshnessEventLog freshnessEvents,
             ObjectProvider<BinderContents> contents,
             CatalogService catalogService,
+            GameService games,
             ObjectStorage storage,
             TimeProvider timeProvider,
             ApplicationEventPublisher events,
@@ -130,6 +143,7 @@ public class BinderService {
         this.freshnessEvents = freshnessEvents;
         this.contents = contents;
         this.catalogService = catalogService;
+        this.games = games;
         this.storage = storage;
         this.timeProvider = timeProvider;
         this.events = events;
@@ -172,8 +186,14 @@ public class BinderService {
                 PublicVisibilityRules.validatePublicUntil(visibility, input.publicUntil(), now));
         validateCover(input.coverPrintingId(), errors);
         @Nullable String priceText = validPriceText(input.askingPriceText(), errors);
-        if (!errors.isEmpty()) {
+        @Nullable GameView game =
+                input.gameId() == null ? defaultGame() : binderGame(input.gameId(), errors);
+        if (!errors.isEmpty() || game == null) {
             throw ApiException.validation("Validation failed", errors);
+        }
+        if (input.gameId() != null) {
+            // A binder made without a game (the paused web) refuses no card and no cover.
+            requireCoverOfGame(input.coverPrintingId(), game.id());
         }
         // The owner lock also keeps two creations apart (limit check + insert).
         repository.lockOwners(List.of(ownerId));
@@ -190,14 +210,17 @@ public class BinderService {
                 repository.nextSortOrder(ownerId),
                 input.coverPrintingId(),
                 coreFields(Boolean.TRUE.equals(input.sellsAsCore()), priceText),
+                game.id(),
+                input.gameId() == null,
                 now);
         reconcileListing(ListingScope.Binders.of(List.of(id)));
         log.info(
-                "Binder created owner={} binder={} visibility={} deckCore={}",
+                "Binder created owner={} binder={} visibility={} deckCore={} game={}",
                 ownerId,
                 id,
                 visibility,
-                Boolean.TRUE.equals(input.sellsAsCore()));
+                Boolean.TRUE.equals(input.sellsAsCore()),
+                game.slug());
         return getMine(ownerId, id);
     }
 
@@ -236,8 +259,30 @@ public class BinderService {
                 patch.askingPriceTextSet()
                         ? validPriceText(patch.askingPriceText(), errors)
                         : current.askingPriceText();
+        boolean gameChanged = patch.gameId() != null && !patch.gameId().equals(current.gameId());
+        @Nullable GameView game = gameChanged ? binderGame(patch.gameId(), errors) : null;
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
+        }
+        if (gameChanged) {
+            // Under the binder's row lock: no card can come in between this check and the write.
+            @Nullable BinderContents binderContents = contents.getIfAvailable();
+            if (current.itemCount() > 0
+                    || (binderContents != null
+                            && binderContents.holdsRestorableCards(binderId, now))) {
+                throw new ApiException(ErrorCode.BINDER_GAME_LOCKED, GAME_LOCKED);
+            }
+        }
+        // A binder that has its game (chosen now, or before) takes a cover of that game only; one
+        // made without a game (the paused web) refuses no cover until a game is chosen for it.
+        if ((patch.coverPrintingIdSet() || gameChanged)
+                && (gameChanged || !current.gameFollowsCards())) {
+            requireCoverOfGame(
+                    cover,
+                    gameChanged ? java.util.Objects.requireNonNull(game).id() : current.gameId());
+        }
+        if (gameChanged) {
+            repository.setGame(binderId, java.util.Objects.requireNonNull(game).id(), now);
         }
         boolean sellsAsCore =
                 patch.sellsAsCore() != null ? patch.sellsAsCore() : current.sellsAsCore();
@@ -258,6 +303,45 @@ public class BinderService {
         }
         afterChange(ownerId, binderId);
         return getMine(ownerId, binderId);
+    }
+
+    /**
+     * The game a binder may hold (stage G): an ACTIVE game whose catalogue holds a card. Adds a
+     * field error otherwise ({@code null}).
+     */
+    private @Nullable GameView binderGame(UUID gameId, List<ProblemFieldError> errors) {
+        Optional<GameView> game =
+                games.findById(gameId).filter(GameView::isActive).filter(GameView::hasCards);
+        if (game.isEmpty()) {
+            errors.add(new ProblemFieldError("gameId", "must be an active game with cards"));
+            return null;
+        }
+        return game.get();
+    }
+
+    /**
+     * A card of game {@code cardGame} goes into {@code binder}, which the caller holds (owner lock,
+     * row lock): a binder made without a game ({@link BinderView#gameFollowsCards()}) that holds no
+     * card (live, or deleted with an undo still open) takes that game; any other binder keeps its
+     * own. Returns the binder as it now is.
+     */
+    public BinderView followCardGame(BinderView binder, String cardGame, boolean empty) {
+        if (binder.game().equals(cardGame) || !binder.gameFollowsCards() || !empty) {
+            return binder;
+        }
+        Optional<GameView> game = games.find(cardGame).filter(GameView::isActive);
+        if (game.isEmpty()) {
+            return binder;
+        }
+        repository.followCardGame(binder.id(), game.get().id());
+        log.info("Binder game follows its first card binder={} game={}", binder.id(), cardGame);
+        return binder.withGame(game.get().id(), game.get().slug());
+    }
+
+    /** The placeholder game of a binder made without one: Yu-Gi-Oh! (stage G). */
+    private GameView defaultGame() {
+        return games.find(DEFAULT_GAME)
+                .orElseThrow(() -> new IllegalStateException("The game yugioh is missing"));
     }
 
     // ---------------------------------------------------------------------------------------
@@ -789,6 +873,16 @@ public class BinderService {
                 binderContents == null ? Map.of() : binderContents.statsOf(ids, publicOnly);
         Map<UUID, String> covers = coverImages(binders);
         Map<UUID, BinderShowcase> showcases = showcases(binders, publicOnly, binderContents);
+        // The owner's views say whether the game can still change (review fix 1, U2).
+        java.util.Set<UUID> restorable =
+                publicOnly || binderContents == null
+                        ? java.util.Set.of()
+                        : binderContents.bindersWithRestorableCards(
+                                binders.stream()
+                                        .filter(binder -> binder.itemCount() == 0)
+                                        .map(BinderView::id)
+                                        .toList(),
+                                timeProvider.now());
         List<BinderDetails> result = new ArrayList<>();
         for (BinderView binder : binders) {
             BinderContents.Stats binderStats =
@@ -799,7 +893,10 @@ public class BinderService {
                             binder,
                             binderStats,
                             cover != null ? cover : binderStats.coverImageUrl(),
-                            showcases.getOrDefault(binder.id(), BinderShowcase.EMPTY)));
+                            showcases.getOrDefault(binder.id(), BinderShowcase.EMPTY),
+                            !publicOnly
+                                    && (binder.itemCount() > 0
+                                            || restorable.contains(binder.id()))));
         }
         return result;
     }
@@ -940,6 +1037,21 @@ public class BinderService {
             storage.delete(key);
         } catch (RuntimeException e) {
             log.warn("Could not delete stored binder photo {}: {}", key, e.getMessage());
+        }
+    }
+
+    /**
+     * {@code 409 BINDER_GAME_MISMATCH} unless the cover is a card of {@code gameId} (stage G,
+     * review fix 1, F7: a cover of another game would show in that game's lists). The printing
+     * exists ({@link #validateCover}).
+     */
+    private void requireCoverOfGame(@Nullable UUID coverPrintingId, UUID gameId) {
+        if (coverPrintingId != null
+                && repository
+                        .printingGame(coverPrintingId)
+                        .filter(printingGame -> !printingGame.equals(gameId))
+                        .isPresent()) {
+            throw new ApiException(ErrorCode.BINDER_GAME_MISMATCH, COVER_OF_ANOTHER_GAME);
         }
     }
 

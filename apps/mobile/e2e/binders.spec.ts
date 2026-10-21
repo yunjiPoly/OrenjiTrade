@@ -5,6 +5,7 @@ import {
   API_URL,
   authHeader,
   createOnboardedCollector,
+  gameIdOf,
   openInApp,
   openTab,
   PHOTO_PNG,
@@ -107,6 +108,8 @@ test.describe('mobile binders and deck cores', () => {
       timeout: 30_000,
     });
     await form.getByLabel('Name').fill('Lantern core');
+    // Stage G: the binder's game, here the cards' (the collector browses Pokémon).
+    await form.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
     await expect(form.getByRole('radio', { name: 'Private' })).toHaveAttribute(
       'aria-checked',
       'true'
@@ -243,6 +246,8 @@ test.describe('mobile binders and deck cores', () => {
         name: 'Lantern engine',
         visibility: 'PUBLIC',
         sellsAsCore: true,
+        // Lantern Fox Spirit is a Yu-Gi-Oh! card of the seed catalogue (stage G: one game).
+        gameId: await gameIdOf(request, 'yugioh'),
         askingPriceText: 'Trade only',
         description: 'Three Lantern Fox Spirit, all NM.',
       },
@@ -295,6 +300,12 @@ test.describe('mobile binders and deck cores', () => {
 
     const form = screen(page, 'new-binder');
     await form.getByLabel('Name').fill('Mobile trades', { timeout: 30_000 });
+    // Stage G: a binder holds one game; New binder starts on the browsed one (Pokémon here).
+    await expect(form.getByRole('radio', { name: 'Pokémon' })).toBeChecked();
+    await expect(
+      form.getByText('A binder holds cards of one game. You can’t change it once it has cards.')
+    ).toBeVisible();
+    await form.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
     await expect(form.getByText('Only you see it until you make it public.')).toBeVisible();
     await expect(form.getByText('No cards in this binder yet.')).toBeVisible();
     await form.getByRole('button', { name: 'Add cards' }).click();
@@ -308,6 +319,7 @@ test.describe('mobile binders and deck cores', () => {
       name: 'Mobile trades',
       visibility: 'PRIVATE',
       sellsAsCore: false,
+      game: 'yugioh',
     });
     const filed = await item(request, collector.idToken, itemId);
     expect(filed.binder?.name).toBe('Mobile trades');

@@ -251,7 +251,7 @@ export class WishlistService extends BaseService implements WishlistServiceInter
 
     /**
      * Which of the caller\&#39;s wishes are available in a region
-     * The ids of the caller\&#39;s wishes that &#x60;available&#x60; would mark in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north): the phone\&#39;s Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as &#x60;available&#x60; on GET /wishlist, one grouped query. Ids only: no count, no holder, no place.
+     * The ids of the caller\&#39;s wishes that &#x60;available&#x60; would mark in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north): the phone\&#39;s Wishlist segment of Search asks it for the region it browses (stage R5). The same rules as &#x60;available&#x60; on GET /wishlist, one grouped query. Ids only: no count, no holder, no place. &#x60;game&#x60; (stage G) keeps the wishes of that game only.
      * @endpoint get /api/v1/wishlist/availability
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -263,6 +263,7 @@ export class WishlistService extends BaseService implements WishlistServiceInter
     public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<WishlistAvailability>>;
     public getWishlistAvailability(requestParameters?: GetWishlistAvailabilityRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         const region = requestParameters?.region;
+        const game = requestParameters?.game;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -270,6 +271,15 @@ export class WishlistService extends BaseService implements WishlistServiceInter
             localVarQueryParameters,
             'region',
             <any>region,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
             QueryParamStyle.Form,
             true,
         );

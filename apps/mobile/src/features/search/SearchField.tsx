@@ -10,15 +10,15 @@ import { MAP_COPY, TYPING_COPY } from './searchCopy';
 
 /**
  * The search field of Search's map (mockup screen 11): it looks like the field, with the orange
- * magnifier and "Card name or code, like LOB-EN001", and opens the card search with the keyboard
- * up (screen 12).
+ * magnifier and "Card name or code, like LOB-EN001" (the example only on Yu-Gi-Oh!), and opens the
+ * card search with the keyboard up (screen 12).
  */
 export function SearchFieldButton({
-  label = MAP_COPY.field,
+  label,
   onPress,
   testID = 'search-field',
 }: {
-  label?: string;
+  label: string;
   onPress: () => void;
   testID?: string;
 }) {

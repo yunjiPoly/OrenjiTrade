@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory.domain;
 
 import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.binders.domain.BinderView;
 import com.orenjitrade.api.binders.domain.ListingVisibility;
 import com.orenjitrade.api.cards.domain.CatalogPrintingRef;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -158,8 +159,8 @@ public class InventoryBatchService {
     public record Outcome(
             List<UUID> created, List<UUID> raised, int copiesAdded, int copiesNotAdded) {}
 
-    /** A line ready to write: its printing and the columns of a new item. */
-    private record Planned(Key key, int quantity) {}
+    /** A line ready to write: its printing, the columns of a new item and the card's game. */
+    private record Planned(Key key, int quantity, String game) {}
 
     /** What makes two items equal for a batch line (visibility and binder are the batch's). */
     private record Key(
@@ -176,7 +177,8 @@ public class InventoryBatchService {
      *     first answer back for 24 hours, nothing added again; {@code null}: no repeat check
      * @throws ApiException 400 VALIDATION_FAILED (bad lines, unknown printings, a visibility other
      *     than PRIVATE or PUBLIC, a malformed key), 404 when {@code binderId} is not one of the
-     *     owner's binders
+     *     owner's binders, 409 BINDER_GAME_MISMATCH when a line's card is of another game than that
+     *     binder (stage G; nothing is added)
      * @throws LimitReachedException 429 when the new items would pass {@code inventory.items.max}
      */
     public Outcome add(UUID ownerId, Batch request, @Nullable String idempotencyKey) {
@@ -245,7 +247,8 @@ public class InventoryBatchService {
                                     printing.language(),
                                     printing.edition(),
                                     printing.finish()),
-                            entry.getValue()));
+                            entry.getValue(),
+                            printing.game()));
         }
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
@@ -283,7 +286,21 @@ public class InventoryBatchService {
         }
         binders.lockInOrder(ownerId, binderIds);
         if (binderId != null) {
-            binders.requireOwned(ownerId, binderId);
+            BinderView binder = binders.requireOwned(ownerId, binderId);
+            // A binder holds the cards of one game (stage G): the whole batch or nothing. A
+            // binder made without a game (the paused web) takes the game of the first line while
+            // it holds no card, and refuses none.
+            if (binder.gameFollowsCards() && !lines.isEmpty()) {
+                boolean empty =
+                        binder.itemCount() == 0
+                                && items.countRestorableInBinder(binderId, now) == 0;
+                binder = binders.followCardGame(binder, lines.get(0).game(), empty);
+            }
+            if (!binder.gameFollowsCards()) {
+                for (Planned line : lines) {
+                    InventoryService.requireBinderGame(binder, line.game());
+                }
+            }
         }
         Map<UUID, LockedItem> locked = new HashMap<>();
         for (LockedItem item : items.lockAll(ownerId, targetIds)) {

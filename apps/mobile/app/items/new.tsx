@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -43,6 +43,7 @@ import { askingPriceTextOf } from '@/src/features/inventory/itemPrice';
 import { PrintingPicker } from '@/src/features/inventory/PrintingPicker';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { useAddCardsScanRows } from '@/src/features/scan/useAddCardsScanRows';
+import { bindersForGame } from '@/src/features/binders/binderForm';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
 import { useAppStore } from '@/src/store';
 import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
@@ -88,6 +89,21 @@ export default function AddCardsScreen() {
 
   const card = useCard(cardId);
   const binders = useMyBinders();
+  // Only the binders of the card's game (stage G: a binder holds one game). A binder chosen
+  // before the card was known (opened from a binder) that holds another game is let go.
+  const cardGame = card.data?.game ?? null;
+  const binderChoices = useMemo(
+    () => bindersForGame(binders.data ?? [], cardGame),
+    [binders.data, cardGame]
+  );
+  if (
+    cardGame &&
+    binders.data &&
+    form.binderId &&
+    !binderChoices.some((binder) => binder.id === form.binderId)
+  ) {
+    setForm((current) => ({ ...current, binderId: null }));
+  }
   const create = useCreateInventoryItem();
   const applyPhotos = useApplyPhotoChanges();
   const markSaved = useInventoryUiStore((state) => state.markSaved);
@@ -340,7 +356,7 @@ export default function AddCardsScreen() {
               });
             }}
             errors={errors}
-            binders={binders.data ?? []}
+            binders={binderChoices}
             findability={findability}
             disabled={saving}
             photos={{

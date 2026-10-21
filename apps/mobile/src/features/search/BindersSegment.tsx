@@ -12,6 +12,8 @@ import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import { CardFan, CoreThumb } from '@/src/features/binders/BinderRows';
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
+import { SwitchGameButton } from '@/src/features/games/SwitchGameButton';
 import { placeParts, regionOf } from '@/src/features/map/places';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { SEARCH_DEBOUNCE_MS, boundedQuery } from '@/src/lib/catalog';
@@ -72,6 +74,8 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
 
   const place = state ? placeParts(regionOf(regions.data, region), state) : null;
   const binders = useBinderSearch({ state, deckCore: kind === 'cores', q: query });
+  const browsing = useBrowsingGame();
+  const gameName = browsing.current.name;
   const rows = useMemo(
     () => binders.data?.pages.flatMap((page) => page.items ?? []) ?? [],
     [binders.data]
@@ -85,7 +89,7 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
         value={text}
         onChangeText={setText}
         label={BINDERS_COPY.fieldLabel}
-        placeholder={BINDERS_COPY.placeholder}
+        placeholder={BINDERS_COPY.placeholder(browsing.game)}
         testID="binders-input"
       />
       <View style={styles.filters}>
@@ -155,15 +159,19 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
     const message = query
       ? BINDERS_COPY.noMatch
       : kind === 'cores'
-        ? BINDERS_COPY.noDeckCores
-        : BINDERS_COPY.noBinders;
+        ? BINDERS_COPY.noDeckCores(gameName)
+        : BINDERS_COPY.noBinders(gameName);
     empty = (
-      <Text
-        style={[textStyle('md'), styles.empty, { color: palette.textMuted }]}
-        testID="binders-empty"
-      >
-        {message}
-      </Text>
+      <View style={styles.emptyBox}>
+        <Text
+          style={[textStyle('md'), styles.empty, { color: palette.textMuted }]}
+          testID="binders-empty"
+        >
+          {message}
+        </Text>
+        {/* Nothing of this game here: another game may have some (review fix 1, U4). */}
+        {query ? null : <SwitchGameButton testID="binders-switch-game" />}
+      </View>
     );
   }
 
@@ -299,6 +307,7 @@ const styles = StyleSheet.create({
   bold: { fontWeight: fontWeight.semibold },
   list: { flexGrow: 1, paddingBottom: spacing[6] },
   empty: { paddingVertical: spacing[6], textAlign: 'center' },
+  emptyBox: { alignItems: 'center', paddingBottom: spacing[6] },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

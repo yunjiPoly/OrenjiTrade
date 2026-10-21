@@ -36,6 +36,26 @@ public class RegionBinderRepository {
 
     private static final String NOT_BLOCKED = DiscoverySql.notBlocked("bn.owner_id");
 
+    /**
+     * The binder holds the cards of the game {@code :game} (a slug; stage G) and of no other game:
+     * a binder the paused web made without a game ({@code game_follows_cards}) takes its first
+     * card's game and refuses no card, so it can hold the cards of several games. Such a binder, or
+     * one whose cover is a card of another game, is left out of every game's counts and lists
+     * (review fix 1, P1): its other cards would show as the browsed game's. Without a game it shows
+     * as before. Whatever the visibility of the card: a private card can become public later
+     * without the binder being written.
+     */
+    static final String OF_GAME =
+            " AND bn.game_id = (SELECT gm.id FROM game gm WHERE gm.slug = :game)"
+                    + " AND NOT EXISTS (SELECT 1 FROM inventory_item gi"
+                    + " JOIN card_printing gp ON gp.id = gi.printing_id"
+                    + " JOIN card gc ON gc.id = gp.card_id"
+                    + " WHERE gi.binder_id = bn.id AND gi.deleted_at IS NULL"
+                    + " AND gc.game_id <> bn.game_id)"
+                    + " AND NOT EXISTS (SELECT 1 FROM card_printing gcp"
+                    + " JOIN card gcc ON gcc.id = gcp.card_id"
+                    + " WHERE gcp.id = bn.cover_printing_id AND gcc.game_id <> bn.game_id)";
+
     private final JdbcClient jdbc;
 
     public RegionBinderRepository(JdbcClient jdbc) {
@@ -44,10 +64,10 @@ public class RegionBinderRepository {
 
     /**
      * Public binders per subdivision of {@code region}, with the deck cores among them
-     * (subdivisions without any are absent).
+     * (subdivisions without any are absent); only the binders of {@code game} when given (stage G).
      */
     public Map<String, Counts> countsBySubdivision(
-            String region, @Nullable UUID viewerId, Instant now) {
+            String region, @Nullable String game, @Nullable UUID viewerId, Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         params.put("region", region);
@@ -58,6 +78,10 @@ public class RegionBinderRepository {
                         .append(FROM)
                         .append(" AND ")
                         .append(DiscoverySql.IN_REGION);
+        if (game != null) {
+            sql.append(OF_GAME);
+            params.put("game", game);
+        }
         if (viewerId != null) {
             sql.append(NOT_BLOCKED);
             params.put("viewer", viewerId);
@@ -83,6 +107,7 @@ public class RegionBinderRepository {
      *     both
      * @param text matches the binder's name and description, its owner's handle and a deck core's
      *     card names ({@link DiscoverySql#binderText}); {@code null} for every binder
+     * @param game the binders of this game only (a slug, stage G); {@code null} for every game
      */
     public List<BinderRef> binders(
             String region,
@@ -90,6 +115,7 @@ public class RegionBinderRepository {
             @Nullable UUID viewerId,
             @Nullable Boolean deckCore,
             @Nullable String text,
+            @Nullable String game,
             @Nullable TimeCursor after,
             int limit,
             Instant now) {
@@ -107,6 +133,10 @@ public class RegionBinderRepository {
         if (deckCore != null) {
             sql.append(" AND bn.sells_as_core = :deckCore");
             params.put("deckCore", deckCore);
+        }
+        if (game != null) {
+            sql.append(OF_GAME);
+            params.put("game", game);
         }
         if (text != null) {
             sql.append(" AND ").append(DiscoverySql.binderText("bn"));
@@ -136,10 +166,15 @@ public class RegionBinderRepository {
      * a live card of {@code cardId} (any printing, whatever the card's own visibility: buyers see
      * it as a key card, {@link DiscoverySql#SHOWN}), most recently updated first: "Also in a deck
      * core" on the card page (stage R5). The viewer's own and those of collectors blocked with them
-     * are left out.
+     * are left out; only the deck cores of {@code game} when given (stage G).
      */
     public List<UUID> deckCoresWithCard(
-            UUID cardId, String region, @Nullable UUID viewerId, int limit, Instant now) {
+            UUID cardId,
+            String region,
+            @Nullable String game,
+            @Nullable UUID viewerId,
+            int limit,
+            Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
         params.put("region", region);
@@ -155,6 +190,10 @@ public class RegionBinderRepository {
                         .append(" WHERE i.binder_id = bn.id AND ")
                         .append(DiscoverySql.SHOWN)
                         .append(" AND c.id = :cardId)");
+        if (game != null) {
+            sql.append(OF_GAME);
+            params.put("game", game);
+        }
         if (viewerId != null) {
             sql.append(" AND bn.owner_id <> :viewer").append(NOT_BLOCKED);
             params.put("viewer", viewerId);

@@ -28,7 +28,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(North\)'
+      text: 'Region: Americas \(North\)\. Change region'
     timeout: 60000
 - extendedWaitUntil:
     visible:
@@ -114,7 +114,7 @@ tags:
     timeout: 60000
 - assertVisible:
     id: 'search-region'
-    text: 'Region: Americas \(South\)'
+    text: 'Region: Americas \(South\)\. Change region'
 - tapOn:
     id: 'search-state-close'
 - tapOn:
@@ -124,7 +124,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(North\)'
+      text: 'Region: Americas \(North\)\. Change region'
     timeout: 30000
 - openLink: ${APP_URL}/--/?region=americas-south&subdivision=UY-MO
 - runFlow: subflows/dismiss-dev-menu.yaml
@@ -141,7 +141,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'search-region'
-      text: 'Region: Americas \(South\)'
+      text: 'Region: Americas \(South\)\. Change region'
     timeout: 30000
 - assertNotVisible:
     id: 'search-map-counts-error'

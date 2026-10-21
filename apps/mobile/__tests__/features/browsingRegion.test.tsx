@@ -154,7 +154,7 @@ describe('the browsed region and its switcher', () => {
     mockApi(signedInRoutes({ 'GET /api/v1/me': ok(meFixture({ homeRegion: 'europe' })) }));
     renderWithProviders(<Probe />, { port: signedIn() });
     await waitFor(() => expect(probe()).toHaveTextContent('europe|europe|home|ready'));
-    expect(screen.getByRole('button', { name: 'Region: Europe' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Region: Europe. Change region' })).toBeOnTheScreen();
     expect(screen.queryByTestId('switcher-away')).toBeNull();
   });
 
@@ -165,7 +165,9 @@ describe('the browsed region and its switcher', () => {
     // Not settled before the device answered: nothing is asked in a region that may change.
     expect(probe()).toHaveTextContent(/\|waiting$/);
     await waitFor(() => expect(probe()).toHaveTextContent('americas-south|none|home|ready'));
-    expect(screen.getByRole('button', { name: 'Region: Americas (South)' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Region: Americas (South). Change region' })
+    ).toBeOnTheScreen();
     first.unmount();
 
     resetAppState();
@@ -181,11 +183,14 @@ describe('the browsed region and its switcher', () => {
       expect(probe()).toHaveTextContent('americas-north|americas-north|home|ready')
     );
 
-    // At home the switcher is a plain pill.
+    // At home the switcher is a plain pill (stage G, mockup screen 35).
     expect(screen.getByTestId('switcher')).toHaveStyle({
-      backgroundColor: lightPalette.surfaceVariant,
+      backgroundColor: lightPalette.surface,
+      borderColor: lightPalette.borderStrong,
     });
-    fireEvent.press(screen.getByRole('button', { name: 'Region: Americas (North)' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Region: Americas (North). Change region' })
+    );
     const options = screen.getAllByRole('radio');
     expect(options.map((option) => option.props.accessibilityLabel)).toEqual([
       'Americas (North)',
@@ -196,10 +201,23 @@ describe('the browsed region and its switcher', () => {
     // On screen as a second line, and said after the name by a screen reader.
     expect(screen.getByTestId('switcher-option-americas-north')).toHaveTextContent(/Your region/);
     expect(screen.getByTestId('switcher-option-americas-north').props.accessibilityHint).toBe(
-      'Your region'
+      'Your region · Canada, United States, Mexico'
     );
     expect(screen.getByTestId('switcher-option-europe')).not.toHaveTextContent(/Your region/);
-    expect(screen.getByTestId('switcher-option-europe').props.accessibilityHint).toBeUndefined();
+    expect(screen.getByTestId('switcher-option-europe').props.accessibilityHint).toBe(
+      'France, Germany, Spain and more'
+    );
+    expect(screen.getByText('Choose a region')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Home, Search and the map show one region at a time. Cards ship within a region.'
+      )
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Your own region comes from Settings › Location. Browsing another one changes nothing on your profile.'
+      )
+    ).toBeOnTheScreen();
 
     fireEvent.press(screen.getByRole('radio', { name: 'Europe' }));
     await waitFor(() => expect(probe()).toHaveTextContent('europe|americas-north|away|ready'));
@@ -207,12 +225,12 @@ describe('the browsed region and its switcher', () => {
       expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('europe')
     );
 
-    // Away from home: the switcher says so at a glance (it takes the accent colour, and a line
-    // says it in words) and one press goes back.
-    expect(screen.getByRole('button', { name: 'Region: Europe' })).toBeOnTheScreen();
+    // Away from home: the switcher says so at a glance (its border turns orange, and a line says
+    // it in words) and one press goes back.
+    expect(screen.getByRole('button', { name: 'Region: Europe. Change region' })).toBeOnTheScreen();
     expect(screen.getByTestId('switcher')).toHaveStyle({
-      backgroundColor: lightPalette.accentContainer,
-      borderColor: lightPalette.accent,
+      backgroundColor: lightPalette.surface,
+      borderColor: lightPalette.primary,
     });
     expect(screen.getByTestId('switcher-away')).toHaveTextContent(
       'Not your region.Back to Americas (North)'
@@ -223,7 +241,7 @@ describe('the browsed region and its switcher', () => {
     );
     expect(screen.queryByTestId('switcher-away')).toBeNull();
     expect(screen.getByTestId('switcher')).toHaveStyle({
-      backgroundColor: lightPalette.surfaceVariant,
+      borderColor: lightPalette.borderStrong,
     });
   });
 
@@ -324,7 +342,9 @@ describe('the browsed region and its switcher', () => {
     renderWithProviders(<Probe />, { port: signedIn(), queryClient });
     // Not one of the regions the app ships: not browsed, and the switcher names a real region.
     await waitFor(() => expect(probe()).toHaveTextContent('americas-north|none|home|ready'));
-    expect(screen.getByRole('button', { name: 'Region: Americas (North)' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Region: Americas (North). Change region' })
+    ).toBeOnTheScreen();
     // The server has not spoken yet: the code is still on the device.
     expect(useBrowsingRegionStore.getState().stored).toBe('oceania');
     expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('oceania');
@@ -351,7 +371,9 @@ describe('the browsed region and its switcher', () => {
       queryClient.setQueryData(['public', 'regions'], regions);
     });
     await waitFor(() => expect(probe()).toHaveTextContent('oceania|none|home|ready'));
-    expect(screen.getByRole('button', { name: 'Region: Oceania' })).toBeOnTheScreen();
+    expect(
+      screen.getByRole('button', { name: 'Region: Oceania. Change region' })
+    ).toBeOnTheScreen();
     expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBe('oceania');
   });
 

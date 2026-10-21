@@ -163,6 +163,9 @@ Detailed column lists are appended per phase below as migrations land.
 | V126 | `V126__binder_deck_cores.sql` | Stage R3 of the phone redesign (binders and deck cores; V124 was kept for another branch, the card scan, which took V129): `binder.sells_as_core` ("Sell as a deck core", default false), `binder.asking_price_text` (≤ 40, trimmed, `ck_binder_asking_price_text`; a plain amount also fills `binder.asking_price` in `binder.currency`, default `CAD`), `binder.sold_at` (a sold binder is never public; stage R4 sets it), `binder_image` (the photos of a deck core: at most 4, the rules of `inventory_item_image`), partial index `ix_binder_deck_core`; `binder.description` is the deck core's public note |
 | V127 | `V127__chat_subject_and_sales.sql` | Stage R4 of the phone redesign (messages and Mark as sold; ADR 0018, part 2): `conversation.subject_item_id` / `subject_binder_id` (FKs `ON DELETE SET NULL`, at most one: `ck_conversation_one_subject`), `subject_set_at`, `subject_set_by` (the chat's pinned card or deck core) with two partial indexes; `sale` (a card or deck core marked sold from the chat: seller, buyer, item or binder, copies, the optional tracking number, the cards a deck core took with it, `undone_at`); `interaction` kind and subject type `SALE` (`ck_interaction_kind`, `ck_interaction_subject_type` replace the unnamed checks of V060) |
 | V129 | `V129__card_text_scan_flag.sql` | Camera card scan (owner spec 2026-10-15; written as V124, the number main kept for it, and renumbered when the card scan merged `main`: above R2's V125, R3's V126 and R4's V127, V128 left to the redesign's next stage): `feature_flag` row `cardTextScan`, **on**; it guards `POST /cards/scan-match` and `POST /inventory/items/batch` (404 `FEATURE_DISABLED` when off). No table: the scan stores nothing of its own (the photos stay on the phone) |
+| V130 | `V130__one_piece_game.sql` | Stage G of the phone redesign (one game at a time, owner prompt of 2026-10-19/20): the game `onepiece` ("One Piece Card Game", short name "One Piece", Bandai, `ACTIVE`, sort order 35, between Magic and Riftbound) with its GameSchema: the six conditions, `UNLIMITED`, English only (owner order of 2026-10-20), finishes `NORMAL` / `PARALLEL` (a parallel art is a second printing of the same code), rarities `C`, `UC`, `R`, `SR`, `SEC`, `L`, `SP`, `TR`, `P`; `profile.games` comment. No card: the API answers `hasCards: false` until a catalogue holds one |
+| V131 | `V131__binder_game.sql` | Stage G: `binder.game_id` (FK `fk_binder_game` to `game`, `NOT NULL`, index `ix_binder_game`): a binder holds the cards of one game. Existing binders take the game most of their live cards belong to (a tie: the tied game first in the owner's profile games, else Yu-Gi-Oh! when tied, else the first tied game in the games' order; a binder without a live card: the owner's first profile game that is `ACTIVE` with cards, else Yu-Gi-Oh!). The cards of another game, live or deleted, leave the binder and stay in the inventory without one, keeping their visibility only from a `PUBLIC`, not `HIDDEN`, unsold binder (otherwise `PRIVATE`, no end date): nothing becomes more public. One `audit_log` row per binder that lost cards (`SYSTEM`, `binder.game.cards_moved_out`, target `BINDER`, details `binderGame`, `cards`, `deletedCards`, `migration`) and a NOTICE with the totals in the migration log. Locks: the owner locks of every collector with a binder (sorted keys), the column, then every binder and every filed card `ORDER BY id FOR NO KEY UPDATE` before any write (see "Locks of binders and inventory items"). Also `binder.game_follows_cards` (default `false`: a binder the paused web makes without a game takes its first card's game and refuses no card) |
+| V132 | `V132__binder_cover_game_and_defaults.sql` | Stage G, review fix 1: a binder that has its game (`NOT game_follows_cards`) loses a cover printing of another game (`cover_printing_id` set `NULL`; V131 had kept them; a NOTICE gives the count); `binder.game_id` defaults to `binder_placeholder_game()` (a new `STABLE` SQL function: the id of Yu-Gi-Oh!) and `binder.game_follows_cards` to `true`, so the app version before stage G, which inserts binders without a game, can still create one during a rolling update or after a rollback (such a binder follows its cards; every insert of the app and the seed names both columns). Locks: the owner locks of the collectors whose binder loses its cover (sorted keys), the defaults (`ACCESS EXCLUSIVE` on `binder`), then those binders `ORDER BY id FOR NO KEY UPDATE` before the update; no item row is written |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -637,8 +640,11 @@ revoked and not expired; active entitlements beat plan values, the most generous
 
 Index: `ix_game_status_sort (status, sort_order)`. Seeded: `yugioh` (attribute, level, atk, def,
 monsterType), `pokemon` (hp, types, stage, weakness), `mtg` (manaCost, manaValue, colorIdentity,
-typeLine, power, toughness), `riftbound` (domain, energy, might, type). Cached in Redis
-(`orenji:cache:games:v1`, 60 s), evicted on admin writes (`game.create`, `game.update`).
+typeLine, power, toughness), `riftbound` (domain, energy, might, type); V130 adds `onepiece`
+(colors, category, cost, power, counter, life, attribute, types; English only). Responses carry
+`hasCards` (stage G: `EXISTS` over `card`; a game without cards is not browsed on the phone and
+holds no binder). Cached in Redis (`orenji:cache:games:v2`, 60 s; v2 since `hasCards`), evicted on
+admin writes (`game.create`, `game.update`) and after every catalogue import.
 
 ### V013 — card catalog (ADR 0005, ADR 0012)
 
@@ -800,7 +806,7 @@ SQL use the same cut-offs.
 | `visibility` | `text` | `PRIVATE` (default), `PUBLIC`, `TEMPORARILY_PUBLIC`; `ck_binder_public_until`: `public_until` is set exactly for `TEMPORARILY_PUBLIC` |
 | `public_until` | `timestamptz` | end of a temporary publication (≤ 30 days ahead, checked by the API; publish modes ONE_HOUR / ONE_DAY); expired ones are turned `PRIVATE` by the freshness job (reads already treat them as private) |
 | `sort_order` | `integer` | position in the owner's list (`PUT /binders/reorder`) |
-| `cover_printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); chosen cover |
+| `cover_printing_id` | `uuid` | FK → `card_printing.id` (`ON DELETE SET NULL`); chosen cover. Since V132 (stage G, review fix 1) a card of the binder's game unless the binder follows its cards (409 `BINDER_GAME_MISMATCH`) |
 | `item_count` | `integer` | ≥ 0; non-deleted items, maintained by `trg_inventory_item_binder_count` only |
 | `freshness_state` | `text` | `ACTIVE`, `AGING`, `STALE`, `HIDDEN` (derived by the freshness job); a HIDDEN binder is not public |
 | `warned_at` | `timestamptz` | pre-hide warning of the current confirmation cycle (reset by a confirmation) |
@@ -814,6 +820,8 @@ SQL use the same cut-offs.
 | `asking_price_text` | `varchar(40)` | V126: the deck core's price as typed ("$180", "Trade only"), trimmed, one line; kept when the switch goes off (public views show it for a deck core only) |
 | `asking_price`, `currency` | `numeric(12,2)`, `char(3)` | V126: the amount of a plain-amount text (`common/AskingPriceText`), in `currency` (default `CAD`); `NULL` for a text price |
 | `sold_at` | `timestamptz` | V126: when the deck core was sold (stage R4); a sold binder is not public, nor are the cards still filed in it (`PublicVisibilityRules.binderListed`) |
+| `game_id` | `uuid` | V131 (stage G): FK → `game.id` (`fk_binder_game`), `NOT NULL`, index `ix_binder_game`. The one game whose cards the binder holds: chosen at creation (`POST /binders` `gameId`, an `ACTIVE` game with cards), changed (`PATCH /binders/{id}` `gameId`) only while the binder holds no live card and no deleted card an undo can bring back (409 `BINDER_GAME_LOCKED`; `BinderResponse.gameLocked` says so); a card of another game is refused (409 `BINDER_GAME_MISMATCH`, or skipped by the bulk move). Discovery reads with `game=` filter on it and leave out a binder that holds a live card of another game or a cover of another game (review fix 1). Default since V132: `binder_placeholder_game()` (Yu-Gi-Oh!), for inserts that do not name it |
+| `game_follows_cards` | `boolean` | V131 (stage G), default `false`: the binder was made without `gameId` (only the paused web, which has no game picker): while it holds no card (live or undoable) the first card filed in it sets `game_id` (Yu-Gi-Oh! until then), and it refuses no card (the web's suites file several games into one binder). `false` for the phone's binders and for every binder V131 migrated; a `PATCH` of `gameId` sets it `false`. Default `true` since V132 (an insert that does not name it, the app version before stage G); the app and the seed name it |
 
 Indexes: `ix_binder_owner_sort (owner_id, sort_order, created_at)`, `ix_binder_search_vector` (GIN),
 `ix_binder_listed_owner (owner_id) WHERE publicly_listed`, `ix_binder_confirmed_at`,
@@ -992,6 +1000,19 @@ items: a path that took an item first deadlocked with it (`DELETE /inventory/ite
 - **Outside the owner lock:** item photos (add, delete). They lock their item row, update it once
   and decide nothing about the listing, so they wait for nothing else. (The photos of a binder,
   stage R3, are binder writes and take the owner lock: see above.)
+
+**V131** (stage G, a binder's game) writes binders and cards of every collector once, in one
+transaction, at start-up: it takes the owner lock of every collector who has a binder first (in
+the order of their keys, as `BinderRepository.lockOwners`), then adds the column (an `ACCESS
+EXCLUSIVE` lock on `binder` until it commits), then takes every binder and every filed card
+`ORDER BY id FOR NO KEY UPDATE` before it writes anything, so its updates only write rows it
+already holds. The rule below asks for chunks of 500 items; a migration cannot chunk: every binder
+needs its game before the column becomes `NOT NULL`. A stage-G binder update that changes the game
+reads `item_count` and the binder's undoable cards under the binder's row lock (the owner lock
+first), so no card comes in between. `InventoryLockOrderIT` covers it (`BINDER_GAME_CHANGE`) and
+the first card that sets the game of a binder made without one (`FIRST_CARD_SETS_THE_BINDER_GAME`).
+**V132** (review fix 1) writes only binders whose cover is of another game: their owners' locks
+first (sorted keys), then the column defaults, then those binders `ORDER BY id FOR NO KEY UPDATE`.
 
 **A new bulk write** (an import, a mass edit: anything that writes many binders or items of one
 collector) follows every part of the above. The rule of the final review (2026-10-13):

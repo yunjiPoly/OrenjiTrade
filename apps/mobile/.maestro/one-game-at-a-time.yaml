@@ -1,0 +1,207 @@
+# Stage G of the phone redesign, "one game at a time" (owner prompt of 2026-10-19/20, section G;
+# mockup v50 screens 34, 35, 11, 12, 14 and 17): a seed collector (collector1, Quebec; profile
+# games Yu-Gi-Oh! then Pokémon) opens Search on Yu-Gi-Oh!, the first game of the profile that has
+# cards. Search typing finds only the browsed game: a Pokémon card is no match, with an empty
+# state that names the game. The game pill opens "Choose a game" (One Piece is dimmed, "Cards
+# coming soon"); Pokémon shows the Pokémon cards, Search › Binders lists her Pokémon binder and
+# not the Yu-Gi-Oh! one, and a Yu-Gi-Oh! card is no Pokémon card (Pokémon's empty state, by name);
+# back to Yu-Gi-Oh!, the same text finds the card and Binders the Yu-Gi-Oh! binder. The region
+# pill opens "Choose a region" (screen 35). Inventory › Binders shows one section per game, and
+# Edit binder shows the game of a binder with cards, locked. Home is stage R7: this runs on
+# Search. Seed accounts are only signed in to.
+appId: ${APP_ID}
+name: One game at a time on Search, the game and region sheets, binders by game
+tags:
+  - mobile-g
+  - search
+  - binders
+---
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 60000
+
+# The game pill right of the title: the profile's first game with cards.
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Yu-Gi-Oh!\. Change game'
+    timeout: 30000
+- assertVisible:
+    id: 'search-region-map'
+    text: 'Map of public Yu-Gi-Oh! binders by state or province in Americas \(North\)'
+- takeScreenshot: g-search-map
+
+# Search typing finds only the browsed game: Emberfang Fox is a Pokémon card.
+- tapOn:
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: 'emberfang fox'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: 'No Yu-Gi-Oh! card matches “emberfang fox”'
+    timeout: 30000
+# (The field holds the typed text: no result row is the check, not the words.)
+- assertNotVisible:
+    id: 'search-result-.*'
+- takeScreenshot: g-typing-no-match
+
+# "Choose a game" (screen 34): every game, One Piece dimmed without cards; Pokémon.
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible: 'Choose a game'
+    timeout: 15000
+- assertVisible: 'Home and Search show one game at a time.'
+# One Piece has no cards yet: dimmed, "Cards coming soon" (said after its name), not pickable.
+- assertVisible:
+    id: 'search-game-sheet-option-onepiece'
+    enabled: false
+- assertVisible: 'Your inventory keeps every game, with binders grouped by game. Chats and the bell show every game.'
+- takeScreenshot: g-game-sheet
+- tapOn:
+    id: 'search-game-sheet-option-pokemon'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Pokémon\. Change game'
+    timeout: 15000
+- extendedWaitUntil:
+    visible: 'Emberfang Fox VMAX'
+    timeout: 30000
+- assertVisible:
+    id: 'search-result-.*'
+- takeScreenshot: g-typing-pokemon
+
+# Search › Binders, her own handle: her public Pokémon binder, not her Yu-Gi-Oh! one.
+- tapOn:
+    id: 'search-input-cancel'
+- tapOn:
+    id: 'search-segment-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-input'
+    timeout: 30000
+- tapOn:
+    id: 'binders-input'
+- inputText: 'collector1'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: 'Pokémon holo binder.*'
+    timeout: 60000
+- assertNotVisible: 'Yu-Gi-Oh! trade binder.*'
+- takeScreenshot: g-binders-pokemon
+
+# Pokémon's empty state: a Yu-Gi-Oh! card is no Pokémon card; back to Yu-Gi-Oh!, the same text
+# finds it, and Search › Binders shows her Yu-Gi-Oh! binder, not the Pokémon one.
+- tapOn:
+    id: 'search-segment-cards'
+- tapOn:
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: 'azure-eyes'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: 'No Pokémon card matches “azure-eyes”'
+    timeout: 30000
+- takeScreenshot: g-typing-pokemon-empty
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game-sheet-option-yugioh'
+    timeout: 15000
+- tapOn:
+    id: 'search-game-sheet-option-yugioh'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Yu-Gi-Oh!\. Change game'
+    timeout: 15000
+- extendedWaitUntil:
+    visible: 'Azure-Eyes Sky Dragon'
+    timeout: 30000
+- tapOn:
+    id: 'search-input-cancel'
+- tapOn:
+    id: 'search-segment-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-input'
+    timeout: 30000
+- tapOn:
+    id: 'binders-input'
+- inputText: 'collector1'
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible: 'Yu-Gi-Oh! trade binder.*'
+    timeout: 60000
+- assertNotVisible: 'Pokémon holo binder.*'
+- tapOn:
+    id: 'search-segment-cards'
+
+# "Choose a region" (screen 35): the three regions, the home one first with its line.
+- tapOn:
+    id: 'search-region'
+- extendedWaitUntil:
+    visible: 'Choose a region'
+    timeout: 15000
+- assertVisible: 'Your region · Canada, United States, Mexico'
+- assertVisible: 'Your own region comes from Settings › Location. Browsing another one changes nothing on your profile.'
+- takeScreenshot: g-region-sheet
+- tapOn:
+    id: 'search-region-option-americas-north'
+
+# Inventory › Binders (screen 17): one section per game; Edit binder of a binder with cards (18):
+# its game, locked.
+- tapOn:
+    id: 'tab-inventory'
+- extendedWaitUntil:
+    visible:
+      id: 'inventory-view-binders'
+    timeout: 60000
+- tapOn:
+    id: 'inventory-view-binders'
+- extendedWaitUntil:
+    visible:
+      id: 'binders-section-yugioh'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'binders-section-pokemon'
+- assertVisible:
+    id: 'binders-section-pokemon'
+- takeScreenshot: g-inventory-binders
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'binders-section-yugioh'
+- tapOn: 'Yu-Gi-Oh! trade binder.*'
+- extendedWaitUntil:
+    visible:
+      id: 'binder-game-locked'
+    timeout: 60000
+- assertVisible:
+    id: 'binder-game-locked'
+    text: "Game: Yu-Gi-Oh!\\. It can't change once the binder has cards"
+- takeScreenshot: g-edit-binder
+- tapOn:
+    id: 'edit-binder-back'

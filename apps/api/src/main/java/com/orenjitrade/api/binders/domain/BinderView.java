@@ -31,6 +31,10 @@ import org.jspecify.annotations.Nullable;
  * @param askingPrice the amount of a plain-amount price text, in {@code currency}
  * @param currency ISO 4217 currency of {@code askingPrice}
  * @param soldAt when the deck core was sold (a sold binder is never public), {@code null} if not
+ * @param gameId the one game whose cards the binder holds (stage G)
+ * @param game that game's slug
+ * @param gameFollowsCards made without a game (the paused web): while it holds no card, the first
+ *     card filed in it sets its game
  */
 public record BinderView(
         UUID id,
@@ -53,7 +57,10 @@ public record BinderView(
         @Nullable String askingPriceText,
         @Nullable BigDecimal askingPrice,
         String currency,
-        @Nullable Instant soldAt) {
+        @Nullable Instant soldAt,
+        UUID gameId,
+        String game,
+        boolean gameFollowsCards) {
 
     /**
      * Whether the binder shows in public lists (a collector's binders, search, the map) without
@@ -62,5 +69,34 @@ public record BinderView(
      */
     public boolean listedWithoutCards() {
         return sellsAsCore && soldAt == null;
+    }
+
+    /** The same binder holding the cards of another game ({@link #gameFollowsCards}). */
+    public BinderView withGame(UUID otherGameId, String otherGame) {
+        return new BinderView(
+                id,
+                ownerId,
+                name,
+                description,
+                kind,
+                visibility,
+                publicUntil,
+                sortOrder,
+                coverPrintingId,
+                itemCount,
+                freshnessState,
+                confirmedAt,
+                createdAt,
+                updatedAt,
+                lastOwnerActivityAt,
+                effectivePublic,
+                sellsAsCore,
+                askingPriceText,
+                askingPrice,
+                currency,
+                soldAt,
+                otherGameId,
+                otherGame,
+                gameFollowsCards);
     }
 }

@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.ids;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
@@ -58,7 +59,7 @@ class PublicBinderIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 uid,
-                                binder("Holo singles", "PUBLIC"),
+                                binder("Holo singles", "PUBLIC", gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -176,7 +177,12 @@ class PublicBinderIT extends AbstractIntegrationTest {
         String owner = uniqueUid("pub-empty");
         Fixture fixture = publicCollector(owner);
         String empty =
-                callJson(HttpMethod.POST, "/api/v1/binders", owner, binder("Empty", "PUBLIC"), 201)
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                owner,
+                                binder("Empty", "PUBLIC", gameId(testUsers, "pokemon")),
+                                201)
                         .path("id")
                         .asString();
         String privateBinder =
@@ -184,7 +190,7 @@ class PublicBinderIT extends AbstractIntegrationTest {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner,
-                                binder("Private", "PRIVATE"),
+                                binder("Private", "PRIVATE", gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -209,7 +215,12 @@ class PublicBinderIT extends AbstractIntegrationTest {
         String owner = uniqueUid("pub-views");
         Fixture fixture = publicCollector(owner);
         String second =
-                callJson(HttpMethod.POST, "/api/v1/binders", owner, binder("Second", "PUBLIC"), 201)
+                callJson(
+                                HttpMethod.POST,
+                                "/api/v1/binders",
+                                owner,
+                                binder("Second", "PUBLIC", gameId(testUsers, "pokemon")),
+                                201)
                         .path("id")
                         .asString();
         testUsers.update(

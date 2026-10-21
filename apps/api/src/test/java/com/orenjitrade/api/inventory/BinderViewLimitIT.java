@@ -1,6 +1,7 @@
 package com.orenjitrade.api.inventory;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.printing;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.privacy;
@@ -52,7 +53,12 @@ class BinderViewLimitIT extends AbstractIntegrationTest {
         UUID printingId = printing(testUsers, "rb-p004a");
         for (String name : List.of("First", "Second", "Third")) {
             String id =
-                    callJson(HttpMethod.POST, "/api/v1/binders", owner, binder(name, "PUBLIC"), 201)
+                    callJson(
+                                    HttpMethod.POST,
+                                    "/api/v1/binders",
+                                    owner,
+                                    binder(name, "PUBLIC", gameId(testUsers, "riftbound")),
+                                    201)
                             .path("id")
                             .asString();
             Map<String, Object> body = item(printingId);

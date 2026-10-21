@@ -9,6 +9,7 @@ import { useFlowLock } from '@/src/account/flowLock';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
 import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
+import { resetBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   BROWSING_REGION_STORAGE_KEY,
   resetBrowsingRegion,
@@ -117,6 +118,7 @@ export function resetAppState(): void {
   usePendingDrafts.setState({ drafts: {} });
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
+  resetBrowsingGame();
   useAppStore.getState().reset();
   resetSavedDetails();
   (require('expo-secure-store') as { mockStore: Map<string, string> }).mockStore.clear();

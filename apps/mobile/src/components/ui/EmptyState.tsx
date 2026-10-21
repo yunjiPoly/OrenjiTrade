@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
@@ -15,6 +15,8 @@ export interface EmptyStateProps {
   icon?: IconName;
   actionLabel?: string;
   onAction?: () => void;
+  /** What comes after the action (a secondary action with its own sheet, "Switch game"). */
+  children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -26,6 +28,7 @@ export function EmptyState({
   icon = 'cards-outline',
   actionLabel,
   onAction,
+  children,
   style,
   testID = 'empty-state',
 }: EmptyStateProps) {
@@ -52,6 +55,7 @@ export function EmptyState({
           testID={`${testID}-action`}
         />
       ) : null}
+      {children}
     </View>
   );
 }

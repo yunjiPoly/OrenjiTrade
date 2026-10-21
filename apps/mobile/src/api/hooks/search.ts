@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery, type QueryKey } from '@tanstack/react-query';
 
+import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { boundedQuery } from '@/src/lib/catalog';
 
@@ -41,6 +42,18 @@ export function previousOfSameRegion<T>(region: string) {
   };
 }
 
+/**
+ * As `previousOfSameRegion`, and of the same game (stage G): after a change of game nothing is
+ * kept either; the list shows its skeleton, never the binders of another game.
+ */
+export function previousOfSameRegionAndGame<T>(region: string, game: string) {
+  return (previous: T | undefined, previousQuery: { queryKey: QueryKey } | undefined) => {
+    const asked = previousQuery?.queryKey.at(-1) as
+      { region?: unknown; game?: unknown } | undefined;
+    return asked?.region === region && asked?.game === game ? previous : undefined;
+  };
+}
+
 /** The most collectors shown under the cards while a card is typed (mockup screen 12). */
 export const COLLECTORS_WHILE_TYPING = 3;
 
@@ -51,20 +64,22 @@ export const COLLECTORS_MIN_CHARS = 2;
  * `GET /api/v1/search/collectors` (stage R5): the "Collectors" section under the cards while a card
  * is typed: discoverable collectors of the browsed region whose handle or name contains the text,
  * at most 3, never the caller nor a collector blocked with them (the API leaves them out before
- * the limit). Each carries a state or province and a country only.
+ * the limit); only those who list the browsed game or show a card of it (stage G). Each carries a
+ * state or province and a country only.
  */
 export function useCollectorsByName(q: string) {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
   const { region, ready } = useSearchRegion();
+  const browsing = useBrowsingGame();
   const text = boundedQuery(q);
-  const params = { q: text, region, limit: COLLECTORS_WHILE_TYPING };
+  const params = { q: text, region, game: browsing.game, limit: COLLECTORS_WHILE_TYPING };
   return useQuery<CollectorByName[], ApiError>({
     queryKey: meKeys.search(uid, { collectors: true, ...params }),
     queryFn: async () =>
       required((await api.GET('/api/v1/search/collectors', { params: { query: params } })).data),
-    enabled: authenticated && ready && text.length >= COLLECTORS_MIN_CHARS,
-    placeholderData: previousOfSameRegion<CollectorByName[]>(region),
+    enabled: authenticated && ready && browsing.ready && text.length >= COLLECTORS_MIN_CHARS,
+    placeholderData: previousOfSameRegionAndGame<CollectorByName[]>(region, browsing.game),
     staleTime: 60_000,
   });
 }
@@ -157,15 +172,18 @@ export interface BinderSearch {
 /**
  * Search › Binders (stage R5): `GET /api/v1/regions/{region}/subdivisions/{code}/binders` for one
  * state, `GET /api/v1/regions/{region}/binders` for the whole region, with `deckCore` and `q`
- * (binder names, handles and a deck core's key cards; stage R3), most recently updated first, by
- * cursor. Each binder names its owner and the owner's state or province and country, never a city.
+ * (binder names, handles and a deck core's key cards; stage R3) and the browsed game (stage G),
+ * most recently updated first, by cursor. Each binder names its owner and the owner's state or
+ * province and country, never a city.
  */
 export function useBinderSearch(search: BinderSearch) {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
   const { region, ready } = useSearchRegion();
+  const browsing = useBrowsingGame();
+  const game = browsing.game;
   const q = boundedQuery(search.q);
-  const params = { region, state: search.state, deckCore: search.deckCore, q };
+  const params = { region, state: search.state, deckCore: search.deckCore, q, game };
   return useInfiniteQuery<PublicBinderCursorPage, ApiError>({
     queryKey: meKeys.regionBinderSearch(uid, params),
     initialPageParam: null,
@@ -175,6 +193,7 @@ export function useBinderSearch(search: BinderSearch) {
         limit: BINDER_SEARCH_PAGE,
         deckCore: search.deckCore,
         q: q || undefined,
+        game,
       };
       if (search.state) {
         return required(
@@ -191,24 +210,30 @@ export function useBinderSearch(search: BinderSearch) {
       );
     },
     getNextPageParam: (last) => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
-    enabled: authenticated && ready,
-    placeholderData: previousOfSameRegion(region),
+    enabled: authenticated && ready && browsing.ready,
+    placeholderData: previousOfSameRegionAndGame(region, game),
     staleTime: 60_000,
   });
 }
 
-/** `GET /api/v1/wishlist/availability?region=` (stage R5): the wishes "Available" in the region. */
+/**
+ * `GET /api/v1/wishlist/availability?region=&game=` (stage R5): the wishes of the browsed game
+ * (stage G) "Available" in the browsed region.
+ */
 export function useWishlistAvailability(enabled = true) {
   const uid = useUid();
   const authenticated = useIsAuthenticated();
   const { region, ready } = useSearchRegion();
+  const browsing = useBrowsingGame();
+  const game = browsing.game;
   return useQuery<WishlistAvailability, ApiError>({
-    queryKey: meKeys.wishlistAvailability(uid, region),
+    queryKey: meKeys.wishlistAvailability(uid, region, game),
     queryFn: async () =>
       required(
-        (await api.GET('/api/v1/wishlist/availability', { params: { query: { region } } })).data
+        (await api.GET('/api/v1/wishlist/availability', { params: { query: { region, game } } }))
+          .data
       ),
-    enabled: authenticated && ready && enabled,
+    enabled: authenticated && ready && browsing.ready && enabled,
     staleTime: 30_000,
   });
 }

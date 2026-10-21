@@ -177,7 +177,25 @@ function createCollector(prefix, displayName, place, privacy, city) {
   };
 }
 
-/** The card and printing ids of a seed printing code (`PFT-002`). */
+/**
+ * The id of a game by its slug (`GET /games`, public): a binder holds the cards of one game (stage
+ * G), so the binders made here name the game of the cards they take.
+ */
+function gameIdOf(slug) {
+  var response = http.get(api + '/api/v1/games');
+  if (!response.ok) {
+    throw new Error('GET /games failed: HTTP ' + response.status);
+  }
+  var games = json(response.body);
+  for (var g = 0; g < games.length; g++) {
+    if (games[g].slug === slug) {
+      return games[g].id;
+    }
+  }
+  throw new Error('No game ' + slug);
+}
+
+/** The card and printing ids of a seed printing code (`PFT-002`), with the card's game. */
 function printingOf(token, code) {
   var suggestions = check(
     http.get(api + '/api/v1/cards/suggest?q=' + code + '&limit=10', {
@@ -191,6 +209,7 @@ function printingOf(token, code) {
         cardId: suggestions[j].id,
         printingId: suggestions[j].printingId,
         cardName: suggestions[j].name,
+        game: suggestions[j].game,
       };
     }
   }
@@ -230,6 +249,7 @@ if (action === 'looking-for') {
         name: 'Maestro holders binder',
         kind: 'TRADE',
         description: 'Fictional binder of the Maestro flows.',
+        gameId: gameIdOf(listed.game),
       }),
     }),
     'POST /binders'
@@ -279,7 +299,12 @@ if (action === 'looking-for') {
   var shelf = postJson(
     dana.token,
     '/api/v1/binders',
-    { name: 'Maestro profile binder', visibility: 'PUBLIC', description: 'Fictional binder.' },
+    {
+      name: 'Maestro profile binder',
+      visibility: 'PUBLIC',
+      description: 'Fictional binder.',
+      gameId: gameIdOf(wished.game),
+    },
     'POST /binders'
   );
   var danaCard = postJson(
@@ -305,6 +330,7 @@ if (action === 'looking-for') {
       sellsAsCore: true,
       askingPriceText: '$95',
       description: 'Fictional deck core of the Maestro flows.',
+      gameId: gameIdOf(wished.game),
     },
     'POST /binders (deck core)'
   );

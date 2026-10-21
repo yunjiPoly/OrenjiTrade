@@ -176,7 +176,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
 
     /**
      * Collectors of a region holding a card (auth optional)
-     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first), price, or province (grouped by state or province for \&quot;Who has this card\&quot;: the caller\&#39;s own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item.
+     * Public, fresh (ACTIVE or AGING) items of &#x60;printingId&#x60; or of any printing of &#x60;cardId&#x60; (exactly one) held by discoverable collectors whose country is in &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north). The caller\&#39;s own items are excluded. Filters: &#x60;availability&#x60;, &#x60;condition&#x60;, &#x60;minPrice&#x60;/&#x60;maxPrice&#x60; (items without a price never match), &#x60;freshness&#x60;, &#x60;edition&#x60;, &#x60;language&#x60;, &#x60;acceptsOffers&#x60;. &#x60;sort&#x60;: freshness (default, newest listing first), price, or province (grouped by state or province for \&quot;Who has this card\&quot;: the caller\&#39;s own first, then the other ones of their country, then the rest of the region). Each row pairs the holder (state/province + country, never a distance) with the public item. &#x60;game&#x60; (stage G) keeps that game\&#39;s cards only: a card of another game has no holders.
      * @endpoint get /api/v1/search/card-holders
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -203,6 +203,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
         const size = requestParameters?.size;
         const excludeDeckCoreItems = requestParameters?.excludeDeckCoreItems;
         const rarity = requestParameters?.rarity;
+        const game = requestParameters?.game;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -350,6 +351,15 @@ export class SearchService extends BaseService implements SearchServiceInterface
         );
 
 
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
         let localVarHeaders = this.defaultHeaders;
 
         const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
@@ -394,7 +404,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
 
     /**
      * Collectors of a region by handle or name (auth optional)
-     * The \&quot;Collectors\&quot; section of the phone\&#39;s card search (stage R5): discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains &#x60;q&#x60; (accent- and case-insensitive), a handle that starts with it first, at most &#x60;limit&#x60;. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. Emits no analytics event.
+     * The \&quot;Collectors\&quot; section of the phone\&#39;s card search (stage R5): discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) who allow name search and whose handle (a leading @ is ignored) or display name contains &#x60;q&#x60; (accent- and case-insensitive), a handle that starts with it first, at most &#x60;limit&#x60;. Never the caller, never a collector blocked with them in either direction (left out before the limit). Each carries their state/province and country, never a city. &#x60;game&#x60; (stage G) keeps the collectors who list that game on their profile or show a card of it. Emits no analytics event.
      * @endpoint get /api/v1/search/collectors
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -411,6 +421,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
         }
         const region = requestParameters?.region;
         const limit = requestParameters?.limit;
+        const game = requestParameters?.game;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -436,6 +447,15 @@ export class SearchService extends BaseService implements SearchServiceInterface
             localVarQueryParameters,
             'limit',
             <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
             QueryParamStyle.Form,
             true,
         );
@@ -485,7 +505,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
 
     /**
      * Public deck cores of a region holding a card (auth optional)
-     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a copy of &#x60;cardId&#x60; among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city).
+     * Public deck cores (binders sold as one bundle, stage R3) of discoverable collectors of &#x60;region&#x60; (default: the caller\&#39;s home region, else americas-north) that hold a copy of &#x60;cardId&#x60; among their key cards (any printing; every live card of a public deck core is a key card, whatever its own visibility), most recently updated first, at most &#x60;limit&#x60; (\&quot;Also in a deck core\&quot; on the card page). The caller\&#39;s own and those of collectors blocked with them are left out. Each carries its name, price as typed, photos, key cards and owner block (state/province + country, never a city). &#x60;game&#x60; (stage G) keeps the deck cores of that game only.
      * @endpoint get /api/v1/search/deck-cores
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -502,6 +522,7 @@ export class SearchService extends BaseService implements SearchServiceInterface
         }
         const region = requestParameters?.region;
         const limit = requestParameters?.limit;
+        const game = requestParameters?.game;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -527,6 +548,15 @@ export class SearchService extends BaseService implements SearchServiceInterface
             localVarQueryParameters,
             'limit',
             <any>limit,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'game',
+            <any>game,
             QueryParamStyle.Form,
             true,
         );

@@ -134,6 +134,15 @@ public class InventoryBatchController {
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = PROBLEM_REF)))
     @ApiResponse(
+            responseCode = "409",
+            description =
+                    "BINDER_GAME_MISMATCH: a card of another game than the binder (stage G),"
+                            + " nothing written",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
             responseCode = "429",
             description = "LIMIT_REACHED (inventory.items.max), nothing written",
             content =

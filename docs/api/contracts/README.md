@@ -24,6 +24,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R4 | [Messages and Mark as sold: the chat's subject, sharing one's own card, sales and their undo, the SALE interaction, the buyer's notification (extends 5, 6 and 7)](r4-messages-sales.md) |
 | R5 | [Search: collectors by name while a card is typed, the holders of a card grouped by province, wishlist availability, blocked collectors left out of the collectors of search, no search text in analytics (extends 4, 6 and S2)](r5-search.md) |
 | Scan | [Card scan: match the text read on a card, add the scanned cards](card-scan.md) |
+| G | [One game at a time: One Piece, `hasCards`, binders of one game with their two 409s, `game=` on the discovery reads the phone calls (extends 2, 3, 4, R3, R5 and S2)](g-one-game.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on

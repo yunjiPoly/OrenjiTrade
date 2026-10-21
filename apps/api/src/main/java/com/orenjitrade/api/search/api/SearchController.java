@@ -160,7 +160,8 @@ public class SearchController {
                         + " or province for \"Who has this card\": the caller's own first, then the"
                         + " other ones of their country, then the rest of the region). Each row"
                         + " pairs the holder (state/province + country, never a distance) with the"
-                        + " public item.")
+                        + " public item. `game` (stage G) keeps that game's cards only: a card of"
+                        + " another game has no holders.")
     @ApiResponse(responseCode = "200", description = "One page of holders")
     @ApiResponse(
             responseCode = "400",
@@ -229,7 +230,14 @@ public class SearchController {
                                             + " wish of any printing in one rarity opens")
                     @RequestParam(required = false)
                     @Size(max = 64)
-                    @Nullable String rarity) {
+                    @Nullable String rarity,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game (stage G, the phone's"
+                                            + " browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
         HolderSort holderSort =
                 HolderSort.parse(sort)
                         .orElseThrow(
@@ -260,7 +268,8 @@ public class SearchController {
                                 page,
                                 size,
                                 excludeDeckCoreItems,
-                                rarity));
+                                rarity,
+                                game));
         Instant now = timeProvider.now();
         return new PageResponse<>(
                 holders.items().stream()
@@ -286,7 +295,8 @@ public class SearchController {
                         + " (\"Also in a deck core\" on the card page). The caller's own and those"
                         + " of collectors blocked with them are left out. Each carries its name,"
                         + " price as typed, photos, key cards and owner block (state/province +"
-                        + " country, never a city).")
+                        + " country, never a city). `game` (stage G) keeps the deck cores of that"
+                        + " game only.")
     @ApiResponse(responseCode = "200", description = "Deck cores")
     @ApiResponse(
             responseCode = "400",
@@ -306,10 +316,18 @@ public class SearchController {
                     @RequestParam(required = false)
                     @Size(max = 32)
                     @Nullable String region,
-            @RequestParam(defaultValue = "3") @Min(1) @Max(SearchService.DECK_CORES_MAX)
-                    int limit) {
+            @RequestParam(defaultValue = "3") @Min(1) @Max(SearchService.DECK_CORES_MAX) int limit,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only that game (stage G, the phone's"
+                                            + " browsed game); every game without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
         Instant now = timeProvider.now();
-        return searchService.deckCoresWithCard(viewer(principal), cardId, region, limit).stream()
+        return searchService
+                .deckCoresWithCard(viewer(principal), cardId, region, game, limit)
+                .stream()
                 .map(hit -> PublicBinderSummaryResponse.from(hit, now))
                 .toList();
     }
@@ -327,7 +345,8 @@ public class SearchController {
                         + " handle that starts with it first, at most `limit`. Never the caller,"
                         + " never a collector blocked with them in either direction (left out"
                         + " before the limit). Each carries their state/province and country, never"
-                        + " a city. Emits no analytics event.")
+                        + " a city. `game` (stage G) keeps the collectors who list that game on"
+                        + " their profile or show a card of it. Emits no analytics event.")
     @ApiResponse(responseCode = "200", description = "Collectors")
     @ApiResponse(
             responseCode = "400",
@@ -349,8 +368,16 @@ public class SearchController {
                     @Size(max = 32)
                     @Nullable String region,
             @RequestParam(defaultValue = "3") @Min(1) @Max(SearchService.COLLECTORS_BY_NAME_MAX)
-                    int limit) {
-        return searchService.collectorsByName(viewer(principal), q, region, limit).stream()
+                    int limit,
+            @Parameter(
+                            description =
+                                    "Game slug (GET /games): only collectors who list that game on"
+                                            + " their profile or show a card of it (stage G, the"
+                                            + " phone's browsed game); every collector without it")
+                    @RequestParam(required = false)
+                    @Size(max = 32)
+                    @Nullable String game) {
+        return searchService.collectorsByName(viewer(principal), q, region, game, limit).stream()
                 .map(CollectorByNameResponse::from)
                 .toList();
     }

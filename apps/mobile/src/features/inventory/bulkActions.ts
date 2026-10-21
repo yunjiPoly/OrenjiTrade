@@ -60,9 +60,16 @@ function done(action: BulkAction, count: number): string {
 export function bulkResultMessage(action: BulkAction, response: BulkInventoryResponse): string {
   const parts = [response.updated > 0 ? done(action, response.updated) : 'Nothing changed.'];
   const unchanged = response.skipped.filter((entry) => entry.reason === 'UNCHANGED').length;
-  const missing = response.skipped.length - unchanged;
+  // Stage G: a binder holds the cards of one game; the others stay where they were.
+  const otherGame = response.skipped.filter(
+    (entry) => entry.reason === 'BINDER_GAME_MISMATCH'
+  ).length;
+  const missing = response.skipped.length - unchanged - otherGame;
   if (unchanged > 0) {
     parts.push(`${cards(unchanged)} skipped: already in that state.`);
+  }
+  if (otherGame > 0) {
+    parts.push(`${cards(otherGame)} skipped: of another game than the binder.`);
   }
   if (missing > 0) {
     parts.push(`${cards(missing)} skipped: no longer in your inventory.`);

@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -52,7 +53,7 @@ class RegionMapIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(name, "PUBLIC"),
+                                binder(name, "PUBLIC", gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -79,13 +80,13 @@ class RegionMapIT extends AbstractSearchIT {
                 HttpMethod.POST,
                 "/api/v1/binders",
                 owner.uid(),
-                binder(token() + " empty", "PUBLIC"),
+                binder(token() + " empty", "PUBLIC", gameId(testUsers, "pokemon")),
                 201);
         callJson(
                 HttpMethod.POST,
                 "/api/v1/binders",
                 owner.uid(),
-                binder(token() + " private", "PRIVATE"),
+                binder(token() + " private", "PRIVATE", gameId(testUsers, "pokemon")),
                 201);
         Collector hidden = collector("map-hidden", "CA", yukon, false, "PUBLIC");
         binderWithItem(hidden, token() + " not discoverable");

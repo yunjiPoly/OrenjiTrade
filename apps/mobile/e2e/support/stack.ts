@@ -407,15 +407,45 @@ export async function printingIdOf(
   return match!.printingId!;
 }
 
-/** A public binder of `holder` (published until disabled). */
+const gameIds = new Map<string, string>();
+
+/**
+ * The id of a game by its slug (`GET /games`, public): a binder holds the cards of one game (stage
+ * G), so the suite's binders name the game of the cards they take.
+ */
+export async function gameIdOf(api: APIRequestContext, slug: string): Promise<string> {
+  const known = gameIds.get(slug);
+  if (known) {
+    return known;
+  }
+  const response = await api.get(`${API_URL}/api/v1/games`);
+  expect(response.ok(), 'GET /games').toBeTruthy();
+  for (const game of (await response.json()) as { id: string; slug: string }[]) {
+    gameIds.set(game.slug, game.id);
+  }
+  const id = gameIds.get(slug);
+  expect(id, `game ${slug}`).toBeTruthy();
+  return id!;
+}
+
+/**
+ * A public binder of `holder` (published until disabled), of `game` (the suite's cards are
+ * Pokémon cards, PFT-002, by default).
+ */
 export async function apiPublicBinder(
   api: APIRequestContext,
   holder: EmulatorUser,
-  name: string
+  name: string,
+  game = 'pokemon'
 ): Promise<string> {
   const created = await api.post(`${API_URL}/api/v1/binders`, {
     headers: authHeader(holder.idToken),
-    data: { name, kind: 'TRADE', description: 'Fictional binder of the mobile E2E suite.' },
+    data: {
+      name,
+      kind: 'TRADE',
+      description: 'Fictional binder of the mobile E2E suite.',
+      gameId: await gameIdOf(api, game),
+    },
   });
   expect(created.ok(), 'POST /binders').toBeTruthy();
   const id = ((await created.json()) as { id: string }).id;
@@ -855,13 +885,17 @@ export async function apiSaleMessages(
   );
 }
 
-/** A public deck core of `seller` with its price and one private card; the binder id. */
+/**
+ * A public deck core of `seller` with its price and one private card; the binder id. Of `game`
+ * (the card's; Pokémon by default, stage G).
+ */
 export async function apiDeckCore(
   api: APIRequestContext,
   seller: EmulatorUser,
   name: string,
   price: string,
-  printingId: string
+  printingId: string,
+  game = 'pokemon'
 ): Promise<string> {
   const created = await api.post(`${API_URL}/api/v1/binders`, {
     headers: authHeader(seller.idToken),
@@ -871,6 +905,7 @@ export async function apiDeckCore(
       sellsAsCore: true,
       askingPriceText: price,
       description: 'Fictional deck core of the mobile E2E suite.',
+      gameId: await gameIdOf(api, game),
     },
   });
   expect(created.status(), 'POST /binders (deck core)').toBe(201);

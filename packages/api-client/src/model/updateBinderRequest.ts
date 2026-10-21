@@ -34,6 +34,10 @@ export interface UpdateBinderRequest {
      * true also confirms the binder and its cards are still available, as POST /binders/{id}/confirm (the phone\'s Save changes)
      */
     confirm?: boolean;
+    /**
+     * Another game for the binder (stage G; not null): an ACTIVE game with cards, else 400; only while the binder holds no card, else 409 BINDER_GAME_LOCKED
+     */
+    gameId?: string;
 }
 export enum UpdateBinderRequestKindEnum {
     Collection = 'COLLECTION',

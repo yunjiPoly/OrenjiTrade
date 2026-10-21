@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search;
 
 import static com.orenjitrade.api.inventory.InventoryTestSupport.binder;
+import static com.orenjitrade.api.inventory.InventoryTestSupport.gameId;
 import static com.orenjitrade.api.inventory.InventoryTestSupport.item;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -105,7 +106,10 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " trade vault", "PUBLIC"),
+                                binder(
+                                        word + " trade vault",
+                                        "PUBLIC",
+                                        gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -117,7 +121,10 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " empty shelf", "PUBLIC"),
+                                binder(
+                                        word + " empty shelf",
+                                        "PUBLIC",
+                                        gameId(testUsers, "pokemon")),
                                 201)
                         .path("id")
                         .asString();
@@ -188,7 +195,10 @@ class SearchIT extends AbstractSearchIT {
                                     HttpMethod.POST,
                                     "/api/v1/binders",
                                     owner.uid(),
-                                    binder(shelf + " case " + owner.handle(), "PUBLIC"),
+                                    binder(
+                                            shelf + " case " + owner.handle(),
+                                            "PUBLIC",
+                                            gameId(testUsers, "pokemon")),
                                     201)
                             .path("id")
                             .asString();
@@ -314,7 +324,7 @@ class SearchIT extends AbstractSearchIT {
                                 HttpMethod.POST,
                                 "/api/v1/binders",
                                 owner.uid(),
-                                binder(word + " binder", "PUBLIC"),
+                                binder(word + " binder", "PUBLIC", gameId(testUsers, "mtg")),
                                 201)
                         .path("id")
                         .asString();
