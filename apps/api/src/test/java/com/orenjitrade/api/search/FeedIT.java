@@ -37,7 +37,9 @@ import tools.jackson.databind.JsonNode;
  * <p>The regions are shared by the whole suite, so a test reads only its own collectors' posts,
  * except where the head of the feed matters (blocks before the limit, paging): there the test's
  * posts are dated in the future ({@link #newestBase}), each such test further ahead than the one
- * before, so they are the newest of the region whatever the other tests left.
+ * before, so they are the newest of the region whatever the other tests left. Those are all
+ * Yu-Gi-Oh! posts: Pokémon in the region keeps no post dated ahead of the clock, for the test that
+ * needs the server's clock to pass its posts ({@link #laterPagesKeepTheFirstPagesTime}).
  */
 class FeedIT extends AbstractSearchIT {
 
@@ -700,6 +702,62 @@ class FeedIT extends AbstractSearchIT {
                 .isEqualTo(base.plusSeconds(300));
         assertThat(refreshed.path("items").get(0).path("newCards").path("total").asLong())
                 .isEqualTo(2);
+    }
+
+    @Test
+    void laterPagesKeepTheFirstPagesTime() {
+        // R7 review fix 2 (R1-1): page 3 and later count the cards listed until the first page was
+        // read, as page 2 does. A cursor that took each page's own time let a card listed after
+        // page 1 lift a post not seen yet above page 2's cursor from page 3 on, out of every page.
+        // Here the server's clock passes the posts, as in real use (Pokémon: no post of the
+        // region is dated ahead), so the first page's time is the time it was read.
+        Collector viewer = collector("feed-third-viewer");
+        Collector lister = collector("feed-third-lister");
+        Collector middle = collector("feed-third-middle");
+        Collector newest = collector("feed-third-newest");
+        String firstCard = publicItem(lister, printing("pkm-p002a"), Map.of());
+        String middleCard = publicItem(middle, printing("pkm-p003a"), Map.of());
+        String newestCard = publicItem(newest, printing("pkm-p004a"), Map.of());
+        // Newer than every other post of the region (all listed before this test began), older
+        // than the first page's read, in this order.
+        Instant listed = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        Instant firstAt = listed.minusMillis(3);
+        cardListedAt(firstCard, firstAt);
+        cardListedAt(middleCard, listed.minusMillis(2));
+        cardListedAt(newestCard, listed.minusMillis(1));
+        String query = "region=" + REGION + "&game=pokemon";
+        JsonNode first = feed(viewer.uid(), query + "&limit=1");
+        assertThat(collectorIds(first)).containsExactly(newest.id().toString());
+        String groupId = FeedRules.cardsPostId(lister.id(), FeedRules.hourOf(firstAt)).toString();
+
+        // The lister lists one more card after the first page was read (dated by the same clock
+        // as the server's), then the second page is read.
+        String later = publicItem(lister, printing("pkm-p005a"), Map.of());
+        cardListedAt(later, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        JsonNode second =
+                after(viewer.uid(), query + "&limit=1", first.path("nextCursor").asString());
+        assertThat(collectorIds(second)).containsExactly(middle.id().toString());
+        assertThat(second.path("hasMore").asBoolean()).isTrue();
+
+        // Every page after the second still counts the cards of the first page's time: the
+        // lister's post comes once, dated and counted as when the first page was read.
+        List<JsonNode> rest = new ArrayList<>();
+        @Nullable String cursor = second.path("nextCursor").asString();
+        for (int page = 0; cursor != null; page++) {
+            assertThat(page).as("the feed never ended").isLessThan(500);
+            JsonNode body = after(viewer.uid(), query + "&limit=50", cursor);
+            body.path("items").forEach(rest::add);
+            cursor = body.path("nextCursor").isNull() ? null : body.path("nextCursor").asString();
+        }
+        List<JsonNode> listers = of(rest, lister);
+        assertThat(listers).hasSize(1);
+        assertThat(listers.get(0).path("id").asString()).isEqualTo(groupId);
+        assertThat(Instant.parse(listers.get(0).path("at").asString())).isEqualTo(firstAt);
+        assertThat(listers.get(0).path("newCards").path("total").asLong()).isEqualTo(1);
+
+        // A refresh shows the lister's new card at the top.
+        assertThat(collectorIds(feed(viewer.uid(), query + "&limit=1")))
+                .containsExactly(lister.id().toString());
     }
 
     @Test
