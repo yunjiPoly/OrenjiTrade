@@ -185,6 +185,18 @@ describe('kind to target', () => {
     expect(pushTarget(null, 'me')).toBe('/notifications');
   });
 
+  it('leads a tapped chat push to the chat, which Notifications never lists', () => {
+    expect(
+      pushTarget({ notificationId: 'n1', type: 'MESSAGE', deepLink: '/messages/c1' }, 'me')
+    ).toBe('/messages/c1');
+    // No chat named, or a link elsewhere: Messages, never Notifications.
+    expect(pushTarget({ type: 'MESSAGE' }, 'me')).toBe('/messages');
+    expect(pushTarget({ type: 'MESSAGE', deepLink: '/cards/x' }, 'me')).toBe('/messages');
+    expect(pushTarget({ type: 'MESSAGE', deepLink: '//evil.example/messages/c1' }, 'me')).toBe(
+      '/messages'
+    );
+  });
+
   it('leaves chats out of the bell and the list', () => {
     expect(isExcludedType('MESSAGE')).toBe(true);
     expect(isExcludedType('WISHLIST_ALERT')).toBe(false);

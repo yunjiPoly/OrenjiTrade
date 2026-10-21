@@ -66,7 +66,8 @@ const ID = /^[\w-]{1,64}$/;
 
 /**
  * A tapped push notification opens the same target as its row in Notifications (stage R9) and
- * marks it read; one without a target, or a freshness reminder, opens Notifications. Each tap is
+ * marks it read; one without a target, or a freshness reminder, opens Notifications, and a chat's
+ * opens the chat (`pushTarget`). Each tap is
  * followed once (the one that opened the app included), and only while a collector is signed in.
  */
 export function usePushOpener(injected?: PushResponses | null): void {

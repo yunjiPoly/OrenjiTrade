@@ -38,6 +38,7 @@ function fakeSource(opened: PushPayload | null) {
 
 const ID_1 = '00000000-0000-4000-9b00-0000000000a1';
 const ID_2 = '00000000-0000-4000-9b00-0000000000a2';
+const ID_3 = '00000000-0000-4000-9b00-0000000000a3';
 
 describe('push notifications', () => {
   it('follow the tap that opened the app and the next ones to their row target, marking them read', async () => {
@@ -77,6 +78,14 @@ describe('push notifications', () => {
     });
     expect(mockRouter.push).toHaveBeenCalledTimes(3);
     expect(mockRouter.push).toHaveBeenLastCalledWith('/notifications');
+    // A chat's push opens the chat (Notifications never lists chats) and is read (U2, F2).
+    push.tap({ notificationId: ID_3, type: 'MESSAGE', deepLink: '/messages/c1' });
+    expect(mockRouter.push).toHaveBeenLastCalledWith('/messages/c1');
+    await waitFor(() =>
+      expect(
+        api.callsTo('POST /api/v1/notifications/{id}/read').map((call) => call.path)
+      ).toContain(`/api/v1/notifications/${ID_3}/read`)
+    );
   });
 
   it('wait for a signed-in collector', async () => {

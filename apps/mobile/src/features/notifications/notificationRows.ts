@@ -285,7 +285,8 @@ export function openedFromNotifications(target: string): string {
 /**
  * Where a tapped push notification leads (its payload: `notificationId`, `type`, `deepLink`): the
  * target of its row, else Notifications, where a reminder is answered and a notice without a
- * target is read.
+ * target is read. A chat has no row here (Messages has its own badge): its push opens the chat
+ * (`/messages/{id}`), or Messages when the link names none (review fix 1, U2 and F2).
  */
 export function pushTarget(
   payload: Record<string, unknown> | null | undefined,
@@ -293,11 +294,14 @@ export function pushTarget(
 ): string {
   const type = typeof payload?.['type'] === 'string' ? payload['type'] : '';
   const deepLink = safeAppPath(payload?.['deepLink']);
-  const target = rowTarget(
-    { type: type as NotificationResponse['type'], data: deepLink ? { deepLink } : {} },
-    ownHandle
-  );
-  return target ?? '/notifications';
+  const notice = { type: type as NotificationResponse['type'], data: deepLink ? { deepLink } : {} };
+  if (isExcludedType(type)) {
+    const chat = mobileTarget(notificationLink(notice));
+    return chat.kind === 'route' && /^\/messages(\/[\w-]{1,64})?$/.test(chat.href)
+      ? chat.href
+      : '/messages';
+  }
+  return rowTarget(notice, ownHandle) ?? '/notifications';
 }
 
 // ---------------------------------------------------------------------------------------------
