@@ -354,6 +354,14 @@ describe('the sentence of a row', () => {
         false
       )
     ).toBe('duelist.jp marked X as sold to you. Rate them when it arrives, Yesterday');
+    // A question keeps its question mark.
+    expect(
+      rowLabel(
+        { strong: 'For trade:', rest: 'do you still have these 9 cards?', sub: 'Confirm them.' },
+        'Saturday',
+        false
+      )
+    ).toBe('For trade: do you still have these 9 cards? Confirm them, Saturday');
   });
 
   it('speaks the bell with the number of new notifications', () => {

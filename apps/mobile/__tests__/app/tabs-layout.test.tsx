@@ -159,8 +159,9 @@ describe('(tabs) layout', () => {
     await screen.findByTestId('screen-home');
     // Unread chats, not messages (spec section 4), muted ones left out.
     expect(await screen.findByLabelText('Messages tab, 2 unread chats')).toBeOnTheScreen();
-    expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
-    expect(screen.getByTestId('notification-bell-home-badge')).toHaveTextContent('5');
+    // The bell (stage R9): an orange dot, "Notifications, {n} new".
+    expect(await screen.findByLabelText('Notifications, 5 new')).toBeOnTheScreen();
+    expect(screen.getByTestId('notification-bell-home-dot')).toBeOnTheScreen();
   });
 
   it('navigates to the Profile tab', async () => {

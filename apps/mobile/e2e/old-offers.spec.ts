@@ -88,7 +88,8 @@ test.describe('mobile: old offers after offers left the phone', () => {
     await expect(thread.getByTestId('offer-link-card')).toHaveCount(0);
     await expect(thread.getByRole('button', { name: /Share an offer/ })).toHaveCount(0);
 
-    // The notification of the offer is still listed; opening it opens nothing and says why.
+    // The notification of the offer is still listed, in grey (stage R9); opening it marks it read
+    // and opens nothing.
     let receivedId: string | undefined;
     await expect
       .poll(
@@ -109,9 +110,11 @@ test.describe('mobile: old offers after offers left the phone', () => {
     const centre = screen(page, 'notifications');
     const entry = centre.getByTestId(`notification-${receivedId ?? ''}`);
     await expect(entry).toBeVisible({ timeout: 30_000 });
+    await expect(entry).toHaveAttribute('aria-label', /, unread$/);
     await entry.click();
-    await expect(snackbar(page)).toHaveText(DEALS_NOTE, { timeout: 30_000 });
+    await expect(entry).not.toHaveAttribute('aria-label', /unread$/, { timeout: 30_000 });
     await expect(page).toHaveURL(/\/notifications$/);
+    await expect(snackbar(page)).toHaveCount(0);
 
     // An old offer link (a bookmark, `orenjitrade://offers/…`) lands on Messages with the note.
     // (Not `openInApp`: that helper waits for the URL it opened, and this one moves on at once.)

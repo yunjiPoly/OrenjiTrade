@@ -238,7 +238,9 @@ export function rowLabel(row: RowText, spokenTime: string, unread: boolean): str
     spokenTime,
     unread ? NOTIFICATIONS_COPY.unread : '',
   ].filter(Boolean);
-  return [`${rowSentence(row)}.`, tail.join(', ')].filter(Boolean).join(' ');
+  const sentence = rowSentence(row);
+  const head = /[.?!:]$/.test(sentence) ? sentence : `${sentence}.`;
+  return [head, tail.join(', ')].filter(Boolean).join(' ');
 }
 
 // ---------------------------------------------------------------------------------------------

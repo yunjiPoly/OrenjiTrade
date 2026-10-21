@@ -188,12 +188,13 @@ describe('Messages tab: inbox', () => {
       expect(handle.props.maxFontSizeMultiplier).toBeUndefined();
       expect(handle).toHaveProp('numberOfLines', 3);
       expect(screen.getByTestId('conversation-preview-collector3')).toHaveProp('numberOfLines', 2);
-      // The title, "Live" and the bell's count stay within the header.
+      // The title and the bell stay within the header (the bell's dot has no text, stage R9).
       expect(screen.getByText('Messages')).toHaveProp(
         'maxFontSizeMultiplier',
         TITLE_MAX_FONT_SCALE
       );
-      expect(await screen.findByText('3')).toHaveProp('maxFontSizeMultiplier', 1);
+      expect(await screen.findByLabelText('Notifications, 3 new')).toBeOnTheScreen();
+      expect(screen.getByTestId('notification-bell-messages-dot')).toBeOnTheScreen();
     } finally {
       act(() => {
         Dimensions.set({ window, screen: window });
