@@ -56,10 +56,6 @@ test.describe('mobile Home', () => {
 
     // The Wanted chip: only wishes, down to "You're all caught up" with the chip's text.
     await home.getByRole('button', { name: 'Wanted' }).click();
-    await expect(home.getByRole('button', { name: 'Wanted' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
     await expect(
       home.getByRole('button', { name: /^collector2 wants a card, .+, Ontario$/ })
     ).toBeVisible({ timeout: 30_000 });

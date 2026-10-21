@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FEED_STALE_MS, useHomeFeed, usePublicCardCount } from '@/src/api/hooks/feed';
 import { useMyLocation } from '@/src/api/hooks/location';
-import { useRegionOptions } from '@/src/api/hooks/regions';
+import { useRegionOptions, useRegions } from '@/src/api/hooks/regions';
 import { useUid } from '@/src/api/hooks/useUid';
 import { useWishlist } from '@/src/api/hooks/wishlist';
 import type { FeedPost } from '@/src/api/types';
@@ -79,6 +79,9 @@ export function HomeScreen() {
   const setKind = useCallback((next: FeedFilter) => useHomeChip.setState({ kind: next }), []);
   const browsing = useBrowsingGame();
   const { region } = useBrowsingRegion();
+  // The server's list of regions (as Search's map reads it): the pill's and the end's names, and
+  // the judge of a region code kept on the device that no longer exists.
+  useRegions();
   const regionLabel =
     useRegionOptions().find((option) => option.code === region)?.name ?? regionName(region);
   const gameLabel = browsing.current.name;
