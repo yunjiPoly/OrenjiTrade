@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.orenjitrade.api.games.domain.GameService;
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
+import com.orenjitrade.api.search.infra.DiscoveryCache;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +32,7 @@ class SearchGameIT extends AbstractSearchIT {
     private static final String STATE = "US-WY";
 
     @Autowired private GameService gameService;
+    @Autowired private DiscoveryCache discoveryCache;
 
     @BeforeEach
     void freshGames() {
@@ -269,6 +272,96 @@ class SearchGameIT extends AbstractSearchIT {
         assertThat(coreIds(get(viewer, 200, cores, keyCard.cardId()))).containsExactly(mixedCore);
         assertThat(get(viewer, 200, cores + "&game=pokemon", keyCard.cardId())).isEmpty();
         assertThat(get(viewer, 200, cores + "&game=yugioh", keyCard.cardId())).isEmpty();
+    }
+
+    /**
+     * A binder made without a game refuses no cover, so one holding the cards of one game only can
+     * have a cover of another game. Then no game counts or lists it and, as a deck core, it is no
+     * game's deck core of a card: its cover would show in that game's lists (review fix 1, F7; the
+     * cover clause of {@code RegionBinderRepository.OF_GAME}, review fix 2, R1-1). Without {@code
+     * game=} it shows as before, and once its cover is of its own game it shows under that game.
+     */
+    @Test
+    void aBinderMadeWithoutAGameWithACoverOfAnotherGameShowsUnderNoGame() {
+        String word = token();
+        Collector owner = collector("game-cover", "US", STATE);
+        String viewer = uniqueUid("game-cover-viewer");
+        provisionCompliant(viewer);
+        IsolatedCard card = isolatedPrinting("pkm-p002a");
+        UUID magicCover = printing("mtg-p001a");
+        long[] before = counts(viewer, null);
+        long[] beforePokemon = counts(viewer, "pokemon");
+        long[] beforeMagic = counts(viewer, "mtg");
+        long[] anonymousPokemon = counts(null, "pokemon");
+
+        // Pokémon cards only, with a Magic cover: a binder and a deck core.
+        String covered = publicBinder(owner, null, word + " covered", null, false);
+        cover(owner, covered, magicCover);
+        file(owner, covered, card.printingId(), "PUBLIC");
+        String core = publicBinder(owner, null, word + " core", null, true);
+        cover(owner, core, magicCover);
+        file(owner, core, card.printingId(), "PUBLIC");
+        assertThat(gameOf(covered)).isEqualTo("pokemon");
+        assertThat(gameOf(core)).isEqualTo("pokemon");
+
+        assertThat(counts(viewer, null)).containsExactly(before[0] + 2, before[1] + 1);
+        assertThat(counts(viewer, "pokemon")).containsExactly(beforePokemon[0], beforePokemon[1]);
+        assertThat(counts(viewer, "mtg")).containsExactly(beforeMagic[0], beforeMagic[1]);
+        assertThat(counts(null, "pokemon"))
+                .containsExactly(anonymousPokemon[0], anonymousPokemon[1]);
+
+        String stateList = "/api/v1/regions/americas-north/subdivisions/" + STATE + "/binders";
+        String regionList = "/api/v1/regions/americas-north/binders";
+        String cores = "/api/v1/search/deck-cores?cardId={id}&region=americas-north";
+        for (String uid : java.util.Arrays.asList(null, viewer)) {
+            assertThat(ids(get(uid, 200, stateList + "?q={q}", word)))
+                    .containsExactlyInAnyOrder(covered, core);
+            assertThat(ids(get(uid, 200, regionList + "?q={q}", word)))
+                    .containsExactlyInAnyOrder(covered, core);
+            for (String game : List.of("pokemon", "mtg", "yugioh")) {
+                assertThat(ids(get(uid, 200, stateList + "?q={q}&game=" + game, word)))
+                        .as("the state's binders of " + game)
+                        .isEmpty();
+                assertThat(ids(get(uid, 200, regionList + "?q={q}&game=" + game, word)))
+                        .as("the region's binders of " + game)
+                        .isEmpty();
+            }
+            assertThat(ids(get(uid, 200, stateList + "?game=pokemon&deckCore=true&limit=50")))
+                    .doesNotContain(core);
+            assertThat(ids(get(uid, 200, regionList + "?game=pokemon&limit=50")))
+                    .doesNotContain(covered, core);
+        }
+        assertThat(coreIds(get(viewer, 200, cores, card.cardId()))).containsExactly(core);
+        assertThat(get(viewer, 200, cores + "&game=pokemon", card.cardId())).isEmpty();
+        assertThat(get(viewer, 200, cores + "&game=mtg", card.cardId())).isEmpty();
+
+        // A cover of its own game: the binder and the deck core show under Pokémon again.
+        cover(owner, covered, card.printingId());
+        cover(owner, core, card.printingId());
+        // A cover change publishes no event: the anonymous counts' cache expires with its TTL.
+        discoveryCache.invalidate();
+        assertThat(counts(viewer, "pokemon"))
+                .containsExactly(beforePokemon[0] + 2, beforePokemon[1] + 1);
+        assertThat(counts(null, "pokemon"))
+                .containsExactly(anonymousPokemon[0] + 2, anonymousPokemon[1] + 1);
+        assertThat(counts(viewer, "mtg")).containsExactly(beforeMagic[0], beforeMagic[1]);
+        for (String uid : java.util.Arrays.asList(null, viewer)) {
+            assertThat(ids(get(uid, 200, stateList + "?q={q}&game=pokemon", word)))
+                    .containsExactlyInAnyOrder(covered, core);
+            assertThat(ids(get(uid, 200, regionList + "?q={q}&game=pokemon", word)))
+                    .containsExactlyInAnyOrder(covered, core);
+            assertThat(ids(get(uid, 200, regionList + "?q={q}&game=mtg", word))).isEmpty();
+        }
+        assertThat(coreIds(get(viewer, 200, cores + "&game=pokemon", card.cardId())))
+                .containsExactly(core);
+        assertThat(get(viewer, 200, cores + "&game=mtg", card.cardId())).isEmpty();
+    }
+
+    /** Sets the binder's cover (PATCH coverPrintingId). */
+    private void cover(Collector owner, String binderId, UUID printing) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("coverPrintingId", printing.toString());
+        callJson(HttpMethod.PATCH, "/api/v1/binders/" + binderId, owner.uid(), body, 200);
     }
 
     /**
