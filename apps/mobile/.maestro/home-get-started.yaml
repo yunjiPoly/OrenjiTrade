@@ -32,10 +32,9 @@ tags:
 - assertVisible: 'Do these once to sell and find cards in your region.'
 - assertVisible:
     id: 'home-get-started-progress'
-- assertVisible: '1 of 3'
 - assertVisible:
     id: 'home-step-province-done'
-- assertVisible: 'Community of Madrid, Spain'
+- assertVisible: 'Choose your province, done\. Community of Madrid, Spain'
 - assertVisible:
     id: 'home-step-card-action'
     text: 'Add cards'

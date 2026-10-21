@@ -63,7 +63,7 @@ tags:
 - assertVisible:
     id: 'home-post-00000000-0000-4000-8f00-000000000201-have'
     text: 'I have Azure-Eyes Sky Dragon\. Message collector2'
-- assertVisible: 'AZR-EN001 · NM only · 90% TCG'
+- assertVisible: 'Azure-Eyes Sky Dragon, AZR-EN001 · NM only · 90% TCG'
 
 # A deck core (collector2's Moth Queen core, $95).
 - runFlow:
