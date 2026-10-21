@@ -83,6 +83,7 @@ deleted cards, the visibility rule, the audit rows, `NOT NULL`), `BinderCoverGam
 defaults), `BinderGameIT` (create, the lock and `gameLocked` during an undo window, the cover's
 game, the mismatch single, bulk and scan batch), `SearchGameIT` (the counts, both binder lists,
 holders and their count, deck cores, collectors; a binder made without a game that holds two
-games under neither; blocks both ways with `game=`), `InventoryLockOrderIT` (`PATCH gameId`, the
+games under neither, and one that holds one game's cards under a cover of another game; blocks
+both ways with `game=`), `InventoryLockOrderIT` (`PATCH gameId`, the
 first card that sets a binder's game), `WishlistAvailabilityIT` (+1), `GamesIT` (One Piece,
 `hasCards`), `SeedDataRunnerIT` (every seed binder holds its own game).
