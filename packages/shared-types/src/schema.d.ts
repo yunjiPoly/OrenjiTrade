@@ -3532,6 +3532,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What became public in a region for a game (Home)
+         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored.
+         */
+        get: operations["getFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/disputes/{id}": {
         parameters: {
             query?: never;
@@ -9231,6 +9251,143 @@ export interface components {
              * @example 60
              */
             previewTtlMinutes: number;
+        };
+        /** @description A public card of a new-cards post */
+        FeedCardPreview: {
+            /**
+             * Format: uuid
+             * @description The inventory item ("Message" pins it in the chat)
+             */
+            itemId: string;
+            /** Format: uuid */
+            cardId: string;
+            /** Format: uuid */
+            printingId: string;
+            /** @example Azure-Eyes Sky Dragon */
+            name: string;
+            /** @example AZR-EN001 */
+            printingCode?: string | null;
+            /** @example Ultra Rare */
+            rarity?: string | null;
+            /** Format: uri */
+            imageUrl?: string | null;
+            /**
+             * @description The asking price as typed; null when none
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
+            /**
+             * @description The amount of a price set without a text (before stage R2, or on the web)
+             * @example 45
+             */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+        };
+        /** @description The collector of a post */
+        FeedCollector: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+        };
+        /** @description A public, unsold deck core */
+        FeedDeckCore: {
+            /** Format: uuid */
+            binderId: string;
+            /** @example Yubel core */
+            name: string;
+            /** @example Trade only */
+            askingPriceText?: string | null;
+            /**
+             * Format: uri
+             * @description The first photo
+             */
+            photoUrl?: string | null;
+            /**
+             * Format: int32
+             * @example 4
+             */
+            photoCount: number;
+            /** @description Up to 3 key card pictures, for a deck core without photos (empty otherwise) */
+            previewImages: string[];
+            /** @description The first line of the public note, at most 120 characters (ending with … when cut) */
+            noteFirstLine?: string | null;
+        };
+        /** @description One collector's new cards of one hour */
+        FeedNewCards: {
+            /**
+             * Format: int64
+             * @example 12
+             */
+            total: number;
+            /** @description The newest 4 at most, newest first */
+            previews: components["schemas"]["FeedCardPreview"][];
+        };
+        /** @description What became public in the region for the game in the last `windowDays` days, newest first */
+        FeedPage: {
+            /** @example americas-north */
+            region: string;
+            /** @example yugioh */
+            game: string;
+            /** @enum {string} */
+            kind: "ALL" | "NEW_CARDS" | "WANTED" | "DECK_CORES";
+            /**
+             * Format: int32
+             * @description The window (a server setting): nothing older than this many days is ever returned
+             * @example 30
+             */
+            windowDays: number;
+            items: components["schemas"]["FeedPost"][];
+            /** @description Cursor of the next page; null after the last one (the end of the window) */
+            nextCursor?: string | null;
+            hasMore: boolean;
+            /** @description The game has a post of any kind in the window (for the caller), whatever `kind` is; always true after the first page */
+            gameHasPosts: boolean;
+            /** @description The region has a post of any kind in the window in any game; false: the whole region is quiet */
+            regionHasPosts: boolean;
+        };
+        /** @description A post of Home's feed: exactly one of newCards, wanted and deckCore is set, by kind */
+        FeedPost: {
+            /**
+             * Format: uuid
+             * @description Stable across pages and refreshes
+             */
+            id: string;
+            /** @enum {string} */
+            kind: "NEW_CARDS" | "WANTED" | "DECK_CORE";
+            /**
+             * Format: date-time
+             * @description When it became public (the newest card of a NEW_CARDS post)
+             */
+            at: string;
+            collector: components["schemas"]["FeedCollector"];
+            /** @description The collector's state or province and country */
+            place: components["schemas"]["Place"];
+            newCards?: components["schemas"]["FeedNewCards"];
+            wanted?: components["schemas"]["FeedWish"];
+            deckCore?: components["schemas"]["FeedDeckCore"];
+        };
+        /** @description A public wish */
+        FeedWish: {
+            /** Format: uuid */
+            wishId: string;
+            /** Format: uuid */
+            cardId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: uri */
+            imageUrl?: string | null;
+            /** @description The wished printing; null = any printing */
+            printing?: components["schemas"]["PrintingSummary"];
+            /** @description Any printing of this rarity; null = any */
+            rarity?: string | null;
+            nearMintOnly: boolean;
+            priceTerm?: components["schemas"]["WishPriceTerm"];
         };
         /** @description Cursor-paginated list */
         CursorPageConversationSummary: {
@@ -25060,6 +25217,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getFeed: {
+        parameters: {
+            query: {
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north */
+                region?: string;
+                /** @description Game slug (GET /games): the phone's browsed game */
+                game: string;
+                /** @description Every post, or the posts of one kind (Home's chips) */
+                kind?: "ALL" | "NEW_CARDS" | "WANTED" | "DECK_CORES";
+                /** @description The `nextCursor` of the previous page */
+                cursor?: string;
+                /** @description Posts per page (20 by default) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the feed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedPage"];
+                };
+            };
+            /** @description VALIDATION_FAILED: game missing or unknown, unknown region or kind, invalid cursor or limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */

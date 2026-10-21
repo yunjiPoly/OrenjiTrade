@@ -598,6 +598,72 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /** The token uid of a seed account, by handle. */
+    private static String seedUid(String handle) {
+        return handle.equals("premium_user")
+                ? "seed-premium-user:premium@orenjitrade.test"
+                : "seed-" + handle + ":" + handle + "@orenjitrade.test";
+    }
+
+    /**
+     * Home's feed (stage R7, {@code GET /feed}) as every seed account reads it: every kind, every
+     * region, every game. Each post's collector carries a state or province and a country (their
+     * seeded place), never a city (not even their own, shown on their profile), a coordinate, a
+     * distance or a private note; never the reader's own post; never a collector who is not
+     * discoverable. The seed puts every kind in the Yu-Gi-Oh! feed of Americas (North).
+     */
+    @Test
+    void homeFeedCarriesPlacesOnly(CapturedOutput output) {
+        Set<String> kindsSeen = new java.util.HashSet<>();
+        for (String reader : PLACES.keySet()) {
+            String caller = seedUid(reader);
+            for (String region : List.of("americas-north", "americas-south", "europe")) {
+                for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                    checkFeed(
+                            fetch(
+                                    "/api/v1/feed?limit=50&region=" + region + "&game=" + game,
+                                    caller),
+                            reader,
+                            kindsSeen);
+                }
+            }
+            for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+                checkFeed(
+                        fetch("/api/v1/feed?limit=50&game=yugioh&kind=" + kind, caller),
+                        reader,
+                        kindsSeen);
+            }
+        }
+        assertThat(kindsSeen).containsExactlyInAnyOrder("NEW_CARDS", "WANTED", "DECK_CORE");
+        for (Fetched document : fetched) {
+            assertNoPrivateNotes(document.body(), document.path());
+            for (String handle : NOT_DISCOVERABLE) {
+                assertThat(document.body().toString())
+                        .as("%s in %s", handle, document.path())
+                        .doesNotContain("\"handle\":\"" + handle + "\"");
+            }
+        }
+        assertContract(output);
+    }
+
+    private static void checkFeed(JsonNode page, String reader, Set<String> kindsSeen) {
+        for (JsonNode post : page.path("items")) {
+            String handle = post.path("collector").path("handle").asString();
+            kindsSeen.add(post.path("kind").asString());
+            assertThat(handle).as("%s reads their own post", reader).isNotEqualTo(reader);
+            JsonNode place = post.path("place");
+            assertThat(place.path("subdivisionName").asString()).isNotBlank();
+            assertThat(place.path("countryName").asString()).isNotBlank();
+            if (PLACES.containsKey(handle)) {
+                assertThat(place.path("label").asString())
+                        .as("place of %s for %s", handle, reader)
+                        .isEqualTo(PLACES.get(handle));
+            }
+            assertThat(post.path("collector").has("city")).isFalse();
+            assertThat(place.has("city")).isFalse();
+        }
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {

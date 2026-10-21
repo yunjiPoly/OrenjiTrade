@@ -244,6 +244,10 @@
     {
       "name": "community",
       "description": "Public community channels, posts and replies"
+    },
+    {
+      "name": "feed",
+      "description": "Home's feed: what became public in a region (signed in)"
     }
   ],
   "paths": {
@@ -19428,6 +19432,153 @@
         "security": []
       }
     },
+    "/api/v1/feed": {
+      "get": {
+        "tags": [
+          "feed"
+        ],
+        "summary": "What became public in a region for a game (Home)",
+        "description": "Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored.",
+        "operationId": "getFeed",
+        "parameters": [
+          {
+            "name": "region",
+            "in": "query",
+            "description": "Platform region code (GET /regions); default: the caller's home region, else americas-north",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "game",
+            "in": "query",
+            "description": "Game slug (GET /games): the phone's browsed game",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 32,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Every post, or the posts of one kind (Home's chips)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "ALL",
+              "enum": [
+                "ALL",
+                "NEW_CARDS",
+                "WANTED",
+                "DECK_CORES"
+              ],
+              "maxLength": 16,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "The `nextCursor` of the previous page",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Posts per page (20 by default)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 50,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of the feed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: game missing or unknown, unknown region or kind, invalid cursor or limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/disputes/{id}": {
       "get": {
         "tags": [
@@ -36980,6 +37131,346 @@
           "previewTtlMinutes",
           "ydkMaxBytes",
           "ydkMaxLines"
+        ]
+      },
+      "FeedCardPreview": {
+        "type": "object",
+        "description": "A public card of a new-cards post",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The inventory item (\"Message\" pins it in the chat)"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "printingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Azure-Eyes Sky Dragon"
+          },
+          "printingCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "AZR-EN001"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Ultra Rare"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The asking price as typed; null when none",
+            "example": "85% TCG"
+          },
+          "askingPrice": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The amount of a price set without a text (before stage R2, or on the web)",
+            "example": 45.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "CAD"
+          }
+        },
+        "required": [
+          "cardId",
+          "currency",
+          "itemId",
+          "name",
+          "printingId"
+        ]
+      },
+      "FeedCollector": {
+        "type": "object",
+        "description": "The collector of a post",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        },
+        "required": [
+          "displayName",
+          "handle",
+          "id"
+        ]
+      },
+      "FeedDeckCore": {
+        "type": "object",
+        "description": "A public, unsold deck core",
+        "properties": {
+          "binderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Yubel core"
+          },
+          "askingPriceText": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "example": "Trade only"
+          },
+          "photoUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri",
+            "description": "The first photo"
+          },
+          "photoCount": {
+            "type": "integer",
+            "format": "int32",
+            "example": 4
+          },
+          "previewImages": {
+            "type": "array",
+            "description": "Up to 3 key card pictures, for a deck core without photos (empty otherwise)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "noteFirstLine": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The first line of the public note, at most 120 characters (ending with … when cut)"
+          }
+        },
+        "required": [
+          "binderId",
+          "name",
+          "photoCount",
+          "previewImages"
+        ]
+      },
+      "FeedNewCards": {
+        "type": "object",
+        "description": "One collector's new cards of one hour",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "example": 12
+          },
+          "previews": {
+            "type": "array",
+            "description": "The newest 4 at most, newest first",
+            "items": {
+              "$ref": "#/components/schemas/FeedCardPreview"
+            }
+          }
+        },
+        "required": [
+          "previews",
+          "total"
+        ]
+      },
+      "FeedPage": {
+        "type": "object",
+        "description": "What became public in the region for the game in the last `windowDays` days, newest first",
+        "properties": {
+          "region": {
+            "type": "string",
+            "example": "americas-north"
+          },
+          "game": {
+            "type": "string",
+            "example": "yugioh"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "NEW_CARDS",
+              "WANTED",
+              "DECK_CORES"
+            ]
+          },
+          "windowDays": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The window (a server setting): nothing older than this many days is ever returned",
+            "example": 30
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedPost"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Cursor of the next page; null after the last one (the end of the window)"
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "gameHasPosts": {
+            "type": "boolean",
+            "description": "The game has a post of any kind in the window (for the caller), whatever `kind` is; always true after the first page"
+          },
+          "regionHasPosts": {
+            "type": "boolean",
+            "description": "The region has a post of any kind in the window in any game; false: the whole region is quiet"
+          }
+        },
+        "required": [
+          "game",
+          "gameHasPosts",
+          "hasMore",
+          "items",
+          "kind",
+          "region",
+          "regionHasPosts",
+          "windowDays"
+        ]
+      },
+      "FeedPost": {
+        "type": "object",
+        "description": "A post of Home's feed: exactly one of newCards, wanted and deckCore is set, by kind",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable across pages and refreshes"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "NEW_CARDS",
+              "WANTED",
+              "DECK_CORE"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it became public (the newest card of a NEW_CARDS post)"
+          },
+          "collector": {
+            "$ref": "#/components/schemas/FeedCollector"
+          },
+          "place": {
+            "$ref": "#/components/schemas/Place",
+            "description": "The collector's state or province and country"
+          },
+          "newCards": {
+            "type": "null",
+            "$ref": "#/components/schemas/FeedNewCards"
+          },
+          "wanted": {
+            "type": "null",
+            "$ref": "#/components/schemas/FeedWish"
+          },
+          "deckCore": {
+            "type": "null",
+            "$ref": "#/components/schemas/FeedDeckCore"
+          }
+        },
+        "required": [
+          "at",
+          "collector",
+          "id",
+          "kind",
+          "place"
+        ]
+      },
+      "FeedWish": {
+        "type": "object",
+        "description": "A public wish",
+        "properties": {
+          "wishId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cardId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ash Blossom & Joyous Spring"
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "printing": {
+            "type": "null",
+            "$ref": "#/components/schemas/PrintingSummary",
+            "description": "The wished printing; null = any printing"
+          },
+          "rarity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Any printing of this rarity; null = any"
+          },
+          "nearMintOnly": {
+            "type": "boolean"
+          },
+          "priceTerm": {
+            "type": "null",
+            "$ref": "#/components/schemas/WishPriceTerm"
+          }
+        },
+        "required": [
+          "cardId",
+          "name",
+          "nearMintOnly",
+          "wishId"
         ]
       },
       "CursorPageConversationSummary": {
