@@ -6,6 +6,8 @@ export type TabIconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 export interface TabDefinition {
   /** Route file name inside `app/(tabs)/`. */
   name: string;
+  /** Stable id of the tab button (`tab-<id>`, the native flows' selector). */
+  id: string;
   title: string;
   icon: TabIconName;
   iconFocused: TabIconName;
@@ -26,6 +28,7 @@ export interface TabDefinition {
 export const TABS: readonly TabDefinition[] = [
   {
     name: 'index',
+    id: 'home',
     title: 'Home',
     icon: 'home-outline',
     iconFocused: 'home',
@@ -34,6 +37,7 @@ export const TABS: readonly TabDefinition[] = [
   },
   {
     name: 'search',
+    id: 'search',
     title: 'Search',
     icon: 'magnify',
     iconFocused: 'magnify',
@@ -41,6 +45,7 @@ export const TABS: readonly TabDefinition[] = [
   },
   {
     name: 'inventory',
+    id: 'inventory',
     title: 'Inventory',
     icon: 'cards-outline',
     iconFocused: 'cards',
@@ -48,6 +53,7 @@ export const TABS: readonly TabDefinition[] = [
   },
   {
     name: 'messages',
+    id: 'messages',
     title: 'Messages',
     icon: 'message-text-outline',
     iconFocused: 'message-text',
@@ -55,6 +61,7 @@ export const TABS: readonly TabDefinition[] = [
   },
   {
     name: 'profile',
+    id: 'profile',
     title: 'Profile',
     icon: 'account-circle-outline',
     iconFocused: 'account-circle',

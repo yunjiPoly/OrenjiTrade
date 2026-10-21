@@ -149,7 +149,7 @@ test.describe('mobile who has this card', () => {
       'PFT-002'
     );
     await signInThroughUi(page, viewer.email, viewer.password);
-    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'home')).toBeVisible({ timeout: 30_000 });
     for (const link of [`/holders?card=${cardId}`, `/holders?printing=${printingId}`]) {
       await page.evaluate((target) => {
         window.history.pushState(null, '', target);

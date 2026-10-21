@@ -28,7 +28,7 @@ tags:
       PASSWORD: ${output.vic.password}
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
 
 # Dana's profile (screen 19): the city she shows, her province, this week; Message; her listings.

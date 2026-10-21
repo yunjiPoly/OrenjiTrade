@@ -18,10 +18,7 @@ tags:
     env:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 
 # The field of Search opens the card search with the keyboard up (stage R5, screen 12): the
 # privacy line of the recent searches, then live, typo-tolerant results.

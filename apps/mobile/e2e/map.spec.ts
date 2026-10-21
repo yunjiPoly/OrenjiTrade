@@ -1,5 +1,12 @@
 import { expect, test } from './support/fixtures';
-import { SEED_PASSWORD, openInApp, requireStack, screen, signInThroughUi } from './support/stack';
+import {
+  openInApp,
+  openTab,
+  requireStack,
+  screen,
+  SEED_PASSWORD,
+  signInThroughUi,
+} from './support/stack';
 
 /**
  * Search's map (the Map tab before stage R5) and other collectors' places on mobile (ADR 0017)
@@ -26,6 +33,7 @@ test.describe('mobile map and places', () => {
       }
     });
     await signInThroughUi(page, 'collector1@orenjitrade.test', SEED_PASSWORD);
+    await openTab(page, 'Search');
     const map = screen(page, 'search');
     await expect(map.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,

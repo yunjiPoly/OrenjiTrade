@@ -74,7 +74,7 @@ describe('(tabs) layout', () => {
       'Messages',
       'Profile',
     ]);
-    expect(TABS[0]?.name).toBe('index');
+    expect(TABS[0]).toMatchObject({ name: 'index', id: 'home' });
     // The old Wishlist tab is a route that redirects into Search, not a tab.
     expect(HIDDEN_TAB_ROUTES).toEqual(['wishlist']);
   });
@@ -86,7 +86,7 @@ describe('(tabs) layout', () => {
     for (const tab of TABS) {
       expect(screen.getByLabelText(`${tab.title} tab`)).toBeOnTheScreen();
       // Stable ids for the native Maestro flows.
-      expect(screen.getByTestId(`tab-${tab.name}`)).toBeOnTheScreen();
+      expect(screen.getByTestId(`tab-${tab.id}`)).toBeOnTheScreen();
     }
     expect(screen.queryByLabelText('Map tab')).toBeNull();
     expect(screen.queryByLabelText('Wishlist tab')).toBeNull();

@@ -22,10 +22,7 @@ tags:
     env:
       EMAIL: ${output.wren.email}
       PASSWORD: ${output.wren.password}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 # Search › Wishlist (the old Wishlist tab, stage R5): the alert switch, "Add a wish".
 - tapOn:
     id: 'search-segment-wishlist'

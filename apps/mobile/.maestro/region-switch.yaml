@@ -30,10 +30,7 @@ tags:
     env:
       EMAIL: ${SEED_EMAIL}
       PASSWORD: ${SEED_PASSWORD}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 
 # The switcher over Search's map: a sheet with the three regions; Europe.
 - extendedWaitUntil:

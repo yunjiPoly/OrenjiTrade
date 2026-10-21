@@ -33,10 +33,7 @@ tags:
     env:
       EMAIL: ${SEED_EMAIL}
       PASSWORD: ${SEED_PASSWORD}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 
 # Search's map (screen 11): the home region, the map as one named image, the region pill, "My
 # province" and the zoom buttons; it opens on the collector's province with its card.

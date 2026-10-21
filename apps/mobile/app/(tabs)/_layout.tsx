@@ -53,7 +53,7 @@ export default function TabLayout() {
                 ? `${tab.title} tab, ${unreadMessages} unread ${unreadMessages === 1 ? 'chat' : 'chats'}`
                 : `${tab.title} tab`,
               // Stable selector for the native Maestro flows (resource-id on Android).
-              tabBarButtonTestID: `tab-${tab.name}`,
+              tabBarButtonTestID: `tab-${tab.id}`,
               tabBarBadge: badge,
               // The notification centre is one tap away from every tab (the web's top-bar bell).
               headerRight: () => <NotificationBell testID={`notification-bell-${tab.name}`} />,

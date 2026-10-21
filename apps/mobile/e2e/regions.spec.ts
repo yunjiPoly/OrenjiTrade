@@ -5,6 +5,7 @@ import {
   apiListCopy,
   apiPublicBinder,
   createOnboardedCollector,
+  openTab,
   PLACES,
   printingIdOf,
   requireStack,
@@ -91,6 +92,9 @@ test.describe('mobile regions and the region map', () => {
     });
     const drawings = watchDrawings(page);
     await signInThroughUi(page, viewer.email, viewer.password);
+    // The app opens on Home (stage R7).
+    await expect(screen(page, 'home')).toBeVisible({ timeout: 30_000 });
+    await openTab(page, 'Search');
 
     // Search opens on the map of the home region, drawn from its own chunk only, on the
     // collector's province with its card.
@@ -188,6 +192,7 @@ test.describe('mobile regions and the region map', () => {
     });
     const drawings = watchDrawings(page);
     await signInThroughUi(page, viewer.email, viewer.password);
+    await openTab(page, 'Search');
     const search = screen(page, 'search');
     await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
@@ -268,6 +273,7 @@ test.describe('mobile regions and the region map', () => {
       discoverable: true,
     });
     await signInThroughUi(page, viewer.email, viewer.password);
+    await openTab(page, 'Search');
     const search = screen(page, 'search');
     await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
@@ -318,10 +324,10 @@ test.describe('mobile regions and the region map', () => {
       timeout: 30_000,
     });
 
-    // A new visit without a link starts in the collector's own region again.
+    // A new visit without a link starts on Home (stage R7), in the collector's own region again.
     await page.goto('/');
     await expect(
-      screen(page, 'search').getByRole('button', { name: 'Region: Americas (North)' })
+      screen(page, 'home').getByRole('button', { name: 'Region: Americas (North)' })
     ).toBeVisible({ timeout: 30_000 });
   });
 
@@ -335,6 +341,7 @@ test.describe('mobile regions and the region map', () => {
     const viewer = await createOnboardedCollector(request, 'rgnew', 'Mobile Placeless Linker');
     const counts = watchCounts(page);
     await signInThroughUi(page, viewer.email, viewer.password);
+    await openTab(page, 'Search');
     const search = screen(page, 'search');
     await expect(search.getByRole('button', { name: 'Region: Americas (North)' })).toBeVisible({
       timeout: 30_000,
@@ -376,7 +383,7 @@ test.describe('mobile regions and the region map', () => {
     await page.evaluate((key) => window.localStorage.setItem(key, 'oceania'), REGION_STORAGE_KEY);
     await page.goto('/');
     await expect(
-      screen(page, 'search').getByRole('button', { name: 'Region: Americas (North)' })
+      screen(page, 'home').getByRole('button', { name: 'Region: Americas (North)' })
     ).toBeVisible({ timeout: 30_000 });
     await expect
       .poll(() => page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY))

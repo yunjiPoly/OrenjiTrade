@@ -53,9 +53,11 @@ tags:
     timeout: 60000
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
-# The four tabs of stage R5 (Home comes with R7); the old Map and Wishlist tabs are inside Search.
+# The five tabs of stage R7, Home first; the old Map and Wishlist tabs are inside Search.
+- assertVisible:
+    id: 'tab-home'
 - assertVisible:
     id: 'tab-search'
 - assertVisible:
@@ -64,8 +66,6 @@ tags:
     id: 'tab-messages'
 - assertVisible:
     id: 'tab-profile'
-- assertNotVisible:
-    id: 'tab-index'
 - assertNotVisible:
     id: 'tab-wishlist'
 - runFlow: subflows/open-profile-tab.yaml

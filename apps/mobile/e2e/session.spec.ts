@@ -42,9 +42,9 @@ test.describe('mobile session', () => {
     await expect(profile.getByTestId('collector-name')).toHaveText('Sofia Nguyen', {
       timeout: 30_000,
     });
-    // Back leads to the tabs underneath.
+    // Back leads to the tabs underneath (Home, the first tab since stage R7).
     await page.goBack();
-    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'home')).toBeVisible({ timeout: 30_000 });
   });
 
   test('a session the API refuses ends in sign-in with an explanation, then comes back', async ({

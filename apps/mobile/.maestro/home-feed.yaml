@@ -1,0 +1,138 @@
+# Home, stage R7 of the phone redesign (owner prompt of 2026-10-19; mockup v50 screens 10 and
+# 10b; the redesign spec's walkthrough step 5): a seed collector (collector1, Quebec; Yu-Gi-Oh!)
+# lands on Home, the first of five tabs: the region and game pills with the bell, then the posts
+# the seed dates relative to now (docs/development/seed-data.md, "Home's feed"): collector5's 12
+# new Yu-Gi-Oh! cards as a grid with "+9", collector2's wish with "I have it", collector2's deck
+# core with its price, collector5's single card with its round Message button. "I have it" opens
+# the chat with the text and her copy in the box (nothing is sent). A chip reloads the feed down to
+# "You're all caught up" with the chip's text, and "Explore the map" opens Search's map.
+# Seed accounts are only signed in to.
+appId: ${APP_ID}
+name: Home, new cards, a wish with "I have it", a deck core, a chip down to the end
+tags:
+  - mobile-r7
+  - home
+---
+- runScript:
+    file: scripts/confirm-age.js
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${SEED_EMAIL}
+      PASSWORD: ${SEED_PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 60000
+
+# The top row (screen 10): the region pill and the game pill, the bell; the search field.
+- extendedWaitUntil:
+    visible:
+      id: 'home-region'
+      text: 'Region: Americas \(North\)\. Change region'
+    timeout: 30000
+- assertVisible:
+    id: 'home-game'
+    text: 'Game: Yu-Gi-Oh!\. Change game'
+- assertVisible:
+    id: 'notification-bell-home'
+- assertVisible:
+    id: 'home-search-field'
+
+# New cards: collector5's twelve in the hour, a grid whose 4th tile is "+9".
+- extendedWaitUntil:
+    visible:
+      text: 'collector5 listed 12 cards, .*, California'
+    timeout: 60000
+- assertVisible:
+    id: 'home-post-.*-more'
+    text: '9 more cards from this collector'
+- assertVisible:
+    id: 'home-section-today'
+- takeScreenshot: r7-home
+
+# A wish (collector2's Azure-Eyes Sky Dragon) with its terms and "I have it".
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'home-post-00000000-0000-4000-8f00-000000000201-have'
+- assertVisible:
+    id: 'home-post-00000000-0000-4000-8f00-000000000201-have'
+    text: 'I have Azure-Eyes Sky Dragon\. Message collector2'
+- assertVisible: 'AZR-EN001 · NM only · 90% TCG'
+
+# A deck core (collector2's Moth Queen core, $95).
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'home-post-00000000-0000-4000-8b00-000000000202-core'
+- assertVisible:
+    id: 'home-post-00000000-0000-4000-8b00-000000000202-core'
+    text: 'Moth Queen core, deck core, \$95.*'
+# One card: a row with the round Message button that pins that card.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'home-post-.*-message'
+- assertVisible:
+    id: 'home-post-.*-message'
+    text: 'Message collector5 about Shadowvale Revenant King'
+- takeScreenshot: r7-home-scrolled
+
+# "I have it": the chat with collector2, the text in the box and her copy ready to share; nothing
+# is sent until she taps send.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'home-post-00000000-0000-4000-8f00-000000000201-have'
+- tapOn:
+    id: 'home-post-00000000-0000-4000-8f00-000000000201-have'
+- extendedWaitUntil:
+    visible:
+      id: 'conversation-input'
+      text: 'I have Azure-Eyes Sky Dragon for your wishlist\. Interested\?'
+    timeout: 60000
+- assertVisible:
+    id: 'composer-attachment'
+- takeScreenshot: r7-i-have-it-chat
+- runFlow: subflows/hide-keyboard.yaml
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 30000
+
+# A chip: the Home tab scrolls back to the top, "Deck cores" keeps the deck cores, down to the end.
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'home-chip-DECK_CORES'
+    timeout: 30000
+- tapOn:
+    id: 'home-chip-DECK_CORES'
+- extendedWaitUntil:
+    visible:
+      id: 'home-post-00000000-0000-4000-8b00-000000000202-core'
+    timeout: 30000
+- assertNotVisible:
+    text: 'collector5 listed 12 cards, .*'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'home-end-map'
+- assertVisible:
+    id: 'home-end-text'
+    text: 'That’s every deck core for Yu-Gi-Oh! in Americas \(North\) from the last 30 days\.'
+- assertVisible: "You're all caught up"
+- takeScreenshot: r7-home-end
+- tapOn:
+    id: 'home-end-map'
+- extendedWaitUntil:
+    visible:
+      id: 'search-region-map'
+    timeout: 30000

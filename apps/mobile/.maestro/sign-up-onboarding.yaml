@@ -181,7 +181,7 @@ tags:
 # The tabs, and the profile of the new collector, hidden from the map.
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
 - runFlow: subflows/open-profile-tab.yaml
 - assertVisible:
