@@ -213,7 +213,12 @@ function ReminderActions({
       onPress={onReview}
       hitSlop={{ top: 4, bottom: 4 }}
       testID={`notification-review-${notificationId}`}
-      style={({ pressed }) => [styles.review, pressed && styles.pressed]}
+      // Alone, it lines up with the text above (beside "Still have them", it keeps its padding).
+      style={({ pressed }) => [
+        styles.review,
+        state !== 'pending' && styles.reviewAlone,
+        pressed && styles.pressed,
+      ]}
     >
       <Text style={[styles.reviewText, { color: colors.reviewText }]}>
         {state === 'unfiled' ? copy.reviewCards : copy.review}
@@ -287,6 +292,7 @@ const styles = StyleSheet.create({
   },
   stillHaveText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.bold },
   review: { minHeight: 36, paddingHorizontal: 10, justifyContent: 'center' },
+  reviewAlone: { paddingLeft: 0 },
   reviewText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
   confirmed: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   confirmedText: { flexShrink: 1, fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },

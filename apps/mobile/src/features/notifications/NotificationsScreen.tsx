@@ -152,7 +152,7 @@ export function NotificationsScreen() {
 
   const review = (notification: NotificationResponse, binderId: string | null) => {
     markOne(notification);
-    router.push((binderId ? `/binders/${binderId}` : '/inventory') as Href);
+    router.push((binderId ? `/binders/${binderId}?from=notifications` : '/inventory') as Href);
   };
 
   const refresh = () => {

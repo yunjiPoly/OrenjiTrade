@@ -237,7 +237,7 @@ describe('Notifications', () => {
     renderWithProviders(<NotificationsScreen />, { port: port() });
     expect(await screen.findByText('Confirm them, or they leave search soon.')).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId(`notification-review-${reminder.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith(`/binders/${BINDER_ID}`);
+    expect(mockRouter.push).toHaveBeenCalledWith(`/binders/${BINDER_ID}?from=notifications`);
     fireEvent.press(screen.getByTestId(`notification-still-have-${reminder.id}`));
     expect(await screen.findByText('Confirmed. They stay in search.')).toBeOnTheScreen();
     expect(api.callsTo('POST /api/v1/binders/{id}/confirm')[0]?.path).toBe(

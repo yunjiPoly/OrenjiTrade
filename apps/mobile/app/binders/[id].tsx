@@ -14,9 +14,10 @@ import { spacing, useTheme } from '@/src/theme';
  * (screen 16) or the public binder page. `?view=public` shows the owner what buyers see. While
  * Edit binder deletes the binder, it stays on screen (the binder has left the collector's list by
  * then), so it can close every screen of the binder and land on Inventory › Binders.
+ * `?from=notifications` (a freshness reminder's "Review the binder", stage R9): Back says so.
  */
 export default function BinderScreen() {
-  const { id, view } = useLocalSearchParams<{ id: string; view?: string }>();
+  const { id, view, from } = useLocalSearchParams<{ id: string; view?: string; from?: string }>();
   const { palette } = useTheme();
   const mine = useMyBinders();
   const deleting = useDeletingBinder(id);
@@ -27,7 +28,9 @@ export default function BinderScreen() {
     // Not one of the collector's binders (or the list cannot tell): the public view answers.
     content = <PublicBinderView id={id} />;
   } else if (mine.data) {
-    content = <BinderEditorScreen id={id} />;
+    content = (
+      <BinderEditorScreen id={id} from={from === 'notifications' ? 'notifications' : null} />
+    );
   } else {
     content = (
       <View style={styles.loading}>

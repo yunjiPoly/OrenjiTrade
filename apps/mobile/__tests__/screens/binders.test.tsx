@@ -146,6 +146,21 @@ describe('Edit binder (screen 18)', () => {
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(screen.getByTestId('binder-resolving')).toBeOnTheScreen();
     expect(await screen.findByTestId('binder-name')).toHaveProp('value', 'Trade binder');
+    expect(screen.getByTestId('edit-binder-back').props.accessibilityLabel).toBe(
+      'Back to your binders'
+    );
+  });
+
+  it('says where Back leads when a reminder in Notifications opened it (stage R9)', async () => {
+    mockParams.current = { id: BINDER_ID, from: 'notifications' };
+    mockApi(editRoutes());
+    renderWithProviders(<BinderScreen />, { port: port() });
+    expect(await screen.findByTestId('binder-name')).toHaveProp('value', 'Trade binder');
+    expect(screen.getByTestId('edit-binder-back').props.accessibilityLabel).toBe(
+      'Back to Notifications'
+    );
+    fireEvent.press(screen.getByTestId('edit-binder-back'));
+    expect(mockRouter.back).toHaveBeenCalled();
   });
 
   it('turns on “Sell as a deck core”: photos, price, note, public, and key cards', async () => {

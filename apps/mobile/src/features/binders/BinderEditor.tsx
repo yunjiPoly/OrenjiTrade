@@ -78,6 +78,8 @@ export interface BinderEditorScreenProps {
   id: string | null;
   /** New binder: the game it starts on (a link's), else the browsed game (stage G). */
   game?: string | null;
+  /** Opened from Notifications (stage R9): Back is spoken "Back to Notifications". */
+  from?: 'notifications' | null;
 }
 
 /**
@@ -93,7 +95,7 @@ export interface BinderEditorScreenProps {
  * cards dimmed); Edit binder shows the Name and the Game side by side, the game read-only with a
  * lock once the binder has cards. "Add cards" offers the cards of the binder's game only.
  */
-export function BinderEditorScreen({ id, game = null }: BinderEditorScreenProps) {
+export function BinderEditorScreen({ id, game = null, from = null }: BinderEditorScreenProps) {
   const router = useRouter();
   const binder = useBinder(id, id !== null);
   const leave = () => {
@@ -112,7 +114,11 @@ export function BinderEditorScreen({ id, game = null }: BinderEditorScreenProps)
       <View style={styles.grow}>
         <BackBar
           label={title}
-          backLabel={EDIT_BINDER_COPY.backLabel}
+          backLabel={
+            from === 'notifications'
+              ? EDIT_BINDER_COPY.backToNotifications
+              : EDIT_BINDER_COPY.backLabel
+          }
           onBack={leave}
           testID="edit-binder-back"
         />
