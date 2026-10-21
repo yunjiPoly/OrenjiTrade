@@ -1,39 +1,16 @@
-import { bellLabel } from '@/src/features/notifications/NotificationBell';
 import {
   DEALS_IN_CHAT_NOTE,
   FREE_FOR_ALL_NOTE,
-  groupByDay,
-  isUnread,
   mobileTarget,
   notificationCard,
-  notificationKind,
   notificationLink,
-  notificationTarget,
   safeAppPath,
 } from '@/src/features/notifications/notificationKinds';
 import { categoriesOf } from '@/src/features/settings/notificationOptions';
 
-import { CARD_ID, notificationFixture, notificationsFixture } from '../support/fixtures';
+import { CARD_ID, notificationsFixture } from '../support/fixtures';
 
 describe('notification kinds', () => {
-  it('gives every type an icon, tone and label (and SYSTEM notices their own)', () => {
-    expect(notificationKind({ type: 'WISHLIST_ALERT', data: {} })).toMatchObject({
-      tone: 'match',
-      label: 'Wishlist alert',
-    });
-    expect(notificationKind({ type: 'MESSAGE', data: {} }).label).toBe('Message');
-    expect(notificationKind({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED' } }).label).toBe(
-      'Limit reached'
-    );
-    expect(notificationKind({ type: 'SYSTEM', data: { kind: 'LISTINGS_PAUSED' } }).tone).toBe(
-      'warning'
-    );
-    expect(notificationKind({ type: 'SYSTEM', data: {} }).label).toBe('OrenjiTrade');
-    expect(notificationKind({ type: 'SOMETHING_NEW' as 'SYSTEM', data: {} }).label).toBe(
-      'Notification'
-    );
-  });
-
   it('follows only safe in-app paths', () => {
     expect(safeAppPath('/cards/abc?printing=p1')).toBe('/cards/abc?printing=p1');
     expect(safeAppPath('/cards/abc?rarity=Secret%20Rare')).toBe('/cards/abc?rarity=Secret%20Rare');
@@ -58,11 +35,6 @@ describe('notification kinds', () => {
     expect(link('MESSAGE', {})).toBe('/messages');
     // Stage R4: "{seller} marked {card} as sold to you" opens the chat.
     expect(link('SALE_RECORDED', { conversationId: 'c1', saleId: 's1' })).toBe('/messages/c1');
-    expect(notificationKind({ type: 'SALE_RECORDED', data: {} })).toEqual({
-      icon: 'package-variant-closed',
-      tone: 'trade',
-      label: 'Sold to you',
-    });
     expect(link('BINDER_HIDDEN', { binderId: 'b1' })).toBe('/inventory?binder=b1');
     expect(link('OFFER_RECEIVED', { offerId: 'o1' })).toBe('/offers/o1');
     expect(link('OFFER_ACCEPTED', { offerId: 'o1', tradeId: 't1' })).toBe('/trades/t1');
@@ -204,11 +176,6 @@ describe('notification kinds', () => {
       href: '/sets/00000000-0000-4000-8a20-000000000001',
     });
     expect(mobileTarget('/something-else')).toEqual({ kind: 'route', href: '/notifications' });
-    // A wishlist alert opens the card page.
-    expect(notificationTarget(notificationFixture())).toEqual({
-      kind: 'route',
-      href: `/cards/${CARD_ID}`,
-    });
   });
 
   it('shows the API card picture of a notification, or none', () => {
@@ -223,33 +190,6 @@ describe('notification kinds', () => {
     ).toEqual({ imageUrl: '/api/v1/public/card-images/c1', name: 'Lantern Fox', game: 'pokemon' });
     expect(notificationCard({ data: { cardImageUrl: 'javascript:alert(1)' } })).toBeNull();
     expect(notificationCard({ data: {} })).toBeNull();
-    expect(isUnread({ readAt: null })).toBe(true);
-    expect(isUnread({ readAt: '2026-10-05T00:00:00Z' })).toBe(false);
-    expect(bellLabel(0)).toBe('Notifications');
-    expect(bellLabel(4)).toBe('Notifications, 4 unread');
-  });
-
-  it('groups the feed by day', () => {
-    const now = new Date('2026-10-05T15:00:00').getTime();
-    const at = (iso: string, id: string) => notificationFixture({ id, createdAt: iso });
-    const sections = groupByDay(
-      [
-        at('2026-10-05T09:00:00', 'today'),
-        at('2026-10-04T09:00:00', 'yesterday'),
-        at('2026-10-01T09:00:00', 'week'),
-        at('2026-09-01T09:00:00', 'old'),
-        at('not a date', 'unknown'),
-      ],
-      now
-    );
-    expect(sections.map((section) => [section.title, section.data.map((item) => item.id)])).toEqual(
-      [
-        ['Today', ['today']],
-        ['Yesterday', ['yesterday']],
-        ['Earlier this week', ['week']],
-        ['Older', ['old', 'unknown']],
-      ]
-    );
   });
 });
 

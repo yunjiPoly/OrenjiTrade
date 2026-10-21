@@ -10,8 +10,8 @@ import {
   FREE_FOR_ALL_NOTE,
   mobileTarget,
   notificationLink,
-  notificationTarget,
 } from '@/src/features/notifications/notificationKinds';
+import { pushTarget, rowTarget } from '@/src/features/notifications/notificationRows';
 import { removedRouteTarget } from '@/src/navigation/removedRoutes';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -133,14 +133,15 @@ describe('old links to the removed screens', () => {
       },
     };
     expect(notificationLink(notice)).toBe('/search?segment=wishlist');
-    expect(notificationTarget(notice)).toEqual({
-      kind: 'route',
-      href: '/search?segment=wishlist',
-    });
-    // An old notice that kept its deep link to Premium says the app is free.
-    expect(
-      notificationTarget({ type: 'SYSTEM', data: { kind: 'LIMIT_REACHED', deepLink: '/premium' } })
-    ).toEqual({ kind: 'note', note: FREE_FOR_ALL_NOTE });
+    // Since stage R9 a system notice opens nothing on the phone, an old link to Premium included,
+    // and its push opens Notifications.
+    expect(rowTarget(notice, 'me')).toBeNull();
+    const premium = {
+      type: 'SYSTEM' as const,
+      data: { kind: 'LIMIT_REACHED', deepLink: '/premium' },
+    };
+    expect(rowTarget(premium, 'me')).toBeNull();
+    expect(pushTarget({ type: 'SYSTEM', deepLink: '/premium' }, 'me')).toBe('/notifications');
   });
 
   it('move an old Premium, credits, support or checkout link on to the Profile tab', () => {

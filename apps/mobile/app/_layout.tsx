@@ -10,6 +10,7 @@ import { connectQueryManagers, queryClient } from '@/src/api/queryClient';
 import { SessionProvider } from '@/src/auth/session';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import { SnackbarProvider } from '@/src/components/ui/Snackbar';
+import { PushOpener } from '@/src/features/notifications/pushOpener';
 import { scanRunner } from '@/src/features/scan/scanRunner';
 import { RootNavigator } from '@/src/navigation/RootNavigator';
 import { RealtimeCacheSync } from '@/src/realtime/RealtimeCacheSync';
@@ -55,6 +56,8 @@ export default function RootLayout() {
                 <SnackbarProvider>
                   <OfflineBanner />
                   <RootNavigator />
+                  {/* A tapped push notification opens its row's target (stage R9). */}
+                  <PushOpener />
                 </SnackbarProvider>
               </ThemeProvider>
             </RealtimeProvider>
