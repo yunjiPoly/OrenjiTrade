@@ -548,10 +548,53 @@ describe('Home: loading and errors', () => {
     expect(await screen.findByTestId('home-error', {}, { timeout: 15_000 })).toHaveTextContent(
       /Couldn't load what's new\./
     );
-    expect(screen.queryByTestId('home-chips')).toBeNull();
+    // The chips stay (only a quiet region has none).
+    expect(screen.getByTestId('home-chips')).toBeOnTheScreen();
     api.use({ 'GET /api/v1/feed': feedOf(ALL_POSTS) });
     fireEvent.press(screen.getByText('Try again'));
     expect(await screen.findByTestId(`home-post-${TWELVE.id}`)).toBeOnTheScreen();
+  });
+
+  it('keeps its own title when the connection is lost, with the reason under it', async () => {
+    // R7 review U4: the shared "You appear to be offline" replaced Home's words.
+    mockApi(
+      doneRoutes({
+        'GET /api/v1/feed': () => {
+          throw new TypeError('Network request failed');
+        },
+      })
+    );
+    render();
+    const error = await screen.findByTestId('home-error', {}, { timeout: 15_000 });
+    expect(within(error).getByText("Couldn't load what's new.")).toBeOnTheScreen();
+    expect(error).toHaveTextContent(/Check your connection and try again\./);
+    expect(screen.queryByText(/appear to be offline|No answer from OrenjiTrade/)).toBeNull();
+  });
+
+  it('keeps the chips above a chip that failed, so All, already read, can be shown again', async () => {
+    // R7 review U3: the error hid the chips and the collector was stuck on it.
+    const api = mockApi(
+      doneRoutes({
+        'GET /api/v1/feed': (request: MockRequest) => {
+          if (request.query.get('kind') === 'WANTED') {
+            throw new TypeError('Network request failed');
+          }
+          return feedOf(ALL_POSTS)(request);
+        },
+      })
+    );
+    render();
+    await screen.findByTestId(`home-post-${TWELVE.id}`);
+    fireEvent.press(screen.getByTestId('home-chip-WANTED'));
+    expect(await screen.findByTestId('home-error', {}, { timeout: 15_000 })).toBeOnTheScreen();
+    expect(screen.getByTestId('home-chips')).toBeOnTheScreen();
+    const reads = api.callsTo('GET /api/v1/feed').length;
+
+    fireEvent.press(screen.getByTestId('home-chip-ALL'));
+    expect(await screen.findByTestId(`home-post-${TWELVE.id}`)).toBeOnTheScreen();
+    expect(screen.queryByTestId('home-error')).toBeNull();
+    // The page already read, not a new request.
+    expect(api.callsTo('GET /api/v1/feed')).toHaveLength(reads);
   });
 });
 

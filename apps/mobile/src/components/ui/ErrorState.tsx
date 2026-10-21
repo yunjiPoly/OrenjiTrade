@@ -12,6 +12,12 @@ export interface ErrorStateProps {
   /** Any error; `ApiError` instances show their code and request id. */
   error?: unknown;
   title?: string;
+  /**
+   * Keep `title` for a timeout or a lost connection too, instead of the shared "No answer from
+   * OrenjiTrade" / "You appear to be offline" (the friendly sentence still goes under it): for a
+   * screen whose own words the spec fixes (Home's "Couldn't load what's new.").
+   */
+  keepTitle?: boolean;
   message?: string;
   onRetry?: () => void;
   retryLabel?: string;
@@ -31,6 +37,7 @@ function describe(error: unknown, fallback: string): string {
 export function ErrorState({
   error,
   title = 'Something went wrong',
+  keepTitle = false,
   message = 'We could not load this right now.',
   onRetry,
   retryLabel = 'Try again',
@@ -40,11 +47,13 @@ export function ErrorState({
 }: ErrorStateProps) {
   const { palette } = useTheme();
   const apiError = isApiError(error) ? error : null;
-  const resolvedTitle = apiError?.isTimeout
-    ? 'No answer from OrenjiTrade'
-    : apiError?.isNetworkError
-      ? 'You appear to be offline'
-      : title;
+  const resolvedTitle = keepTitle
+    ? title
+    : apiError?.isTimeout
+      ? 'No answer from OrenjiTrade'
+      : apiError?.isNetworkError
+        ? 'You appear to be offline'
+        : title;
 
   return (
     <View

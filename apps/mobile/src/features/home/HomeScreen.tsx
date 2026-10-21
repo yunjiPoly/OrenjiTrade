@@ -201,7 +201,9 @@ export function HomeScreen() {
   const items: Item[] = [{ type: 'top', key: 'top' }];
   const loaded = first !== undefined;
   const quiet = loaded && posts.length === 0 && (kind === 'ALL' || gameQuiet);
-  const showChips = !quiet && !(feed.isError && !loaded);
+  // The chips stay above an error too, so a chip that failed can be left for one already read
+  // (R7 review U3); only the quiet region has none (10c).
+  const showChips = !quiet;
   if (showChips) {
     items.push({ type: 'chips', key: 'chips' });
   }
@@ -258,6 +260,7 @@ export function HomeScreen() {
           <ErrorState
             error={feed.error}
             title={HOME_COPY.error}
+            keepTitle
             message=""
             retryLabel={HOME_COPY.retry}
             onRetry={() => void feed.refetch()}
