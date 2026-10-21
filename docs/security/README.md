@@ -243,3 +243,16 @@ fails again until someone re-reviews it. Moderate/low advisories are printed but
 | --- | --- | --- | --- |
 | GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |
 | GHSA-vfj7-8cjw-p6xm | braces ≤ 3.0.3 (no fix published) | 2026-11-30 | Only via build/test tooling glob matching (micromatch in Metro, Jest, Angular/Expo toolchains) with developer-written patterns; not in the web bundle or the API. |
+
+When a patched release exists, the fix is an update, not an exception: in `package-lock.json` when
+the dependents' ranges allow it, otherwise with an npm override in the root `package.json` (a
+dependency that pins the affected version exactly). npm does not apply a new override to entries
+already in the lockfile: delete the affected entries (the package and its nested copies) and run
+`npm install --package-lock-only`, then check `npm ls <package> --all`; never `npm dedupe`, which
+moves the whole tree. Each override is removed once its dependents move past the fix by
+themselves:
+
+| Override | Pinned by | Advisory | Remove when |
+| --- | --- | --- | --- |
+| `@grpc/grpc-js` `^1.14.5` | `firebase` → `@firebase/firestore` (`~1.9.0`) | CVE-2026-101916 | firebase allows 1.14.5 or newer |
+| `vite` `^8.3.4` (2026-10-20) | `@angular/build` 22.2.x (exactly `8.3.0`) | GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv, GHSA-r825-w8mm-5pxw (vite 8.3.0 to 8.3.2) | `@angular/build` pins 8.3.3 or newer (22.3.0-next.2 pins 8.3.4) |

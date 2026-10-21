@@ -1,13 +1,21 @@
 // Unit tests of the native Maestro harness (node --test; npm run test:scripts): what each
-// platform's Metro is started with and which API the app is pointed at. Nothing here starts
-// Metro, a device or Maestro.
+// platform's Metro is started with, which API the app is pointed at, and which earlier runs'
+// debug output is deleted. Nothing here starts Metro, a device or Maestro.
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { expoStartArgs, freshenFlowMedia, metroEnv, targetFor } from './mobile-maestro.mjs';
+import {
+  expoStartArgs,
+  freshenFlowMedia,
+  maestroKeepRuns,
+  maestroRunsToDelete,
+  metroEnv,
+  pruneMaestroRuns,
+  targetFor,
+} from './mobile-maestro.mjs';
 
 describe('Metro of the native suite', () => {
   it('Android: `expo start --android` opens Expo Go on the emulator, as it always did', () => {
@@ -88,5 +96,94 @@ describe('the fictional pictures of the flows', () => {
 
   it('does nothing without a media folder', () => {
     assert.deepEqual(freshenFlowMedia(path.join(os.tmpdir(), 'no-such-maestro-media')), []);
+  });
+});
+
+describe("the earlier runs' debug output", () => {
+  const runs = [
+    '2026-10-20_060510',
+    '2026-10-19_235959',
+    '2026-10-20_173428',
+    '2026-10-13_000054',
+    '2026-10-20_080122',
+  ];
+
+  it('keeps the 3 newest run folders by default and deletes the older ones, newest first', () => {
+    assert.equal(maestroKeepRuns({}), 3);
+    assert.deepEqual(maestroRunsToDelete(runs, 3), ['2026-10-19_235959', '2026-10-13_000054']);
+  });
+
+  it('deletes nothing while there are no more runs than it keeps', () => {
+    assert.deepEqual(maestroRunsToDelete(runs.slice(0, 3), 3), []);
+    assert.deepEqual(maestroRunsToDelete([], 3), []);
+  });
+
+  it('keeps none with 0', () => {
+    assert.deepEqual(maestroRunsToDelete(runs, 0).sort(), [...runs].sort());
+  });
+
+  it('never chooses anything but a run folder name', () => {
+    const others = [
+      'report.xml',
+      '.DS_Store',
+      '..',
+      '2026-10-20',
+      '2026-10-20_17342',
+      '2026-10-20_1734289',
+      '2026-10-20 173428',
+      'x2026-10-20_173428',
+      '2026-10-20_173428-copy',
+      '../2026-10-20_173428',
+      '2026-10-20_173428/..',
+    ];
+    assert.deepEqual(maestroRunsToDelete([...others, ...runs], 4), ['2026-10-13_000054']);
+    assert.deepEqual(maestroRunsToDelete(others, 0), []);
+  });
+
+  it('reads ORENJI_MAESTRO_KEEP_RUNS and refuses a value that is not a whole number', () => {
+    assert.equal(maestroKeepRuns({ ORENJI_MAESTRO_KEEP_RUNS: '5' }), 5);
+    assert.equal(maestroKeepRuns({ ORENJI_MAESTRO_KEEP_RUNS: ' 0 ' }), 0);
+    assert.equal(maestroKeepRuns({ ORENJI_MAESTRO_KEEP_RUNS: '' }), 3);
+    for (const value of ['-1', '2.5', 'three', '1e3', '0x3']) {
+      assert.throws(() => maestroKeepRuns({ ORENJI_MAESTRO_KEEP_RUNS: value }), /ORENJI_MAESTRO_KEEP_RUNS/);
+    }
+  });
+
+  it('removes only the old run folders inside the tests folder', () => {
+    const output = fs.mkdtempSync(path.join(os.tmpdir(), 'maestro-output-'));
+    try {
+      const dir = path.join(output, '.maestro', 'tests');
+      for (const run of runs) {
+        fs.mkdirSync(path.join(dir, run, 'Sign in'), { recursive: true });
+        fs.writeFileSync(path.join(dir, run, 'Sign in', 'screenshot.png'), 'png');
+      }
+      // A file and a link with a run's name, and the report beside the tests folder, stay.
+      fs.writeFileSync(path.join(dir, '2026-10-01_000000'), 'not a folder');
+      const outside = path.join(output, 'outside');
+      fs.mkdirSync(outside);
+      fs.writeFileSync(path.join(outside, 'keep.txt'), 'keep');
+      fs.symlinkSync(outside, path.join(dir, '2026-10-02_000000'), 'junction');
+      fs.writeFileSync(path.join(output, 'report.xml'), '<testsuites/>');
+
+      assert.deepEqual(
+        pruneMaestroRuns(2, dir),
+        ['2026-10-20_060510', '2026-10-19_235959', '2026-10-13_000054'].map((run) => path.join(dir, run)),
+      );
+      assert.deepEqual(fs.readdirSync(dir).sort(), [
+        '2026-10-01_000000',
+        '2026-10-02_000000',
+        '2026-10-20_080122',
+        '2026-10-20_173428',
+      ]);
+      assert.equal(fs.readFileSync(path.join(outside, 'keep.txt'), 'utf8'), 'keep');
+      assert.ok(fs.existsSync(path.join(output, 'report.xml')));
+      assert.deepEqual(pruneMaestroRuns(2, dir), []);
+    } finally {
+      fs.rmSync(output, { recursive: true, force: true });
+    }
+  });
+
+  it('does nothing before the first run', () => {
+    assert.deepEqual(pruneMaestroRuns(3, path.join(os.tmpdir(), 'no-such-maestro-output', '.maestro', 'tests')), []);
   });
 });
