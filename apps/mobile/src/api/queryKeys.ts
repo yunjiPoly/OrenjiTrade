@@ -94,6 +94,10 @@ export const meKeys = {
   /** Search › Binders (stage R5): one state or the whole region, binders or deck cores, a text. */
   regionBinderSearch: (uid: Uid, params: { region: string }) =>
     [...ME_ROOT, uidKey(uid), 'region-map', params.region, 'binder-search', params] as const,
+  /** Home's feed (stage R7, `GET /feed`): every page of it (prefix), one region, game and chip. */
+  homeFeeds: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'home-feed'] as const,
+  homeFeed: (uid: Uid, params: { region: string; game: string; kind: string }) =>
+    [...ME_ROOT, uidKey(uid), 'home-feed', params] as const,
   /** A collector's public wishlist (`GET /collectors/{handle}/wishlist`; 404 when hidden). */
   collectorWishlist: (uid: Uid, handle: string) =>
     [...ME_ROOT, uidKey(uid), 'collectors', handle.toLowerCase(), 'wishlist'] as const,

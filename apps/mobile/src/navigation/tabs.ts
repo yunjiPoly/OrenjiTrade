@@ -18,12 +18,20 @@ export interface TabDefinition {
 }
 
 /**
- * Tab order is a product decision (owner spec 2026-10-14, section 4; CLAUDE.md): Search | Inventory
- * | Messages | Profile since stage R5 (the Map tab became Search's default view and the Wishlist
- * tab its Wishlist segment); stage R7 adds Home as the first of five. The bell is top right on
- * each.
+ * Tab order is a product decision (owner spec 2026-10-14, section 4; CLAUDE.md): Home | Search |
+ * Inventory | Messages | Profile since stage R7 (Home is the app's first screen, the `index`
+ * route); since stage R5 the Map tab is Search's default view and the Wishlist tab its Wishlist
+ * segment. The bell is top right on each.
  */
 export const TABS: readonly TabDefinition[] = [
+  {
+    name: 'index',
+    title: 'Home',
+    icon: 'home-outline',
+    iconFocused: 'home',
+    // Stage R7: the region and game pills with the bell, then the search field (mockup 10).
+    ownHeader: true,
+  },
   {
     name: 'search',
     title: 'Search',
@@ -56,7 +64,8 @@ export const TABS: readonly TabDefinition[] = [
 ];
 
 /**
- * Routes of `app/(tabs)/` that are not tabs any more: the old Map tab (`index`, the app's first
- * route, `/`) and the old Wishlist tab redirect into Search (stage R5). Hidden from the tab bar.
+ * Routes of `app/(tabs)/` that are not tabs any more: the old Wishlist tab redirects into Search
+ * (stage R5). Hidden from the tab bar. (`index`, the old Map tab, is Home since stage R7; its old
+ * links still open Search's map.)
  */
-export const HIDDEN_TAB_ROUTES: readonly string[] = ['index', 'wishlist'];
+export const HIDDEN_TAB_ROUTES: readonly string[] = ['wishlist'];
