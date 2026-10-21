@@ -182,7 +182,10 @@ export function NotificationsScreen() {
               testID="notifications-mark-all"
               style={({ pressed }) => [styles.markAll, pressed && styles.pressed]}
             >
-              <Text style={[styles.markAllText, { color: palette.accent }]}>
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[styles.markAllText, { color: palette.accent }]}
+              >
                 {NOTIFICATIONS_COPY.markAll}
               </Text>
             </Pressable>

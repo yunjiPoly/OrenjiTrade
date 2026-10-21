@@ -82,7 +82,11 @@ export function NotificationRow({
         {text.rest ? ` ${text.rest}` : ''}
       </Text>
       {text.sub ? (
-        <Text numberOfLines={stacked ? 3 : 1} style={[styles.sub, { color: palette.textMuted }]}>
+        // One line as in the mockup; the whole line at the largest text sizes.
+        <Text
+          numberOfLines={stacked ? undefined : 1}
+          style={[styles.sub, { color: palette.textMuted }]}
+        >
           {text.sub}
         </Text>
       ) : null}
@@ -106,7 +110,7 @@ export function NotificationRow({
       >
         {lines}
       </Pressable>
-      <ReminderActions notificationId={notification.id} {...reminder} />
+      <ReminderActions notificationId={notification.id} stacked={stacked} {...reminder} />
     </View>
   ) : (
     <View style={styles.text}>{lines}</View>
@@ -180,11 +184,12 @@ export function NotificationRow({
 
 function ReminderActions({
   notificationId,
+  stacked,
   state,
   confirming,
   onConfirm,
   onReview,
-}: { notificationId: string } & NonNullable<NotificationRowProps['reminder']>) {
+}: { notificationId: string; stacked: boolean } & NonNullable<NotificationRowProps['reminder']>) {
   const { palette } = useTheme();
   const colors = palette.notifications;
   const copy = NOTIFICATIONS_COPY.reminder;
@@ -213,10 +218,11 @@ function ReminderActions({
       onPress={onReview}
       hitSlop={{ top: 4, bottom: 4 }}
       testID={`notification-review-${notificationId}`}
-      // Alone, it lines up with the text above (beside "Still have them", it keeps its padding).
+      // Alone (or under "Still have them" at the largest text sizes), it lines up with the text
+      // above; beside "Still have them", it keeps its padding.
       style={({ pressed }) => [
         styles.review,
-        state !== 'pending' && styles.reviewAlone,
+        (state !== 'pending' || stacked) && styles.reviewAlone,
         pressed && styles.pressed,
       ]}
     >

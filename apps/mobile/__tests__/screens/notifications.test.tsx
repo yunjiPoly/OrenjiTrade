@@ -378,13 +378,14 @@ describe('Notifications', () => {
 });
 
 describe('At the largest text sizes', () => {
-  it('leaves the card picture out and lets the line wrap', async () => {
+  it('leaves the card picture out, lets the line wrap and keeps "Mark all as read" small', async () => {
     Dimensions.set({ window: { ...WINDOW, fontScale: 2 }, screen: { ...WINDOW, fontScale: 2 } });
     mockApi(routes());
     renderWithProviders(<NotificationsScreen />, { port: port() });
     expect(await screen.findByText('maya_k · $14.00')).toBeOnTheScreen();
     expect(screen.queryByTestId(`notification-card-${wish.id}`)).not.toBeOnTheScreen();
-    expect(screen.getByText('maya_k · $14.00').props.numberOfLines).toBe(3);
+    expect(screen.getByText('maya_k · $14.00').props.numberOfLines).toBeUndefined();
+    expect(screen.getByText('Mark all as read').props.maxFontSizeMultiplier).toBe(1.35);
   });
 });
 
