@@ -319,6 +319,9 @@ export function HomeScreen() {
         keyExtractor={(item) => item.key}
         renderItem={renderItem}
         stickyHeaderIndices={showChips ? [1] : undefined}
+        // A refresh while someone reads mid-list (coming back after 5 minutes) puts the new posts
+        // above without moving the post on screen (R7 review U6); at the top they show at once.
+        maintainVisibleContentPosition={KEEP_READING_PLACE}
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
@@ -357,6 +360,9 @@ export function HomeScreen() {
     </View>
   );
 }
+
+/** The first row on screen stays where it is when rows are added above it (the top row counts). */
+const KEEP_READING_PLACE = { minIndexForVisible: 0 } as const;
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },

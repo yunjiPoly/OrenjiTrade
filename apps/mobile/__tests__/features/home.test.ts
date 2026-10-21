@@ -26,6 +26,7 @@ import {
   resetGetStarted,
   useGetStartedStore,
 } from '@/src/features/home/getStarted';
+import { useHomeChip } from '@/src/features/home/homeChip';
 
 import {
   ONTARIO,
@@ -298,5 +299,16 @@ describe('Get started', () => {
     await hydrateGetStarted('uid-b');
     await hydrateGetStarted('uid-a');
     expect(useGetStartedStore.getState().hidden).toEqual({ 'uid-a': true, 'uid-b': false });
+  });
+});
+
+describe('The chip of Home', () => {
+  it('starts on All whenever the app starts, and is kept nowhere else', async () => {
+    // Default 3 of the owner prompt (section 8): kept while the app runs, back to All on restart.
+    await AsyncStorage.clear();
+    expect(useHomeChip.getInitialState()).toEqual({ kind: 'ALL' });
+    useHomeChip.setState({ kind: 'WANTED' });
+    expect(await AsyncStorage.getAllKeys()).toEqual([]);
+    useHomeChip.setState(useHomeChip.getInitialState());
   });
 });

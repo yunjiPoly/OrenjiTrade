@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Dimensions, Pressable, StyleSheet } from 'react-native';
 
 import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
@@ -36,7 +36,33 @@ import { signedInRoutes } from '../support/routes';
 import { mockRouter, mockScrollToTopRefs, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
-jest.mock('expo-router', () => require('../support/router').expoRouterMock());
+/**
+ * Home's focus: `useFocusEffect` is a no-op in the shared stand-in; here each mounted screen's
+ * latest effect is kept, and `refocus()` runs them, as Home coming back into view does.
+ */
+const mockFocusEffects = new Set<{ current: () => unknown }>();
+jest.mock('expo-router', () => ({
+  ...require('../support/router').expoRouterMock(),
+  useFocusEffect: (effect: () => unknown) => {
+    const React = require('react');
+    const latest = React.useRef(effect);
+    latest.current = effect;
+    React.useEffect(() => {
+      mockFocusEffects.add(latest);
+      return () => {
+        mockFocusEffects.delete(latest);
+      };
+    }, []);
+  },
+}));
+
+function refocus(): void {
+  act(() => {
+    for (const effect of mockFocusEffects) {
+      effect.current();
+    }
+  });
+}
 
 /**
  * Home (stage R7; owner prompt of 2026-10-19, sections 1 to 4 and 7; mockup v50 screens 10, 10b
@@ -150,6 +176,7 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  jest.setSystemTime(NOW);
   Dimensions.set({ window: { ...WINDOW, fontScale: 1 }, screen: { ...WINDOW, fontScale: 1 } });
   resetRouterMock();
   resetAppState();
@@ -357,6 +384,8 @@ describe('Home: the chips and the end', () => {
     );
     expect(screen.getByTestId('home-chip-ALL')).toBeSelected();
     expect(screen.getByTestId('home-chip-WANTED')).not.toBeSelected();
+    // The chips pin under the status bar once scrolled past (the list's second row).
+    expect(screen.getByTestId('home-list')).toHaveProp('stickyHeaderIndices', [1]);
 
     fireEvent.press(screen.getByTestId('home-chip-WANTED'));
     expect(await screen.findByTestId(`home-post-${WISH.id}`)).toBeOnTheScreen();
@@ -601,6 +630,50 @@ describe('Home: loading and errors', () => {
     expect(screen.queryByTestId('home-error')).toBeNull();
     // The page already read, not a new request.
     expect(api.callsTo('GET /api/v1/feed')).toHaveLength(reads);
+  });
+});
+
+describe('Home: coming back into view', () => {
+  it('re-reads Get started every time, and the feed only when older than 5 minutes', async () => {
+    const api = mockApi(
+      doneRoutes({
+        'GET /api/v1/feed': feedOf(ALL_POSTS),
+        'GET /api/v1/inventory/items': ok(inventoryPage([])),
+      })
+    );
+    render();
+    await screen.findByTestId(`home-post-${TWELVE.id}`);
+    await waitFor(() => expect(api.callsTo('GET /api/v1/me/location').length).toBeGreaterThan(0));
+    const reads = (route: string) => api.callsTo(route).length;
+    const feed = reads('GET /api/v1/feed');
+    const location = reads('GET /api/v1/me/location');
+    const publicCards = reads('GET /api/v1/inventory/items');
+    const wishes = reads('GET /api/v1/wishlist');
+
+    // Back after 4 minutes: the three steps of Get started are read again, the feed is kept, so
+    // no post slides in.
+    jest.setSystemTime(NOW.getTime() + 4 * 60_000);
+    refocus();
+    await waitFor(() => expect(reads('GET /api/v1/me/location')).toBe(location + 1));
+    await waitFor(() => expect(reads('GET /api/v1/inventory/items')).toBe(publicCards + 1));
+    await waitFor(() => expect(reads('GET /api/v1/wishlist')).toBe(wishes + 1));
+    expect(reads('GET /api/v1/feed')).toBe(feed);
+
+    // Back after more than 5 minutes: the feed is read again.
+    jest.setSystemTime(NOW.getTime() + 6 * 60_000);
+    refocus();
+    await waitFor(() => expect(reads('GET /api/v1/feed')).toBe(feed + 1));
+    expect(api.callsTo('GET /api/v1/feed').at(-1)?.query.get('cursor')).toBeNull();
+  });
+
+  it('keeps the post being read in place when posts are added above it', async () => {
+    // R7 review U6: a refresh on coming back put new posts above and the list jumped.
+    mockApi(doneRoutes({ 'GET /api/v1/feed': feedOf(ALL_POSTS) }));
+    render();
+    await screen.findByTestId(`home-post-${TWELVE.id}`);
+    expect(screen.getByTestId('home-list')).toHaveProp('maintainVisibleContentPosition', {
+      minIndexForVisible: 0,
+    });
   });
 });
 

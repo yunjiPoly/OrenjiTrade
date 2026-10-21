@@ -19,7 +19,7 @@ type OldMapLinkParams = { region?: string; subdivision?: string };
 export default function HomeRoute() {
   const params = useLocalSearchParams<OldMapLinkParams>();
   const pathname = usePathname();
-  const navigation = useNavigation<{ setParams: (params: Partial<OldMapLinkParams>) => void }>();
+  const navigation = useNavigation<{ replaceParams: (params: OldMapLinkParams) => void }>();
   const oldMapLink = params.region !== undefined || params.subdivision !== undefined;
   const following = oldMapLink && pathname === '/';
   const redirected = useRef(false);
@@ -28,7 +28,7 @@ export default function HomeRoute() {
       redirected.current = true;
     } else if (oldMapLink && redirected.current) {
       redirected.current = false;
-      navigation.setParams({ region: undefined, subdivision: undefined });
+      navigation.replaceParams({});
     }
   }, [following, navigation, oldMapLink]);
   if (oldMapLink) {
