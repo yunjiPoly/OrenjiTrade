@@ -1064,6 +1064,28 @@ public class InventoryItemRepository {
     }
 
     /**
+     * The binders among {@code binderIds} named by a deleted item whose undo window is still open
+     * (stage G, review fix 1, U2: their game is locked meanwhile). One query for a whole list.
+     */
+    public java.util.Set<UUID> bindersWithRestorable(
+            java.util.Collection<UUID> binderIds, Instant now) {
+        if (binderIds.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(
+                jdbc.sql(
+                                """
+                                SELECT DISTINCT binder_id FROM inventory_item
+                                 WHERE binder_id IN (:binderIds) AND deleted_at IS NOT NULL
+                                   AND restorable_until > :now
+                                """)
+                        .param("binderIds", binderIds)
+                        .param("now", Timestamp.from(now))
+                        .query(UUID.class)
+                        .list());
+    }
+
+    /**
      * Ends the restore windows of the owner's deleted items filed in a binder that is being deleted
      * (its row goes, so such an item could no longer come back where it was) and returns them: the
      * caller deletes their photos. The caller holds the owner lock and the binder.

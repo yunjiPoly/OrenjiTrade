@@ -113,11 +113,12 @@ public class InventorySeedContributor implements SeedContributor {
                                     INSERT INTO binder (id, owner_id, name, description, kind,
                                         visibility, public_until, sort_order, freshness_state,
                                         created_at, updated_at, confirmed_at, last_owner_activity_at,
-                                        sells_as_core, asking_price_text, asking_price, game_id)
+                                        sells_as_core, asking_price_text, asking_price, game_id,
+                                        game_follows_cards)
                                     VALUES (:id, :ownerId, :name, :description, :kind, :visibility,
                                         :publicUntil, :sortOrder, :state, :at, :at, :at, :at,
                                         :sellsAsCore, :priceText, :price,
-                                        (SELECT id FROM game WHERE slug = :game))
+                                        (SELECT id FROM game WHERE slug = :game), false)
                                     ON CONFLICT (id) DO NOTHING
                                     """)
                             .param("id", UUID.fromString(binder.id()))

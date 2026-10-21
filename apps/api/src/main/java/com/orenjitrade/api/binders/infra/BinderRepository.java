@@ -685,6 +685,16 @@ public class BinderRepository {
     }
 
     /** Cover printing ids that exist (validation). */
+    /** The game of a printing's card, empty for an unknown printing (stage G, review fix 1). */
+    public java.util.Optional<UUID> printingGame(UUID printingId) {
+        return jdbc.sql(
+                        "SELECT c.game_id FROM card_printing p JOIN card c ON c.id = p.card_id"
+                                + " WHERE p.id = :id")
+                .param("id", printingId)
+                .query(UUID.class)
+                .optional();
+    }
+
     public boolean printingExists(UUID printingId) {
         return jdbc.sql("SELECT count(*) FROM card_printing WHERE id = :id")
                         .param("id", printingId)

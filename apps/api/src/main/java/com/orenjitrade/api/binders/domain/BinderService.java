@@ -107,6 +107,7 @@ public class BinderService {
 
     static final String NOT_FOUND = "Binder not found";
     static final String GAME_LOCKED = "A binder's game can't change once it has cards";
+    static final String COVER_OF_ANOTHER_GAME = "A binder's cover is a card of its game";
     static final String IMAGE_NAMESPACE = "binders";
     static final String PHOTO_NOT_FOUND = "Photo not found";
 
@@ -190,6 +191,10 @@ public class BinderService {
         if (!errors.isEmpty() || game == null) {
             throw ApiException.validation("Validation failed", errors);
         }
+        if (input.gameId() != null) {
+            // A binder made without a game (the paused web) refuses no card and no cover.
+            requireCoverOfGame(input.coverPrintingId(), game.id());
+        }
         // The owner lock also keeps two creations apart (limit check + insert).
         repository.lockOwners(List.of(ownerId));
         limits.consume(ownerId, BINDERS_MAX);
@@ -267,6 +272,16 @@ public class BinderService {
                             && binderContents.holdsRestorableCards(binderId, now))) {
                 throw new ApiException(ErrorCode.BINDER_GAME_LOCKED, GAME_LOCKED);
             }
+        }
+        // A binder that has its game (chosen now, or before) takes a cover of that game only; one
+        // made without a game (the paused web) refuses no cover until a game is chosen for it.
+        if ((patch.coverPrintingIdSet() || gameChanged)
+                && (gameChanged || !current.gameFollowsCards())) {
+            requireCoverOfGame(
+                    cover,
+                    gameChanged ? java.util.Objects.requireNonNull(game).id() : current.gameId());
+        }
+        if (gameChanged) {
             repository.setGame(binderId, java.util.Objects.requireNonNull(game).id(), now);
         }
         boolean sellsAsCore =
@@ -858,6 +873,16 @@ public class BinderService {
                 binderContents == null ? Map.of() : binderContents.statsOf(ids, publicOnly);
         Map<UUID, String> covers = coverImages(binders);
         Map<UUID, BinderShowcase> showcases = showcases(binders, publicOnly, binderContents);
+        // The owner's views say whether the game can still change (review fix 1, U2).
+        java.util.Set<UUID> restorable =
+                publicOnly || binderContents == null
+                        ? java.util.Set.of()
+                        : binderContents.bindersWithRestorableCards(
+                                binders.stream()
+                                        .filter(binder -> binder.itemCount() == 0)
+                                        .map(BinderView::id)
+                                        .toList(),
+                                timeProvider.now());
         List<BinderDetails> result = new ArrayList<>();
         for (BinderView binder : binders) {
             BinderContents.Stats binderStats =
@@ -868,7 +893,10 @@ public class BinderService {
                             binder,
                             binderStats,
                             cover != null ? cover : binderStats.coverImageUrl(),
-                            showcases.getOrDefault(binder.id(), BinderShowcase.EMPTY)));
+                            showcases.getOrDefault(binder.id(), BinderShowcase.EMPTY),
+                            !publicOnly
+                                    && (binder.itemCount() > 0
+                                            || restorable.contains(binder.id()))));
         }
         return result;
     }
@@ -1009,6 +1037,21 @@ public class BinderService {
             storage.delete(key);
         } catch (RuntimeException e) {
             log.warn("Could not delete stored binder photo {}: {}", key, e.getMessage());
+        }
+    }
+
+    /**
+     * {@code 409 BINDER_GAME_MISMATCH} unless the cover is a card of {@code gameId} (stage G,
+     * review fix 1, F7: a cover of another game would show in that game's lists). The printing
+     * exists ({@link #validateCover}).
+     */
+    private void requireCoverOfGame(@Nullable UUID coverPrintingId, UUID gameId) {
+        if (coverPrintingId != null
+                && repository
+                        .printingGame(coverPrintingId)
+                        .filter(printingGame -> !printingGame.equals(gameId))
+                        .isPresent()) {
+            throw new ApiException(ErrorCode.BINDER_GAME_MISMATCH, COVER_OF_ANOTHER_GAME);
         }
     }
 

@@ -1205,6 +1205,12 @@ public class InventoryService {
         return items.countRestorableInBinder(binderId, now) > 0;
     }
 
+    /** The binders among {@code binderIds} that {@link #holdsRestorableCards} (one query). */
+    public java.util.Set<UUID> bindersWithRestorableCards(
+            java.util.Collection<UUID> binderIds, Instant now) {
+        return items.bindersWithRestorable(binderIds, now);
+    }
+
     /** The binder is being deleted: soft-delete or unfile its items, then reconcile them. */
     @Transactional
     public void releaseBinderItems(

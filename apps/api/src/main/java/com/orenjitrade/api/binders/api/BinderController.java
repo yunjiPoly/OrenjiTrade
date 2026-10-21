@@ -78,11 +78,19 @@ public class BinderController {
                             + " game whose cards it holds, an ACTIVE game with cards (400"
                             + " otherwise); without it (the paused web) the binder takes the"
                             + " game of the first card filed in it while it holds none and"
-                            + " refuses no card.")
+                            + " refuses no card. With `gameId`, `coverPrintingId` is a card of"
+                            + " that game (409 BINDER_GAME_MISMATCH otherwise).")
     @ApiResponse(responseCode = "201", description = "Created")
     @ApiResponse(
             responseCode = "400",
             description = "VALIDATION_FAILED",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "BINDER_GAME_MISMATCH: the cover is a card of another game",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
@@ -143,7 +151,11 @@ public class BinderController {
                         + " core); `askingPriceText` is at most 40 characters once trimmed, and a"
                         + " plain amount also sets `askingPrice`. `gameId` (stage G) changes the"
                         + " binder's game while it holds no card: 409 BINDER_GAME_LOCKED once it"
-                        + " has one, 400 for a game that is not ACTIVE or has no cards.",
+                        + " has one or while a card deleted or sold from it can still come back"
+                        + " (`gameLocked`), 400 for a game that is not ACTIVE or has no cards. A"
+                        + " binder that has its game takes a `coverPrintingId` of that game only"
+                        + " (409 BINDER_GAME_MISMATCH, also for a new game while the cover is of"
+                        + " another one: send `coverPrintingId` too).",
             requestBody =
                     @io.swagger.v3.oas.annotations.parameters.RequestBody(
                             required = true,
@@ -165,7 +177,8 @@ public class BinderController {
     @ApiResponse(
             responseCode = "409",
             description =
-                    "BINDER_GAME_LOCKED: the game changes only while the binder holds no card",
+                    "BINDER_GAME_LOCKED: the game changes only while the binder holds no card;"
+                            + " BINDER_GAME_MISMATCH: the cover is a card of another game",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,

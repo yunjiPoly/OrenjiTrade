@@ -179,8 +179,10 @@ class BinderGameIT extends AbstractIntegrationTest {
                         patchGame(gameId("mtg")),
                         200);
         assertThat(changed.path("game").asString()).isEqualTo("mtg");
+        assertThat(changed.path("gameLocked").asBoolean(true)).isFalse();
 
         String card = add(mtg, binderId);
+        assertThat(gameLocked(binderId)).containsExactly(true, true);
         JsonNode locked =
                 callJson(
                         HttpMethod.PATCH,
@@ -192,8 +194,15 @@ class BinderGameIT extends AbstractIntegrationTest {
         // The same game again is no change.
         callJson(HttpMethod.PATCH, BINDERS + "/" + binderId, uid, patchGame(gameId("mtg")), 200);
 
-        // A deleted card that its undo can still bring back keeps the game.
+        // A deleted card that its undo can still bring back keeps the game, and the binder says so
+        // though it holds no card (review fix 1, U2: Edit binder shows the lock).
         callJson(HttpMethod.DELETE, ITEMS + "/" + card, uid, null, 204);
+        assertThat(
+                        callJson(HttpMethod.GET, BINDERS + "/" + binderId, uid, null, 200)
+                                .path("itemCount")
+                                .asLong())
+                .isZero();
+        assertThat(gameLocked(binderId)).containsExactly(true, true);
         assertThat(
                         callJson(
                                         HttpMethod.PATCH,
@@ -206,6 +215,7 @@ class BinderGameIT extends AbstractIntegrationTest {
                 .isEqualTo("BINDER_GAME_LOCKED");
         testUsers.update(
                 "UPDATE inventory_item SET restorable_until = NULL WHERE id = ?::uuid", card);
+        assertThat(gameLocked(binderId)).containsExactly(false, false);
         JsonNode free =
                 callJson(
                         HttpMethod.PATCH,
@@ -225,6 +235,77 @@ class BinderGameIT extends AbstractIntegrationTest {
         Map<String, Object> clear = new LinkedHashMap<>();
         clear.put("gameId", null);
         callJson(HttpMethod.PATCH, BINDERS + "/" + binderId, uid, clear, 400);
+    }
+
+    /** {gameLocked} of the binder in GET /binders/{id}, then in GET /binders. */
+    private List<Boolean> gameLocked(String binderId) {
+        boolean one =
+                callJson(HttpMethod.GET, BINDERS + "/" + binderId, uid, null, 200)
+                        .path("gameLocked")
+                        .asBoolean();
+        Boolean inList = null;
+        for (JsonNode binder : callJson(HttpMethod.GET, BINDERS, uid, null, 200)) {
+            if (binderId.equals(binder.path("id").asString())) {
+                inList = binder.path("gameLocked").asBoolean();
+            }
+        }
+        return java.util.Arrays.asList(one, inList);
+    }
+
+    /**
+     * A binder that has its game takes a cover of that game only (review fix 1, F7: a cover of
+     * another game showed in the game's lists); one made without a game refuses no cover.
+     */
+    @Test
+    void aBindersCoverIsACardOfItsGame() {
+        Map<String, Object> body = binderOf("pokemon");
+        body.put("coverPrintingId", mtg.toString());
+        assertThat(callJson(HttpMethod.POST, BINDERS, uid, body, 409).path("errorCode").asString())
+                .isEqualTo("BINDER_GAME_MISMATCH");
+        body.put("coverPrintingId", pkm.toString());
+        String binderId = callJson(HttpMethod.POST, BINDERS, uid, body, 201).path("id").asString();
+
+        Map<String, Object> cover = new LinkedHashMap<>();
+        cover.put("coverPrintingId", mtg.toString());
+        assertThat(
+                        callJson(HttpMethod.PATCH, BINDERS + "/" + binderId, uid, cover, 409)
+                                .path("errorCode")
+                                .asString())
+                .isEqualTo("BINDER_GAME_MISMATCH");
+        cover.put("coverPrintingId", pkm.toString());
+        callJson(HttpMethod.PATCH, BINDERS + "/" + binderId, uid, cover, 200);
+
+        // A new game needs a cover of that game, or none.
+        assertThat(
+                        callJson(
+                                        HttpMethod.PATCH,
+                                        BINDERS + "/" + binderId,
+                                        uid,
+                                        patchGame(gameId("mtg")),
+                                        409)
+                                .path("errorCode")
+                                .asString())
+                .isEqualTo("BINDER_GAME_MISMATCH");
+        Map<String, Object> gameAndCover = patchGame(gameId("mtg"));
+        gameAndCover.put("coverPrintingId", null);
+        assertThat(
+                        callJson(HttpMethod.PATCH, BINDERS + "/" + binderId, uid, gameAndCover, 200)
+                                .path("game")
+                                .asString())
+                .isEqualTo("mtg");
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM binder WHERE cover_printing_id IS NULL AND id"
+                                        + " = '"
+                                        + binderId
+                                        + "'"))
+                .isEqualTo(1);
+
+        // A binder made without a game (the paused web) refuses no cover, as no card.
+        Map<String, Object> web = binder("Web binder", "PRIVATE");
+        web.put("coverPrintingId", mtg.toString());
+        String webBinder = callJson(HttpMethod.POST, BINDERS, uid, web, 201).path("id").asString();
+        callJson(HttpMethod.PATCH, BINDERS + "/" + webBinder, uid, cover, 200);
     }
 
     @Test

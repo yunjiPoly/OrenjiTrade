@@ -51,7 +51,8 @@ class DeckCoreRulesTest {
                 binder,
                 new BinderContents.Stats(publicItems, publicItems, List.of(), null),
                 null,
-                BinderShowcase.EMPTY);
+                BinderShowcase.EMPTY,
+                false);
     }
 
     @Test

@@ -103,6 +103,12 @@ public class InventoryExtensions {
             public boolean holdsRestorableCards(UUID binderId, Instant now) {
                 return inventoryService.holdsRestorableCards(binderId, now);
             }
+
+            @Override
+            public java.util.Set<UUID> bindersWithRestorableCards(
+                    java.util.Collection<UUID> binderIds, Instant now) {
+                return inventoryService.bindersWithRestorableCards(binderIds, now);
+            }
         };
     }
 

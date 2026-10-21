@@ -115,7 +115,15 @@ public record BinderResponse(
         @Schema(
                         requiredMode = RequiredMode.NOT_REQUIRED,
                         description = "Id of that game (GET /games). Always sent")
-                UUID gameId) {
+                UUID gameId,
+        @Schema(
+                        requiredMode = RequiredMode.NOT_REQUIRED,
+                        description =
+                                "The game can't change now (PATCH gameId answers 409"
+                                        + " BINDER_GAME_LOCKED): the binder holds a card, or a"
+                                        + " card deleted or sold from it can still come back with"
+                                        + " an undo (10 minutes). Always sent")
+                boolean gameLocked) {
 
     /** The owner's view of a binder (also for the inventory module's binder photo routes). */
     public static BinderResponse from(BinderDetails details, Instant now) {
@@ -147,6 +155,7 @@ public record BinderResponse(
                 details.showcase().previewImages(),
                 details.showcase().keyCards(),
                 binder.game(),
-                binder.gameId());
+                binder.gameId(),
+                details.gameLocked());
     }
 }

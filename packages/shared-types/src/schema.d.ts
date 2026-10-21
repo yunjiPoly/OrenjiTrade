@@ -1708,7 +1708,7 @@ export interface paths {
         put?: never;
         /**
          * Create a binder
-         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector. `gameId` (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none and refuses no card.
+         * @description Added at the end of the caller's list. PRIVATE unless `visibility` says otherwise; TEMPORARILY_PUBLIC needs `publicUntil` at most 30 days ahead. 429 LIMIT_REACHED (limitKey `binders.max`) beyond the binder limit, the same for every collector. `gameId` (stage G): the one game whose cards it holds, an ACTIVE game with cards (400 otherwise); without it (the paused web) the binder takes the game of the first card filed in it while it holds none and refuses no card. With `gameId`, `coverPrintingId` is a card of that game (409 BINDER_GAME_MISMATCH otherwise).
          */
         post: operations["createBinder"];
         delete?: never;
@@ -2608,7 +2608,7 @@ export interface paths {
         head?: never;
         /**
          * Update a binder (any subset of the fields)
-         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`. `gameId` (stage G) changes the binder's game while it holds no card: 409 BINDER_GAME_LOCKED once it has one, 400 for a game that is not ACTIVE or has no cards.
+         * @description Absent fields are unchanged; `publicUntil`, `coverPrintingId` and `askingPriceText` may be null. Making the binder PUBLIC or TEMPORARILY_PUBLIC confirms it and its items (like publish), and so does `confirm: true`. `sellsAsCore` turns "Sell as a deck core" on or off (photos and price are kept, public views show them only for a deck core); `askingPriceText` is at most 40 characters once trimmed, and a plain amount also sets `askingPrice`. `gameId` (stage G) changes the binder's game while it holds no card: 409 BINDER_GAME_LOCKED once it has one or while a card deleted or sold from it can still come back (`gameLocked`), 400 for a game that is not ACTIVE or has no cards. A binder that has its game takes a `coverPrintingId` of that game only (409 BINDER_GAME_MISMATCH, also for a new game while the cover is of another one: send `coverPrintingId` too).
          */
         patch: operations["updateBinder"];
         trace?: never;
@@ -4964,6 +4964,8 @@ export interface components {
              * @description Id of that game (GET /games). Always sent
              */
             gameId?: string;
+            /** @description The game can't change now (PATCH gameId answers 409 BINDER_GAME_LOCKED): the binder holds a card, or a card deleted or sold from it can still come back with an undo (10 minutes). Always sent */
+            gameLocked?: boolean;
         };
         /** @description Freshness of a listing */
         Freshness: {
@@ -18000,6 +18002,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description BINDER_GAME_MISMATCH: the cover is a card of another game */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
             /** @description Terms acceptance required (extension `requiredConsents[]`) */
             428: {
                 headers: {
@@ -22252,7 +22263,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description BINDER_GAME_LOCKED: the game changes only while the binder holds no card */
+            /** @description BINDER_GAME_LOCKED: the game changes only while the binder holds no card; BINDER_GAME_MISMATCH: the cover is a card of another game */
             409: {
                 headers: {
                     [name: string]: unknown;

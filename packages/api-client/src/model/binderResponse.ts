@@ -93,6 +93,10 @@ export interface BinderResponse {
      * Id of that game (GET /games). Always sent
      */
     gameId?: string;
+    /**
+     * The game can\'t change now (PATCH gameId answers 409 BINDER_GAME_LOCKED): the binder holds a card, or a card deleted or sold from it can still come back with an undo (10 minutes). Always sent
+     */
+    gameLocked?: boolean;
 }
 export enum BinderResponseKindEnum {
     Collection = 'COLLECTION',
