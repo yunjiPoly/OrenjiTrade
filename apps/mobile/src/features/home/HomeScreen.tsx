@@ -221,7 +221,7 @@ export function HomeScreen() {
     switch (item.type) {
       case 'top':
         return (
-          <View style={[styles.top, { paddingTop: insets.top + spacing[4] }]}>
+          <View style={[styles.top, { paddingTop: spacing[4] }]}>
             <View style={styles.topRow}>
               <View style={styles.pills}>
                 <RegionBar variant="pill" testID="home-region" />
@@ -263,7 +263,7 @@ export function HomeScreen() {
         );
       case 'quiet':
         return (
-          <View style={styles.body}>
+          <View style={[styles.body, styles.quiet]}>
             <QuietBox
               title={emptyTitle(first?.regionHasPosts ?? false, gameLabel, regionLabel)}
               onAddCards={showGetStarted ? undefined : addCards}
@@ -304,7 +304,8 @@ export function HomeScreen() {
     <View
       key={`text-size-${fontScale}`}
       testID="screen-home"
-      style={[styles.fill, { backgroundColor: palette.background }]}
+      // The list starts under the status bar, so the chips pin right under it, not behind it.
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
     >
       <FlatList
         ref={listRef}
@@ -325,7 +326,6 @@ export function HomeScreen() {
             }}
             tintColor={palette.primary}
             colors={[palette.primary]}
-            progressViewOffset={insets.top}
           />
         }
         onEndReached={() => {
@@ -371,4 +371,5 @@ const styles = StyleSheet.create({
     gap: spacing[2],
   },
   body: { paddingHorizontal: spacing[4], paddingBottom: 10 },
+  quiet: { paddingTop: spacing[2] },
 });

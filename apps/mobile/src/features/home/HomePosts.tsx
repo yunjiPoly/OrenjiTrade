@@ -7,7 +7,14 @@ import { Avatar } from '@/src/components/ui/Avatar';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
-import { fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  fontFamily,
+  fontWeight,
+  spacing,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import {
   codeAndRarity,
@@ -80,6 +87,8 @@ export function FeedPostCard({
   const { palette } = useTheme();
   const toneColor = useToneColor();
   const { verb, tone } = postVerb(post);
+  // At the largest text sizes the avatar goes above the words, and the rows' buttons under them.
+  const stacked = useStackedRows();
   const testID = `home-post-${post.id}`;
   return (
     <View
@@ -92,15 +101,19 @@ export function FeedPostCard({
         accessibilityHint={HOME_COPY.headerHint}
         onPress={() => actions.onCollector(post)}
         testID={`${testID}-header`}
-        style={({ pressed }) => [styles.header, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.header,
+          stacked && styles.headerStacked,
+          pressed && styles.pressed,
+        ]}
       >
         <Avatar src={post.collector.avatarUrl} name={post.collector.displayName} size={36} />
-        <View style={styles.headerText}>
-          <Text numberOfLines={2} style={[styles.headline, { color: palette.ink }]}>
+        <View style={[styles.headerText, stacked && styles.fullWidth]}>
+          <Text numberOfLines={stacked ? 4 : 2} style={[styles.headline, { color: palette.ink }]}>
             <Text style={styles.handle}>{post.collector.handle}</Text>{' '}
             <Text style={{ color: toneColor(tone) }}>{verb}</Text>
           </Text>
-          <Text numberOfLines={1} style={[styles.meta, { color: palette.textMuted }]}>
+          <Text numberOfLines={stacked ? 2 : 1} style={[styles.meta, { color: palette.textMuted }]}>
             {feedTime(post.at, now)} · {postProvince(post)}
           </Text>
         </View>
@@ -109,12 +122,14 @@ export function FeedPostCard({
         isGrid(post.newCards) ? (
           <CardGrid post={post} actions={actions} />
         ) : (
-          <SingleCard post={post} actions={actions} />
+          <SingleCard post={post} actions={actions} stacked={stacked} />
         )
       ) : null}
-      {post.kind === 'WANTED' && post.wanted ? <WantedBody post={post} actions={actions} /> : null}
+      {post.kind === 'WANTED' && post.wanted ? (
+        <WantedBody post={post} actions={actions} stacked={stacked} />
+      ) : null}
       {post.kind === 'DECK_CORE' && post.deckCore ? (
-        <DeckCoreBody post={post} actions={actions} />
+        <DeckCoreBody post={post} actions={actions} stacked={stacked} />
       ) : null}
     </View>
   );
@@ -189,6 +204,8 @@ function GridTile({
       </View>
       <Text
         numberOfLines={1}
+        // Four prices side by side: they follow the text size only a little, or none could be read.
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
         style={[styles.tilePrice, { color: palette.home.chipText }]}
         testID={`${testID}-price`}
       >
@@ -199,7 +216,15 @@ function GridTile({
 }
 
 /** Exactly one card: a row (opens Who has this card) and the round Message button. */
-function SingleCard({ post, actions }: { post: FeedPost; actions: PostActions }) {
+function SingleCard({
+  post,
+  actions,
+  stacked,
+}: {
+  post: FeedPost;
+  actions: PostActions;
+  stacked: boolean;
+}) {
   const { palette } = useTheme();
   const preview = post.newCards?.previews?.[0];
   if (!preview) {
@@ -209,19 +234,23 @@ function SingleCard({ post, actions }: { post: FeedPost; actions: PostActions })
   const { code, rarity } = codeAndRarity(preview);
   const busy = actions.busyPostId === post.id;
   return (
-    <View style={styles.row} testID={`home-post-${post.id}-single`}>
+    <View style={[styles.row, stacked && styles.rowStacked]} testID={`home-post-${post.id}-single`}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={[preview.name, code, rarity, price].filter(Boolean).join(', ')}
         accessibilityHint={HOME_COPY.cardHint}
         onPress={() => actions.onCard(preview.cardId, preview.printingId)}
         testID={`home-tile-${preview.itemId}`}
-        style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.rowMain,
+          stacked && styles.rowMainStacked,
+          pressed && styles.pressed,
+        ]}
       >
         <View style={[styles.rowArt, { borderColor: palette.borderStrong }]}>
           <CardImage src={preview.imageUrl} alt="" size="sm" style={styles.rowImage} />
         </View>
-        <View style={styles.rowText}>
+        <View style={[styles.rowText, stacked && styles.fullWidth]}>
           <Text numberOfLines={1} style={[styles.rowName, { color: palette.ink }]}>
             {preview.name}
           </Text>
@@ -263,7 +292,15 @@ function SingleCard({ post, actions }: { post: FeedPost; actions: PostActions })
 }
 
 /** A wish: the picture, the name, the terms and "I have it". */
-function WantedBody({ post, actions }: { post: FeedPost; actions: PostActions }) {
+function WantedBody({
+  post,
+  actions,
+  stacked,
+}: {
+  post: FeedPost;
+  actions: PostActions;
+  stacked: boolean;
+}) {
   const { palette } = useTheme();
   const wish = post.wanted;
   if (!wish) {
@@ -271,16 +308,16 @@ function WantedBody({ post, actions }: { post: FeedPost; actions: PostActions })
   }
   const busy = actions.busyPostId === post.id;
   return (
-    <View style={styles.row} testID={`home-post-${post.id}-wish`}>
+    <View style={[styles.row, stacked && styles.rowStacked]} testID={`home-post-${post.id}-wish`}>
       <View
-        style={styles.rowMain}
+        style={[styles.rowMain, stacked && styles.rowMainStacked]}
         accessible
         accessibilityLabel={`${wish.name}, ${feedWishTerms(wish)}`}
       >
         <View style={[styles.rowArt, { borderColor: palette.borderStrong }]}>
           <CardImage src={wish.imageUrl} alt="" size="sm" style={styles.rowImage} />
         </View>
-        <View style={styles.rowText}>
+        <View style={[styles.rowText, stacked && styles.fullWidth]}>
           <Text numberOfLines={1} style={[styles.rowName, { color: palette.ink }]}>
             {wish.name}
           </Text>
@@ -318,7 +355,15 @@ function WantedBody({ post, actions }: { post: FeedPost; actions: PostActions })
 }
 
 /** A deck core: the band (first photo, or key cards), the name and price, the note line. */
-function DeckCoreBody({ post, actions }: { post: FeedPost; actions: PostActions }) {
+function DeckCoreBody({
+  post,
+  actions,
+  stacked,
+}: {
+  post: FeedPost;
+  actions: PostActions;
+  stacked: boolean;
+}) {
   const { palette } = useTheme();
   const core = post.deckCore;
   if (!core) {
@@ -396,7 +441,7 @@ function DeckCoreBody({ post, actions }: { post: FeedPost; actions: PostActions 
           </View>
         ) : null}
       </View>
-      <View style={styles.coreLine}>
+      <View style={[styles.coreLine, stacked && styles.coreLineStacked]}>
         <Text numberOfLines={1} style={[styles.coreName, { color: palette.ink }]}>
           {core.name}
         </Text>
@@ -423,6 +468,8 @@ const styles = StyleSheet.create({
     gap: spacing[3],
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  headerStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  fullWidth: { flex: 0, alignSelf: 'stretch' },
   headerText: { flex: 1, minWidth: 0, gap: 2 },
   headline: { fontSize: 14, lineHeight: 18 },
   handle: { fontWeight: fontWeight.semibold },
@@ -441,6 +488,13 @@ const styles = StyleSheet.create({
   tilePrice: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold, textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   rowMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  rowStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  rowMainStacked: {
+    flex: 0,
+    alignSelf: 'stretch',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   rowArt: { width: 48, height: 70, borderRadius: 5, borderWidth: 1, overflow: 'hidden' },
   rowImage: { width: '100%', height: '100%', borderRadius: 0 },
   rowText: { flex: 1, minWidth: 0, gap: 3 },
@@ -500,6 +554,7 @@ const styles = StyleSheet.create({
   },
   photosText: { fontSize: 11, lineHeight: 15, fontWeight: fontWeight.semibold },
   coreLine: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[3] },
+  coreLineStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 2 },
   coreName: { flex: 1, minWidth: 0, fontSize: 16, lineHeight: 21, fontWeight: fontWeight.semibold },
   corePrice: {
     flexShrink: 0,

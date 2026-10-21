@@ -3,7 +3,13 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
-import { PINNED_MAX_FONT_SCALE, fontWeight, spacing, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  TITLE_MAX_FONT_SCALE,
+  fontWeight,
+  spacing,
+  useTheme,
+} from '@/src/theme';
 
 import {
   FEED_FILTERS,
@@ -37,7 +43,11 @@ export function HomeSearchField({ onPress }: { onPress: () => void }) {
       ]}
     >
       <MaterialCommunityIcons name="magnify" size={20} color={palette.textMuted} />
-      <Text numberOfLines={1} style={[styles.fieldText, { color: palette.textMuted }]}>
+      <Text
+        numberOfLines={2}
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        style={[styles.fieldText, { color: palette.textMuted }]}
+      >
         {HOME_COPY.searchField}
       </Text>
     </Pressable>
@@ -110,6 +120,7 @@ export function FeedSectionTitle({ section }: { section: FeedSection }) {
   return (
     <Text
       accessibilityRole="header"
+      maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
       style={[styles.section, { color: palette.textMuted }]}
       testID={`home-section-${section}`}
     >
