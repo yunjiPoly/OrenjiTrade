@@ -1,3 +1,8 @@
+// The tests run in a time zone that is not UTC, as phones do (R7 review F7): Home's day
+// boundaries are the phone's own, and a UTC calendar passed them unseen on the CI runners (UTC).
+// A zone with daylight saving time; the workers inherit it.
+process.env.TZ = 'America/Toronto';
+
 /** @type {import('jest').Config} */
 module.exports = {
   preset: 'jest-expo',

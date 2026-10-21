@@ -51,6 +51,13 @@ function local(hours: number, minutes = 0, days = 0): Date {
 const NOW = local(15, 30);
 
 describe('Sections and times, in the phone time zone', () => {
+  it('runs in a time zone that is not UTC, so a UTC calendar would be caught', () => {
+    // jest.config.js pins one (R7 review F7): under UTC, local and UTC days are the same.
+    expect(NOW.getTimezoneOffset()).not.toBe(0);
+    expect(NOW.getUTCDate()).toBe(NOW.getDate());
+    expect(local(22, 0).getUTCDate()).not.toBe(local(22, 0).getDate());
+  });
+
   it('starts "Today" at local midnight and "Earlier this month" at 7 days', () => {
     expect(sectionOf(local(0, 0).toISOString(), NOW)).toBe('today');
     expect(sectionOf(local(23, 59, 1).toISOString(), NOW)).toBe('week');
