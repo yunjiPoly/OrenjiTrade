@@ -37,6 +37,8 @@ export const INBOX_COPY = {
 /** The chat's top bar and its "⋯" sheet (screens 23 and 24). */
 export const CHAT_COPY = {
   back: 'Back to messages',
+  /** Back from a chat opened by a sale notification (`?from=notifications`, stage R9). */
+  backToNotifications: 'Back to Notifications',
   profile: (handle: string) => `${handle}, open profile`,
   more: (handle: string) => `More for ${handle}`,
   online: 'Online',

@@ -43,6 +43,7 @@ import { NotificationRow } from './NotificationRow';
 import {
   isFreshnessRow,
   listRows,
+  openedFromNotifications,
   reminderBinderId,
   reminderState,
   rowTarget,
@@ -128,7 +129,7 @@ export function NotificationsScreen() {
   const openRow = (notification: NotificationResponse, target: string | null) => {
     markOne(notification);
     if (target) {
-      router.push(target as Href);
+      router.push(openedFromNotifications(target) as Href);
     }
   };
 

@@ -4,6 +4,7 @@ import {
   isExcludedType,
   listRows,
   notificationTime,
+  openedFromNotifications,
   pushTarget,
   reminderState,
   rowLabel,
@@ -143,6 +144,17 @@ describe('kind to target', () => {
     expect(
       rowTarget({ type: 'SALE_RECORDED', data: { deepLink: 'https://evil.example' } }, 'me')
     ).toBe('/messages');
+  });
+
+  it('opens a chat from Notifications so that its Back says where it returns', () => {
+    expect(openedFromNotifications('/messages/c1')).toBe('/messages/c1?from=notifications');
+    expect(openedFromNotifications(`/cards/${CARD_ID}?printing=p1`)).toBe(
+      `/cards/${CARD_ID}?printing=p1`
+    );
+    expect(openedFromNotifications('/collectors/maika?tab=ratings')).toBe(
+      '/collectors/maika?tab=ratings'
+    );
+    expect(openedFromNotifications('/messages')).toBe('/messages');
   });
 
   it('leads a tapped push notification to its row target, else to Notifications', () => {

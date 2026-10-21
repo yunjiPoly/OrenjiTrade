@@ -166,8 +166,9 @@ describe('Notifications', () => {
     );
     // Read since, it keeps its place in New without its dot.
     await waitFor(() => expect(screen.getAllByTestId('notification-unread-dot')).toHaveLength(1));
+    // The chat's Back then says "Back to Notifications" (review fix 1, U1).
     fireEvent.press(screen.getByTestId(`notification-${sale.id}`));
-    expect(mockRouter.push).toHaveBeenCalledWith('/messages/conv-1');
+    expect(mockRouter.push).toHaveBeenCalledWith('/messages/conv-1?from=notifications');
     fireEvent.press(screen.getByTestId(`notification-${rating.id}`));
     expect(mockRouter.push).toHaveBeenCalledWith('/collectors/maika?tab=ratings');
     // A report decision opens nothing (and it is read already: no second request).

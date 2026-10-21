@@ -274,6 +274,15 @@ export function rowTarget(notification: Notice, ownHandle: string | null): strin
 }
 
 /**
+ * A row's target as Notifications opens it: a chat (a sale's) gets `?from=notifications`, so its
+ * Back says "Back to Notifications", where it returns (as Edit binder does for a reminder). A push
+ * notification opens the bare target: its chat's Back returns to Messages.
+ */
+export function openedFromNotifications(target: string): string {
+  return /^\/messages\/[\w-]{1,64}$/.test(target) ? `${target}?from=notifications` : target;
+}
+
+/**
  * Where a tapped push notification leads (its payload: `notificationId`, `type`, `deepLink`): the
  * target of its row, else Notifications, where a reminder is answered and a notice without a
  * target is read.

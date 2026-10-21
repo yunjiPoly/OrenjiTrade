@@ -99,10 +99,11 @@ function saleErrorMessage(error: unknown, handle: string): string {
  * message worded per side, old offers as a grey line); the quick replies; the message box with
  * its "+" sheet (the saved address or e-Transfer email, a photo, a card from the inventory, a
  * binder). Mark as sold opens its sheet, then the toast "Marked as sold" with Undo. Live over
- * realtime; the newest message is marked read while the chat is on screen.
+ * realtime; the newest message is marked read while the chat is on screen. Opened from
+ * Notifications (`?from=notifications`, a sale notification, stage R9), Back says so.
  */
 export default function ConversationScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
   const conversationId = id ?? '';
   const { palette } = useTheme();
   const router = useRouter();
@@ -449,6 +450,7 @@ export default function ConversationScreen() {
           typing={typing}
           blocked={blockedByMe}
           canRate={canRate}
+          backLabel={from === 'notifications' ? CHAT_COPY.backToNotifications : CHAT_COPY.back}
           menuOpen={menuOpen}
           topInset={insets.top}
           onBack={back}

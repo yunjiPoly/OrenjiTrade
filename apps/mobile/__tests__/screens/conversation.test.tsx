@@ -745,6 +745,21 @@ describe('Conversation', () => {
     );
   });
 
+  it('names its Back after the screen it returns to: Messages, or Notifications', async () => {
+    mockApi(routes());
+    const first = render();
+    expect(await screen.findByTestId('conversation-profile')).toBeOnTheScreen();
+    expect(screen.getByTestId('BackButton').props.accessibilityLabel).toBe('Back to messages');
+    first.unmount();
+    // Opened by a sale notification (stage R9, review fix 1, U1).
+    mockParams.current = { id: CONVERSATION_ID, from: 'notifications' };
+    render();
+    expect(await screen.findByTestId('conversation-profile')).toBeOnTheScreen();
+    expect(screen.getByTestId('BackButton').props.accessibilityLabel).toBe('Back to Notifications');
+    fireEvent.press(screen.getByTestId('BackButton'));
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+  });
+
   it('shows "not available" for a conversation hidden by a block', async () => {
     mockApi(
       routes({
