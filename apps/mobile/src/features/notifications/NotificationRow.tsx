@@ -52,9 +52,10 @@ export interface NotificationRowProps {
 
 /**
  * One notification (mockup v50 screen 31): an icon tile in its kind's colours, "{bold subject}
- * {rest of the sentence}", one muted line, the time, the card's picture when there is one, an
- * orange dot while unread. A freshness reminder is answered in place: "Still have them" and
- * "Review the binder", then a teal check once the binder is confirmed.
+ * {rest of the sentence}", one muted line (cut to one line only on a row with a target), the time,
+ * the card's picture when there is one, an orange dot while unread. A freshness reminder is
+ * answered in place: "Still have them" and "Review the binder", then a teal check once the binder
+ * is confirmed.
  */
 export function NotificationRow({
   notification,
@@ -74,6 +75,11 @@ export function NotificationRow({
   const card = isFreshnessRow(notification) ? null : notificationCard(notification);
   const label = rowLabel(text, time.spoken, unread);
   const pressable = target !== null || unread;
+  // One line, as in the mockup, on a row that opens a screen telling the rest (a wish, a sale, a
+  // rating); a row that opens nothing (a reminder, a report, a system notice, an old deal) shows
+  // its whole line, or its text could never be read (review fix 1, F1). Whole at the largest
+  // text sizes too.
+  const subLines = target !== null && !stacked ? 1 : undefined;
 
   const lines = (
     <>
@@ -82,11 +88,7 @@ export function NotificationRow({
         {text.rest ? ` ${text.rest}` : ''}
       </Text>
       {text.sub ? (
-        // One line as in the mockup; the whole line at the largest text sizes.
-        <Text
-          numberOfLines={stacked ? undefined : 1}
-          style={[styles.sub, { color: palette.textMuted }]}
-        >
+        <Text numberOfLines={subLines} style={[styles.sub, { color: palette.textMuted }]}>
           {text.sub}
         </Text>
       ) : null}

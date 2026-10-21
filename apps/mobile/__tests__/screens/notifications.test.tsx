@@ -203,6 +203,60 @@ describe('Notifications', () => {
     await waitFor(() => expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0));
   });
 
+  it('shows the whole text of a row that opens nothing, before and after it is read', async () => {
+    // An admin broadcast may run to 1000 characters; a paused-listings notice is three sentences.
+    const broadcast = notificationFixture({
+      id: 'n-broadcast',
+      type: 'SYSTEM',
+      title: 'Maintenance this Sunday',
+      body:
+        'Scheduled maintenance on Sunday from 2 to 4 a.m. Eastern: the app may be slow or ' +
+        'unavailable for a few minutes, and messages sent then arrive once it is back.',
+      createdAt: minutesAgo(2),
+      data: {},
+    });
+    const paused = notificationFixture({
+      id: 'n-paused',
+      type: 'SYSTEM',
+      title: 'Your public listings are paused',
+      body:
+        '3 conversations are waiting for your answer, so your public listings are paused. ' +
+        'Reply to collectors and confirm in your inventory that you are available to show ' +
+        'your listings again.',
+      createdAt: minutesAgo(90),
+      readAt: minutesAgo(60),
+      data: { kind: 'LISTINGS_PAUSED', deepLink: '/inventory' },
+    });
+    const api = mockApi(
+      routes({
+        'GET /api/v1/notifications': (request) =>
+          ok(
+            notificationPage(
+              request.query.get('unreadOnly') === 'true' ? [broadcast] : [broadcast, wish, paused]
+            )
+          ),
+      })
+    );
+    renderWithProviders(<NotificationsScreen />, { port: port() });
+    // The default text size (beforeEach): a row with a target keeps the mockup's one line.
+    expect((await screen.findByText('maya_k · $14.00')).props.numberOfLines).toBe(1);
+    for (const notice of [broadcast, paused]) {
+      expect(screen.getByText(notice.body).props.numberOfLines).toBeUndefined();
+    }
+    fireEvent.press(screen.getByTestId(`notification-${broadcast.id}`));
+    await waitFor(() =>
+      expect(api.callsTo('POST /api/v1/notifications/{id}/read')).toHaveLength(1)
+    );
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    // Read, it opens nothing and its text is still whole.
+    await waitFor(() =>
+      expect(screen.getByTestId(`notification-${broadcast.id}`).props.accessibilityRole).not.toBe(
+        'button'
+      )
+    );
+    expect(screen.getByText(broadcast.body).props.numberOfLines).toBeUndefined();
+  });
+
   it('marks all as read: New empties into Earlier, without dots', async () => {
     const api = mockApi(routes());
     renderWithProviders(<NotificationsScreen />, { port: port() });
