@@ -151,6 +151,9 @@ class NotificationCentreIT extends AbstractIntegrationTest {
         assertThat(unread(uid, "?excludeTypes=MESSAGE")).isEqualTo(6);
         assertThat(unread(uid, "?excludeTypes=MESSAGE,RATING_RECEIVED")).isEqualTo(5);
         assertThat(unread(uid, "?excludeTypes=MESSAGE&excludeTypes=RATING_RECEIVED")).isEqualTo(5);
+        // An empty item names nothing (a trailing comma, an empty parameter).
+        assertThat(unread(uid, "?excludeTypes=MESSAGE,")).isEqualTo(6);
+        assertThat(unread(uid, "?excludeTypes=")).isEqualTo(11);
         assertThat(
                         callJson(HttpMethod.GET, "/api/v1/notifications?limit=50", uid, null, 200)
                                 .path("items"))

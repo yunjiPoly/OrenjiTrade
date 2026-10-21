@@ -16,6 +16,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
@@ -87,7 +88,7 @@ public class NotificationController {
             @Parameter(description = EXCLUDE_TYPES_DESCRIPTION)
                     @RequestParam(required = false)
                     @Size(max = EXCLUDE_TYPES_MAX)
-                    @Nullable List<NotificationType> excludeTypes) {
+                    @Nullable List<@Nullable NotificationType> excludeTypes) {
         return notificationService.list(
                 principal.userId(), cursor, unreadOnly, limit, orEmpty(excludeTypes));
     }
@@ -111,13 +112,15 @@ public class NotificationController {
             @Parameter(description = EXCLUDE_TYPES_DESCRIPTION)
                     @RequestParam(required = false)
                     @Size(max = EXCLUDE_TYPES_MAX)
-                    @Nullable List<NotificationType> excludeTypes) {
+                    @Nullable List<@Nullable NotificationType> excludeTypes) {
         return new UnreadCountResponse(
                 notificationService.unreadCount(principal.userId(), orEmpty(excludeTypes)));
     }
 
-    private static List<NotificationType> orEmpty(@Nullable List<NotificationType> types) {
-        return types == null ? List.of() : types;
+    /** The named types; an empty item ({@code ?excludeTypes=MESSAGE,}) names nothing. */
+    private static List<NotificationType> orEmpty(
+            @Nullable List<@Nullable NotificationType> types) {
+        return types == null ? List.of() : types.stream().filter(Objects::nonNull).toList();
     }
 
     @PostMapping("/{id}/read")
