@@ -655,3 +655,32 @@ to the "Home feed" part of its section 12:
 
 Built as stage R7 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R7: Home (2026-10-21)"; API contract
 [`docs/api/contracts/r7-home-feed.md`](../../api/contracts/r7-home-feed.md)).
+
+---
+
+## Changed by the owner on 2026-10-19: Notifications and the bell
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R9, saved word for word; mockup version 50, screen 31) designs the notifications. The
+prompt above is kept as it was; for the bell and its screen these points replace what it said of
+the notification centre:
+
+1. **The bell** sits on the top bars of Home, Search, Inventory, Messages and Profile: an orange dot
+   while anything is unread, spoken "Notifications, {n} new" (or "Notifications"). Chats are left
+   out (Messages has its own badge).
+2. **Notifications** has back, the title and a gear (Settings › Notifications); "New" with "Mark
+   all as read", "Earlier" with the rest, newest first, by cursor pages. A row: an icon tile in its
+   kind's colours, "{bold subject} {rest}", one muted line, the time ("5 min", "1 h", "Yesterday",
+   "Sat", "Sep 30"), the card picture, an orange dot while unread.
+3. **Targets**: a wishlist alert opens Who has this card on its printing, a sale the chat, a rating
+   your ratings on your profile; reports, system notices and the paused web's old offers, trades,
+   payments and disputes open nothing (grey). Freshness reminders are answered in place ("Still have
+   them", "Review the binder", then "Confirmed. They stay in search."). A push notification opens
+   the same target as its row.
+4. **The API** gains `excludeTypes` on `GET /notifications` and its unread count (the phone sends
+   `MESSAGE`); without it both behave as before.
+
+Built as stage R9 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R9: Notifications (31) and the bell
+(2026-10-21)"; API contract [`docs/api/contracts/r9-notifications.md`](../../api/contracts/r9-notifications.md)).
+A rating's comment and the reported collector's handle stay out of the rows (Phase 7 rules), unlike
+the mockup's example rows.

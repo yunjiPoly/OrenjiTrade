@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -7846,6 +7846,170 @@ Checks of review fix 2 (retries off; this Mac, 2026-10-21; the owner's iPhone 18
 
 Not verified in fix 2: the Android run could not be verified (no Android SDK).
 
+## Phone redesign R9: Notifications (31) and the bell (2026-10-21)
+
+Stage R9 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R9. Notifications (31) and the bell"): mockup v50 screen 31 and the bell of every tab.
+Built on branch `feature/r7-home` after R7, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+is still **V134**; V124 and V128 stay unused). Every API change is additive: one optional parameter
+on two endpoints and new keys in the `data` of three notification types; the paused web builds and
+passes its checks against the regenerated client, unchanged (no file of `apps/web-angular`
+changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English only (owner,
+2026-10-20). Until now the bell opened the older notification centre: this stage replaces it.
+
+**What a collector can now do on the phone**
+
+- **The bell** on the top bars of Home, Search, Inventory, Messages and Profile: an orange dot
+  (9 pt in a ring of the button's colour, as in the mockup) while anything is unread, spoken
+  "Notifications, {n} new", or "Notifications" when nothing is. Chats do not count: Messages has its
+  own badge (`excludeTypes=MESSAGE`); a chat's realtime notice no longer raises the bell.
+- **Notifications** (screen 31): back, "Notifications" and a gear that opens Settings ›
+  Notifications. "New" lists the unread notifications with "Mark all as read" (teal) on its right;
+  "Earlier" the rest, newest first, older pages on scroll (cursor paging). Each row: an icon tile
+  in its kind's colours (orange heart, blue box, amber star, amber hourglass, grey flag and the grey
+  rest), "{bold subject} {rest of the sentence}", one muted line, the time ("now", "5 min", "1 h",
+  "Yesterday", "Sat", then "Sep 30", with the year when it is another year; in the phone's time
+  zone), the card picture when there is one, an orange dot while unread; one spoken name per row
+  ("{sentence}. {line}, {time spoken in words}, unread").
+- **Tapping a row** marks it read and opens its target: a wishlist alert opens Who has this card on
+  the wished printing ("Azure-Eyes Sky Dragon from your wishlist was listed in Quebec" over
+  "{lister} · $14.00"); a sale opens the chat ("{seller} marked {card} as sold to you" over
+  "Tracking added. Rate them when it arrives."); a rating opens your profile at its ratings
+  ("{rater} rated you 5 stars"). A report decision ("Report reviewed: thanks for your report" over
+  "We took action."), system notices, and the paused web's old offer, trade, payment and dispute
+  notifications (grey, their own icons) open nothing: tapping an unread one marks it read in place
+  (spoken as a button, "Marks it as read").
+- **Freshness reminders answered in place**: "{binder}: do you still have these {n} cards?" over
+  "Confirm them, or they leave search on Oct 26."; "Still have them" confirms the binder
+  (`POST /binders/{id}/confirm`) and the row shows a teal check, "Confirmed. They stay in search."
+  (spoken too); "Review the binder" opens Edit binder (its Back is spoken "Back to Notifications").
+  A binder whose listings already left search ("{binder}: these cards left search") offers "Review
+  the binder" only. The confirmed state comes from the binder itself (confirmed at or after the
+  reminder), so it holds after leaving the screen and after a confirm made elsewhere.
+- **Empty**: "No notifications yet" and "We'll tell you when a card you want is listed in your
+  region." Loading: skeleton rows; an error: "Notifications could not load" with "Try again"; pull
+  to refresh; a failed next page has its own "Try again" at the foot.
+- **A tapped push notification** opens the same target as its row and marks it read (a reminder or
+  a notice without a target opens Notifications), once per tap, the one that opened the app
+  included. Device push itself stays deferred (no EAS project, no FCM sender): the opener only runs
+  outside Expo Go and the web build.
+- Large text: at the largest sizes the card picture leaves the row, the muted line wraps whole,
+  "Mark all as read" and the section titles follow the size a little (1.35) and stay on one row,
+  "Still have them" and "Review the binder" stack and line up with the text.
+
+**What the API does** (contract [`docs/api/contracts/r9-notifications.md`](docs/api/contracts/r9-notifications.md))
+
+- `excludeTypes` (optional, repeated or comma-separated `NotificationType`, at most 30, an unknown
+  one is a 400) on `GET /api/v1/notifications` (every page, with `unreadOnly`, `cursor`, `limit`) and
+  `GET /api/v1/notifications/unread-count`. Without it both behave exactly as before.
+- New keys in `data`: `WISHLIST_ALERT` `collectorHandle`, `province` (the state or province, never a
+  city), `askingPriceText` / `askingPrice` / `currency`; `SALE_RECORDED` `itemName`, `saleKind`,
+  `hasTracking` (never the number) and the card's `cardName`, `game`, `cardImageUrl` (stored
+  API-relative by the new `NotificationCards.storable`); `BINDER_STALE_WARNING` and `BINDER_HIDDEN`
+  `binderName`. The seed's reminder of collector3 names its binder and the day it leaves search.
+- The paused web's Angular client keeps `getUnreadNotificationCount()` without parameters:
+  `packages/api-client/tools/web-omits.mjs` leaves `excludeTypes` out of that operation for the web
+  only (a first optional parameter would change the signature its calls use); the phone's
+  `packages/shared-types` has it.
+
+**Decisions, and why**
+
+1. **A rating's comment and the reported collector's handle stay out of the notifications.** The
+   mockup's rows show "“Well packed, arrived in two days.”" and "thanks for flagging spam_bot42";
+   Phase 7 decided both on purpose and tests them (a moderator may hide a rating and the notice
+   would keep its comment; a report decision discloses no specifics). The rows say "See it on your
+   profile." and "thanks for your report" with "We took action." or "We found no violation of the
+   Community Guidelines." from the status.
+2. **"Mark all as read" marks every notification read** (`POST /read-all` unchanged): the prompt
+   asks for `excludeTypes` on the list and the count only; the chats' notices it also reads only
+   mirror the chats' own unread state, which the Messages badge reads from the conversations.
+3. **New and Earlier**: New is the unread query (50 at once), Earlier the whole list by pages of 20
+   without what New shows; a row read since keeps its place in New (without its dot) until the next
+   load, so nothing jumps under the finger; "Mark all as read" empties New into Earlier, as in the
+   mockup. With more than 50 unread, the others show in Earlier with their dot.
+4. **System notices open nothing** (the prompt), including the daily-limit notice and the
+   moderation warning that opened the wishlist and the guidelines before; old offers, trades,
+   payments and disputes open nothing and no longer show the "Deals happen in the chat" snackbar.
+5. **A rating opens your profile by your handle today**, not the stored link (a handle changed
+   since would leave it dead).
+6. **Unfiled cards' reminders** (no binder) offer "Review the cards" (Inventory): there is no binder
+   to confirm in one tap. Not in the mockup.
+7. **The wishlist alert's row names the province alone** ("listed in Quebec", as in the mockup);
+   the body and the API's place label keep "Quebec, Canada".
+8. **Times**: "now" under a minute, minutes within the hour even across midnight, hours earlier
+   today, then calendar days; the year is added to a date of another year.
+9. **Colours**: the mockup's tones in dark; darker tones of the same hues in light (the light
+   theme's orange is under 4.5 : 1 on white, so the unread time and "Still have them" use #C2410C
+   there); the read time in dark is #8C8682, not the mockup's #78716C (3.8 : 1 on the background).
+   Mobile-only tokens (`notifications` group, `$platforms: ["mobile"]`).
+10. **The native flow uses collector3's seeded reminder** and changes it (confirm, reads): the run's
+    database is new each run and no other flow uses collector3.
+11. **The push opener does not load `expo-notifications` in Expo Go** (its import warns there, and
+    Expo Go receives no push of ours).
+
+**The prompt's default for this stage** (the owner can change it): (10) Notifications leave out
+chats and Community posts (Community posts never notify; chats have Messages' badge).
+
+**Tests**
+
+- API: `NotificationCentreIT.excludeTypesLeavesTypesOutOfTheListAndTheUnreadCount` (counts with and
+  without, repeated and comma-separated, pages of 2 without gaps or excluded types, the unread
+  filter, 400, 401); `WishlistAlertsIT` and `WishlistRulesTest` (handle, province, price keys, Puerto
+  Rico); `SaleIT` (item name, kind, tracking flag, the picture stored relative, a deck core);
+  `ActivityNotificationsIT` (`binderName`); `GeoPrivacyContractTest` (the seeded alert's province
+  and handle; both phone reads of collector1 and collector2 through the place checks).
+- Jest: `notificationRows.test.ts` (kind to icon, colours and target; push targets; the sentence of
+  every kind and the fallbacks of older rows; the spoken name; the time labels in America/Toronto,
+  across midnight, another year; the reminder's states; New and Earlier), `notifications.test.tsx`
+  (the screen: excludeTypes and limits, targets, marking read in place, Mark all as read, Still have
+  them and its error, a reminder confirmed since, paging, empty and error, gear and back, live pushes
+  without chats, the largest text size; the bell's dot, name and pushes), `pushOpener.test.tsx`, and
+  the updated tabs layout, Messages tab, Edit binder, free-for-all and notification-link tests.
+- Web E2E of the phone (`npm run test:mobile:e2e`): `wishlist.spec.ts` (the dot, "Notifications, 1
+  new", the alert's row by province and lister), `old-offers.spec.ts` (an old offer's notice is
+  marked read and opens nothing).
+- Maestro (iOS): `notifications-bell.yaml` (new: the bell from Home with its dot and name, Mark all
+  as read, Still have them, the bell without a dot afterwards) and `wishlist-alert-notification.yaml`
+  (the dot, "Notifications, 1 new", the alert under New, Who has this card).
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+CHECKS_TABLE
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 14:41 to 15:05; scratch
+Maestro flows on the isolated stack of the native harness; dark and light, the default and the
+largest text size; a new collector with one notification of each kind made through the API (an
+old offer, a report resolved by the admin, a broadcast, the freshness job over two of her binders
+dated back in the test database, a sale with a tracking number, a rating, a wishlist alert), a chat
+left out of the bell (8 new on the phone, 9 unread in all), 30 older notices for paging, and a
+new collector for the empty state): screen 31 matches mockup v50 in layout and words, but for
+decisions 1 and 6. The bell showed its dot and "Notifications, 8 new" on all five tabs, then none
+and "Notifications". Every target opened (Who has this card on AZR-EN001 with the lister under
+Quebec; the chat; your profile at its ratings; Edit binder with its "getting old" banner), the
+report and the system notice were marked read in place, "Still have them" showed the check,
+"Mark all as read" emptied New, paging reached the 39th row, the gear opened Settings ›
+Notifications. Fixed from the walk: the confirmed line was named with the check's glyph (now its
+words, announced on iOS); a lone "Review the binder" was indented; Edit binder's Back said "Back to
+your binders" when a reminder opened it; at the largest size the muted line was cut at 3 lines,
+"Mark all as read" broke under its title and "Review the binder" was indented under "Still have
+them". The screenshots (dark and light at the default size, the empty state) are in
+`.local-dev/r9-notes/pr-shots/` for the pull request.
+
+**Not done / could not be verified**: the Android run could not be verified (no Android SDK on this
+Mac). A real push notification was not tapped: device push stays deferred (no EAS project, no FCM
+sender) and the opener is off in Expo Go; its rules and its hook are covered by Jest only.
+VoiceOver itself was not run: the spoken names were checked in Jest and in the iOS hierarchy
+Maestro reads.
+
+**Owner follow-ups**: (1) the default above; (2) decisions 1 (the rating's comment and the reported
+handle stay out, unlike the mockup), 2 (Mark all as read also reads chats' notices) and 6 (unfiled
+cards' reminders); (3) device push (an EAS project and an FCM sender) to see a push open its row's
+target on a phone; (4) the mockup's read time colour (#78716C) is under 4.5 : 1 in dark: this stage
+uses #8C8682.
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -7862,15 +8026,22 @@ Not verified in fix 2: the Android run could not be verified (no Android SDK).
 > (contract `docs/api/contracts/r7-home-feed.md`), V133 `binder.core_since`. The next migration is
 > **V134** (V124 and V128 unused; an ADR takes 0021 or later, 0020 is the card scan's).
 >
-> **Exact next task: stage R7's ship step** (review fixes 1 and 2 are done: the R7 section's
-> "Review fix 1" and "Review fix 2"; round 2 of the reviews found one minor finding, a paging test,
-> fixed in fix 2): merge `main`, the handoff's full check list, the pull request with the three
-> screenshots of `.local-dev/r7-notes/pr-shots/`, the merge on green. **Then R8** (the wrap-up of the redesign:
-> CLAUDE.md, the product overview, the contracts, the test accounts and seed documents, a walk of
-> every mockup screen with a screenshot each, the exact next task), then R9 to R15 of
-> [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)
-> (R15, the guests' Home, after R12; until R9 the bell opens today's notifications screen), one
-> branch and one PR each, none bringing back a paid feature (ADR 0019).
+> **One giant pull request (owner's exception of 2026-10-21):** stages R7, R9 to R15 and the
+> wrap-up R8 are built one after another on `feature/r7-home` without merging into `main` in
+> between; the lead pushes it to a draft pull request whose CI runs on every push. **Stage R9 is
+> built** ("Notifications (31) and the bell"; section "Phone redesign R9: Notifications (31) and the
+> bell (2026-10-21)" above; contract `docs/api/contracts/r9-notifications.md`; no migration, the
+> next is still **V134**): the bell's dot and "Notifications, {n} new" on the five tabs,
+> Notifications with New, Earlier, each kind's target, reminders answered in place, a tapped push
+> opening its row's target; `excludeTypes` on the notification list and unread count.
+>
+> **Exact next task: R9's reviews** (a functional verifier and product and UX as a collector, the
+> spec's section 0; at most two fix rounds), **then stage R10** ("Card data for Magic and
+> Pokémon", the same prompt's section R10) on the same branch, then R11 to R15 (R15 after R12) and
+> the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test accounts and seed
+> documents, a walk of every mockup screen with a screenshot each, the exact next task), none
+> bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship step is
+> the giant pull request's.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)

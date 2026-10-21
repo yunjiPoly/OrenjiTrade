@@ -109,10 +109,12 @@ updates read "Offer (no longer available)" since stage R1, in the chat and in th
 channels with posts, replies and own edits), the **Wishlist** tab (stage S2: which copy, public
 note, "Near Mint only" and price term chips, edit, remove, "Let others see what you want", a prompt
 to set a location for alerts; "Add to wishlist" on the card detail with its printing or rarity;
-no matches) and the **notification centre** (a bell
-with a live unread badge on every tab, the list, mark read, a deep link per notification kind).
-Device push is not wired (it needs an EAS project and a real FCM sender): notifications arrive in
-the app. An ended session leads to the sign-in screen with an explanation, and a link opened while
+no matches) and **Notifications** (stage R9, mockup v50 screen 31: the bell on the top bar of
+every tab with an orange dot while anything is unread, chats left out; New with "Mark all as
+read", Earlier by pages; each kind's icon, colours, sentence and target; freshness reminders
+answered in place). Device push is not wired (it needs an EAS project and a real FCM sender):
+notifications arrive in the app; a tapped push would open its row's target (`pushOpener.ts`, off
+in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
 signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
 `mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
@@ -126,7 +128,7 @@ criteria (communication, card condition, shipping; "meetup reliability" left wit
 an eligible interaction, edits for 14 days, one reference per collector, from profiles and
 conversations). Stage M5 also built **offers** and **trades**; stage R1 of the phone redesign
 deleted them (ADR 0018: deals happen in the chat): their screens, Settings → Offers and the
-Profile tab's rows are gone, an old offer or trade notification opens nothing and says so, and a
+Profile tab's rows are gone, an old offer or trade notification opens nothing (grey since R9), and a
 link to `offers/…`, `trades/…` or `disputes/…` lands on Messages. Admin and moderator consoles
 stay on the web.
 
@@ -374,7 +376,7 @@ app/                       expo-router routes
   community/[slug].tsx     a public channel (posts, replies, own edits)
   (tabs)/wishlist.tsx      the old Wishlist tab: redirects to Search › Wishlist; wishlist/new
                            (`?cardId=&printingId=&rarity=`), edit (`?id=`, with Remove)
-  notifications.tsx        the notification centre (the bell in every tab header opens it)
+  notifications.tsx        Notifications (stage R9; the bell of every tab opens it)
   report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
   ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),
                            reference (one per collector)
