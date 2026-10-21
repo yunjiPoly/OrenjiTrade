@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 import type { FeedPost } from '@/src/api/types';
 import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
@@ -493,7 +493,7 @@ describe('Home: day one in a quiet region (screen 10c)', () => {
 });
 
 describe('Home at the largest text size', () => {
-  it('ends names and prices with "…" on one line instead of wrapping in the grid', async () => {
+  it('keeps prices on one line in the grid, stacks the rows and ends long names with "…"', async () => {
     Dimensions.set({
       window: { ...WINDOW, fontScale: 3.1 },
       screen: { ...WINDOW, fontScale: 3.1 },
@@ -501,14 +501,16 @@ describe('Home at the largest text size', () => {
     mockApi(doneRoutes({ 'GET /api/v1/feed': feedOf(ALL_POSTS) }));
     render();
     const first = TWELVE.newCards!.previews[0]!;
-    expect(await screen.findByTestId(`home-tile-${first.itemId}-price`)).toHaveProp(
-      'numberOfLines',
-      1
-    );
+    const price = await screen.findByTestId(`home-tile-${first.itemId}-price`);
+    expect(price).toHaveProp('numberOfLines', 1);
+    // Four prices side by side follow the text size only a little, so they can still be read.
+    expect(price).toHaveProp('maxFontSizeMultiplier', 1.35);
     const row = screen.getByTestId(`home-post-${SINGLE.id}-single`);
-    expect(within(row).getByText('Infinite Impermanence')).toHaveProp('numberOfLines', 1);
+    // The row stacks (its button under the words), and its name takes two lines at most.
+    expect(StyleSheet.flatten(row.props.style)).toMatchObject({ flexDirection: 'column' });
+    expect(within(row).getByText('Infinite Impermanence')).toHaveProp('numberOfLines', 2);
     expect(within(row).getByText('$24.00')).toHaveProp('numberOfLines', 1);
-    expect(screen.getByText('Yubel core')).toHaveProp('numberOfLines', 1);
+    expect(screen.getByText('Yubel core')).toHaveProp('numberOfLines', 2);
     expect(screen.getByText('14 cards, NM, in sleeves. Ships tracked.')).toHaveProp(
       'numberOfLines',
       1

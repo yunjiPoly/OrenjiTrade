@@ -251,11 +251,14 @@ function SingleCard({
           <CardImage src={preview.imageUrl} alt="" size="sm" style={styles.rowImage} />
         </View>
         <View style={[styles.rowText, stacked && styles.fullWidth]}>
-          <Text numberOfLines={1} style={[styles.rowName, { color: palette.ink }]}>
+          <Text numberOfLines={stacked ? 2 : 1} style={[styles.rowName, { color: palette.ink }]}>
             {preview.name}
           </Text>
           {code || rarity ? (
-            <Text numberOfLines={1} style={[styles.rowMeta, { color: palette.textMuted }]}>
+            <Text
+              numberOfLines={stacked ? 2 : 1}
+              style={[styles.rowMeta, { color: palette.textMuted }]}
+            >
               {code ? <Text style={styles.mono}>{code}</Text> : null}
               {code && rarity ? ' · ' : ''}
               {rarity ?? ''}
@@ -318,7 +321,7 @@ function WantedBody({
           <CardImage src={wish.imageUrl} alt="" size="sm" style={styles.rowImage} />
         </View>
         <View style={[styles.rowText, stacked && styles.fullWidth]}>
-          <Text numberOfLines={1} style={[styles.rowName, { color: palette.ink }]}>
+          <Text numberOfLines={stacked ? 2 : 1} style={[styles.rowName, { color: palette.ink }]}>
             {wish.name}
           </Text>
           <Text style={[styles.terms, { color: palette.textMuted }]}>{feedWishTerms(wish)}</Text>
@@ -442,7 +445,7 @@ function DeckCoreBody({
         ) : null}
       </View>
       <View style={[styles.coreLine, stacked && styles.coreLineStacked]}>
-        <Text numberOfLines={1} style={[styles.coreName, { color: palette.ink }]}>
+        <Text numberOfLines={stacked ? 2 : 1} style={[styles.coreName, { color: palette.ink }]}>
           {core.name}
         </Text>
         {price ? (
