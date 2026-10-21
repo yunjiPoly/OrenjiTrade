@@ -421,6 +421,22 @@ describe('time labels, in the phone time zone', () => {
     });
   });
 
+  it('names the local day of an evening notification, already the next day in UTC', () => {
+    // 21:30 in Toronto is 01:30 (02:30 in winter) the next day in UTC (review fix 1, F3).
+    expect(at(new Date(2026, 9, 17, 21, 30))).toEqual({ short: 'Sat', spoken: 'Saturday' });
+    expect(at(new Date(2026, 9, 14, 21, 30))).toEqual({ short: 'Oct 14', spoken: 'October 14' });
+    expect(at(new Date(2025, 11, 31, 21, 30))).toEqual({
+      short: 'Dec 31, 2025',
+      spoken: 'December 31, 2025',
+    });
+    // The reminder's "leave search on {date}" too.
+    const hidesAt = new Date(2026, 9, 26, 21, 30).toISOString();
+    expect(
+      rowText(n({ type: 'BINDER_STALE_WARNING', data: { binderId: 'b1', itemCount: 2, hidesAt } }))
+        .sub
+    ).toBe('Confirm them, or they leave search on Oct 26.');
+  });
+
   it('counts minutes across midnight and treats a time ahead of the clock as now', () => {
     const justAfterMidnight = new Date(2026, 9, 21, 0, 20);
     expect(
