@@ -22,7 +22,7 @@ import { useUid } from './useUid';
 
 /** Notifications per page of `GET /notifications` (Earlier, stage R9). */
 export const NOTIFICATIONS_PAGE = 20;
-/** The unread notifications Notifications loads at once for its "New" section (the API's most). */
+/** The unread notifications per page of Notifications' "New" section (the API's most). */
 export const NEW_NOTIFICATIONS_PAGE = 50;
 /** Pause before re-reading the unread count after the caller read a conversation. */
 export const RECEIPT_REFRESH_MS = 800;
@@ -59,8 +59,8 @@ export function useUnreadNotificationCount() {
 
 /**
  * `GET /api/v1/notifications?excludeTypes=MESSAGE` newest first, cursor pages, optionally unread
- * ones only (stage R9: Notifications' "New" loads the unread ones, 50 at once; "Earlier" pages the
- * rest by 20).
+ * ones only (stage R9: Notifications' "New" loads the unread ones, 50 a page; "Earlier" pages the
+ * rest by 20 once New is whole).
  */
 export function useNotificationFeed(unreadOnly: boolean) {
   const uid = useUid();
@@ -221,6 +221,13 @@ export function useMarkAllNotificationsRead() {
       const readAt = new Date().toISOString();
       updateFeeds(queryClient, uid, (items, unreadOnly) =>
         unreadOnly ? [] : items.map((item) => (item.readAt ? item : { ...item, readAt }))
+      );
+      // Nothing is unread now: New has no page left to load either, so Earlier shows them all
+      // (review fix 1, F4).
+      queryClient.setQueryData<FeedData>(meKeys.notificationFeed(uid, true), (data) =>
+        data
+          ? { pages: [{ items: [], nextCursor: null, hasMore: false }], pageParams: [null] }
+          : data
       );
       queryClient.setQueryData<UnreadNotificationCount>(meKeys.notificationUnread(uid), (data) =>
         data ? { ...data, count: 0 } : { count: 0 }

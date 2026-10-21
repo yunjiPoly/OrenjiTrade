@@ -425,11 +425,14 @@ export type ListRow =
 /**
  * The list: "New" with the unread notifications as they were loaded (one read since keeps its
  * place, without its dot, until the next load), "Mark all as read" while one of them is unread;
- * then "Earlier" with every other notification of the loaded pages, newest first.
+ * then "Earlier" with every other notification of the loaded pages, newest first. While New has
+ * pages left to load (`freshComplete` false: more unread notifications than one page holds),
+ * Earlier waits, so an unread notification is never listed under it (review fix 1, F4).
  */
 export function listRows(
   fresh: readonly NotificationResponse[],
-  all: readonly NotificationResponse[]
+  all: readonly NotificationResponse[],
+  freshComplete: boolean
 ): ListRow[] {
   const rows: ListRow[] = [];
   const freshIds = new Set(fresh.map((notification) => notification.id));
@@ -443,6 +446,9 @@ export function listRows(
     for (const notification of fresh) {
       rows.push({ kind: 'notification', key: notification.id, notification, fresh: true });
     }
+  }
+  if (!freshComplete) {
+    return rows;
   }
   const earlier = all.filter((notification) => !freshIds.has(notification.id));
   if (earlier.length > 0) {

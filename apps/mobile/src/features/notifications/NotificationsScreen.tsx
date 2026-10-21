@@ -57,9 +57,10 @@ const CLOCK_MS = 60_000;
  * Notifications (owner prompt of 2026-10-19, section R9; mockup v50 screen 31), opened by the bell
  * of every tab: back, the title and a gear (Settings › Notifications); "New" with the unread
  * notifications and "Mark all as read", "Earlier" with the rest, newest first, older pages on
- * scroll. Chats are left out (`excludeTypes=MESSAGE`): Messages has its own badge. Tapping a row
- * marks it read and opens its target; a freshness reminder is answered in place. Pull to refresh,
- * a skeleton, an error with "Try again", the empty state.
+ * scroll (New's first, when more are unread than one page holds). Chats are left out
+ * (`excludeTypes=MESSAGE`): Messages has its own badge. Tapping a row marks it read and opens its
+ * target; a freshness reminder is answered in place. Pull to refresh, a skeleton, an error with
+ * "Try again", the empty state.
  */
 export function NotificationsScreen() {
   const { palette } = useTheme();
@@ -91,26 +92,34 @@ export function NotificationsScreen() {
     () => all.data?.pages.flatMap((page) => page.items ?? []) ?? [],
     [all.data]
   );
-  const rows = useMemo(() => listRows(freshItems, allItems), [freshItems, allItems]);
+  // New lists every unread notification before Earlier begins: it pages too (review fix 1, F4).
+  const freshComplete = !fresh.hasNextPage;
+  const rows = useMemo(
+    () => listRows(freshItems, allItems, freshComplete),
+    [freshItems, allItems, freshComplete]
+  );
   const earlierCount = useMemo(
     () => rows.filter((row) => row.kind === 'notification' && !row.fresh).length,
     [rows]
   );
 
-  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = all;
+  // The list read on scroll: New while it has pages left, then the whole list (Earlier).
+  const paging = freshComplete ? all : fresh;
+  const { hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage } = paging;
   const loadMore = useCallback(() => {
     if (hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
       void fetchNextPage();
     }
   }, [fetchNextPage, hasNextPage, isFetchNextPageError, isFetchingNextPage]);
 
-  // A first page of the whole list may hold only notifications "New" already shows: the next
-  // pages are read until "Earlier" has a page of its own (or nothing is left).
+  // A first page of the whole list may hold only notifications "New" already shows: once New is
+  // whole, the next pages are read until "Earlier" has a page of its own (or nothing is left).
+  // New's own pages load on scroll only.
   useEffect(() => {
-    if (all.data && earlierCount < NOTIFICATIONS_PAGE) {
+    if (all.data && freshComplete && earlierCount < NOTIFICATIONS_PAGE) {
       loadMore();
     }
-  }, [all.data, earlierCount, loadMore]);
+  }, [all.data, earlierCount, freshComplete, loadMore]);
 
   const back = () => {
     if (router.canGoBack()) {
@@ -277,13 +286,17 @@ export function NotificationsScreen() {
         onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
-            refreshing={(fresh.isRefetching || all.isRefetching) && !all.isFetchingNextPage}
+            refreshing={
+              (fresh.isRefetching || all.isRefetching) &&
+              !all.isFetchingNextPage &&
+              !fresh.isFetchingNextPage
+            }
             onRefresh={refresh}
             tintColor={palette.primary}
           />
         }
         ListEmptyComponent={
-          all.hasNextPage ? null : (
+          paging.hasNextPage ? null : (
             <EmptyState
               testID="notifications-empty"
               icon="bell-outline"
@@ -294,9 +307,9 @@ export function NotificationsScreen() {
         }
         ListFooterComponent={
           <ListFooter
-            loading={all.isFetchingNextPage}
-            failed={all.isFetchNextPageError}
-            onRetry={() => void all.fetchNextPage()}
+            loading={paging.isFetchingNextPage}
+            failed={paging.isFetchNextPageError}
+            onRetry={() => void paging.fetchNextPage()}
             testID="notifications-more"
           />
         }

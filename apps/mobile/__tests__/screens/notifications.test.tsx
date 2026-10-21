@@ -373,6 +373,68 @@ describe('Notifications', () => {
     ).toBe(true);
   });
 
+  it('lists every unread notification under New, over several pages, before Earlier', async () => {
+    const second = notificationFixture({
+      id: 'n-wish-2',
+      createdAt: minutesAgo(30),
+      data: { cardName: 'Nibiru', province: 'Ontario', collectorHandle: 'lucas.tcg' },
+    });
+    const api = mockApi(
+      routes({
+        'GET /api/v1/notifications': (request) => {
+          if (request.query.get('unreadOnly') === 'false') {
+            return ok(notificationPage([wish, second, rating]));
+          }
+          // More unread than one page of New holds (review fix 1, F4).
+          return request.query.get('cursor') === 'u2'
+            ? ok(notificationPage([second]))
+            : ok(notificationPage([wish], { hasMore: true, nextCursor: 'u2' }));
+        },
+        'GET /api/v1/notifications/unread-count': ok({ count: 2 }),
+      })
+    );
+    renderWithProviders(<NotificationsScreen />, { port: port() });
+    const list = await screen.findByTestId('notifications-list');
+    const keys = () =>
+      (screen.getByTestId('notifications-list').props.data as { key: string }[]).map(
+        (row) => row.key
+      );
+    // The unread one of New's next page is never listed under Earlier: Earlier waits.
+    expect(keys()).toEqual(['heading-fresh', wish.id]);
+    expect(screen.queryByText('Earlier')).not.toBeOnTheScreen();
+    fireEvent(list, 'onEndReached');
+    await waitFor(() =>
+      expect(keys()).toEqual(['heading-fresh', wish.id, second.id, 'heading-earlier', rating.id])
+    );
+    expect(screen.getAllByTestId('notification-unread-dot')).toHaveLength(2);
+    expect(
+      api
+        .callsTo('GET /api/v1/notifications')
+        .filter((call) => call.query.get('cursor') === 'u2')
+        .map((call) => call.query.get('limit'))
+    ).toEqual(['50']);
+  });
+
+  it('marks all as read while New has pages left: Earlier lists them all, without dots', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/notifications': (request) =>
+          request.query.get('unreadOnly') === 'true'
+            ? ok(notificationPage([wish], { hasMore: true, nextCursor: 'u2' }))
+            : ok(notificationPage([wish, sale, rating])),
+      })
+    );
+    renderWithProviders(<NotificationsScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('notifications-mark-all'));
+    await waitFor(() => expect(screen.getByText('Earlier')).toBeOnTheScreen());
+    expect(screen.queryByText('New')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('notifications-empty')).not.toBeOnTheScreen();
+    for (const notification of [wish, sale, rating]) {
+      expect(screen.getByTestId(`notification-${notification.id}`)).toBeOnTheScreen();
+    }
+    expect(screen.queryAllByTestId('notification-unread-dot')).toHaveLength(0);
+  });
+
   it('shows the empty state, and an error with "Try again"', async () => {
     mockApi(
       routes({

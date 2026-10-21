@@ -490,7 +490,8 @@ describe('New and Earlier', () => {
   it('puts the unread ones under New with "Mark all as read", the rest under Earlier', () => {
     const rows = listRows(
       [unread('a'), unread('b')],
-      [unread('a'), read('c'), unread('b'), read('d')]
+      [unread('a'), read('c'), unread('b'), read('d')],
+      true
     );
     expect(
       rows.map((row) =>
@@ -500,15 +501,31 @@ describe('New and Earlier', () => {
   });
 
   it('keeps a row read since in New without "Mark all as read" once none is unread', () => {
-    const rows = listRows([read('a')], [read('a'), read('c')]);
+    const rows = listRows([read('a')], [read('a'), read('c')], true);
     expect(rows[0]).toMatchObject({ kind: 'heading', section: 'fresh', markAll: false });
     expect(rows.map((row) => row.key)).toEqual(['heading-fresh', 'a', 'heading-earlier', 'c']);
   });
 
+  it('lists no unread notification under Earlier while New has pages left (over 50 unread)', () => {
+    const unreadOnes = Array.from({ length: 51 }, (_, index) => unread(`u${index}`));
+    const all = [...unreadOnes, read('c')];
+    // New's first page (50): Earlier waits; the 51st is neither under New nor under Earlier yet.
+    const firstPage = listRows(unreadOnes.slice(0, 50), all, false);
+    expect(firstPage[0]).toMatchObject({ kind: 'heading', section: 'fresh', markAll: true });
+    expect(firstPage).toHaveLength(51);
+    expect(firstPage.every((row) => row.kind === 'heading' || row.fresh)).toBe(true);
+    expect(firstPage.map((row) => row.key)).not.toContain('u50');
+    expect(firstPage.map((row) => row.key)).not.toContain('heading-earlier');
+    // New whole: the 51st under New, then Earlier with the read one.
+    const whole = listRows(unreadOnes, all, true);
+    expect(whole.filter((row) => row.kind === 'notification' && row.fresh)).toHaveLength(51);
+    expect(whole.slice(-2).map((row) => row.key)).toEqual(['heading-earlier', 'c']);
+  });
+
   it('shows no heading without rows', () => {
-    expect(listRows([], [])).toEqual([]);
-    expect(listRows([], [read('c')]).map((row) => row.key)).toEqual(['heading-earlier', 'c']);
-    expect(listRows([unread('a')], [unread('a')]).map((row) => row.key)).toEqual([
+    expect(listRows([], [], true)).toEqual([]);
+    expect(listRows([], [read('c')], true).map((row) => row.key)).toEqual(['heading-earlier', 'c']);
+    expect(listRows([unread('a')], [unread('a')], true).map((row) => row.key)).toEqual([
       'heading-fresh',
       'a',
     ]);
