@@ -7977,7 +7977,21 @@ chats and Community posts (Community posts never notify; chats have Messages' ba
 **Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
 under the lock)
 
-CHECKS_TABLE
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,229 tests in 189 classes** (the suite and the catalog tests), 0 failed, 0 skipped, 3 min 47 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git on the final tree |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff ec11a966 -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.1 min) |
+| `npm run test:mobile` | typecheck, lint, jest **120 suites / 1,559 tests**, 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,972,675 B (1,941 modules: `expo-notifications` is now in the bundle, loaded only outside Expo Go), Android 6,265,638 B (2,067 modules), web entry 3,187,328 B (1,562 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 22 s, the new `notifications-bell.yaml` included (it failed once during the build, on the confirmed line's name, fixed in b16d159f). It ran on the tree before db6c1089, an API-only guard (an empty item of `excludeTypes`), which `NotificationCentreIT` covers. The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** in 27 suites (2 new: `web-client-omits.test.mjs`) |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
 
 **The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 14:41 to 15:05; scratch
 Maestro flows on the isolated stack of the native harness; dark and light, the default and the
