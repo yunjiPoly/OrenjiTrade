@@ -2,7 +2,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  TITLE_MAX_FONT_SCALE,
+  fontFamily,
+  fontWeight,
+  spacing,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import type { GetStartedSteps } from './getStarted';
 import { HOME_COPY } from './homeCopy';
@@ -44,7 +52,11 @@ export function GetStartedCard({
     >
       <View style={styles.titleRow}>
         <View style={styles.titleText}>
-          <Text accessibilityRole="header" style={[styles.title, { color: palette.ink }]}>
+          <Text
+            accessibilityRole="header"
+            maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+            style={[styles.title, { color: palette.ink }]}
+          >
             {COPY.title}
           </Text>
           <Text style={[styles.intro, { color: palette.textMuted }]}>{COPY.intro}</Text>
@@ -89,6 +101,7 @@ export function GetStartedCard({
         <Text
           importantForAccessibility="no"
           accessibilityElementsHidden
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           style={[styles.count, { color: palette.textMuted }]}
         >
           {COPY.progress(steps.done)}
@@ -159,15 +172,17 @@ function Step({
   testID: string;
 }) {
   const { palette } = useTheme();
+  // At the largest text sizes the button goes under the step's words, which keep the row's width.
+  const stacked = useStackedRows();
   return (
     <View
-      style={[styles.step, { borderTopColor: palette.border }]}
+      style={[styles.step, stacked && styles.stepStacked, { borderTopColor: palette.border }]}
       testID={`${testID}${done ? '-done' : '-todo'}`}
     >
       <View
         accessible
         accessibilityLabel={`${title}${done ? COPY.done : ''}. ${line}`}
-        style={styles.stepMain}
+        style={[styles.stepMain, stacked && styles.stepMainStacked]}
       >
         {done ? (
           <View style={[styles.mark, { backgroundColor: palette.home.stepDone }]}>
@@ -256,6 +271,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   stepMain: { flex: 1, minWidth: 180, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  stepStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  stepMainStacked: { flex: 0, alignSelf: 'stretch', minWidth: 0, alignItems: 'flex-start' },
   mark: {
     width: 28,
     height: 28,
