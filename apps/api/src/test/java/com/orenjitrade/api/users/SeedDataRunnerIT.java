@@ -291,27 +291,35 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                 java.time.Duration.ofMinutes(5));
     }
 
-    /** The seed collectors' posts of the Yu-Gi-Oh! feed of Americas (North), as {@code uid}. */
+    /**
+     * The seed collectors' posts of the Yu-Gi-Oh! feed of Americas (North), as {@code uid}, page by
+     * page to the end (the suite's other tests add posts of their own, some dated ahead).
+     */
     private java.util.List<JsonNode> seedPosts(String uid) {
-        JsonNode page =
-                callJson(
-                        HttpMethod.GET,
-                        "/api/v1/feed?region=americas-north&game=yugioh&limit=50",
-                        uid,
-                        null,
-                        200);
         java.util.List<JsonNode> posts = new java.util.ArrayList<>();
-        page.path("items")
-                .forEach(
-                        post -> {
-                            if (post.path("collector")
-                                    .path("id")
-                                    .asString()
-                                    .startsWith("00000000-0000-4000-8000-0000000000")) {
-                                posts.add(post);
-                            }
-                        });
-        return posts;
+        String cursor = null;
+        for (int page = 0; page < 100; page++) {
+            String path = "/api/v1/feed?region=americas-north&game=yugioh&limit=50";
+            if (cursor != null) {
+                path += "&cursor=" + cursor;
+            }
+            JsonNode body = callJson(HttpMethod.GET, path, uid, null, 200);
+            body.path("items")
+                    .forEach(
+                            post -> {
+                                if (post.path("collector")
+                                        .path("id")
+                                        .asString()
+                                        .startsWith("00000000-0000-4000-8000-0000000000")) {
+                                    posts.add(post);
+                                }
+                            });
+            if (body.path("nextCursor").isNull()) {
+                return posts;
+            }
+            cursor = body.path("nextCursor").asString();
+        }
+        throw new AssertionError("the feed never ended");
     }
 
     private static void assertAgo(JsonNode post, java.time.Instant now, java.time.Duration ago) {
