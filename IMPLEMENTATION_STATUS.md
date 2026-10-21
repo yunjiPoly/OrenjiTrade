@@ -7529,6 +7529,8 @@ on the owner's iPhone 18 Pro (left light, text size large, as the owner had it);
 
 ## NEXT TASK
 
+> **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
+
 > **Owner order of 2026-10-20: stop all work on the French version, and the app supports English
 > cards only** (no French text, no French legal work, no language switch, no card-language choice
 > beyond English; the existing French legal texts and their flow stay as they are for now).
