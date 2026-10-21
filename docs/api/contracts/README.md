@@ -27,9 +27,11 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | Scan | [Card scan: match the text read on a card, add the scanned cards](card-scan.md) |
 | G | [One game at a time: One Piece, `hasCards`, binders of one game with their two 409s, `game=` on the discovery reads the phone calls (extends 2, 3, 4, R3, R5 and S2)](g-one-game.md) |
 | R7 | [Home's feed: `GET /feed` (new cards per collector and hour, public wishes, public deck cores of a region and game in the last 30 days, by cursor), V133 `binder.core_since` (extends 3, S2, R3 and G)](r7-home-feed.md) |
+| R9 | [Notifications and the bell: `excludeTypes` on the notification list and unread count, the rows' new `data` keys (extends 6, S2 and R4)](r9-notifications.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
 2026-10-13 and nothing of them is built (`docs/product/2026-10-08-change-delivery-report.md`). The
 phone redesign of 2026-10-14 (`docs/product/specs/2026-10-14-phone-redesign.md`) adds its own
-contracts for its new endpoints, one per stage (R2 to R7 above).
+contracts for its new endpoints, one per stage (R2 to R7 above); the owner's prompt of 2026-10-19/20
+(`docs/product/specs/2026-10-20-finish-the-phone-ui.md`) adds G and R9 to R15.

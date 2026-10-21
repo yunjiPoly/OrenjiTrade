@@ -143,6 +143,8 @@ export function NotificationsScreen() {
     markOne(notification);
     setConfirmingId(notification.id);
     confirmBinder.mutate(binderId, {
+      onSuccess: () =>
+        AccessibilityInfo.announceForAccessibility(NOTIFICATIONS_COPY.reminder.confirmed),
       onError: () => snackbar.show(NOTIFICATIONS_COPY.reminder.confirmError, { tone: 'error' }),
       onSettled: () => setConfirmingId(null),
     });

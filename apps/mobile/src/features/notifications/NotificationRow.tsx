@@ -196,6 +196,8 @@ function ReminderActions({
       <View
         style={styles.confirmed}
         accessible
+        // Its words only (the check's glyph would be read as a character).
+        accessibilityLabel={copy.confirmed}
         accessibilityLiveRegion="polite"
         testID={`notification-confirmed-${notificationId}`}
       >
