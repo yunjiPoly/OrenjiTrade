@@ -16,6 +16,15 @@ export function gameName(slug: string, fallback?: string): string {
   return SHORT_GAME_NAMES[slug] ?? fallback ?? gameLabel(slug);
 }
 
+/**
+ * The examples of the search fields are Yu-Gi-Oh! codes and names (the mockup draws Yu-Gi-Oh!):
+ * other games get the same words without an example (stage G, review fix 1, U3), never another
+ * game's example.
+ */
+function withExample(game: string, words: string, example: string): string {
+  return game === 'yugioh' ? `${words}${example}` : words;
+}
+
 /** "1 binder", "7 binders". */
 export function binderCount(count: number): string {
   return `${count} ${count === 1 ? 'binder' : 'binders'}`;
@@ -37,7 +46,8 @@ export const SEARCH_COPY = {
 
 /** The map, Search's default view (screen 11). */
 export const MAP_COPY = {
-  field: 'Card name or code, like LOB-EN001',
+  /** The field of the browsed game (`game` is its slug). */
+  field: (game: string) => withExample(game, 'Card name or code', ', like LOB-EN001'),
   fieldHint: 'Opens the card search',
   myProvince: 'Show my province',
   /**
@@ -82,7 +92,9 @@ export const TYPING_COPY = {
   clearRecentLabel: 'Clear recent searches',
   privacy: 'Only you see your searches. You can turn this off in Settings › Privacy.',
   noMatch: (game: string, text: string) => `No ${game} card matches “${text}”`,
-  noMatchHint: 'Try fewer letters, or the code printed on the card, like LAVD-EN008.',
+  noMatchHint: (game: string) =>
+    withExample(game, 'Try fewer letters, or the code printed on the card', ', like LAVD-EN008') +
+    '.',
   loading: 'Loading cards',
   error: 'Cards could not load',
   searchAgain: (text: string) => `Search again for ${text}`,
@@ -129,7 +141,7 @@ export const CARD_PAGE_COPY = {
 /** Search › Binders (screen 14). */
 export const BINDERS_COPY = {
   fieldLabel: 'Deck, binder or collector',
-  placeholder: 'Deck, binder or collector, like Yubel',
+  placeholder: (game: string) => withExample(game, 'Deck, binder or collector', ', like Yubel'),
   /** The state chip: what it says to a screen reader. */
   stateChip: (state: string) => `Showing ${state}. Show the whole region`,
   pickOnMap: 'Pick on the map',

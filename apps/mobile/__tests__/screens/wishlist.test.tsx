@@ -121,6 +121,24 @@ describe('Search › Wishlist (screen 15)', () => {
       /Add the Pokémon cards you are looking for/
     );
     expect(screen.getByRole('tab', { name: 'Wishlist, 0' })).toBeSelected();
+    // "Switch game" opens "Choose a game" (review fix 1, U4); the other game's wish shows.
+    fireEvent.press(screen.getByRole('button', { name: 'Switch game' }));
+    expect(await screen.findByText('Choose a game')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
+    expect(await screen.findByTestId(`wish-${WISH_ID}`)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Switch game' })).toBeNull();
+  });
+
+  it('has no Switch game while the collector has no wish at all', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/wishlist': ok([]),
+        'GET /api/v1/wishlist/availability': ok(wishlistAvailabilityFixture([])),
+      })
+    );
+    renderWishlist();
+    expect(await screen.findByTestId('wishlist-empty')).toHaveTextContent(/No wishes yet/);
+    expect(screen.queryByRole('button', { name: 'Switch game' })).toBeNull();
   });
 
   it('lists the wishes with their terms, Available or None yet, and no count', async () => {
@@ -160,7 +178,11 @@ describe('Search › Wishlist (screen 15)', () => {
       params: { id: 'wish-rarity' },
     });
     fireEvent.press(screen.getByRole('button', { name: 'Add a wish' }));
-    expect(mockRouter.push).toHaveBeenCalledWith('/wishlist/new');
+    // The card search offers the browsed game's cards (review fix 1, U1).
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/new',
+      params: { game: 'yugioh' },
+    });
   });
 
   it('turns the wishlist alerts on and off (the setting of Settings › Notifications)', async () => {
@@ -395,6 +417,44 @@ describe('Add and edit a wish', () => {
     // Another card can be chosen.
     fireEvent.press(screen.getByTestId('wish-change-card'));
     expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
+  });
+
+  it('offers the browsed game’s cards only when it opens from Search › Wishlist (review fix 1, U1)', async () => {
+    const api = mockApi(
+      routes({
+        'GET /api/v1/cards/suggest': ok([
+          {
+            kind: 'CARD',
+            id: CARD_ID,
+            name: 'Emberfang Fox VMAX',
+            game: 'pokemon',
+            imageUrl: null,
+          },
+        ]),
+      })
+    );
+    mockParams.current = { game: 'pokemon' };
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    expect(await screen.findByLabelText('Pokémon card name or printing code')).toBeOnTheScreen();
+    expect(screen.getByTestId('card-picker-hint')).toHaveTextContent(
+      'Type at least two letters of the name, or a printing code.'
+    );
+    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
+    expect(await screen.findByTestId('card-picker-results')).toBeOnTheScreen();
+    const asked = api.callsTo('GET /api/v1/cards/suggest');
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.map((call) => call.query.get('game'))).toEqual(asked.map(() => 'pokemon'));
+  });
+
+  it('offers every game when it opens without a game (a link, the old Wishlist tab)', async () => {
+    const api = mockApi(routes({ 'GET /api/v1/cards/suggest': ok([]) }));
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    expect(await screen.findByLabelText('Card name or printing code')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
+    expect(await screen.findByTestId('card-picker-empty')).toHaveTextContent(
+      'No cards match “ember”.'
+    );
+    expect(api.callsTo('GET /api/v1/cards/suggest').at(-1)?.query.get('game')).toBeNull();
   });
 
   it('starts on any printing for a typed code that two printings share (never a silent pick)', async () => {

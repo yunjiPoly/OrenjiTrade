@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { isApiError, type ApiError } from '@/src/api/ApiError';
 import { useCard } from '@/src/api/hooks/catalog';
+import { useGames } from '@/src/api/hooks/profile';
 import {
   useCreateWish,
   useDeleteWish,
@@ -19,7 +20,9 @@ import { FormMessage } from '@/src/components/ui/FormControls';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
+import { isGameSlug } from '@/src/features/games/browsingGame';
 import { CardPicker } from '@/src/features/inventory/CardPicker';
+import { gameName } from '@/src/features/search/searchCopy';
 import { printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
@@ -44,6 +47,11 @@ export type WishEditorProps =
       cardId?: string | null;
       printingId?: string | null;
       rarity?: string | null;
+      /**
+       * The card search offers this game's cards only (a slug: Search › Wishlist's browsed game,
+       * stage G, review fix 1, U1); every game without it (a card page names its card).
+       */
+      game?: string | null;
     }
   | { mode: 'edit'; item: WishlistItemResponse };
 
@@ -63,6 +71,14 @@ export function WishEditor(props: WishEditorProps) {
   const snackbar = useSnackbar();
   const editing = props.mode === 'edit';
   const editItem = props.mode === 'edit' ? props.item : null;
+  const games = useGames().data;
+  const gameSlug = props.mode === 'create' && isGameSlug(props.game) ? props.game : null;
+  const pickerGame = gameSlug
+    ? {
+        slug: gameSlug,
+        name: gameName(gameSlug, games?.find((game) => game.slug === gameSlug)?.shortName),
+      }
+    : null;
   const [cardId, setCardId] = useState<string | null>(
     props.mode === 'edit' ? (props.item.card?.id ?? null) : (props.cardId ?? null)
   );
@@ -191,7 +207,7 @@ export function WishEditor(props: WishEditorProps) {
           Which card are you looking for? We&apos;ll tell you when a collector of your region lists
           it.
         </Text>
-        <CardPicker onPick={pick} />
+        <CardPicker onPick={pick} game={pickerGame} />
       </View>
     );
   }

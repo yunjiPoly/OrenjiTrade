@@ -16,10 +16,11 @@ export interface GameSheetProps {
  * tile, its name and "{n} of your cards" (or "None of your cards yet"), a radio; a game whose
  * catalogue holds no card yet is dimmed with "Cards coming soon" and cannot be picked. Picking a
  * game closes the sheet and Home and Search show that game; nothing else to confirm. The footnote
- * says what stays on every game.
+ * says what stays on every game. While `GET /games` loads, skeleton rows; when it fails, "The
+ * games could not load" with "Try again" (review fix 1, U5).
  */
 export function GameSheet({ visible, onClose, testID = 'game-sheet' }: GameSheetProps) {
-  const { game, options, select } = useBrowsingGame();
+  const { game, options, select, gamesLoading, gamesError, retryGames } = useBrowsingGame();
   const byGame = useInventorySummary().data?.byGame ?? {};
   return (
     <RadioSheet
@@ -32,6 +33,10 @@ export function GameSheet({ visible, onClose, testID = 'game-sheet' }: GameSheet
       value={game}
       onPick={select}
       testID={testID}
+      loading={gamesLoading}
+      error={
+        gamesError ? { title: GAME_COPY.loadError, cause: gamesError, onRetry: retryGames } : null
+      }
       options={options.map((option) => ({
         value: option.slug,
         label: option.name,

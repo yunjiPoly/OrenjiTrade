@@ -14,4 +14,8 @@ export const GAME_COPY = {
   comingSoon: 'Cards coming soon',
   footnote:
     'Your inventory keeps every game, with binders grouped by game. Chats and the bell show every game.',
+  /** The games list could not load (review fix 1, U5): the sheet's error, with "Try again". */
+  loadError: 'The games could not load',
+  /** The empty states of a game in Search (review fix 1, U4): opens "Choose a game". */
+  switchGame: 'Switch game',
 } as const;

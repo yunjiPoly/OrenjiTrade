@@ -120,8 +120,9 @@ export function gameOptions(games: readonly GameResponse[] | undefined): GameOpt
 
 /**
  * The game to browse (see the order at the top of this file). Without the games list (not read
- * yet, or offline), a pick, the remembered game, the first profile game and Yu-Gi-Oh! are taken
- * as they are: the server answers for them.
+ * yet, or it failed), a pick or the remembered game is taken as it is (the collector chose it, so
+ * it could be browsed then), else Yu-Gi-Oh!: a profile game may have no cards yet (One Piece), so
+ * the profile waits for the list's `hasCards` (review fix 1, F9).
  */
 export function resolveBrowsingGame(input: {
   picked: string | null;
@@ -139,7 +140,8 @@ export function resolveBrowsingGame(input: {
   if (can(input.stored)) {
     return input.stored;
   }
-  const fromProfile = input.profileGames.find((slug) => can(slug));
+  const fromProfile =
+    input.options === null ? undefined : input.profileGames.find((slug) => can(slug));
   if (fromProfile) {
     return fromProfile;
   }
@@ -163,6 +165,12 @@ export interface BrowsingGame {
   ready: boolean;
   /** Browses another game; a game that cannot be browsed is ignored. */
   select: (game: string) => void;
+  /** `GET /games` has not answered yet (the sheet shows skeleton rows meanwhile). */
+  gamesLoading: boolean;
+  /** `GET /games` failed and there is no list to show (the sheet shows "Try again"). */
+  gamesError: unknown;
+  /** Asks `GET /games` again. */
+  retryGames: () => void;
 }
 
 const EMPTY_GAMES: readonly string[] = [];
@@ -210,11 +218,16 @@ export function useBrowsingGame(): BrowsingGame {
   const gamesSettled = !!gamesQuery.data || gamesQuery.isError;
   const profileSettled = !authenticated || !!profile.data || profile.isError;
   const memorySettled = !uid || picked !== null || stored !== undefined;
+  const refetchGames = gamesQuery.refetch;
+  const retryGames = useCallback(() => void refetchGames(), [refetchGames]);
   return {
     game,
     current,
     options: list,
     ready: gamesSettled && profileSettled && memorySettled,
     select,
+    gamesLoading: !gamesQuery.data && !gamesQuery.isError,
+    gamesError: gamesQuery.data ? null : (gamesQuery.error ?? null),
+    retryGames,
   };
 }

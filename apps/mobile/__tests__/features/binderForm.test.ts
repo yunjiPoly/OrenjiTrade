@@ -152,10 +152,13 @@ describe('Edit binder form (screen 18)', () => {
   });
 
   it('creates a plain binder without price or note, a deck core with them', () => {
-    expect(toCreateBinderBody({ ...binderFormOf(null), name: ' Trades ', note: 'x' })).toEqual({
+    expect(
+      toCreateBinderBody({ ...binderFormOf(null), name: ' Trades ', note: 'x' }, 'game-yugioh')
+    ).toEqual({
       name: 'Trades',
       visibility: 'PRIVATE',
       sellsAsCore: false,
+      gameId: 'game-yugioh',
     });
     expect(
       toCreateBinderBody(

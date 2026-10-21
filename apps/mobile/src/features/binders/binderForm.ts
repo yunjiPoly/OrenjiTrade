@@ -164,18 +164,15 @@ export function hasBinderErrors(errors: BinderFormErrors): boolean {
  * `POST /binders` of New binder, with the id of the binder's game (stage G; `GET /games`). A plain
  * binder sends no price and no note (the phone shows them for a deck core only).
  */
-export function toCreateBinderBody(
-  form: BinderFormValue,
-  gameId?: string | null
-): CreateBinderRequest {
+export function toCreateBinderBody(form: BinderFormValue, gameId: string): CreateBinderRequest {
+  // The phone always names the binder's game (review fix 1, P3): a binder made without one takes
+  // any game (the paused web's).
   const body: CreateBinderRequest = {
     name: form.name.trim(),
     visibility: form.visibility,
     sellsAsCore: form.sellsAsCore,
+    gameId,
   };
-  if (gameId) {
-    body.gameId = gameId;
-  }
   if (form.sellsAsCore) {
     const price = form.price.trim();
     if (price) {

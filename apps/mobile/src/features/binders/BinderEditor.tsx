@@ -390,8 +390,16 @@ function BinderEditor({
   };
 
   const gameIdOf = (slug: string) => games?.find((entry) => entry.slug === slug)?.id ?? null;
-  // A binder's game stays once it holds a card, or once cards were picked for it (stage G).
-  const gameLocked = (binder?.itemCount ?? 0) > 0 || added.size > 0;
+  // A binder's game stays once it holds a card, or once cards were picked for it (stage G), and
+  // while a card that left it can still come back with Undo (the API's `gameLocked`, review fix
+  // 1, U2: the binder shows 0 cards then).
+  const cardsLock = (binder?.itemCount ?? 0) > 0 || added.size > 0;
+  const lockedByUndo = !cardsLock && binder?.gameLocked === true;
+  const gameLocked = cardsLock || lockedByUndo;
+  // New binder saves only with a game the API knows (review fix 1, P3): without `GET /games` the
+  // create would go without `gameId`, and the API would make a binder that takes any game.
+  const newGameId = binder ? null : gameIdOf(form.game);
+  const waitsForGames = !binder && newGameId === null;
   const gameName = binderGameName(gameOptions, form.game);
 
   const save = async () => {
@@ -402,16 +410,25 @@ function BinderEditor({
       setMessage(EDIT_BINDER_COPY.checkFields);
       return;
     }
+    const createBody = newGameId ? toCreateBinderBody(form, newGameId) : null;
+    if (!binder && !createBody) {
+      setMessage(EDIT_BINDER_COPY.gamesWait);
+      return;
+    }
     setMessage(null);
     setSaving(true);
     let saved: BinderResponse;
     try {
-      saved = binder
-        ? await update.mutateAsync({
-            id: binder.id,
-            patch: toBinderPatch(form, binder, Date.now(), gameIdOf(form.game)),
-          })
-        : await create.mutateAsync(toCreateBinderBody(form, gameIdOf(form.game)));
+      if (binder) {
+        saved = await update.mutateAsync({
+          id: binder.id,
+          patch: toBinderPatch(form, binder, Date.now(), gameIdOf(form.game)),
+        });
+      } else if (createBody) {
+        saved = await create.mutateAsync(createBody);
+      } else {
+        return;
+      }
     } catch (error) {
       const apiError = error as ApiError;
       setFailure(apiError);
@@ -556,7 +573,7 @@ function BinderEditor({
             : EDIT_BINDER_COPY.create
         }
         loadingLabel={binder ? EDIT_BINDER_COPY.saving : EDIT_BINDER_COPY.creating}
-        disabled={!dirty}
+        disabled={!dirty || waitsForGames}
         loading={saving}
         onPress={() => void save()}
         maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
@@ -649,6 +666,7 @@ function BinderEditor({
               value={form.game}
               onChange={(next) => change({ game: next })}
               locked={gameLocked}
+              lockedByUndo={lockedByUndo}
               disabled={busy}
             />
           </View>
@@ -662,9 +680,20 @@ function BinderEditor({
             }}
             locked={gameLocked}
             disabled={busy}
+            loading={browsing.gamesLoading}
+            error={browsing.gamesError}
+            onRetry={browsing.retryGames}
           />
         )}
       </View>
+      {lockedByUndo ? (
+        <Text
+          style={[textStyle('xs'), { color: palette.textMuted }]}
+          testID="binder-game-undo-note"
+        >
+          {EDIT_BINDER_COPY.gameLockedUndo}
+        </Text>
+      ) : null}
 
       <View style={styles.field}>
         <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import type { BinderResponse, GameResponse } from '@/src/api/types';
@@ -23,7 +23,7 @@ import {
   profileFixture,
   summaryFixture,
 } from '../support/fixtures';
-import { mockApi, ok } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { renderWithProviders, resetAppState } from '../test-utils';
 
@@ -88,6 +88,11 @@ describe('which game Home and Search browse (pure)', () => {
     );
     // Without the games list (not read yet, offline) the server answers for the choice.
     expect(resolveBrowsingGame({ ...base, stored: 'mtg', options: null })).toBe('mtg');
+    // A profile game may have no cards yet: it waits for the list (review fix 1, F9).
+    expect(
+      resolveBrowsingGame({ ...base, profileGames: ['onepiece', 'pokemon'], options: null })
+    ).toBe('yugioh');
+    expect(resolveBrowsingGame({ ...base, picked: 'pokemon', options: null })).toBe('pokemon');
   });
 
   it('marks the games that can be browsed: ACTIVE with cards', () => {
@@ -156,6 +161,42 @@ describe('the browsed game on the phone', () => {
     mockApi(routes(['pokemon']));
     renderWithProviders(<Probe />, { port: new FakeAuthPort(testUser({ uid: 'uid-maika' })) });
     await waitFor(() => expect(probe()).toHaveTextContent('mtg|ready'));
+  });
+});
+
+describe('without the games list (review fix 1, F9 and U5)', () => {
+  it('browses Yu-Gi-Oh!, not a profile game that may have no cards', async () => {
+    mockApi(routes(['onepiece', 'pokemon'], { 'GET /api/v1/games': problem(503, 'DOWN', 'Down') }));
+    renderWithProviders(<Probe />, { port: new FakeAuthPort(testUser({ uid: 'uid-maika' })) });
+    await waitFor(() => expect(probe()).toHaveTextContent('yugioh|ready'));
+  });
+
+  it('"Choose a game" shows skeleton rows while the games load, then "Try again" when they fail', async () => {
+    let answer: (value: MockAnswer) => void = () => undefined;
+    const api = mockApi(
+      routes(['yugioh'], {
+        'GET /api/v1/games': [
+          () => new Promise<MockAnswer>((resolve) => (answer = resolve)),
+          ok(FIVE_GAMES),
+        ],
+      })
+    );
+    renderWithProviders(<GamePill testID="pill" />, {
+      port: new FakeAuthPort(testUser({ uid: 'uid-maika' })),
+    });
+    fireEvent.press(screen.getByRole('button', { name: /^Game: .*\. Change game$/ }));
+    expect(await screen.findByTestId('pill-sheet-loading')).toBeOnTheScreen();
+    expect(screen.queryByRole('radio')).toBeNull();
+
+    answer(problem(503, 'DOWN', 'Down'));
+    expect(await screen.findByTestId('pill-sheet-error')).toHaveTextContent(
+      /The games could not load/
+    );
+    expect(screen.queryByTestId('pill-sheet-loading')).toBeNull();
+    fireEvent.press(within(screen.getByTestId('pill-sheet-error')).getByText('Try again'));
+    expect(await screen.findByRole('radio', { name: 'Pokémon' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('pill-sheet-error')).toBeNull();
+    expect(api.callsTo('GET /api/v1/games')).toHaveLength(2);
   });
 });
 

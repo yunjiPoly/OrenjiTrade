@@ -125,6 +125,17 @@ export const EDIT_BINDER_COPY = {
   /** What a screen reader says for a binder's game that can no longer change. */
   gameLocked: (game: string) => `Game: ${game}. It can't change once the binder has cards`,
   gameChange: (game: string) => `Game: ${game}. Change game`,
+  /**
+   * The binder holds no card, but one that left it (deleted, or sold) can still come back with
+   * Undo: the game waits (review fix 1, U2; the API's `gameLocked`).
+   */
+  gameLockedUndo:
+    'A card that left this binder in the last 10 minutes can still come back with Undo. You can change the game after that.',
+  gameLockedUndoLabel: (game: string) =>
+    `Game: ${game}. It can't change while a card that left the binder can still come back with Undo`,
+  /** New binder before the games list answered (review fix 1, P3): Save waits for it. */
+  gamesLoadError: 'The games could not load',
+  gamesWait: 'Choose the binder’s game first.',
   gameSheetTitle: 'Choose the binder’s game',
   /** Only the binder's game in the card picker (stage G). */
   pickerGameHint: (game: string) =>

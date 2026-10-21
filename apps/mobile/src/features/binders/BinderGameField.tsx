@@ -2,7 +2,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { RadioSheet } from '@/src/components/ui/RadioSheet';
+import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import type { GameOption } from '@/src/features/games/browsingGame';
 import { GameTile } from '@/src/features/games/GameTile';
@@ -28,7 +30,8 @@ export function binderGameName(options: readonly GameOption[], slug: string): st
  * card per game, two by two, with its 34 pt tile and its name; a game without cards is dimmed
  * with "Cards coming soon" and cannot be picked; the chosen one has an orange border and a check.
  * The hint says a binder holds one game. `locked`: cards were already picked for the binder, so
- * its game stays.
+ * its game stays. Before `GET /games` answers, skeleton cards; when it fails, "The games could
+ * not load" with "Try again" (review fix 1, P3: New binder saves only with a game).
  */
 export function BinderGameGrid({
   options,
@@ -36,12 +39,18 @@ export function BinderGameGrid({
   onChange,
   locked = false,
   disabled = false,
+  loading = false,
+  error = null,
+  onRetry,
 }: {
   options: readonly GameOption[];
   value: string;
   onChange: (game: string) => void;
   locked?: boolean;
   disabled?: boolean;
+  loading?: boolean;
+  error?: unknown;
+  onRetry?: () => void;
 }) {
   const { palette } = useTheme();
   // One game per row at the larger text sizes: two by two, the names broke in mid-word.
@@ -51,6 +60,27 @@ export function BinderGameGrid({
       <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>
         {EDIT_BINDER_COPY.game}
       </Text>
+      {options.length === 0 && error ? (
+        <ErrorState
+          compact
+          error={error}
+          title={EDIT_BINDER_COPY.gamesLoadError}
+          onRetry={onRetry}
+          testID="binder-game-error"
+        />
+      ) : null}
+      {options.length === 0 && !error && loading ? (
+        <View style={styles.grid} testID="binder-game-loading" accessibilityLabel="Loading">
+          {[0, 1, 2, 3].map((index) => (
+            <Skeleton
+              key={index}
+              height={58}
+              radius={14}
+              style={[styles.choice, stacked && styles.choiceFull]}
+            />
+          ))}
+        </View>
+      ) : null}
       <View accessibilityRole="radiogroup" style={styles.grid} testID="binder-game">
         {options.map((option) => {
           const on = option.slug === value;
@@ -124,19 +154,22 @@ export function BinderGameGrid({
  * Edit binder's "Game" beside the name (stage G, mockup screen 18): the binder's game with its
  * 22 pt tile. Once the binder holds cards it is read-only with a lock, spoken "Game: {name}. It
  * can't change once the binder has cards"; an empty binder's game opens the games that can hold
- * binders.
+ * binders. `lockedByUndo`: the binder holds no card, but one that left it can still come back
+ * with Undo (the API's `gameLocked`): locked too, with a line that says why (review fix 1, U2).
  */
 export function BinderGameField({
   options,
   value,
   onChange,
   locked,
+  lockedByUndo = false,
   disabled = false,
 }: {
   options: readonly GameOption[];
   value: string;
   onChange: (game: string) => void;
   locked: boolean;
+  lockedByUndo?: boolean;
   disabled?: boolean;
 }) {
   const { palette } = useTheme();
@@ -168,7 +201,11 @@ export function BinderGameField({
         <View
           accessible
           accessibilityRole="text"
-          accessibilityLabel={EDIT_BINDER_COPY.gameLocked(name)}
+          accessibilityLabel={
+            lockedByUndo
+              ? EDIT_BINDER_COPY.gameLockedUndoLabel(name)
+              : EDIT_BINDER_COPY.gameLocked(name)
+          }
           style={[
             styles.box,
             { borderColor: palette.border, backgroundColor: palette.surfaceVariant },

@@ -260,6 +260,26 @@ describe('Search: the map (screen 11)', () => {
     expect(mockRouter.setParams).toHaveBeenCalled();
   });
 
+  it('counts the browsed game’s binders, asks again for another game, and shows its own field (stage G)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binder-counts': ok(binderCountsFixture()),
+      })
+    );
+    render();
+    const counts = () => api.callsTo('GET /api/v1/regions/{region}/binder-counts');
+    await waitFor(() => expect(counts().at(-1)?.query.get('game')).toBe('yugioh'));
+    // Never the counts of every game (review fix 1, F5).
+    expect(counts().map((call) => call.query.get('game'))).not.toContain(null);
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pokémon' }));
+    await waitFor(() => expect(counts().at(-1)?.query.get('game')).toBe('pokemon'));
+    expect(counts().map((call) => call.query.get('game'))).not.toContain(null);
+    // A Yu-Gi-Oh! code is no example for another game (review fix 1, U3).
+    expect(await screen.findByRole('search', { name: 'Card name or code' })).toBeOnTheScreen();
+    expect(screen.queryByText(/LOB-EN001/)).toBeNull();
+  });
+
   it('explains when the counts could not load, with Try again', async () => {
     mockApi(
       signedInRoutes({
@@ -391,6 +411,20 @@ describe('Search: typing a card (screen 12)', () => {
     fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
     expect(await screen.findByTestId('search-no-match')).toHaveTextContent(
       'No Yu-Gi-Oh! card matches “zzzz”Try fewer letters, or the code printed on the card, like LAVD-EN008.'
+    );
+  });
+
+  it('gives no Yu-Gi-Oh! example when another game has no match (review fix 1, U3)', async () => {
+    useBrowsingGameStore.setState({
+      picked: { 'uid-maika': 'pokemon' },
+      stored: { 'uid-maika': 'pokemon' },
+    });
+    mockApi(typingRoutes());
+    render();
+    fireEvent.press(await screen.findByRole('search', { name: 'Card name or code' }));
+    fireEvent.changeText(screen.getByTestId('search-input'), 'zzzz');
+    expect(await screen.findByTestId('search-no-match')).toHaveTextContent(
+      'No Pokémon card matches “zzzz”Try fewer letters, or the code printed on the card.'
     );
   });
 
@@ -566,5 +600,42 @@ describe('Search › Binders (screen 14)', () => {
       expect(api.callsTo('GET /api/v1/regions/{region}/binders')).not.toEqual([])
     );
     expect(screen.queryByTestId('binders-state-chip')).toBeNull();
+  });
+
+  it('asks for the browsed game’s binders, and an empty game offers Switch game (stage G)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/regions/{region}/binders': (request) =>
+          ok(
+            placeBindersPage(request.query.get('game') === 'yugioh' ? [searchBinderFixture()] : [])
+          ),
+      })
+    );
+    mockParams.current = { segment: 'binders' };
+    render();
+    expect(await screen.findByText(/collector2 · Ontario · 14 cards/)).toBeOnTheScreen();
+    const lists = () => api.callsTo('GET /api/v1/regions/{region}/binders');
+    expect(lists().map((call) => call.query.get('game'))).toEqual(lists().map(() => 'yugioh'));
+    expect(screen.getByTestId('binders-input')).toHaveProp(
+      'placeholder',
+      'Deck, binder or collector, like Yubel'
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Game: Yu-Gi-Oh!. Change game' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Pokémon' }));
+    expect(await screen.findByTestId('binders-empty')).toHaveTextContent(
+      'No public Pokémon binders here yet.'
+    );
+    expect(lists().at(-1)?.query.get('game')).toBe('pokemon');
+    expect(screen.getByTestId('binders-input')).toHaveProp(
+      'placeholder',
+      'Deck, binder or collector'
+    );
+    // "Switch game" opens "Choose a game" (review fix 1, U4).
+    fireEvent.press(screen.getByRole('button', { name: 'Switch game' }));
+    expect(await screen.findByText('Choose a game')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('radio', { name: 'Yu-Gi-Oh!' }));
+    expect(await screen.findByText(/collector2 · Ontario · 14 cards/)).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Switch game' })).toBeNull();
   });
 });

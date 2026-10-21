@@ -15,6 +15,7 @@ import {
   BINDER_ID,
   BINDER_PHOTO,
   conversationFixture,
+  GAMES,
   deckCoreFixture,
   inventoryPage,
   ITEM_ID,
@@ -599,6 +600,28 @@ describe('Edit binder (screen 18)', () => {
     });
   });
 
+  it('keeps the game while a card that left the binder can still come back (review fix 1, U2)', async () => {
+    const empty = binderFixture({ itemCount: 0, gameLocked: true });
+    mockApi(editRoutes(empty, { 'GET /api/v1/binders/{id}/items': ok(inventoryPage([])) }));
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    const locked = await screen.findByTestId('binder-game-locked');
+    expect(locked.props.accessibilityLabel).toBe(
+      "Game: Pokémon. It can't change while a card that left the binder can still come back with Undo"
+    );
+    expect(screen.getByTestId('binder-game-undo-note')).toHaveTextContent(
+      'A card that left this binder in the last 10 minutes can still come back with Undo. You can change the game after that.'
+    );
+    expect(screen.queryByTestId('binder-game-change')).toBeNull();
+  });
+
+  it('lets an empty binder change its game once nothing can come back', async () => {
+    const empty = binderFixture({ itemCount: 0, gameLocked: false });
+    mockApi(editRoutes(empty, { 'GET /api/v1/binders/{id}/items': ok(inventoryPage([])) }));
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    expect(await screen.findByTestId('binder-game-change')).toBeOnTheScreen();
+    expect(screen.queryByTestId('binder-game-undo-note')).toBeNull();
+  });
+
   it('explains a missing binder, a load error and a save error', async () => {
     const api = mockApi(
       editRoutes(binderFixture(), {
@@ -644,6 +667,8 @@ describe('New binder', () => {
     expect(screen.getByTestId('binder-cards-hint')).toHaveTextContent(
       'No cards in this binder yet.'
     );
+    // The browsed game (the profile's Pokémon) once the games answered.
+    expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
     fireEvent.changeText(screen.getByTestId('binder-name'), '  Holos ');
     fireEvent.press(screen.getByTestId('edit-binder-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
@@ -651,6 +676,7 @@ describe('New binder', () => {
       name: 'Holos',
       visibility: 'PRIVATE',
       sellsAsCore: false,
+      gameId: 'g1',
     });
     expect(await screen.findByText('Saved')).toBeOnTheScreen();
   });
@@ -720,6 +746,32 @@ describe('New binder', () => {
     expect(useBinderUiStore.getState().failedPhotos['b-new']).toHaveLength(1);
   });
 
+  it('saves only with the binder’s game: without the games list, “Try again” (review fix 1, P3)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/games': [problem(503, 'UNAVAILABLE', 'Down'), ok(GAMES)],
+        'POST /api/v1/binders': ok(binderFixture({ id: 'b-new', name: 'Holos' }), 201),
+      })
+    );
+    renderWithProviders(<NewBinderScreen />, { port: port() });
+    fireEvent.changeText(screen.getByTestId('binder-name'), 'Holos');
+    expect(await screen.findByTestId('binder-game-error')).toHaveTextContent(
+      /The games could not load/
+    );
+    // Never a binder without its game: the API would make one that takes any game.
+    expect(screen.getByTestId('edit-binder-save')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    expect(api.callsTo('POST /api/v1/binders')).toHaveLength(0);
+
+    fireEvent.press(within(screen.getByTestId('binder-game-error')).getByText('Try again'));
+    expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
+    expect(screen.queryByTestId('binder-game-error')).toBeNull();
+    fireEvent.press(screen.getByTestId('edit-binder-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/binders')).toHaveLength(1);
+    expect((api.callsTo('POST /api/v1/binders')[0]?.body as { gameId?: string }).gameId).toBe('g1');
+  });
+
   it('explains the binders limit plainly', async () => {
     mockApi(
       signedInRoutes({
@@ -731,6 +783,7 @@ describe('New binder', () => {
       })
     );
     renderWithProviders(<NewBinderScreen />, { port: port() });
+    await screen.findByTestId('binder-game-pokemon');
     fireEvent.changeText(screen.getByTestId('binder-name'), 'Sixth');
     fireEvent.press(screen.getByTestId('edit-binder-save'));
     expect(

@@ -159,7 +159,7 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
           {TYPING_COPY.noMatch(gameName, query)}
         </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {TYPING_COPY.noMatchHint}
+          {TYPING_COPY.noMatchHint(game)}
         </Text>
       </View>
     );

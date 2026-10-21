@@ -12,6 +12,8 @@ import {
 } from '@/src/theme';
 
 import { BottomSheet } from './BottomSheet';
+import { ErrorState } from './ErrorState';
+import { SkeletonList } from './Skeleton';
 
 export interface RadioSheetOption {
   value: string;
@@ -47,6 +49,13 @@ export interface RadioSheetProps {
   testID?: string;
   /** Each row is `<optionTestID>-<value>`; `<testID>-option` by default. */
   optionTestID?: string;
+  /** The choices are still loading: skeleton rows (`<testID>-loading`) while there are none. */
+  loading?: boolean;
+  /**
+   * The choices could not load: with no row to show, an error with "Try again"
+   * (`<testID>-error`) in their place (review fix 1 of stage G, U5).
+   */
+  error?: { title: string; cause?: unknown; onRetry: () => void } | null;
 }
 
 /**
@@ -67,6 +76,8 @@ export function RadioSheet({
   footnote,
   testID = 'radio-sheet',
   optionTestID,
+  loading = false,
+  error = null,
 }: RadioSheetProps) {
   const rowTestID = optionTestID ?? `${testID}-option`;
   const { palette } = useTheme();
@@ -93,6 +104,18 @@ export function RadioSheet({
             <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{description}</Text>
           ) : null}
         </View>
+        {options.length === 0 && error ? (
+          <ErrorState
+            compact
+            error={error.cause}
+            title={error.title}
+            onRetry={error.onRetry}
+            testID={`${testID}-error`}
+          />
+        ) : null}
+        {options.length === 0 && !error && loading ? (
+          <SkeletonList rows={4} rowHeight={52} testID={`${testID}-loading`} />
+        ) : null}
         <View accessibilityRole="radiogroup" accessibilityLabel={groupLabel}>
           {options.map((option) => {
             const selected = option.value === value;

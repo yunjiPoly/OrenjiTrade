@@ -22,6 +22,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
+import { SwitchGameButton } from '@/src/features/games/SwitchGameButton';
 import {
   AlertReadinessNotice,
   alertReadiness,
@@ -86,7 +87,9 @@ export function WishlistSegment() {
     }
   };
   const alertsOn = !!settings.data?.wishlistAlerts;
-  const add = () => router.push('/wishlist/new');
+  // The card search offers the browsed game's cards only (review fix 1, U1): a wish of another
+  // game would not show in this list.
+  const add = () => router.push({ pathname: '/wishlist/new', params: { game: browsing.game } });
 
   const alertsSwitch = (
     <Switch
@@ -174,7 +177,9 @@ export function WishlistSegment() {
         description={
           otherGames ? WISHLIST_COPY.emptyGameHint(browsing.current.name) : WISHLIST_COPY.emptyHint
         }
-      />
+      >
+        {otherGames ? <SwitchGameButton testID="wishlist-switch-game" /> : null}
+      </EmptyState>
     );
   }
 

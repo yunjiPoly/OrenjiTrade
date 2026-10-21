@@ -116,7 +116,7 @@ export function SearchMap({ onType, onSeeBinders, linkedPlace }: SearchMapProps)
       style={styles.field}
       testID="search-field-frame"
     >
-      <SearchFieldButton onPress={onType} />
+      <SearchFieldButton label={MAP_COPY.field(browsing.game)} onPress={onType} />
       <RegionAwayNote testID="search-region-away" />
     </View>
   );
