@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter, useScrollToTop } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { create } from 'zustand';
 
 import { FEED_STALE_MS, useHomeFeed, usePublicCardCount } from '@/src/api/hooks/feed';
 import { useMyLocation } from '@/src/api/hooks/location';
@@ -37,6 +36,7 @@ import {
   isComplete,
   useGetStartedStore,
 } from './getStarted';
+import { useHomeChip } from './homeChip';
 import { HOME_COPY } from './homeCopy';
 import {
   ChipEmpty,
@@ -49,12 +49,6 @@ import {
   QuietBox,
 } from './HomeParts';
 import { FeedPostCard, type PostActions } from './HomePosts';
-
-/**
- * The chip of Home: kept while the app runs, back to All when it restarts (default 3 of the
- * prompt's section 8).
- */
-export const useHomeChip = create<{ kind: FeedFilter }>()(() => ({ kind: 'ALL' }));
 
 type Item =
   | { type: 'top'; key: 'top' }
@@ -340,6 +334,7 @@ export function HomeScreen() {
           }
         }}
         onEndReachedThreshold={0.5}
+        initialNumToRender={12}
         ListFooterComponent={
           loaded && posts.length > 0 ? (
             <View style={styles.body}>

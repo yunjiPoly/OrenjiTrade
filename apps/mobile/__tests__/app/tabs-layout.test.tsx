@@ -2,7 +2,7 @@ import { Slot, Stack } from 'expo-router';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import TabLayout from '@/app/(tabs)/_layout';
-import MapRedirect from '@/app/(tabs)/index';
+import HomeRoute from '@/app/(tabs)/index';
 import InventoryScreen from '@/app/(tabs)/inventory';
 import MessagesScreen from '@/app/(tabs)/messages';
 import ProfileScreen from '@/app/(tabs)/profile';
@@ -52,7 +52,7 @@ function TestRootStack() {
 const routes = {
   _layout: TestRootLayout,
   '(tabs)/_layout': TabLayout,
-  '(tabs)/index': MapRedirect,
+  '(tabs)/index': HomeRoute,
   '(tabs)/inventory': InventoryScreen,
   '(tabs)/search': SearchScreen,
   '(tabs)/messages': MessagesScreen,
@@ -66,16 +66,23 @@ describe('(tabs) layout', () => {
     mockApi(signedInRoutes(PROFILE_ROUTES));
   });
 
-  it('declares the four product tabs of stage R5 in order (Home comes with R7)', () => {
-    expect(TABS.map((tab) => tab.title)).toEqual(['Search', 'Inventory', 'Messages', 'Profile']);
-    // The old Map and Wishlist tabs are routes that redirect into Search, not tabs.
-    expect(HIDDEN_TAB_ROUTES).toEqual(['index', 'wishlist']);
+  it('declares the five product tabs of stage R7 in order', () => {
+    expect(TABS.map((tab) => tab.title)).toEqual([
+      'Home',
+      'Search',
+      'Inventory',
+      'Messages',
+      'Profile',
+    ]);
+    expect(TABS[0]?.name).toBe('index');
+    // The old Wishlist tab is a route that redirects into Search, not a tab.
+    expect(HIDDEN_TAB_ROUTES).toEqual(['wishlist']);
   });
 
-  it('opens on Search, with the map, and shows exactly the four tab buttons', async () => {
+  it('opens on Home and shows exactly the five tab buttons', async () => {
     renderRouter(routes, { initialUrl: '/' });
 
-    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
+    expect(await screen.findByTestId('screen-home')).toBeOnTheScreen();
     for (const tab of TABS) {
       expect(screen.getByLabelText(`${tab.title} tab`)).toBeOnTheScreen();
       // Stable ids for the native Maestro flows.
@@ -83,10 +90,18 @@ describe('(tabs) layout', () => {
     }
     expect(screen.queryByLabelText('Map tab')).toBeNull();
     expect(screen.queryByLabelText('Wishlist tab')).toBeNull();
-    // Search draws its own title with the bell, and the map is its default view (ADR 0017).
-    expect(screen.getByTestId('search-title')).toHaveTextContent('Search');
-    expect(await screen.findByTestId('notification-bell-search')).toBeOnTheScreen();
+    // Home draws its own top row: the region and game pills, the bell.
+    expect(await screen.findByTestId('notification-bell-home')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-region')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-game')).toBeOnTheScreen();
+    expect(screen.getByTestId('home-search-field')).toBeOnTheScreen();
+  });
+
+  it("sends the old Map tab links to Search's map on their state", async () => {
+    renderRouter(routes, { initialUrl: '/?region=americas-north&subdivision=CA-QC' });
+    expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();
     expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
+    expect(screen.queryByTestId('screen-home')).toBeNull();
   });
 
   it('sends the old Wishlist tab to the Wishlist segment of Search', async () => {
@@ -127,16 +142,16 @@ describe('(tabs) layout', () => {
       })
     );
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-search');
+    await screen.findByTestId('screen-home');
     // Unread chats, not messages (spec section 4), muted ones left out.
     expect(await screen.findByLabelText('Messages tab, 2 unread chats')).toBeOnTheScreen();
     expect(await screen.findByLabelText('Notifications, 5 unread')).toBeOnTheScreen();
-    expect(screen.getByTestId('notification-bell-search-badge')).toHaveTextContent('5');
+    expect(screen.getByTestId('notification-bell-home-badge')).toHaveTextContent('5');
   });
 
   it('navigates to the Profile tab', async () => {
     renderRouter(routes, { initialUrl: '/' });
-    await screen.findByTestId('screen-search');
+    await screen.findByTestId('screen-home');
 
     fireEvent.press(screen.getByLabelText('Profile tab'));
 

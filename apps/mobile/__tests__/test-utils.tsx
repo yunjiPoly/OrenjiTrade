@@ -9,6 +9,8 @@ import { useFlowLock } from '@/src/account/flowLock';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
 import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
+import { resetGetStarted } from '@/src/features/home/getStarted';
+import { useHomeChip } from '@/src/features/home/homeChip';
 import { resetBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   BROWSING_REGION_STORAGE_KEY,
@@ -119,6 +121,8 @@ export function resetAppState(): void {
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
   resetBrowsingGame();
+  resetGetStarted();
+  useHomeChip.setState({ kind: 'ALL' });
   useAppStore.getState().reset();
   resetSavedDetails();
   (require('expo-secure-store') as { mockStore: Map<string, string> }).mockStore.clear();

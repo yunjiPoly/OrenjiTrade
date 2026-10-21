@@ -58,6 +58,9 @@ import type {
   NotificationSettingsResponse,
   PrivacySettings,
   TagResponse,
+  FeedCardPreview,
+  FeedPage,
+  FeedPost,
 } from '@/src/api/types';
 
 /** Fictional API answers shaped by the generated types (packages/shared-types). */
@@ -1281,4 +1284,99 @@ export function wishlistAvailabilityFixture(
   region = 'americas-north'
 ): WishlistAvailability {
   return { region, available };
+}
+
+// --- Home's feed (stage R7) ---------------------------------------------------------------------
+
+export const FEED_SELLER_ID = '00000000-0000-4000-8000-0000000000c5';
+export const FEED_CORE_ID = '00000000-0000-4000-8b00-0000000000f1';
+
+/** A card of a new-cards post (`n` makes its ids and name unique). */
+export function feedPreviewFixture(
+  n = 1,
+  overrides: Partial<FeedCardPreview> = {}
+): FeedCardPreview {
+  const suffix = String(n).padStart(4, '0');
+  return {
+    itemId: `00000000-0000-4000-8c00-00000000${suffix}`,
+    cardId: `00000000-0000-4000-8a00-00000000${suffix}`,
+    printingId: `00000000-0000-4000-8a10-00000000${suffix}`,
+    name: `Feed Card ${n}`,
+    printingCode: `FDC-EN${suffix.slice(1)}`,
+    rarity: 'Super Rare',
+    imageUrl: `/api/v1/public/card-images/00000000-0000-4000-8a30-00000000${suffix}`,
+    askingPriceText: `$${n}.50`,
+    askingPrice: null,
+    currency: 'CAD',
+    ...overrides,
+  };
+}
+
+let feedPosts = 0;
+
+/** A post: `kind` decides which body it has (12 new cards by default); a new id each call. */
+export function feedPostFixture(overrides: Partial<FeedPost> = {}): FeedPost {
+  const kind = overrides.kind ?? 'NEW_CARDS';
+  return {
+    id: `00000000-0000-4000-8d10-${String(++feedPosts).padStart(12, '0')}`,
+    kind,
+    at: new Date(Date.now() - 5 * 60_000).toISOString(),
+    collector: {
+      id: FEED_SELLER_ID,
+      handle: 'maya_k',
+      displayName: 'Maya K.',
+      avatarUrl: null,
+    },
+    place: QUEBEC,
+    newCards:
+      kind === 'NEW_CARDS'
+        ? { total: 12, previews: [1, 2, 3, 4].map((n) => feedPreviewFixture(n)) }
+        : undefined,
+    wanted:
+      kind === 'WANTED'
+        ? {
+            wishId: '00000000-0000-4000-9a00-0000000000f1',
+            cardId: CARD_ID,
+            name: 'Ash Blossom & Joyous Spring',
+            imageUrl: '/api/v1/public/card-images/00000000-0000-4000-8a30-0000000000f1',
+            printing: undefined,
+            rarity: null,
+            nearMintOnly: true,
+            priceTerm: { label: '85% TCG', percent: 85, orMore: false },
+          }
+        : undefined,
+    deckCore:
+      kind === 'DECK_CORE'
+        ? {
+            binderId: FEED_CORE_ID,
+            name: 'Yubel core',
+            askingPriceText: '$95',
+            photoUrl: '/api/v1/public/media/binders/yubel.jpg',
+            photoCount: 4,
+            previewImages: [],
+            noteFirstLine: '14 cards, NM, in sleeves. Ships tracked.',
+          }
+        : undefined,
+    ...overrides,
+  };
+}
+
+/** A page of `GET /feed`: the last one unless `nextCursor` is given. */
+export function feedPageFixture(
+  items: FeedPost[] = [],
+  overrides: Partial<FeedPage> = {}
+): FeedPage {
+  const nextCursor = overrides.nextCursor ?? null;
+  return {
+    region: 'americas-north',
+    game: 'yugioh',
+    kind: 'ALL',
+    windowDays: 30,
+    items,
+    nextCursor,
+    hasMore: nextCursor !== null,
+    gameHasPosts: items.length > 0,
+    regionHasPosts: items.length > 0,
+    ...overrides,
+  };
 }
