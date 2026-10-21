@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -7414,6 +7414,75 @@ give the web the Game picker when it resumes; (2) the owner's local database mig
 V130 and V131 on the next `npm run dev`: binders that mixed games are split by the migration's rule
 (see the audit log `binder.game.cards_moved_out`); (3) defaults 1 to 5 above.
 
+**Review fix 1** (2026-10-20; the functional verifier, the product / UX reviewer and the privacy
+reviewer found 3 blockers, 3 majors and 9 minors at `52dfefbc`; all fixed or answered, branch
+`feature/g-one-game`, not pushed). Migration **V132** (the next free one is V133).
+
+- **P1 / F1 (blocker): `game=` let the cards of another game through a binder made without a
+  game.** The paused web's binders follow their cards and refuse none (decision 1), so one could
+  hold a Pokémon and a Yu-Gi-Oh! card and was counted, listed, found by the other game's card
+  names and returned as a deck core under the game of its first card. Every game-scoped read of
+  `RegionBinderRepository` (map counts, the state and region lists with or without text, the deck
+  cores of a card) now also asks that the binder holds no live card of another game, whatever its
+  visibility, and that its cover is not of another game; without `game=` nothing changes (the web's
+  suites pass unchanged). The phone never makes such a binder any more (P3).
+- **P2 / F3 (major): blocks with `game=` had no test.** `SearchGameIT` blocks both ways and checks
+  the counts, the state and region lists, the deck cores and holders of a card and the collectors
+  with `game=`; the mutation "notBlocked only without a game" now fails it, as does the old
+  `OF_GAME` the new mixed-binder case.
+- **F2 (blocker, not caused by stage G): `npm run audit:gate` failed** on three high advisories
+  published after the builder's run (vite 8.3.0/8.3.1, `@modelcontextprotocol/server` 2.0.0;
+  `origin/main` fails the same way). `@angular/build` pins vite 8.3.0 even in its newest release,
+  so the root `package.json` overrides `vite` 8.3.4 and `@modelcontextprotocol/server` 2.3.1 (the
+  version `@angular/cli` 22.2.2+ carries), as it does `@grpc/grpc-js`; nothing under
+  `apps/web-angular` changed, the web build is still 893.82 kB (`docs/security/README.md`).
+- **U1 / F4 (major): "Add a wish" from Search › Wishlist ignored the browsed game** and a wish of
+  another game vanished once saved. It opens `/wishlist/new?game={browsed game}` now: the card
+  search sends `game=` and names the game in its field; a link without a game still offers every
+  game. The mobile web spec that added a Yu-Gi-Oh! wish while browsing Pokémon switches game first.
+- **P3 (minor):** New binder saves only with its game's id (Save stays off until `GET /games`
+  answered; skeleton cards, then "The games could not load" with Try again); `toCreateBinderBody`
+  requires `gameId`.
+- **F9 (minor):** without the games list the browsed game is the pick or the remembered one, else
+  Yu-Gi-Oh!; a profile game waits for `hasCards`.
+- **U2 (minor):** `BinderResponse.gameLocked` (additive): Edit binder locks the game also while a
+  card that left the binder can still come back with Undo, with a line saying so, instead of a
+  save that failed on "can't change once it has cards".
+- **U3 (minor):** the Yu-Gi-Oh! examples (LOB-EN001, LAVD-EN008, Yubel, AZR-EN001) show only on
+  Yu-Gi-Oh!; other games get the same words without one (no example was invented for them).
+- **U4 (minor):** "Switch game" in the empty states of a game (Search › Binders and Deck cores,
+  Search › Wishlist with other games' wishes) opens "Choose a game" (`SwitchGameButton`, for R7).
+- **U5 (minor):** "Choose a game" shows skeleton rows while the games load and "The games could
+  not load" with Try again when they fail (`RadioSheet` `loading` / `error`).
+- **F5 (minor):** `search.test.tsx` checks that the map's counts and Search › Binders always send
+  the browsed game and ask again after a switch (the mutation "counts without game" fails it).
+- **F6 (minor):** `InventoryLockOrderIT` cases `BINDER_GAME_CHANGE` and
+  `FIRST_CARD_SETS_THE_BINDER_GAME`.
+- **F7 (minor):** a binder that has its game takes a cover of that game only (409
+  `BINDER_GAME_MISMATCH`, also for a new game while the cover is of another); V132 cleared the
+  covers of another game V131 had kept; a binder that follows its cards refuses no cover.
+- **F8 (minor):** V132 gives `binder.game_id` the default Yu-Gi-Oh! (`binder_placeholder_game()`)
+  and `game_follows_cards` the default `true`, so an app version from before stage G can still
+  create binders during a rolling update or after a rollback (`docs/deployment/runbooks.md`); the
+  app and the seed name both columns.
+
+Checks on the final tree (retries off): spotlessCheck clean; `npm run test:api` **1,199 tests in
+186 classes** (1,187 + 12 catalog), 0 failed, 3 min 38 s (the first full run had 11 failures, all
+in the four `cards.images` classes that share one context, every one a 401 on `GET /me`; the
+package alone passed 34 / 34 and the whole suite passed on the next run: not stage G's code);
+`exportOpenApi` + `generate:api` committed (`gameLocked`, the 409 texts), nothing left after a
+second run; web build **893.82 kB**, `test:web` 136 files / 633 tests, web lint and format clean;
+`npm run test:e2e` **70 passed**; mobile typecheck, lint, format clean, jest **116 suites / 1,490
+tests** and 28 guard tests; `expo export` iOS (1,869 modules), Android (1,993) and web (1,487)
+exit 0; `npm run test:mobile:e2e` **60 passed**; the native suite **35 / 35 flows** in 55 min 58 s
+on the owner's iPhone 18 Pro (left light, text size large, as the owner had it); `test:scripts`
+135; `audit:gate` OK. The Android run could not be verified (no Android SDK on this Mac).
+
+Owner follow-ups of the fix: (1) drop the `vite` and `@modelcontextprotocol/server` overrides
+once `@angular/build` and the web's `@angular/cli` ship them; (2) POST /binders still takes no
+`gameId` from the paused web (decision 1): its binders follow their cards and stay out of the
+phone's game-scoped lists while they mix games; give the web the Game picker when it resumes.
+
 ## NEXT TASK
 
 > **Owner order of 2026-10-20: stop all work on the French version, and the app supports English
@@ -7428,11 +7497,13 @@ V130 and V131 on the next `npm run dev`: binders that mixed games are split by t
 > binders of one game (V130 One Piece, V131 `binder.game_id` with the migration of existing
 > binders, 409 `BINDER_GAME_LOCKED` / `BINDER_GAME_MISMATCH`), Inventory › Binders by game, New
 > binder's Game picker, Edit binder's locked game, `game=` on the discovery reads (contract
-> `docs/api/contracts/g-one-game.md`). The next migration is **V132** (V124 and V128 unused).
+> `docs/api/contracts/g-one-game.md`). V132 is review fix 1's; the next migration is **V133** (V124 and V128 unused).
 >
-> **Exact next task: stage G's reviews** (section 0 of the prompt: a functional verifier, product
-> and UX as a collector, and privacy), at most two fix rounds, then its ship step (merge `main`, the
-> handoff's full check list, the pull request, the merge on green). **Then R7** with
+> **Exact next task: stage G's second review round** (review fix 1 is done, see "Review fix 1" in
+> the G section: the reviewers check the fixes of `game=` with binders made without a game, the
+> block tests, V132, "Add a wish" by the browsed game, `gameLocked`, the audit gate's overrides),
+> at most one more fix round, then its ship step (merge `main`, the handoff's full check list, the
+> pull request, the merge on green). The next migration is **V133**. **Then R7** with
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
 > (Home, the first of five tabs: it places the `GamePill` of `src/features/games` right of the
 > region pill, and its feed takes `game=` like Search; its "I have it" reuses R6's `useIHaveIt`),
