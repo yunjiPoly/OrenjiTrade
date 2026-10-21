@@ -7812,6 +7812,40 @@ Checks of review fix 1 (retries off; this Mac, 2026-10-21; the owner's iPhone 18
 Not verified in fix 1: the Android run could not be verified (no Android SDK), so the reader's place
 was walked on iOS only.
 
+**Review fix 2** (2026-10-21; review round 2 found one minor finding, R1-1; no code change, no
+migration, V134 stays the next free one; the OpenAPI document and the clients are unchanged)
+
+- **Page 3 and later keep the first page's time (R1-1, minor).** The feed's cursor keeps the time
+  the first page was read on every later page (`FeedService`: a later page passes on its cursor's
+  `asOf`), and the code was right, but only page 2 was tested: the mutant that takes each page's
+  own time passed every `FeedIT` test, and with it a card listed after page 1 would count from
+  page 3 on and lift a post nobody had seen above page 2's cursor, out of every page (the F2
+  blocker again). `FeedIT.laterPagesKeepTheFirstPagesTime` reads three pages and more: a card is
+  listed in a post's hour after page 1, page 2 is read, and every page after it returns that post
+  once, dated and counted as on page 1. It reads Pokémon in the region, where no post is dated
+  ahead of the clock, so the server's clock passes the posts as in real use (with posts dated
+  ahead, a page's time is its newest post and that mutant could not show). The mutant now fails it,
+  and only it. The contract's paging paragraph says every cursor carries the first page's time.
+
+Checks of review fix 2 (retries off; this Mac, 2026-10-21; the owner's iPhone 18 Pro under the lock):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,227 tests in 189 classes** (1,215 in 187 and the catalog tests' 12 in 2), 0 failed, 0 skipped, 4 min 10 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | no change; nothing left in git |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB**; `git diff c6e3118a -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.2 min) |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile`; `npm run test:mobile` | clean; jest **118 suites / 1,530 tests** |
+| `npx expo export` iOS, Android, web (scratch folders) | all three exported |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | first run 61 passed and 1 failed: `binders.spec.ts` "make a binder a deck core with a photo and a price…" waited 5 min for Edit binder's "Save changes", the screen having left after the price was typed (R3's editor, untouched since fix 1's green runs); alone it passed (3.1 s), and the full suite again: **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (under the lock) | **37 of 37 flows** in 58 min 4 s (the first full native run since fix 1's spinner change). The simulator stayed booted, light, text size large, as the owner had it |
+| `npm run test:scripts` | **142 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories until 2026-11-30) |
+
+Not verified in fix 2: the Android run could not be verified (no Android SDK).
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -7828,11 +7862,10 @@ was walked on iOS only.
 > (contract `docs/api/contracts/r7-home-feed.md`), V133 `binder.core_since`. The next migration is
 > **V134** (V124 and V128 unused; an ADR takes 0021 or later, 0020 is the card scan's).
 >
-> **Exact next task: stage R7's reviews, round 2** (review fix 1 is done: the R7 section's "Review
-> fix 1"; a functional verifier, privacy and product and UX re-check it; at most one more fix
-> round), then its ship step
-> (merge `main`, the handoff's full check list, the pull request with the three screenshots of
-> `.local-dev/r7-notes/pr-shots/`, the merge on green). **Then R8** (the wrap-up of the redesign:
+> **Exact next task: stage R7's ship step** (review fixes 1 and 2 are done: the R7 section's
+> "Review fix 1" and "Review fix 2"; round 2 of the reviews found one minor finding, a paging test,
+> fixed in fix 2): merge `main`, the handoff's full check list, the pull request with the three
+> screenshots of `.local-dev/r7-notes/pr-shots/`, the merge on green. **Then R8** (the wrap-up of the redesign:
 > CLAUDE.md, the product overview, the contracts, the test accounts and seed documents, a walk of
 > every mockup screen with a screenshot each, the exact next task), then R9 to R15 of
 > [`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md)

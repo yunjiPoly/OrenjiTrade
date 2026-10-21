@@ -28,10 +28,11 @@ Anonymous: 401. The guests' Home is stage R15.
 **Order and paging.** Newest first by `at`, then `id` (both descending); a keyset cursor over the
 two (`FeedIT` pages the whole region with 3 per page and with 50 and finds the same list). A
 new-card post is dated by its newest card, so its `at` moves when cards join or leave its hour
-while its `id` stays. The cursor also carries the time the first page was read: the pages after
-it date and count new-card posts by the cards listed until then only, so a card listed in between
-can no longer lift a post not seen yet above the cursor and out of every page (R7 review F2); a
-refresh shows that post at the top with its new card. A post whose newest card leaves between two
+while its `id` stays. The cursor also carries the time the first page was read, and every cursor
+after it carries the same time: all the pages after the first (the third and later too, not only
+the second; `FeedIT` reads three) date and count new-card posts by the cards listed until then
+only, so a card listed in between can no longer lift a post not seen yet above the cursor and out
+of every page (R7 review F2 and R1-1); a refresh shows that post at the top with its new card. A post whose newest card leaves between two
 pages (made private, sold, deleted) is dated by an older card and can come back once on a later
 page, same `id`, new `at`: **clients dedupe by `id` and keep the copy already shown** (the phone's
 `feedRows` does). Nothing that existed when the first page was read is skipped while the window
