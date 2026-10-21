@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, StyleSheet } from 'react-native';
 
+import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
 import type { FeedPost } from '@/src/api/types';
 import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
 import { GET_STARTED_STORAGE_PREFIX } from '@/src/features/home/getStarted';
@@ -23,7 +24,14 @@ import {
   locationFixture,
   wishFixture,
 } from '../support/fixtures';
-import { mockApi, ok, problem, type MockRequest, type MockRoutes } from '../support/mockApi';
+import {
+  mockApi,
+  noContent,
+  ok,
+  problem,
+  type MockRequest,
+  type MockRoutes,
+} from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockRouter, mockScrollToTopRefs, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -156,6 +164,18 @@ afterAll(() => {
 
 function render() {
   return renderWithProviders(<HomeScreen />, { port: new FakeAuthPort(testUser()) });
+}
+
+/** Blocks or unblocks a collector as a profile, a chat or the community does (`useBlockUser`). */
+function BlockProbe({ id }: { id: string }) {
+  const block = useBlockUser();
+  const unblock = useUnblockUser();
+  return (
+    <>
+      <Pressable testID="probe-block" onPress={() => void block.mutateAsync({ id })} />
+      <Pressable testID="probe-unblock" onPress={() => void unblock.mutateAsync({ id })} />
+    </>
+  );
 }
 
 describe('Home: the top of the page (screen 10)', () => {
@@ -532,5 +552,44 @@ describe('Home: loading and errors', () => {
     api.use({ 'GET /api/v1/feed': feedOf(ALL_POSTS) });
     fireEvent.press(screen.getByText('Try again'));
     expect(await screen.findByTestId(`home-post-${TWELVE.id}`)).toBeOnTheScreen();
+  });
+});
+
+describe('Home and blocks', () => {
+  it('drops a collector the caller blocks from Home at once and reads the feed again', async () => {
+    // R7 review P1/F3: after a block from a profile, the collector's posts stayed on Home until a
+    // pull or the 5-minute refresh.
+    const api = mockApi(
+      doneRoutes({
+        'GET /api/v1/feed': feedOf(ALL_POSTS),
+        'POST /api/v1/users/{id}/block': noContent,
+        'DELETE /api/v1/users/{id}/block': noContent,
+      })
+    );
+    renderWithProviders(
+      <>
+        <HomeScreen />
+        <BlockProbe id={WISH.collector.id} />
+      </>,
+      { port: new FakeAuthPort(testUser()) }
+    );
+    await screen.findByTestId(`home-post-${WISH.id}`);
+    const reads = api.callsTo('GET /api/v1/feed').length;
+    // From now on the server leaves the blocked collector out.
+    api.use({
+      'GET /api/v1/feed': feedOf(ALL_POSTS.filter((post) => post.id !== WISH.id)),
+    });
+
+    fireEvent.press(screen.getByTestId('probe-block'));
+    await waitFor(() => expect(screen.queryByTestId(`home-post-${WISH.id}`)).toBeNull());
+    await waitFor(() => expect(api.callsTo('GET /api/v1/feed').length).toBeGreaterThan(reads));
+    expect(screen.getByTestId(`home-post-${TWELVE.id}`)).toBeOnTheScreen();
+
+    // Unblocking reads the feed again too: their posts come back.
+    api.use({ 'GET /api/v1/feed': feedOf(ALL_POSTS) });
+    const before = api.callsTo('GET /api/v1/feed').length;
+    fireEvent.press(screen.getByTestId('probe-unblock'));
+    expect(await screen.findByTestId(`home-post-${WISH.id}`)).toBeOnTheScreen();
+    expect(api.callsTo('GET /api/v1/feed').length).toBeGreaterThan(before);
   });
 });
