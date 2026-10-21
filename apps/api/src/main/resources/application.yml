@@ -205,6 +205,10 @@ orenji:
     # subdivisions are data (GET /regions, /admin/regions).
     discovery-cache-ttl: 60s
     matching-items-per-collector: 5
+  feed:
+    # Home's feed (GET /api/v1/feed, stage R7): what became public in the region in the last
+    # window-days days; never anything older. The phone reads the number from each page.
+    window-days: ${FEED_WINDOW_DAYS:30}
   storage:
     # local | gcs
     provider: ${STORAGE_PROVIDER:local}

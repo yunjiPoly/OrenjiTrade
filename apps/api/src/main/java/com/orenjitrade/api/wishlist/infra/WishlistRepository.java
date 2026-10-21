@@ -38,6 +38,17 @@ public class WishlistRepository {
                 .list();
     }
 
+    /** Items by id, in no particular order; unknown ids are absent (Home's feed, stage R7). */
+    public List<WishlistItemRow> findByIds(java.util.Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql(SELECT + " WHERE w.id IN (:ids)")
+                .param("ids", ids)
+                .query(WishlistRepository::map)
+                .list();
+    }
+
     public Optional<WishlistItemRow> find(UUID id) {
         return jdbc.sql(SELECT + " WHERE w.id = :id")
                 .param("id", id)
