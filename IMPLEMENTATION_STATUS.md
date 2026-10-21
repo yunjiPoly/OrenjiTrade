@@ -7869,14 +7869,16 @@ changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English on
   Notifications. "New" lists the unread notifications with "Mark all as read" (teal) on its right;
   "Earlier" the rest, newest first, older pages on scroll (cursor paging). Each row: an icon tile
   in its kind's colours (orange heart, blue box, amber star, amber hourglass, grey flag and the grey
-  rest), "{bold subject} {rest of the sentence}", one muted line, the time ("now", "5 min", "1 h",
+  rest), "{bold subject} {rest of the sentence}", one muted line (cut to one line on a row with a
+  target; a row that opens nothing shows it whole), the time ("now", "5 min", "1 h",
   "Yesterday", "Sat", then "Sep 30", with the year when it is another year; in the phone's time
   zone), the card picture when there is one, an orange dot while unread; one spoken name per row
   ("{sentence}. {line}, {time spoken in words}, unread").
 - **Tapping a row** marks it read and opens its target: a wishlist alert opens Who has this card on
   the wished printing ("Azure-Eyes Sky Dragon from your wishlist was listed in Quebec" over
   "{lister} · $14.00"); a sale opens the chat ("{seller} marked {card} as sold to you" over
-  "Tracking added. Rate them when it arrives."); a rating opens your profile at its ratings
+  "Tracking added. Rate them when it arrives."; the chat's Back is then spoken "Back to
+  Notifications"); a rating opens your profile at its ratings
   ("{rater} rated you 5 stars"). A report decision ("Report reviewed: thanks for your report" over
   "We took action."), system notices, and the paused web's old offer, trade, payment and dispute
   notifications (grey, their own icons) open nothing: tapping an unread one marks it read in place
@@ -7892,7 +7894,8 @@ changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English on
   region." Loading: skeleton rows; an error: "Notifications could not load" with "Try again"; pull
   to refresh; a failed next page has its own "Try again" at the foot.
 - **A tapped push notification** opens the same target as its row and marks it read (a reminder or
-  a notice without a target opens Notifications), once per tap, the one that opened the app
+  a notice without a target opens Notifications, a chat's push opens the chat), once per tap, the
+  one that opened the app
   included. Device push itself stays deferred (no EAS project, no FCM sender): the opener only runs
   outside Expo Go and the web build.
 - Large text: at the largest sizes the card picture leaves the row, the muted line wraps whole,
@@ -7928,7 +7931,8 @@ changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English on
 3. **New and Earlier**: New is the unread query (50 at once), Earlier the whole list by pages of 20
    without what New shows; a row read since keeps its place in New (without its dot) until the next
    load, so nothing jumps under the finger; "Mark all as read" empties New into Earlier, as in the
-   mockup. With more than 50 unread, the others show in Earlier with their dot.
+   mockup. With more than 50 unread, New pages by 50 on scroll and Earlier begins once New is whole
+   (review fix 1, F4), so an unread notification is never listed under Earlier.
 4. **System notices open nothing** (the prompt), including the daily-limit notice and the
    moderation warning that opened the wishlist and the guidelines before; old offers, trades,
    payments and disputes open nothing and no longer show the "Deals happen in the chat" snackbar.

@@ -113,8 +113,8 @@ no matches) and **Notifications** (stage R9, mockup v50 screen 31: the bell on t
 every tab with an orange dot while anything is unread, chats left out; New with "Mark all as
 read", Earlier by pages; each kind's icon, colours, sentence and target; freshness reminders
 answered in place). Device push is not wired (it needs an EAS project and a real FCM sender):
-notifications arrive in the app; a tapped push would open its row's target (`pushOpener.ts`, off
-in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
+notifications arrive in the app; a tapped push would open its row's target, a chat's push the chat
+(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
 signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
 `mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's

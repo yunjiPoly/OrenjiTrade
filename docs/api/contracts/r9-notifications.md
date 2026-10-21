@@ -62,11 +62,13 @@ binder and the day it leaves search.
 - The bell (Home, Search, Inventory, Messages, Profile): `GET /notifications/unread-count?excludeTypes=MESSAGE`;
   an orange dot while it is above 0, spoken "Notifications, {n} new" (or "Notifications"); realtime
   pushes of other types raise it, a pushed `MESSAGE` does not.
-- Notifications: "New" is `GET /notifications?unreadOnly=true&excludeTypes=MESSAGE&limit=50`,
-  "Earlier" pages `GET /notifications?excludeTypes=MESSAGE&limit=20` by cursor, without the
+- Notifications: "New" is `GET /notifications?unreadOnly=true&excludeTypes=MESSAGE&limit=50`
+  (more pages by cursor on scroll while `hasMore`), "Earlier" pages
+  `GET /notifications?excludeTypes=MESSAGE&limit=20` by cursor once New is whole, without the
   notifications New shows. Tapping a row: `POST /notifications/{id}/read`, then its target
   (`WISHLIST_ALERT` the card page on its printing, `SALE_RECORDED` the chat, `RATING_RECEIVED` the
-  caller's profile at its ratings; nothing for the other types). "Mark all as read":
+  caller's profile at its ratings; nothing for the other types). A tapped push opens the same
+  target; a `MESSAGE` push (never listed here) opens its chat from its `deepLink`. "Mark all as read":
   `POST /notifications/read-all`. "Still have them": `POST /binders/{id}/confirm`; the row shows
   the confirmed state while the binder's `freshness.confirmedAt` is at or after the reminder.
 
