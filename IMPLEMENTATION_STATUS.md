@@ -7527,6 +7527,212 @@ exit 0; `npm run test:mobile:e2e` **60 passed**; the native suite **35 / 35 flow
 on the owner's iPhone 18 Pro (left light, text size large, as the owner had it); `test:scripts`
 135; `audit:gate` OK. The Android run could not be verified (no Android SDK on this Mac).
 
+## Phone redesign R7: Home (2026-10-21)
+
+Stage R7 of the phone redesign with the owner's Home prompt of 2026-10-19
+([`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md),
+saved word for word; it replaces section 5 of the redesign spec and adds to its "Home feed"): mockup
+v50 screens 10 (Home as it opens), 10b (the whole page, its chips) and 10c (day one in a quiet
+region). Branch `feature/r7-home`, cut from `main` at c6e3118a (R1 to R6, stage G, F1, the owner's
+inventory change and the card scan). Migration **V133** (V124 and V128 stay unused; the next free
+one is **V134**). Every API change is additive: one new endpoint and one nullable column; the
+paused web builds and passes its checks against the regenerated client, unchanged (no file of
+`apps/web-angular` changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English
+only (owner, 2026-10-20). Signed-in collectors only (guests' Home is stage R15); the bell still
+opens today's notifications screen (R9 changes it).
+
+**What a collector can now do on the phone**
+
+- **Home is the first of five tabs** (Home | Search | Inventory | Messages | Profile) and the app's
+  first screen after sign-in (`/`, the `index` route). The old Map tab's links (`/?region=` and
+  `&subdivision=`) still open Search's map on their state; every other old route works as before.
+  Tapping the Home tab while on Home scrolls back to the top.
+- **The top row**: the region pill (Choose a region, screen 35; its border orange and "Not your
+  region. Back to {home}" under the field while another region is browsed) and the game pill of
+  stage G (Choose a game, screen 34), the bell on the right. **"Search cards or collectors"** opens
+  Search with the keyboard up. Everything below follows the browsed region and game.
+- **Get started** (screen 10c), under the field until done or hidden: "Do these once to sell and
+  find cards in your region.", "Hide these steps", a 3-part progress bar with "{done} of 3"
+  (spoken "{done} of 3 done") and three steps: **Choose your province** (done with a state or
+  province and "Show me on the map" on: "{province}, {country}"; without a location "Choose", with a
+  location hidden from the map "Turn on Show me on the map" and "Turn on", both opening Settings ›
+  Location), **List your first card** (orange "Add cards", done when one card is set to Public),
+  **Add a card you want** (outlined "Add a wish", opens Search with the keyboard up; done with a
+  wish). A done step shows a teal check and its title in grey. Done or hidden, it goes away for
+  good for this account on this phone; the steps are read again whenever Home comes into view.
+- **The chips** All, New cards, Wanted, Deck cores (an orange, teal or purple dot; the selected
+  one filled light with dark text, announced as selected) pin under the status bar once scrolled
+  past, reload the feed with `kind=`, and go back to All when the app restarts. No chips while the
+  game has nothing in the window.
+- **The feed**, newest first, in sections **Today**, **Earlier this week** (1 to 6 days ago) and
+  **Earlier this month** (7 to 30), by the phone's calendar; a section shows only with posts. Each
+  post's header (avatar, "{handle} {verb}", "{time} · {province}"; spoken "{handle} {verb},
+  {time}, {province}") opens the collector's profile; times "5 min", "1 h", the weekday ("Wed"),
+  then "Sep 28". **New cards**: 2 or more in a 4-column grid with the price as typed under each
+  picture (a picture opens Who has this card); from 5 cards the 4th tile is dimmed with "+{n}"
+  ("{n} more cards from this collector") and opens the collector's cards; exactly 1 card is a row
+  (picture, name, "{code} · {rarity}" with the code in JetBrains Mono, price) with the round orange
+  **Message** button ("Message {handle} about {card}") that opens or reuses the chat and pins that
+  card. **Wanted**: the picture, the name, the wish's terms as Search › Wishlist writes them, and
+  **"I have it"** (R6's flow: the chat with "I have {card} for your wishlist. Interested?" and your
+  copy ready to share; nothing sent before send). **Deck core**: the whole body opens the deck core
+  page; a 132-tall band with the first photo (or up to 3 key cards' pictures), the "Deck core" tag
+  and "{n} photos" from 2 photos; the name and the price ("$95", "Trade only"); the first line of
+  its note.
+- **The end**: a teal check, "You're all caught up", "That’s everything new for {game} in {region}
+  from the last 30 days." ("every new card", "every wish", "every deck core" with a chip) and
+  **Explore the map** (Search's map).
+- **Empty, loading, errors**: a quiet game or region shows the dashed box "Nothing new in {region}
+  yet" ("in {game}" when only the game is quiet) with "Be the first: ..." and, without Get started,
+  an orange "Add cards"; an empty chip says "No new cards in {region} in the last 30 days." (wishes,
+  deck cores) with "Show all"; the first load shows two post outlines and four card-shaped boxes;
+  "Couldn't load what's new." with "Try again" without data, "Couldn't load more" with "Try again"
+  at the bottom; offline, the cached page under the app's offline banner. Pull to refresh; coming
+  back to Home refreshes data older than 5 minutes; nothing slides in while someone reads. A post
+  that stopped being public opens the target's own "no longer available" state and leaves the feed
+  at the next refresh.
+- **The largest text sizes**: rows stack (the avatar above the header's words, the buttons under
+  the rows' words, Get started's buttons under their steps), names and prices end with "…" (two
+  lines for a row's name), the four prices of a grid follow the text size a little so they stay
+  readable, titles and the field at most twice their size.
+
+**What the API does** (contract [`docs/api/contracts/r7-home-feed.md`](docs/api/contracts/r7-home-feed.md))
+
+| Part | What |
+| --- | --- |
+| `GET /api/v1/feed` | signed in; `game` required (400 without or unknown), `region` (default: home region), `kind` `ALL` / `NEW_CARDS` / `WANTED` / `DECK_CORES`, `cursor`, `limit` 1 to 50 (20); newest first by `at` then `id`, keyset cursor; `windowDays`, `nextCursor` (null at the end), `hasMore`, `gameHasPosts`, `regionHasPosts` |
+| What appears | discoverable collectors located in the region; never the caller; never a block either way (`DiscoverySql.notBlocked`, in the SQL before the limit); public fresh cards of the game dated by `listing_changed_at` and grouped per collector and UTC clock hour (4 previews and the total), never a card filed in a deck core; wishes of collectors who show their wishlist, by `created_at`; public unsold deck cores of the game by the later of `listing_changed_at` and `core_since` |
+| A post | `id` (stable: wish, binder, or `md5('NEW_CARDS:<owner>:<hour>')`), `kind`, `at`, `collector {id, handle, displayName, avatarUrl}`, `place` (the usual `Place`); `newCards {total, previews[{itemId, cardId, printingId, name, printingCode, rarity, imageUrl, askingPriceText, askingPrice, currency}]}`, `wanted {wishId, cardId, name, imageUrl, printing, rarity, nearMintOnly, priceTerm}` or `deckCore {binderId, name, askingPriceText, photoUrl, photoCount, previewImages, noteFirstLine}` |
+| The window | `orenji.feed.window-days` (`FEED_WINDOW_DAYS`, 30, 1 to 365) |
+| V133 | `binder.core_since` + trigger `trg_binder_core_since` (set when `sells_as_core` turns on, cleared when off; existing deck cores: `created_at`); indexes `ix_inventory_item_listed_since`, `ix_wishlist_item_created` |
+| Seeds | dated relative to now at every start (`listedMinutesAgo`, `FEED_WISHES`): collector5's 12 cards (5 min) and 1 card (6 h), collector2's wish (1 h) and deck core $95 (3 h), collector5's wish (2 days), collector2's 3 cards (3 days), collector5's deck core "Trade only" (4 days), collector1's 5 cards (9 days), collector5's wish (12 days); the other seed listings 45 days back; the feed's rows kept confirmed; collector5's wishlist visible (`docs/development/seed-data.md`) |
+| Privacy | `GeoPrivacyContractTest.homeFeedCarriesPlacesOnly`: every seed account, every region and game, every kind |
+
+**Decisions, and why**
+
+1. **The feed lives in the search module** (`FeedRepository`, `FeedService`, `FeedController`): it is
+   a discovery list and must reuse `DiscoverySql` (discoverable, region, `notBlocked`, the live
+   public rules), which is package-private there. No new module, so CLAUDE.md's module list stays.
+2. **V133 was needed for deck cores.** A public binder switched to a deck core kept its old
+   `listing_changed_at` and would never reach Home; `binder.core_since` (a trigger, so every write
+   path keeps it) dates the moment it became a deck core. Existing deck cores take their creation
+   time: nothing old appears as new.
+3. **A card's time is `listing_changed_at` while `publicly_listed`** (when the materialised public
+   flag last flipped to true), the live rules deciding whether it may appear; a wish's time is
+   `created_at` (turning "Show my wishlist" on later does not post old wishes again).
+4. **"Within the same hour" is the UTC clock hour** (`floor(epoch / 3600)`): the same post on every
+   page and phone, and a stable post id; cards listed at 10:55 and 11:05 are two posts.
+5. **`collector.id` added to the post** (the prompt lists handle, name and avatar): "Message" and "I
+   have it" open the chat with that collector, which takes the account id. The place is the
+   existing `Place` (with codes and the label) rather than two names only.
+6. **`gameHasPosts` and `regionHasPosts`** on the first page tell the phone which quiet text to
+   show ("Nothing new in {game} yet" or "in {region}") and when to hide the chips, without a
+   second request; `windowDays` lets the phone say "the last 30 days" from the server's setting.
+7. **The property is `orenji.feed.window-days`** (the repository's prefix; the prompt's example
+   said `orenjitrade.`).
+8. **No cache**: a page belongs to its reader (their posts and blocks are left out).
+9. **"I have it" shows on every wish**, as the feed does not carry whether the collector accepts
+   messages: a refusal (their messaging setting, a block) is said in the snackbar, as on R6's
+   profile.
+10. **The seed re-dates its own listings at every start** (and keeps the feed's rows confirmed), so
+    the feed is the same a month later; every other seed listing is dated 45 days back so the feed
+    shows exactly the seed's posts. Local edits of seed cards keep their content, not their listing
+    time.
+11. **The rows stack at the largest text sizes** (`useStackedRows`, as on the profiles) and the
+    grid's prices follow the text size only a little (`PINNED_MAX_FONT_SCALE`): at the largest size
+    every price read "$..." in a 4-column grid.
+12. **Get started's step 1 is done with `GET /me/location`'s subdivision and `discoverable`**; step 2
+    reads `GET /inventory/items?markedPublic=true&size=1` (under the inventory's query keys, so any
+    inventory change refreshes it); step 3 the wishlist (any game).
+13. **Home's mobile-only colour tokens** (`color.home`: Get started's border, the chips' border and
+    text, the done step, the "+n" cover, the photo badge, the Message fill), light and dark; the web's
+    `tokens.css` is unchanged.
+14. **The feed's seed cards use printings no suite lists the holders of** (no code or name that a
+    web, mobile or native test searches): a seed copy in California showed beside the web
+    acceptance test's own seller of TMP-EN014.
+15. **Home reads `GET /regions`** as Search's map does: the region names come from the server, and a
+    region code kept on the device that the server no longer lists is dropped when the app opens on
+    Home.
+
+**The five defaults of the prompt's section 8** (the owner can change them): (1) the feed covers the
+last 30 days (`orenji.feed.window-days`); (2) Get started is hidden per account on this phone, not
+across phones; (3) the chip goes back to All when the app restarts; (4) the section titles are
+Today, Earlier this week and Earlier this month; (5) Home refreshes on pull, and on return after 5
+minutes.
+
+**Tests**
+
+- API: `FeedIT` (10: each kind with its fields, the hour, the window, a binder turned into a deck
+  core (V133), paging with 3 and 50 per page, region and game scoping, the caller, blocks both ways
+  before the limit, a hidden wishlist, a private and a stale card, a deck core's cards, a sold deck
+  core, a collector who leaves the map, validation and 401), `FeedRulesTest` (6),
+  `GeoPrivacyContractTest.homeFeedCarriesPlacesOnly`, `SeedDataRunnerIT.seedsHomesFeedRelativeToNow`
+  (and the seed's new counts: 19 binders, 61 cards, 5 wishes).
+- Phone (Jest): `features/home.test.ts` (14: sections and times across midnight and a daylight
+  saving change, groups of 1, 2, 3, 4, 5 and 12 with "+n", prices, the wish terms, chips, end and
+  empty texts, Get started and its storage), `screens/home.test.tsx` (15: the top row, the request,
+  sections and spoken headers, the grid and "+9", the single card's Message, "I have it", the deck
+  core, the chips to the end, a chip's empty state and "Show all", the next page and its error,
+  10c with Get started and "Hide these steps", "Turn on", a quiet game, loading and the error,
+  the largest text size), the tabs (five, the old map links) and back titles.
+- Mobile web E2E: `e2e/home.spec.ts` (the seed's feed with "+9", a wish with "I have it" and a deck
+  core, the Wanted chip down to the end, "Explore the map"; Get started on a fresh account with
+  "Turn on", hidden for good across a reload); the specs that landed on Search after sign-in open
+  the Search tab.
+- Native (Maestro): `home-feed.yaml` (walkthrough step 5: a new card, a wish with "I have it" that
+  opens the chat with the text and her copy, a deck core, the single card's Message; the Deck cores
+  chip down to the end and "Explore the map"), `home-get-started.yaml` (a fresh account in a quiet
+  region: the steps, "Add a wish", "Hide these steps" for good across a relaunch); the 15 flows that
+  waited for Search after sign-in wait for Home (`subflows/open-search-tab.yaml` opens Search);
+  flow G checks the home region's row by its name (see the native suite below).
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,218 tests in 188 classes** (1,206 in 186 and the catalog tests' 12 in 2), 0 failed, 0 skipped, 3 min 52 s. The first full run failed `SeedDataRunnerIT.seedsHomesFeedRelativeToNow`: it read only the first page of the region's feed, which the suite's own posts (some dated ahead by `FeedIT`) filled; it pages to the end now |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git on the final tree |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB** (under 900 kB); `git diff c6e3118a -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) on the final API. The first run: the acceptance privacy test failed, a seed copy of TMP-EN014 (the card whose holders it lists) showed California beside its seller: the feed's seed left the printings the web suites hold (TMP-EN014, GLM-EN012, GLM-EN022, SHV-EN033). The second: the smoke test "navigates to the inventory page" missed its URL once; it passed alone (6 / 6) and in the third full run |
+| `npm run test:mobile` | typecheck, lint, jest **118 suites / 1,520 tests**, 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,866,673 B (1,878 modules), Android 6,156,124 B (2,002 modules), web entry 3,111,160 B (1,495 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) on the final tree. The first run: 60 passed, 2 failed: `home.spec.ts` read `aria-selected` on a chip (React Native Web writes none on a button; the check went) and `regions.spec.ts` "a region that does not exist is neither browsed nor kept" (Home never read `GET /regions`, which drops a stale region code from the device: Home reads it now, as Search's map does) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **35 of 37 flows** in 59 min 11 s; the 2 others pass alone after the fix: `home-feed.yaml` (1 min 20 s; in the full run the suite's other flows list Yu-Gi-Oh! cards and deck cores first and collector1's Get started stands above the feed: the flow hides it and scrolls to collector5's cards and to the deck core) and `one-game-at-a-time.yaml` (1 min 36 s; its check of the region row's line "Your region · Canada, United States, Mexico" failed with `main`'s app code as well on this Mac today (`git checkout c6e3118a -- apps/mobile/src apps/mobile/app` and the old flow): the line is the row's accessibility hint and the iOS hierarchy Maestro reads lists no text under the row; the flow checks the row by its name, its screenshot shows the line). `home-get-started.yaml` passed in the full run. The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **142 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 02:30 to 03:10 and 03:24 to
+04:45; scratch Maestro flows on the isolated stack of the native harness; dark and light, the
+default and the largest text size; collector1's Home (the seed's feed) and a new collector in
+Madrid (day one, a quiet region)): screens 10, 10b and 10c match mockup v50 in layout and words.
+Fixed from the walk: the pinned chips slid under the status bar (the list now starts below it); the
+quiet box touched Get started (12 pt between them, as in 10c); at the largest size the grid's prices
+read "$..." (they follow the text size a little now), the headers' words were squeezed beside the
+avatar and the rows' words beside their buttons (they stack), Get started's steps broke word by
+word (they stack, the title follows the size at most twice). The screenshots of 10, 10b (scrolled)
+and 10c, dark at the default size, are in `.local-dev/r7-notes/pr-shots/` for the pull request.
+
+**Not done / could not be verified**: the Android run could not be verified (no Android SDK on this
+Mac). VoiceOver itself was not run: the spoken names were checked in the Jest tests and in the iOS
+hierarchy Maestro reads. "Offline with cached data" relies on the app's existing banner and the
+query cache (not walked offline). A post that stopped being public leads to the target screen's
+existing "no longer available" state (those states are R3 to R6's; not walked from Home).
+
+**Found, not fixed (not caused by this stage)**: the iOS hierarchy Maestro reads on this Mac no
+longer lists the texts under a radio sheet's row (flow G's region line, `main` as well); the web
+smoke test "navigates to the inventory page" missed its URL once under load.
+
+**Owner follow-ups**: (1) the five defaults above; (2) the local database migrates V133 at the next
+`npm run dev`, and from then on the seed dates its listings relative to the API's start at every
+start (a seed card edited locally keeps its content, not its listing time); (3) "I have it" shows on
+every wish of Home (a collector who takes no messages answers with the snackbar's refusal): the feed
+could carry `canMessage` if the owner prefers to hide it; (4) Home reads the region's feed without a
+cache: watch the feed's query time once real data exists.
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
