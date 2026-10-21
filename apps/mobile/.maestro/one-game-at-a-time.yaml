@@ -160,7 +160,13 @@ tags:
 - extendedWaitUntil:
     visible: 'Choose a region'
     timeout: 15000
-- assertVisible: 'Your region · Canada, United States, Mexico'
+# The home region first. Its line, "Your region · Canada, United States, Mexico", is the row's
+# accessibility hint (said after the name): on 2026-10-21 the iOS hierarchy Maestro reads on this
+# Mac no longer listed the row's texts (main's app as well), so the row is checked by its name and
+# the line by the screenshot.
+- assertVisible:
+    id: 'search-region-option-americas-north'
+    text: 'Americas \(North\)'
 - assertVisible: 'Your own region comes from Settings › Location. Browsing another one changes nothing on your profile.'
 - takeScreenshot: g-region-sheet
 - tapOn:

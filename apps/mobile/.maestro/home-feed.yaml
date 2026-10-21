@@ -43,16 +43,31 @@ tags:
 - assertVisible:
     id: 'home-search-field'
 
-# New cards: collector5's twelve in the hour, a grid whose 4th tile is "+9".
+# collector1 has no wish yet: Get started shows above the feed; "Hide these steps".
+- runFlow:
+    when:
+      visible:
+        id: 'home-get-started'
+    commands:
+      - tapOn: 'Hide these steps'
+      - extendedWaitUntil:
+          notVisible:
+            id: 'home-get-started'
+          timeout: 15000
+
+# New cards: collector5's twelve in the hour, a grid whose 4th tile is "+9" (the suite's other
+# flows may have listed cards since, which come first).
 - extendedWaitUntil:
     visible:
-      text: 'collector5 listed 12 cards, .*, California'
+      id: 'home-section-today'
     timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to-text.yaml
+    env:
+      TEXT: 'collector5 listed 12 cards, .*, California'
 - assertVisible:
     id: 'home-post-.*-more'
     text: '9 more cards from this collector'
-- assertVisible:
-    id: 'home-section-today'
 - takeScreenshot: r7-home
 
 # A wish (collector2's Azure-Eyes Sky Dragon) with its terms and "I have it".
@@ -115,10 +130,10 @@ tags:
     timeout: 30000
 - tapOn:
     id: 'home-chip-DECK_CORES'
-- extendedWaitUntil:
-    visible:
-      id: 'home-post-00000000-0000-4000-8b00-000000000202-core'
-    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'home-post-00000000-0000-4000-8b00-000000000202-core'
 - assertNotVisible:
     text: 'collector5 listed 12 cards, .*'
 - runFlow:
