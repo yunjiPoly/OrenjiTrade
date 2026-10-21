@@ -172,6 +172,16 @@ describe('Add cards (screens 3 and 4)', () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
+  it('names Home on Back when Home opened it (R7 review U5)', () => {
+    mockParams.current = { from: 'home' };
+    mockApi(signedInRoutes());
+    renderWithProviders(<AddCardsScreen />, { port: port() });
+    expect(screen.queryByRole('button', { name: 'Back to Inventory' })).toBeNull();
+    expect(screen.getByText('Home')).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: 'Back to Home' }));
+    expect(mockRouter.back).toHaveBeenCalled();
+  });
+
   it('lists cards and the exact printings of a code while typing', async () => {
     const api = mockApi(
       signedInRoutes({

@@ -194,7 +194,7 @@ export function HomeScreen() {
 
   const openSearch = () => router.navigate({ pathname: '/search', params: { typing: '1' } });
   const openMap = () => router.navigate({ pathname: '/search', params: { segment: 'cards' } });
-  const addCards = () => router.push('/items/new');
+  const addCards = () => router.push({ pathname: '/items/new', params: { from: 'home' } });
   const openLocation = () => router.push('/settings/location');
 
   // What the list holds, top to bottom.

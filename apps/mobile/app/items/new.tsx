@@ -50,7 +50,8 @@ import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme
 
 type Step = 'start' | 'typing' | 'printing' | 'details';
 
-type Params = { cardId?: string; printingId?: string; binderId?: string };
+/** `from=home`: opened from Home, whose name Back then shows (R7 review U5). */
+type Params = { cardId?: string; printingId?: string; binderId?: string; from?: string };
 
 /**
  * Adding cards (owner spec 2026-10-14, section 6, mockup screens 3 to 6): Add cards (the search
@@ -116,13 +117,14 @@ export default function AddCardsScreen() {
   // The card scan's two rows (spec 2026-10-15, screen 26), where the scan is available.
   const scanRows = useAddCardsScanRows();
 
+  const fromHome = params.from === 'home';
   const leave = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/inventory');
+      router.replace(fromHome ? '/' : '/inventory');
     }
-  }, [router]);
+  }, [fromHome, router]);
 
   const back = useCallback(() => {
     setMessage(null);
@@ -269,9 +271,9 @@ export default function AddCardsScreen() {
   if (step === 'start') {
     header = (
       <BackBar
-        label={ADD_CARDS_COPY.back}
+        label={fromHome ? ADD_CARDS_COPY.backHome : ADD_CARDS_COPY.back}
         variant="back"
-        backLabel={ADD_CARDS_COPY.backLabel}
+        backLabel={fromHome ? ADD_CARDS_COPY.backHomeLabel : ADD_CARDS_COPY.backLabel}
         onBack={leave}
         testID="add-cards-back"
       />

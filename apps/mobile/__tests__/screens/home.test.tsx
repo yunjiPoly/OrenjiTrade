@@ -461,7 +461,10 @@ describe('Home: day one in a quiet region (screen 10c)', () => {
     // While Get started shows, the box has no button of its own.
     expect(screen.queryByTestId('home-quiet-add')).toBeNull();
     fireEvent.press(screen.getByTestId('home-step-card-action'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/items/new',
+      params: { from: 'home' },
+    });
     fireEvent.press(screen.getByTestId('home-step-wish-action'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/search',
@@ -508,7 +511,10 @@ describe('Home: day one in a quiet region (screen 10c)', () => {
     );
     expect(screen.queryByTestId('home-get-started')).toBeNull();
     fireEvent.press(await screen.findByTestId('home-quiet-add'));
-    expect(mockRouter.push).toHaveBeenCalledWith('/items/new');
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/items/new',
+      params: { from: 'home' },
+    });
   });
 });
 

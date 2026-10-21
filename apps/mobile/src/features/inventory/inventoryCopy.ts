@@ -62,6 +62,9 @@ export const FILTER_COPY = {
 export const ADD_CARDS_COPY = {
   back: 'Inventory',
   backLabel: 'Back to Inventory',
+  /** Opened from Home (Get started, the quiet box): Back names Home (R7 review U5). */
+  backHome: 'Home',
+  backHomeLabel: 'Back to Home',
   title: 'Add cards',
   searchPlaceholder: 'Card name or code, like LOB-EN001',
   searchLabel: 'Card name or code',
