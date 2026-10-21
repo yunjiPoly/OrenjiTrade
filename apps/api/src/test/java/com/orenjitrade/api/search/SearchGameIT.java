@@ -44,11 +44,20 @@ class SearchGameIT extends AbstractSearchIT {
                 .toString();
     }
 
-    /** A public binder of {@code game} named {@code name}, with one public card when given. */
+    /**
+     * A public binder of {@code game} named {@code name}, with one public card when given; made
+     * without a game, as the paused web makes them, when {@code game} is {@code null}.
+     */
     private String publicBinder(
-            Collector owner, String game, String name, @Nullable UUID card, boolean deckCore) {
+            Collector owner,
+            @Nullable String game,
+            String name,
+            @Nullable UUID card,
+            boolean deckCore) {
         Map<String, Object> body = binder(name, "PUBLIC");
-        body.put("gameId", gameId(game));
+        if (game != null) {
+            body.put("gameId", gameId(game));
+        }
         if (deckCore) {
             body.put("sellsAsCore", true);
             body.put("askingPriceText", "$90");
@@ -58,12 +67,17 @@ class SearchGameIT extends AbstractSearchIT {
                         .path("id")
                         .asString();
         if (card != null) {
-            Map<String, Object> itemBody = item(card);
-            itemBody.put("binderId", binderId);
-            itemBody.put("visibility", "PUBLIC");
-            callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), itemBody, 201);
+            file(owner, binderId, card, "PUBLIC");
         }
         return binderId;
+    }
+
+    /** Files a card of {@code printing} with {@code visibility} in the binder. */
+    private void file(Collector owner, String binderId, UUID printing, String visibility) {
+        Map<String, Object> itemBody = item(printing);
+        itemBody.put("binderId", binderId);
+        itemBody.put("visibility", visibility);
+        callJson(HttpMethod.POST, "/api/v1/inventory/items", owner.uid(), itemBody, 201);
     }
 
     /** {binderCount, deckCoreCount} of the state, {0, 0} when it is absent. */
@@ -187,6 +201,158 @@ class SearchGameIT extends AbstractSearchIT {
                 .containsExactly(other.handle());
         assertThat(handlesOf(get(viewer, 200, path + "&game=riftbound", word))).isEmpty();
         get(viewer, 400, path + "&game=chess", word);
+    }
+
+    /**
+     * A binder the paused web made without a game takes its first card's game and refuses no card,
+     * so it can hold the cards of two games. Then no game counts or lists it, its other game's card
+     * names find it under no game and, as a deck core, it is no game's deck core of a card (review
+     * fix 1, P1): its other cards would show as the browsed game's. Without {@code game=} it shows
+     * as before, and one holding the cards of one game shows under that game.
+     */
+    @Test
+    void aBinderMadeWithoutAGameShowsUnderNoGameOnceItHoldsTwoGames() {
+        String word = token();
+        Collector owner = collector("game-follow", "US", STATE);
+        String viewer = uniqueUid("game-follow-viewer");
+        provisionCompliant(viewer);
+        long[] before = counts(viewer, null);
+        long[] beforePokemon = counts(viewer, "pokemon");
+        long[] beforeYugioh = counts(viewer, "yugioh");
+        long[] anonymousPokemon = counts(null, "pokemon");
+        long[] anonymousYugioh = counts(null, "yugioh");
+
+        // A private Pokémon card first (the binder takes Pokémon), then a public Yu-Gi-Oh! card.
+        IsolatedCard keyCard = isolatedPrinting("ygo-p001a");
+        String mixed = publicBinder(owner, null, word + " follow", null, false);
+        file(owner, mixed, printing("pkm-p002a"), "PRIVATE");
+        file(owner, mixed, keyCard.printingId(), "PUBLIC");
+        // A deck core: a Pokémon card, then a Yu-Gi-Oh! key card.
+        String mixedCore = publicBinder(owner, null, word + " core", null, true);
+        file(owner, mixedCore, printing("pkm-p002a"), "PUBLIC");
+        file(owner, mixedCore, keyCard.printingId(), "PRIVATE");
+        // Pokémon cards only.
+        String pokemonOnly =
+                publicBinder(owner, null, word + " holos", printing("pkm-p002a"), false);
+        assertThat(gameOf(mixed)).isEqualTo("pokemon");
+        assertThat(gameOf(mixedCore)).isEqualTo("pokemon");
+
+        assertThat(counts(viewer, null)).containsExactly(before[0] + 3, before[1] + 1);
+        assertThat(counts(viewer, "pokemon"))
+                .containsExactly(beforePokemon[0] + 1, beforePokemon[1]);
+        assertThat(counts(viewer, "yugioh")).containsExactly(beforeYugioh[0], beforeYugioh[1]);
+        assertThat(counts(null, "pokemon"))
+                .containsExactly(anonymousPokemon[0] + 1, anonymousPokemon[1]);
+        assertThat(counts(null, "yugioh")).containsExactly(anonymousYugioh[0], anonymousYugioh[1]);
+
+        String stateList = "/api/v1/regions/americas-north/subdivisions/" + STATE + "/binders";
+        String regionList = "/api/v1/regions/americas-north/binders";
+        String cores = "/api/v1/search/deck-cores?cardId={id}&region=americas-north";
+        for (String uid : java.util.Arrays.asList(null, viewer)) {
+            assertThat(ids(get(uid, 200, stateList + "?q={q}", word)))
+                    .containsExactlyInAnyOrder(mixed, mixedCore, pokemonOnly);
+            assertThat(ids(get(uid, 200, stateList + "?q={q}&game=pokemon", word)))
+                    .containsExactly(pokemonOnly);
+            assertThat(ids(get(uid, 200, stateList + "?q={q}&game=yugioh", word))).isEmpty();
+            assertThat(ids(get(uid, 200, regionList + "?q={q}&game=pokemon", word)))
+                    .containsExactly(pokemonOnly);
+            assertThat(ids(get(uid, 200, regionList + "?game=pokemon&limit=50")))
+                    .doesNotContain(mixed, mixedCore);
+            // The deck core's Yu-Gi-Oh! key card finds it without a game only.
+            assertThat(ids(get(uid, 200, regionList + "?q={q}", keyCard.name())))
+                    .containsExactly(mixedCore);
+            assertThat(ids(get(uid, 200, regionList + "?q={q}&game=pokemon", keyCard.name())))
+                    .isEmpty();
+            assertThat(ids(get(uid, 200, regionList + "?q={q}&game=yugioh", keyCard.name())))
+                    .isEmpty();
+        }
+        assertThat(coreIds(get(viewer, 200, cores, keyCard.cardId()))).containsExactly(mixedCore);
+        assertThat(get(viewer, 200, cores + "&game=pokemon", keyCard.cardId())).isEmpty();
+        assertThat(get(viewer, 200, cores + "&game=yugioh", keyCard.cardId())).isEmpty();
+    }
+
+    /**
+     * A block, either way, keeps the other collector out of the browsed game's counts and lists:
+     * binders and deck cores of a state and of the region, the map's counts, the deck cores and
+     * holders of a card and the collectors found by name ({@code DiscoverySql.notBlocked} before
+     * the limit and in the count, review fix 1, P2).
+     */
+    @Test
+    void blockedCollectorsStayOutOfTheBrowsedGameEitherWay() {
+        String word = token();
+        Collector owner = collector("game-block", "US", STATE);
+        profile(owner, word + " Owner", List.of("pokemon"));
+        IsolatedCard card = isolatedPrinting("pkm-p002a");
+        String binder = publicBinder(owner, "pokemon", word + " holos", card.printingId(), false);
+        String core = publicBinder(owner, "pokemon", word + " core", card.printingId(), true);
+        String watcher = uniqueUid("game-block-watcher");
+        provisionCompliant(watcher);
+        String blocker = uniqueUid("game-block-blocker");
+        provisionCompliant(blocker);
+        callJson(HttpMethod.POST, "/api/v1/users/" + owner.id() + "/block", blocker, null, 200);
+        String blocked = uniqueUid("game-block-blocked");
+        provisionCompliant(blocked);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/users/" + provisionedId(blocked) + "/block",
+                owner.uid(),
+                null,
+                200);
+
+        String stateList =
+                "/api/v1/regions/americas-north/subdivisions/" + STATE + "/binders?game=pokemon";
+        String regionList = "/api/v1/regions/americas-north/binders?game=pokemon";
+        String cores = "/api/v1/search/deck-cores?cardId={id}&region=americas-north&game=pokemon";
+        String holders =
+                "/api/v1/search/card-holders?cardId={id}&region=americas-north&game=pokemon";
+        String collectors =
+                "/api/v1/search/collectors?q={q}&region=americas-north&limit=10&game=pokemon";
+        long[] seen = counts(watcher, "pokemon");
+        assertThat(ids(get(watcher, 200, stateList + "&q={q}", word)))
+                .containsExactlyInAnyOrder(binder, core);
+        assertThat(ids(get(watcher, 200, regionList + "&q={q}", word)))
+                .containsExactlyInAnyOrder(binder, core);
+        assertThat(coreIds(get(watcher, 200, cores, card.cardId()))).containsExactly(core);
+        assertThat(get(watcher, 200, holders, card.cardId()).path("totalItems").asLong())
+                .isEqualTo(2);
+        assertThat(handlesOf(get(watcher, 200, collectors, word))).containsExactly(owner.handle());
+
+        for (String viewer : List.of(blocker, blocked)) {
+            assertThat(counts(viewer, "pokemon"))
+                    .as("the owner's binder and deck core leave the count")
+                    .containsExactly(seen[0] - 2, seen[1] - 1);
+            assertThat(ids(get(viewer, 200, stateList + "&q={q}", word))).isEmpty();
+            assertThat(ids(get(viewer, 200, stateList + "&limit=50"))).doesNotContain(binder, core);
+            assertThat(ids(get(viewer, 200, regionList + "&q={q}", word))).isEmpty();
+            assertThat(ids(get(viewer, 200, stateList + "&deckCore=true&q={q}", word))).isEmpty();
+            assertThat(get(viewer, 200, cores, card.cardId())).isEmpty();
+            JsonNode holderPage = get(viewer, 200, holders, card.cardId());
+            assertThat(holderPage.path("totalItems").asLong()).isZero();
+            assertThat(holderPage.path("items")).isEmpty();
+            assertThat(handlesOf(get(viewer, 200, collectors, word))).isEmpty();
+        }
+    }
+
+    /** Ids of a deck-core answer (an array of binders). */
+    private static List<String> coreIds(JsonNode cores) {
+        List<String> ids = new ArrayList<>();
+        cores.forEach(node -> ids.add(node.path("id").asString()));
+        return ids;
+    }
+
+    private String provisionedId(String uid) {
+        return me(uid).path("id").asString();
+    }
+
+    private String gameOf(String binderId) {
+        return testUsers
+                .query(
+                        "SELECT g.slug FROM binder b JOIN game g ON g.id = b.game_id WHERE b.id ="
+                                + " ?",
+                        UUID.fromString(binderId))
+                .get(0)
+                .get("slug")
+                .toString();
     }
 
     private static List<String> handlesOf(JsonNode collectors) {

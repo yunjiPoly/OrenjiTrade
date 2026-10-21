@@ -36,9 +36,25 @@ public class RegionBinderRepository {
 
     private static final String NOT_BLOCKED = DiscoverySql.notBlocked("bn.owner_id");
 
-    /** The binder holds the cards of the game {@code :game} (a slug; stage G). */
-    private static final String OF_GAME =
-            " AND bn.game_id = (SELECT gm.id FROM game gm WHERE gm.slug = :game)";
+    /**
+     * The binder holds the cards of the game {@code :game} (a slug; stage G) and of no other game:
+     * a binder the paused web made without a game ({@code game_follows_cards}) takes its first
+     * card's game and refuses no card, so it can hold the cards of several games. Such a binder, or
+     * one whose cover is a card of another game, is left out of every game's counts and lists
+     * (review fix 1, P1): its other cards would show as the browsed game's. Without a game it shows
+     * as before. Whatever the visibility of the card: a private card can become public later
+     * without the binder being written.
+     */
+    static final String OF_GAME =
+            " AND bn.game_id = (SELECT gm.id FROM game gm WHERE gm.slug = :game)"
+                    + " AND NOT EXISTS (SELECT 1 FROM inventory_item gi"
+                    + " JOIN card_printing gp ON gp.id = gi.printing_id"
+                    + " JOIN card gc ON gc.id = gp.card_id"
+                    + " WHERE gi.binder_id = bn.id AND gi.deleted_at IS NULL"
+                    + " AND gc.game_id <> bn.game_id)"
+                    + " AND NOT EXISTS (SELECT 1 FROM card_printing gcp"
+                    + " JOIN card gcc ON gcc.id = gcp.card_id"
+                    + " WHERE gcp.id = bn.cover_printing_id AND gcc.game_id <> bn.game_id)";
 
     private final JdbcClient jdbc;
 
