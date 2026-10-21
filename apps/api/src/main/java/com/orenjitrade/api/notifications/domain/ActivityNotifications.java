@@ -187,6 +187,8 @@ public class ActivityNotifications {
                                 + " still available.";
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("binderId", binderId == null ? null : binderId.toString());
+        // Stage R9: the phone's reminder row "{binder}: do you still have these {n} cards?".
+        data.put("binderName", binderName);
         data.put("itemCount", itemCount);
         data.put("hidesAt", hidesAt.toString());
         data.put("deepLink", inventoryLink(binderId));
@@ -254,6 +256,7 @@ public class ActivityNotifications {
                                 + " recently. Confirm them to show them again.";
         Map<String, @Nullable Object> data = new LinkedHashMap<>();
         data.put("binderId", binderId == null ? null : binderId.toString());
+        data.put("binderName", binderName);
         data.put("itemCount", itemCount);
         data.put("deepLink", inventoryLink(binderId));
         return notifications.notify(

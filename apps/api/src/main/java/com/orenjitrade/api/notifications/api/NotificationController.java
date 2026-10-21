@@ -3,6 +3,7 @@ package com.orenjitrade.api.notifications.api;
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.notifications.domain.NotificationService;
+import com.orenjitrade.api.notifications.domain.NotificationType;
 import com.orenjitrade.api.notifications.domain.NotificationView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.http.MediaType;
@@ -38,6 +40,14 @@ public class NotificationController {
 
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
 
+    /** Most types one {@code excludeTypes} may name (there are fewer types than this). */
+    static final int EXCLUDE_TYPES_MAX = 30;
+
+    static final String EXCLUDE_TYPES_DESCRIPTION =
+            "Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge)."
+                    + " Repeated or comma-separated; an unknown type is a 400. Without it, every"
+                    + " type counts, as before.";
+
     private final NotificationService notificationService;
 
     public NotificationController(NotificationService notificationService) {
@@ -49,7 +59,8 @@ public class NotificationController {
             operationId = "listNotifications",
             summary = "The caller's notifications (newest first)",
             description =
-                    "Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only."
+                    "Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only,"
+                            + " `excludeTypes` leaves types out (stage R9)."
                             + " Notifications whose in-app channel was disabled by the caller's"
                             + " preferences are never listed.")
     @ApiResponse(responseCode = "200", description = "One slice of notifications")
@@ -72,17 +83,41 @@ public class NotificationController {
                     int limit,
             @Parameter(description = "true: unread notifications only")
                     @RequestParam(defaultValue = "false")
-                    boolean unreadOnly) {
-        return notificationService.list(principal.userId(), cursor, unreadOnly, limit);
+                    boolean unreadOnly,
+            @Parameter(description = EXCLUDE_TYPES_DESCRIPTION)
+                    @RequestParam(required = false)
+                    @Size(max = EXCLUDE_TYPES_MAX)
+                    @Nullable List<NotificationType> excludeTypes) {
+        return notificationService.list(
+                principal.userId(), cursor, unreadOnly, limit, orEmpty(excludeTypes));
     }
 
     @GetMapping("/unread-count")
     @Operation(
             operationId = "getUnreadNotificationCount",
-            summary = "Number of unread notifications (badge)")
+            summary = "Number of unread notifications (badge)",
+            description =
+                    "`excludeTypes` leaves types out of the count (stage R9), as on the list.")
     @ApiResponse(responseCode = "200", description = "The unread count")
-    public UnreadCountResponse unreadCount(@AuthenticationPrincipal AuthenticatedUser principal) {
-        return new UnreadCountResponse(notificationService.unreadCount(principal.userId()));
+    @ApiResponse(
+            responseCode = "400",
+            description = "VALIDATION_FAILED (an unknown type)",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(ref = PROBLEM_REF)))
+    public UnreadCountResponse unreadCount(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @Parameter(description = EXCLUDE_TYPES_DESCRIPTION)
+                    @RequestParam(required = false)
+                    @Size(max = EXCLUDE_TYPES_MAX)
+                    @Nullable List<NotificationType> excludeTypes) {
+        return new UnreadCountResponse(
+                notificationService.unreadCount(principal.userId(), orEmpty(excludeTypes)));
+    }
+
+    private static List<NotificationType> orEmpty(@Nullable List<NotificationType> types) {
+        return types == null ? List.of() : types;
     }
 
     @PostMapping("/{id}/read")

@@ -5,6 +5,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -88,9 +89,15 @@ public class NotificationRepository {
     }
 
     /**
-     * In-app notifications of a user, newest first, after the cursor; at most {@code limit} rows.
+     * In-app notifications of a user, newest first, after the cursor, leaving out the {@code
+     * excludedTypes} (type names; empty = none); at most {@code limit} rows.
      */
-    public List<Row> page(UUID userId, @Nullable TimeCursor cursor, boolean unreadOnly, int limit) {
+    public List<Row> page(
+            UUID userId,
+            @Nullable TimeCursor cursor,
+            boolean unreadOnly,
+            Collection<String> excludedTypes,
+            int limit) {
         StringBuilder sql =
                 new StringBuilder("SELECT ")
                         .append(COLUMNS)
@@ -98,12 +105,18 @@ public class NotificationRepository {
         if (unreadOnly) {
             sql.append(" AND read_at IS NULL");
         }
+        if (!excludedTypes.isEmpty()) {
+            sql.append(" AND type NOT IN (:excludedTypes)");
+        }
         if (cursor != null) {
             sql.append(" AND (created_at, id) < (:cursorAt, :cursorId)");
         }
         sql.append(" ORDER BY created_at DESC, id DESC LIMIT :limit");
         JdbcClient.StatementSpec statement =
                 jdbc.sql(sql.toString()).param("userId", userId).param("limit", limit);
+        if (!excludedTypes.isEmpty()) {
+            statement = statement.param("excludedTypes", List.copyOf(excludedTypes));
+        }
         if (cursor != null) {
             statement =
                     statement
@@ -113,13 +126,20 @@ public class NotificationRepository {
         return statement.query(NotificationRepository::map).list();
     }
 
-    public long unreadCount(UUID userId) {
-        return jdbc.sql(
-                        "SELECT count(*) FROM notification WHERE user_id = :userId AND in_app"
-                                + " AND read_at IS NULL")
-                .param("userId", userId)
-                .query(Long.class)
-                .single();
+    /** Unread in-app notifications of a user, leaving out the {@code excludedTypes} (names). */
+    public long unreadCount(UUID userId, Collection<String> excludedTypes) {
+        JdbcClient.StatementSpec statement =
+                jdbc.sql(
+                                "SELECT count(*) FROM notification WHERE user_id = :userId AND"
+                                        + " in_app AND read_at IS NULL"
+                                        + (excludedTypes.isEmpty()
+                                                ? ""
+                                                : " AND type NOT IN (:excludedTypes)"))
+                        .param("userId", userId);
+        if (!excludedTypes.isEmpty()) {
+            statement = statement.param("excludedTypes", List.copyOf(excludedTypes));
+        }
+        return statement.query(Long.class).single();
     }
 
     /** Marks one in-app notification of the user read (idempotent); the row, or empty. */

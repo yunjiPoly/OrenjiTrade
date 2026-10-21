@@ -871,10 +871,21 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 sawAlert = true;
                 assertThat(notification.path("body").asString())
                         .contains("was just listed by @collector1 in Quebec, Canada");
+                // Stage R9: the phone's row names the province only, never a city.
+                JsonNode data = notification.path("data");
+                assertThat(data.path("province").asString()).isEqualTo("Quebec");
+                assertThat(data.path("collectorHandle").asString()).isEqualTo("collector1");
             }
         }
         assertThat(sawAlert).as("the seeded listing alerted collector2").isTrue();
         fetch("/api/v1/notifications", collector1);
+        // Stage R9: the phone's bell and screen leave chats out (excludeTypes=MESSAGE).
+        for (String caller : List.of(collector1, collector2)) {
+            JsonNode phone = fetch("/api/v1/notifications?limit=50&excludeTypes=MESSAGE", caller);
+            phone.path("items")
+                    .forEach(n -> assertThat(n.path("type").asString()).isNotEqualTo("MESSAGE"));
+            fetch("/api/v1/notifications/unread-count?excludeTypes=MESSAGE", caller);
+        }
         for (Fetched document : fetched) {
             if (document.path().startsWith("/api/v1/wishlist")) {
                 // collector2's own wishlist: public wish notes only; item notes still never

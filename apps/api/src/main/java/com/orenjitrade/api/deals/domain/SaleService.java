@@ -18,6 +18,7 @@ import com.orenjitrade.api.messaging.domain.ConversationService.ChatForSale;
 import com.orenjitrade.api.messaging.domain.SaleNotice;
 import com.orenjitrade.api.messaging.domain.SubjectKind;
 import com.orenjitrade.api.messaging.domain.SystemNotice;
+import com.orenjitrade.api.notifications.domain.NotificationCards;
 import com.orenjitrade.api.notifications.domain.NotificationRequest;
 import com.orenjitrade.api.notifications.domain.NotificationService;
 import com.orenjitrade.api.notifications.domain.NotificationType;
@@ -164,6 +165,7 @@ public class SaleService {
         UUID saleId = UUID.randomUUID();
         SaleRow row;
         @Nullable Integer remaining = null;
+        @Nullable ChatCard soldCard = null;
         if (chat.subjectItemId() != null) {
             UUID itemId = chat.subjectItemId();
             @Nullable ChatCard card = inventorySales.chatCards(List.of(itemId)).get(itemId);
@@ -172,6 +174,7 @@ public class SaleService {
                         ErrorCode.NOTHING_LEFT_TO_SELL, "This card is no longer in an inventory");
             }
             requireSeller(me, card.ownerId());
+            soldCard = card;
             CopiesSold sold = inventorySales.sellCopies(me, itemId, quantity);
             remaining = sold.remaining();
             row =
@@ -232,6 +235,18 @@ public class SaleService {
         data.put("conversationId", conversationId.toString());
         data.put("saleId", saleId.toString());
         data.put("sellerHandle", seller.handle());
+        // Stage R9: the phone's row "{seller} marked {name} as sold to you", the card's picture
+        // and whether a tracking number came with it (never the number itself).
+        data.put("itemName", row.name());
+        data.put("saleKind", row.kind());
+        data.put("hasTracking", tracking != null);
+        if (soldCard != null) {
+            NotificationCards.put(
+                    data,
+                    soldCard.name(),
+                    soldCard.game(),
+                    NotificationCards.storable(soldCard.imageUrl()));
+        }
         data.put("deepLink", "/messages/" + conversationId);
         notifications.notify(
                 new NotificationRequest(

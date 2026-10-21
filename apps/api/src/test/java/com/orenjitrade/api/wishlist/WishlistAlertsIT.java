@@ -65,6 +65,12 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         assertThat(data.path("regionCode").asString()).isEqualTo("americas-north");
         assertThat(data.path("deepLink").asString())
                 .isEqualTo("/cards/" + cardOf(azure) + "?printing=" + azure);
+        // Stage R9: the phone's row ("{card} from your wishlist was listed in Quebec" over
+        // "{handle} · {price}"): the province only, never a city.
+        assertThat(data.path("collectorHandle").asString()).isEqualTo(seller.handle());
+        assertThat(data.path("province").asString()).isEqualTo("Quebec");
+        assertThat(data.path("askingPrice").asString()).isEqualTo("45.00");
+        assertThat(data.path("currency").asString()).isEqualTo("CAD");
         assertCardPicture(alert, name);
         assertThat(alert.path("readAt").isNull()).isTrue();
         assertAtMostThreeDecimals(alert, "notification");

@@ -19,10 +19,13 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -243,12 +246,20 @@ public class NotificationService {
     // Notification centre (the recipient)
     // ---------------------------------------------------------------------------------------
 
-    /** {@code GET /notifications}: in-app notifications, newest first, cursor-paginated. */
+    /**
+     * {@code GET /notifications}: in-app notifications, newest first, cursor-paginated, without the
+     * {@code excludeTypes} (stage R9: the phone leaves chats out; none = every type).
+     */
     @Transactional(readOnly = true)
     public CursorPage<NotificationView> list(
-            UUID userId, @Nullable String cursor, boolean unreadOnly, int limit) {
+            UUID userId,
+            @Nullable String cursor,
+            boolean unreadOnly,
+            int limit,
+            Collection<NotificationType> excludeTypes) {
         @Nullable TimeCursor after = TimeCursor.decode(cursor);
-        List<Row> rows = repository.page(userId, after, unreadOnly, limit + 1);
+        List<Row> rows =
+                repository.page(userId, after, unreadOnly, typeNames(excludeTypes), limit + 1);
         boolean more = rows.size() > limit;
         List<Row> slice = more ? rows.subList(0, limit) : rows;
         List<NotificationView> views = new ArrayList<>();
@@ -262,9 +273,19 @@ public class NotificationService {
         return CursorPage.of(views, new TimeCursor(last.createdAt(), last.id()).encode());
     }
 
+    /** {@code GET /notifications/unread-count}: unread in-app notifications not excluded. */
     @Transactional(readOnly = true)
-    public long unreadCount(UUID userId) {
-        return repository.unreadCount(userId);
+    public long unreadCount(UUID userId, Collection<NotificationType> excludeTypes) {
+        return repository.unreadCount(userId, typeNames(excludeTypes));
+    }
+
+    /** The stored names of the types, without repeats ({@code type} is a text column). */
+    static Set<String> typeNames(Collection<NotificationType> types) {
+        Set<String> names = new TreeSet<>();
+        for (NotificationType type : types) {
+            names.add(type.name());
+        }
+        return names;
     }
 
     /** {@code POST /notifications/{id}/read}: idempotent; 404 for other users' notifications. */
