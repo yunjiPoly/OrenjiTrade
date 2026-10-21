@@ -129,7 +129,7 @@ collector5 see the others' posts):
 | 6 hours ago | collector5 | listed a card: Shadowvale Revenant King, $24.00 (the round Message button) |
 | 2 days ago | collector5 | wants Obsidian Magician Adept (any printing · NM only · 85% TCG) |
 | 3 days ago | collector2 | listed 3 cards (3 unfiled public cards since R7) |
-| 4 days ago | collector5 | is selling the deck core "Thunderwing core", "Trade only" (a new binder of R7 with 3 cards) |
+| 4 days ago | collector5 | is selling the deck core "Monarch core", "Trade only" (a new binder of R7 with 3 cards) |
 | 9 days ago | collector1 (Quebec) | listed 5 cards (her Yu-Gi-Oh! trade binder; "+2"; seen by the others) |
 | 12 days ago | collector5 | wants Gravehollow Fiend (AZR-EN021 · NM only · 100% TCG) |
 

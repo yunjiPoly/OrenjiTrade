@@ -109,7 +109,7 @@ reached Home. Two indexes for the window: `ix_inventory_item_listed_since`
 window) and keeps the rows Home shows confirmed no earlier than that; the wishlist seed does the
 same for three wishes. In Americas (North), Yu-Gi-Oh!: collector5's 12 cards 5 minutes ago and
 one card 6 hours ago, collector2's wish (1 hour) and deck core "Moth Queen core" ($95, 3 hours),
-collector5's wish (2 days), collector2's 3 cards (3 days), collector5's deck core "Thunderwing
+collector5's wish (2 days), collector2's 3 cards (3 days), collector5's deck core "Monarch
 core" ("Trade only", 4 days), collector1's 5 cards (9 days) and collector5's wish (12 days)
 (`docs/development/seed-data.md`, "Home's feed").
 

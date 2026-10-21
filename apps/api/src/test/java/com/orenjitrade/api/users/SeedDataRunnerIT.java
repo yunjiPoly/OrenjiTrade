@@ -45,7 +45,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                                 + " '00000000-0000-4000-8c00-%'");
         // Stage R3 added collector2's deck core "Moth Queen core" and its three cards; stage G
         // split the five binders that mixed games into one binder per game (18); stage R7 added
-        // Home's feed: collector5's deck core "Thunderwing core" (3 cards), 13 public unfiled cards
+        // Home's feed: collector5's deck core "Monarch core" (3 cards), 13 public unfiled cards
         // of collector5 and 3 of collector2 (19 binders, 61 cards).
         assertThat(binders).isEqualTo(19);
         assertThat(items).isEqualTo(61);
