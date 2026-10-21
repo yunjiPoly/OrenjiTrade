@@ -2990,6 +2990,11 @@ native build, no Maestro Cloud).
   pure helpers (platform choice, app id and URLs per platform, runtime and iPhone model choice,
   the simulator's preferences), unit-tested in `host-tools.test.mjs` and `mobile-maestro.test.mjs`
   (`npm run test:scripts`: 133 tests, 111 before).
+  - **Debug output pruned** (2026-10-20, after about 230 GB of old runs filled the Mac): before
+    each run the harness deletes all but the 3 newest run folders of
+    `.local-dev/mobile-e2e/maestro/.maestro/tests` (`ORENJI_MAESTRO_KEEP_RUNS`), only folders named
+    like a run's timestamp, and logs how many (`maestroRunsToDelete`, `pruneMaestroRuns`; 7 tests,
+    `npm run test:scripts`: 142).
   - **A simulator of its own**, "OrenjiTrade Maestro": created when missing (the newest standard
     iPhone on the newest installed iOS runtime), booted with `simctl` alone (no Simulator /
     DeviceHub window), awaited with `simctl bootstatus`, shut down at the end unless

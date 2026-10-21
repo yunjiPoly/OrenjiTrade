@@ -46,8 +46,7 @@
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.5",
-    "@modelcontextprotocol/server": "2.3.1",
-    "vite": "8.3.4"
+    "vite": "^8.3.4"
   },
   "devDependencies": {
     "@babel/generator": "7.29.8",

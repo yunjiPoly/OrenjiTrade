@@ -847,6 +847,10 @@ npm run test:mobile:maestro -- --keep-running                            # keep 
   `MAESTRO_BIN=D:/maestro/bin/maestro.bat` on Windows. It needs a `java` (17 or newer).
 - **adb** is found through `ANDROID_HOME`, `ANDROID_SDK_ROOT`, the SDK's default folder of the
   platform, then `PATH`. `ANDROID_SERIAL` picks one device when several are attached.
+- **Debug output.** Maestro keeps each run's screenshots and logs in
+  `.local-dev/mobile-e2e/maestro/.maestro/tests/<YYYY-MM-DD_HHMMSS>/` (1 to 3 GB for the full set).
+  Before each run the harness deletes all but the 3 newest of those folders;
+  `ORENJI_MAESTRO_KEEP_RUNS=<n>` keeps another number (`0`: none).
 
 #### The iOS simulator of the suite
 
