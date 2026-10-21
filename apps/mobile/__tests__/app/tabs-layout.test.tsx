@@ -104,6 +104,20 @@ describe('(tabs) layout', () => {
     expect(screen.queryByTestId('screen-home')).toBeNull();
   });
 
+  it('follows an old Map tab link once: the Home tab opens Home afterwards (R7 review U1/F1)', async () => {
+    renderRouter(routes, { initialUrl: '/?region=europe&subdivision=DE-BY' });
+    expect(await screen.findByTestId('search-map')).toBeOnTheScreen();
+
+    // The link's parameters stayed on the Home route and sent every later visit back to Search.
+    fireEvent.press(screen.getByLabelText('Home tab'));
+    expect(await screen.findByTestId('screen-home')).toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText('Profile tab'));
+    expect(await screen.findByTestId('screen-profile')).toBeOnTheScreen();
+    fireEvent.press(screen.getByLabelText('Home tab'));
+    expect(await screen.findByTestId('screen-home')).toBeOnTheScreen();
+    expect(screen).toHavePathname('/');
+  });
+
   it('sends the old Wishlist tab to the Wishlist segment of Search', async () => {
     renderRouter(routes, { initialUrl: '/wishlist' });
     expect(await screen.findByTestId('screen-search')).toBeOnTheScreen();

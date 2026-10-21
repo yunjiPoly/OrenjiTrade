@@ -377,6 +377,12 @@ test.describe('mobile regions and the region map', () => {
     expect(await page.evaluate((key) => window.localStorage.getItem(key), REGION_STORAGE_KEY)).toBe(
       'americas-south'
     );
+    // The Home tab opens Home after those links: their parameters stayed on Home and sent every
+    // later visit back to Search (R7 review U1/F1).
+    await openTab(page, 'Home');
+    await expect(screen(page, 'home').getByTestId('home-search-field')).toBeVisible({
+      timeout: 30_000,
+    });
 
     // A code an older install left on the device: the server's list is the judge. The app starts
     // in Americas (North) and the code is removed from the device.
