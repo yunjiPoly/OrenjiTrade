@@ -9355,7 +9355,7 @@ export interface components {
         FeedPost: {
             /**
              * Format: uuid
-             * @description Stable across pages and refreshes
+             * @description Stable across pages and refreshes. A later page may return an id already shown, with a new `at`, when its post lost its newest card in between: keep the copy already shown
              */
             id: string;
             /** @enum {string} */
