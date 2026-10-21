@@ -262,6 +262,14 @@ steps it executed before (platform-specific steps sit in `when: platform:` block
   app, `-- --stop` and start again. Relaunch the app after a text size change (the screen on
   display keeps its old layout until it is drawn again). The names VoiceOver reads are in
   `maestro --device <UDID> hierarchy`.
+- **Maestro's debug output** (`--debug-output`): every run leaves its screenshots and logs in
+  `.local-dev/mobile-e2e/maestro/.maestro/tests/<YYYY-MM-DD_HHMMSS>/` of its worktree, 1 to 3 GB
+  for a full set, and Maestro never deletes them (on 2026-10-20 about 230 GB had piled up across
+  the worktrees and the Mac had 2 GB free). The harness now deletes, before each run, all but the
+  3 newest of those folders (`ORENJI_MAESTRO_KEEP_RUNS=<n>` keeps another number, `0` none; the
+  run that starts comes on top) and logs how many it deleted. Only folders named like a run's
+  timestamp directly inside `.maestro/tests` are touched; `report.xml` stays. A worktree that has
+  not run the harness since keeps its old folders: delete them by hand.
 
 ## 5. Owner working agreements
 
