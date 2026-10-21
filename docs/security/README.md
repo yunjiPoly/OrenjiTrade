@@ -239,6 +239,13 @@ CI runs `node scripts/audit-gate.mjs` (also `npm run audit:gate`) instead of a b
 must state the exposure and why it is acceptable, and carries an expiry date after which the gate
 fails again until someone re-reviews it. Moderate/low advisories are printed but never block.
 
+When a patched release exists but a dependency pins the vulnerable version exactly, the root
+`package.json` **overrides** it to the patched release instead (nothing under the workspaces
+changes): `@grpc/grpc-js` ^1.14.5; `vite` 8.3.4 (GHSA-587H-7WMJ-H5PM: `@angular/build` pins 8.3.0
+even in 22.2.3) and `@modelcontextprotocol/server` 2.3.1 (GHSA-JM63-CQ47-J5JP, GHSA-46JR-4WX8-V453:
+the lockfile's `@angular/cli` 22.2.0 pins 2.0.0; 22.2.2 and later carry 2.3.1), both 2026-10-20.
+Drop an override once the dependency ships the fix itself.
+
 | Advisory | Package | Expires | Why accepted |
 | --- | --- | --- | --- |
 | GHSA-86w9-cpqp-85rv | node-forge ≤ 1.4.0 (no fix published) | 2026-11-30 | Only via Expo build tooling (`@expo/cli` → `@expo/code-signing-certificates`) for expo-updates code signing, which is not used; not in the API or the web bundle. npm's "fix" would downgrade Expo to SDK 44. |
