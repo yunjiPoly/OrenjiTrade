@@ -118,6 +118,8 @@ export function HomeScreen() {
   const showGetStarted = hidden === false && steps !== null && !complete;
 
   const listRef = useRef<FlatList<Item>>(null);
+  // A pull to refresh in progress (the spinner shows for a pull only).
+  const [pulling, setPulling] = useState(false);
   useScrollToTop(listRef);
 
   const refetchFeed = feed.refetch;
@@ -325,10 +327,14 @@ export function HomeScreen() {
         contentContainerStyle={styles.content}
         refreshControl={
           <RefreshControl
-            refreshing={feed.isRefetching && !feed.isFetchingNextPage}
+            // Only a pull shows the spinner: on iOS a spinner turned on by the app moves the list
+            // down by its height, so the refresh on coming back (or after a block) would move the
+            // post being read (R7 review U6, seen on the simulator).
+            refreshing={pulling}
             onRefresh={() => {
               setNow(new Date());
-              void feed.refetch();
+              setPulling(true);
+              void feed.refetch().finally(() => setPulling(false));
               void location.refetch();
               void publicCards.refetch();
               void wishlist.refetch();

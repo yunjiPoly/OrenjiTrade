@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions, Pressable, StyleSheet } from 'react-native';
+import { Dimensions, Pressable, RefreshControl, StyleSheet } from 'react-native';
 
 import { useBlockUser, useUnblockUser } from '@/src/api/hooks/blocks';
 import type { FeedPost } from '@/src/api/types';
@@ -664,6 +664,35 @@ describe('Home: coming back into view', () => {
     refocus();
     await waitFor(() => expect(reads('GET /api/v1/feed')).toBe(feed + 1));
     expect(api.callsTo('GET /api/v1/feed').at(-1)?.query.get('cursor')).toBeNull();
+  });
+
+  it('shows the pull spinner for a pull only, never for the refresh on coming back', async () => {
+    // R7 review U6, seen on the simulator: on iOS a spinner the app turns on moves the list down by
+    // its height, so the post being read moved on coming back.
+    let release: (() => void) | null = null;
+    const api = mockApi(doneRoutes({ 'GET /api/v1/feed': feedOf(ALL_POSTS) }));
+    render();
+    await screen.findByTestId(`home-post-${TWELVE.id}`);
+    api.use({
+      'GET /api/v1/feed': (request: MockRequest) =>
+        new Promise((resolve) => {
+          release = () => resolve(feedOf(ALL_POSTS)(request));
+        }),
+    });
+    const spinner = () => screen.UNSAFE_getByType(RefreshControl).props.refreshing as boolean;
+
+    jest.setSystemTime(NOW.getTime() + 6 * 60_000);
+    refocus();
+    await waitFor(() => expect(release).not.toBeNull());
+    expect(spinner()).toBe(false);
+    await act(async () => release?.());
+    release = null;
+
+    act(() => screen.UNSAFE_getByType(RefreshControl).props.onRefresh());
+    expect(spinner()).toBe(true);
+    await waitFor(() => expect(release).not.toBeNull());
+    await act(async () => release?.());
+    await waitFor(() => expect(spinner()).toBe(false));
   });
 
   it('keeps the post being read in place when posts are added above it', async () => {
