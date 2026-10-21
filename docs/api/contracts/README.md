@@ -23,11 +23,13 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R3 | [Binders and deck cores: the deck core fields, binder photos, key cards, deck cores in search and on the map (extends 3, 4 and the map of S1)](r3-binders-deck-cores.md) |
 | R4 | [Messages and Mark as sold: the chat's subject, sharing one's own card, sales and their undo, the SALE interaction, the buyer's notification (extends 5, 6 and 7)](r4-messages-sales.md) |
 | R5 | [Search: collectors by name while a card is typed, the holders of a card grouped by province, wishlist availability, blocked collectors left out of the collectors of search, no search text in analytics (extends 4, 6 and S2)](r5-search.md) |
+| R6 | [Profiles: the profile page as the phone reads it, "I have it" (extends 1, 3, 7 and R4)](r6-profiles.md) |
 | Scan | [Card scan: match the text read on a card, add the scanned cards](card-scan.md) |
 | G | [One game at a time: One Piece, `hasCards`, binders of one game with their two 409s, `game=` on the discovery reads the phone calls (extends 2, 3, 4, R3, R5 and S2)](g-one-game.md) |
+| R7 | [Home's feed: `GET /feed` (new cards per collector and hour, public wishes, public deck cores of a region and game in the last 30 days, by cursor), V133 `binder.core_since` (extends 3, S2, R3 and G)](r7-home-feed.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
 2026-10-13 and nothing of them is built (`docs/product/2026-10-08-change-delivery-report.md`). The
 phone redesign of 2026-10-14 (`docs/product/specs/2026-10-14-phone-redesign.md`) adds its own
-contracts for its new endpoints, one per stage (R2, R3 and R4 above; R5 to R7 to come).
+contracts for its new endpoints, one per stage (R2 to R7 above).

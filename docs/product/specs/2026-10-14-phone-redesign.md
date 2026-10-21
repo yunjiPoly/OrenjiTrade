@@ -620,3 +620,38 @@ screens 34 and 35, changes to 10 to 18):
 
 Built as stage G (`IMPLEMENTATION_STATUS.md`, "Phone redesign G: one game at a time
 (2026-10-20)"; API contract [`docs/api/contracts/g-one-game.md`](../../api/contracts/g-one-game.md)).
+
+---
+
+## Changed by the owner on 2026-10-19: Home
+
+The owner's prompt of 2026-10-19 ([`2026-10-19-home-full-design.md`](2026-10-19-home-full-design.md),
+saved word for word; mockup version 50, screens 10, 10b and 10c) designs the whole Home page for
+stage R7. The prompt above is kept as it was; for Home these points replace its section 5 and add
+to the "Home feed" part of its section 12:
+
+1. **The top row** holds the region pill and stage G's game pill on the left, the bell on the
+   right; everything below follows the browsed region and game. "Search cards or collectors" opens
+   Search with the keyboard up.
+2. **Get started** (screen 10c), until done or hidden: "Choose your province" (done with a
+   province and "Show me on the map" on; "Turn on" when hidden from the map), "List your first
+   card", "Add a card you want", a 3-part progress bar; hidden for good per account on the phone.
+3. **Chips** All, New cards, Wanted, Deck cores, with their kind's dot, pinned on scroll; none in
+   a region with nothing in the window. The choice goes back to All when the app restarts.
+4. **Sections** "Today", "Earlier this week" (1 to 6 days ago), "Earlier this month" (7 to 30),
+   in the phone's time zone ("Today in your region" becomes "Today"); times "5 min", "1 h", the
+   weekday, then the date.
+5. **The posts** share one header ("{handle} {verb}", then "{time} · {province}"; the verb grey,
+   teal or purple): new cards as a 4-column grid with "+{n}" from 5 cards, or one card as a row
+   with a round Message button that pins it; a wish with its terms and "I have it"; a deck core
+   with a 132-tall band, its tag, "{n} photos", its price and the first line of its note. This
+   replaces the "Wanted · {handle} · {province}" and "Deck core · {handle} · {province}" lines.
+6. **The end** says "You're all caught up" and what was everything (per chip), with "Explore the
+   map"; the empty state is "Nothing new in {region} yet" ("in {game}" when only the game is
+   quiet) with "Be the first: ...", and "Add cards" when Get started is not shown.
+7. **`GET /api/v1/feed`** takes `game=` (required), keeps a 30-day window as a server setting
+   (`orenji.feed.window-days`), groups a collector's cards per hour, leaves the cards of a public
+   deck core to the core's post, and carries the fields of section 5 of the prompt.
+
+Built as stage R7 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R7: Home (2026-10-21)"; API contract
+[`docs/api/contracts/r7-home-feed.md`](../../api/contracts/r7-home-feed.md)).

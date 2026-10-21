@@ -133,11 +133,11 @@ call for geography (boundaries are bundled static assets).
   interfaces for server DTOs). Design tokens come from `packages/design-tokens` as CSS custom
   properties; light/dark ready. Skeleton loaders, empty states, error states with retry, and
   keyboard navigation are required for every screen. No giant components.
-- Mobile: expo-router tabs `Search | Inventory | Messages | Profile` since stage R5 (the Map tab
-  is Search's default view, the Wishlist tab its Wishlist segment; old routes redirect); stage R7
-  of the phone redesign approved on 2026-10-14 (stages R1 to R8,
-  `docs/product/specs/2026-10-14-phone-redesign.md`) adds `Home` as the first of five (until a
-  stage lands, describe the phone as it is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+- Mobile: expo-router tabs `Home | Search | Inventory | Messages | Profile` since stage R7 (Home is
+  the `index` route, the app's first screen, with the feed `GET /feed`; since R5 the Map tab is
+  Search's default view, the Wishlist tab its Wishlist segment; old routes redirect; phone redesign
+  approved on 2026-10-14, stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`; until
+  a stage lands, describe the phone as it is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
   API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
   switcher; the collector's home region by default).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
