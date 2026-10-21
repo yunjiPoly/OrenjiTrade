@@ -17,6 +17,7 @@ import { Text, TextInput } from '@/src/components/ui/Text';
 import { ItemRow } from '@/src/features/inventory/ItemRow';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { reportParams } from '@/src/features/reports/reportLabels';
+import { searchMapTarget } from '@/src/features/search/searchLinks';
 import { boundedQuery, QUERY_MAX_LENGTH, SEARCH_DEBOUNCE_MS } from '@/src/lib/catalog';
 import { endsLabel } from '@/src/lib/inventory';
 import { isLimitReached, limitReachedInfo, limitReachedMessage } from '@/src/lib/limits';
@@ -62,7 +63,7 @@ export function PublicBinderView({ id }: PublicBinderViewProps) {
           title={DECK_CORE_COPY.notFoundTitle}
           description={DECK_CORE_COPY.notFoundBody}
           actionLabel={DECK_CORE_COPY.notFoundAction}
-          onAction={() => router.navigate('/')}
+          onAction={() => router.navigate(searchMapTarget())}
         />
       );
     } else if (error && isLimitReached(error)) {

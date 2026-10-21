@@ -992,8 +992,15 @@ describe('Public binder', () => {
     );
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText('This binder is not available')).toBeOnTheScreen();
+    // "Back to the map" opens Search's map: `/` is Home since stage R7 (R7 review U2/F4).
+    expect(screen.getByTestId('public-binder-not-found-action')).toHaveTextContent(
+      'Back to the map'
+    );
     fireEvent.press(screen.getByTestId('public-binder-not-found-action'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+    expect(mockRouter.navigate).toHaveBeenCalledWith({
+      pathname: '/search',
+      params: { segment: 'cards' },
+    });
   });
 
   it('explains the daily binder views limit', async () => {

@@ -12,6 +12,14 @@ export type SearchHref = { pathname: '/search'; params: Record<string, string> }
 const ID = /^[\w-]{1,64}$/;
 
 /**
+ * Search's map (its Cards segment, the old Map tab): where every "Back to the map" and "Explore the
+ * map" leads. Not `/`, which is Home since stage R7 (R7 review U2/F4).
+ */
+export function searchMapTarget(): SearchHref {
+  return { pathname: '/search', params: { segment: 'cards' } };
+}
+
+/**
  * The old Map tab (`/?region=&subdivision=`): the map, on that region and that state. `/` alone is
  * Search alone: a link with nothing to reopen (the sign-in gate remembers only real links).
  */

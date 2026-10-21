@@ -5,12 +5,14 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { searchMapTarget } from '@/src/features/search/searchLinks';
 import { removedRouteTarget } from '@/src/navigation/removedRoutes';
 
 /**
  * Unknown links. A link to a screen that left the phone is sent on with a short note instead:
  * offers, trades, protected payments and disputes (ADR 0018) to Messages or Settings; Premium,
- * credits, "Support OrenjiTrade" and their checkouts (ADR 0019) to the Profile tab.
+ * credits, "Support OrenjiTrade" and their checkouts (ADR 0019) to the Profile tab. "Back to the
+ * map" opens Search's map (`/` is Home since stage R7).
  */
 export default function NotFoundScreen() {
   const router = useRouter();
@@ -47,7 +49,7 @@ export default function NotFoundScreen() {
           title="This page does not exist"
           description="The link may be outdated or the content has been removed."
           actionLabel="Back to the map"
-          onAction={() => router.replace('/(tabs)')}
+          onAction={() => router.replace(searchMapTarget())}
         />
       </Screen>
     </>
