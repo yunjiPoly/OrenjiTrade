@@ -95,7 +95,11 @@ public final class FeedResponses {
     public record FeedPostResponse(
             @Schema(
                             requiredMode = RequiredMode.REQUIRED,
-                            description = "Stable across pages and refreshes")
+                            description =
+                                    "Stable across pages and refreshes. A later page may return"
+                                            + " an id already shown, with a new `at`, when its"
+                                            + " post lost its newest card in between: keep the"
+                                            + " copy already shown")
                     UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED) FeedPostKind kind,
             @Schema(

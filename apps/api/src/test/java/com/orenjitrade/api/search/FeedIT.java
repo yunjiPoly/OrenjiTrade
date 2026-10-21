@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.inventory.InventoryTestSupport.IsolatedCard;
 import com.orenjitrade.api.search.domain.FeedRules;
+import com.orenjitrade.api.search.infra.FeedRepository;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
@@ -22,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import tools.jackson.databind.JsonNode;
 
@@ -41,6 +43,8 @@ class FeedIT extends AbstractSearchIT {
 
     private static final String REGION = "americas-north";
 
+    @Autowired private FeedRepository feedRepository;
+
     private static final AtomicInteger AHEAD = new AtomicInteger();
 
     /**
@@ -55,6 +59,17 @@ class FeedIT extends AbstractSearchIT {
 
     private JsonNode feed(String uid, String query) {
         return get(uid, 200, "/api/v1/feed?" + query);
+    }
+
+    /** One page after {@code cursor}. */
+    private JsonNode after(String uid, String query, String cursor) {
+        return get(uid, 200, "/api/v1/feed?" + query + "&cursor={c}", cursor);
+    }
+
+    private static List<String> collectorIds(JsonNode page) {
+        List<String> ids = new ArrayList<>();
+        page.path("items").forEach(post -> ids.add(post.path("collector").path("id").asString()));
+        return ids;
     }
 
     /** Every post of the feed, page by page ({@code limit} per page). */
@@ -191,7 +206,9 @@ class FeedIT extends AbstractSearchIT {
                         "Trade only",
                         "14 cards, NM, in sleeves.\nShips tracked.");
         fileCard(seller, core, printing("ygo-p012a"), "PRIVATE");
-        Instant base = Instant.now().minus(Duration.ofMinutes(20));
+        // Both cards inside one clock hour, whatever the time the test runs (R7 review F5: at
+        // hh:20 the two cards fell into two hours, two posts).
+        Instant base = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(Duration.ofMinutes(30));
         cardListedAt(first, base.minusSeconds(60));
         cardListedAt(second, base);
         wishMadeAt(wishId, base.minus(Duration.ofHours(2)));
@@ -487,11 +504,31 @@ class FeedIT extends AbstractSearchIT {
         Collector blocker = collector("feed-block-blocker");
         Collector other = collector("feed-block-other");
         Instant base = newestBase();
-        cardListedAt(publicItem(blocked, printing("ygo-p006a"), Map.of()), base.plusSeconds(3000));
-        cardListedAt(publicItem(blocker, printing("ygo-p008a"), Map.of()), base.plusSeconds(2000));
-        String expected = publicItem(other, printing("ygo-p010a"), Map.of());
-        cardListedAt(expected, base.plusSeconds(1000));
-        String viewersCard = publicItem(viewer, printing("ygo-p015a"), Map.of());
+        // Each of the three has a post of each kind; the blocked pair's are the newer ones, so a
+        // block applied after the limit would leave a page short (R7 review P2: wishes and deck
+        // cores were checked by no test).
+        Map<Collector, Integer> offsets = Map.of(blocked, 3000, blocker, 2000, other, 1000);
+        Map<Collector, String> wishes = new LinkedHashMap<>();
+        Map<Collector, String> cores = new LinkedHashMap<>();
+        String[][] refs = {
+            {"ygo-p006a", "ygo-p013a"}, {"ygo-p008a", "ygo-p015a"}, {"ygo-p010a", "ygo-p016a"}
+        };
+        int index = 0;
+        for (Collector poster : List.of(blocked, blocker, other)) {
+            showWishlist(poster);
+            int offset = offsets.get(poster);
+            cardListedAt(
+                    publicItem(poster, printing(refs[index][0]), Map.of()),
+                    base.plusSeconds(offset));
+            String wishId = wish(poster, cardOf(printing(refs[index][1])), Map.of());
+            wishMadeAt(wishId, base.plusSeconds(offset + 100));
+            wishes.put(poster, wishId);
+            String core = publicBinder(poster, "yugioh", token() + " core", "$45", "");
+            coreListedAt(core, base.plusSeconds(offset + 200));
+            cores.put(poster, core);
+            index++;
+        }
+        String viewersCard = publicItem(viewer, printing("ygo-p017a"), Map.of());
         cardListedAt(viewersCard, base.plusSeconds(500));
         callJson(
                 HttpMethod.POST,
@@ -512,6 +549,27 @@ class FeedIT extends AbstractSearchIT {
         assertThat(first.path("items").get(0).path("collector").path("id").asString())
                 .isEqualTo(other.id().toString());
         assertThat(first.path("hasMore").asBoolean()).isTrue();
+        // Chip by chip, the first post is still the other collector's, of that kind.
+        for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+            JsonNode page = feed(viewer.uid(), query + "&kind=" + kind);
+            assertThat(collectorIds(page)).as(kind).containsExactly(other.id().toString());
+        }
+        assertThat(
+                        feed(viewer.uid(), query + "&kind=WANTED")
+                                .path("items")
+                                .get(0)
+                                .path("wanted")
+                                .path("wishId")
+                                .asString())
+                .isEqualTo(wishes.get(other));
+        assertThat(
+                        feed(viewer.uid(), query + "&kind=DECK_CORES")
+                                .path("items")
+                                .get(0)
+                                .path("deckCore")
+                                .path("binderId")
+                                .asString())
+                .isEqualTo(cores.get(other));
         List<JsonNode> all = everything(viewer.uid(), "region=" + REGION + "&game=yugioh", 50);
         assertThat(of(all, blocked)).isEmpty();
         assertThat(of(all, blocker)).isEmpty();
@@ -519,6 +577,161 @@ class FeedIT extends AbstractSearchIT {
         assertThat(postsOf(blocked.uid(), viewer, "yugioh")).isEmpty();
         assertThat(postsOf(blocker.uid(), viewer, "yugioh")).isEmpty();
         assertThat(postsOf(other.uid(), viewer, "yugioh")).hasSize(1);
+    }
+
+    @Test
+    void aCollectorOffTheMapIsLeftOutBeforeTheLimitAndCountsForNothing() {
+        // R7 review P4: the SQL's discoverable rule was hidden by the Java re-check after the
+        // limit (short pages) and nothing checked it in the "anything in the window" question.
+        Collector viewer = collector("feed-offmap-viewer");
+        Collector hidden = collector("feed-offmap-hidden");
+        Collector other = collector("feed-offmap-other");
+        showWishlist(other);
+        showWishlist(hidden);
+        Instant base = newestBase();
+        cardListedAt(publicItem(other, printing("ygo-p006a"), Map.of()), base.plusSeconds(1000));
+        wishMadeAt(wish(other, cardOf(printing("ygo-p013a")), Map.of()), base.plusSeconds(1100));
+        coreListedAt(
+                publicBinder(other, "yugioh", token() + " core", "$30", ""),
+                base.plusSeconds(1200));
+        cardListedAt(publicItem(hidden, printing("ygo-p008a"), Map.of()), base.plusSeconds(3000));
+        wishMadeAt(wish(hidden, cardOf(printing("ygo-p015a")), Map.of()), base.plusSeconds(3100));
+        coreListedAt(
+                publicBinder(hidden, "yugioh", token() + " core", "$35", ""),
+                base.plusSeconds(3200));
+        // Only the hidden collector's posts are this recent.
+        FeedRepository.Scope recent =
+                new FeedRepository.Scope(
+                        REGION, "yugioh", viewer.id(), base.plusSeconds(2000), Instant.now(), null);
+        assertThat(feedRepository.any(recent, false)).isTrue();
+
+        // Off the map, with a public profile: their cards, wish and deck core stay public on the
+        // profile (the stored flags too), but Home shows nothing of theirs.
+        Map<String, Object> offMap = privacy(false, "PUBLIC");
+        offMap.put("wishlistVisible", true);
+        callJson(HttpMethod.PUT, "/api/v1/me/settings/privacy", hidden.uid(), offMap, 200);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE owner_id = ? AND"
+                                        + " publicly_listed",
+                                hidden.id()))
+                .isEqualTo(1);
+
+        String query = "region=" + REGION + "&game=yugioh&limit=1";
+        assertThat(collectorIds(feed(viewer.uid(), query))).containsExactly(other.id().toString());
+        for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+            assertThat(collectorIds(feed(viewer.uid(), query + "&kind=" + kind)))
+                    .as(kind)
+                    .containsExactly(other.id().toString());
+        }
+        // Nothing of theirs counts as a post of the game or of the region.
+        assertThat(feedRepository.any(recent, false)).isFalse();
+        assertThat(feedRepository.any(recent, true)).isFalse();
+    }
+
+    @Test
+    void anExpiredTemporarilyPublicCardOrDeckCoreIsLeftOutBeforeTheLimit() {
+        // R7 review P4: the live public rules decide, not the stored flag the expiry job refreshes
+        // later; a Java re-check after the limit would leave the page short.
+        Collector viewer = collector("feed-expired-viewer");
+        Collector seller = collector("feed-expired");
+        Collector other = collector("feed-expired-other");
+        Instant base = newestBase();
+        cardListedAt(publicItem(other, printing("ygo-p006a"), Map.of()), base.plusSeconds(1000));
+        coreListedAt(
+                publicBinder(other, "yugioh", token() + " core", "$30", ""),
+                base.plusSeconds(1200));
+        String card = publicItem(seller, printing("ygo-p008a"), Map.of());
+        cardListedAt(card, base.plusSeconds(3000));
+        String core = publicBinder(seller, "yugioh", token() + " core", "$35", "");
+        coreListedAt(core, base.plusSeconds(3200));
+        testUsers.update(
+                "UPDATE inventory_item SET visibility = 'TEMPORARILY_PUBLIC', public_until = now()"
+                        + " - interval '1 minute' WHERE id = ?::uuid",
+                card);
+        testUsers.update(
+                "UPDATE binder SET visibility = 'TEMPORARILY_PUBLIC', public_until = now() -"
+                        + " interval '1 minute' WHERE id = ?::uuid",
+                core);
+        assertThat(
+                        testUsers.count(
+                                "SELECT count(*) FROM inventory_item WHERE id = ?::uuid AND"
+                                        + " publicly_listed",
+                                card))
+                .isEqualTo(1);
+
+        String query = "region=" + REGION + "&game=yugioh&limit=1&kind=";
+        assertThat(collectorIds(feed(viewer.uid(), query + "NEW_CARDS")))
+                .containsExactly(other.id().toString());
+        assertThat(collectorIds(feed(viewer.uid(), query + "DECK_CORES")))
+                .containsExactly(other.id().toString());
+        assertThat(postsOf(viewer.uid(), seller, "yugioh")).isEmpty();
+    }
+
+    @Test
+    void aCardListedBetweenPagesNeverHidesAPostNotSeenYet() {
+        // R7 review F2: a new-card post is dated by its newest card; a card listed in its hour
+        // after the first page lifted it above the cursor, and no page ever returned it.
+        Collector viewer = collector("feed-moving-viewer");
+        Collector lister = collector("feed-moving-lister");
+        Collector newer = collector("feed-moving-newer");
+        Instant base = newestBase();
+        cardListedAt(publicItem(lister, printing("ygo-p006a"), Map.of()), base.plusSeconds(60));
+        cardListedAt(publicItem(newer, printing("ygo-p008a"), Map.of()), base.plusSeconds(120));
+        String query = "region=" + REGION + "&game=yugioh&limit=1";
+        JsonNode first = feed(viewer.uid(), query);
+        assertThat(collectorIds(first)).containsExactly(newer.id().toString());
+        String groupId = FeedRules.cardsPostId(lister.id(), FeedRules.hourOf(base)).toString();
+
+        // The lister lists one more card in the same hour, after the first page was read.
+        cardListedAt(publicItem(lister, printing("ygo-p010a"), Map.of()), base.plusSeconds(300));
+        JsonNode second = after(viewer.uid(), query, first.path("nextCursor").asString());
+        assertThat(second.path("items")).hasSize(1);
+        JsonNode post = second.path("items").get(0);
+        assertThat(post.path("id").asString()).isEqualTo(groupId);
+        // Dated, and counted, as when the first page was read.
+        assertThat(Instant.parse(post.path("at").asString())).isEqualTo(base.plusSeconds(60));
+        assertThat(post.path("newCards").path("total").asLong()).isEqualTo(1);
+
+        // A refresh shows it at the top, with its new card.
+        JsonNode refreshed = feed(viewer.uid(), query);
+        assertThat(refreshed.path("items").get(0).path("id").asString()).isEqualTo(groupId);
+        assertThat(Instant.parse(refreshed.path("items").get(0).path("at").asString()))
+                .isEqualTo(base.plusSeconds(300));
+        assertThat(refreshed.path("items").get(0).path("newCards").path("total").asLong())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void aPostWhoseNewestCardLeavesBetweenPagesComesBackWithItsNewTime() {
+        // R7 review F2 and P5: its time moves down past the cursor, so a later page returns its
+        // id again (the contract says so; clients keep the copy they show). It is never lost.
+        Collector viewer = collector("feed-leaving-viewer");
+        Collector seller = collector("feed-leaving");
+        Collector middle = collector("feed-leaving-middle");
+        Instant base = newestBase();
+        cardListedAt(publicItem(seller, printing("ygo-p006a"), Map.of()), base.plusSeconds(60));
+        String newest = publicItem(seller, printing("ygo-p008a"), Map.of());
+        cardListedAt(newest, base.plusSeconds(600));
+        cardListedAt(publicItem(middle, printing("ygo-p010a"), Map.of()), base.plusSeconds(300));
+        String query = "region=" + REGION + "&game=yugioh&limit=2";
+        JsonNode first = feed(viewer.uid(), query.replace("limit=2", "limit=1"));
+        String groupId = FeedRules.cardsPostId(seller.id(), FeedRules.hourOf(base)).toString();
+        assertThat(first.path("items").get(0).path("id").asString()).isEqualTo(groupId);
+
+        callJson(
+                HttpMethod.PATCH,
+                "/api/v1/inventory/items/" + newest,
+                seller.uid(),
+                Map.of("visibility", "PRIVATE"),
+                200);
+        JsonNode second = after(viewer.uid(), query, first.path("nextCursor").asString());
+        assertThat(collectorIds(second))
+                .containsExactly(middle.id().toString(), seller.id().toString());
+        JsonNode again = second.path("items").get(1);
+        assertThat(again.path("id").asString()).isEqualTo(groupId);
+        assertThat(Instant.parse(again.path("at").asString())).isEqualTo(base.plusSeconds(60));
+        assertThat(again.path("newCards").path("total").asLong()).isEqualTo(1);
     }
 
     @Test

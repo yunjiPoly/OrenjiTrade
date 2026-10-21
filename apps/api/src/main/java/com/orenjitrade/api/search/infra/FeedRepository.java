@@ -1,7 +1,7 @@
 package com.orenjitrade.api.search.infra;
 
 import com.orenjitrade.api.binders.domain.PublicVisibilityRules;
-import com.orenjitrade.api.common.TimeCursor;
+import com.orenjitrade.api.search.domain.FeedCursor;
 import com.orenjitrade.api.search.domain.FeedPostKind;
 import com.orenjitrade.api.search.domain.ItemFilter;
 import java.sql.Timestamp;
@@ -40,6 +40,11 @@ import org.springframework.stereotype.Repository;
  * The live public rules decide ({@link DiscoverySql#LISTED}, {@link
  * PublicVisibilityRules#binderEffectivelyPublic}); the materialised flag only dates a post. No
  * place beyond the declared country and subdivision exists here (ADR 0017).
+ *
+ * <p>A new-card post is dated by its newest card, a date that moves when a card joins its hour. The
+ * pages after the first count only the cards listed until the first page was read ({@link
+ * Scope#asOf}), so a card listed in between cannot lift a post not seen yet above the cursor and
+ * out of every page (R7 review F2); the post shows its new card after a refresh, at the top.
  */
 @Repository
 public class FeedRepository {
@@ -60,9 +65,10 @@ public class FeedRepository {
 
     /**
      * The FROM and WHERE of the cards that make new-card posts (aliases of {@link
-     * DiscoverySql#ITEM_JOINS}); the game when {@code withGame}.
+     * DiscoverySql#ITEM_JOINS}); the game when {@code withGame}; only the cards listed until {@code
+     * :asOf} when {@code asOf} (the pages after the first).
      */
-    private static String cardsFrom(boolean withGame) {
+    private static String cardsFrom(boolean withGame, boolean asOf) {
         return DiscoverySql.ITEM_JOINS
                 + PublicVisibilityRules.ownerJoins("i.owner_id")
                 + DiscoverySql.locationJoins("i.owner_id")
@@ -75,6 +81,7 @@ public class FeedRepository {
                 + " AND "
                 + DiscoverySql.IN_REGION
                 + " AND i.publicly_listed AND i.listing_changed_at > :since"
+                + (asOf ? " AND i.listing_changed_at <= :asOf" : "")
                 + " AND (i.binder_id IS NULL OR NOT b.sells_as_core)"
                 + (withGame ? " AND g.slug = :game" : "")
                 + " AND i.owner_id <> :viewer"
@@ -126,7 +133,7 @@ public class FeedRepository {
      * descending), after {@code after} when given.
      */
     public List<PostRef> page(
-            Scope scope, Set<FeedPostKind> kinds, @Nullable TimeCursor after, int limit) {
+            Scope scope, Set<FeedPostKind> kinds, @Nullable FeedCursor after, int limit) {
         Map<String, Object> params = scope.params();
         params.put("limit", limit);
         List<String> branches = new ArrayList<>();
@@ -135,7 +142,7 @@ public class FeedRepository {
             sql.append("WITH card_groups AS (SELECT i.owner_id, ")
                     .append(HOUR)
                     .append(" AS hour, max(i.listing_changed_at) AS at")
-                    .append(cardsFrom(true))
+                    .append(cardsFrom(true, scope.asOf() != null))
                     .append(" GROUP BY i.owner_id, ")
                     .append(HOUR)
                     .append(") ");
@@ -190,7 +197,7 @@ public class FeedRepository {
         boolean withGame = !anyGame;
         String sql =
                 "SELECT EXISTS (SELECT 1"
-                        + cardsFrom(withGame)
+                        + cardsFrom(withGame, false)
                         + ") OR EXISTS (SELECT 1"
                         + wishesFrom(withGame)
                         + ") OR EXISTS (SELECT 1"
@@ -234,7 +241,7 @@ public class FeedRepository {
                         + ") AS total, row_number() OVER (PARTITION BY i.owner_id, "
                         + HOUR
                         + " ORDER BY i.listing_changed_at DESC, i.id DESC) AS rn"
-                        + cardsFrom(true)
+                        + cardsFrom(true, scope.asOf() != null)
                         + " AND i.owner_id IN (:owners) AND "
                         + HOUR
                         + " IN (:hours)) grouped"
@@ -274,12 +281,24 @@ public class FeedRepository {
      * @param viewerId the signed-in viewer (left out, and so is everyone in a block with them)
      * @param since the start of the window (exclusive)
      * @param now the time of the public rules
+     * @param asOf on the pages after the first, the time the first page was read ({@link
+     *     FeedCursor#asOf}): new-card posts count only the cards listed until then; {@code null} on
+     *     the first page
      */
-    public record Scope(String region, String game, UUID viewerId, Instant since, Instant now) {
+    public record Scope(
+            String region,
+            String game,
+            UUID viewerId,
+            Instant since,
+            Instant now,
+            @Nullable Instant asOf) {
 
         Map<String, Object> params() {
             Map<String, Object> params = new LinkedHashMap<>();
             params.put("now", Timestamp.from(now));
+            if (asOf != null) {
+                params.put("asOf", Timestamp.from(asOf));
+            }
             params.put("since", Timestamp.from(since));
             params.put("region", region);
             params.put("game", game);
@@ -293,7 +312,8 @@ public class FeedRepository {
      *
      * @param kind kind
      * @param id stable id: the wish or the binder, or {@code FeedRules.cardsPostId} of the group
-     * @param at when it became public (the newest card of a group)
+     * @param at when it became public (the newest card of a group, of those listed until {@link
+     *     Scope#asOf})
      * @param ownerId the collector
      * @param hour the hour of a new-card post, {@code null} for the other kinds
      */

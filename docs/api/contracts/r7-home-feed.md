@@ -26,8 +26,16 @@ All under `/api/v1`. Places are a state or province and a country, never a city 
 Anonymous: 401. The guests' Home is stage R15.
 
 **Order and paging.** Newest first by `at`, then `id` (both descending); a keyset cursor over the
-two, so a post never shows twice and none is skipped while the window does not move (`FeedIT`
-pages the whole region with 3 per page and with 50 and finds the same list).
+two (`FeedIT` pages the whole region with 3 per page and with 50 and finds the same list). A
+new-card post is dated by its newest card, so its `at` moves when cards join or leave its hour
+while its `id` stays. The cursor also carries the time the first page was read: the pages after
+it date and count new-card posts by the cards listed until then only, so a card listed in between
+can no longer lift a post not seen yet above the cursor and out of every page (R7 review F2); a
+refresh shows that post at the top with its new card. A post whose newest card leaves between two
+pages (made private, sold, deleted) is dated by an older card and can come back once on a later
+page, same `id`, new `at`: **clients dedupe by `id` and keep the copy already shown** (the phone's
+`feedRows` does). Nothing that existed when the first page was read is skipped while the window
+does not move. The cursor is opaque; one of before this change is a 400 (`cursor`).
 
 **The window.** Nothing that became public more than `orenji.feed.window-days` days ago is ever
 returned (an application property, `FEED_WINDOW_DAYS`, 30 by default, 1 to 365); the page says it

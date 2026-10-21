@@ -26,6 +26,14 @@ class FeedRulesTest {
     }
 
     @Test
+    void laterPagesCountTheCardsOfTheFirstPagesTime() {
+        // The time of the read, or the first page's newest post when it is dated ahead of it.
+        assertThat(FeedRules.asOf(NOW, NOW.minusSeconds(90))).isEqualTo(NOW);
+        assertThat(FeedRules.asOf(NOW, NOW)).isEqualTo(NOW);
+        assertThat(FeedRules.asOf(NOW, NOW.plusSeconds(5))).isEqualTo(NOW.plusSeconds(5));
+    }
+
+    @Test
     void cardsOfTheSameClockHourShareAnHourAndTheNextHourStartsAnother() {
         long hour = FeedRules.hourOf(Instant.parse("2026-10-21T15:00:00Z"));
         assertThat(FeedRules.hourOf(Instant.parse("2026-10-21T15:59:59.999Z"))).isEqualTo(hour);

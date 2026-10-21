@@ -8,7 +8,6 @@ import com.orenjitrade.api.cards.domain.PrintingImage;
 import com.orenjitrade.api.cards.domain.PrintingSummary;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.ProblemFieldError;
-import com.orenjitrade.api.common.TimeCursor;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
@@ -112,7 +111,7 @@ public class FeedService {
         if (!errors.isEmpty()) {
             throw ApiException.validation("Validation failed", errors);
         }
-        @Nullable TimeCursor after = TimeCursor.decode(query.cursor());
+        @Nullable FeedCursor after = FeedCursor.decode(query.cursor());
         RegionView region = discovery.scope(viewerId, query.region());
         int limit = FeedRules.limit(query.limit());
         Instant now = timeProvider.now();
@@ -123,7 +122,8 @@ public class FeedService {
                         Objects.requireNonNull(game),
                         viewerId,
                         FeedRules.windowStart(now, days),
-                        now);
+                        now,
+                        after == null ? null : after.asOf());
         FeedFilter kinds = Objects.requireNonNull(filter);
 
         List<PostRef> refs = feed.page(scope, kinds.kinds(), after, limit + 1);
@@ -132,7 +132,9 @@ public class FeedService {
         @Nullable String nextCursor = null;
         if (hasMore) {
             PostRef last = page.get(page.size() - 1);
-            nextCursor = new TimeCursor(last.at(), last.id()).encode();
+            // Every later page counts the cards of the first page's time (R7 review F2).
+            Instant asOf = after != null ? after.asOf() : FeedRules.asOf(now, page.get(0).at());
+            nextCursor = new FeedCursor(last.at(), last.id(), asOf).encode();
         }
 
         // Whether the game, and the region, have anything at all in the window (the empty state

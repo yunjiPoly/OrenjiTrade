@@ -45,6 +45,16 @@ public final class FeedRules {
     }
 
     /**
+     * The time a first page was read, as the pages after it see it ({@link FeedCursor#asOf}): the
+     * later of the time of the read and the newest post of that page, so every card the first page
+     * counted is counted on the next ones too (a card dated ahead of the reader's clock included),
+     * and no card listed afterwards.
+     */
+    public static Instant asOf(Instant now, Instant newest) {
+        return newest.isAfter(now) ? newest : now;
+    }
+
+    /**
      * The hour of {@code at}: whole hours since the epoch (UTC). One collector's cards that became
      * public within the same hour are one post ("listed {n} cards"); the hour is the same in every
      * time zone with a whole-hour offset, and the post keeps its id across pages.
