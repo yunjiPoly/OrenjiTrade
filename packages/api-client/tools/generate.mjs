@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Runs openapi-generator-cli (typescript-angular) against docs/api/openapi.json and writes the
- * generated sources to ../src.
+ * Runs openapi-generator-cli (typescript-angular) against docs/api/openapi.json (less the
+ * parameters of WEB_CLIENT_OMITS below) and writes the generated sources to ../src.
  *
  * Why a wrapper instead of calling the CLI straight from package.json: the CLI resolves its
  * `openapitools.json` (pinned generator version) against `$PWD` / `INIT_CWD` before `cwd`, so when
@@ -13,11 +13,20 @@
  * `info.license.url`, which is what the OpenAPI 3.1 validator used to reject.
  */
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { withoutWebOmits } from './web-omits.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 const cli = join(here, 'node_modules', '@openapitools', 'openapi-generator-cli', 'main.js');
+const spec = resolve(here, '../../../docs/api/openapi.json');
+
+const work = mkdtempSync(join(tmpdir(), 'orenji-api-client-'));
+const input = join(work, 'openapi.json');
+writeFileSync(input, JSON.stringify(withoutWebOmits(JSON.parse(readFileSync(spec, 'utf8'))), null, 2));
 
 const args = [
   cli,
@@ -25,7 +34,7 @@ const args = [
   join(here, 'openapitools.json'),
   'generate',
   '-i',
-  resolve(here, '../../../docs/api/openapi.json'),
+  input,
   '-g',
   'typescript-angular',
   '-o',
@@ -34,6 +43,7 @@ const args = [
 ];
 
 const result = spawnSync(process.execPath, args, { cwd: here, stdio: 'inherit' });
+rmSync(work, { recursive: true, force: true });
 if (result.error) {
   console.error(`[api-client/tools] failed to start the generator: ${result.error.message}`);
   process.exit(1);

@@ -18220,7 +18220,7 @@
           "notifications"
         ],
         "summary": "The caller's notifications (newest first)",
-        "description": "Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only. Notifications whose in-app channel was disabled by the caller's preferences are never listed.",
+        "description": "Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only, `excludeTypes` leaves types out (stage R9). Notifications whose in-app channel was disabled by the caller's preferences are never listed.",
         "operationId": "listNotifications",
         "parameters": [
           {
@@ -18254,6 +18254,41 @@
             "schema": {
               "type": "boolean",
               "default": false
+            }
+          },
+          {
+            "name": "excludeTypes",
+            "in": "query",
+            "description": "Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "WISHLIST_ALERT",
+                  "MESSAGE",
+                  "OFFER_RECEIVED",
+                  "OFFER_ACCEPTED",
+                  "OFFER_COUNTERED",
+                  "OFFER_DECLINED",
+                  "OFFER_CANCELLED",
+                  "OFFER_EXPIRED",
+                  "BINDER_EXPIRING",
+                  "BINDER_STALE_WARNING",
+                  "BINDER_HIDDEN",
+                  "RATING_RECEIVED",
+                  "TRADE_UPDATE",
+                  "SHIPMENT_STATUS",
+                  "PAYMENT_UPDATE",
+                  "DISPUTE_UPDATE",
+                  "REPORT_DECISION",
+                  "SALE_RECORDED",
+                  "SYSTEM"
+                ]
+              },
+              "maxItems": 30,
+              "minItems": 0
             }
           }
         ],
@@ -18337,7 +18372,45 @@
           "notifications"
         ],
         "summary": "Number of unread notifications (badge)",
+        "description": "`excludeTypes` leaves types out of the count (stage R9), as on the list.",
         "operationId": "getUnreadNotificationCount",
+        "parameters": [
+          {
+            "name": "excludeTypes",
+            "in": "query",
+            "description": "Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "WISHLIST_ALERT",
+                  "MESSAGE",
+                  "OFFER_RECEIVED",
+                  "OFFER_ACCEPTED",
+                  "OFFER_COUNTERED",
+                  "OFFER_DECLINED",
+                  "OFFER_CANCELLED",
+                  "OFFER_EXPIRED",
+                  "BINDER_EXPIRING",
+                  "BINDER_STALE_WARNING",
+                  "BINDER_HIDDEN",
+                  "RATING_RECEIVED",
+                  "TRADE_UPDATE",
+                  "SHIPMENT_STATUS",
+                  "PAYMENT_UPDATE",
+                  "DISPUTE_UPDATE",
+                  "REPORT_DECISION",
+                  "SALE_RECORDED",
+                  "SYSTEM"
+                ]
+              },
+              "maxItems": 30,
+              "minItems": 0
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "The unread count",
@@ -18345,6 +18418,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UnreadNotificationCount"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED (an unknown type)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
                 }
               }
             }

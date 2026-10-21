@@ -3230,7 +3230,7 @@ export interface paths {
         };
         /**
          * The caller's notifications (newest first)
-         * @description Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only. Notifications whose in-app channel was disabled by the caller's preferences are never listed.
+         * @description Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only, `excludeTypes` leaves types out (stage R9). Notifications whose in-app channel was disabled by the caller's preferences are never listed.
          */
         get: operations["listNotifications"];
         put?: never;
@@ -3248,7 +3248,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Number of unread notifications (badge) */
+        /**
+         * Number of unread notifications (badge)
+         * @description `excludeTypes` leaves types out of the count (stage R9), as on the list.
+         */
         get: operations["getUnreadNotificationCount"];
         put?: never;
         post?: never;
@@ -24237,6 +24240,8 @@ export interface operations {
                 limit?: number;
                 /** @description true: unread notifications only */
                 unreadOnly?: boolean;
+                /** @description Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before. */
+                excludeTypes?: ("WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM")[];
             };
             header?: never;
             path?: never;
@@ -24311,7 +24316,10 @@ export interface operations {
     };
     getUnreadNotificationCount: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before. */
+                excludeTypes?: ("WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM")[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24325,6 +24333,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadNotificationCount"];
+                };
+            };
+            /** @description VALIDATION_FAILED (an unknown type) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
