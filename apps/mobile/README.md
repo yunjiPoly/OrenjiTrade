@@ -530,8 +530,12 @@ Conventions later stages reuse:
     Inventory tab; from a text scale of 1.4 a line puts its name and controls under the picture,
     across the width, and the counts stand one per line.
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
-  (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
-  anything else (for example a YGOPRODeck URL) shows the placeholder.
+  (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of each game
+  (`CARD_DATA_ATTRIBUTIONS` in `src/lib/cardImages.ts`: YGOPRODeck for Yu-Gi-Oh!, Scryfall for
+  Magic and TCGdex for Pokémon since stage R10, ADR 0021); anything else (for example a
+  YGOPRODeck, Scryfall or TCGdex URL) shows the placeholder. Who has this card shows a chosen
+  printing with its own picture; Settings → Appearance lists the card data credits of the games
+  that hold cards.
 - **Places (ADR 0017)**: the app handles no coordinates, distances or GPS. Collectors declare a
   region, country, state or province and an optional city (`src/features/location/`:
   `LocationFields` with SelectSheet pickers fed by `GET /regions` through `useRegions`,
@@ -699,7 +703,7 @@ Both end-to-end suites use their own stack and never touch a developer's: the da
 `orenjitrade_mobile_e2e` (dropped and recreated per run, migrated and seeded by the API), an API
 jar on **:8090** (profile `local`, Redis database 1 (flushed with the database) with its own realtime channels
 `e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
-`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled and pointed at a closed local port,
+`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck, Scryfall and TCGdex disabled and pointed at a closed local port,
 no image downloads; plus, since stage S5, the three fictional deck passcodes of
 `SEED_IMPORT_FIXTURES` (910000001 to 910000003, `ImportFixtureSeedContributor`), which only this
 isolated database gets: a deck file is matched through the provider `ygoprodeck`, and a
