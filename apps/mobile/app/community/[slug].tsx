@@ -34,6 +34,7 @@ import { ListRow } from '@/src/components/ui/Layout';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Text } from '@/src/components/ui/Text';
 import {
   BlockCollectorDialog,
@@ -203,37 +204,45 @@ export default function RoomScreen() {
     rooms.error?.errorCode === 'FEATURE_DISABLED' || posts.error?.errorCode === 'FEATURE_DISABLED';
   const gone = !posts.data && posts.error?.status === 404 && !disabled;
 
+  // The closed, not found, error and empty states scroll: centred, they ran over the top bar at
+  // the largest text size (stage R11 review fix 2).
   let body;
   if (disabled) {
     body = (
-      <EmptyState
-        testID="community-disabled"
-        icon="message-off-outline"
-        title={ROOMS_COPY.closedTitle}
-        description={ROOMS_COPY.closedBody}
-        actionLabel={ROOMS_COPY.closedAction}
-        onAction={() => router.navigate({ pathname: '/messages', params: { view: 'chats' } })}
-      />
+      <StateScroll testID="room-state">
+        <EmptyState
+          testID="community-disabled"
+          icon="message-off-outline"
+          title={ROOMS_COPY.closedTitle}
+          description={ROOMS_COPY.closedBody}
+          actionLabel={ROOMS_COPY.closedAction}
+          onAction={() => router.navigate({ pathname: '/messages', params: { view: 'chats' } })}
+        />
+      </StateScroll>
     );
   } else if (gone) {
     body = (
-      <EmptyState
-        testID="room-not-found"
-        icon="magnify-close"
-        title={ROOM_COPY.notFoundTitle}
-        description={ROOM_COPY.notFoundBody}
-        actionLabel={ROOM_COPY.notFoundAction}
-        onAction={() => router.navigate({ pathname: '/messages', params: { view: 'community' } })}
-      />
+      <StateScroll testID="room-state">
+        <EmptyState
+          testID="room-not-found"
+          icon="magnify-close"
+          title={ROOM_COPY.notFoundTitle}
+          description={ROOM_COPY.notFoundBody}
+          actionLabel={ROOM_COPY.notFoundAction}
+          onAction={() => router.navigate({ pathname: '/messages', params: { view: 'community' } })}
+        />
+      </StateScroll>
     );
   } else if (!posts.data && posts.error) {
     body = (
-      <ErrorState
-        testID="room-error"
-        error={posts.error}
-        title={ROOM_COPY.loadError}
-        onRetry={() => void posts.refetch()}
-      />
+      <StateScroll testID="room-state">
+        <ErrorState
+          testID="room-error"
+          error={posts.error}
+          title={ROOM_COPY.loadError}
+          onRetry={() => void posts.refetch()}
+        />
+      </StateScroll>
     );
   } else if (!posts.data) {
     body = (
@@ -256,12 +265,14 @@ export default function RoomScreen() {
     );
   } else if (items.length === 0) {
     body = (
-      <EmptyState
-        testID="room-empty"
-        icon="forum-outline"
-        title={ROOM_COPY.emptyTitle}
-        description={ROOM_COPY.emptyBody}
-      />
+      <StateScroll testID="room-state">
+        <EmptyState
+          testID="room-empty"
+          icon="forum-outline"
+          title={ROOM_COPY.emptyTitle}
+          description={ROOM_COPY.emptyBody}
+        />
+      </StateScroll>
     );
   } else {
     body = (

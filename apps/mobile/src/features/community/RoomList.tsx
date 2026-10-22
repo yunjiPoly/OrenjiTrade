@@ -16,6 +16,7 @@ import type { CommunityChannel } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Text } from '@/src/components/ui/Text';
 import { GameTile } from '@/src/features/games/GameTile';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
@@ -140,24 +141,27 @@ export function RoomList({ onOpenChats }: { onOpenChats: () => void }) {
   );
 
   // Closed, even when rooms were shown before: a refresh that finds the community switched off
-  // hides them (review fix 1: the cached rooms and their last posts stayed on screen).
+  // hides them (review fix 1: the cached rooms and their last posts stayed on screen). It scrolls:
+  // centred, it ran over the title and the tabs at the largest text size (review fix 2).
   if (rooms.error?.errorCode === 'FEATURE_DISABLED') {
     return (
-      <EmptyState
-        testID="community-disabled"
-        icon="message-off-outline"
-        title={ROOMS_COPY.closedTitle}
-        description={ROOMS_COPY.closedBody}
-        actionLabel={ROOMS_COPY.closedAction}
-        onAction={onOpenChats}
-      />
+      <StateScroll testID="community-state">
+        <EmptyState
+          testID="community-disabled"
+          icon="message-off-outline"
+          title={ROOMS_COPY.closedTitle}
+          description={ROOMS_COPY.closedBody}
+          actionLabel={ROOMS_COPY.closedAction}
+          onAction={onOpenChats}
+        />
+      </StateScroll>
     );
   }
 
   if (!rooms.data) {
     if (rooms.error) {
       return (
-        <View style={styles.fill}>
+        <StateScroll testID="community-state">
           {top}
           <ErrorState
             testID="community-error"
@@ -165,7 +169,7 @@ export function RoomList({ onOpenChats }: { onOpenChats: () => void }) {
             title={ROOMS_COPY.loadError}
             onRetry={() => void rooms.refetch()}
           />
-        </View>
+        </StateScroll>
       );
     }
     return (

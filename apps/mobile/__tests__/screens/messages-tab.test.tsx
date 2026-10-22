@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
 import MessagesScreen from '@/app/(tabs)/messages';
@@ -429,6 +429,10 @@ describe('Messages tab: community (stage R11)', () => {
       /The community is closed right now/
     );
     expect(screen.queryByTestId('room-americas-north-yugioh')).toBeNull();
+    // It scrolls: centred in a plain view, it ran over the title and the tabs at the largest size.
+    expect(
+      within(screen.getByTestId('community-state')).getByTestId('community-disabled')
+    ).toBeOnTheScreen();
   });
 
   it('drops a room’s dot once its newest post was read on this phone', async () => {
@@ -467,8 +471,10 @@ describe('Messages tab: community (stage R11)', () => {
     );
     render();
     expect(await screen.findByTestId('community-error')).toBeOnTheScreen();
-    // The region pill stays above the error.
-    expect(screen.getByTestId('community-region')).toBeOnTheScreen();
+    // The region pill stays above the error, and both scroll at large text sizes.
+    const state = within(screen.getByTestId('community-state'));
+    expect(state.getByTestId('community-region')).toBeOnTheScreen();
+    expect(state.getByTestId('community-error')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('room-americas-north-yugioh')).toBeOnTheScreen();
   });
