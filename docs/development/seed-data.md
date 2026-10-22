@@ -107,7 +107,14 @@ entries. Nothing happens while the real catalog is absent.
 - Community channels: one per platform region (Americas (North), Americas (South), Europe, V110),
   Looking For, New Listings, Trades, General; the former Montréal city channels are archived
   (kept for their posts, not listed to members). Their descriptions say "trades and sales by
-  mail" since V116 (stage R1), no longer "trades, meetups, locals".
+  mail" since V116 (stage R1), no longer "trades, meetups, locals". **Since V134 (stage R11)** the
+  active channels are the 15 rooms, one per platform region and game (`americas-north-yugioh` …
+  `europe-riftbound`); the channels above are archived. The community seed puts nine fictional
+  posts in the rooms (found by slug): in the Yu-Gi-Oh! room of Americas (North) collector1's
+  binder, collector5's "looking for" with a card, collector2's Moth Queen deck core and a question;
+  the Pokémon and Magic rooms of Americas (North), Americas (South)'s Pokémon room, Europe's
+  Yu-Gi-Oh! and Riftbound rooms. No seeded photos. A database seeded before V134 keeps its first
+  five posts in the archived channels and gains the others.
 - Profile tags: the curated "Local Meetups" tag is hidden since V115 (stage R1); seed profiles 01
   and 07 carry "Shipping" instead.
 
