@@ -70,7 +70,8 @@ public class CatalogQueryRepository {
             p.printing_code, p.rarity, p.edition, p.language, p.finish, p.market_price,
             p.market_price_currency, p.market_price_updated_at,
             p.external_ref ->> 'provider' AS price_provider, p.metadata::text AS metadata,
-            g.slug AS game, c.slug AS card_slug, c.image_id AS card_image_id
+            g.slug AS game, c.slug AS card_slug,
+            coalesce(p.image_id, c.image_id) AS artwork_id
             """;
 
     private static final String PRINTING_FROM =
@@ -426,7 +427,8 @@ public class CatalogQueryRepository {
     }
 
     /**
-     * Adds images to printing rows: the printing's own images, else the card's primary artwork,
+     * Adds images to printing rows: the printing's own images (placeholders), else its own provider
+     * artwork ({@code card_printing.image_id}: Magic and Pokémon), else the card's primary artwork,
      * else the placeholder.
      */
     public List<PrintingSummary> withImages(List<PrintingRow> rows) {
@@ -452,7 +454,7 @@ public class CatalogQueryRepository {
                 imageRefs(
                         rows.stream()
                                 .filter(row -> !own.containsKey(row.id()))
-                                .map(PrintingRow::cardImageId)
+                                .map(PrintingRow::artworkId)
                                 .filter(Objects::nonNull)
                                 .toList());
         return rows.stream()
@@ -472,9 +474,9 @@ public class CatalogQueryRepository {
                                                 .toList();
                             } else {
                                 @Nullable ImageRef card =
-                                        row.cardImageId() == null
+                                        row.artworkId() == null
                                                 ? null
-                                                : cardImages.get(row.cardImageId());
+                                                : cardImages.get(row.artworkId());
                                 printingImages =
                                         List.of(
                                                 images.printingImage(
@@ -1033,7 +1035,7 @@ public class CatalogQueryRepository {
                 readMap(rs.getString("metadata")),
                 rs.getString("game"),
                 rs.getString("card_slug"),
-                rs.getObject("card_image_id", UUID.class));
+                rs.getObject("artwork_id", UUID.class));
     }
 
     private static @Nullable LocalDate localDate(@Nullable Date date) {
@@ -1094,7 +1096,7 @@ public class CatalogQueryRepository {
             Map<String, Object> metadata,
             String game,
             String cardSlug,
-            @Nullable UUID cardImageId) {
+            @Nullable UUID artworkId) {
 
         PrintingSummary toSummary(List<PrintingImage> images) {
             return new PrintingSummary(
