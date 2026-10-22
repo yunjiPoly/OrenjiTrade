@@ -117,6 +117,16 @@ describe('Welcome (three steps)', () => {
     expect(api.callsTo('GET /api/v1/me/profile').length).toBeGreaterThanOrEqual(2);
   });
 
+  /** What VoiceOver reads as the bar's value: iOS says now / (max - min) as a percentage. */
+  const spokenPercent = (label: string) => {
+    const value = screen.getByLabelText(label).props.accessibilityValue as {
+      min: number;
+      max: number;
+      now: number;
+    };
+    return Math.round((100 * value.now) / (value.max - value.min));
+  };
+
   it('walks Who are you?, What do you collect? and Where do you ship from?, then opens Home on the first game picked', async () => {
     const api = mockApi(onboardingRoutes());
     renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
@@ -124,6 +134,7 @@ describe('Welcome (three steps)', () => {
     // Step 1 of 3: no age step (sign-up asked it).
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 1 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 1 of 3')).toBe(33);
     expect(screen.getByText('WELCOME TO ORENJITRADE')).toBeOnTheScreen();
     expect(screen.queryByText(/18 or older/)).toBeNull();
     // Deals ship by mail (ADR 0018): the first screen a collector fills in never asks where
@@ -153,6 +164,7 @@ describe('Welcome (three steps)', () => {
     // Step 2 of 3: the games, at least one.
     expect(await screen.findByText('What do you collect?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 2 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 2 of 3')).toBe(67);
     expect(api.callsTo('PUT /api/v1/me/profile')[0]?.body).toEqual({
       handle: 'maika_qc',
       displayName: 'Maïka',
@@ -177,6 +189,7 @@ describe('Welcome (three steps)', () => {
     // Step 3 of 3: where do you ship from? Pickers fed by GET /regions: no map, no GPS (ADR 0017).
     expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
     expect(screen.getByLabelText('Step 3 of 3')).toBeOnTheScreen();
+    expect(spokenPercent('Step 3 of 3')).toBe(100);
     expect(api.callsTo('PUT /api/v1/me/profile')[1]?.body).toMatchObject({
       games: ['pokemon', 'yugioh'],
       languages: ['en'],

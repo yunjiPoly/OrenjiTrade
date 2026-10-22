@@ -58,7 +58,9 @@ export function WelcomeHeader({ current, total, onBack, backLabel }: WelcomeHead
         accessible
         accessibilityRole="progressbar"
         accessibilityLabel={stepLabel}
-        accessibilityValue={{ min: 1, max: total, now: current }}
+        // iOS reads now / (max - min) as a percentage: from 0, the steps read 33, 67 and 100 %
+        // (from 1 they read 50, 100 and 150 %; stage R12's review fix 1).
+        accessibilityValue={{ min: 0, max: total, now: current }}
         style={styles.bars}
         testID="onboarding-steps"
       >
