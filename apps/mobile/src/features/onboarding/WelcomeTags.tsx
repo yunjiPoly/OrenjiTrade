@@ -31,6 +31,13 @@ function useDebounced(value: string, delayMs: number): string {
   return debounced;
 }
 
+/**
+ * Tag categories the welcome's suggestions leave out: the game tiles and the language chips above
+ * them already ask these (a "French" or "Magic" tag would repeat a chip of the same step; stage
+ * R12's review fix 1). A tag of theirs the collector already has stays, picked.
+ */
+const ASKED_ABOVE: ReadonlySet<TagResponse['category']> = new Set(['GAME', 'LANGUAGE']);
+
 /** The chips the welcome shows: the picked tags first, then the suggestions not picked. */
 export function welcomeTagChips(input: {
   selected: readonly TagResponse[];
@@ -53,7 +60,7 @@ export function welcomeTagChips(input: {
       testID: `tag-custom-${label}`,
     })),
     ...input.suggestions
-      .filter((tag) => !chosen.has(tag.id))
+      .filter((tag) => !chosen.has(tag.id) && !ASKED_ABOVE.has(tag.category))
       .slice(0, MAX_PROFILE_TAGS)
       .map((tag) => ({
         key: `tag:${tag.id}`,

@@ -156,4 +156,38 @@ describe('the tags of the welcome', () => {
     });
     expect(full.filter((chip) => !chip.selected).every((chip) => chip.disabled)).toBe(true);
   });
+
+  it('leaves the game and language tags out of the suggestions: the tiles and chips above ask them', () => {
+    const english = {
+      id: 'tag-en',
+      slug: 'english',
+      label: 'English',
+      category: 'LANGUAGE' as const,
+      usageCount: 30,
+    };
+    const magic = {
+      id: 'tag-mtg',
+      slug: 'magic',
+      label: 'Magic',
+      category: 'GAME' as const,
+      usageCount: 20,
+    };
+    const chips = welcomeTagChips({
+      selected: [],
+      customLabels: [],
+      suggestions: [english, magic, ...TAGS],
+    });
+    expect(chips.map((chip) => chip.label)).toEqual(['Tracked shipping', 'Binder collector']);
+    // One the collector already has stays, picked, so it can be taken off.
+    const kept = welcomeTagChips({
+      selected: [english],
+      customLabels: [],
+      suggestions: [english, magic, ...TAGS],
+    });
+    expect(kept.map((chip) => [chip.label, chip.selected])).toEqual([
+      ['English', true],
+      ['Tracked shipping', false],
+      ['Binder collector', false],
+    ]);
+  });
 });
