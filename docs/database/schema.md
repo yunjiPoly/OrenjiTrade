@@ -167,6 +167,7 @@ Detailed column lists are appended per phase below as migrations land.
 | V131 | `V131__binder_game.sql` | Stage G: `binder.game_id` (FK `fk_binder_game` to `game`, `NOT NULL`, index `ix_binder_game`): a binder holds the cards of one game. Existing binders take the game most of their live cards belong to (a tie: the tied game first in the owner's profile games, else Yu-Gi-Oh! when tied, else the first tied game in the games' order; a binder without a live card: the owner's first profile game that is `ACTIVE` with cards, else Yu-Gi-Oh!). The cards of another game, live or deleted, leave the binder and stay in the inventory without one, keeping their visibility only from a `PUBLIC`, not `HIDDEN`, unsold binder (otherwise `PRIVATE`, no end date): nothing becomes more public. One `audit_log` row per binder that lost cards (`SYSTEM`, `binder.game.cards_moved_out`, target `BINDER`, details `binderGame`, `cards`, `deletedCards`, `migration`) and a NOTICE with the totals in the migration log. Locks: the owner locks of every collector with a binder (sorted keys), the column, then every binder and every filed card `ORDER BY id FOR NO KEY UPDATE` before any write (see "Locks of binders and inventory items"). Also `binder.game_follows_cards` (default `false`: a binder the paused web makes without a game takes its first card's game and refuses no card) |
 | V132 | `V132__binder_cover_game_and_defaults.sql` | Stage G, review fix 1: a binder that has its game (`NOT game_follows_cards`) loses a cover printing of another game (`cover_printing_id` set `NULL`; V131 had kept them; a NOTICE gives the count); `binder.game_id` defaults to `binder_placeholder_game()` (a new `STABLE` SQL function: the id of Yu-Gi-Oh!) and `binder.game_follows_cards` to `true`, so the app version before stage G, which inserts binders without a game, can still create one during a rolling update or after a rollback (such a binder follows its cards; every insert of the app and the seed names both columns). Locks: the owner locks of the collectors whose binder loses its cover (sorted keys), the defaults (`ACCESS EXCLUSIVE` on `binder`), then those binders `ORDER BY id FOR NO KEY UPDATE` before the update; no item row is written |
 | V133 | `V133__binder_core_since_and_feed_indexes.sql` | Stage R7 (Home's feed, `GET /feed`): `binder.core_since timestamptz` (nullable), when the binder last became a deck core, kept by the trigger `trg_binder_core_since` (`BEFORE INSERT OR UPDATE OF sells_as_core, core_since`: set to `now()` when `sells_as_core` turns on unless the write names it, cleared when it turns off); existing deck cores take their `created_at`. The feed dates a deck core from the later of `listing_changed_at` and `core_since`. Indexes `ix_inventory_item_listed_since` (`listing_changed_at` of `publicly_listed` live cards) and `ix_wishlist_item_created` (`created_at`). Comments on both `listing_changed_at` columns. No row lock beyond the backfill's `UPDATE` of the deck cores |
+| V134 | `V134__community_rooms_per_game.sql` | Stage R11 (Messages › Community, one simple room per game): the 15 rooms, one per platform region and game (`community_channel`, kind `REGION` with `game_slug` and `region_label`, slug `{region}-{game}`, the game's name, "{game} collectors in {region}: trades and sales by mail.", stable ids `00000000-0000-4000-8e00-0000000000{21–25, 31–35, 41–45}`, sort orders 210–234; an existing slug becomes the room); every other channel `ARCHIVED` (V041's topics, V110's three region channels, the old city channels, any admin channel; nothing deleted, posts kept); the `publicChat` flag on (`rollout_percent` 100) unless an admin set it (`updated_by`); `image_upload.kind` gains `COMMUNITY` (`ck_image_upload_kind` replaces the inline check); new table `community_post_photo` (up to 4 photos of a post, API rule). No row of `binder` or `inventory_item` is written |
 
 (Sections for later phases are added as they are implemented.)
 
@@ -1345,11 +1346,11 @@ Indexes: `ix_message_conversation_created (conversation_id, created_at DESC, id 
 | --- | --- | --- |
 | `id` | `uuid` | PK (`uploadId`) |
 | `owner_id` | `uuid` | FK → `user_account.id` (cascade) |
-| `kind` | `text` | `MESSAGE` (`INVENTORY` reserved) |
-| `storage_key` | `text` | `UNIQUE`; the object moves to `message_attachment` when attached |
+| `kind` | `text` | `MESSAGE`, `COMMUNITY` (V134, stage R11: a photo of a community post, 3 MB at most) (`INVENTORY` reserved); `ck_image_upload_kind` since V134 |
+| `storage_key` | `text` | `UNIQUE`; the object moves to `message_attachment` (a message) or `community_post_photo` (a post) when attached |
 | `width`, `height`, `bytes` | `integer` | |
 | `created_at` | `timestamptz` | attachable for 1 h |
-| `consumed_at` | `timestamptz` | set when attached to a message |
+| `consumed_at` | `timestamptz` | set when attached to a message or a post |
 
 Indexes: `ix_image_upload_owner`, `ix_image_upload_pending (created_at) WHERE consumed_at IS NULL`
 (upload-cleanup job).
@@ -1386,7 +1387,26 @@ Index: `ix_user_block_blocked (blocked_id)` (contract; checks in both directions
 Indexes: `ix_community_channel_status_sort`, `ix_community_channel_region` (accent-insensitive
 city). Seeded in every environment with stable ids `00000000-0000-4000-8e00-0000000000NN`:
 montreal-yugioh, montreal-pokemon, montreal-magic, montreal-riftbound (REGION + game, city
-Montréal), looking-for, new-listings, trades, general.
+Montréal), looking-for, new-listings, trades, general. V110 archived the city channels and added
+one channel per platform region (`americas-north`, `americas-south`, `europe`). **Since V134
+(stage R11) the active channels are the 15 rooms**, one per platform region and game
+(`americas-north-yugioh` … `europe-riftbound`, kind `REGION` with `game_slug` and
+`region_label`); every other channel is `ARCHIVED` (hidden from members, read-only, posts kept for
+moderators and their authors' exports).
+
+#### `community_post_photo` (V134, stage R11)
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` | PK |
+| `post_id` | `uuid` | FK → `community_post.id` (`ON DELETE CASCADE`) |
+| `storage_key` | `text` | `uq_community_post_photo_storage_key`; the object key of the `COMMUNITY` upload it came from (`uploads/<owner id>/<random>.jpg`); URLs derived at read time |
+| `width`, `height`, `bytes` | `integer` | > 0; the re-encoded JPEG (≤ 1600 px, no EXIF or GPS data) |
+| `position` | `integer` | ≥ 0, `uq_community_post_photo_position (post_id, position)`: the photo's order in its post (at most 4 photos, API rule) |
+| `created_at` | `timestamptz` | |
+
+Public to members like the post. Rows and their stored files are deleted when the post is deleted
+(author or moderator), removed by a moderator, or its author's account is purged.
 
 #### `community_post`
 

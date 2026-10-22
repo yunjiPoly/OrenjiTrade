@@ -56,8 +56,10 @@ names the Map and Wishlist tabs of before).
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
 the card screen, "Who wants it", "Wanted by N", a server-side search history) and S4 (photos in
-community posts) are **not built** (skipped by the owner on 2026-10-13); the recent searches of the
-Search tab are kept on the device only (stage M2).
+community posts, with admin settings and a lightbox gallery) are **not built** (skipped by the owner
+on 2026-10-13); the recent searches of the Search tab are kept on the device only (stage M2).
+Stage R11 of the owner's prompt of 2026-10-20 brought a simpler version of S4's photos to the
+rooms (up to 4 photos of 3 MB per post, no setting).
 
 Read the root `CLAUDE.md`, `IMPLEMENTATION_STATUS.md` (mobile rows) and
 `docs/architecture/adr/0006-angular-web-react-native-mobile.md` first. Privacy (ADR 0017, which
@@ -105,8 +107,13 @@ Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel a
 signed in, paused in the background, reconnecting with backoff), the **Messages** tab (Inbox |
 Community: the inbox with unread counts and previews, the full conversation with card / binder /
 photos, read markers, typing, "Seen", mute / archive / block; old offer links and offer or trade
-updates read "Offer (no longer available)" since stage R1, in the chat and in the inbox; the public community
-channels with posts, replies and own edits), the **Wishlist** tab (stage S2: which copy, public
+updates read "Offer (no longer available)" since stage R1, in the chat and in the inbox; since stage
+R11 the tabs are **Chats | Community**, Chats with an orange dot while a chat is unread, and
+Community is one public room per platform region and game (`community/[slug]`: the browsed region's
+five rooms, the browsed game's first, a dot for posts newer than the last visit on this phone; a
+room reads like a chat with day separators, posts with up to 4 photos of 3 MB, a shared card or
+binder or deck core, the "⋯" sheet with Message, Report, Block or Delete, the room rules; no reply
+threads and no editing on the phone), the **Wishlist** tab (stage S2: which copy, public
 note, "Near Mint only" and price term chips, edit, remove, "Let others see what you want", a prompt
 to set a location for alerts; "Add to wishlist" on the card detail with its printing or rarity;
 no matches) and **Notifications** (stage R9, mockup v50 screen 31: the bell on the top bar of

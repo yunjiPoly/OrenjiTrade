@@ -713,3 +713,40 @@ Built as stage R10 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R10: Card data f
 Pokémon"; [ADR 0021](../../architecture/adr/0021-five-games-and-their-card-sources.md); API contract
 [`docs/api/contracts/r10-card-sources.md`](../../api/contracts/r10-card-sources.md)). The prompt calls
 the record "ADR 0020"; that number was the camera card scan's, so it is ADR 0021.
+
+## Changed by the owner on 2026-10-19: Messages › Community
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R11, saved word for word; mockup version 50, screens 32 and 33, and screen 22's tabs) asks for
+"a section for community by region, game", "just a simple one". The prompt above is kept as it was;
+for the community these points replace what it said (section 10 kept today's "Inbox | Community"
+switch over the channels):
+
+1. **Messages** has two tabs, **Chats** and **Community** (Community while the `publicChat` flag is
+   on; a migration turns it on, and it stays the kill switch). Chats has an orange dot while a chat
+   is unread; the tab bar's badge counts chats only.
+2. **One room per platform region and game**, 15 in all (slug `{region}-{game}`, the game's name,
+   "{game} collectors in {region}: trades and sales by mail."); every other channel is archived,
+   nothing deleted.
+3. **The room list** (screen 32): the region pill, the browsed region's five rooms with the browsed
+   game's room first and the others in the games' order; each row the game's tile and name, the
+   last post ("{handle}: {text}") and its time, bold with an orange dot while there are posts newer
+   than the last visit on this phone; "No posts yet. Say hi!"; at the end "Every collector in
+   {region} can read these rooms. Keep deals and addresses in private chats."
+4. **A room** (screen 33): back, the tile, the name and "{region} · public room", Room rules, the
+   banner "Every collector can read this room. Keep deals and addresses in private chats.", posts
+   like a chat (newest at the bottom, day separators; avatar, handle, "{province} · {time}" and never
+   a city, the text, up to 4 photos, a shared card or binder or deck core); "⋯" with "Message
+   {handle}", "Report this post", "Block {handle}", or "Delete" on one's own; no reply threads on the
+   phone. The message box: "+" (Send a photo, Share a card, Share a binder or deck core), "Write to
+   the room", the send button orange with text.
+5. **Photos**: up to 4 per post, 3 MB each, photos only, uploaded as `COMMUNITY` with EXIF and GPS
+   stripped. **Errors**: "You can post up to 10 times an hour in each room. Try again later.", "You
+   already posted this.", a network error keeps the text with "Try again". Blocked pairs, removed
+   posts and suspended accounts stay hidden; posts never notify.
+
+Built as stage R11 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R11: Messages > Community (32, 33):
+one simple room per game"; API contract
+[`docs/api/contracts/r11-community-rooms.md`](../../api/contracts/r11-community-rooms.md); V134). A
+post's place shows only for authors who are discoverable (the profile's own rule), and the paused
+web's suites keep the archived channels in their own test database until the web resumes.
