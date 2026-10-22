@@ -750,3 +750,38 @@ one simple room per game"; API contract
 [`docs/api/contracts/r11-community-rooms.md`](../../api/contracts/r11-community-rooms.md); V134). A
 post's place shows only for authors who are discoverable (the profile's own rule), and the paused
 web's suites keep the archived channels in their own test database until the web resumes.
+
+## Changed by the owner on 2026-10-19: Sign-in, sign-up and welcome
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R12, saved word for word; mockup version 50, screens 36 to 46) restyles the screens before
+the tabs. The prompt above is kept as it was (it said nothing of them); these points add to it:
+
+1. **Sign in** (36): the wordmark and "Find collectors in your region who own, trade or want the
+   cards you care about."; email, password with show and hide, "Forgot your password?", Sign in,
+   "or", "Continue with Google", "New to OrenjiTrade? Create an account" and "Terms, privacy and
+   community guidelines".
+2. **Create your account** (37): display name, email, password ("At least 8 characters."); the
+   documents in one card ("Accept all", then each with its box and "Read"); the 18+ confirmation in
+   its own card, never ticked by "Accept all", **in English only** (owner, 2026-10-20: the prompt's
+   "English and French" is not built). "Create account" stays disabled until every box is ticked,
+   with one line under it: "Accept the documents and confirm your age to continue.", "Accept every
+   document to continue." or "Confirm that you are 18 or older to continue." The server checks stay.
+3. **Reset password** (38) and **Verify your email** (39) as before, the sent state in place and
+   "Resend in {n} s".
+4. **The welcome has three steps** (40 to 42, "Step {n} of 3"): "Who are you?" (the handle with "@"
+   and a live check: a teal check when it is free, "That handle is already taken. Try another one."),
+   "What do you collect?" (the game tiles, at least one; the first picked that has cards "Opens
+   first" and is the game Home and Search open on; One Piece and Riftbound "Cards coming soon" but
+   can be picked), "Where do you ship from?" (region, country and state or province, the optional
+   city, "Show my city on my profile", "Show me on the map" off by default). **No age step**: sign-up
+   asks it, and an account without it (a Google sign-up, an account from before the rule) is on
+   **Review our terms** (43) first, with the age line alone when no document is due.
+5. **The account states** (44 Suspended, 45 Scheduled for deletion with "Deletion cancelled" and
+   "Welcome back!" in place, 46 Could not load) are centred with a 72 pt icon.
+
+Built as stage R12 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R12: Sign-in, sign-up and welcome
+(36 to 46)"; API contract [`docs/api/contracts/r12-sign-in-welcome.md`](../../api/contracts/r12-sign-in-welcome.md):
+`GET /api/v1/me/profile/handle-availability`, the welcome's live check). The close button of Sign in
+and the line "Visitors without an account never see your name" under "Show me on the map" belong to
+stage R15 (browsing without an account).
