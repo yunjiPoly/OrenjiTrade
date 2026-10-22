@@ -8610,7 +8610,76 @@ province only for discoverable authors; no replies or editing on the phone; post
   Yu-Gi-Oh! room, the rules, a post with a photo from the library (checked on the API: one photo),
   the report of another collector's post (checked on the API: one open SPAM report).
 
-**Checks** (retries off; filled in below once every suite ran)
+**Checks** (retries off. The API and web checks ran on the final API, client and web code; the full
+native suite and the full mobile web E2E on `cb1356de`; the two phone changes after it, `c214e471`
+and `62140a7f`, were re-checked: Jest, typecheck, lint, format and the exports on the final tree, the
+native flows `community-post` and `messages-inbox-thread` and the mobile web specs `community` and
+`messages` alone)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **196 classes / 1,264 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 22 s; `CommunityRoomsIT` (7), `CommunityRoomsMigrationIT` (4) and `RoomRulesTest` (4) among them |
+| `exportOpenApi` then `generate:api` | the contract and both clients regenerated and committed (`0567b58a`); a second run on the final tree changes nothing |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff c99cb70c -- apps/web-angular` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.3 min); the harness logged the paused web's channels back in `orenjitrade_e2e` |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **120 suites / 1,587 tests** |
+| `npx expo export` (scratch folders) | iOS 1,943 modules (Hermes bundle 5,994,514 B), Android 2,069 modules (6,292,425 B), web 1,564 modules, 68 static pages |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **61 passed, 1 failed** (`community.spec.ts`: the spec looked a post up by `getByText`, which matched the message box's text on the web build; fixed in `cb1356de` to read the post from its `POST` answer and look for posts by id), then `community.spec.ts` alone **1 passed**; on the final tree `community` and `messages` **3 passed** |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows passed** (59 min 32 s), `community-post` among them; on the final tree `community-post` and `messages-inbox-thread` passed alone |
+| `npm run test:scripts` | **145 / 145** (the guard test of `PAUSED_WEB_CHANNELS` among them) |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (the owner's iPhone 18 Pro, iOS 27, on the native harness's stack with the seed
+collectors; their 18+ confirmation recorded in that throw-away database only; screenshots for the
+pull request in `.local-dev/r11-notes/pr-shots/`): Messages with Chats | Community and the Chats dot
+turning on live when a chat arrived; Community with the Yu-Gi-Oh! room first, the dots, the times,
+"No posts yet. Say hi!" and the footnote; the Yu-Gi-Oh! room with the rules sheet, the banner, the
+day separators, a two-photo post and a one-photo post, a shared card, a binder and collector2's deck
+core with "Deck core" and "$95"; the "⋯" sheet, the "+" sheet; a duplicate ("You already posted
+this."), the room's limit after ten posts through the API ("You can post up to 10 times an hour in
+each room. Try again later."), and the API stopped ("Your post was not sent. Check your connection."
+with "Try again", the text kept); dark and light; the default and the largest text size (the
+launch argument of `relaunch-large-text.yaml`; the device's setting was put back to `large`). It
+found four things, fixed: a post's only photo was 260 × 320 pt (now its own shape within 220 pt),
+the "+" sheet had a title and a detail line the mockup does not (removed), and at the largest size
+the banner took the whole screen and the region pill's name was cut (both now follow the text size a
+little only). Compared with `/Users/yunji/Dev/.orenji-redesign-v50/project` (Community, CommunityRoom,
+Messages): the same rows, tiles, bars, sheets and wording; the mockup's coloured initials avatars
+are the app's usual avatar.
+
+**What could not be verified**
+
+- **The Android run could not be verified** (no Android SDK on this Mac).
+- A real iPhone camera roll: the simulator's photos are small; whether a 12-megapixel photo picked at
+  quality 0.7 always stays under 3 MB was not measured on a phone (a larger one is refused on the
+  phone with "Choose a photo up to 3 MB." before any upload).
+- Picking 4 photos at once natively (the native flow picks one; Jest and the API test cover four).
+- The paused web against a database migrated to V134 (the web is paused; its suites run with their
+  old channels put back, decision 1).
+
+**Owner follow-ups**
+
+1. **The paused web**: its community, reporting and acceptance specs post in channels V134 archived;
+   their test database gets them back (`PAUSED_WEB_CHANNELS`, the local harness and the CI E2E job).
+   When the web resumes, move its specs and its community page to the rooms and drop that step.
+2. **Your local database**: after `npm run dev` migrates it to V134, the five community posts seeded
+   before stay in the archived channels and the rooms show the four new seed posts (and anything
+   posted later); a reset of the local database gives the full seed in the rooms.
+3. **`publicChat`**: switched on by V134 unless an admin had set it; if you turned it off on
+   purpose, it stays off.
+4. **Photo limits** (4 per post, 3 MB) are constants of the API and the phone, as the prompt fixes
+   them; say if they should become admin settings (S4's settings and gallery stay skipped).
+5. **A post shows the author's province only when they are discoverable** (the profile's rule);
+   say if every post should show it (the mockup shows one on each post).
+6. **Rooms never visited show their dot** while they hold someone else's post (the "last visit on
+   this phone" rule taken literally); say if a new phone should start quiet.
+7. **Uploads share one hourly limit** (30 per collector, messages and rooms together); the phone
+   says "You sent a lot of photos in a short time. Try again later." when it is reached.
+8. The simulator's photo library holds one more copy of the fictional card photo per native run
+   (`addMedia`), as for native flow 1.
 
 ## NEXT TASK
 
