@@ -50,6 +50,8 @@ describe('maintenance jar', () => {
     assert.equal(env.FIREBASE_AUTH_EMULATOR_HOST, 'localhost:9099');
     assert.equal(env.CARD_IMAGE_ON_DEMAND_ENABLED, 'false');
     assert.equal(env.YGOPRODECK_ENABLED, 'false');
+    assert.equal(env.SCRYFALL_ENABLED, 'false');
+    assert.equal(env.TCGDEX_ENABLED, 'false');
     assert.equal(purgeEnv({}, 'orenjitrade_e2e').DATABASE_URL, 'jdbc:postgresql://localhost:5432/orenjitrade_e2e');
   });
 

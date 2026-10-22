@@ -86,6 +86,47 @@ export function isLocalUrl(url) {
   }
 }
 
+/**
+ * Every real card provider off (ADR 0015, ADR 0021): YGOPRODeck, Scryfall and TCGdex, with their
+ * addresses on a closed local port, so even an unexpected call never leaves the machine. Tests
+ * and the end-to-end APIs use the mock catalog only.
+ */
+export const NO_CARD_PROVIDERS = Object.freeze({
+  YGOPRODECK_ENABLED: 'false',
+  YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
+  YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+  SCRYFALL_ENABLED: 'false',
+  SCRYFALL_API_BASE_URL: 'http://127.0.0.1:9/scryfall-api/',
+  SCRYFALL_BULK_BASE_URL: 'http://127.0.0.1:9/scryfall-data/',
+  SCRYFALL_IMAGE_BASE_URL: 'http://127.0.0.1:9/scryfall-images/',
+  TCGDEX_ENABLED: 'false',
+  TCGDEX_REPOSITORY_API_URL: 'http://127.0.0.1:9/github/',
+  TCGDEX_ARCHIVE_BASE_URL: 'http://127.0.0.1:9/codeload/',
+  TCGDEX_ASSET_BASE_URL: 'http://127.0.0.1:9/tcgdex-assets/',
+});
+
+const CARD_PROVIDER_NAMES = Object.freeze({
+  YGOPRODECK_ENABLED: 'YGOPRODeck',
+  SCRYFALL_ENABLED: 'Scryfall',
+  TCGDEX_ENABLED: 'TCGdex',
+});
+
+/** Why `env` could reach a real card provider (empty when every provider is off and local). */
+export function cardProviderProblems(env) {
+  const problems = [];
+  for (const [flag, provider] of Object.entries(CARD_PROVIDER_NAMES)) {
+    if (String(env[flag]) !== 'false') {
+      problems.push(`${flag} must be false (tests never call ${provider}; mock catalog only).`);
+    }
+  }
+  for (const name of Object.keys(NO_CARD_PROVIDERS).filter((key) => !key.endsWith('_ENABLED'))) {
+    if (!isLocalUrl(env[name])) {
+      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
+    }
+  }
+  return problems;
+}
+
 /** Port of an http(s) URL (80/443 when implicit), null when unparsable. */
 export function portOf(url) {
   try {
@@ -256,11 +297,9 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     STORAGE_PUBLIC_BASE_URL: '',
     CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
     PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
-    // Mock catalog only: no card image downloads, no YGOPRODeck call (ADR 0015).
+    // Mock catalog only: no card image downloads, no card provider call (ADR 0015, ADR 0021).
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
@@ -333,14 +372,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
     problems.push('CARD_IMAGE_ON_DEMAND_ENABLED must be false (no card image downloads during tests).');
   }
-  if (String(env.YGOPRODECK_ENABLED) !== 'false') {
-    problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
-  }
-  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
-    if (!isLocalUrl(env[name])) {
-      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
-    }
-  }
+  problems.push(...cardProviderProblems(env));
   return problems;
 }
 

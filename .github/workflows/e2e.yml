@@ -105,6 +105,14 @@ jobs:
           YGOPRODECK_ENABLED: "false"
           YGOPRODECK_API_BASE_URL: http://127.0.0.1:9/api/v7/
           YGOPRODECK_IMAGE_BASE_URL: http://127.0.0.1:9/images/cards/
+          SCRYFALL_ENABLED: "false"
+          SCRYFALL_API_BASE_URL: http://127.0.0.1:9/scryfall-api/
+          SCRYFALL_BULK_BASE_URL: http://127.0.0.1:9/scryfall-data/
+          SCRYFALL_IMAGE_BASE_URL: http://127.0.0.1:9/scryfall-images/
+          TCGDEX_ENABLED: "false"
+          TCGDEX_REPOSITORY_API_URL: http://127.0.0.1:9/github/
+          TCGDEX_ARCHIVE_BASE_URL: http://127.0.0.1:9/codeload/
+          TCGDEX_ASSET_BASE_URL: http://127.0.0.1:9/tcgdex-assets/
           PAYMENT_PROVIDER: fake
           PUSH_PROVIDER: log
           EMAIL_PROVIDER: log

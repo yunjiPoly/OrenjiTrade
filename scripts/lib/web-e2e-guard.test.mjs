@@ -195,6 +195,17 @@ describe('E2E API database, Redis, ports and providers', () => {
     assert.ok(
       isolationProblems(safeEnv({ YGOPRODECK_API_BASE_URL: 'https://db.ygoprodeck.com/api/v7/' }), { workDir, devDirs }).length > 0,
     );
+    assert.ok(isolationProblems(safeEnv({ SCRYFALL_ENABLED: 'true' }), { workDir, devDirs }).length > 0);
+    assert.ok(isolationProblems(safeEnv({ TCGDEX_ENABLED: 'true' }), { workDir, devDirs }).length > 0);
+    assert.ok(
+      isolationProblems(safeEnv({ SCRYFALL_API_BASE_URL: 'https://api.scryfall.com/' }), { workDir, devDirs }).length > 0,
+    );
+    assert.ok(
+      isolationProblems(safeEnv({ TCGDEX_REPOSITORY_API_URL: 'https://api.github.com/repos/tcgdex/cards-database/' }), {
+        workDir,
+        devDirs,
+      }).length > 0,
+    );
   });
 
   it('only ever recreates the E2E database', () => {

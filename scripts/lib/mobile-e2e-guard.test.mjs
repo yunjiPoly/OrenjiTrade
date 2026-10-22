@@ -89,6 +89,8 @@ describe('isolation of the mobile E2E API environment', () => {
     assert.equal(env.CARD_IMAGE_CACHE_DIR, path.join(workDir, 'card-images'));
     assert.equal(env.STORAGE_PUBLIC_BASE_URL, '');
     assert.equal(env.YGOPRODECK_ENABLED, 'false');
+    assert.equal(env.SCRYFALL_ENABLED, 'false');
+    assert.equal(env.TCGDEX_ENABLED, 'false');
     // The fictional deck cards of the inventory import, only next to a disabled provider.
     assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
     // One address for every worker: the anonymous budget of a single visitor is not enough.
@@ -211,6 +213,18 @@ describe('isolation of the mobile E2E API environment', () => {
       devDirs,
     });
     assert.ok(remote.some((problem) => problem.startsWith('YGOPRODECK_IMAGE_BASE_URL')));
+    for (const flag of ['SCRYFALL_ENABLED', 'TCGDEX_ENABLED']) {
+      const enabled = isolationProblems(isolatedEnv({ [flag]: 'true' }), { workDir, devDirs });
+      assert.ok(enabled.some((problem) => problem.startsWith(flag)), flag);
+    }
+    for (const [name, url] of [
+      ['SCRYFALL_IMAGE_BASE_URL', 'https://cards.scryfall.io/'],
+      ['TCGDEX_ARCHIVE_BASE_URL', 'https://codeload.github.com/tcgdex/cards-database/zip/'],
+      ['TCGDEX_ASSET_BASE_URL', 'https://assets.tcgdex.net/'],
+    ]) {
+      const elsewhere = isolationProblems(isolatedEnv({ [name]: url }), { workDir, devDirs });
+      assert.ok(elsewhere.some((problem) => problem.startsWith(name)), name);
+    }
   });
 
   it('keeps provider snapshots inside the work directory', () => {

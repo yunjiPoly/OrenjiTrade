@@ -25,7 +25,7 @@ import org.springframework.web.client.RestClient;
  * the JDK client (connect/read timeouts, no redirects, descriptive {@code User-Agent}), pacing per
  * host through a {@link HostRateLimiter} and retries of transient failures through a {@link
  * RetryPolicy} (timeouts, connection errors, 5xx and 429 honouring {@code Retry-After}; never other
- * 4xx). Game-agnostic: future providers (Scryfall, PokémonTCG.io, ...) reuse it.
+ * 4xx). Game-agnostic: the YGOPRODeck, Scryfall and TCGdex adapters use it.
  */
 public final class ProviderHttpClient {
 
