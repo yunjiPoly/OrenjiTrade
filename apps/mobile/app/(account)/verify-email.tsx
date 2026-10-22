@@ -1,24 +1,26 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
 import { homeFor } from '@/src/account/gate';
 import { authErrorMessage } from '@/src/auth/authErrors';
 import { useSession } from '@/src/auth/session';
-import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
+import { VERIFY_COPY } from '@/src/features/auth/authCopy';
+import { fontWeight, useTheme } from '@/src/theme';
 
 export const RESEND_COOLDOWN_S = 30;
 
 /**
- * "Check your inbox": resend the verification email, confirm it (reloads the Firebase user and
- * `/me`) or continue and verify later (web: `/auth/verify-email`). Releases the sign-up gate lock.
+ * 39 Verify your email (stage R12, mockup v50): "Check your inbox", then confirm the address
+ * (reloads the Firebase user and `/me`), resend the email ("Resend in {n} s" for 30 s after a
+ * resend) or continue and verify later (web: `/auth/verify-email`). The notices show in place.
+ * Releases the sign-up gate lock.
  */
 export default function VerifyEmailScreen() {
   const { palette } = useTheme();
@@ -28,7 +30,10 @@ export default function VerifyEmailScreen() {
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [message, setMessage] = useState<{
+    text: string;
+    tone: 'warning' | 'success' | 'error';
+  } | null>(null);
 
   useEffect(() => {
     useFlowLock.getState().unlock();
@@ -54,13 +59,10 @@ export default function VerifyEmailScreen() {
         await account.reload();
         proceed();
       } else {
-        setMessage({
-          text: 'We do not see the verification yet. Open the link, then try again.',
-          error: false,
-        });
+        setMessage({ text: VERIFY_COPY.notYet, tone: 'warning' });
       }
     } catch (caught) {
-      setMessage({ text: authErrorMessage(caught), error: true });
+      setMessage({ text: authErrorMessage(caught), tone: 'error' });
     } finally {
       setChecking(false);
     }
@@ -71,80 +73,84 @@ export default function VerifyEmailScreen() {
     setMessage(null);
     try {
       await session.sendEmailVerification();
-      setMessage({ text: 'A new verification email is on its way.', error: false });
+      setMessage({ text: VERIFY_COPY.resent, tone: 'success' });
       setCooldown(RESEND_COOLDOWN_S);
     } catch (caught) {
-      setMessage({ text: authErrorMessage(caught), error: true });
+      setMessage({ text: authErrorMessage(caught), tone: 'error' });
     } finally {
       setResending(false);
     }
   };
 
-  return (
-    <Screen scroll safeBottom testID="screen-verify-email">
-      <Text
-        accessibilityRole="header"
-        style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
+  if (verified) {
+    return (
+      <StatusPage
+        icon="email-check-outline"
+        tone="accent"
+        title={VERIFY_COPY.title}
+        testID="screen-verify-email"
+        actions={
+          <PillButton label={VERIFY_COPY.continue} onPress={proceed} testID="verify-continue" />
+        }
       >
-        Check your inbox
-      </Text>
-      {verified ? (
-        <View style={styles.body}>
-          <FormMessage tone="success">Your email address is verified. Thanks!</FormMessage>
-          <Button label="Continue" onPress={proceed} testID="verify-continue" />
-        </View>
-      ) : (
-        <View style={styles.body}>
-          <View style={[styles.art, { backgroundColor: palette.primaryContainer }]}>
-            <MaterialCommunityIcons name="email-alert-outline" size={36} color={palette.primary} />
-          </View>
-          <Text style={[textStyle('md'), { color: palette.ink }]}>
-            We sent a verification link to{' '}
-            <Text style={styles.strong}>{session.user?.email ?? 'your email address'}</Text>. Open
-            it to confirm the address, then come back here.
-          </Text>
-          {session.usesEmulator ? (
-            <FormMessage tone="info">
-              Local development: no real email is sent. The Firebase Auth emulator lists the link in
-              its logs and in the Emulator UI (Authentication tab).
-            </FormMessage>
-          ) : null}
-          {message ? (
-            <FormMessage tone={message.error ? 'error' : 'info'} testID="verify-message">
-              {message.text}
-            </FormMessage>
-          ) : null}
-          <Button
-            label="I have verified my email"
+        <StatusText>{VERIFY_COPY.verified}</StatusText>
+      </StatusPage>
+    );
+  }
+
+  return (
+    <StatusPage
+      icon="email-outline"
+      tone="primary"
+      title={VERIFY_COPY.title}
+      testID="screen-verify-email"
+      actions={
+        <>
+          <PillButton
+            label={VERIFY_COPY.check}
             loading={checking}
             onPress={() => void checkVerified()}
             testID="verify-check"
           />
-          <Button
-            label={cooldown > 0 ? `Resend in ${cooldown} s` : 'Resend email'}
-            variant="secondary"
-            icon="email-sync-outline"
+          <PillButton
+            label={cooldown > 0 ? VERIFY_COPY.resendIn(cooldown) : VERIFY_COPY.resend}
+            variant="outline"
             loading={resending}
             disabled={cooldown > 0}
             onPress={() => void resend()}
             testID="verify-resend"
           />
-          <Button label="Do this later" variant="ghost" onPress={proceed} testID="verify-later" />
-        </View>
-      )}
-    </Screen>
+          <PillButton
+            label={VERIFY_COPY.later}
+            variant="quiet"
+            onPress={proceed}
+            testID="verify-later"
+          />
+        </>
+      }
+    >
+      <StatusText>
+        {VERIFY_COPY.sentBefore}
+        <Text style={[styles.strong, { color: palette.ink }]}>
+          {session.user?.email ?? VERIFY_COPY.yourAddress}
+        </Text>
+        {VERIFY_COPY.sentAfter}
+      </StatusText>
+      {session.usesEmulator ? (
+        <FormMessage tone="info" style={styles.notice}>
+          {VERIFY_COPY.emulator}
+        </FormMessage>
+      ) : null}
+      {message ? (
+        <FormMessage tone={message.tone} style={styles.notice} testID="verify-message">
+          {message.text}
+        </FormMessage>
+      ) : null}
+    </StatusPage>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { fontWeight: fontWeight.bold, marginBottom: spacing[4] },
-  body: { gap: spacing[4] },
   strong: { fontWeight: fontWeight.semibold },
-  art: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  notice: { alignSelf: 'stretch' },
 });

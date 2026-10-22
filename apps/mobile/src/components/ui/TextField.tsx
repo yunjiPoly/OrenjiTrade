@@ -13,6 +13,8 @@ import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
+  /** A note at the end of the label's row ("49 / 500" beside "Bio (optional)"). */
+  labelAside?: string;
   error?: string | null;
   hint?: string;
   containerStyle?: StyleProp<ViewStyle>;
@@ -23,6 +25,7 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
 /** Labelled input with visible focus ring (2px accent) and inline error, per the design system. */
 export function TextField({
   label,
+  labelAside,
   error,
   hint,
   containerStyle,
@@ -39,7 +42,16 @@ export function TextField({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>{label}</Text>
+      {labelAside ? (
+        <View style={styles.labelRow}>
+          <Text style={[textStyle('sm'), styles.label, styles.grow, { color: palette.ink }]}>
+            {label}
+          </Text>
+          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{labelAside}</Text>
+        </View>
+      ) : (
+        <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>{label}</Text>
+      )}
       <TextInput
         {...inputProps}
         testID={testID}
@@ -79,6 +91,8 @@ export function TextField({
 const styles = StyleSheet.create({
   container: { gap: spacing[1] },
   label: { fontWeight: fontWeight.medium },
+  labelRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  grow: { flex: 1 },
   input: {
     minHeight: 48,
     paddingHorizontal: spacing[3],

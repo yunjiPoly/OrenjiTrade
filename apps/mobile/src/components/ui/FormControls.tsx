@@ -218,7 +218,7 @@ export function PasswordField(props: Omit<TextFieldProps, 'secureTextEntry'>) {
   );
 }
 
-export type FormMessageTone = 'error' | 'info' | 'success';
+export type FormMessageTone = 'error' | 'info' | 'success' | 'warning';
 
 export interface FormMessageProps {
   tone?: FormMessageTone;
@@ -241,13 +241,21 @@ export function FormMessage({
 }: FormMessageProps) {
   const { palette } = useTheme();
   const color =
-    tone === 'error' ? palette.danger : tone === 'success' ? palette.success : palette.info;
+    tone === 'error'
+      ? palette.danger
+      : tone === 'success'
+        ? palette.success
+        : tone === 'warning'
+          ? palette.warning
+          : palette.info;
   const icon =
     tone === 'error'
       ? 'alert-circle-outline'
       : tone === 'success'
         ? 'check-circle-outline'
-        : 'information-outline';
+        : tone === 'warning'
+          ? 'alert-outline'
+          : 'information-outline';
   return (
     <View
       testID={testID}

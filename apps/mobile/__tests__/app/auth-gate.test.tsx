@@ -184,8 +184,8 @@ describe('auth gate (RootNavigator)', () => {
   });
 });
 
-describe('auth gate: the 18+ confirmation (launch readiness)', () => {
-  it('sends an unconfirmed existing collector to onboarding and remembers where they were', async () => {
+describe('auth gate: the 18+ confirmation (launch readiness, Review our terms since stage R12)', () => {
+  it('sends an unconfirmed existing collector to Review our terms and remembers where they were', async () => {
     mockSegments.current = ['messages', '[id]'];
     mockPathname.current = '/messages/conv-1';
     mockParams.current = { id: 'conv-1' };
@@ -202,7 +202,8 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
       ),
     });
     renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/consent'));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalledWith('/onboarding');
     expect(usePendingLink.getState().href).toBe('/messages/conv-1');
   });
 
@@ -236,7 +237,7 @@ describe('auth gate: the 18+ confirmation (launch readiness)', () => {
         'http://localhost:8090/api/v1/me/settings/privacy'
       );
     });
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/consent'));
     expect(api.callsTo('GET /api/v1/me')).toHaveLength(2);
   });
 });

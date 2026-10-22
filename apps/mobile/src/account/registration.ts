@@ -73,6 +73,41 @@ export function validateSignUp(
   };
 }
 
+/**
+ * Why "Create account" waits (stage R12, screen 37): it stays disabled until every document due at
+ * registration and the 18+ confirmation are ticked, with one line under it saying what is missing.
+ * `ageNeeded` is false only for an API that does not publish the attestation (never asked then).
+ * The fields themselves are checked when the button is pressed, and the server checks stay.
+ */
+export type SignUpBlocker = 'documents-and-age' | 'documents' | 'age';
+
+export const SIGN_UP_BLOCKER_LINES: Readonly<Record<SignUpBlocker, string>> = {
+  'documents-and-age': 'Accept the documents and confirm your age to continue.',
+  documents: 'Accept every document to continue.',
+  age: 'Confirm that you are 18 or older to continue.',
+};
+
+export function signUpBlocker(input: {
+  requiredDocuments: readonly Pick<LegalDocument, 'documentType'>[];
+  acceptedDocumentTypes: readonly string[];
+  ageNeeded: boolean;
+  ageConfirmed: boolean;
+}): SignUpBlocker | null {
+  const documentsOk =
+    input.requiredDocuments.length > 0 &&
+    input.requiredDocuments.every((document) =>
+      input.acceptedDocumentTypes.includes(document.documentType)
+    );
+  const ageOk = !input.ageNeeded || input.ageConfirmed;
+  if (!documentsOk && !ageOk) {
+    return 'documents-and-age';
+  }
+  if (!documentsOk) {
+    return 'documents';
+  }
+  return ageOk ? null : 'age';
+}
+
 export function hasErrors(errors: object): boolean {
   return Object.values(errors).some((value) => value !== null);
 }

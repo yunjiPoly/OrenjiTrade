@@ -52,10 +52,11 @@ export function useAuthGate(): Gate {
       if (href && (previousGate.current !== 'app' || sessionEnded)) {
         usePendingLink.getState().set(href);
       }
-    } else if (target === GATE_HOME.onboarding) {
-      // An existing collector sent to onboarding from a screen (the 18+ confirmation asked on
-      // their next sign-in, a deep link, a 403 AGE_CONFIRMATION_REQUIRED) comes back to it once
-      // the account is ready, like the web's `returnUrl`.
+    } else if (target === GATE_HOME.onboarding || target === GATE_HOME.consent) {
+      // An existing collector sent to Review our terms or to the welcome from a screen (the 18+
+      // confirmation asked on their next sign-in, a new document version, a deep link, a 403
+      // AGE_CONFIRMATION_REQUIRED) comes back to it once the account is ready, like the web's
+      // `returnUrl`.
       const href = resumableHref(current, latest.current.pathname, latest.current.params);
       if (href) {
         usePendingLink.getState().set(href);

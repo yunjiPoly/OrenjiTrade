@@ -5,16 +5,19 @@ import { StyleSheet, View } from 'react-native';
 import { validateEmail } from '@/src/account/registration';
 import { authErrorMessage, toAuthError } from '@/src/auth/authErrors';
 import { useSession } from '@/src/auth/session';
-import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { Screen } from '@/src/components/ui/Screen';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
+import { RESET_COPY } from '@/src/features/auth/authCopy';
+import { fontWeight, spacing, textStyle, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
- * Sends a Firebase password-reset email. The confirmation never reveals whether an account
- * exists for the address (web: `/auth/reset-password`).
+ * 38 Reset password (stage R12, mockup v50): sends a Firebase password-reset email, then the sent
+ * state in place ("Check your inbox", "Back to sign in", "Use another email"). The confirmation
+ * never reveals whether an account exists for the address (web: `/auth/reset-password`).
  */
 export default function ResetPasswordScreen() {
   const { palette } = useTheme();
@@ -50,58 +53,77 @@ export default function ResetPasswordScreen() {
     }
   };
 
+  if (sentTo) {
+    return (
+      <StatusPage
+        icon="email-check-outline"
+        tone="accent"
+        iconSize={64}
+        title={RESET_COPY.sentTitle}
+        testID="screen-reset-password"
+        actions={
+          <>
+            <PillButton
+              label={RESET_COPY.backToSignIn}
+              onPress={() => router.replace('/sign-in')}
+              testID="reset-back-to-sign-in"
+            />
+            <PillButton
+              label={RESET_COPY.anotherEmail}
+              variant="quiet"
+              onPress={() => setSentTo(null)}
+              testID="reset-another-email"
+            />
+          </>
+        }
+      >
+        <StatusText testID="reset-sent">{RESET_COPY.sentText(sentTo)}</StatusText>
+      </StatusPage>
+    );
+  }
+
   return (
-    <Screen scroll safeBottom testID="screen-reset-password">
+    <Screen scroll safeBottom testID="screen-reset-password" contentContainerStyle={styles.page}>
       <View style={styles.header}>
         <Text
           accessibilityRole="header"
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
         >
-          Reset your password
+          {RESET_COPY.title}
         </Text>
-        <Text style={[textStyle('md'), { color: palette.textMuted }]}>
-          We will email you a link to choose a new password.
-        </Text>
+        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{RESET_COPY.intro}</Text>
       </View>
-      {sentTo ? (
-        <View style={styles.form}>
-          <FormMessage tone="success" testID="reset-sent">
-            If an account exists for {sentTo}, a reset link is on its way. Check your inbox and spam
-            folder.
-          </FormMessage>
-          <Button label="Back to sign in" onPress={() => router.replace('/sign-in')} />
-          <Button label="Use another email" variant="ghost" onPress={() => setSentTo(null)} />
-        </View>
-      ) : (
-        <View style={styles.form}>
-          {error ? <FormMessage>{error}</FormMessage> : null}
-          <TextField
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            error={emailError}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            textContentType="emailAddress"
-            testID="reset-email"
-          />
-          <Button
-            label="Send reset link"
-            loading={busy}
-            loadingLabel="Sending…"
-            onPress={() => void onSubmit()}
-            testID="reset-submit"
-          />
-        </View>
-      )}
+      <View style={styles.form}>
+        {error ? <FormMessage>{error}</FormMessage> : null}
+        <TextField
+          label={RESET_COPY.email}
+          value={email}
+          onChangeText={setEmail}
+          error={emailError}
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoComplete="email"
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          onSubmitEditing={() => void onSubmit()}
+          testID="reset-email"
+        />
+        <PillButton
+          label={RESET_COPY.submit}
+          loading={busy}
+          loadingLabel={RESET_COPY.submitting}
+          onPress={() => void onSubmit()}
+          testID="reset-submit"
+        />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { gap: spacing[2], marginBottom: spacing[6] },
-  title: { fontWeight: fontWeight.bold },
+  page: { paddingHorizontal: spacing[5], paddingTop: spacing[1] },
+  header: { gap: 6, marginBottom: spacing[4] },
+  title: { fontWeight: fontWeight.bold, letterSpacing: -0.3 },
   form: { gap: spacing[4] },
 });

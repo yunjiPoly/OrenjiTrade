@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useRegions } from '@/src/api/hooks/regions';
@@ -8,7 +9,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { CITY_MAX_LENGTH } from '@/src/lib/place';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 import {
   countriesOf,
@@ -26,6 +27,13 @@ export interface LocationFieldsProps {
   /** Show what is missing (after a save attempt). */
   showErrors?: boolean;
   disabled?: boolean;
+  /**
+   * `welcome`: the welcome's place step (mockup v50 screen 42): country and state or province side
+   * by side, and the switches in one card with `extraSwitch` ("Show me on the map") under "Show my
+   * city on my profile". `settings` (the default): Settings › Location as before.
+   */
+  variant?: 'settings' | 'welcome';
+  extraSwitch?: ReactNode;
 }
 
 /**
@@ -33,9 +41,17 @@ export interface LocationFieldsProps {
  * state or province pickers fed by `GET /regions`, an optional city (shown on the collector's own
  * profile only) and "show my city on my profile". No map, no GPS, no geocoding.
  */
-export function LocationFields({ value, onChange, showErrors, disabled }: LocationFieldsProps) {
+export function LocationFields({
+  value,
+  onChange,
+  showErrors,
+  disabled,
+  variant = 'settings',
+  extraSwitch,
+}: LocationFieldsProps) {
   const { palette } = useTheme();
   const regions = useRegions();
+  const stacked = useStackedRows();
 
   if (regions.isPending) {
     return <SkeletonList rows={3} rowHeight={52} />;
@@ -72,51 +88,100 @@ export function LocationFields({ value, onChange, showErrors, disabled }: Locati
   ];
   const missing = showErrors ? missingField(value) : null;
 
+  const regionSelect = (
+    <SelectSheet
+      label="Region"
+      options={regionOptions}
+      value={value.regionCode}
+      onChange={(regionCode) => onChange(withRegion(value, regionCode))}
+      disabled={disabled}
+      testID="location-region"
+    />
+  );
+  const countrySelect = (
+    <SelectSheet
+      label="Country"
+      options={countryOptions}
+      value={value.countryCode}
+      onChange={(countryCode) => onChange(withCountry(value, all, countryCode))}
+      disabled={disabled}
+      testID="location-country"
+    />
+  );
+  const subdivisionSelect =
+    country && !isWholeCountry(country) ? (
+      <SelectSheet
+        label="State or province"
+        options={subdivisionOptions}
+        value={value.subdivisionCode}
+        onChange={(subdivisionCode) => onChange({ ...value, subdivisionCode })}
+        disabled={disabled}
+        testID="location-subdivision"
+      />
+    ) : null;
+  const cityField = (
+    <TextField
+      label="City (optional)"
+      hint="Only shown on your profile, never used to locate you."
+      value={value.city}
+      maxLength={CITY_MAX_LENGTH}
+      autoComplete="off"
+      editable={!disabled}
+      onChangeText={(city) => onChange({ ...value, city })}
+      testID="location-city"
+    />
+  );
+  const showCitySwitch = (
+    <SwitchRow
+      label="Show my city on my profile"
+      value={value.showCity}
+      onChange={(showCity) => onChange({ ...value, showCity })}
+      disabled={disabled}
+      testID="location-show-city"
+    />
+  );
+  const missingMessage = missing ? (
+    <FormMessage testID="location-missing">{missing}</FormMessage>
+  ) : null;
+
+  if (variant === 'welcome') {
+    return (
+      <View style={styles.welcome} testID="location-fields">
+        {regionSelect}
+        {subdivisionSelect && !stacked ? (
+          <View style={styles.pair}>
+            <View style={styles.half}>{countrySelect}</View>
+            <View style={styles.half}>{subdivisionSelect}</View>
+          </View>
+        ) : (
+          <>
+            {countrySelect}
+            {subdivisionSelect}
+          </>
+        )}
+        {cityField}
+        <View
+          style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        >
+          <View style={styles.cardRow}>{showCitySwitch}</View>
+          {extraSwitch ? (
+            <View style={[styles.cardRow, { borderTopWidth: 1, borderTopColor: palette.border }]}>
+              {extraSwitch}
+            </View>
+          ) : null}
+        </View>
+        {missingMessage}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root} testID="location-fields">
-      <SelectSheet
-        label="Region"
-        options={regionOptions}
-        value={value.regionCode}
-        onChange={(regionCode) => onChange(withRegion(value, regionCode))}
-        disabled={disabled}
-        testID="location-region"
-      />
-      <SelectSheet
-        label="Country"
-        options={countryOptions}
-        value={value.countryCode}
-        onChange={(countryCode) => onChange(withCountry(value, all, countryCode))}
-        disabled={disabled}
-        testID="location-country"
-      />
-      {country && !isWholeCountry(country) ? (
-        <SelectSheet
-          label="State or province"
-          options={subdivisionOptions}
-          value={value.subdivisionCode}
-          onChange={(subdivisionCode) => onChange({ ...value, subdivisionCode })}
-          disabled={disabled}
-          testID="location-subdivision"
-        />
-      ) : null}
-      <TextField
-        label="City (optional)"
-        hint="Only shown on your profile, never used to locate you."
-        value={value.city}
-        maxLength={CITY_MAX_LENGTH}
-        autoComplete="off"
-        editable={!disabled}
-        onChangeText={(city) => onChange({ ...value, city })}
-        testID="location-city"
-      />
-      <SwitchRow
-        label="Show my city on my profile"
-        value={value.showCity}
-        onChange={(showCity) => onChange({ ...value, showCity })}
-        disabled={disabled}
-        testID="location-show-city"
-      />
+      {regionSelect}
+      {countrySelect}
+      {subdivisionSelect}
+      {cityField}
+      {showCitySwitch}
       <Text
         style={[textStyle('sm'), { color: palette.textMuted }]}
         testID="location-show-city-hint"
@@ -125,11 +190,16 @@ export function LocationFields({ value, onChange, showErrors, disabled }: Locati
           ? 'Your city appears on your profile only. Everywhere else, others see your state or province and your country.'
           : 'Your city stays private. Others see your state or province and your country.'}
       </Text>
-      {missing ? <FormMessage testID="location-missing">{missing}</FormMessage> : null}
+      {missingMessage}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: spacing[3] },
+  welcome: { gap: 14 },
+  pair: { flexDirection: 'row', gap: 10 },
+  half: { flex: 1, minWidth: 0 },
+  card: { borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' },
+  cardRow: { paddingHorizontal: 14 },
 });

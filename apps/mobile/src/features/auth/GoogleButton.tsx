@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
 /** Google's brand blue, for the "G" mark only (never a theme token). */
 const GOOGLE_BLUE = '#4285F4';
@@ -15,8 +15,8 @@ export interface GoogleButtonProps {
 }
 
 /**
- * "Continue with Google" (web: `app-google-button`): an outlined button with the G mark;
- * "Opening Google…" while the flow runs.
+ * "Continue with Google" (web: `app-google-button`): the outlined 48 pt pill of mockup v50 (screens
+ * 36 and 37) with the G mark; "Opening Google…" while the flow runs.
  */
 export function GoogleButton({
   label = 'Continue with Google',
@@ -39,7 +39,7 @@ export function GoogleButton({
       testID={testID}
       style={({ pressed }) => [
         styles.button,
-        { backgroundColor: palette.surface, borderColor: palette.borderStrong },
+        { borderColor: palette.borderStrong },
         pressed && styles.pressed,
         inactive && styles.disabled,
       ]}
@@ -78,10 +78,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing[2],
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: spacing[4],
     paddingVertical: spacing[2],
-    borderRadius: radius.md,
+    borderRadius: 24,
     borderWidth: 1,
   },
   mark: {
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   markText: { color: GOOGLE_BLUE, fontSize: 14, lineHeight: 16, fontWeight: fontWeight.bold },
-  label: { fontWeight: fontWeight.semibold },
+  label: { fontWeight: fontWeight.semibold, fontSize: 15 },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

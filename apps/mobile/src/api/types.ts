@@ -8,6 +8,7 @@ type Schemas = components['schemas'];
 
 export type MeResponse = Schemas['MeResponse'];
 export type OnboardingStatus = Schemas['OnboardingStatus'];
+export type HandleAvailabilityResponse = Schemas['HandleAvailabilityResponse'];
 export type RequiredConsent = Schemas['RequiredConsent'];
 export type ConsentRequest = Schemas['ConsentRequest'];
 export type LegalDocument = Schemas['LegalDocument'];

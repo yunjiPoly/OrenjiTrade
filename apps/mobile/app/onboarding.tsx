@@ -1,26 +1,26 @@
 import { Stack, useRouter, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
-import { needsAgeConfirmation } from '@/src/account/accountStatus';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { messageOf } from '@/src/api/errorMessages';
-import { useLegalDocuments } from '@/src/api/hooks/legal';
 import {
   useMyLocation,
   usePrivacySettings,
   useSaveLocation,
   useSavePrivacy,
 } from '@/src/api/hooks/location';
-import { useMyProfile } from '@/src/api/hooks/profile';
+import { useGames, useMyProfile } from '@/src/api/hooks/profile';
+import { useUid } from '@/src/api/hooks/useUid';
 import { useSession } from '@/src/auth/session';
-import { ScreenHeader } from '@/src/components/ui/Layout';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
-import { ageConfirmationOf, ageConsentFor } from '@/src/features/legal/ageConfirmation';
+import { Text } from '@/src/components/ui/Text';
+import { gameOptions, pickBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   draftFromLocation,
   isLocationDirty,
@@ -28,32 +28,40 @@ import {
   missingField,
   type LocationDraft,
 } from '@/src/features/location/locationDraft';
+import { GamesStep, PlaceStep, ProfileStep } from '@/src/features/onboarding/OnboardingSteps';
+import { WELCOME_COPY } from '@/src/features/onboarding/welcomeCopy';
+import { WelcomeHeader } from '@/src/features/onboarding/WelcomeHeader';
 import {
-  AgeStep,
-  InterestsStep,
-  LocationStep,
-  ProfileStep,
-} from '@/src/features/onboarding/OnboardingSteps';
-import { StepIndicator } from '@/src/features/onboarding/StepIndicator';
+  WELCOME_STEPS,
+  firstWelcomeStep,
+  openingGame,
+  previousWelcomeStep,
+  welcomeStepNumber,
+  type WelcomeStep,
+} from '@/src/features/onboarding/welcomeSteps';
 import { useProfileEditor } from '@/src/features/profile/useProfileEditor';
-import { spacing } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
 
-type StepName = 'age' | 'profile' | 'interests' | 'location';
-
-const STEP_LABELS: Record<StepName, string> = {
-  age: 'Age',
-  profile: 'Profile',
-  interests: 'Interests',
-  location: 'Location',
+/** The names Back says ("Back to Who are you?"). */
+const STEP_NAMES: Record<WelcomeStep, string> = {
+  profile: WELCOME_COPY.profile.name,
+  games: WELCOME_COPY.games.name,
+  place: WELCOME_COPY.place.name,
 };
 
 /**
- * Onboarding after sign-up (web: `/onboarding`): the 18+ confirmation first when the account
- * never gave it (existing collectors confirm on their next sign-in and go straight back), then
- * profile (handle, name, bio), interests (games, languages, tags) and "Where are you?" (country,
- * state or province, optional city; ADR 0017) with the map opt-in, off by default.
+ * The welcome after sign-up (stage R12, mockup v50 screens 40 to 42; web: `/onboarding`): three
+ * steps, "Step {n} of 3" with a three-part bar. 40 "Who are you?" (handle with its live check,
+ * display name, bio), 41 "What do you collect?" (the games, at least one, the first picked that
+ * has cards opening Home and Search; the languages; the tags) and 42 "Where do you ship from?"
+ * (region, country and state or province, the optional city, "Show my city on my profile" and
+ * "Show me on the map", off by default; ADR 0017). The 18+ confirmation is no step of its own: sign-up
+ * asks it, and an account without it is on Review our terms first. It resumes on the first step
+ * the account has not done (`firstWelcomeStep`).
  */
 export default function OnboardingScreen() {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
   const profile = useMyProfile();
   const location = useMyLocation();
   const privacy = usePrivacySettings();
@@ -73,19 +81,21 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <Screen scroll safeBottom testID="screen-onboarding">
-      <Stack.Screen
-        options={{ title: 'Welcome', headerBackVisible: false, gestureEnabled: false }}
-      />
-      <ScreenHeader
-        eyebrow="Welcome to OrenjiTrade"
-        title="Let's set up your collector profile"
-        subtitle="A few quick steps so collectors of your region can find you. You can change everything later in Settings."
-      />
+    <View
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+      testID="screen-onboarding"
+    >
+      <Stack.Screen options={{ title: 'Welcome', headerShown: false, gestureEnabled: false }} />
+      {combined.data ? null : <WelcomeHeader current={1} total={WELCOME_STEPS.length} />}
       <QueryState
         query={combined}
-        errorTitle="We could not load your profile"
-        loading={<SkeletonList rows={4} rowHeight={56} />}
+        errorTitle={WELCOME_COPY.loadError}
+        loadingLabel={WELCOME_COPY.loading}
+        loading={
+          <View style={styles.loading}>
+            <SkeletonList rows={4} rowHeight={56} />
+          </View>
+        }
         testID="onboarding"
       >
         {(data) => (
@@ -96,7 +106,7 @@ export default function OnboardingScreen() {
           />
         )}
       </QueryState>
-    </Screen>
+    </View>
   );
 }
 
@@ -107,44 +117,24 @@ interface FlowProps {
 }
 
 function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: FlowProps) {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const session = useSession();
   const account = useAccount();
   const snackbar = useSnackbar();
+  const uid = useUid();
   const privacy = usePrivacySettings();
   const savePrivacy = useSavePrivacy();
   const saveLocation = useSaveLocation();
-  const legal = useLegalDocuments();
+  const games = useGames();
   const editor = useProfileEditor(profile, session.user?.displayName ?? '');
+  const scroll = useRef<ScrollView>(null);
 
-  // The steps of this visit, decided once so indexes never shift: only an API that reports
-  // `ageConfirmed === false` adds the age step; the other flags pick where to start.
-  const [steps] = useState<readonly StepName[]>(() => {
-    const rest: StepName[] = ['profile', 'interests', 'location'];
-    return needsAgeConfirmation(account.me ?? undefined) ? ['age', ...rest] : rest;
-  });
-  // An existing collector who only misses the confirmation is done right after it.
-  const [ageOnly] = useState(() => {
-    const onboarding = account.me?.onboarding;
-    return steps[0] === 'age' && !!onboarding?.profileComplete && !!onboarding.interestsSet;
-  });
-  const [step, setStep] = useState<StepName>(() => {
-    const onboarding = account.me?.onboarding;
-    if (steps[0] === 'age') {
-      return 'age';
-    }
-    return !onboarding?.profileComplete
-      ? 'profile'
-      : !onboarding.interestsSet
-        ? 'interests'
-        : 'location';
-  });
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
-  const [ageSubmitted, setAgeSubmitted] = useState(false);
-  const [ageBusy, setAgeBusy] = useState(false);
-  const [ageDone, setAgeDone] = useState(false);
-  const [ageError, setAgeError] = useState<string | null>(null);
-  const [showMissing, setShowMissing] = useState(false);
+  // Where the welcome starts, decided once so a refresh of `/me` never moves the collector.
+  const [step, setStepState] = useState<WelcomeStep>(() =>
+    firstWelcomeStep(account.me?.onboarding)
+  );
   const [place, setPlace] = useState<LocationDraft>(() =>
     draftFromLocation(location, account.me?.homeRegion ?? undefined)
   );
@@ -153,16 +143,20 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const [finishing, setFinishing] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
 
-  const ageConfirmation = ageConfirmationOf(legal.data);
+  const options = useMemo(() => (games.data ? gameOptions(games.data) : null), [games.data]);
+  const opensFirst = openingGame(editor.games, options);
+  const busy = editor.saving !== null || finishing;
+
+  const setStep = (next: WelcomeStep) => {
+    setStepState(next);
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  };
 
   /**
-   * Leaves onboarding: for the tabs, or for the link the gate remembered when it sent the
+   * Leaves the welcome: for the tabs, or for the link the gate remembered when it sent the
    * collector here (a deep link, a notification), which replaces this screen so that back leads
    * to the tabs. The link is taken before `/me` reloads: the gate would otherwise push it the
-   * moment the account is ready, on top of this screen. The navigation itself waits until the
-   * rendered account no longer needs onboarding (`leaving` + the effect below): right after the
-   * confirmation the query cache is fresh but the gate's render is still one step behind, and a
-   * navigation at that moment makes it push this screen again (seen on Android).
+   * moment the account is ready, on top of this screen.
    */
   const takePendingLink = (): string | null => {
     const href = usePendingLink.getState().href;
@@ -176,75 +170,23 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       router.dismissTo('/');
     }
   };
-  const [leaving, setLeaving] = useState<{ pending: string | null } | null>(null);
-  const needsOnboarding = account.needsOnboarding;
-  useEffect(() => {
-    if (leaving && !needsOnboarding) {
-      navigateAway(leaving.pending);
-    }
-    // navigateAway only reads the router, which is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaving, needsOnboarding]);
-  /**
-   * `wait`: the step that flips `needsOnboarding` (the 18+ confirmation of an existing account)
-   * leaves once the rendered account reflects it; the end of a full onboarding already renders
-   * a complete profile and leaves right away.
-   */
-  const leave = (pending: string | null, wait = false) => {
-    if (wait) {
-      setLeaving({ pending });
-    } else {
-      navigateAway(pending);
-    }
-  };
-
-  /**
-   * Records the 18+ confirmation. Accounts that already finished the other steps (existing
-   * collectors confirming on their next sign-in) are done right away and go back to where they
-   * came from.
-   */
-  const confirmAge = async () => {
-    setAgeSubmitted(true);
-    if (!ageConfirmed || !ageConfirmation) {
-      return;
-    }
-    setAgeBusy(true);
-    setAgeError(null);
-    const pending = ageOnly ? takePendingLink() : null;
-    try {
-      await account.acceptConsents([ageConsentFor(ageConfirmation)]);
-      setAgeDone(true);
-      if (ageOnly) {
-        snackbar.show('Thanks for confirming. Welcome back!', { duration: 8000 });
-        leave(pending, true);
-        return;
-      }
-      setStep('profile');
-    } catch (caught) {
-      if (pending) {
-        // Not recorded: the collector stays here, so the remembered link waits for the retry.
-        usePendingLink.getState().set(pending);
-      }
-      setAgeError(messageOf(caught));
-    } finally {
-      setAgeBusy(false);
-    }
-  };
-
   const continueProfile = async () => {
     if (await editor.saveDetails()) {
-      setStep('interests');
+      setStep('games');
     }
   };
 
-  const continueInterests = async () => {
-    if (!editor.hasInterests) {
-      setShowMissing(true);
+  const continueGames = async () => {
+    if (editor.games.length === 0) {
       return;
     }
-    setShowMissing(false);
     if ((await editor.saveDetails()) && (await editor.saveTags())) {
-      setStep('location');
+      // The first picked game that has cards is the one Home and Search open on (stage G's
+      // browsed game, remembered on this phone for this account).
+      if (uid && opensFirst && options) {
+        await pickBrowsingGame(uid, opensFirst);
+      }
+      setStep('place');
     }
   };
 
@@ -267,8 +209,10 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
         }
       }
       await account.reload();
-      snackbar.show('Welcome to OrenjiTrade! Your profile is ready.');
-      leave(pending);
+      snackbar.show(WELCOME_COPY.place.ready);
+      // The saves above completed the profile: the account the gate renders no longer needs the
+      // welcome, so it leaves right away (as before stage R12).
+      navigateAway(pending);
     } catch (caught) {
       if (pending) {
         usePendingLink.getState().set(pending);
@@ -279,60 +223,129 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
     }
   };
 
+  const previous = previousWelcomeStep(step);
+  const noGame = step === 'games' && editor.games.length === 0;
+
   return (
-    <View style={styles.flow}>
-      <StepIndicator
-        steps={steps.map((name) => STEP_LABELS[name])}
-        current={Math.max(0, steps.indexOf(step))}
+    <KeyboardAvoidingView
+      style={styles.fill}
+      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+    >
+      <WelcomeHeader
+        current={welcomeStepNumber(step)}
+        total={WELCOME_STEPS.length}
+        onBack={previous && !busy ? () => setStep(previous) : undefined}
+        backLabel={previous ? WELCOME_COPY.backTo(STEP_NAMES[previous]) : undefined}
       />
-      {step === 'age' ? (
-        <AgeStep
-          checked={ageConfirmed}
-          onChange={setAgeConfirmed}
-          showError={ageSubmitted && !ageConfirmed}
-          documents={
-            legal.isPending ? 'loading' : legal.isError && !ageConfirmation ? 'error' : 'ready'
-          }
-          documentsError={legal.error}
-          onRetryDocuments={() => void legal.refetch()}
-          busy={ageBusy}
-          done={ageDone}
-          error={ageError}
-          onContinue={() => void confirmAge()}
-          onSignOut={() => void session.signOut()}
-        />
-      ) : step === 'profile' ? (
-        <ProfileStep
-          editor={editor}
-          busy={editor.saving !== null}
-          onContinue={() => void continueProfile()}
-        />
-      ) : step === 'interests' ? (
-        <InterestsStep
-          editor={editor}
-          busy={editor.saving !== null}
-          showMissing={showMissing}
-          onBack={() => setStep('profile')}
-          onContinue={() => void continueInterests()}
-        />
-      ) : (
-        <LocationStep
-          value={place}
-          onChange={setPlace}
-          showErrors={placeSubmitted}
-          discoverable={discoverable}
-          onDiscoverableChange={setDiscoverable}
-          busy={finishing}
-          error={placeError}
-          onBack={() => setStep('interests')}
-          onSkip={() => void finish(false)}
-          onFinish={() => void finish(true)}
-        />
-      )}
-    </View>
+      <ScrollView
+        ref={scroll}
+        style={styles.fill}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        testID="onboarding-scroll"
+      >
+        {step === 'profile' ? (
+          <ProfileStep editor={editor} busy={busy} />
+        ) : step === 'games' ? (
+          <GamesStep
+            editor={editor}
+            busy={busy}
+            games={options}
+            gamesLoading={games.isPending}
+            gamesError={games.error}
+            onRetryGames={() => void games.refetch()}
+            opensFirst={opensFirst}
+          />
+        ) : (
+          <PlaceStep
+            value={place}
+            onChange={setPlace}
+            showErrors={placeSubmitted}
+            discoverable={discoverable}
+            onDiscoverableChange={setDiscoverable}
+            busy={busy}
+            error={placeError}
+          />
+        )}
+      </ScrollView>
+      <View
+        style={[
+          styles.bar,
+          { paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2] },
+          step === 'games' && { borderTopWidth: 1, borderTopColor: palette.border },
+        ]}
+      >
+        {step === 'profile' ? (
+          <>
+            <PillButton
+              label={WELCOME_COPY.continue}
+              loading={busy}
+              loadingLabel={WELCOME_COPY.saving}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              onPress={() => void continueProfile()}
+              testID="onboarding-profile-continue"
+            />
+            <PillButton
+              label={WELCOME_COPY.signOut}
+              variant="quiet"
+              disabled={busy}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              onPress={() => void session.signOut()}
+              testID="onboarding-sign-out"
+            />
+          </>
+        ) : step === 'games' ? (
+          <>
+            <PillButton
+              label={WELCOME_COPY.continue}
+              loading={busy}
+              loadingLabel={WELCOME_COPY.saving}
+              disabled={noGame}
+              accessibilityHint={noGame ? WELCOME_COPY.games.needGame : undefined}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              onPress={() => void continueGames()}
+              testID="onboarding-interests-continue"
+            />
+            {noGame ? (
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                testID="interests-missing"
+                style={[textStyle('xs'), styles.reason, { color: palette.textMuted }]}
+              >
+                {WELCOME_COPY.games.needGame}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <PillButton
+              label={WELCOME_COPY.place.finish}
+              loading={finishing}
+              loadingLabel={WELCOME_COPY.place.finishing}
+              disabled={busy && !finishing}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              onPress={() => void finish(true)}
+              testID="onboarding-finish"
+            />
+            <PillButton
+              label={WELCOME_COPY.place.skip}
+              variant="quiet"
+              disabled={busy}
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              onPress={() => void finish(false)}
+              testID="onboarding-skip"
+            />
+          </>
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flow: { gap: spacing[2] },
+  fill: { flex: 1 },
+  loading: { paddingHorizontal: spacing[5], paddingTop: spacing[4] },
+  body: { paddingHorizontal: spacing[5], paddingTop: 14, paddingBottom: spacing[4] },
+  bar: { paddingHorizontal: spacing[4], paddingTop: spacing[3], gap: 6 },
+  reason: { textAlign: 'center' },
 });

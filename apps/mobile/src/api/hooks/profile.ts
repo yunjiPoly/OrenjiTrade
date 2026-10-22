@@ -7,6 +7,7 @@ import { meKeys, publicKeys } from '../queryKeys';
 import type {
   AvatarResponse,
   GameResponse,
+  HandleAvailabilityResponse,
   MyProfileResponse,
   TagResponse,
   UpdateProfileRequest,
@@ -86,6 +87,30 @@ export function useTagSearch(query: string) {
 }
 
 /** `GET /api/v1/games`: ACTIVE games in display order (hidden games disappear from pickers). */
+/**
+ * `GET /api/v1/me/profile/handle-availability` (stage R12): whether the collector could save
+ * `handle` (already trimmed and lower-cased, and well formed: the caller checks the format first).
+ * Never retried: a failure (offline, 429) shows no mark, and the save still decides.
+ */
+export function useHandleAvailability(handle: string, enabled: boolean) {
+  const uid = useUid();
+  const signedIn = useIsAuthenticated();
+  return useQuery<HandleAvailabilityResponse, ApiError>({
+    queryKey: meKeys.handleAvailability(uid, handle),
+    queryFn: async () =>
+      required(
+        (
+          await api.GET('/api/v1/me/profile/handle-availability', {
+            params: { query: { handle } },
+          })
+        ).data
+      ),
+    enabled: enabled && signedIn && handle.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
 export function useGames() {
   return useQuery<GameResponse[], ApiError>({
     queryKey: publicKeys.games,
