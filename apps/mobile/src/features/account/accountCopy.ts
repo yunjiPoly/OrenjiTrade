@@ -57,6 +57,7 @@ export const DELETION_COPY = {
 export const UNAVAILABLE_COPY = {
   title: 'We could not load your account',
   text: 'Check your connection, then try again. Nothing on your account changed.',
+  timeoutTitle: 'No answer from OrenjiTrade',
   expiredTitle: 'Please sign in again',
   expiredText: 'Your session ended. Sign in again to keep using OrenjiTrade.',
   retry: 'Try again',

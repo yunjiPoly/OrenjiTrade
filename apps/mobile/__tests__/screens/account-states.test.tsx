@@ -341,12 +341,34 @@ describe('Account unavailable screen', () => {
     expect(
       screen.getByRole('header', { name: 'We could not load your account' })
     ).toBeOnTheScreen();
-    expect(
-      screen.getByText('Check your connection, then try again. Nothing on your account changed.')
-    ).toBeOnTheScreen();
+    // A server error: its own sentence and the support reference, never "check your
+    // connection" (stage R12's review fix 1).
+    expect(screen.getByTestId('account-error')).toHaveTextContent('Please try again in a moment.');
+    expect(screen.getByTestId('account-error-reference')).toHaveTextContent(
+      'INTERNAL_ERROR · req-test'
+    );
     expect(screen.queryByText(/SQL details/)).toBeNull();
     const before = api.callsTo('GET /api/v1/me').length;
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(api.callsTo('GET /api/v1/me').length).toBe(before + 1));
+  });
+
+  it("says the mockup's words when the phone is offline", async () => {
+    mockApi({
+      'GET /api/v1/me': () => {
+        throw new TypeError('Network request failed');
+      },
+    });
+    renderWithProviders(<AccountUnavailableScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(
+      await screen.findByText(
+        'Check your connection, then try again. Nothing on your account changed.'
+      )
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByRole('header', { name: 'We could not load your account' })
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId('account-error-reference')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeOnTheScreen();
   });
 });
