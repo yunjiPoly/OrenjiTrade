@@ -30,6 +30,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R9 | [Notifications and the bell: `excludeTypes` on the notification list and unread count, the rows' new `data` keys (extends 6, S2 and R4)](r9-notifications.md) |
 | R10 | [Card data for Magic and Pokémon: the providers `scryfall` (mtg) and `tcgdex` (pokemon) for the existing imports, `hasCards` after a first import, printings on their own artwork; no endpoint, field or migration (extends 2 and G)](r10-card-sources.md) |
 | R11 | [Messages › Community, one simple room per game: the 15 rooms (V134, the other channels archived), `lastPost` on the channels, posts with photos (`photoUploadIds`, `COMMUNITY` uploads of 3 MB), the author's place and a shared deck core's details (extends 5)](r11-community-rooms.md) |
+| R12 | [Sign-in, sign-up and welcome: `GET /me/profile/handle-availability` (the welcome's live handle check, 60 per 10 minutes); the age asked at sign-up or on Review our terms, three welcome steps, no other API change (extends 1)](r12-sign-in-welcome.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on

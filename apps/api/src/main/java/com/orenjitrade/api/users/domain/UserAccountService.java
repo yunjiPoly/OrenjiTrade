@@ -226,6 +226,19 @@ public class UserAccountService {
     // Lookups
     // ---------------------------------------------------------------------------------------
 
+    /**
+     * Whether the caller could save {@code rawHandle} (stage R12): the rules of {@link
+     * #changeHandle} without saving anything. Input is trimmed and lower-cased; at most 64
+     * characters are read (a longer one is {@link HandleAvailability#INVALID} anyway).
+     */
+    @Transactional(readOnly = true)
+    public HandleAvailability handleAvailability(UUID userId, String rawHandle) {
+        String handle = HandleRules.normalise(rawHandle);
+        String current = load(userId).getHandle();
+        return HandleAvailability.of(
+                handle, current, () -> repository.existsByHandleIgnoreCaseAndIdNot(handle, userId));
+    }
+
     @Transactional(readOnly = true)
     public Optional<UserAccountSnapshot> findSnapshot(UUID userId) {
         return repository.findWithRolesById(userId).map(UserAccount::toSnapshot);

@@ -292,6 +292,88 @@ class ProfileIT extends AbstractIntegrationTest {
         http.get().uri("/api/v1/public/media/").exchange().expectStatus().isNotFound();
     }
 
+    /**
+     * Stage R12: the welcome step's live check answers as the save would (taken, reserved,
+     * malformed, one's own, free), saves nothing and is for members only.
+     */
+    @Test
+    void handleAvailabilityAnswersAsTheSaveWould() {
+        String owner = uniqueUid("avail-owner");
+        provisionCompliant(owner);
+        String taken = shortHandle("held_");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile",
+                owner,
+                profileBody(taken, "Owner", "", List.of(), List.of()),
+                200);
+
+        String caller = uniqueUid("avail-caller");
+        UUID callerId = provisionCompliant(caller);
+        String own = me(caller).path("handle").asString();
+
+        // Held by another account, whatever the case: TAKEN, and the handle as it would be saved.
+        JsonNode held = availability(caller, taken.toUpperCase());
+        assertThat(held.path("handle").asString()).isEqualTo(taken.toLowerCase());
+        assertThat(held.path("status").asString()).isEqualTo("TAKEN");
+        assertThat(held.path("available").asBoolean()).isFalse();
+
+        // A reserved word reads TAKEN too, as the save's 409 says.
+        assertThat(availability(caller, "admin").path("status").asString()).isEqualTo("TAKEN");
+        assertThat(availability(caller, "deleted_abc").path("status").asString())
+                .isEqualTo("TAKEN");
+
+        // Malformed: INVALID (the save's 400), never looked up.
+        for (String bad : List.of("ab", "bad-handle", "way_too_long_handle_for_rules", "émile")) {
+            JsonNode invalid = availability(caller, bad);
+            assertThat(invalid.path("status").asString()).as(bad).isEqualTo("INVALID");
+            assertThat(invalid.path("available").asBoolean()).as(bad).isFalse();
+        }
+
+        // One's own handle, in any case: CURRENT, which saves.
+        JsonNode current = availability(caller, own.toUpperCase());
+        assertThat(current.path("status").asString()).isEqualTo("CURRENT");
+        assertThat(current.path("available").asBoolean()).isTrue();
+
+        // Free: AVAILABLE, and the save agrees.
+        String free = shortHandle("Free_");
+        JsonNode open = availability(caller, free);
+        assertThat(open.path("handle").asString()).isEqualTo(free.toLowerCase());
+        assertThat(open.path("status").asString()).isEqualTo("AVAILABLE");
+        assertThat(open.path("available").asBoolean()).isTrue();
+
+        // Nothing was saved or audited by the checks.
+        assertThat(me(caller).path("handle").asString()).isEqualTo(own);
+        assertThat(testUsers.auditRowsFor(callerId))
+                .noneSatisfy(row -> assertThat(row.get("action")).isEqualTo("user.handle.change"));
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile",
+                caller,
+                profileBody(free, "Caller", "", List.of(), List.of()),
+                200);
+        assertThat(availability(caller, free).path("status").asString()).isEqualTo("CURRENT");
+        assertThat(availability(owner, free).path("status").asString()).isEqualTo("TAKEN");
+
+        // The handle is required; members only.
+        callJson(HttpMethod.GET, "/api/v1/me/profile/handle-availability", caller, null, 400);
+        http.get()
+                .uri("/api/v1/me/profile/handle-availability?handle=" + free)
+                .exchange()
+                .expectStatus()
+                .isUnauthorized();
+    }
+
+    private JsonNode availability(String uid, String handle) {
+        return callJson(
+                HttpMethod.GET,
+                "/api/v1/me/profile/handle-availability?handle=" + handle,
+                uid,
+                null,
+                200);
+    }
+
     @Test
     void anonymousCallsAre401() {
         http.get().uri("/api/v1/me/profile").exchange().expectStatus().isUnauthorized();

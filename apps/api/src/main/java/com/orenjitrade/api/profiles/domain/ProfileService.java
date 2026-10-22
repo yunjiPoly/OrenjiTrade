@@ -14,6 +14,7 @@ import com.orenjitrade.api.profiles.domain.AvatarImageProcessor.AvatarRejectedEx
 import com.orenjitrade.api.profiles.infra.ProfileRepository;
 import com.orenjitrade.api.profiles.infra.TagRepository;
 import com.orenjitrade.api.profiles.infra.TagSearchRepository;
+import com.orenjitrade.api.users.domain.HandleAvailability;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
@@ -147,6 +148,14 @@ public class ProfileService {
     // ---------------------------------------------------------------------------------------
     // Writes
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * Whether the caller could save {@code rawHandle} as their handle (stage R12, the live check of
+     * the welcome step): the save's own rules, nothing saved, nothing audited.
+     */
+    public HandleAvailability handleAvailability(UUID userId, String rawHandle) {
+        return userAccountService.handleAvailability(userId, rawHandle);
+    }
 
     /**
      * Saves handle, display name, bio, games and languages. {@code 400} for unknown games, non ISO

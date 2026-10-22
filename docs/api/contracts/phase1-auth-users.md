@@ -158,5 +158,6 @@ ADMIN/SUPER_ADMIN grants) → 204
 | `POST /me/profile/avatar`, `/me/export` | 10 / hour / user |
 | `/me/deletion-requests` | 5 / day / user |
 | `/tags` search | 60 / min / user |
+| `GET /me/profile/handle-availability` (stage R12, [r12-sign-in-welcome.md](r12-sign-in-welcome.md)) | 60 / 10 min / user |
 
 Responses carry `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After`.

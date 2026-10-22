@@ -375,6 +375,14 @@ orenji:
         limit: 5
         window-seconds: 86400
         key-by: USER
+      - name: handle-availability
+        # The welcome step checks the handle while the collector types (stage R12): a few dozen
+        # checks while choosing one, never a list of every handle taken.
+        path-patterns: ["/api/v1/me/profile/handle-availability"]
+        methods: [GET]
+        limit: 60
+        window-seconds: 600
+        key-by: USER
       - name: tags-search
         path-patterns: ["/api/v1/tags"]
         methods: [GET]

@@ -648,6 +648,33 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
      * distance or a private note; never the reader's own post; never a collector who is not
      * discoverable. The seed puts every kind in the Yu-Gi-Oh! feed of Americas (North).
      */
+    /**
+     * Stage R12: the welcome step's live handle check. Asked about every seed account's handle by a
+     * newcomer, it answers the handle as typed and a status, never who holds it or where.
+     */
+    @Test
+    void handleCheckOfStageR12CarriesNoPersonOrPlace(CapturedOutput output) {
+        String newcomer = uniqueUid("geo-newcomer");
+        provisionCompliant(newcomer);
+        for (String handle : PLACES.keySet()) {
+            JsonNode answer =
+                    fetch("/api/v1/me/profile/handle-availability?handle=" + handle, newcomer);
+            assertThat(answer.propertyNames())
+                    .as("the answer about %s", handle)
+                    .containsExactlyInAnyOrder("handle", "status", "available");
+            assertThat(answer.path("status").asString()).as(handle).isEqualTo("TAKEN");
+            assertThat(answer.toString())
+                    .as("no place of %s", handle)
+                    .doesNotContain(PLACES.get(handle).split(",")[0]);
+        }
+        JsonNode own =
+                fetch(
+                        "/api/v1/me/profile/handle-availability?handle=collector1",
+                        "seed-collector1:collector1@orenjitrade.test");
+        assertThat(own.path("status").asString()).isEqualTo("CURRENT");
+        assertContract(output);
+    }
+
     @Test
     void homeFeedCarriesPlacesOnly(CapturedOutput output) {
         Set<String> kindsSeen = new java.util.HashSet<>();
