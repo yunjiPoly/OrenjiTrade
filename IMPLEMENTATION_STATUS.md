@@ -8229,7 +8229,61 @@ for Bandai's permission and Riot's key; Magic keeps one image per artwork; Poké
 - GeoPrivacyContractTest: nothing to add (no endpoint and no representation of a place or a person
   changed).
 
-<!-- R10 checks -->
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean (a first `test:api` run found the two re-flowed javadocs, fixed) |
+| `npm run test:api` | **1,256 tests in 195 classes** (the suite and the catalog tests; 27 new in 6 classes), 0 failed, 0 skipped, 4 min 9 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git (no API change) |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff 62675615 -- apps/web-angular packages package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) |
+| `npm run test:mobile` | typecheck, lint, jest **120 suites / 1,573 tests** (6 new), 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export --platform ios`, `android`, `web` (throw-away directories) | all three bundled |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 27 s (flow 6 with the new Appearance credits). The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** (the guards' new provider checks inside the existing tests) |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 21:05 to 21:21; a stack of
+its own: the API jar on 8480 with the database `orenjitrade_r10_check` and Redis db 5, Scryfall and
+TCGdex in snapshot-only mode on the fixtures, their pictures from a local static server on 8483
+with fictional generated pictures, Metro on 8082; collector1). **Before**: the seed's fictional
+Magic, Pokémon and Riftbound cards were moved to hidden games in that database, so the catalogue
+looked like production before the owner's import: "Choose a game" dimmed Pokémon, Magic, One Piece
+and Riftbound ("Cards coming soon"), and Appearance credited Yu-Gi-Oh! alone. **The fixture
+imports** (`npm run catalog:import -- --api http://localhost:8480 …`): Magic 6 cards, 8 printings,
+3 sets, 6 pictures downloaded, the five warning categories; Pokémon 4 cards, 7 printings, 3 sets, 7
+pictures; `card-images:status` 13 cached. **After**: Pokémon and Magic pickable ("None of your cards
+yet"), One Piece and Riftbound still dimmed; Search typing found "Zephyrine Archivist" (Magic) and
+"Emberpup" (Pokémon, one result for three printings) with their pictures; Who has this card showed
+the pictures, the printings and the Scryfall and TCGdex credits with their notices; Appearance listed
+the three credits. Dark and light, the default and the largest text size (the sheets scroll, the
+credits wrap whole). **Found and fixed**: Who has this card kept the card's picture when a printing
+was chosen; it now shows the printing's own picture (Jest test added). The stack was stopped, its
+database dropped and Redis db 5 flushed; the screenshots of the stage's mockup screens (34, 12, 13,
+53, dark, default size, before and after) are in `.local-dev/r10-notes/pr-shots/` for the pull
+request. The mockup v50 (GameSheet, Appearance) matches in layout and words; Appearance keeps
+today's Settings look (R13 restyles Settings).
+
+**Not done / could not be verified**: no real import was run (agents never call the providers):
+the adapters met only hand-written fixtures written from the providers' published formats, so the
+first real import is the first contact with the real Scryfall file and the real TCGdex repository
+(its layout, `TsLiteral` on every file, the image file name `high.jpg`); its report's warnings say
+what was left out. The sizes (Magic about 1.9 GB, Pokémon about 0.85 GB) are the prompt's estimates.
+The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups**: (1) run the two imports and `npm run card-images:status`, and read the
+warnings; (2) the lawyer review of the Scryfall and TCGdex notices (drafts), Wizards' Fan Content
+Policy and showing Pokémon images; (3) after the first import, align the `mtg` and `pokemon`
+GameSchema rarity lists with the imported vocabulary (a migration like V101); (4) market prices for
+Magic and Pokémon are not imported (decide whether you want them and from which source); (5) in a
+local database the seed's fictional Magic and Pokémon cards stay beside the real ones (a real set
+with a fictional code is skipped and reported); (6) the paused web shows no Magic or Pokémon credit
+(its attributions are Yu-Gi-Oh!'s); add them when it resumes.
 
 ## NEXT TASK
 
