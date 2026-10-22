@@ -389,6 +389,42 @@ describe('A room (stage R11, screen 33)', () => {
     await waitFor(() => expect(screen.queryByTestId('room-attachments')).toBeNull());
   });
 
+  it('words the uploads’ own hourly limit apart from the room’s, and keeps the photos', async () => {
+    picker.requestMediaLibraryPermissionsAsync.mockResolvedValue({ granted: true } as never);
+    picker.launchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file:///a.jpg',
+          mimeType: 'image/jpeg',
+          fileName: 'a.jpg',
+          fileSize: 900_000,
+          width: 800,
+          height: 600,
+        },
+      ],
+    } as never);
+    const api = mockApi(
+      routes({
+        'POST /api/v1/uploads/images': problem(429, 'RATE_LIMITED', 'Too many uploads', {
+          retryAfterSeconds: 1200,
+        }),
+      })
+    );
+    render();
+    await screen.findByTestId(`room-post-${PHOTO_POST.id}`);
+    fireEvent.press(screen.getByTestId('room-attach'));
+    fireEvent.press(await screen.findByTestId('room-attach-photo'));
+    expect(await screen.findByTestId('room-attachment-photo-0')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByLabelText('Write to the Yu-Gi-Oh! room'), 'My binder photo');
+    fireEvent.press(screen.getByTestId('room-send'));
+    expect(await screen.findByTestId('room-post-error')).toHaveTextContent(
+      'You sent a lot of photos in a short time. Try again later.'
+    );
+    expect(api.callsTo('POST /api/v1/community/channels/{slug}/posts')).toHaveLength(0);
+    expect(screen.getByTestId('room-attachment-photo-0')).toBeOnTheScreen();
+  });
+
   it('explains the posting limit and a duplicate, and keeps the text', async () => {
     mockApi(
       routes({

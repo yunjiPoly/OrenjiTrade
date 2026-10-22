@@ -19,6 +19,8 @@ import { ROOM_COMPOSER_COPY, ROOM_ERROR_COPY } from './communityCopy';
 export const POST_MAX_LENGTH = 2000;
 /** Photos per post (stage R11, owner 2026-10-08: up to 4, 3 MB each, photos only). */
 export const ROOM_PHOTOS_MAX = 4;
+/** The error code the phone gives an upload refused by the uploads' own hourly limit (429). */
+export const UPLOAD_RATE_LIMITED = 'UPLOAD_RATE_LIMITED';
 /** `POST /uploads/images?kind=COMMUNITY` limit. */
 export const ROOM_PHOTO_MAX_BYTES = 3 * 1024 * 1024;
 export const ROOM_PHOTO_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image/webp'];
@@ -197,6 +199,8 @@ export function postErrorMessage(error: ApiError): string {
   switch (error.errorCode) {
     case 'RATE_LIMITED':
       return ROOM_ERROR_COPY.rateLimited;
+    case UPLOAD_RATE_LIMITED:
+      return ROOM_ERROR_COPY.photosRateLimited;
     case 'DUPLICATE_POST':
       return ROOM_ERROR_COPY.duplicate;
     case 'POST_BLOCKED':

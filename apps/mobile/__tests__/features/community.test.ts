@@ -219,6 +219,10 @@ describe('the message box', () => {
       'You can post up to 10 times an hour in each room. Try again later.'
     );
     expect(postErrorMessage(apiError(409, 'DUPLICATE_POST'))).toBe('You already posted this.');
+    // The uploads' own hourly limit is not the room's.
+    expect(postErrorMessage(apiError(429, 'UPLOAD_RATE_LIMITED'))).toBe(
+      'You sent a lot of photos in a short time. Try again later.'
+    );
     expect(postErrorMessage(apiError(422, 'POST_BLOCKED'))).toMatch(/community rules/);
     expect(postErrorMessage(apiError(413, 'PAYLOAD_TOO_LARGE'))).toMatch(/larger than 3 MB/);
     expect(postErrorMessage(apiError(404, 'FEATURE_DISABLED'))).toMatch(/closed/);

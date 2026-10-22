@@ -127,4 +127,5 @@ export const ROOM_ERROR_COPY = {
   gone: 'This room is no longer open.',
   photoRefused: 'One of the photos could not be posted. Remove it and try again.',
   photoTooLarge: 'One of the photos is larger than 3 MB. Remove it and try again.',
+  photosRateLimited: 'You sent a lot of photos in a short time. Try again later.',
 } as const;

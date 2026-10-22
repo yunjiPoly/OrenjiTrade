@@ -9,9 +9,9 @@ import {
 
 import { useAccount } from '@/src/account/AccountProvider';
 import type { RoomDraft } from '@/src/features/community/communityHelpers';
-import { postRequest } from '@/src/features/community/communityHelpers';
+import { postRequest, UPLOAD_RATE_LIMITED } from '@/src/features/community/communityHelpers';
 
-import type { ApiError } from '../ApiError';
+import { ApiError, isApiError } from '../ApiError';
 import { api, required } from '../client';
 import { imageFormData } from '../imageFormData';
 import { meKeys } from '../queryKeys';
@@ -107,17 +107,31 @@ async function uploadRoomPhoto(photo: RoomDraft['photos'][number]): Promise<stri
     { uri: photo.uri, mimeType: photo.mimeType, fileName: photo.fileName, file: photo.file },
     'photo'
   );
-  const upload: ImageUploadResponse = required(
-    (
-      await api.POST('/api/v1/uploads/images', {
-        params: { query: { kind: 'COMMUNITY' } },
-        // The contract types the multipart body as `{ file: binary }`; the FormData is sent as is.
-        body: body as unknown as { file: string },
-        bodySerializer: () => body,
-      })
-    ).data
-  );
-  return upload.uploadId;
+  try {
+    const upload: ImageUploadResponse = required(
+      (
+        await api.POST('/api/v1/uploads/images', {
+          params: { query: { kind: 'COMMUNITY' } },
+          // The contract types the multipart body as `{ file: binary }`; the FormData is sent as is.
+          body: body as unknown as { file: string },
+          bodySerializer: () => body,
+        })
+      ).data
+    );
+    return upload.uploadId;
+  } catch (error) {
+    // The uploads' own limit (photos per hour, messages and rooms together) is not the room's.
+    if (isApiError(error) && error.status === 429) {
+      throw new ApiError({
+        status: 429,
+        errorCode: UPLOAD_RATE_LIMITED,
+        message: error.message,
+        requestId: error.requestId,
+        problem: error.problem,
+      });
+    }
+    throw error;
+  }
 }
 
 /**
