@@ -132,7 +132,7 @@ export function RoomList({ onOpenChats }: { onOpenChats: () => void }) {
 
   const top = (
     <View style={styles.top}>
-      <RegionBar testID="community-region" />
+      <RegionBar pinned testID="community-region" />
     </View>
   );
 

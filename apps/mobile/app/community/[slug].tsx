@@ -348,7 +348,14 @@ export default function RoomScreen() {
             accessibilityElementsHidden
             importantForAccessibility="no"
           />
-          <Text style={[styles.bannerText, { color: palette.textMuted }]}>{ROOM_COPY.banner}</Text>
+          {/* Pinned above the posts: it follows the text size a little only, so the posts keep
+              the screen at the largest sizes. */}
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.bannerText, { color: palette.textMuted }]}
+          >
+            {ROOM_COPY.banner}
+          </Text>
         </View>
       ) : null}
 
