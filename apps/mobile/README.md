@@ -177,7 +177,9 @@ recorded as the `AGE_CONFIRMATION` consent; the same checkbox on the consent scr
 that never gave it, e.g. a Google sign-up; a first, non-editable onboarding "Age" step for
 existing accounts, which return to where they came from once confirmed; `needsOnboarding` while
 `/me` reports `ageConfirmed: false`; a friendly message for `403 AGE_CONFIRMATION_REQUIRED`, which
-also reloads `/me` so the gate shows the step; Sign out on the step so nobody is stuck), the
+also reloads `/me` so the gate shows the step; Sign out on the step so nobody is stuck; since
+stage R12 of the phone redesign the checkbox is English only and has no welcome step: an account
+without the confirmation is on Review our terms, with the age line alone when no document is due), the
 **consent language** (every `POST /me/consents` carries `language`: `fr` when the device's
 primary language is French through `expo-localization`, an explicit EN / FR choice wins), the
 **French legal pages** (`npm run sync:legal` copies both web files, an EN / FR switch on the legal
@@ -291,8 +293,8 @@ xcrun simctl launch <udid> com.orenjitrade.app.scan
 - `RCT_METRO_PORT=8084` makes the debug build load its JavaScript from that Metro; the Auth
   emulator stays the default `localhost:9099`. Sign in with a seed account
   (`docs/development/test-accounts.md`). On a fresh database the seed accounts have not confirmed
-  being 18+ yet (they predate the rule): the first sign-in stops at the onboarding "Age" step;
-  tick the box and continue, once per account and database.
+  being 18+ yet (they predate the rule): the first sign-in stops at Review our terms with the age
+  line (stage R12); tick the box and continue, once per account and database.
 - iOS 27 stops an app built with Xcode 27 at launch unless it adopts the scene life cycle; Expo SDK
   57's native template does not, so the variant applies `plugins/withIosSceneLifecycle.js` (Expo's
   `ExpoAppSceneDelegate`, as SDK 58's template does). Builds without the variant are unchanged.
@@ -357,8 +359,10 @@ app/                       expo-router routes
                            state, onboarding, tabs)
   (auth)/                  sign-in, sign-up, reset-password (guests only)
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
-  onboarding.tsx           (age, for an account that never confirmed being 18+) -> profile ->
-                           interests -> "Where are you?" (+ map opt-in, off by default)
+  onboarding.tsx           the welcome in three steps (stage R12): "Who are you?" (live handle
+                           check) -> "What do you collect?" (games, "Opens first") -> "Where do
+                           you ship from?" (+ map opt-in, off by default); the 18+ confirmation
+                           is asked at sign-up or on Review our terms
   (tabs)/                  Search | Inventory | Messages | Profile (+ hidden index and wishlist,
                            which redirect into Search)
   settings/                profile, location, privacy, notifications, account, delete-account,
@@ -548,7 +552,7 @@ Conventions later stages reuse:
 - **Places (ADR 0017)**: the app handles no coordinates, distances or GPS. Collectors declare a
   region, country, state or province and an optional city (`src/features/location/`:
   `LocationFields` with SelectSheet pickers fed by `GET /regions` through `useRegions`,
-  `locationDraft.ts` for the draft rules), in onboarding ("Where are you?") and Settings →
+  `locationDraft.ts` for the draft rules), in the welcome ("Where do you ship from?") and Settings →
   Location (`PUT` / `DELETE /me/location`). Others see a collector's state or province
   (`src/lib/place.ts`); a profile adds the city only when the API sends it (its owner shows it).
   `expo-location` is not installed and no location permission is requested; there is no map SDK
