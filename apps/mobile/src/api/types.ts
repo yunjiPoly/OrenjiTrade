@@ -159,6 +159,10 @@ export type PostPage = Schemas['CursorPagePostResponse'];
 export type ReplyResponse = Schemas['ReplyResponse'];
 export type ReplyPage = Schemas['CursorPageReplyResponse'];
 export type CreatePostRequest = Schemas['CreatePostRequest'];
+/** Stage R11: the newest post of a room the caller may see (the room list). */
+export type CommunityLastPost = Schemas['CommunityLastPost'];
+/** Stage R11: a photo of a post (no EXIF or GPS data). */
+export type PostPhoto = Schemas['PostPhoto'];
 
 // --- Wishlist (stage S2) + notifications (Phase 6) ---------------------------------------------
 export type WishlistItemResponse = Schemas['WishlistItemResponse'];

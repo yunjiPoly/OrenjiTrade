@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { Dimensions } from 'react-native';
 
 import MessagesScreen from '@/app/(tabs)/messages';
+import { markRoomVisited } from '@/src/features/community/roomVisits';
 import { toLastMessage } from '@/src/features/messages/messageText';
 import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
@@ -280,60 +281,123 @@ describe('Messages tab: inbox', () => {
   });
 });
 
-/** The community is behind the `publicChat` flag: the Inbox | Community switch shows only then. */
+/** The community is behind the `publicChat` flag: the Chats | Community tabs show only then. */
 const COMMUNITY_ON = { 'GET /api/v1/public/feature-flags': ok({ publicChat: true }) };
 
-describe('Messages tab: community', () => {
-  it('has no Inbox | Community switch while the publicChat flag is off', async () => {
+describe('Messages tab: community (stage R11)', () => {
+  it('has no Chats | Community tabs while the publicChat flag is off', async () => {
     mockParams.current = { view: 'community' };
     mockApi(routes({ 'GET /api/v1/public/feature-flags': ok({ publicChat: false }) }));
     render();
-    // The inbox, even from a link to the community.
+    // The chats, even from a link to the community.
     expect(await screen.findByTestId('conversation-row-collector2')).toBeOnTheScreen();
     expect(screen.queryByTestId('messages-view')).toBeNull();
-    expect(screen.queryByTestId('channel-americas-north')).toBeNull();
+    expect(screen.queryByTestId('community-rooms')).toBeNull();
   });
 
-  it('switches to the public channels, grouped, with their activity of the day', async () => {
+  it('names the tabs Chats and Community, with an orange dot on Chats while a chat is unread', async () => {
     mockApi(routes(COMMUNITY_ON));
+    render();
+    await screen.findByTestId('conversation-row-collector3');
+    const chats = screen.getByTestId('messages-view-inbox');
+    expect(chats).toHaveTextContent('Chats');
+    expect(chats.props.accessibilityLabel).toBe('Chats, 1 unread');
+    expect(screen.getByTestId('messages-view-inbox-dot')).toBeOnTheScreen();
+    expect(screen.getByTestId('messages-view-community')).toHaveTextContent('Community');
+    expect(screen.queryByTestId('messages-view-community-dot')).toBeNull();
+  });
+
+  it('has no dot on Chats when every chat is read', async () => {
+    mockApi(
+      routes({
+        ...COMMUNITY_ON,
+        'GET /api/v1/conversations': ok(conversationPage([noe, { ...devon, unreadCount: 0 }])),
+      })
+    );
+    render();
+    await screen.findByTestId('conversation-row-collector3');
+    expect(screen.queryByTestId('messages-view-inbox-dot')).toBeNull();
+    expect(screen.getByTestId('messages-view-inbox').props.accessibilityLabel).toBe('Chats');
+  });
+
+  it('lists the browsed region’s five rooms, the browsed game’s first, with their last posts', async () => {
+    const api = mockApi(routes(COMMUNITY_ON));
     render();
     await screen.findByTestId('conversation-row-collector2');
     fireEvent.press(screen.getByTestId('messages-view-community'));
     expect(mockRouter.setParams).toHaveBeenCalledWith({ view: 'community' });
-    expect(await screen.findByTestId('channel-americas-north')).toBeOnTheScreen();
-    expect(screen.getByText('Regions')).toBeOnTheScreen();
-    expect(screen.getByText('Topics')).toBeOnTheScreen();
-    expect(screen.getByTestId('channel-count-americas-north')).toHaveTextContent('3');
-    expect(screen.queryByTestId('channel-count-yugioh')).toBeNull();
-    // Filtering by a game keeps the region channels (every game) and the topics.
-    fireEvent.press(screen.getByTestId('community-game-yugioh'));
-    expect(screen.getByTestId('channel-americas-north')).toBeOnTheScreen();
-    expect(screen.getByTestId('channel-yugioh')).toBeOnTheScreen();
-    expect(screen.getByTestId('channel-looking-for')).toBeOnTheScreen();
-    fireEvent.press(screen.getByTestId('channel-looking-for'));
+    expect(await screen.findByTestId('room-americas-north-pokemon')).toBeOnTheScreen();
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/community/channels')[0]?.query.get('region')).toBe(
+        'americas-north'
+      )
+    );
+    // The collector browses Pokémon (their first profile game with cards): its room comes first,
+    // then the games’ order.
+    expect(
+      screen.getAllByTestId(/^room-americas-north-[a-z]+$/).map((row) => row.props.testID)
+    ).toEqual([
+      'room-americas-north-pokemon',
+      'room-americas-north-yugioh',
+      'room-americas-north-mtg',
+      'room-americas-north-onepiece',
+      'room-americas-north-riftbound',
+    ]);
+    expect(screen.getByTestId('community-region')).toHaveTextContent(/Americas \(North\)/);
+    expect(screen.getByTestId('room-preview-americas-north-yugioh')).toHaveTextContent(
+      'kaiba_fan: Does anyone ship to New York? Looking for Nibiru.'
+    );
+    expect(screen.getByTestId('room-preview-americas-north-riftbound')).toHaveTextContent(
+      'No posts yet. Say hi!'
+    );
+    expect(screen.queryByTestId('room-time-americas-north-riftbound')).toBeNull();
+    // New posts since the last visit on this phone: a dot; your own last post never counts.
+    expect(screen.getByTestId('room-unread-americas-north-yugioh')).toBeOnTheScreen();
+    expect(screen.queryByTestId('room-unread-americas-north-mtg')).toBeNull();
+    expect(screen.queryByTestId('room-unread-americas-north-riftbound')).toBeNull();
+    expect(screen.getByTestId('room-americas-north-yugioh').props.accessibilityLabel).toMatch(
+      /^Yu-Gi-Oh! room, Americas \(North\)\. Last post: kaiba_fan: Does anyone ship to New York\? Looking for Nibiru\., .+\. New posts\.$/
+    );
+    expect(screen.getByTestId('room-americas-north-riftbound').props.accessibilityLabel).toBe(
+      'Riftbound room, Americas (North). No posts yet.'
+    );
+    expect(screen.getByTestId('community-footnote')).toHaveTextContent(
+      /Every collector in Americas \(North\) can read these rooms\. Keep deals and addresses in private chats\.$/
+    );
+    fireEvent.press(screen.getByTestId('room-americas-north-yugioh'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/community/[slug]',
-      params: { slug: 'looking-for' },
+      params: { slug: 'americas-north-yugioh' },
     });
   });
 
-  it('opens on the channels from a link, and explains a closed community', async () => {
+  it('drops a room’s dot once its newest post was read on this phone', async () => {
+    await markRoomVisited(testUser().uid, 'americas-north-yugioh', '2026-10-05T14:41:00Z');
+    mockParams.current = { view: 'community' };
+    mockApi(routes(COMMUNITY_ON));
+    render();
+    expect(await screen.findByTestId('room-americas-north-yugioh')).toBeOnTheScreen();
+    expect(screen.queryByTestId('room-unread-americas-north-yugioh')).toBeNull();
+    expect(screen.getByTestId('room-unread-americas-north-pokemon')).toBeOnTheScreen();
+  });
+
+  it('opens on the rooms from a link, and explains a closed community', async () => {
     mockParams.current = { view: 'community' };
     mockApi(
       routes({
         ...COMMUNITY_ON,
-        'GET /api/v1/community/channels': problem(403, 'FEATURE_DISABLED', 'Disabled'),
+        'GET /api/v1/community/channels': problem(404, 'FEATURE_DISABLED', 'Disabled'),
       })
     );
     render();
     expect(await screen.findByTestId('community-disabled')).toHaveTextContent(
       /The community is closed right now/
     );
-    fireEvent.press(screen.getByText('Open messages'));
+    fireEvent.press(screen.getByText('Open chats'));
     expect(await screen.findByTestId('conversation-row-collector2')).toBeOnTheScreen();
   });
 
-  it('shows the channel error with retry', async () => {
+  it('shows skeleton rows, then the error with Try again', async () => {
     mockParams.current = { view: 'community' };
     mockApi(
       routes({
@@ -343,7 +407,9 @@ describe('Messages tab: community', () => {
     );
     render();
     expect(await screen.findByTestId('community-error')).toBeOnTheScreen();
+    // The region pill stays above the error.
+    expect(screen.getByTestId('community-region')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
-    expect(await screen.findByTestId('channel-looking-for')).toBeOnTheScreen();
+    expect(await screen.findByTestId('room-americas-north-yugioh')).toBeOnTheScreen();
   });
 });

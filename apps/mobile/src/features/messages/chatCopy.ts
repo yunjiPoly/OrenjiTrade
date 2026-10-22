@@ -14,8 +14,11 @@ function plural(count: number, one: string, many: string): string {
 /** Messages, the inbox (screen 22). */
 export const INBOX_COPY = {
   title: 'Messages',
-  viewLabel: 'Messages view',
+  viewLabel: 'Messages',
   inbox: 'Inbox',
+  /** The first tab of Messages (stage R11). */
+  chats: 'Chats',
+  chatsUnread: (count: number) => `Chats, ${count} unread`,
   community: 'Community',
   loadError: 'Conversations could not load',
   emptyTitle: 'No messages yet',

@@ -1,134 +1,224 @@
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
-import type { CommunityChannel } from '@/src/api/types';
-import type { IconName } from '@/src/components/ui/EmptyState';
-import { PLATFORM_REGION_NAMES } from '@/src/lib/place';
+import type {
+  CommunityChannel,
+  CommunityLastPost,
+  CreatePostRequest,
+  PostResponse,
+} from '@/src/api/types';
+import { dayLabel } from '@/src/features/messages/threadItems';
+import type {
+  BinderLinkChoice,
+  CardLinkChoice,
+  PickedPhoto,
+} from '@/src/features/messages/messageDraft';
 
-/** `CreatePostRequest.body` / `UpdatePostRequest.body` limit. */
+import { ROOM_COMPOSER_COPY, ROOM_ERROR_COPY } from './communityCopy';
+
+/** `CreatePostRequest.body` limit. */
 export const POST_MAX_LENGTH = 2000;
-/** `CreateReplyRequest.body` limit. */
-export const REPLY_MAX_LENGTH = 1000;
+/** Photos per post (stage R11, owner 2026-10-08: up to 4, 3 MB each, photos only). */
+export const ROOM_PHOTOS_MAX = 4;
+/** `POST /uploads/images?kind=COMMUNITY` limit. */
+export const ROOM_PHOTO_MAX_BYTES = 3 * 1024 * 1024;
+export const ROOM_PHOTO_TYPES: readonly string[] = ['image/jpeg', 'image/png', 'image/webp'];
 
-export interface ChannelGroup {
+/**
+ * The rooms of a region in the list's order (stage R11, screen 32): the browsed game's room first,
+ * then the others in the games' order (`gameOrder`, the order of `GET /games`); a room of a game
+ * the list does not know keeps the server's order, at the end.
+ */
+export function orderRooms(
+  rooms: readonly CommunityChannel[],
+  browsedGame: string | null,
+  gameOrder: readonly string[]
+): CommunityChannel[] {
+  const rank = (room: CommunityChannel) => {
+    if (room.game && room.game === browsedGame) {
+      return -1;
+    }
+    const index = room.game ? gameOrder.indexOf(room.game) : -1;
+    return index === -1 ? gameOrder.length : index;
+  };
+  return rooms
+    .map((room, index) => ({ room, index }))
+    .sort((a, b) => rank(a.room) - rank(b.room) || a.index - b.index)
+    .map(({ room }) => room);
+}
+
+/**
+ * Whether a room shows bold with an orange dot: someone else posted after the collector's last
+ * visit on this phone (no visit yet: any post of someone else). Their own newest post never counts.
+ */
+export function isRoomUnread(
+  lastPost: CommunityLastPost | null | undefined,
+  visitedAt: string | null | undefined
+): boolean {
+  if (!lastPost || lastPost.mine) {
+    return false;
+  }
+  if (!visitedAt) {
+    return true;
+  }
+  const posted = Date.parse(lastPost.createdAt);
+  const visited = Date.parse(visitedAt);
+  return Number.isNaN(visited) || (!Number.isNaN(posted) && posted > visited);
+}
+
+/** The newer of two instants (ISO strings); a visit never moves back. */
+export function laterOf(current: string | null | undefined, next: string): string {
+  if (!current) {
+    return next;
+  }
+  return Date.parse(next) > Date.parse(current) ? next : current;
+}
+
+/** "{handle}: {text}" of a room row, or null without a post. */
+export function roomPreview(lastPost: CommunityLastPost | null | undefined): string | null {
+  return lastPost ? `${lastPost.authorHandle}: ${lastPost.body}` : null;
+}
+
+/** The state or province under a post's handle ("Quebec"), never a city; null when not shared. */
+export function postPlace(post: Pick<PostResponse, 'place'>): string | null {
+  const place = post.place;
+  if (!place) {
+    return null;
+  }
+  return place.subdivisionName || place.countryName || null;
+}
+
+/** "9:12 AM": a post's time in the room (the day separators carry the day). */
+export function postTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+export interface RoomDayItem {
+  kind: 'day';
   key: string;
   label: string;
-  channels: CommunityChannel[];
 }
 
-const TOPIC_KINDS = new Set(['LOOKING_FOR', 'NEW_LISTINGS', 'TRADES', 'GENERAL']);
+export interface RoomPostItem {
+  kind: 'post';
+  key: string;
+  post: PostResponse;
+}
 
-const KIND_ICONS: Readonly<Record<string, IconName>> = {
-  REGION: 'earth',
-  GAME: 'cards-outline',
-  LOOKING_FOR: 'magnify',
-  NEW_LISTINGS: 'new-box',
-  TRADES: 'swap-horizontal',
-  GENERAL: 'forum-outline',
-};
+export type RoomItem = RoomDayItem | RoomPostItem;
 
-/** Icon of a channel kind. */
-export function channelIcon(kind: string): IconName {
-  return KIND_ICONS[kind] ?? 'forum-outline';
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 
 /**
- * Sections of the channel list (web: `groupChannels`): the platform region channels (one per
- * region, ADR 0017), then game-wide channels, then the topic channels (looking for, new listings,
- * trades, general). Server order is kept inside a section. `game` narrows region and game
- * channels to one game; topics always stay.
+ * A room's posts as the chat-like list reads them, oldest first with a day separator before the
+ * first post of each day of the phone's time zone ("Today", "Yesterday", "Monday, September 28");
+ * the screen shows them reversed in an inverted list (newest at the bottom). `posts` come newest
+ * first, as the API pages them; a post seen twice (a page and the post just made) is kept once.
  */
-export function groupChannels(
-  channels: readonly CommunityChannel[],
-  game: string | null = null
-): ChannelGroup[] {
-  const regions: CommunityChannel[] = [];
-  const games: CommunityChannel[] = [];
-  const topics: CommunityChannel[] = [];
-  for (const channel of channels) {
-    const isTopic = TOPIC_KINDS.has(channel.kind);
-    if (!isTopic && game && channel.game && channel.game !== game) {
-      continue;
+export function buildRoomItems(posts: readonly PostResponse[], now: Date = new Date()): RoomItem[] {
+  const seen = new Set<string>();
+  const ordered = [...posts]
+    .filter((post) => (seen.has(post.id) ? false : (seen.add(post.id), true)))
+    .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || a.id.localeCompare(b.id));
+  const items: RoomItem[] = [];
+  let previous = '';
+  for (const post of ordered) {
+    const at = new Date(post.createdAt);
+    const key = dayKey(at);
+    if (key !== previous) {
+      items.push({ kind: 'day', key: `day-${key}`, label: dayLabel(at, now) });
+      previous = key;
     }
-    if (channel.kind === 'REGION') {
-      regions.push(channel);
-    } else if (channel.kind === 'GAME') {
-      games.push(channel);
-    } else {
-      topics.push(channel);
-    }
+    items.push({ kind: 'post', key: post.id, post });
   }
-  const groups: ChannelGroup[] = [];
-  if (regions.length) {
-    groups.push({ key: 'regions', label: 'Regions', channels: regions });
+  return items;
+}
+
+/** What a room post is made of on the phone before it is sent. */
+export interface RoomDraft {
+  text: string;
+  photos: readonly PickedPhoto[];
+  card: CardLinkChoice | null;
+  binder: BinderLinkChoice | null;
+}
+
+export const EMPTY_ROOM_DRAFT: RoomDraft = { text: '', photos: [], card: null, binder: null };
+
+/** Whether the send button is orange: some text, not too long (a post always has text). */
+export function canPost(draft: RoomDraft, busy = false): boolean {
+  const length = draft.text.trim().length;
+  return !busy && length > 0 && draft.text.length <= POST_MAX_LENGTH;
+}
+
+/** The request of a draft, with the uploads of its photos in their order. */
+export function postRequest(
+  draft: RoomDraft,
+  photoUploadIds: readonly string[] = []
+): CreatePostRequest {
+  const request: CreatePostRequest = { body: draft.text.trim() };
+  if (draft.card) {
+    request.cardPrintingId = draft.card.printingId;
   }
-  if (games.length) {
-    groups.push({ key: 'games', label: 'Games', channels: games });
+  if (draft.binder) {
+    request.binderId = draft.binder.binderId;
   }
-  if (topics.length) {
-    groups.push({ key: 'topics', label: 'Topics', channels: topics });
+  if (photoUploadIds.length > 0) {
+    request.photoUploadIds = [...photoUploadIds];
   }
-  return groups;
+  return request;
+}
+
+/** Why a picked photo cannot be posted, or null (the API checks again and strips its metadata). */
+export function roomPhotoProblem(photo: Pick<PickedPhoto, 'mimeType' | 'size'>): string | null {
+  if (!ROOM_PHOTO_TYPES.includes(photo.mimeType)) {
+    return ROOM_COMPOSER_COPY.photoType;
+  }
+  if (photo.size === 0) {
+    return ROOM_COMPOSER_COPY.photoEmpty;
+  }
+  if (photo.size !== null && photo.size > ROOM_PHOTO_MAX_BYTES) {
+    return ROOM_COMPOSER_COPY.photoTooLarge;
+  }
+  return null;
 }
 
 /**
- * The channel to open when none is chosen: the channel of `region` (its `regionLabel` is the
- * platform region code), else the first regional one, else the first.
- */
-export function defaultChannel(
-  channels: readonly CommunityChannel[],
-  region: string | null = null
-): CommunityChannel | null {
-  return (
-    (region
-      ? channels.find((channel) => channel.kind === 'REGION' && channel.regionLabel === region)
-      : undefined) ??
-    channels.find((channel) => channel.kind === 'REGION') ??
-    channels[0] ??
-    null
-  );
-}
-
-/** "Europe" for a region channel's code; an archived city channel keeps its city label. */
-export function channelRegionName(label: string | null | undefined): string | null {
-  return label ? (PLATFORM_REGION_NAMES[label] ?? label) : null;
-}
-
-/** "3 posts today" / "1 post today". */
-export function activityLabel(count: number): string {
-  return `${count} ${count === 1 ? 'post' : 'posts'} today`;
-}
-
-/** "in 12 minutes" / "in 40 seconds". */
-function waitText(seconds: number | undefined): string {
-  if (!seconds || seconds <= 0) {
-    return 'in a little while';
-  }
-  if (seconds >= 90) {
-    return `in ${Math.ceil(seconds / 60)} minutes`;
-  }
-  return `in ${seconds} seconds`;
-}
-
-/**
- * Wording of a refused post or reply, shown under its composer (web: `postErrorMessage`): the
- * per-channel rate limit (429 with `retryAfterSeconds`), a duplicate within 24 h (409), moderation
- * (422 `POST_BLOCKED`), the community turned off (403 `FEATURE_DISABLED`).
+ * Wording of a refused post, under the message box (stage R11): the room's limit (429), the same
+ * text twice (409 `DUPLICATE_POST`), the moderation rules (422), a photo the upload refused (413,
+ * 415, 400), the community turned off, the room gone, and a network error (the text stays in the
+ * box with "Try again").
  */
 export function postErrorMessage(error: ApiError): string {
   switch (error.errorCode) {
     case 'RATE_LIMITED':
-      return `You are posting a lot in a short time. Each channel limits posts per hour. Try again ${waitText(error.problem?.retryAfterSeconds)}.`;
+      return ROOM_ERROR_COPY.rateLimited;
     case 'DUPLICATE_POST':
-      return error.message || 'You already posted this in the last 24 hours.';
+      return ROOM_ERROR_COPY.duplicate;
     case 'POST_BLOCKED':
-      return 'This post breaks the community guidelines, so it was not published. Please rephrase it.';
-    case 'VALIDATION_FAILED':
-      return error.message || 'Check the text and try again.';
+      return ROOM_ERROR_COPY.blocked;
+    case 'PAYLOAD_TOO_LARGE':
+      return ROOM_ERROR_COPY.photoTooLarge;
+    case 'UNSUPPORTED_MEDIA_TYPE':
+      return ROOM_COMPOSER_COPY.photoType;
     case 'FEATURE_DISABLED':
-      return 'The community is turned off right now.';
+      return ROOM_ERROR_COPY.closed;
     case 'NOT_FOUND':
-      return 'This post or channel is no longer available.';
+      return ROOM_ERROR_COPY.gone;
+    case 'VALIDATION_FAILED':
+      return error.fieldErrors.photoUploadIds || error.fieldErrors.file
+        ? ROOM_ERROR_COPY.photoRefused
+        : error.message || friendlyMessage(error);
     default:
-      return friendlyMessage(error);
+      return error.status === 0 ? ROOM_ERROR_COPY.network : friendlyMessage(error);
   }
+}
+
+/** Whether a refusal is worth the same post again as it is ("Try again"): a network error. */
+export function isRetryable(error: ApiError): boolean {
+  return error.status === 0 || error.status >= 500;
 }

@@ -106,11 +106,13 @@ export const meKeys = {
    * channels with 24 h counts, a channel's posts, a post's replies.
    */
   community: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community'] as const,
-  communityChannels: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community', 'channels'] as const,
+  /** Every room list read so far (stage R11), whatever its region. */
+  communityRoomLists: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'community', 'rooms'] as const,
+  /** The rooms of a platform region (`null`: every room). */
+  communityRooms: (uid: Uid, region: string | null) =>
+    [...ME_ROOT, uidKey(uid), 'community', 'rooms', region ?? 'all'] as const,
   communityPosts: (uid: Uid, slug: string) =>
     [...ME_ROOT, uidKey(uid), 'community', 'posts', slug] as const,
-  communityReplies: (uid: Uid, postId: string) =>
-    [...ME_ROOT, uidKey(uid), 'community', 'replies', postId] as const,
   /** Wishlist (stage S2): every read (prefix), the list, the admin price terms. */
   wishlist: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist'] as const,
   wishlistItems: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'wishlist', 'items'] as const,

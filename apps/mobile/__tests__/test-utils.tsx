@@ -11,6 +11,7 @@ import { useActiveConversation } from '@/src/features/messages/activeConversatio
 import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
 import { resetGetStarted } from '@/src/features/home/getStarted';
 import { useHomeChip } from '@/src/features/home/homeChip';
+import { resetRoomVisits } from '@/src/features/community/roomVisits';
 import { resetBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   BROWSING_REGION_STORAGE_KEY,
@@ -121,6 +122,7 @@ export function resetAppState(): void {
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
   resetBrowsingGame();
+  resetRoomVisits();
   resetGetStarted();
   useHomeChip.setState({ kind: 'ALL' });
   useAppStore.getState().reset();

@@ -17,8 +17,6 @@ import type {
   NotificationResponse,
   PostPage,
   PostResponse,
-  ReplyPage,
-  ReplyResponse,
   WishlistItemResponse,
   WishPriceTerm,
   CardDetail,
@@ -942,50 +940,93 @@ export function conversationPage(
   return { items, nextCursor: null, hasMore: false, ...overrides };
 }
 
-// --- Community (Phase 5, fictional) -------------------------------------------------------------
+// --- Community (stage R11: one room per platform region and game, fictional) -------------------
 
 export function channelFixture(overrides: Partial<CommunityChannel> = {}): CommunityChannel {
   return {
-    id: '00000000-0000-4000-8f00-000000000001',
-    slug: 'americas-north',
-    name: 'Americas (North)',
+    id: '00000000-0000-4000-8e00-000000000021',
+    slug: 'americas-north-yugioh',
+    name: 'Yu-Gi-Oh!',
     kind: 'REGION',
-    game: null,
+    game: 'yugioh',
     regionLabel: 'americas-north',
-    description: 'Canada, the United States, Mexico, Central America and the Caribbean.',
+    description: 'Yu-Gi-Oh! collectors in Americas (North): trades and sales by mail.',
     postCount24h: 3,
+    lastPost: undefined,
     ...overrides,
   };
 }
 
-export const CHANNELS: CommunityChannel[] = [
-  channelFixture(),
+/** The five rooms of Americas (North) as the API orders them (the games' order). */
+export const ROOMS: CommunityChannel[] = [
   channelFixture({
-    id: '00000000-0000-4000-8f00-000000000002',
-    slug: 'yugioh',
-    name: 'Yu-Gi-Oh!',
-    kind: 'GAME',
-    game: 'yugioh',
-    regionLabel: null,
-    description: 'Every Yu-Gi-Oh! collector.',
+    lastPost: {
+      id: '00000000-0000-4000-8f10-000000000004',
+      authorHandle: 'kaiba_fan',
+      body: 'Does anyone ship to New York? Looking for Nibiru.',
+      createdAt: '2026-10-05T14:41:00Z',
+      mine: false,
+    },
+  }),
+  channelFixture({
+    id: '00000000-0000-4000-8e00-000000000022',
+    slug: 'americas-north-pokemon',
+    name: 'Pokémon',
+    game: 'pokemon',
+    description: 'Pokémon collectors in Americas (North): trades and sales by mail.',
+    lastPost: {
+      id: '00000000-0000-4000-8f10-000000000005',
+      authorHandle: 'lucas.tcg',
+      body: 'Anyone opening the new set this weekend?',
+      createdAt: '2026-10-05T13:00:00Z',
+      mine: false,
+    },
+  }),
+  channelFixture({
+    id: '00000000-0000-4000-8e00-000000000023',
+    slug: 'americas-north-mtg',
+    name: 'Magic: The Gathering',
+    game: 'mtg',
+    description: 'Magic: The Gathering collectors in Americas (North): trades and sales by mail.',
+    lastPost: {
+      id: '00000000-0000-4000-8f10-000000000006',
+      authorHandle: 'maika',
+      body: 'Bulk commons, $10 a box plus tracked shipping',
+      createdAt: '2026-10-04T09:00:00Z',
+      mine: true,
+    },
+  }),
+  channelFixture({
+    id: '00000000-0000-4000-8e00-000000000024',
+    slug: 'americas-north-onepiece',
+    name: 'One Piece',
+    game: 'onepiece',
+    description: 'One Piece collectors in Americas (North): trades and sales by mail.',
+    lastPost: {
+      id: '00000000-0000-4000-8f10-000000000007',
+      authorHandle: 'emi.cards',
+      body: 'New to One Piece. Which starter deck first?',
+      createdAt: '2026-10-03T09:00:00Z',
+      mine: false,
+    },
+  }),
+  channelFixture({
+    id: '00000000-0000-4000-8e00-000000000025',
+    slug: 'americas-north-riftbound',
+    name: 'Riftbound',
+    game: 'riftbound',
+    description: 'Riftbound collectors in Americas (North): trades and sales by mail.',
     postCount24h: 0,
   }),
-  channelFixture({
-    id: '00000000-0000-4000-8f00-000000000003',
-    slug: 'looking-for',
-    name: 'Looking for',
-    kind: 'LOOKING_FOR',
-    game: null,
-    regionLabel: null,
-    description: 'Cards you are hunting for.',
-    postCount24h: 1,
-  }),
 ];
+
+/** Older name of the list kept for the tests that only need some rooms. */
+export const CHANNELS = ROOMS;
 
 export function postFixture(overrides: Partial<PostResponse> = {}): PostResponse {
   return {
     id: '00000000-0000-4000-8f10-000000000001',
-    channelSlug: 'montreal-pokemon',
+    channelSlug: 'americas-north-yugioh',
     author: {
       id: '00000000-0000-4000-8000-0000000000b1',
       handle: 'collector2',
@@ -993,7 +1034,7 @@ export function postFixture(overrides: Partial<PostResponse> = {}): PostResponse
       avatarUrl: null,
     },
     body: 'Anyone trading Lantern Fox this weekend?',
-    payload: {},
+    payload: { photos: [] },
     createdAt: '2026-10-05T10:00:00Z',
     editedAt: null,
     replyCount: 0,
@@ -1001,6 +1042,7 @@ export function postFixture(overrides: Partial<PostResponse> = {}): PostResponse
     canEdit: false,
     canDelete: false,
     moderationState: 'OK',
+    place: ONTARIO,
     ...overrides,
   };
 }
@@ -1013,28 +1055,12 @@ export function ownPostFixture(overrides: Partial<PostResponse> = {}): PostRespo
     body: 'Looking for Azure Dawn boosters.',
     canEdit: true,
     canDelete: true,
+    place: QUEBEC,
     ...overrides,
   });
 }
 
 export function postPage(items: PostResponse[] = [postFixture()]): PostPage {
-  return { items, nextCursor: null, hasMore: false };
-}
-
-export function replyFixture(overrides: Partial<ReplyResponse> = {}): ReplyResponse {
-  return {
-    id: '00000000-0000-4000-8f20-000000000001',
-    postId: '00000000-0000-4000-8f10-000000000001',
-    author: { id: SELF_ID, handle: 'maika', displayName: 'Maïka Test', avatarUrl: null },
-    body: 'I have one!',
-    createdAt: '2026-10-05T10:30:00Z',
-    canDelete: true,
-    moderationState: 'OK',
-    ...overrides,
-  };
-}
-
-export function replyPage(items: ReplyResponse[] = []): ReplyPage {
   return { items, nextCursor: null, hasMore: false };
 }
 

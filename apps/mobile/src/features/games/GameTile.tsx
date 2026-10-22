@@ -5,13 +5,18 @@ import { fontFamily, fontWeight } from '@/src/theme';
 
 import { gameTile } from './gameTiles';
 
-/** The tile sizes of the mockup: pills and section titles (22), sheet rows (38), empty states (64). */
-export type GameTileSize = 22 | 34 | 38 | 64;
+/**
+ * The tile sizes of the mockup: pills and section titles (22), sheet rows (38), a room's top bar
+ * (36) and the room list (46, stage R11), empty states (64).
+ */
+export type GameTileSize = 22 | 34 | 36 | 38 | 46 | 64;
 
 const SHAPE: Record<GameTileSize, { radius: number; font: number }> = {
   22: { radius: 6, font: 12 },
   34: { radius: 9, font: 15 },
+  36: { radius: 11, font: 15 },
   38: { radius: 10, font: 17 },
+  46: { radius: 14, font: 19 },
   64: { radius: 18, font: 28 },
 };
 
