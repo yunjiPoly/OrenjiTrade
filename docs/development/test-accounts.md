@@ -41,7 +41,8 @@ are fictional.
 
 **18+ rule (launch readiness, 2026-10-05):** the seed accounts predate the rule and never
 recorded the `AGE_CONFIRMATION` consent, so the web app and the mobile app ask each of them to
-confirm being 18 or older once, on the next sign-in (the onboarding "Age" step; the confirmation
+confirm being 18 or older once, on the next sign-in (the web's onboarding "Age" step; on the phone
+Review our terms with the age line alone since stage R12; the confirmation
 is a consent row in the database, nothing else is asked). The mobile test suites record it for
 `collector1` and `collector2` through the API in their isolated database (`orenjitrade_mobile_e2e`;
 Playwright global setup, Maestro `scripts/confirm-age.js`), never in the emulator.
