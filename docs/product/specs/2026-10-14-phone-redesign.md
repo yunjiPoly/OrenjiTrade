@@ -710,6 +710,6 @@ was; for the catalogue these points replace what it said of the card data:
    permission, Riftbound for Riot's production key.
 
 Built as stage R10 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R10: Card data for Magic and
-Pokémon"; [ADR 0021](../architecture/adr/0021-five-games-and-their-card-sources.md); API contract
+Pokémon"; [ADR 0021](../../architecture/adr/0021-five-games-and-their-card-sources.md); API contract
 [`docs/api/contracts/r10-card-sources.md`](../../api/contracts/r10-card-sources.md)). The prompt calls
 the record "ADR 0020"; that number was the camera card scan's, so it is ADR 0021.
