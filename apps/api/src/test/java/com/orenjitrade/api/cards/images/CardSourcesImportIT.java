@@ -317,6 +317,9 @@ class CardSourcesImportIT extends AbstractCardImageIT {
             assertThat(suggestedCodes(MTG, "ZTK 0012")).containsExactly("ZTK-12");
             assertThat(suggestedCodes(MTG, "ZCL 0101")).containsExactly("ZCL-101");
             assertThat(suggestedCodes(MTG, "ZCL 0010")).isEmpty();
+            assertThat(suggestedCodes(MTG, "ZCL 1"))
+                    .as("typed without zeros, still a prefix")
+                    .containsExactly("ZCL-101", "ZCL-102");
             assertThat(searchedCodes(MTG, "ZTK 0012")).containsExactly("ZTK-12");
             assertThat(searchedCodes(MTG, "ZCL 0010")).isEmpty();
             for (String query : new String[] {"ztk 12", "ZTK-012", "ztk - 0012"}) {
