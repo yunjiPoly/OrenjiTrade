@@ -89,9 +89,11 @@ its own (the stored file is reused for 24 hours whatever the bulk type). See ADR
 
 A Magic printing code is `<SET>-<NUMBER>` with Scryfall's unpadded collector number (`ZTK-12`).
 The card prints the set code apart from a padded number (`ZTK`, `0012`), so `GET /cards`,
-`GET /cards/suggest` and the unified search read a space as the dash and also try the number
-without its leading zeros (`ZTK 0012`, `ztk - 012` and `ZTK-012` find `ZTK-12`). A code typed
-without any separator (`ztk12`) is not guessed: a set code may end in a digit (`M21`).
+`GET /cards/suggest` and the unified search read a space as the dash and, only when the code as
+typed finds no printing, the number without its leading zeros (`ZTK 0012`, `ztk - 012` and
+`ZTK-012` find `ZTK-12`). That unpadded number is the whole number: a suggestion lists `ZTK-12`
+and `ZTK-12P`, never `ZTK-120` (review fix 2). A code typed without any separator (`ztk12`) is
+not guessed: a set code may end in a digit (`M21`).
 
 ## Commands
 

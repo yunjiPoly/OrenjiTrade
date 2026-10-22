@@ -55,8 +55,10 @@ English only, one image per printing. One Piece and Riftbound keep waiting. The 
    stage keeps it; the alternative is the owner's decision (see "Rejected and deferred"). A Magic
    printing code is OrenjiTrade's `<SET>-<NUMBER>` with Scryfall's unpadded collector number
    (`ZTK-12`); the card prints the set code apart from a padded number (`ZTK`, `0012`), so search
-   and suggestions read a space as the dash and a number without its leading zeros (`ZTK 0012`
-   finds `ZTK-12`; a code typed without a separator, `ztk12`, is not guessed). Only English
+   and suggestions read a space as the dash and, only when the code as typed finds no printing,
+   the number without its leading zeros as the whole number (`ZTK 0012` finds `ZTK-12`, never
+   `ZTK-120`; Pokémon's padded `ZSK 001` lists `ZSK-001` alone; a code typed without a separator,
+   `ztk12`, is not guessed). Only English
    paper cards: `lang` `en`, not digital, `games` with `paper`; art series cards, tokens, emblems
    and oversized cards are left out and counted in the import report. The image of a printing is
    its front face's artwork, the `normal` size scaled to the 320 px JPEG; it is never cropped,

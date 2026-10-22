@@ -62,6 +62,14 @@ and a number that starts with zeros is also tried without them (`ZTK 0012` and `
 Magic printing `ZTK-12`; Pokémon's `ZSK-001` still matches as typed first). Behaviour only: no
 field, parameter or response shape changed; the operations' descriptions say it.
 
+Review fix 2 (R1-1, R1-2): the form without zeros is used only when the code as typed finds no
+printing, and a prefix lookup (suggestions, the unified search's printings) reads it as the whole
+number: codes that start with it and do not go on with a digit (`ZTK 0012` lists `ZTK-12` and
+`ZTK-12P`, never `ZTK-120`). So a Pokémon code typed as printed lists that printing only (`ZSK 001` lists
+`ZSK-001`, never `ZSK-100` or `ZSK-101`), a padded code the catalogue lacks lists no other card
+(`EMR 001` never `EMR-150`), and the rows of a single lookup list each printing once (`ARC-00`
+lists `ARC-004`'s two printings once each, where both forms' rows were joined before).
+
 ## Privacy
 
 No representation of a place or a person changes: `GeoPrivacyContractTest` needs no new endpoint.
