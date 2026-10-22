@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -8088,6 +8088,149 @@ Not verified in this round: the Android run could not be verified (no Android SD
 real chat push was not tapped (device push stays deferred), its rule and the opener are covered by
 Jest only.
 
+## Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)
+
+Stage R10 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R10. Card data for Magic and Pokémon"): two more real card sources, and what turns visible
+on the phone once a game has cards (mockup v50 screens 34 and 53). Built on branch
+`feature/r7-home` after R9, for the one giant pull request of R7, R9 to R15 and R8 (owner's
+exception of 2026-10-21; nothing merged in between). **No migration** (the next free one is still
+**V134**; V124 and V128 stay unused). **No API change**: no endpoint, field or parameter was added,
+removed or retyped; `exportOpenApi` and `generate:api` change nothing; no file of
+`apps/web-angular` changed. The prompt names the record "ADR 0020"; 0020 is the camera card scan's,
+so it is **ADR 0021** ([`0021-five-games-and-their-card-sources.md`](docs/architecture/adr/0021-five-games-and-their-card-sources.md)).
+**Agents never ran a real import and never called Scryfall, TCGdex, GitHub, YGOPRODeck, Bandai or
+Riot**: the adapters are tested against small hand-written fixtures in each provider's format; the
+owner runs the real imports (commands below). Free for all (ADR 0019); English cards only (owner,
+2026-10-20).
+
+**What a collector can now do** (once the owner has imported the two catalogs)
+
+- **Browse Magic and Pokémon.** "Choose a game" (screen 34) no longer dims them: each shows "{n} of
+  your cards" or "None of your cards yet" and can be picked; One Piece and Riftbound stay dimmed with
+  "Cards coming soon". Nothing changes on the phone for this: it follows `hasCards`, which turns true
+  after a game's first import.
+- **Find their cards**: Search typing finds Magic cards (one per Oracle card, e.g. a two-faced card
+  as "Front // Back") and Pokémon cards (one per English name, every set's printing under it), each
+  with its picture; Who has this card (screen 13) shows the card's picture, its printings ("ZCL-45 ·
+  Rare", "EMR-014 · Uncommon"), and **a chosen printing with its own picture** (Magic: one picture
+  per artwork; Pokémon: one per printing; new, found by the walk). Every picture comes from
+  `/api/v1/public/card-images/{id}`, never from Scryfall or TCGdex.
+- **See the credits**: under a Magic card's pictures "Card data and images courtesy of Scryfall."
+  with Wizards of the Coast's Fan Content Policy notice; under a Pokémon card's "Card data courtesy of
+  TCGdex (MIT licence)." with "Pokémon card content is © The Pokémon Company, Nintendo, Creatures and
+  GAME FREAK. OrenjiTrade is not affiliated with them." (both drafts for the lawyer review).
+  **Settings › Appearance** (screen 53) gains "Card data and images" under About, as in the mockup:
+  one sentence per game that holds cards, in the games' order ("Yu-Gi-Oh! card data from YGOPRODeck.
+  Pokémon card data from TCGdex. Magic card data and images from Scryfall.") and "Not affiliated with
+  or endorsed by the game publishers."; a skeleton while the games load, every credit when they
+  cannot load; one VoiceOver stop ("Card data and images. …").
+
+**The owner's step** (in the report; the API running, `npm run api:dev`):
+
+```bash
+npm run catalog:import -- --game mtg --provider scryfall --images all
+npm run catalog:import -- --game pokemon --provider tcgdex --images all
+npm run card-images:status
+```
+
+Expected: Magic about 1.9 GB of pictures, Pokémon about 0.85 GB, all five games about 3.5 to 4.2 GB
+in the 5 GB cache. Read each report's `warnings` (rows left out on purpose, by category) after the
+first real import: it is the adapters' first contact with the real files.
+
+**What the API does** (contract [`docs/api/contracts/r10-card-sources.md`](docs/api/contracts/r10-card-sources.md);
+providers [`docs/providers/scryfall.md`](docs/providers/scryfall.md) and [`docs/providers/tcgdex.md`](docs/providers/tcgdex.md))
+
+- **`ScryfallCardProvider`** (`cards/infra/scryfall`, provider `scryfall`, game `mtg`): `GET
+  /bulk-data` → the "Unique Artwork" file (its `download_uri` must be on the configured bulk host),
+  kept raw under `PROVIDER_DATA_DIR/scryfall/<updated_at>/bulk.json`, read as a stream (gzip or not);
+  a file younger than 24 hours is reused without any call (`refresh-interval`, refused under 24 h),
+  a newer `updated_at` downloads once; `User-Agent` and `Accept` on every call; 8 requests a second
+  by default, refused above 10; `SCRYFALL_SNAPSHOT_ONLY` imports the stored file offline. Mapping:
+  English paper cards only (`lang` en, not digital, `games` with paper; art series, tokens, emblems
+  and oversized cards left out and counted); one card per `oracle_id`; one printing per card object
+  (set + collector number, `<SET>-<NUMBER>` code when it fits, rarity Common / Uncommon / Rare /
+  Mythic Rare / Special / Bonus, the first finish, edition UNLIMITED, language en, the artist); one
+  artwork per `illustration_id` (the front face's), the `normal` image (never a crop); no prices.
+- **`TcgdexCardProvider`** (`cards/infra/tcgdex`, provider `tcgdex`, game `pokemon`): one GitHub call
+  for the branch's newest commit (`Accept: application/vnd.github.sha`), the repository archive of
+  that commit downloaded once from codeload and kept raw with the repository's `LICENSE` beside it
+  (`PROVIDER_DATA_DIR/tcgdex/<sha>/`), reused for 24 hours without a call; `TsLiteral` reads the
+  TypeScript data files of `data/` (no JavaScript engine; a file that is not a plain literal is
+  skipped and counted); English only, Pokémon TCG Pocket (serie `tcgp`) left out; one card per
+  English name, one printing per TCGdex card, set codes the official abbreviation when unique, else
+  the id without punctuation; one image per printing from `assets.tcgdex.net`; no prices.
+- **Printings on their own artwork**: the importer points `card_printing.image_id` at the printing's
+  provider artwork (a card-level row of its card; only when it changes, so a second import writes
+  nothing), and the printing lists (`PrintingSummary.images`: card pages, sets, inventory, holders)
+  show it; a card's primary artwork is its earliest printing's, the printing the catalogue already
+  shows a card with. Yu-Gi-Oh! and the mock catalogue are unchanged.
+- Both providers are `REHOST_REQUIRED` with an SSRF guard on their image hosts; the test profile
+  points them at closed local ports in snapshot-only mode; the web, mobile and purge harnesses and
+  the CI E2E job turn every provider off (`NO_CARD_PROVIDERS` in `scripts/lib/web-e2e-guard.mjs`).
+- Shared infrastructure: `ProviderSnapshotStore`, `ProviderText`, `ProviderWarnings` in
+  `cards/infra/http`.
+
+**Decisions, and why**
+
+1. **No migration.** The printings' own artworks reuse `card_printing.image_id`; the GameSchema
+   rarity lists of `mtg` and `pokemon` (they only check printings an admin makes) are left as they
+   are until the first real import shows the real vocabulary (owner follow-up).
+2. **A Pokémon card is an English name** (typographic apostrophes unified): Pokémon has no
+   Oracle-like identity, and one card per printing would list "Emberpup" (or "Pikachu") once per set
+   in Search typing, indistinguishable. The card's game data comes from its earliest printing.
+3. **A card shows its earliest printing**, so its primary artwork is that printing's: the catalogue
+   already pictures a card by its earliest printing (summaries and suggestions), and the image
+   cache's `REFERENCED` mode caches `card.image_id` for "any printing" references.
+4. **Magic printings take their first finish** (non-foil, else foil, else etched) with the list in
+   their metadata: the owner defines a printing as set code plus collector number, and the
+   inventory item records its copy's finish (as Yu-Gi-Oh!'s edition).
+5. **No market prices** from Scryfall or TCGdex (not asked; their price terms not reviewed).
+6. **Refresh at most daily for both** (the prompt asks it of Scryfall; the same courtesy for
+   GitHub), restarted when the provider confirms the stored copy.
+7. **TCGdex image file `high.jpg`** (configurable `image-file`: high or low, jpg, png or webp): the
+   smallest file above the 320 px rendition; to be confirmed by the first real import (an image that
+   is not found becomes `MISSING_AT_SOURCE` and shows the placeholder).
+8. **Appearance's credits follow the mockup's sentence per game**; the full credit with the notices
+   stays under the card's pictures (Who has this card), where the content shows.
+9. **Who has this card shows a chosen printing's own picture** (found by the walk: with one picture
+   per Magic artwork the header kept the first printing's art).
+10. **Riftbound's fictional cards stay in the local seed** (stage G's tests and seed collectors use
+    them); production has no Riftbound cards, so it stays dimmed there.
+
+**The prompt's default for this stage** (the owner can change it): (12) One Piece and Riftbound wait
+for Bandai's permission and Riot's key; Magic keeps one image per artwork; Pokémon is English only.
+
+**Tests**
+
+- API: `ScryfallMapperTest` (6: English paper cards only and the warnings, one card per Oracle id,
+  printings in the catalogue's order, every rarity, one image per artwork with each printing on its
+  own, two-faced cards and odd numbers, finishes and image hosts), `TcgdexMapperTest` (5: English
+  only and the licence, set codes, one card per English name with its printings and rarities, one
+  image per printing, stages and finishes), `TsLiteralTest` (4), `ScryfallCardProviderTest` (6: one
+  download with `User-Agent` and `Accept`, reused for a day, one list call after a day and a download
+  only for a newer file, snapshot-only calls nothing, a bulk file elsewhere refused, image
+  allow-list, the 10/s and never-a-crop guards), `TcgdexCardProviderTest` (4), and
+  `CardSourcesImportIT` (2: hidden test games `mtg-srctest` and `pkm-srctest`: **`hasCards` false
+  before and true after a fixture import**, 6 cards / 8 printings / 3 sets / 6 artworks for Magic and
+  4 / 7 / 3 / 7 for Pokémon, the rarities stored, each printing on its own artwork, pictures served
+  as 320 px JPEGs by `/api/v1/public/card-images/{id}`, printing lists with OrenjiTrade's URLs only,
+  a second import changing and downloading nothing, nothing fetched for the catalogues).
+  `CardSourceStub` serves the fixtures and generated pictures on 127.0.0.1.
+- Scripts: the harness guards refuse an enabled Scryfall or TCGdex and their remote addresses.
+- Jest: `cardImages.test.ts` (the credits, `creditedGames`, no Scryfall or TCGdex URL ever shown),
+  `ui.test.tsx` (the Scryfall and TCGdex credit lines), `settings.test.tsx` (Appearance before and
+  after a fixture import, loading, offline), `card-detail.test.tsx` (a chosen Magic printing's own
+  picture and the Scryfall credit).
+- Web E2E of the phone: `profiles.spec.ts` (Appearance credits Yu-Gi-Oh!, Pokémon and Magic from the
+  fictional catalogue). Maestro: `profile-pages-settings-gear.yaml` (native flow 6) opens Appearance
+  and checks the credits' spoken name.
+- GeoPrivacyContractTest: nothing to add (no endpoint and no representation of a place or a person
+  changed).
+
+<!-- R10 checks -->
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -8113,9 +8256,19 @@ Jest only.
 > Notifications with New, Earlier, each kind's target, reminders answered in place, a tapped push
 > opening its row's target; `excludeTypes` on the notification list and unread count.
 >
-> **Exact next task: R9's re-review** (review fix 1 is done: section R9, "Review fix 1"; at most
-> one more fix round), **then stage R10** ("Card data for Magic and
-> Pokémon", the same prompt's section R10) on the same branch, then R11 to R15 (R15 after R12) and
+> **Stage R10 is built** ("Card data for Magic and Pokémon"; section "Phone redesign R10: Card data
+> for Magic and Pokémon (2026-10-21)" above; ADR 0021; contract `docs/api/contracts/r10-card-sources.md`;
+> no migration, the next is still **V134**; no API change): Scryfall (Magic, "Unique Artwork") and
+> TCGdex (Pokémon, English only) adapters tested on hand-written fixtures, printings on their own
+> artwork, the credits under the pictures and in Settings › Appearance, Who has this card showing a
+> chosen printing's picture. **The owner's step** (agents never import for real):
+> `npm run catalog:import -- --game mtg --provider scryfall --images all`,
+> `npm run catalog:import -- --game pokemon --provider tcgdex --images all`, then
+> `npm run card-images:status`.
+>
+> **Exact next task: R10's reviews** (a functional verifier and product and UX as a collector; at
+> most two fix rounds; R9's re-review first if it is still open), **then stage R11** ("Messages ›
+> Community", the same prompt's section R11) on the same branch, then R12 to R15 (R15 after R12) and
 > the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test accounts and seed
 > documents, a walk of every mockup screen with a screenshot each, the exact next task), none
 > bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship step is
