@@ -29,6 +29,14 @@ export interface ScreenProps {
    * key that does (a multiline field), so what is under the keyboard can be reached.
    */
   keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+  /**
+   * A `scroll` screen whose content fills the screen at least, so its last buttons sit at the
+   * bottom (mockup v50's sign-in and status pages): the safe area is added as padding instead of
+   * iOS's automatic insets, which made a content as tall as the scroll view overflow it by the
+   * insets (Sign in's last link was under the home indicator). `below-header`: a screen under a
+   * navigation header (the bottom inset only); `full`: a screen without one (top and bottom).
+   */
+  fillHeight?: 'below-header' | 'full';
   testID?: string;
 }
 
@@ -61,17 +69,22 @@ export function Screen({
   contentContainerStyle,
   scrollRef,
   keyboardDismissMode,
+  fillHeight,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const bottom = ownSafeBottom(Platform.OS, { scroll, safeBottom, insetBottom: insets.bottom });
+  const filling = scroll && fillHeight !== undefined;
+  const bottom = filling
+    ? insets.bottom
+    : ownSafeBottom(Platform.OS, { scroll, safeBottom, insetBottom: insets.bottom });
+  const top = filling && fillHeight === 'full' ? insets.top : 0;
   const padding: ViewStyle = edgeToEdge
-    ? { paddingBottom: bottom }
+    ? { paddingBottom: bottom, paddingTop: top }
     : {
         paddingHorizontal: spacing[4],
-        paddingTop: spacing[4],
+        paddingTop: top + spacing[4],
         paddingBottom: bottom + spacing[6],
       };
 
@@ -87,10 +100,10 @@ export function Screen({
           ref={scrollRef}
           testID={testID}
           style={[styles.fill, { backgroundColor: palette.background }, style]}
-          contentContainerStyle={[padding, contentContainerStyle]}
+          contentContainerStyle={[padding, filling && styles.grow, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={keyboardDismissMode}
-          contentInsetAdjustmentBehavior="automatic"
+          contentInsetAdjustmentBehavior={filling ? 'never' : 'automatic'}
         >
           {children}
         </ScrollView>
@@ -110,4 +123,5 @@ export function Screen({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  grow: { flexGrow: 1 },
 });

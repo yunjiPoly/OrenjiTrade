@@ -76,7 +76,13 @@ export default function SignInScreen() {
   };
 
   return (
-    <Screen scroll safeBottom testID="screen-sign-in" contentContainerStyle={styles.page}>
+    <Screen
+      scroll
+      safeBottom
+      fillHeight="full"
+      testID="screen-sign-in"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.header}>
         <Text
           accessibilityRole="header"
@@ -178,7 +184,7 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flexGrow: 1, paddingHorizontal: spacing[5] },
+  page: { paddingHorizontal: spacing[5] },
   header: { gap: 10, marginTop: spacing[12], marginBottom: spacing[6] },
   wordmark: {
     fontFamily: fontFamily.display,

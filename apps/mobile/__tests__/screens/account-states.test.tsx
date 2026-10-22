@@ -74,9 +74,10 @@ describe('Consent screen', () => {
     mockApi({
       'GET /api/v1/me': ok(
         meFixture({
+          // Listed by the API in another order: shown in the reading order, terms first.
           requiredConsents: [
-            ...pending,
             { documentType: 'COMMUNITY_GUIDELINES' as const, version: '2026-10-01' },
+            ...[...pending].reverse(),
           ],
           onboarding: { ...NOT_ONBOARDED, ageConfirmed: false },
         })
@@ -85,6 +86,17 @@ describe('Consent screen', () => {
     });
     renderWithProviders(<ConsentScreen />, { port: new FakeAuthPort(testUser()) });
     fireEvent.press(await screen.findByRole('checkbox', { name: 'Accept all' }));
+    expect(
+      screen
+        .getAllByRole('checkbox')
+        .map((box) => box.props.accessibilityLabel as string)
+        .slice(0, 4)
+    ).toEqual([
+      'Accept all',
+      'I accept the Terms of Service, version 2026-10-01',
+      'I accept the Privacy Policy, version 2026-10-01',
+      'I accept the Community Guidelines, version 2026-10-01',
+    ]);
     expect(
       screen.getByRole('checkbox', { name: 'I accept the Terms of Service, version 2026-10-01' })
     ).toBeChecked();

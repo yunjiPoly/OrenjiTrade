@@ -114,19 +114,21 @@ export function hasErrors(errors: object): boolean {
 
 const ORDER = ['TERMS', 'PRIVACY', 'COMMUNITY_GUIDELINES', 'ACCEPTABLE_USE'];
 
+/** A document's place in the reading order (terms first), the same on sign-up and Review our terms. */
+export function documentRank(documentType: string): number {
+  const index = ORDER.indexOf(documentType);
+  return index === -1 ? ORDER.length : index;
+}
+
 /**
  * Documents a new collector must accept, in a stable reading order (terms first). The 18+
  * attestation (`AGE_CONFIRMATION`) is a consent to record, never a document to read, so it stays
  * out of the "I have read and accept" list and gets its own checkbox.
  */
 export function requiredAtRegistration(documents: readonly LegalDocument[]): LegalDocument[] {
-  const rank = (type: string) => {
-    const index = ORDER.indexOf(type);
-    return index === -1 ? ORDER.length : index;
-  };
   return documents
     .filter((document) => document.requiredAtRegistration && !isAgeConfirmation(document))
-    .sort((a, b) => rank(a.documentType) - rank(b.documentType));
+    .sort((a, b) => documentRank(a.documentType) - documentRank(b.documentType));
 }
 
 /** The consents of a sign-up: every required document, then the 18+ attestation when published. */

@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { needsAgeConfirmation } from '@/src/account/accountStatus';
+import { documentRank } from '@/src/account/registration';
 import { messageOf } from '@/src/api/errorMessages';
 import { useLegalDocuments } from '@/src/api/hooks/legal';
 import type { ConsentRequest } from '@/src/api/types';
@@ -46,8 +47,12 @@ export default function ConsentScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // In the reading order of sign-up (terms first), whatever order the API lists them in.
   const items = useMemo(
-    () => account.requiredConsents.map((consent) => describeConsent(consent, legal.data, language)),
+    () =>
+      account.requiredConsents
+        .map((consent) => describeConsent(consent, legal.data, language))
+        .sort((a, b) => documentRank(a.documentType) - documentRank(b.documentType)),
     [account.requiredConsents, language, legal.data]
   );
   // Only an API that reports the flag as false asks for it; its version comes from the documents.
@@ -126,7 +131,13 @@ export default function ConsentScreen() {
   const asking = !waiting && !ageMissing && (items.length > 0 || ageNeeded);
 
   return (
-    <Screen scroll safeBottom testID="screen-consent" contentContainerStyle={styles.page}>
+    <Screen
+      scroll
+      safeBottom
+      fillHeight="below-header"
+      testID="screen-consent"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.body}>
         <Text style={[textStyle('md'), { color: palette.textMuted }]}>
           {ageOnly ? CONSENT_COPY.ageOnlyIntro : CONSENT_COPY.intro}
@@ -158,7 +169,7 @@ export default function ConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flexGrow: 1, paddingHorizontal: spacing[5], paddingTop: spacing[1] },
+  page: { paddingHorizontal: spacing[5], paddingTop: spacing[1] },
   body: { gap: 14 },
   actions: { marginTop: 'auto', paddingTop: spacing[6], gap: spacing[2] },
 });

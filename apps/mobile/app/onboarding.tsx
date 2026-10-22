@@ -242,6 +242,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
         style={styles.fill}
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         testID="onboarding-scroll"
       >
         {step === 'profile' ? (

@@ -71,7 +71,13 @@ export function StatusPage({
   const { palette } = useTheme();
   const colors = statusColors(tone, palette);
   return (
-    <Screen scroll safeBottom testID={testID} contentContainerStyle={styles.page}>
+    <Screen
+      scroll
+      safeBottom
+      fillHeight="below-header"
+      testID={testID}
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.body}>
         <View
           accessibilityElementsHidden
@@ -133,7 +139,7 @@ export function StatusText({
 }
 
 const styles = StyleSheet.create({
-  page: { flexGrow: 1, paddingHorizontal: spacing[5] },
+  page: { paddingHorizontal: spacing[5] },
   body: { paddingTop: spacing[10], alignItems: 'center', gap: spacing[3] },
   circle: { alignItems: 'center', justifyContent: 'center' },
   title: {
