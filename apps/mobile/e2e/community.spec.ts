@@ -1,6 +1,7 @@
 import { expect, test } from './support/fixtures';
 import {
   API_URL,
+  PHOTO_PNG,
   authHeader,
   createOnboardedCollector,
   openTab,
@@ -11,89 +12,133 @@ import {
 } from './support/stack';
 
 /**
- * Mobile Phase 5 (public community) against the real, isolated stack: a fresh fictional
- * collector opens the channels from the Messages tab (Inbox | Community), posts in "General",
- * edits the post, replies to it, sees a reply of another collector, and deletes the post.
+ * Stage R11 (Messages › Community: one simple room per game) against the real, isolated stack: a
+ * fresh fictional collector opens Messages › Community, sees the five rooms of Americas (North)
+ * with the browsed game's room first (Pokémon, their profile game), opens the Yu-Gi-Oh! room, reads
+ * its rules, posts text with a photo (a file chooser on the web build), is told when the same text
+ * is posted twice, opens the "⋯" sheet of another collector's post (Message, Report, Block) and
+ * reports it, then deletes their own post. Every account is fictional and fresh; posts carry
+ * unique text so earlier runs never interfere.
  */
+
+const ROOM = 'americas-north-yugioh';
 
 function suffix(): string {
   return Math.random().toString(36).slice(2, 7);
 }
 
-test.describe('mobile community', () => {
+test.describe('mobile community rooms', () => {
   requireStack();
 
-  test('channels with their activity, then post, edit, reply and delete in a channel', async ({
+  test('the rooms of the region, then a room: rules, a photo post, a duplicate, report and delete', async ({
     page,
     request,
   }) => {
-    test.setTimeout(150_000);
+    test.setTimeout(180_000);
     const poster = await createOnboardedCollector(request, 'comm', `Cora Poster ${suffix()}`);
-    const other = await createOnboardedCollector(request, 'comr', `Rémi Replier ${suffix()}`);
+    const other = await createOnboardedCollector(request, 'comr', `Remi Other ${suffix()}`);
+    const theirs = `Does anyone ship to Ontario? Looking for Nibiru ${suffix()}`;
+    const posted = await request.post(`${API_URL}/api/v1/community/channels/${ROOM}/posts`, {
+      headers: authHeader(other.idToken),
+      data: { body: theirs },
+    });
+    expect(posted.status(), 'POST as the other collector').toBe(201);
+    const theirId = ((await posted.json()) as { id: string }).id;
 
     await signInThroughUi(page, poster.email, poster.password);
     await openTab(page, 'Messages');
     const messages = screen(page, 'messages');
+    await expect(messages.getByRole('tab', { name: /^Chats/ })).toBeVisible({ timeout: 30_000 });
     await messages.getByRole('tab', { name: 'Community' }).click();
-    const general = messages.getByTestId('channel-general');
-    await expect(general).toContainText('General', { timeout: 30_000 });
-    await expect(messages.getByText('Topics')).toBeVisible();
-    await general.click();
-
-    const channel = screen(page, 'community-channel');
-    await expect(channel.getByTestId('channel-head')).toContainText('General', {
-      timeout: 30_000,
-    });
-    const before = (await channel.getByTestId('channel-activity').textContent()) ?? '';
-    const count = Number(/(\d+) posts? today/.exec(before)?.[1] ?? '0');
-
-    // Post.
-    const text = `Looking for an Emberfang Fox around the Plateau ${suffix()}`;
-    await channel.getByLabel('Post text').fill(text);
-    await channel.getByRole('button', { name: 'Post', exact: true }).click();
-    await expect(snackbar(page)).toHaveText('Posted.');
-    await expect(channel.getByText(text)).toBeVisible();
-    await expect(channel.getByTestId('channel-activity')).toContainText(
-      `${count + 1} ${count + 1 === 1 ? 'post' : 'posts'} today`
+    const rows = messages.getByTestId(/^room-americas-north-[a-z]+$/);
+    await expect(rows).toHaveCount(5, { timeout: 30_000 });
+    // The browsed game (Pokémon, the collector's profile game) first, then the games' order.
+    await expect(rows.first()).toHaveAttribute('data-testid', 'room-americas-north-pokemon');
+    await expect(messages.getByTestId('community-footnote')).toContainText(
+      'Every collector in Americas (North) can read these rooms.'
     );
-
-    // Edit it in place.
-    const posts = await request.get(`${API_URL}/api/v1/community/channels/general/posts?limit=20`, {
-      headers: authHeader(poster.idToken),
-    });
-    const post = ((await posts.json()) as { items: { id: string; body: string }[] }).items.find(
-      (item) => item.body === text
+    const yugioh = messages.getByTestId(`room-${ROOM}`);
+    await expect(messages.getByTestId(`room-preview-${ROOM}`)).toContainText(
+      `${other.handle}: ${theirs}`
     );
-    expect(post, 'the new post').toBeTruthy();
-    await channel.getByTestId(`post-menu-${post!.id}`).click();
-    await page.getByTestId('post-edit').click();
-    const edited = `${text} (edited)`;
-    await channel.getByLabel('Edit your post').fill(edited);
-    await channel.getByTestId('post-edit-save').click();
-    await expect(channel.getByTestId(`post-${post!.id}`)).toContainText('edited');
-    await expect(channel.getByText(edited)).toBeVisible();
+    await expect(messages.getByTestId(`room-unread-${ROOM}`)).toBeVisible();
+    await yugioh.click();
 
-    // Another collector replies (through the API): the thread shows it when opened; then a reply.
-    const reply = await request.post(`${API_URL}/api/v1/community/posts/${post!.id}/replies`, {
-      headers: authHeader(other.idToken),
-      data: { body: 'I have one in my binder!' },
-    });
-    expect(reply.status(), 'reply as the other collector').toBe(201);
-    const reopened = channel;
-    await reopened.getByTestId(`post-replies-toggle-${post!.id}`).click();
-    await expect(reopened.getByText('I have one in my binder!')).toBeVisible({ timeout: 30_000 });
-    await reopened.getByLabel(`Reply to ${poster.displayName}`).fill('Great, messaging you now.');
-    await reopened.getByTestId(`reply-submit-${post!.id}`).click();
-    await expect(reopened.getByText('Great, messaging you now.')).toBeVisible();
-    await expect(reopened.getByTestId(`post-replies-${post!.id}`)).toContainText(
-      'I have one in my binder!'
+    const room = screen(page, 'community-room');
+    await expect(room.getByTestId('room-head')).toContainText('Yu-Gi-Oh!', { timeout: 30_000 });
+    await expect(room.getByTestId('room-subtitle')).toHaveText('Americas (North) · public room');
+    await expect(room.getByTestId('room-banner')).toContainText(
+      'Every collector can read this room. Keep deals and addresses in private chats.'
     );
+    await expect(room.getByText(theirs)).toBeVisible({ timeout: 30_000 });
 
-    // Delete it, after a confirmation.
-    await reopened.getByTestId(`post-menu-${post!.id}`).click();
-    await page.getByTestId('post-delete').click();
-    await page.getByTestId('post-delete-dialog').getByRole('button', { name: 'Delete' }).click();
-    await expect(reopened.getByText(edited)).toBeHidden();
+    // The rules.
+    await room.getByRole('button', { name: 'Room rules' }).click();
+    await expect(page.getByTestId('room-rate-rule')).toHaveText(
+      'You can post up to 10 times an hour in each room.'
+    );
+    await page.getByTestId('room-rules-ok').click();
+    await expect(page.getByTestId('room-rate-rule')).toBeHidden();
+
+    // A post with a photo: the send button turns orange with text only.
+    const send = room.getByTestId('room-send');
+    await expect(send).toBeDisabled();
+    await room.getByRole('button', { name: 'Send a photo, or share a card or a binder' }).click();
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByTestId('room-attach-photo').click();
+    await (
+      await chooser
+    ).setFiles({ name: 'binder.png', mimeType: 'image/png', buffer: PHOTO_PNG });
+    await expect(room.getByTestId('room-attachment-photo-0')).toBeVisible();
+    await expect(send).toBeDisabled();
+    const text = `My Yu-Gi-Oh! binder, ships tracked ${suffix()}`;
+    await room.getByLabel('Write to the Yu-Gi-Oh! room').fill(text);
+    await expect(send).toBeEnabled();
+    const upload = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/api/v1/uploads/images') &&
+        response.url().includes('kind=COMMUNITY')
+    );
+    await send.click();
+    expect((await upload).status()).toBe(201);
+    await expect(room.getByText(text)).toBeVisible({ timeout: 30_000 });
+    const mine = (
+      (await (
+        await request.get(`${API_URL}/api/v1/community/channels/${ROOM}/posts?limit=20`, {
+          headers: authHeader(poster.idToken),
+        })
+      ).json()) as { items: { id: string; body: string; payload: { photos?: unknown[] } }[] }
+    ).items.find((item) => item.body === text);
+    expect(mine, 'the new post').toBeTruthy();
+    expect(mine!.payload.photos ?? []).toHaveLength(1);
+    await expect(
+      room.getByTestId(`room-post-${mine!.id}`).getByTestId('room-photo-0')
+    ).toBeVisible();
+    await expect(room.getByLabel('Write to the Yu-Gi-Oh! room')).toHaveValue('');
+
+    // The same text again: refused, and the text stays.
+    await room.getByLabel('Write to the Yu-Gi-Oh! room').fill(text);
+    await send.click();
+    await expect(room.getByTestId('room-post-error')).toHaveText('You already posted this.');
+    await expect(room.getByLabel('Write to the Yu-Gi-Oh! room')).toHaveValue(text);
+
+    // The "⋯" of another collector's post: Message, Report, Block; report it.
+    await room.getByTestId(`room-post-more-${theirId}`).click();
+    const sheet = page.getByTestId('room-post-sheet');
+    await expect(sheet.getByText(`Message ${other.handle}`)).toBeVisible();
+    await expect(sheet.getByText(`Block ${other.handle}`)).toBeVisible();
+    await sheet.getByText('Report this post').click();
+    await expect(page).toHaveURL(/\/report\?/, { timeout: 30_000 });
+    await expect(page).toHaveURL(new RegExp(`postId=${theirId}`));
+    await page.goBack();
+
+    // Delete your own post.
+    await expect(room.getByTestId(`room-post-${mine!.id}`)).toBeVisible({ timeout: 30_000 });
+    await room.getByTestId(`room-post-more-${mine!.id}`).click();
+    await page.getByTestId('room-post-delete').click();
+    await page.getByTestId('room-delete-dialog').getByRole('button', { name: 'Delete' }).click();
     await expect(snackbar(page)).toHaveText('Post deleted.');
+    await expect(room.getByText(text)).toBeHidden();
   });
 });

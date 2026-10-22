@@ -38,6 +38,33 @@ export const RESERVED_PORTS = Object.freeze({
  * 1 the mobile E2E harness's.
  */
 export const E2E_REDIS_DB = 2;
+
+/**
+ * The community channels the paused web's specs post in and list (V041 and V110). Stage R11 (V134)
+ * archived them for the rooms, one per platform region and game; the web is paused since
+ * 2026-10-12 (nothing under apps/web-angular changes), so its suite finds them active again in its
+ * own throw-away database only (`pausedWebChannelsSql`). Never the developer database. When the
+ * web resumes, its specs move to the rooms and this goes.
+ */
+export const PAUSED_WEB_CHANNELS = Object.freeze([
+  'americas-north',
+  'americas-south',
+  'europe',
+  'looking-for',
+  'new-listings',
+  'trades',
+  'general',
+]);
+
+/** The statement that puts the paused web's channels back for its suite (E2E database only). */
+export function pausedWebChannelsSql(database) {
+  if (database !== E2E_DB) {
+    throw new Error(`The paused web's channels come back in ${E2E_DB} only, not in ${database}.`);
+  }
+  const slugs = PAUSED_WEB_CHANNELS.map((slug) => `'${slug}'`).join(', ');
+  return `UPDATE community_channel SET status = 'ACTIVE', updated_at = now() WHERE status = 'ARCHIVED' AND slug IN (${slugs})`;
+}
+
 /**
  * Prefix of the E2E API's realtime fan-out channels. Redis pub/sub ignores the logical database,
  * so without it a push for a seed account (same id in every database) would reach the developer's
