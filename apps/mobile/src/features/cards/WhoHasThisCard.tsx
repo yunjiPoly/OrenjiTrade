@@ -20,6 +20,7 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
+import { printingImageUrl } from '@/src/lib/catalog';
 import { regionName } from '@/src/lib/place';
 import {
   PINNED_MAX_FONT_SCALE,
@@ -106,6 +107,11 @@ export function WhoHasThisCard({
     ? [{ id: RARITY_CHOICE, label: CARD_PAGE_COPY.anyPrintingIn(linkedRarity) }]
     : [];
   const choice = printing ?? (rarity ? RARITY_CHOICE : '');
+  // A chosen printing shows its own picture (Magic: one per artwork; Pokémon: one per printing,
+  // stage R10), else the card's.
+  const picture =
+    printingImageUrl((card.printings ?? []).find((candidate) => candidate.id === printing)) ??
+    card.primaryImageUrl;
   const printingLabel = printing
     ? (options.find((option) => option.id === printing)?.label ?? CARD_PAGE_COPY.anyPrinting)
     : rarity
@@ -121,13 +127,7 @@ export function WhoHasThisCard({
   const header = (
     <View style={styles.header}>
       <View style={styles.hero}>
-        <CardImage
-          src={card.primaryImageUrl}
-          alt={name}
-          game={card.game}
-          size="sm"
-          testID="card-picture"
-        />
+        <CardImage src={picture} alt={name} game={card.game} size="sm" testID="card-picture" />
         <View style={styles.heroText}>
           {card.game ? (
             <Text
