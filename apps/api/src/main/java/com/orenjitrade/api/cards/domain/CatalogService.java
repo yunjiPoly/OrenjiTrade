@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
@@ -140,8 +141,9 @@ public class CatalogService {
     }
 
     /**
-     * {@code GET /cards/suggest}: printing-code prefixes ({@code AZR-EN0}) first, then cards by
-     * name (prefix, substring, full text, trigram), at most {@code limit} entries.
+     * {@code GET /cards/suggest}: printing-code prefixes ({@code AZR-EN0}; {@link
+     * #printingsOfTypedCode}) first, then cards by name (prefix, substring, full text, trigram), at
+     * most {@code limit} entries.
      */
     public List<CardSuggestion> suggest(@Nullable String gameSlug, String q, int limit) {
         List<ProblemFieldError> errors = new ArrayList<>();
@@ -150,18 +152,13 @@ public class CatalogService {
             throw ApiException.validation("Validation failed", errors);
         }
         @Nullable UUID gameId = game == null ? null : game.id();
-        List<CardSuggestion> result = new ArrayList<>();
-        for (String prefix : CatalogText.printingCodePrefixCandidates(q)) {
-            if (result.size() >= limit) {
-                break;
-            }
-            for (CardSuggestion printing : queries.suggestPrintings(gameId, prefix, limit)) {
-                if (result.size() >= limit) {
-                    break;
-                }
-                result.add(printing);
-            }
-        }
+        List<CardSuggestion> result =
+                new ArrayList<>(
+                        printingsOfTypedCode(
+                                CatalogText.printingCodePrefixCandidates(q),
+                                (code, wholeNumber) ->
+                                        queries.suggestPrintings(
+                                                gameId, code, wholeNumber, limit)));
         if (result.size() < limit) {
             Set<UUID> seen = new LinkedHashSet<>();
             result.forEach(entry -> seen.add(entry.id()));
@@ -243,21 +240,20 @@ public class CatalogService {
 
     /**
      * Printings for the unified search: printings whose code starts with {@code q} when it looks
-     * like a printing code (or a prefix of one), else the printings of the resolved card, else
-     * none; at most {@code limit}.
+     * like a printing code or a prefix of one ({@link #printingsOfTypedCode}), else the printings
+     * of the resolved card, else none; at most {@code limit}.
      */
     public List<PrintingSummary> searchPrintings(
             @Nullable String gameSlug, String q, @Nullable UUID resolvedCardId, int limit) {
         @Nullable UUID gameId = requireGameId(gameSlug);
         List<String> prefixes = CatalogText.printingCodePrefixCandidates(q);
         if (!prefixes.isEmpty()) {
-            List<PrintingSummary> byCode = new ArrayList<>();
-            for (String prefix : prefixes) {
-                if (byCode.size() >= limit) {
-                    break;
-                }
-                byCode.addAll(queries.printingsByCodePrefix(prefix, gameId, limit - byCode.size()));
-            }
+            List<PrintingSummary> byCode =
+                    printingsOfTypedCode(
+                            prefixes,
+                            (code, wholeNumber) ->
+                                    queries.printingsByCodePrefix(
+                                            code, wholeNumber, gameId, limit));
             if (!byCode.isEmpty() || resolvedCardId == null) {
                 return byCode;
             }
@@ -267,6 +263,26 @@ public class CatalogService {
         }
         List<PrintingSummary> printings = queries.printingsOfCard(resolvedCardId, true);
         return printings.size() <= limit ? printings : printings.subList(0, limit);
+    }
+
+    /**
+     * The printings of a printing code being typed ({@link
+     * CatalogText#printingCodePrefixCandidates} in order): those whose code starts with the code as
+     * typed; only when none does, and the number was typed with leading zeros, those of the number
+     * without them, read as the whole number ({@code ZTK 0012} finds ZTK-12 and ZTK-12P, never
+     * ZTK-120). A padded code the catalogue holds as typed ({@code ZSK 001}, Pokémon) so never
+     * lists ZSK-100, a padded code it does not hold ({@code EMR 001}) never another card's EMR-150,
+     * and the rows of one lookup list each printing once (stage R10, review fix 2).
+     */
+    private static <T> List<T> printingsOfTypedCode(
+            List<String> candidates, BiFunction<String, Boolean, List<T>> lookup) {
+        for (int i = 0; i < candidates.size(); i++) {
+            List<T> found = lookup.apply(candidates.get(i), i > 0);
+            if (!found.isEmpty()) {
+                return found;
+            }
+        }
+        return List.of();
     }
 
     private @Nullable UUID requireGameId(@Nullable String gameSlug) {

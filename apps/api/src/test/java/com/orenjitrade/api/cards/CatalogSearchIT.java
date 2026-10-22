@@ -302,6 +302,65 @@ class CatalogSearchIT extends AbstractIntegrationTest {
         callJson(HttpMethod.GET, "/api/v1/cards/suggest?q=a&limit=21", null, null, 400);
     }
 
+    /**
+     * Stage R10, review fix 2 (R1-1, R1-2): a padded code the catalogue holds as typed lists that
+     * printing only (TDX-001, never TDX-101 through the number without its zeros), and a number
+     * that starts with "00" lists each printing once, in suggestions and in the unified search.
+     */
+    @Test
+    void aPaddedCodeListsItsOwnPrintingsOnlyEachOnce() {
+        assertThat(printingCodes(get("/api/v1/cards/suggest?game=mtg&q=TDX 001&limit=20")))
+                .isNotEmpty()
+                .containsOnly("TDX-001");
+        assertThat(
+                        printingCodes(
+                                get("/api/v1/search?types=PRINTINGS&game=mtg&q=TDX 001"
+                                                + "&region=americas-north")
+                                        .path("printings")))
+                .isNotEmpty()
+                .containsOnly("TDX-001");
+        for (String[] typed :
+                new String[][] {
+                    {"riftbound", "ARC-00"},
+                    {"pokemon", "EMB-00"},
+                    {"mtg", "EVD-00"},
+                    {"mtg", "EVD 00"}
+                }) {
+            JsonNode suggestions =
+                    get("/api/v1/cards/suggest?game=" + typed[0] + "&q=" + typed[1] + "&limit=20");
+            List<String> printingIds = new ArrayList<>();
+            suggestions.forEach(
+                    entry -> {
+                        if (entry.path("kind").asString().equals("PRINTING")) {
+                            printingIds.add(entry.path("printingId").asString());
+                        }
+                    });
+            assertThat(printingIds).as(typed[1]).isNotEmpty().doesNotHaveDuplicates();
+            JsonNode printings =
+                    get("/api/v1/search?types=PRINTINGS&game="
+                                    + typed[0]
+                                    + "&q="
+                                    + typed[1]
+                                    + "&region=americas-north")
+                            .path("printings");
+            List<String> ids = new ArrayList<>();
+            printings.forEach(printing -> ids.add(printing.path("id").asString()));
+            assertThat(ids).as(typed[1]).isNotEmpty().doesNotHaveDuplicates();
+        }
+    }
+
+    /** {@code printingCode} of every PRINTING suggestion, or of every printing of a list. */
+    private static List<String> printingCodes(JsonNode entries) {
+        List<String> codes = new ArrayList<>();
+        entries.forEach(
+                entry -> {
+                    if (!entry.has("kind") || entry.path("kind").asString().equals("PRINTING")) {
+                        codes.add(entry.path("printingCode").asString());
+                    }
+                });
+        return codes;
+    }
+
     @Test
     void catalogReadsNeitherNeedAnAccountNorAcceptedTerms() {
         String uid = uniqueUid("catalog-no-consent");

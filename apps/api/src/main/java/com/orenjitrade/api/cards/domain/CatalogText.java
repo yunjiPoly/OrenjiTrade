@@ -95,6 +95,10 @@ public final class CatalogText {
      * without them ({@code ZTK-0012} → {@code ZTK-12}: Magic cards print a padded number apart from
      * the set code, while the catalogue's Magic codes are {@code <SET>-<NUMBER>} as Scryfall
      * numbers them). Empty when {@code query} is no code (stage R10, review fix 1).
+     *
+     * <p>Callers try the second form only when the first finds no printing, and a prefix lookup
+     * reads it as the whole number ({@code ZSK 001} never lists ZSK-100 when the catalogue holds
+     * ZSK-001 as typed; review fix 2).
      */
     public static List<String> printingCodeCandidates(@Nullable String query, boolean prefix) {
         if (query == null) {

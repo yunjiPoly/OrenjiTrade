@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -149,8 +150,9 @@ class CardSourcesImportIT extends AbstractCardImageIT {
     private Map<String, Object> printing(String code) {
         return testUsers
                 .query(
-                        "SELECT p.id, p.image_id, p.finish, p.rarity, p.collector_number,"
-                                + " p.market_price, c.image_id AS card_image_id FROM card_printing"
+                        "SELECT p.id, p.card_id, p.image_id, p.finish, p.rarity,"
+                                + " p.collector_number, p.market_price, c.image_id AS"
+                                + " card_image_id FROM card_printing"
                                 + " p JOIN card c ON c.id = p.card_id WHERE p.printing_code = ?",
                         code)
                 .get(0);
@@ -184,6 +186,43 @@ class CardSourcesImportIT extends AbstractCardImageIT {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** The printing codes {@code GET /cards/suggest} lists for {@code q} (PRINTING entries). */
+    private List<String> suggestedCodes(String game, String q) {
+        JsonNode suggestions =
+                callJson(
+                        HttpMethod.GET,
+                        "/api/v1/cards/suggest?game=" + game + "&limit=20&q=" + q,
+                        null,
+                        null,
+                        200);
+        List<String> codes = new ArrayList<>();
+        suggestions.forEach(
+                entry -> {
+                    if (entry.path("kind").asString().equals("PRINTING")) {
+                        codes.add(entry.path("printingCode").asString());
+                    }
+                });
+        return codes;
+    }
+
+    /** The printing codes of the unified search's printings for {@code q}. */
+    private List<String> searchedCodes(String game, String q) {
+        JsonNode printings =
+                callJson(
+                                HttpMethod.GET,
+                                "/api/v1/search?types=PRINTINGS&region=americas-north&game="
+                                        + game
+                                        + "&q="
+                                        + q,
+                                null,
+                                null,
+                                200)
+                        .path("printings");
+        List<String> codes = new ArrayList<>();
+        printings.forEach(printing -> codes.add(printing.path("printingCode").asString()));
+        return codes;
     }
 
     @Test
@@ -273,6 +312,13 @@ class CardSourcesImportIT extends AbstractCardImageIT {
                             200);
             assertThat(typed.get(0).path("kind").asString()).isEqualTo("PRINTING");
             assertThat(typed.get(0).path("printingCode").asString()).isEqualTo("ZTK-12");
+            // Review fix 2 (R1-1): the number without its zeros is the whole number, in
+            // suggestions and in the unified search: ZCL 0010 never lists ZCL-101 or ZCL-102.
+            assertThat(suggestedCodes(MTG, "ZTK 0012")).containsExactly("ZTK-12");
+            assertThat(suggestedCodes(MTG, "ZCL 0101")).containsExactly("ZCL-101");
+            assertThat(suggestedCodes(MTG, "ZCL 0010")).isEmpty();
+            assertThat(searchedCodes(MTG, "ZTK 0012")).containsExactly("ZTK-12");
+            assertThat(searchedCodes(MTG, "ZCL 0010")).isEmpty();
             for (String query : new String[] {"ztk 12", "ZTK-012", "ztk - 0012"}) {
                 JsonNode found =
                         callJson(
@@ -357,6 +403,35 @@ class CardSourcesImportIT extends AbstractCardImageIT {
         assertThat(report.imagesDownloaded()).isEqualTo(7);
         assertThat(SOURCES.requests("/tcgdex-assets/en/")).hasSize(7);
         assertServed(artwork("tcgdex", "tst2-014"));
+
+        // Review fix 2 (R1-1, R1-2): Pokémon codes keep TCGdex's padded number, so a code typed
+        // as printed lists that printing only: ZSK 001 never ZSK-100 or ZSK-101 through the
+        // number without its zeros, a padded code the catalogue lacks (EMR 001) never another
+        // card's EMR-150, and each printing once.
+        testUsers.update("UPDATE game SET status = 'ACTIVE' WHERE slug = ?", PKM);
+        gameService.invalidate();
+        try {
+            assertThat(suggestedCodes(PKM, "ZSK 001")).containsExactly("ZSK-001");
+            assertThat(suggestedCodes(PKM, "zsk-001")).containsExactly("ZSK-001");
+            assertThat(suggestedCodes(PKM, "EMR 001")).isEmpty();
+            assertThat(suggestedCodes(PKM, "ZSK-00")).containsExactly("ZSK-001");
+            assertThat(suggestedCodes(PKM, "ZSK 1")).containsExactly("ZSK-100", "ZSK-101");
+            assertThat(searchedCodes(PKM, "ZSK 001")).containsExactly("ZSK-001");
+            assertThat(searchedCodes(PKM, "EMR 001")).isEmpty();
+            JsonNode found =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/cards?game=" + PKM + "&query=ZSK 001",
+                            null,
+                            null,
+                            200);
+            assertThat(found.path("totalItems").asLong()).isEqualTo(1);
+            assertThat(found.path("items").get(0).path("id").asString())
+                    .isEqualTo(String.valueOf(printing("ZSK-001").get("card_id")));
+        } finally {
+            testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", PKM);
+            gameService.invalidate();
+        }
 
         SOURCES.reset();
         SyncRunView again =
