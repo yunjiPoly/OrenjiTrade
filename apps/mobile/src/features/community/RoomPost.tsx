@@ -285,8 +285,9 @@ export interface RoomPostProps {
  * "{province} · {time}" (never a city; the time alone when the author does not share a place),
  * "⋯", the text, up to 4 photos, a shared card (opens Who has this card) or a shared binder or
  * deck core (opens its page). The avatar and the handle open the author's profile (their ratings
- * before an e-Transfer). At large text sizes "{province} · {time}" goes under the handle. No reply
- * threads on the phone.
+ * before an e-Transfer). Beside the handle, a long province gives way and the time stays whole; at
+ * large text sizes "{province} · {time}" goes under the handle, on as many lines as it needs. No
+ * reply threads on the phone.
  */
 export function RoomPost({ post, own, onMore }: RoomPostProps) {
   const { palette } = useTheme();
@@ -330,13 +331,38 @@ export function RoomPost({ post, own, onMore }: RoomPostProps) {
               {handle}
               {own ? <Text style={{ color: palette.primary }}> · {ROOM_COPY.you}</Text> : null}
             </Text>
-            <Text
-              numberOfLines={large ? 2 : 1}
-              testID={`room-post-line-${post.id}`}
-              style={[large ? styles.lineLarge : styles.line, { color: palette.textDisabled }]}
-            >
-              {line}
-            </Text>
+            {large ? (
+              // Under the handle, as many lines as a long province needs: a cap cut the time
+              // ("Community of / Madrid · 12:1…", stage R11 review fix 2).
+              <Text
+                testID={`room-post-line-${post.id}`}
+                style={[styles.lineLarge, { color: palette.textDisabled }]}
+              >
+                {line}
+              </Text>
+            ) : (
+              // One line beside the handle: a long province gives way, the time never does.
+              <View testID={`room-post-line-${post.id}`} style={styles.line}>
+                {place ? (
+                  <Text
+                    numberOfLines={1}
+                    testID={`room-post-place-${post.id}`}
+                    style={[styles.place, { color: palette.textDisabled }]}
+                  >
+                    {place}
+                  </Text>
+                ) : null}
+                {time ? (
+                  <Text
+                    numberOfLines={1}
+                    testID={`room-post-time-${post.id}`}
+                    style={[styles.time, { color: palette.textDisabled }]}
+                  >
+                    {place ? ` · ${time}` : time}
+                  </Text>
+                ) : null}
+              </View>
+            )}
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -379,7 +405,9 @@ const styles = StyleSheet.create({
   headLarge: { alignItems: 'flex-start' },
   headTextLarge: { flex: 1, minWidth: 0, gap: 2 },
   handle: { flexShrink: 1, fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
-  line: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 16 },
+  line: { flex: 1, minWidth: 0, flexDirection: 'row' },
+  place: { flexShrink: 1, minWidth: 0, fontSize: 12, lineHeight: 16 },
+  time: { flexShrink: 0, fontSize: 12, lineHeight: 16 },
   lineLarge: { fontSize: 12, lineHeight: 16 },
   more: {
     width: 32,

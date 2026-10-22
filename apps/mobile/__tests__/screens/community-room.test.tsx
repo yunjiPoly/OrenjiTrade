@@ -91,6 +91,25 @@ const CORE_POST = postFixture({
   place: undefined,
 });
 
+/** A long province: at every text size the time must stay whole (stage R11 review fix 2). */
+const LONG_PLACE_POST = postFixture({
+  id: '00000000-0000-4000-8f10-000000000007',
+  author: {
+    id: '00000000-0000-4000-8000-0000000000b4',
+    handle: 'collector4',
+    displayName: 'Collector Four',
+    avatarUrl: null,
+  },
+  body: 'Anyone trading Maxx C this week?',
+  createdAt: '2026-10-05T16:16:00Z',
+  place: {
+    ...postFixture().place!,
+    subdivisionCode: 'CA-NL',
+    subdivisionName: 'Newfoundland and Labrador',
+    label: 'Newfoundland and Labrador, Canada',
+  },
+});
+
 /** Newest first, as the API pages them. */
 const POSTS = [
   CORE_POST,
@@ -244,6 +263,44 @@ describe('A room (stage R11, screen 33)', () => {
     });
   });
 
+  it('keeps the time whole beside the handle when the province is long', async () => {
+    // The default text size (the jest window's 2 is a large one).
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 1 },
+        screen: { ...window, fontScale: 1 },
+      });
+    });
+    try {
+      mockApi(
+        routes({
+          'GET /api/v1/community/channels/{slug}/posts': ok(postPage([LONG_PLACE_POST, ...POSTS])),
+        })
+      );
+      render();
+      const line = await screen.findByTestId(`room-post-line-${LONG_PLACE_POST.id}`);
+      expect(line).toHaveTextContent(/^Newfoundland and Labrador · \d{1,2}:\d{2} [AP]M$/);
+      // The province is cut first (one line, it shrinks); the time is its own text that never does.
+      const place = within(line).getByTestId(`room-post-place-${LONG_PLACE_POST.id}`);
+      expect(place).toHaveTextContent('Newfoundland and Labrador');
+      expect(place).toHaveProp('numberOfLines', 1);
+      expect(place).toHaveStyle({ flexShrink: 1 });
+      const time = within(line).getByTestId(`room-post-time-${LONG_PLACE_POST.id}`);
+      expect(time).toHaveTextContent(/^· \d{1,2}:\d{2} [AP]M$/);
+      expect(time).toHaveStyle({ flexShrink: 0 });
+      // Without a place, the time alone (no separator).
+      expect(screen.getByTestId(`room-post-time-${CORE_POST.id}`)).toHaveTextContent(
+        /^\d{1,2}:\d{2} [AP]M$/
+      );
+      expect(screen.queryByTestId(`room-post-place-${CORE_POST.id}`)).toBeNull();
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+
   it('puts the province and the time under the handle at the largest text size', async () => {
     const window = Dimensions.get('window');
     act(() => {
@@ -253,12 +310,20 @@ describe('A room (stage R11, screen 33)', () => {
       });
     });
     try {
-      mockApi(routes());
+      mockApi(
+        routes({
+          'GET /api/v1/community/channels/{slug}/posts': ok(postPage([LONG_PLACE_POST, ...POSTS])),
+        })
+      );
       render();
       const own = ownPostFixture();
       const line = await screen.findByTestId(`room-post-line-${PHOTO_POST.id}`);
       expect(line).toHaveTextContent(/^Quebec · \d{1,2}:\d{2} [AP]M$/);
-      expect(line).toHaveProp('numberOfLines', 2);
+      // No cap: two lines cut the time after a long province ("Community of / Madrid · 12:1…").
+      const long = screen.getByTestId(`room-post-line-${LONG_PLACE_POST.id}`);
+      expect(long).toHaveTextContent(/^Newfoundland and Labrador · \d{1,2}:\d{2} [AP]M$/);
+      expect(long.props.numberOfLines).toBeUndefined();
+      expect(line.props.numberOfLines).toBeUndefined();
       // A column: the handle (and "· You") wraps, the line goes under it.
       expect(screen.getByTestId(`room-post-author-${PHOTO_POST.id}`)).not.toHaveStyle({
         flexDirection: 'row',
@@ -644,6 +709,8 @@ describe('A room (stage R11, screen 33)', () => {
     const first = render();
     expect(screen.getByTestId('room-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId('room-empty')).toHaveTextContent(/No posts yet/);
+    // Each state scrolls: centred in a plain view, it ran over the top bar at the largest size.
+    expect(within(screen.getByTestId('room-state')).getByTestId('room-empty')).toBeOnTheScreen();
     first.unmount();
 
     mockApi(
@@ -653,6 +720,9 @@ describe('A room (stage R11, screen 33)', () => {
     );
     const second = render();
     expect(await screen.findByTestId('room-not-found')).toBeOnTheScreen();
+    expect(
+      within(screen.getByTestId('room-state')).getByTestId('room-not-found')
+    ).toBeOnTheScreen();
     fireEvent.press(screen.getByText('All rooms'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/messages',
@@ -668,6 +738,9 @@ describe('A room (stage R11, screen 33)', () => {
     );
     const third = render();
     expect(await screen.findByTestId('community-disabled')).toBeOnTheScreen();
+    expect(
+      within(screen.getByTestId('room-state')).getByTestId('community-disabled')
+    ).toBeOnTheScreen();
     third.unmount();
 
     mockApi(
@@ -680,6 +753,7 @@ describe('A room (stage R11, screen 33)', () => {
     );
     render();
     expect(await screen.findByTestId('room-error')).toBeOnTheScreen();
+    expect(within(screen.getByTestId('room-state')).getByTestId('room-error')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId(`room-post-${PHOTO_POST.id}`)).toBeOnTheScreen();
   });
