@@ -84,8 +84,22 @@ describe('CardImage', () => {
   it('credits the provider of a game catalog', () => {
     renderWithProviders(<CardDataCredit game="yugioh" />);
     expect(screen.getByText('YGOPRODeck')).toBeOnTheScreen();
-    renderWithProviders(<CardDataCredit game="pokemon" testID="none" />);
+    renderWithProviders(<CardDataCredit game="riftbound" testID="none" />);
     expect(screen.queryByTestId('none')).toBeNull();
+  });
+
+  it('credits Scryfall and TCGdex with their notices (stage R10)', () => {
+    renderWithProviders(<CardDataCredit game="mtg" testID="magic-credit" />);
+    expect(screen.getByTestId('magic-credit')).toHaveTextContent(
+      /Card data and images courtesy of Scryfall\./
+    );
+    expect(screen.getByTestId('magic-credit')).toHaveTextContent(/Fan Content Policy/);
+    renderWithProviders(<CardDataCredit game="pokemon" testID="pokemon-credit" />);
+    expect(screen.getByTestId('pokemon-credit')).toHaveTextContent(
+      /Card data courtesy of TCGdex \(MIT licence\)\./
+    );
+    expect(screen.getByTestId('pokemon-credit')).toHaveTextContent(/GAME FREAK/);
+    expect(screen.getByRole('link', { name: 'TCGdex' })).toBeOnTheScreen();
   });
 });
 

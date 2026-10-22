@@ -14,6 +14,7 @@ import { useAppStore } from '@/src/store/useAppStore';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
+  GAMES,
   TAGS,
   deletionFixture,
   locationFixture,
@@ -559,5 +560,68 @@ describe('Settings → Appearance', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Dark' }));
     expect(useAppStore.getState().themeOverride).toBe('dark');
     expect(await screen.findByTestId('api-version')).toHaveTextContent('0.1.0');
+  });
+
+  it('credits the card data of the games that hold cards (stage R10)', async () => {
+    const games = (withCards: boolean) => [
+      { ...GAMES[1], sortOrder: 10, hasCards: true },
+      { ...GAMES[0], sortOrder: 20, hasCards: withCards },
+      {
+        ...GAMES[0],
+        id: 'g3',
+        slug: 'mtg',
+        name: 'Magic: The Gathering',
+        shortName: 'Magic',
+        sortOrder: 30,
+        hasCards: withCards,
+      },
+      {
+        ...GAMES[0],
+        id: 'g4',
+        slug: 'onepiece',
+        name: 'One Piece Card Game',
+        shortName: 'One Piece',
+        sortOrder: 35,
+        hasCards: false,
+      },
+    ];
+    // Before Magic and Pokémon are imported: Yu-Gi-Oh! alone.
+    mockApi(signedInRoutes({ 'GET /api/v1/games': ok(games(false)) }));
+    const first = renderWithProviders(<AppearanceSettingsScreen />, {
+      port: new FakeAuthPort(testUser()),
+    });
+    const before = await screen.findByTestId('card-data-credits');
+    expect(within(before).getByText('Card data and images')).toBeOnTheScreen();
+    expect(
+      within(before).getByText(
+        'Yu-Gi-Oh! card data from YGOPRODeck. Not affiliated with or endorsed by the game publishers.'
+      )
+    ).toBeOnTheScreen();
+    expect(before).toHaveProp(
+      'accessibilityLabel',
+      'Card data and images. Yu-Gi-Oh! card data from YGOPRODeck. Not affiliated with or endorsed by the game publishers.'
+    );
+    first.unmount();
+
+    // After a fixture import: Pokémon and Magic join, in the games' order.
+    mockApi(signedInRoutes({ 'GET /api/v1/games': ok(games(true)) }));
+    renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(screen.getByTestId('card-data-credits-loading')).toBeOnTheScreen();
+    const after = await screen.findByTestId('card-data-credits');
+    expect(
+      within(after).getByText(
+        'Yu-Gi-Oh! card data from YGOPRODeck. Pokémon card data from TCGdex. Magic card data and images from Scryfall. Not affiliated with or endorsed by the game publishers.'
+      )
+    ).toBeOnTheScreen();
+  });
+
+  it('keeps every credit when the games cannot be loaded', async () => {
+    mockApi(
+      signedInRoutes({ 'GET /api/v1/games': problem(503, 'UNAVAILABLE', 'Try again later.') })
+    );
+    renderWithProviders(<AppearanceSettingsScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByTestId('card-data-credits', {}, { timeout: 5000 })).toHaveTextContent(
+      /YGOPRODeck\. Pokémon card data from TCGdex\. Magic card data and images from Scryfall\./
+    );
   });
 });
