@@ -95,7 +95,6 @@ export const ROOM_COMPOSER_COPY = {
   placeholder: 'Write to the room',
   field: (room: string) => `Write to the ${room} room`,
   attach: 'Send a photo, or share a card or a binder',
-  sheetTitle: 'Send to this room',
   photo: 'Send a photo',
   photoDetail: 'Up to 4 photos, 3 MB each',
   card: 'Share a card',

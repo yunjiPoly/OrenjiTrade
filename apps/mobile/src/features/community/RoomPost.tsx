@@ -15,6 +15,9 @@ import { fontFamily, fontWeight, radius, spacing, useTheme } from '@/src/theme';
 import { ROOM_COPY } from './communityCopy';
 import { postPlace, postTime } from './communityHelpers';
 
+/** The longest side of a post's only photo, in points. */
+const SINGLE_PHOTO_MAX = 220;
+
 /** The full-screen photo viewer's backdrop (a photo reads best on black, in both themes). */
 const PHOTO_SCRIM = 'rgba(0, 0, 0, 0.94)';
 
@@ -96,9 +99,11 @@ function PostPhotos({ photos, handle }: { photos: readonly PostPhoto[]; handle: 
   }
   const first = photos[0];
   if (photos.length === 1 && first) {
+    // One photo: its own shape, the longest side 220 pt (a tall phone photo stays a thumbnail;
+    // the full photo opens on tap).
     const ratio = first.width > 0 && first.height > 0 ? first.width / first.height : 1;
-    const width = 260;
-    const height = Math.round(Math.min(Math.max(width / ratio, 140), 320));
+    const width = ratio >= 1 ? SINGLE_PHOTO_MAX : Math.round(SINGLE_PHOTO_MAX * ratio);
+    const height = ratio >= 1 ? Math.round(SINGLE_PHOTO_MAX / ratio) : SINGLE_PHOTO_MAX;
     return (
       <View testID="room-photos" style={styles.photos}>
         <PostPhotoTile photo={first} index={0} count={1} handle={handle} size={{ width, height }} />

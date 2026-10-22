@@ -399,12 +399,7 @@ export function RoomComposer({
         </Text>
       ) : null}
 
-      <BottomSheet
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        title={ROOM_COMPOSER_COPY.sheetTitle}
-        testID="room-attach-sheet"
-      >
+      <BottomSheet visible={menuOpen} onClose={() => setMenuOpen(false)} testID="room-attach-sheet">
         {/* The rows scroll at the largest text sizes; Cancel stays on screen under them. */}
         <ScrollView style={styles.sheetScroll} bounces={false}>
           {ROWS.map(({ row, icon }) => (
@@ -424,14 +419,9 @@ export function RoomComposer({
                 accessibilityElementsHidden
                 importantForAccessibility="no"
               />
-              <View style={styles.grow}>
-                <Text style={[styles.sheetLabel, { color: palette.ink }]}>{ROW_LABELS[row]}</Text>
-                {row === 'photo' ? (
-                  <Text style={[styles.sheetDetail, { color: palette.textMuted }]}>
-                    {ROOM_COMPOSER_COPY.photoDetail}
-                  </Text>
-                ) : null}
-              </View>
+              <Text style={[styles.sheetLabel, styles.grow, { color: palette.ink }]}>
+                {ROW_LABELS[row]}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -528,7 +518,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   sheetLabel: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.medium },
-  sheetDetail: { fontSize: 12, lineHeight: 16 },
   cancel: {
     minHeight: 48,
     borderRadius: 24,
