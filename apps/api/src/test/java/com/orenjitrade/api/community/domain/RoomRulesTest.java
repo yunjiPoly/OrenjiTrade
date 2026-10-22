@@ -17,7 +17,8 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * The pure rules of stage R11's rooms: the room list's one-line preview, the upload limits per
  * kind, and how a shared binder reads in a post (deck core badge, price and picture only while
- * buyers can find it, never for an owner the reader is blocked with).
+ * buyers can find it; nothing of a binder the reader can no longer open, its name and its owner's
+ * handle included, never for an owner the reader is blocked with).
  */
 class RoomRulesTest {
 
@@ -69,10 +70,14 @@ class RoomRulesTest {
                 effectivePublic);
     }
 
+    private static PostPayload payloadOf(Map<UUID, ChatDeckCore> binders, Set<UUID> hidden) {
+        return CommunityService.payload(sharedBinder(), Map.of(), binders, hidden, List.of());
+    }
+
     private static BinderLink read(Map<UUID, ChatDeckCore> binders, Set<UUID> hidden) {
-        PostPayload payload =
-                CommunityService.payload(sharedBinder(), Map.of(), binders, hidden, List.of());
+        PostPayload payload = payloadOf(binders, hidden);
         assertThat(payload.binder()).isNotNull();
+        assertThat(payload.binderUnavailable()).isNull();
         return payload.binder();
     }
 
@@ -90,16 +95,19 @@ class RoomRulesTest {
         assertThat(plain.askingPriceText()).isNull();
         assertThat(plain.imageUrl()).isEqualTo("http://localhost/core.jpg");
 
-        for (BinderLink gone :
+        // No longer public (private, its owner suspended, not listed or PRIVATE), sold, blocked
+        // with the reader either way, or deleted: nothing of it, not even the stored name and
+        // handle (stage R11 review fix 1); the post says it is no longer available.
+        for (PostPayload gone :
                 List.of(
-                        read(Map.of(BINDER, core(true, false, null)), Set.of()),
-                        read(Map.of(BINDER, core(true, true, Instant.EPOCH)), Set.of()),
-                        read(Map.of(BINDER, core(true, true, null)), Set.of(OWNER)),
-                        read(Map.of(), Set.of()))) {
-            assertThat(gone.deckCore()).isFalse();
-            assertThat(gone.askingPriceText()).isNull();
-            assertThat(gone.imageUrl()).isNull();
-            assertThat(gone.id()).isEqualTo(BINDER);
+                        payloadOf(Map.of(BINDER, core(true, false, null)), Set.of()),
+                        payloadOf(Map.of(BINDER, core(true, true, Instant.EPOCH)), Set.of()),
+                        payloadOf(Map.of(BINDER, core(true, true, null)), Set.of(OWNER)),
+                        payloadOf(Map.of(BINDER, core(false, true, null)), Set.of(OWNER)),
+                        payloadOf(Map.of(), Set.of()))) {
+            assertThat(gone.binder()).isNull();
+            assertThat(gone.binderUnavailable()).isTrue();
+            assertThat(gone).isNotSameAs(PostPayload.EMPTY);
         }
     }
 

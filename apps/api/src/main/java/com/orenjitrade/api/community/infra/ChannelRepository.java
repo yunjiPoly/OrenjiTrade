@@ -20,17 +20,25 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ChannelRepository {
 
-    private static final String SELECT =
-            """
-            SELECT ch.id, ch.slug, ch.name, ch.kind, ch.game_slug, ch.region_label,
-                   ch.description, ch.status, ch.post_rate_limit_per_hour, ch.sort_order,
-                   ch.updated_at,
-                   (SELECT count(*) FROM community_post p
-                     WHERE p.channel_id = ch.id AND p.deleted_at IS NULL
-                       AND p.moderation_state <> 'REMOVED' AND p.created_at > :since)
-                       AS post_count_24h
-              FROM community_channel ch
-            """;
+    /** Every post that is not deleted or removed (the moderators' count). */
+    private static final String STORED_POSTS =
+            "p.deleted_at IS NULL AND p.moderation_state <> 'REMOVED'";
+
+    private static final String SELECT = select(STORED_POSTS);
+
+    /** The channel columns with the 24 h count of the posts that match {@code postFilter}. */
+    private static String select(String postFilter) {
+        return """
+        SELECT ch.id, ch.slug, ch.name, ch.kind, ch.game_slug, ch.region_label,
+               ch.description, ch.status, ch.post_rate_limit_per_hour, ch.sort_order,
+               ch.updated_at,
+               (SELECT count(*) FROM community_post p
+                 WHERE p.channel_id = ch.id AND %s AND p.created_at > :since)
+                   AS post_count_24h
+          FROM community_channel ch
+        """
+                .formatted(postFilter);
+    }
 
     private final JdbcClient jdbc;
 
@@ -45,7 +53,37 @@ public class ChannelRepository {
      */
     public List<ChannelRow> list(
             boolean activeOnly, @Nullable String game, @Nullable String region, Instant now) {
+        return list(SELECT, new LinkedHashMap<>(), activeOnly, game, region, now);
+    }
+
+    /**
+     * The active channels as a member lists them (stage R11 review fix 1): the 24 h post count
+     * holds only the posts the member may see, as {@link #lastPosts} does: not deleted, not
+     * REMOVED, their author listed ({@link PostRepository#authorListed}) and not among {@code
+     * hiddenAuthors} (blocks of the member, both directions), in the SQL.
+     */
+    public List<ChannelRow> listForMember(
+            @Nullable String game,
+            @Nullable String region,
+            Collection<UUID> hiddenAuthors,
+            Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
+        params.put("now", Timestamp.from(now));
+        String filter = PostRepository.visible("p");
+        if (!hiddenAuthors.isEmpty()) {
+            filter += " AND p.author_id NOT IN (:hidden)";
+            params.put("hidden", hiddenAuthors);
+        }
+        return list(select(filter), params, true, game, region, now);
+    }
+
+    private List<ChannelRow> list(
+            String select,
+            Map<String, Object> params,
+            boolean activeOnly,
+            @Nullable String game,
+            @Nullable String region,
+            Instant now) {
         params.put("since", Timestamp.from(now.minus(Duration.ofHours(24))));
         StringBuilder where = new StringBuilder(" WHERE true");
         if (activeOnly) {
@@ -61,7 +99,7 @@ public class ChannelRepository {
                             + " lower(unaccent_immutable(:region))");
             params.put("region", region);
         }
-        return jdbc.sql(SELECT + where + " ORDER BY ch.sort_order, ch.name, ch.slug")
+        return jdbc.sql(select + where + " ORDER BY ch.sort_order, ch.name, ch.slug")
                 .params(params)
                 .query(ChannelRepository::map)
                 .list();

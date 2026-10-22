@@ -119,6 +119,13 @@ public class CommunityService {
     static final String RATE_KEY_PREFIX = "community:post:";
     static final Pattern SLUG = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
 
+    /**
+     * Who reads a post's place: a signed-in member who is not its author. Every reader of a room is
+     * a member, and the author reads what the others read (stage R11 review fix 1: a discoverable
+     * author with a PRIVATE profile saw their own province that nobody else sees).
+     */
+    static final ViewerContext ROOM_READER = new ViewerContext(new UUID(0L, 0L), false, false);
+
     private static final Logger log = LoggerFactory.getLogger(CommunityService.class);
 
     private final ChannelRepository channels;
@@ -198,19 +205,19 @@ public class CommunityService {
     /**
      * {@code GET /community/channels}: active channels, optionally by game and by platform region
      * code (the region channels, ADR 0017), each with the newest post the viewer may see (stage
-     * R11: blocks both ways, suspended and deleted accounts, deleted and removed posts left out).
+     * R11: blocks both ways, suspended and deleted accounts, deleted and removed posts left out);
+     * the 24 h post count follows the same rule (review fix 1).
      */
     @Transactional(readOnly = true)
     public List<ChannelView> channels(
             AuthenticatedUser viewer, @Nullable String game, @Nullable String region) {
         requireFeature(viewer);
         Instant now = timeProvider.now();
-        List<ChannelRow> rows = channels.list(true, blankToNull(game), blankToNull(region), now);
+        Set<UUID> hidden = blocks.hiddenFrom(viewer.userId());
+        List<ChannelRow> rows =
+                channels.listForMember(blankToNull(game), blankToNull(region), hidden, now);
         Map<UUID, LastPostRow> last =
-                channels.lastPosts(
-                        rows.stream().map(ChannelRow::id).toList(),
-                        blocks.hiddenFrom(viewer.userId()),
-                        now);
+                channels.lastPosts(rows.stream().map(ChannelRow::id).toList(), hidden, now);
         Map<UUID, MemberCard> authors =
                 members.cards(
                         last.values().stream().map(LastPostRow::authorId).distinct().toList());
@@ -837,7 +844,6 @@ public class CommunityService {
         Map<UUID, List<PhotoRow>> photoRows =
                 photos.byPosts(rows.stream().map(PostRow::id).toList());
         boolean moderator = isModerator(viewer);
-        ViewerContext context = new ViewerContext(viewer.userId(), false, false);
         List<PostView> result = new ArrayList<>();
         for (int index = 0; index < rows.size(); index++) {
             PostRow row = rows.get(index);
@@ -876,7 +882,7 @@ public class CommunityService {
                             ContentModerationState.valueOf(row.moderationState()),
                             place != null
                                             && privacyPolicy.canSeeLocation(
-                                                    context, row.authorId(), author.privacy())
+                                                    ROOM_READER, row.authorId(), author.privacy())
                                     ? PlaceResponse.from(place)
                                     : null));
         }
@@ -912,9 +918,11 @@ public class CommunityService {
     }
 
     /**
-     * A stored payload as members read it: the card with its current picture, the binder with its
-     * deck core details while buyers can find it (never for a binder whose owner is hidden from the
-     * viewer by a block), and the photos.
+     * A stored payload as members read it: the card with its current picture, the binder while the
+     * reader can open it (public, unsold, its owner listed and not blocked with the reader in
+     * either direction) with its deck core details, and the photos. A binder the reader can no
+     * longer open is left out, its stored name and owner's handle included, and {@code
+     * binderUnavailable} says so (stage R11 review fix 1).
      */
     static PostPayload payload(
             JsonNode payload,
@@ -938,28 +946,31 @@ public class CommunityService {
                             images.get(printingId));
         }
         @Nullable BinderLink binder = null;
+        boolean binderUnavailable = false;
         JsonNode binderNode = payload.path("binder");
         @Nullable UUID binderId = uuid(binderNode.path("binderId"));
         if (binderId != null) {
             @Nullable ChatDeckCore shared = sharedBinders.get(binderId);
-            boolean findable =
-                    shared != null
-                            && shared.effectivePublic()
-                            && shared.soldAt() == null
-                            && !hiddenOwners.contains(shared.ownerId());
-            boolean deckCore = findable && shared.sellsAsCore();
-            binder =
-                    new BinderLink(
-                            binderId,
-                            binderNode.path("name").asString(""),
-                            binderNode.path("ownerHandle").asString(""),
-                            deckCore,
-                            deckCore ? shared.askingPriceText() : null,
-                            findable ? shared.imageUrl() : null);
+            if (shared != null
+                    && shared.effectivePublic()
+                    && shared.soldAt() == null
+                    && !hiddenOwners.contains(shared.ownerId())) {
+                boolean deckCore = shared.sellsAsCore();
+                binder =
+                        new BinderLink(
+                                binderId,
+                                binderNode.path("name").asString(""),
+                                binderNode.path("ownerHandle").asString(""),
+                                deckCore,
+                                deckCore ? shared.askingPriceText() : null,
+                                shared.imageUrl());
+            } else {
+                binderUnavailable = true;
+            }
         }
-        return card == null && binder == null && photos.isEmpty()
+        return card == null && binder == null && !binderUnavailable && photos.isEmpty()
                 ? PostPayload.EMPTY
-                : new PostPayload(card, binder, photos);
+                : new PostPayload(card, binder, photos, binderUnavailable ? Boolean.TRUE : null);
     }
 
     /**

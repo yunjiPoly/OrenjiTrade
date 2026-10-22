@@ -377,7 +377,39 @@ class CommunityIT extends AbstractIntegrationTest {
         post(member("dup-other"), ROOM, "Selling a sealed booster box, DM me", 201);
 
         Member moderator = member("rate-mod", Role.MODERATOR);
-        String slug = "rate-test-" + UUID.randomUUID().toString().substring(0, 8);
+        String slug = rateChannel(moderator, "rate-test-");
+        String other = rateChannel(moderator, "rate-other-");
+        Member poster = member("rate-poster");
+        post(poster, slug, "First post in the channel", 201);
+        post(poster, slug, "Second post in the channel", 201);
+        JsonNode limited = post(poster, slug, "Third post in the channel", 429);
+        assertThat(limited.path("errorCode").asString()).isEqualTo("RATE_LIMITED");
+        assertThat(limited.path("retryAfterSeconds").asInt()).isEqualTo(3600);
+        // The limit is per channel ("up to 10 times an hour in each room"): another channel with
+        // the same limit takes its own two posts, then refuses the third (review fix 1, F3).
+        post(poster, other, "First post in the other channel", 201);
+        post(poster, other, "Second post in the other channel", 201);
+        post(poster, other, "Third post in the other channel", 429);
+        post(poster, ROOM, "Posting elsewhere is fine", 201);
+        for (String archived : List.of(slug, other)) {
+            callJson(
+                    HttpMethod.PATCH,
+                    "/api/v1/admin/community/channels/"
+                            + testUsers
+                                    .query(
+                                            "SELECT id FROM community_channel WHERE slug = ?",
+                                            archived)
+                                    .get(0)
+                                    .get("id"),
+                    moderator.uid(),
+                    Map.of("status", "ARCHIVED"),
+                    200);
+        }
+    }
+
+    /** A new GENERAL channel that takes 2 posts an hour per author; returns its slug. */
+    private String rateChannel(Member moderator, String prefix) {
+        String slug = prefix + UUID.randomUUID().toString().substring(0, 8);
         Map<String, Object> channel = new LinkedHashMap<>();
         channel.put("slug", slug);
         channel.put("name", "Rate test");
@@ -385,24 +417,7 @@ class CommunityIT extends AbstractIntegrationTest {
         channel.put("postRateLimitPerHour", 2);
         callJson(
                 HttpMethod.POST, "/api/v1/admin/community/channels", moderator.uid(), channel, 201);
-        Member poster = member("rate-poster");
-        post(poster, slug, "First post in the channel", 201);
-        post(poster, slug, "Second post in the channel", 201);
-        JsonNode limited = post(poster, slug, "Third post in the channel", 429);
-        assertThat(limited.path("errorCode").asString()).isEqualTo("RATE_LIMITED");
-        assertThat(limited.path("retryAfterSeconds").asInt()).isEqualTo(3600);
-        // The limit is per channel.
-        post(poster, ROOM, "Posting elsewhere is fine", 201);
-        callJson(
-                HttpMethod.PATCH,
-                "/api/v1/admin/community/channels/"
-                        + testUsers
-                                .query("SELECT id FROM community_channel WHERE slug = ?", slug)
-                                .get(0)
-                                .get("id"),
-                moderator.uid(),
-                Map.of("status", "ARCHIVED"),
-                200);
+        return slug;
     }
 
     @Test

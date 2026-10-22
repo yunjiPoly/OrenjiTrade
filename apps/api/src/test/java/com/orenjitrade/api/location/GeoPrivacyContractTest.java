@@ -598,6 +598,42 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /** Whether the account confirmed being 18 or older. */
+    private boolean ageConfirmed(UUID userId) {
+        return testUsers.count(
+                        "SELECT count(*) FROM user_consent WHERE user_id = ? AND"
+                                + " document_type = 'AGE_CONFIRMATION'",
+                        userId)
+                > 0;
+    }
+
+    /** Posts in americas-north-yugioh as {@code caller}; returns the post's id. */
+    private String roomPost(String caller, String body) {
+        JsonNode created =
+                callJson(
+                        HttpMethod.POST,
+                        "/api/v1/community/channels/americas-north-yugioh/posts",
+                        caller,
+                        Map.of("body", body),
+                        201);
+        fetched.add(new Fetched("POST americas-north-yugioh/posts", caller, created));
+        assertThat(created.path("place").isNull()).as("place in the answer to a post").isTrue();
+        return created.path("id").asString();
+    }
+
+    /** A privacy settings body (as {@code PUT /me/settings/privacy} takes it). */
+    private static Map<String, Object> privacy(boolean discoverable, String profileVisibility) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("discoverable", discoverable);
+        body.put("showOnlineStatus", false);
+        body.put("showLastActive", true);
+        body.put("profileVisibility", profileVisibility);
+        body.put("messagingPermission", "MEMBERS_WITH_PROFILE");
+        body.put("wishlistVisible", false);
+        body.put("searchDiscoverable", true);
+        return body;
+    }
+
     /** The token uid of a seed account, by handle. */
     private static String seedUid(String handle) {
         return handle.equals("premium_user")
@@ -714,34 +750,101 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(slugs)
                 .contains("americas-north-yugioh", "americas-south-pokemon", "europe-riftbound")
                 .doesNotContain("americas-north", "general", "montreal-yugioh");
-        Set<String> seededRooms = new java.util.HashSet<>();
-        for (String reader : PLACES.keySet()) {
-            String caller = seedUid(reader);
-            for (String region : List.of("americas-north", "americas-south", "europe")) {
-                for (JsonNode room : fetch("/api/v1/community/channels?region=" + region, caller)) {
-                    assertThat(room.path("lastPost").has("place")).isFalse();
-                    String slug = room.path("slug").asString();
-                    JsonNode posts = fetch("/api/v1/community/channels/" + slug + "/posts", caller);
-                    for (JsonNode post : posts.path("items")) {
-                        seededRooms.add(slug);
-                        String author = post.path("author").path("handle").asString();
-                        JsonNode place = post.path("place");
-                        if (NOT_DISCOVERABLE.contains(author)) {
-                            assertThat(place.isNull()).as("place of %s", author).isTrue();
-                        } else if (PLACES.containsKey(author)) {
-                            assertThat(place.path("label").asString())
-                                    .as("place of %s for %s", author, reader)
-                                    .isEqualTo(PLACES.get(author));
+
+        // Every seeded post is by a discoverable collector: a collector who is not discoverable
+        // (collector7) and a discoverable one with a PRIVATE profile post first, so the rule runs
+        // for both (stage R11 review fix 1, P4). Both posts are deleted at the end.
+        UUID seventh = idOf("collector7");
+        boolean seventhConfirmed = ageConfirmed(seventh);
+        testUsers.confirmAge(seventh);
+        String secret = uniqueUid("geo-private");
+        provisionCompliant(secret);
+        setLocation(secret, "CA", "CA-BC", "Zqgeoprivatecity");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                secret,
+                privacy(true, "PRIVATE"),
+                200);
+        String secretHandle = me(secret).path("handle").asString();
+        Map<String, String> unplaced = new LinkedHashMap<>();
+        Map<String, Integer> unplacedReads = new LinkedHashMap<>();
+        try {
+            unplaced.put(
+                    roomPost(seedUid("collector7"), "Trading Yu-Gi-Oh! singles by mail"),
+                    seedUid("collector7"));
+            unplaced.put(roomPost(secret, "Yu-Gi-Oh! singles by mail, ask me"), secret);
+            Set<String> seededRooms = new java.util.HashSet<>();
+            for (String reader : PLACES.keySet()) {
+                String caller = seedUid(reader);
+                for (String region : List.of("americas-north", "americas-south", "europe")) {
+                    for (JsonNode room :
+                            fetch("/api/v1/community/channels?region=" + region, caller)) {
+                        assertThat(room.path("lastPost").has("place")).isFalse();
+                        String slug = room.path("slug").asString();
+                        JsonNode posts =
+                                fetch("/api/v1/community/channels/" + slug + "/posts", caller);
+                        for (JsonNode post : posts.path("items")) {
+                            seededRooms.add(slug);
+                            String author = post.path("author").path("handle").asString();
+                            JsonNode place = post.path("place");
+                            if (NOT_DISCOVERABLE.contains(author) || author.equals(secretHandle)) {
+                                assertThat(place.isNull())
+                                        .as("place of %s for %s", author, reader)
+                                        .isTrue();
+                                unplacedReads.merge(author, 1, Integer::sum);
+                            } else if (PLACES.containsKey(author)) {
+                                assertThat(place.path("label").asString())
+                                        .as("place of %s for %s", author, reader)
+                                        .isEqualTo(PLACES.get(author));
+                            }
+                            assertThat(post.path("author").has("city")).isFalse();
+                            assertThat(place.has("city")).isFalse();
                         }
-                        assertThat(post.path("author").has("city")).isFalse();
-                        assertThat(place.has("city")).isFalse();
                     }
                 }
             }
+            assertThat(seededRooms)
+                    .as("rooms with seeded posts")
+                    .contains("americas-north-yugioh", "europe-yugioh", "americas-south-pokemon");
+            // Both posts were read (collector7's by collector7 too), and the PRIVATE profile reads
+            // its own post without a place, as the others do (the author reads what others read).
+            assertThat(unplacedReads).containsKeys("collector7");
+            assertThat(unplacedReads.get("collector7")).isGreaterThan(1);
+            JsonNode own =
+                    fetch("/api/v1/community/channels/americas-north-yugioh/posts", secret)
+                            .path("items");
+            boolean ownSeen = false;
+            for (JsonNode post : own) {
+                if (post.path("author").path("handle").asString().equals(secretHandle)) {
+                    assertThat(post.path("place").isNull()).as("own place").isTrue();
+                    ownSeen = true;
+                }
+            }
+            assertThat(ownSeen).as("the PRIVATE profile's own post").isTrue();
+            assertThat(unplacedReads.get(secretHandle)).isGreaterThan(1);
+            for (Fetched document : fetched) {
+                assertThat(document.body().toString())
+                        .as("the PRIVATE profile's place in %s", document.path())
+                        .doesNotContain("British Columbia")
+                        .doesNotContain("Zqgeoprivatecity");
+            }
+        } finally {
+            for (Map.Entry<String, String> post : unplaced.entrySet()) {
+                callJson(
+                        HttpMethod.DELETE,
+                        "/api/v1/community/posts/" + post.getKey(),
+                        post.getValue(),
+                        null,
+                        204);
+            }
+            if (!seventhConfirmed) {
+                testUsers.update(
+                        "DELETE FROM user_consent WHERE user_id = ? AND document_type ="
+                                + " 'AGE_CONFIRMATION'",
+                        seventh);
+            }
         }
-        assertThat(seededRooms)
-                .as("rooms with seeded posts")
-                .contains("americas-north-yugioh", "europe-yugioh", "americas-south-pokemon");
         JsonNode seededPosts =
                 fetch("/api/v1/community/channels/americas-north-yugioh/posts", collector2);
         for (JsonNode post : seededPosts.path("items")) {

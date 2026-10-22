@@ -3,6 +3,8 @@ package com.orenjitrade.api.messaging.api;
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.common.ApiException;
 import com.orenjitrade.api.common.ErrorCode;
+import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
+import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.domain.ItemImageProcessor;
 import com.orenjitrade.api.messaging.domain.ImageUploadService;
 import com.orenjitrade.api.messaging.domain.ImageUploadView;
@@ -33,9 +35,11 @@ public class UploadController {
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
 
     private final ImageUploadService uploadService;
+    private final FeatureFlags featureFlags;
 
-    public UploadController(ImageUploadService uploadService) {
+    public UploadController(ImageUploadService uploadService, FeatureFlags featureFlags) {
         this.uploadService = uploadService;
+        this.featureFlags = featureFlags;
     }
 
     @PostMapping(
@@ -56,7 +60,8 @@ public class UploadController {
                         + " (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY"
                         + " upload in a post's `photoUploadIds`; unattached uploads are deleted."
                         + " 413 above the kind's limit, 415 for other types, 400 for unreadable"
-                        + " images. Rate-limited (30 per hour).")
+                        + " images, 404 FEATURE_DISABLED for COMMUNITY while the community"
+                        + " (publicChat) is off. Rate-limited (30 per hour).")
     @ApiResponse(responseCode = "201", description = "The stored upload")
     @ApiResponse(
             responseCode = "413",
@@ -78,6 +83,10 @@ public class UploadController {
             @Parameter(description = "MESSAGE (default), COMMUNITY or INVENTORY (refused)")
                     @RequestParam(name = "kind", defaultValue = "MESSAGE")
                     UploadKind kind) {
+        // The community's kill switch covers its photos (stage R11 review fix 1).
+        if (kind == UploadKind.COMMUNITY) {
+            featureFlags.require(FeatureFlagKeys.PUBLIC_CHAT, principal.userId());
+        }
         if (file.getSize() > Math.min(kind.maxBytes(), ItemImageProcessor.MAX_BYTES)) {
             throw new ApiException(
                     ErrorCode.PAYLOAD_TOO_LARGE, "The image must be at most " + kind.maxLabel());

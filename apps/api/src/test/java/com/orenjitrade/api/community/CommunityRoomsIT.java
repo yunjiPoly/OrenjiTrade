@@ -9,6 +9,7 @@ import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.common.storage.ObjectStorage;
 import com.orenjitrade.api.community.domain.CommunityService;
+import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
 import com.orenjitrade.api.moderation.domain.ModerationService;
 import java.awt.image.BufferedImage;
@@ -49,6 +50,7 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
     @Autowired private ModerationService moderationService;
     @Autowired private ObjectStorage storage;
     @Autowired private CommunityService communityService;
+    @Autowired private FeatureFlags featureFlags;
 
     private record Member(String uid, UUID id, String handle) {}
 
@@ -161,6 +163,39 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
                 204);
         assertThat(room(b, slug).path("lastPost").isNull()).isTrue();
         assertThat(room(moderator, slug).path("lastPost").path("id").asString()).isEqualTo(second);
+    }
+
+    @Test
+    void theRoomsPostCountLeavesOutWhatTheCallerCannotSee() {
+        // Review fix 1 (P5): the 24 h count of a room follows the rules of its posts: blocks both
+        // ways, suspended authors, removed posts.
+        String slug = "americas-south-mtg";
+        Member a = member("count-a");
+        Member b = member("count-b");
+        Member c = member("count-c");
+        int before = room(a, slug).path("postCount24h").asInt();
+        post(b, slug, "Magic singles by mail, ask me");
+        post(c, slug, "Magic wants, ships tracked");
+        String last = post(c, slug, "Magic trades by mail tonight").path("id").asString();
+        assertThat(room(a, slug).path("postCount24h").asInt()).isEqualTo(before + 3);
+
+        callJson(HttpMethod.POST, "/api/v1/users/" + c.id() + "/block", b.uid(), null, 200);
+        assertThat(room(b, slug).path("postCount24h").asInt()).isEqualTo(before + 1);
+        assertThat(room(c, slug).path("postCount24h").asInt()).isEqualTo(before + 2);
+        assertThat(room(a, slug).path("postCount24h").asInt()).isEqualTo(before + 3);
+
+        testUsers.setStatus(c.id(), AccountStatus.SUSPENDED, Instant.now().plusSeconds(3600));
+        assertThat(room(a, slug).path("postCount24h").asInt()).isEqualTo(before + 1);
+        testUsers.setStatus(c.id(), AccountStatus.ACTIVE, null);
+
+        Member moderator = member("count-mod", Role.MODERATOR);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/community/posts/" + last + "/remove",
+                moderator.uid(),
+                Map.of("reason", "Test removal"),
+                204);
+        assertThat(room(a, slug).path("postCount24h").asInt()).isEqualTo(before + 2);
     }
 
     // -----------------------------------------------------------------------------------------
@@ -301,6 +336,24 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void communityPhotosAreRefusedWhileTheCommunityIsOff() {
+        Member author = member("photo-flag-off");
+        testUsers.update("UPDATE feature_flag SET enabled = false WHERE key = 'publicChat'");
+        featureFlags.invalidate();
+        try {
+            JsonNode refused = upload(author.uid(), png(120, 90), "COMMUNITY", 404);
+            assertThat(refused.path("errorCode").asString()).isEqualTo("FEATURE_DISABLED");
+            assertThat(refused.path("feature").asString()).isEqualTo("publicChat");
+            // Photos of private messages do not depend on the community.
+            upload(author.uid(), png(120, 90), "MESSAGE", 201);
+        } finally {
+            testUsers.update("UPDATE feature_flag SET enabled = true WHERE key = 'publicChat'");
+            featureFlags.invalidate();
+        }
+        upload(author.uid(), png(120, 90), "COMMUNITY", 201);
+    }
+
+    @Test
     void removingAPostOrDeletingItsAuthorDeletesItsPhotos() {
         Member author = member("photo-purge");
         Member moderator = member("photo-mod", Role.MODERATOR);
@@ -358,11 +411,22 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
         Member shown = discoverable("place-shown");
         Member hidden = member("place-hidden");
         setLocation(hidden.uid(), "CA", "CA-ON", "Zqhiddencity");
+        // Discoverable, but with a PRIVATE profile: nobody reads the province, the author neither.
+        Member secret = discoverable("place-private");
+        setLocation(secret.uid(), "CA", "CA-BC", "Zqsecretcity");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                secret.uid(),
+                InventoryTestSupport.privacy(true, "PRIVATE"),
+                200);
         Member reader = member("place-reader");
         String shownPost =
                 post(shown, "europe-pokemon", "Pokémon trades by mail").path("id").asString();
         String hiddenPost =
                 post(hidden, "europe-pokemon", "Pokémon wants by mail").path("id").asString();
+        String secretPost =
+                post(secret, "europe-pokemon", "Pokémon singles by mail").path("id").asString();
 
         JsonNode withPlace = postIn(reader, "europe-pokemon", shownPost);
         assertThat(withPlace.path("place").path("subdivisionName").asString()).isEqualTo("Quebec");
@@ -377,6 +441,19 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
                 .doesNotContain("Zqhiddencity");
         // The author reads what others read.
         assertThat(postIn(hidden, "europe-pokemon", hiddenPost).path("place").isNull()).isTrue();
+        // A PRIVATE profile hides the province from every reader, its author included (review fix
+        // 1: the author saw "British Columbia" on their own post that nobody else sees), in the
+        // room and in the answer to a new post.
+        for (Member viewer : List.of(reader, shown, secret)) {
+            JsonNode read = postIn(viewer, "europe-pokemon", secretPost);
+            assertThat(read.path("place").isNull()).as("place for %s", viewer.handle()).isTrue();
+            assertThat(read.toString()).doesNotContain("British Columbia");
+        }
+        assertThat(
+                        post(secret, "europe-pokemon", "Pokémon wants, ships tracked")
+                                .path("place")
+                                .isNull())
+                .isTrue();
         assertThat(room(reader, "europe-pokemon").toString())
                 .doesNotContain("Quebec")
                 .doesNotContain("Zqroomcity");
@@ -442,21 +519,90 @@ class CommunityRoomsIT extends AbstractIntegrationTest {
         assertThat(plain.path("deckCore").asBoolean()).isFalse();
         assertThat(plain.has("askingPriceText")).isFalse();
         assertThat(plain.path("imageUrl").asString()).startsWith("http");
+        assertThat(
+                        postIn(reader, "americas-north-yugioh", plainPost)
+                                .path("payload")
+                                .has("binderUnavailable"))
+                .isFalse();
 
-        // A deck core that buyers can no longer find is a plain link (no badge, price or picture).
+        // Someone else shares the deck core. A block between the reader and its owner, in either
+        // direction, hides all of it from the reader: no badge, price or picture, and not even the
+        // name and the owner's handle stored with the post (review fix 1); the owner still reads
+        // it.
+        Member sharer = member("core-sharer");
+        String sharedPost =
+                post(
+                                sharer,
+                                "americas-north-yugioh",
+                                Map.of("body", "Look at this Moth core", "binderId", coreId),
+                                201)
+                        .path("id")
+                        .asString();
+        assertUnavailable(reader, sharedPost, owner, false);
+        callJson(
+                HttpMethod.POST, "/api/v1/users/" + owner.id() + "/block", reader.uid(), null, 200);
+        assertUnavailable(reader, sharedPost, owner, true);
+        assertThat(
+                        postIn(owner, "americas-north-yugioh", sharedPost)
+                                .path("payload")
+                                .path("binder")
+                                .path("deckCore")
+                                .asBoolean())
+                .isTrue();
+        callJson(
+                HttpMethod.DELETE,
+                "/api/v1/users/" + owner.id() + "/block",
+                reader.uid(),
+                null,
+                204);
+        callJson(
+                HttpMethod.POST, "/api/v1/users/" + reader.id() + "/block", owner.uid(), null, 200);
+        assertUnavailable(reader, sharedPost, owner, true);
+        callJson(
+                HttpMethod.DELETE,
+                "/api/v1/users/" + reader.id() + "/block",
+                owner.uid(),
+                null,
+                204);
+        assertUnavailable(reader, sharedPost, owner, false);
+
+        // A suspended owner: the same.
+        testUsers.setStatus(owner.id(), AccountStatus.SUSPENDED, Instant.now().plusSeconds(3600));
+        assertUnavailable(reader, sharedPost, owner, true);
+        testUsers.setStatus(owner.id(), AccountStatus.ACTIVE, null);
+        assertUnavailable(reader, sharedPost, owner, false);
+
+        // A deck core that buyers can no longer find is no longer available, to its owner too.
         callJson(
                 HttpMethod.PATCH,
                 "/api/v1/binders/" + coreId,
                 owner.uid(),
                 Map.of("visibility", "PRIVATE"),
                 200);
-        JsonNode hidden =
-                postIn(reader, "americas-north-yugioh", corePost).path("payload").path("binder");
-        assertThat(hidden.path("deckCore").asBoolean()).isFalse();
-        assertThat(hidden.has("askingPriceText")).isFalse();
-        assertThat(hidden.has("imageUrl")).isFalse();
-        // A message's binder link keeps its three fields.
-        assertThat(hidden.path("name").asString()).isEqualTo("Moth core");
+        assertUnavailable(reader, corePost, owner, true);
+        assertUnavailable(owner, corePost, owner, true);
+    }
+
+    /**
+     * Whether {@code viewer} reads the binder of {@code postId} as no longer available: no {@code
+     * binder} (so no name, owner's handle, badge, price or picture) and {@code binderUnavailable};
+     * otherwise the deck core with its badge.
+     */
+    private void assertUnavailable(
+            Member viewer, String postId, Member owner, boolean unavailable) {
+        JsonNode payload = postIn(viewer, "americas-north-yugioh", postId).path("payload");
+        if (unavailable) {
+            assertThat(payload.has("binder")).as("binder for %s", viewer.handle()).isFalse();
+            assertThat(payload.path("binderUnavailable").asBoolean()).isTrue();
+            assertThat(payload.toString())
+                    .doesNotContain("Moth core")
+                    .doesNotContain(owner.handle())
+                    .doesNotContain("$95");
+        } else {
+            assertThat(payload.path("binder").path("deckCore").asBoolean()).isTrue();
+            assertThat(payload.path("binder").path("name").asString()).isEqualTo("Moth core");
+            assertThat(payload.has("binderUnavailable")).isFalse();
+        }
     }
 
     @Test
