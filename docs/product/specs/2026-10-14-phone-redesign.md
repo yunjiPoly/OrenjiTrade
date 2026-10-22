@@ -684,3 +684,32 @@ Built as stage R9 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R9: Notifications
 (2026-10-21)"; API contract [`docs/api/contracts/r9-notifications.md`](../../api/contracts/r9-notifications.md)).
 A rating's comment and the reported collector's handle stay out of the rows (Phase 7 rules), unlike
 the mockup's example rows.
+
+## Changed by the owner on 2026-10-19: Card data for Magic and Pokémon
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R10, saved word for word) gives two more games real cards. The prompt above is kept as it
+was; for the catalogue these points replace what it said of the card data:
+
+1. **Magic** comes from Scryfall's daily bulk file "Unique Artwork": English paper cards, one image
+   per artwork, printings by set code and collector number. **Pokémon** comes from TCGdex's card
+   database (MIT licence), English only, one image per printing. The owner runs both imports (agents
+   never do): `npm run catalog:import -- --game mtg --provider scryfall --images all`,
+   `npm run catalog:import -- --game pokemon --provider tcgdex --images all`, then
+   `npm run card-images:status`.
+2. **Once a game has cards** it is no longer dimmed in "Choose a game" (screen 34): Search typing
+   finds its cards and Who has this card shows their pictures, always through
+   `/api/v1/public/card-images` (never hotlink provider images, for every provider).
+3. **Credits**: under a Magic card's pictures "Card data and images courtesy of Scryfall" with
+   Wizards of the Coast's Fan Content Policy notice; under a Pokémon card's "Card data courtesy of
+   TCGdex (MIT licence)" with the Pokémon copyright notice (both drafts for the lawyer review);
+   Settings › Appearance (screen 53) lists the card data of every game that has cards ("Yu-Gi-Oh!
+   card data from YGOPRODeck. Pokémon card data from TCGdex. Magic card data and images from
+   Scryfall. Not affiliated with or endorsed by the game publishers.").
+4. **One Piece and Riftbound** stay "Cards coming soon": One Piece waits for Bandai's written
+   permission, Riftbound for Riot's production key.
+
+Built as stage R10 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R10: Card data for Magic and
+Pokémon"; [ADR 0021](../architecture/adr/0021-five-games-and-their-card-sources.md); API contract
+[`docs/api/contracts/r10-card-sources.md`](../../api/contracts/r10-card-sources.md)). The prompt calls
+the record "ADR 0020"; that number was the camera card scan's, so it is ADR 0021.

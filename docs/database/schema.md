@@ -2316,6 +2316,15 @@ Indexes: `uq_card_image_provider (provider, provider_image_id) WHERE provider_im
 `uuid`, FK → `card_image.id` (`ON DELETE SET NULL`): the card's primary artwork. A printing shows its
 own image (`card_printing.image_id`), else its card's `image_id`, else the placeholder SVG.
 
+**Stage R10 (2026-10-21, no migration; [ADR 0021](../architecture/adr/0021-five-games-and-their-card-sources.md)):**
+Magic (`scryfall`, one artwork per `illustration_id`) and Pokémon (`tcgdex`, one artwork per
+printing) printings point `card_printing.image_id` at their own provider artwork, a card-level
+`card_image` row of the printing's card (`printing_id` NULL, `provider_image_id` the illustration
+id or the TCGdex card id); the importer writes it (only when it changes) and the printing lists show
+it. A card's primary artwork (`card.image_id`, position 0) is its earliest printing's, the printing
+the catalogue already shows a card with. `card_image.printing_id` stays reserved for the mock
+placeholders.
+
 #### `card_image_cache_usage`
 
 Single row (`id = 1`, `ck_card_image_cache_usage_single`): `used_bytes` (`bigint`, bytes of the

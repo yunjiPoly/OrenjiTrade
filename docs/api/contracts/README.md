@@ -28,6 +28,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | G | [One game at a time: One Piece, `hasCards`, binders of one game with their two 409s, `game=` on the discovery reads the phone calls (extends 2, 3, 4, R3, R5 and S2)](g-one-game.md) |
 | R7 | [Home's feed: `GET /feed` (new cards per collector and hour, public wishes, public deck cores of a region and game in the last 30 days, by cursor), V133 `binder.core_since` (extends 3, S2, R3 and G)](r7-home-feed.md) |
 | R9 | [Notifications and the bell: `excludeTypes` on the notification list and unread count, the rows' new `data` keys (extends 6, S2 and R4)](r9-notifications.md) |
+| R10 | [Card data for Magic and Pokémon: the providers `scryfall` (mtg) and `tcgdex` (pokemon) for the existing imports, `hasCards` after a first import, printings on their own artwork; no endpoint, field or migration (extends 2 and G)](r10-card-sources.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
