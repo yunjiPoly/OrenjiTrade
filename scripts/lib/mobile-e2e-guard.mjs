@@ -20,6 +20,8 @@ import {
   developerDirs,
   isInside,
   isLocalHost,
+  NO_CARD_PROVIDERS,
+  cardProviderProblems,
   isLocalUrl,
   newRunId,
   overlaps,
@@ -96,12 +98,11 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     STORAGE_PUBLIC_BASE_URL: '',
     CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
     PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
-    // Mock catalog only (ADR 0015): no YGOPRODeck provider, no image downloads; the provider URLs
-    // point at a closed local port so even an unexpected call never leaves the machine.
+    // Mock catalog only (ADR 0015, ADR 0021): no YGOPRODeck, Scryfall or TCGdex provider, no image
+    // downloads; the provider URLs point at a closed local port so even an unexpected call never
+    // leaves the machine.
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
     // The inventory import of a deck file (stage S5) matches passcodes of the provider
     // `ygoprodeck`, which the sample catalog does not have: the isolated database gets the three
     // fictional ones of ImportFixtureSeedContributor (910000001 to 910000003). The contributor
@@ -187,14 +188,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
     problems.push('CARD_IMAGE_ON_DEMAND_ENABLED must be false (no card image downloads during tests).');
   }
-  if (String(env.YGOPRODECK_ENABLED) !== 'false') {
-    problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
-  }
-  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
-    if (!isLocalUrl(env[name])) {
-      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
-    }
-  }
+  problems.push(...cardProviderProblems(env));
   return problems;
 }
 

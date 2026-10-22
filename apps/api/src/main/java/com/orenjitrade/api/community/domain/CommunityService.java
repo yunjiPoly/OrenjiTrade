@@ -6,6 +6,8 @@ import com.orenjitrade.api.auth.domain.AuthenticatedUser;
 import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.ratelimit.RateLimiter;
 import com.orenjitrade.api.binders.domain.BinderLink;
+import com.orenjitrade.api.binders.domain.BinderService;
+import com.orenjitrade.api.binders.domain.ChatDeckCore;
 import com.orenjitrade.api.binders.domain.PublicBinderService;
 import com.orenjitrade.api.cards.domain.CardLink;
 import com.orenjitrade.api.cards.domain.CatalogService;
@@ -21,6 +23,9 @@ import com.orenjitrade.api.community.domain.CommunityInputs.NewPost;
 import com.orenjitrade.api.community.events.CommunityPostCreated;
 import com.orenjitrade.api.community.infra.ChannelRepository;
 import com.orenjitrade.api.community.infra.ChannelRepository.ChannelRow;
+import com.orenjitrade.api.community.infra.ChannelRepository.LastPostRow;
+import com.orenjitrade.api.community.infra.PostPhotoRepository;
+import com.orenjitrade.api.community.infra.PostPhotoRepository.PhotoRow;
 import com.orenjitrade.api.community.infra.PostRepository;
 import com.orenjitrade.api.community.infra.PostRepository.PostRow;
 import com.orenjitrade.api.community.infra.ReplyRepository;
@@ -28,8 +33,14 @@ import com.orenjitrade.api.community.infra.ReplyRepository.ReplyRow;
 import com.orenjitrade.api.featureflags.domain.FeatureFlagKeys;
 import com.orenjitrade.api.featureflags.domain.FeatureFlags;
 import com.orenjitrade.api.games.domain.GameService;
+import com.orenjitrade.api.location.api.PlaceResponse;
+import com.orenjitrade.api.location.domain.LocationService;
+import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.location.domain.RegionCatalog;
+import com.orenjitrade.api.messaging.domain.AttachableUpload;
 import com.orenjitrade.api.messaging.domain.BlockService;
+import com.orenjitrade.api.messaging.domain.ImageUploadService;
+import com.orenjitrade.api.messaging.domain.UploadKind;
 import com.orenjitrade.api.moderation.domain.ContentModerationState;
 import com.orenjitrade.api.moderation.domain.FlagSubjectType;
 import com.orenjitrade.api.moderation.domain.ModerationDecision;
@@ -37,11 +48,14 @@ import com.orenjitrade.api.moderation.domain.ModerationScope;
 import com.orenjitrade.api.moderation.domain.ModerationService;
 import com.orenjitrade.api.profiles.domain.MemberCard;
 import com.orenjitrade.api.profiles.domain.MemberDirectory;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
+import com.orenjitrade.api.profiles.domain.ViewerContext;
 import com.orenjitrade.api.users.domain.ConsentService;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -58,6 +72,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -84,6 +100,9 @@ public class CommunityService {
     public static final int DEFAULT_POST_RATE_PER_HOUR = 10;
     public static final Duration DUPLICATE_WINDOW = Duration.ofHours(24);
 
+    /** Photos per post (stage R11, owner 2026-10-08: up to 4, 3 MB each). */
+    public static final int PHOTOS_MAX = 4;
+
     public static final String TARGET_POST = "COMMUNITY_POST";
     public static final String TARGET_REPLY = "COMMUNITY_REPLY";
     public static final String TARGET_CHANNEL = "COMMUNITY_CHANNEL";
@@ -100,10 +119,18 @@ public class CommunityService {
     static final String RATE_KEY_PREFIX = "community:post:";
     static final Pattern SLUG = Pattern.compile("^[a-z0-9]+(-[a-z0-9]+)*$");
 
+    /**
+     * Who reads a post's place: a signed-in member who is not its author. Every reader of a room is
+     * a member, and the author reads what the others read (stage R11 review fix 1: a discoverable
+     * author with a PRIVATE profile saw their own province that nobody else sees).
+     */
+    static final ViewerContext ROOM_READER = new ViewerContext(new UUID(0L, 0L), false, false);
+
     private static final Logger log = LoggerFactory.getLogger(CommunityService.class);
 
     private final ChannelRepository channels;
     private final PostRepository posts;
+    private final PostPhotoRepository photos;
     private final ReplyRepository replies;
     private final FeatureFlags featureFlags;
     private final ConsentService consents;
@@ -113,6 +140,10 @@ public class CommunityService {
     private final RateLimiter rateLimiter;
     private final CatalogService catalog;
     private final PublicBinderService publicBinders;
+    private final BinderService binders;
+    private final ImageUploadService uploads;
+    private final LocationService locations;
+    private final PrivacyPolicyService privacyPolicy;
     private final GameService games;
     private final RegionCatalog regions;
     private final AuditService auditService;
@@ -123,6 +154,7 @@ public class CommunityService {
     public CommunityService(
             ChannelRepository channels,
             PostRepository posts,
+            PostPhotoRepository photos,
             ReplyRepository replies,
             FeatureFlags featureFlags,
             ConsentService consents,
@@ -132,6 +164,10 @@ public class CommunityService {
             RateLimiter rateLimiter,
             CatalogService catalog,
             PublicBinderService publicBinders,
+            BinderService binders,
+            ImageUploadService uploads,
+            LocationService locations,
+            PrivacyPolicyService privacyPolicy,
             GameService games,
             RegionCatalog regions,
             AuditService auditService,
@@ -140,6 +176,7 @@ public class CommunityService {
             JsonMapper jsonMapper) {
         this.channels = channels;
         this.posts = posts;
+        this.photos = photos;
         this.replies = replies;
         this.featureFlags = featureFlags;
         this.consents = consents;
@@ -149,6 +186,10 @@ public class CommunityService {
         this.rateLimiter = rateLimiter;
         this.catalog = catalog;
         this.publicBinders = publicBinders;
+        this.binders = binders;
+        this.uploads = uploads;
+        this.locations = locations;
+        this.privacyPolicy = privacyPolicy;
         this.games = games;
         this.regions = regions;
         this.auditService = auditService;
@@ -163,17 +204,40 @@ public class CommunityService {
 
     /**
      * {@code GET /community/channels}: active channels, optionally by game and by platform region
-     * code (the region channels, ADR 0017).
+     * code (the region channels, ADR 0017), each with the newest post the viewer may see (stage
+     * R11: blocks both ways, suspended and deleted accounts, deleted and removed posts left out);
+     * the 24 h post count follows the same rule (review fix 1).
      */
     @Transactional(readOnly = true)
     public List<ChannelView> channels(
             AuthenticatedUser viewer, @Nullable String game, @Nullable String region) {
         requireFeature(viewer);
-        return channels
-                .list(true, blankToNull(game), blankToNull(region), timeProvider.now())
-                .stream()
-                .map(CommunityService::channelView)
-                .toList();
+        Instant now = timeProvider.now();
+        Set<UUID> hidden = blocks.hiddenFrom(viewer.userId());
+        List<ChannelRow> rows =
+                channels.listForMember(blankToNull(game), blankToNull(region), hidden, now);
+        Map<UUID, LastPostRow> last =
+                channels.lastPosts(rows.stream().map(ChannelRow::id).toList(), hidden, now);
+        Map<UUID, MemberCard> authors =
+                members.cards(
+                        last.values().stream().map(LastPostRow::authorId).distinct().toList());
+        List<ChannelView> result = new ArrayList<>();
+        for (ChannelRow row : rows) {
+            @Nullable LastPostRow post = last.get(row.id());
+            @Nullable MemberCard author = post == null ? null : authors.get(post.authorId());
+            result.add(
+                    channelView(
+                            row,
+                            post == null || author == null
+                                    ? null
+                                    : new ChannelLastPost(
+                                            post.postId(),
+                                            author.handle(),
+                                            ChannelLastPost.preview(post.body()),
+                                            post.createdAt(),
+                                            post.authorId().equals(viewer.userId()))));
+        }
+        return result;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -239,8 +303,9 @@ public class CommunityService {
             node.put("name", binder.name());
             node.put("ownerHandle", binder.ownerHandle());
         }
-        String hash = ModerationService.digest(body);
         UUID me = author.userId();
+        List<AttachableUpload> attached = lockPhotos(me, input.photoUploadIds());
+        String hash = ModerationService.digest(body);
         if (posts.duplicateExists(me, hash, now.minus(DUPLICATE_WINDOW))) {
             throw new ApiException(
                     ErrorCode.DUPLICATE_POST, "You already posted this text in the last 24 hours");
@@ -270,6 +335,19 @@ public class CommunityService {
                 jsonMapper.writeValueAsString(payload),
                 state(decision).name(),
                 now);
+        for (int position = 0; position < attached.size(); position++) {
+            AttachableUpload upload = attached.get(position);
+            photos.insert(
+                    UUID.randomUUID(),
+                    id,
+                    upload.storageKey(),
+                    upload.width(),
+                    upload.height(),
+                    upload.bytes(),
+                    position,
+                    now);
+            uploads.markConsumed(upload.id());
+        }
         if (decision.flagged()) {
             moderation.recordFlags(decision, FlagSubjectType.COMMUNITY_POST, id, me);
         }
@@ -315,6 +393,7 @@ public class CommunityService {
             throw ApiException.forbidden("Only the author or a moderator can delete a post");
         }
         posts.softDelete(postId, actor.userId(), now);
+        deletePhotosAfterCommit(photos.deleteOfPost(postId));
         if (!own) {
             auditService.record(
                     ActorType.ADMIN,
@@ -556,6 +635,7 @@ public class CommunityService {
             throw ApiException.conflict("This post is already removed");
         }
         posts.remove(postId, moderator.userId(), reason, timeProvider.now());
+        deletePhotosAfterCommit(photos.deleteOfPost(postId));
         int resolved =
                 moderation.resolveSubject(
                         FlagSubjectType.COMMUNITY_POST, postId, moderator.userId(), "Post removed");
@@ -660,13 +740,24 @@ public class CommunityService {
     @Transactional(readOnly = true)
     public @Nullable Map<String, Object> export(UUID userId) {
         List<Map<String, Object>> postRows = new ArrayList<>();
-        for (PostRow row : posts.byAuthor(userId)) {
+        List<PostRow> own = posts.byAuthor(userId);
+        Map<UUID, List<PhotoRow>> ownPhotos =
+                photos.byPosts(own.stream().map(PostRow::id).toList());
+        for (PostRow row : own) {
             Map<String, Object> post = new LinkedHashMap<>();
             post.put("id", row.id());
             post.put("channel", row.channelSlug());
             post.put("body", row.body());
             post.put("createdAt", row.createdAt());
             post.put("moderationState", row.moderationState());
+            List<PhotoRow> attachedPhotos = ownPhotos.getOrDefault(row.id(), List.of());
+            if (!attachedPhotos.isEmpty()) {
+                post.put(
+                        "photos",
+                        attachedPhotos.stream()
+                                .map(photo -> uploads.urlOf(photo.storageKey()))
+                                .toList());
+            }
             postRows.add(post);
         }
         List<Map<String, Object>> replyRows = new ArrayList<>();
@@ -691,14 +782,17 @@ public class CommunityService {
     @Transactional
     public void purge(UUID userId) {
         Instant now = timeProvider.now();
+        List<String> photoKeys = photos.deleteByAuthor(userId);
         int postCount = posts.eraseByAuthor(userId, now);
         int replyCount = replies.eraseByAuthor(userId, now);
         replies.recount(userId);
+        deletePhotosAfterCommit(photoKeys);
         log.info(
-                "Community data purged for {}: {} post(s), {} reply(ies)",
+                "Community data purged for {}: {} post(s), {} reply(ies), {} photo(s)",
                 userId,
                 postCount,
-                replyCount);
+                replyCount,
+                photoKeys.size());
     }
 
     // ---------------------------------------------------------------------------------------
@@ -726,9 +820,11 @@ public class CommunityService {
     }
 
     private List<PostView> postViews(List<PostRow> rows, AuthenticatedUser viewer) {
-        Map<UUID, MemberCard> authors =
-                members.cards(rows.stream().map(PostRow::authorId).distinct().toList());
+        List<UUID> authorIds = rows.stream().map(PostRow::authorId).distinct().toList();
+        Map<UUID, MemberCard> authors = members.cards(authorIds);
+        Map<UUID, PublicPlace> places = locations.publicPlacesOf(authorIds);
         Set<UUID> printingIds = new LinkedHashSet<>();
+        Set<UUID> binderIds = new LinkedHashSet<>();
         List<JsonNode> payloads = new ArrayList<>();
         for (PostRow row : rows) {
             JsonNode payload = jsonMapper.readTree(row.payloadJson());
@@ -737,8 +833,16 @@ public class CommunityService {
             if (printingId != null) {
                 printingIds.add(printingId);
             }
+            @Nullable UUID binderId = uuid(payload.path("binder").path("binderId"));
+            if (binderId != null) {
+                binderIds.add(binderId);
+            }
         }
         Map<UUID, String> images = catalog.frontImageUrls(printingIds);
+        Map<UUID, ChatDeckCore> sharedBinders = binders.chatDeckCores(binderIds);
+        Set<UUID> hidden = binderIds.isEmpty() ? Set.of() : blocks.hiddenFrom(viewer.userId());
+        Map<UUID, List<PhotoRow>> photoRows =
+                photos.byPosts(rows.stream().map(PostRow::id).toList());
         boolean moderator = isModerator(viewer);
         List<PostView> result = new ArrayList<>();
         for (int index = 0; index < rows.size(); index++) {
@@ -748,6 +852,16 @@ public class CommunityService {
                 continue;
             }
             boolean own = row.authorId().equals(viewer.userId());
+            @Nullable PublicPlace place = places.get(row.authorId());
+            List<PostPhoto> postPhotos =
+                    photoRows.getOrDefault(row.id(), List.of()).stream()
+                            .map(
+                                    photo ->
+                                            new PostPhoto(
+                                                    uploads.urlOf(photo.storageKey()),
+                                                    photo.width(),
+                                                    photo.height()))
+                            .toList();
             result.add(
                     new PostView(
                             row.id(),
@@ -758,14 +872,19 @@ public class CommunityService {
                                     author.displayName(),
                                     author.avatarUrl()),
                             row.body(),
-                            payload(payloads.get(index), images),
+                            payload(payloads.get(index), images, sharedBinders, hidden, postPhotos),
                             row.createdAt(),
                             row.editedAt(),
                             row.replyCount(),
                             row.lastReplyAt(),
                             own,
                             own || moderator,
-                            ContentModerationState.valueOf(row.moderationState())));
+                            ContentModerationState.valueOf(row.moderationState()),
+                            place != null
+                                            && privacyPolicy.canSeeLocation(
+                                                    ROOM_READER, row.authorId(), author.privacy())
+                                    ? PlaceResponse.from(place)
+                                    : null));
         }
         return result;
     }
@@ -798,7 +917,19 @@ public class CommunityService {
         return result;
     }
 
-    private static PostPayload payload(JsonNode payload, Map<UUID, String> images) {
+    /**
+     * A stored payload as members read it: the card with its current picture, the binder while the
+     * reader can open it (public, unsold, its owner listed and not blocked with the reader in
+     * either direction) with its deck core details, and the photos. A binder the reader can no
+     * longer open is left out, its stored name and owner's handle included, and {@code
+     * binderUnavailable} says so (stage R11 review fix 1).
+     */
+    static PostPayload payload(
+            JsonNode payload,
+            Map<UUID, String> images,
+            Map<UUID, ChatDeckCore> sharedBinders,
+            Set<UUID> hiddenOwners,
+            List<PostPhoto> photos) {
         @Nullable CardLink card = null;
         JsonNode cardNode = payload.path("card");
         @Nullable UUID printingId = uuid(cardNode.path("printingId"));
@@ -815,16 +946,77 @@ public class CommunityService {
                             images.get(printingId));
         }
         @Nullable BinderLink binder = null;
+        boolean binderUnavailable = false;
         JsonNode binderNode = payload.path("binder");
         @Nullable UUID binderId = uuid(binderNode.path("binderId"));
         if (binderId != null) {
-            binder =
-                    new BinderLink(
-                            binderId,
-                            binderNode.path("name").asString(""),
-                            binderNode.path("ownerHandle").asString(""));
+            @Nullable ChatDeckCore shared = sharedBinders.get(binderId);
+            if (shared != null
+                    && shared.effectivePublic()
+                    && shared.soldAt() == null
+                    && !hiddenOwners.contains(shared.ownerId())) {
+                boolean deckCore = shared.sellsAsCore();
+                binder =
+                        new BinderLink(
+                                binderId,
+                                binderNode.path("name").asString(""),
+                                binderNode.path("ownerHandle").asString(""),
+                                deckCore,
+                                deckCore ? shared.askingPriceText() : null,
+                                shared.imageUrl());
+            } else {
+                binderUnavailable = true;
+            }
         }
-        return card == null && binder == null ? PostPayload.EMPTY : new PostPayload(card, binder);
+        return card == null && binder == null && !binderUnavailable && photos.isEmpty()
+                ? PostPayload.EMPTY
+                : new PostPayload(card, binder, photos, binderUnavailable ? Boolean.TRUE : null);
+    }
+
+    /**
+     * Locks the COMMUNITY uploads of a new post, in order: at most {@link #PHOTOS_MAX}, each once,
+     * each the author's and from the last hour (400 otherwise). The locks hold until the post is
+     * stored; a refused post leaves them unattached, so the same photos can be sent again.
+     */
+    private List<AttachableUpload> lockPhotos(UUID authorId, List<UUID> uploadIds) {
+        if (uploadIds.isEmpty()) {
+            return List.of();
+        }
+        if (uploadIds.size() > PHOTOS_MAX) {
+            throw invalid("photoUploadIds", "At most " + PHOTOS_MAX + " photos per post");
+        }
+        if (new HashSet<>(uploadIds).size() != uploadIds.size()) {
+            throw invalid("photoUploadIds", "Each photo can be attached once");
+        }
+        List<AttachableUpload> locked = new ArrayList<>();
+        for (UUID uploadId : uploadIds) {
+            locked.add(
+                    uploads.lockAttachable(authorId, uploadId, UploadKind.COMMUNITY)
+                            .orElseThrow(
+                                    () ->
+                                            invalid(
+                                                    "photoUploadIds",
+                                                    "Unknown, used or expired photo upload")));
+        }
+        return locked;
+    }
+
+    /** Deletes the files of deleted photos once the transaction that deleted their rows commits. */
+    private void deletePhotosAfterCommit(List<String> storageKeys) {
+        if (storageKeys.isEmpty()) {
+            return;
+        }
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            uploads.deleteObjects(storageKeys);
+                        }
+                    });
+        } else {
+            uploads.deleteObjects(storageKeys);
+        }
     }
 
     private @Nullable String validateGame(@Nullable String game, List<ProblemFieldError> errors) {
@@ -875,7 +1067,7 @@ public class CommunityService {
         return user.hasAnyRole(Role.MODERATOR, Role.ADMIN, Role.SUPER_ADMIN);
     }
 
-    private static ChannelView channelView(ChannelRow row) {
+    private static ChannelView channelView(ChannelRow row, @Nullable ChannelLastPost lastPost) {
         return new ChannelView(
                 row.id(),
                 row.slug(),
@@ -884,7 +1076,8 @@ public class CommunityService {
                 row.gameSlug(),
                 row.regionLabel(),
                 row.description(),
-                row.postCount24h());
+                row.postCount24h(),
+                lastPost);
     }
 
     private static AdminChannelView adminView(ChannelRow row) {

@@ -445,6 +445,36 @@ npm run catalog:import -- --game yugioh --provider ygoprodeck --images reference
   `CARD_IMAGE_STORAGE_PROVIDER`, `CARD_IMAGE_GCS_BUCKET` and `CARD_IMAGE_OBJECT_PREFIX` are
   cloud-only settings that stay empty locally.
 
+### Magic and Pokémon (stage R10, ADR 0021)
+
+Magic comes from Scryfall's daily bulk file "Unique Artwork" ([provider notes](../providers/scryfall.md))
+and Pokémon from TCGdex's card database on GitHub ([provider notes](../providers/tcgdex.md)), English
+cards only, imported the same way (the owner's step; agents never run a real import):
+
+```bash
+npm run catalog:import -- --game mtg --provider scryfall --images all       # about 1.9 GB of pictures
+npm run catalog:import -- --game pokemon --provider tcgdex --images all     # about 0.85 GB of pictures
+npm run card-images:status
+```
+
+- The first Magic run asks `GET /bulk-data` once, downloads the bulk file once and keeps it under
+  `apps/api/.local-dev/provider-data/scryfall/<updated_at>/`; for 24 hours later runs reuse it
+  without any call (Scryfall refreshes its files at most daily). The first Pokémon run asks GitHub
+  for the newest commit once and downloads the repository archive once
+  (`provider-data/tcgdex/<sha>/`, with the repository's MIT `LICENSE` beside it), reused the same
+  way. `SCRYFALL_SNAPSHOT_ONLY=true` / `TCGDEX_SNAPSHOT_ONLY=true` import the stored copy offline.
+- One picture per Magic artwork and one per Pokémon printing, 320 px, in the same 5 GB cache (the
+  five games together are expected at about 3.5 to 4.2 GB). Every picture is served by
+  `/api/v1/public/card-images/{id}`; no Scryfall or TCGdex URL reaches the phone or the browser.
+- After the first import `GET /api/v1/games` answers `hasCards: true` for the game, and the phone no
+  longer dims it in "Choose a game". In a local database the fictional Magic and Pokémon cards of the
+  seed stay beside the real ones (as the fictional Yu-Gi-Oh! cards do); a real set whose code is one
+  of the fictional codes (`TDX`, `EVD`, `KRH`, `SKF`, `SVX`, `PFT`, `TWL`, `EMB`) is reported in
+  `warnings` and skipped.
+- The report's `warnings` count the rows left out on purpose (non-English, digital-only, art series,
+  tokens, emblems, oversized; Pokémon TCG Pocket; data files that could not be read): read them after
+  the first real import.
+
 The command polls the run and prints its report:
 
 | Field | Meaning |

@@ -4,18 +4,19 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useUnreadNotificationCount } from '@/src/api/hooks/notificationCentre';
-import { Text } from '@/src/components/ui/Text';
-import { badgeCount } from '@/src/features/messages/messageText';
-import { fontWeight, radius, spacing, useTheme } from '@/src/theme';
+import { spacing, useTheme } from '@/src/theme';
 
-/** Accessible name of the bell (web: "Notifications, N unread"). */
+import { NOTIFICATIONS_COPY } from './notificationCopy';
+
+/** Accessible name of the bell: "Notifications, {n} new", or "Notifications" (stage R9). */
 export function bellLabel(count: number): string {
-  return count > 0 ? `Notifications, ${count} unread` : 'Notifications';
+  return NOTIFICATIONS_COPY.bell(count);
 }
 
 /**
- * The notification bell in the tab headers (the web's top-bar bell): a live unread badge
- * ("99+"), opening the notification centre.
+ * The bell on the top bars of Home, Search, Inventory, Messages and Profile (stage R9; mockup v50
+ * screens 10 to 21): an orange dot while anything is unread (chats left out: Messages has its own
+ * badge), opening Notifications.
  */
 export function NotificationBell({
   testID = 'notification-bell',
@@ -33,6 +34,7 @@ export function NotificationBell({
     return null;
   }
   const count = unread.data?.count ?? 0;
+  const round = variant === 'round';
   return (
     <Pressable
       accessibilityRole="button"
@@ -41,28 +43,22 @@ export function NotificationBell({
       hitSlop={8}
       testID={testID}
       style={({ pressed }) => [
-        variant === 'round'
+        round
           ? [styles.round, { backgroundColor: palette.surface, borderColor: palette.border }]
           : styles.bell,
         pressed && styles.pressed,
       ]}
     >
-      <MaterialCommunityIcons
-        name={count > 0 ? 'bell-badge-outline' : 'bell-outline'}
-        size={variant === 'round' ? 20 : 24}
-        color={palette.ink}
-      />
+      <MaterialCommunityIcons name="bell-outline" size={round ? 20 : 24} color={palette.ink} />
       {count > 0 ? (
         <View
-          testID={`${testID}-badge`}
-          style={[styles.badge, { backgroundColor: palette.danger }]}
-        >
-          {/* Fits its 18 pt badge on the fixed-size bell, as the tab bar's badges do (the count is
-              in the bell's name for VoiceOver). */}
-          <Text maxFontSizeMultiplier={1} style={styles.badgeText}>
-            {badgeCount(count)}
-          </Text>
-        </View>
+          testID={`${testID}-dot`}
+          style={[
+            styles.dot,
+            round ? styles.dotRound : styles.dotHeader,
+            { backgroundColor: palette.notifications.dot, borderColor: palette.surface },
+          ]}
+        />
       ) : null}
     </Pressable>
   );
@@ -78,17 +74,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: 4,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: { color: '#FFFFFF', fontSize: 11, lineHeight: 14, fontWeight: fontWeight.bold },
+  // Mockup v50: a 9 pt orange dot in a 2 pt ring of the button's colour, top right.
+  dot: { position: 'absolute', width: 13, height: 13, borderRadius: 6.5, borderWidth: 2 },
+  dotRound: { top: 6, right: 7 },
+  dotHeader: { top: 0, right: 8 },
   pressed: { opacity: 0.7 },
 });

@@ -146,6 +146,21 @@ describe('Edit binder (screen 18)', () => {
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(screen.getByTestId('binder-resolving')).toBeOnTheScreen();
     expect(await screen.findByTestId('binder-name')).toHaveProp('value', 'Trade binder');
+    expect(screen.getByTestId('edit-binder-back').props.accessibilityLabel).toBe(
+      'Back to your binders'
+    );
+  });
+
+  it('says where Back leads when a reminder in Notifications opened it (stage R9)', async () => {
+    mockParams.current = { id: BINDER_ID, from: 'notifications' };
+    mockApi(editRoutes());
+    renderWithProviders(<BinderScreen />, { port: port() });
+    expect(await screen.findByTestId('binder-name')).toHaveProp('value', 'Trade binder');
+    expect(screen.getByTestId('edit-binder-back').props.accessibilityLabel).toBe(
+      'Back to Notifications'
+    );
+    fireEvent.press(screen.getByTestId('edit-binder-back'));
+    expect(mockRouter.back).toHaveBeenCalled();
   });
 
   it('turns on “Sell as a deck core”: photos, price, note, public, and key cards', async () => {
@@ -992,8 +1007,15 @@ describe('Public binder', () => {
     );
     renderWithProviders(<BinderScreen />, { port: port() });
     expect(await screen.findByText('This binder is not available')).toBeOnTheScreen();
+    // "Back to the map" opens Search's map: `/` is Home since stage R7 (R7 review U2/F4).
+    expect(screen.getByTestId('public-binder-not-found-action')).toHaveTextContent(
+      'Back to the map'
+    );
     fireEvent.press(screen.getByTestId('public-binder-not-found-action'));
-    expect(mockRouter.navigate).toHaveBeenCalledWith('/');
+    expect(mockRouter.navigate).toHaveBeenCalledWith({
+      pathname: '/search',
+      params: { segment: 'cards' },
+    });
   });
 
   it('explains the daily binder views limit', async () => {

@@ -48,7 +48,7 @@ test.describe('mobile: links to the screens that left the phone', () => {
       location: PLACES.quebec,
     });
     await signInThroughUi(page, ada.email, ada.password);
-    await expect(screen(page, 'search')).toBeVisible({ timeout: 30_000 });
+    await expect(screen(page, 'home')).toBeVisible({ timeout: 30_000 });
 
     for (const path of ['/premium?checkout=success', '/credits', '/checkout/fake-donation/x1']) {
       await follow(page, path);

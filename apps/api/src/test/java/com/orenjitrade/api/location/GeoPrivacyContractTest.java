@@ -598,6 +598,108 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /** Whether the account confirmed being 18 or older. */
+    private boolean ageConfirmed(UUID userId) {
+        return testUsers.count(
+                        "SELECT count(*) FROM user_consent WHERE user_id = ? AND"
+                                + " document_type = 'AGE_CONFIRMATION'",
+                        userId)
+                > 0;
+    }
+
+    /** Posts in americas-north-yugioh as {@code caller}; returns the post's id. */
+    private String roomPost(String caller, String body) {
+        JsonNode created =
+                callJson(
+                        HttpMethod.POST,
+                        "/api/v1/community/channels/americas-north-yugioh/posts",
+                        caller,
+                        Map.of("body", body),
+                        201);
+        fetched.add(new Fetched("POST americas-north-yugioh/posts", caller, created));
+        assertThat(created.path("place").isNull()).as("place in the answer to a post").isTrue();
+        return created.path("id").asString();
+    }
+
+    /** A privacy settings body (as {@code PUT /me/settings/privacy} takes it). */
+    private static Map<String, Object> privacy(boolean discoverable, String profileVisibility) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("discoverable", discoverable);
+        body.put("showOnlineStatus", false);
+        body.put("showLastActive", true);
+        body.put("profileVisibility", profileVisibility);
+        body.put("messagingPermission", "MEMBERS_WITH_PROFILE");
+        body.put("wishlistVisible", false);
+        body.put("searchDiscoverable", true);
+        return body;
+    }
+
+    /** The token uid of a seed account, by handle. */
+    private static String seedUid(String handle) {
+        return handle.equals("premium_user")
+                ? "seed-premium-user:premium@orenjitrade.test"
+                : "seed-" + handle + ":" + handle + "@orenjitrade.test";
+    }
+
+    /**
+     * Home's feed (stage R7, {@code GET /feed}) as every seed account reads it: every kind, every
+     * region, every game. Each post's collector carries a state or province and a country (their
+     * seeded place), never a city (not even their own, shown on their profile), a coordinate, a
+     * distance or a private note; never the reader's own post; never a collector who is not
+     * discoverable. The seed puts every kind in the Yu-Gi-Oh! feed of Americas (North).
+     */
+    @Test
+    void homeFeedCarriesPlacesOnly(CapturedOutput output) {
+        Set<String> kindsSeen = new java.util.HashSet<>();
+        for (String reader : PLACES.keySet()) {
+            String caller = seedUid(reader);
+            for (String region : List.of("americas-north", "americas-south", "europe")) {
+                for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                    checkFeed(
+                            fetch(
+                                    "/api/v1/feed?limit=50&region=" + region + "&game=" + game,
+                                    caller),
+                            reader,
+                            kindsSeen);
+                }
+            }
+            for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+                checkFeed(
+                        fetch("/api/v1/feed?limit=50&game=yugioh&kind=" + kind, caller),
+                        reader,
+                        kindsSeen);
+            }
+        }
+        assertThat(kindsSeen).containsExactlyInAnyOrder("NEW_CARDS", "WANTED", "DECK_CORE");
+        for (Fetched document : fetched) {
+            assertNoPrivateNotes(document.body(), document.path());
+            for (String handle : NOT_DISCOVERABLE) {
+                assertThat(document.body().toString())
+                        .as("%s in %s", handle, document.path())
+                        .doesNotContain("\"handle\":\"" + handle + "\"");
+            }
+        }
+        assertContract(output);
+    }
+
+    private static void checkFeed(JsonNode page, String reader, Set<String> kindsSeen) {
+        for (JsonNode post : page.path("items")) {
+            String handle = post.path("collector").path("handle").asString();
+            kindsSeen.add(post.path("kind").asString());
+            assertThat(handle).as("%s reads their own post", reader).isNotEqualTo(reader);
+            JsonNode place = post.path("place");
+            assertThat(place.path("subdivisionName").asString()).isNotBlank();
+            assertThat(place.path("countryName").asString()).isNotBlank();
+            if (PLACES.containsKey(handle)) {
+                assertThat(place.path("label").asString())
+                        .as("place of %s for %s", handle, reader)
+                        .isEqualTo(PLACES.get(handle));
+            }
+            assertThat(post.path("collector").has("city")).isFalse();
+            assertThat(place.has("city")).isFalse();
+        }
+    }
+
     /** Each collector of a search document carries the place of its seeded location. */
     private void assertPlaces(JsonNode collectors) {
         for (JsonNode collector : collectors) {
@@ -613,8 +715,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
     /**
      * Phase 5 responses that carry other members (conversations, messages with card and binder
-     * links, blocks, community channels, posts and replies); the seeded conversation and posts are
-     * served as seeded; the platform region channels exist and the old city channels are archived.
+     * links, blocks, community rooms, posts and replies); the seeded conversation and posts are
+     * served as seeded; the 15 rooms of stage R11 exist and the old channels are archived. Every
+     * seed account reads every room of every region: posts carry their author's place (state or
+     * province and country) only for discoverable authors, never a city; the room list's newest
+     * post carries no place.
      */
     @Test
     void messagingAndCommunityResponsesNeverCarryGeography(CapturedOutput output) {
@@ -636,20 +741,114 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(messages.path("items")).hasSize(6);
         fetch("/api/v1/conversations", collector2);
 
+        // Stage R11: one room per platform region and game; the old channels are archived. Every
+        // seed account reads every room: a post carries its author's state or province and
+        // country (discoverable authors only), never a city; the room list carries no place.
         JsonNode channels = fetch("/api/v1/community/channels", collector1);
         List<String> slugs = new ArrayList<>();
         channels.forEach(channel -> slugs.add(channel.path("slug").asString()));
         assertThat(slugs)
-                .contains("americas-north", "americas-south", "europe")
-                .doesNotContain("montreal-yugioh");
-        for (String slug : List.of("looking-for", "new-listings", "general")) {
-            JsonNode posts = fetch("/api/v1/community/channels/" + slug + "/posts", collector2);
-            assertThat(posts.path("items")).as("seeded posts in %s", slug).isNotEmpty();
-            for (JsonNode post : posts.path("items")) {
-                fetch(
-                        "/api/v1/community/posts/" + post.path("id").asString() + "/replies",
-                        collector2);
+                .contains("americas-north-yugioh", "americas-south-pokemon", "europe-riftbound")
+                .doesNotContain("americas-north", "general", "montreal-yugioh");
+
+        // Every seeded post is by a discoverable collector: a collector who is not discoverable
+        // (collector7) and a discoverable one with a PRIVATE profile post first, so the rule runs
+        // for both (stage R11 review fix 1, P4). Both posts are deleted at the end.
+        UUID seventh = idOf("collector7");
+        boolean seventhConfirmed = ageConfirmed(seventh);
+        testUsers.confirmAge(seventh);
+        String secret = uniqueUid("geo-private");
+        provisionCompliant(secret);
+        setLocation(secret, "CA", "CA-BC", "Zqgeoprivatecity");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/settings/privacy",
+                secret,
+                privacy(true, "PRIVATE"),
+                200);
+        String secretHandle = me(secret).path("handle").asString();
+        Map<String, String> unplaced = new LinkedHashMap<>();
+        Map<String, Integer> unplacedReads = new LinkedHashMap<>();
+        try {
+            unplaced.put(
+                    roomPost(seedUid("collector7"), "Trading Yu-Gi-Oh! singles by mail"),
+                    seedUid("collector7"));
+            unplaced.put(roomPost(secret, "Yu-Gi-Oh! singles by mail, ask me"), secret);
+            Set<String> seededRooms = new java.util.HashSet<>();
+            for (String reader : PLACES.keySet()) {
+                String caller = seedUid(reader);
+                for (String region : List.of("americas-north", "americas-south", "europe")) {
+                    for (JsonNode room :
+                            fetch("/api/v1/community/channels?region=" + region, caller)) {
+                        assertThat(room.path("lastPost").has("place")).isFalse();
+                        String slug = room.path("slug").asString();
+                        JsonNode posts =
+                                fetch("/api/v1/community/channels/" + slug + "/posts", caller);
+                        for (JsonNode post : posts.path("items")) {
+                            seededRooms.add(slug);
+                            String author = post.path("author").path("handle").asString();
+                            JsonNode place = post.path("place");
+                            if (NOT_DISCOVERABLE.contains(author) || author.equals(secretHandle)) {
+                                assertThat(place.isNull())
+                                        .as("place of %s for %s", author, reader)
+                                        .isTrue();
+                                unplacedReads.merge(author, 1, Integer::sum);
+                            } else if (PLACES.containsKey(author)) {
+                                assertThat(place.path("label").asString())
+                                        .as("place of %s for %s", author, reader)
+                                        .isEqualTo(PLACES.get(author));
+                            }
+                            assertThat(post.path("author").has("city")).isFalse();
+                            assertThat(place.has("city")).isFalse();
+                        }
+                    }
+                }
             }
+            assertThat(seededRooms)
+                    .as("rooms with seeded posts")
+                    .contains("americas-north-yugioh", "europe-yugioh", "americas-south-pokemon");
+            // Both posts were read (collector7's by collector7 too), and the PRIVATE profile reads
+            // its own post without a place, as the others do (the author reads what others read).
+            assertThat(unplacedReads).containsKeys("collector7");
+            assertThat(unplacedReads.get("collector7")).isGreaterThan(1);
+            JsonNode own =
+                    fetch("/api/v1/community/channels/americas-north-yugioh/posts", secret)
+                            .path("items");
+            boolean ownSeen = false;
+            for (JsonNode post : own) {
+                if (post.path("author").path("handle").asString().equals(secretHandle)) {
+                    assertThat(post.path("place").isNull()).as("own place").isTrue();
+                    ownSeen = true;
+                }
+            }
+            assertThat(ownSeen).as("the PRIVATE profile's own post").isTrue();
+            assertThat(unplacedReads.get(secretHandle)).isGreaterThan(1);
+            for (Fetched document : fetched) {
+                assertThat(document.body().toString())
+                        .as("the PRIVATE profile's place in %s", document.path())
+                        .doesNotContain("British Columbia")
+                        .doesNotContain("Zqgeoprivatecity");
+            }
+        } finally {
+            for (Map.Entry<String, String> post : unplaced.entrySet()) {
+                callJson(
+                        HttpMethod.DELETE,
+                        "/api/v1/community/posts/" + post.getKey(),
+                        post.getValue(),
+                        null,
+                        204);
+            }
+            if (!seventhConfirmed) {
+                testUsers.update(
+                        "DELETE FROM user_consent WHERE user_id = ? AND document_type ="
+                                + " 'AGE_CONFIRMATION'",
+                        seventh);
+            }
+        }
+        JsonNode seededPosts =
+                fetch("/api/v1/community/channels/americas-north-yugioh/posts", collector2);
+        for (JsonNode post : seededPosts.path("items")) {
+            fetch("/api/v1/community/posts/" + post.path("id").asString() + "/replies", collector2);
         }
         fetch("/api/v1/me/blocks", collector1);
         assertContract(output);
@@ -805,10 +1004,21 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 sawAlert = true;
                 assertThat(notification.path("body").asString())
                         .contains("was just listed by @collector1 in Quebec, Canada");
+                // Stage R9: the phone's row names the province only, never a city.
+                JsonNode data = notification.path("data");
+                assertThat(data.path("province").asString()).isEqualTo("Quebec");
+                assertThat(data.path("collectorHandle").asString()).isEqualTo("collector1");
             }
         }
         assertThat(sawAlert).as("the seeded listing alerted collector2").isTrue();
         fetch("/api/v1/notifications", collector1);
+        // Stage R9: the phone's bell and screen leave chats out (excludeTypes=MESSAGE).
+        for (String caller : List.of(collector1, collector2)) {
+            JsonNode phone = fetch("/api/v1/notifications?limit=50&excludeTypes=MESSAGE", caller);
+            phone.path("items")
+                    .forEach(n -> assertThat(n.path("type").asString()).isNotEqualTo("MESSAGE"));
+            fetch("/api/v1/notifications/unread-count?excludeTypes=MESSAGE", caller);
+        }
         for (Fetched document : fetched) {
             if (document.path().startsWith("/api/v1/wishlist")) {
                 // collector2's own wishlist: public wish notes only; item notes still never

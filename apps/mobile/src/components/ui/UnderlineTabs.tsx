@@ -8,6 +8,10 @@ export interface UnderlineTab<T extends string> {
   label: string;
   /** A number after the label, in the muted colour ("Cards 20"). */
   count?: number | null;
+  /** An orange dot after the label (stage R11: "Chats" while a chat is unread). */
+  dot?: boolean;
+  /** What a screen reader says instead of the label ("Chats, 2 unread"). */
+  spokenLabel?: string;
 }
 
 export interface UnderlineTabsProps<T extends string> {
@@ -45,7 +49,10 @@ export function UnderlineTabs<T extends string>({
       {tabs.map((tab) => {
         const selected = tab.value === value;
         const spoken =
-          tab.count === null || tab.count === undefined ? tab.label : `${tab.label}, ${tab.count}`;
+          tab.spokenLabel ??
+          (tab.count === null || tab.count === undefined
+            ? tab.label
+            : `${tab.label}, ${tab.count}`);
         return (
           <Pressable
             key={tab.value}
@@ -62,21 +69,29 @@ export function UnderlineTabs<T extends string>({
               pressed && styles.pressed,
             ]}
           >
-            <Text
-              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-              style={[
-                styles.label,
-                {
-                  color: selected ? palette.ink : palette.textMuted,
-                  fontWeight: selected ? fontWeight.semibold : fontWeight.medium,
-                },
-              ]}
-            >
-              {tab.label}
-              {tab.count === null || tab.count === undefined ? null : (
-                <Text style={[styles.count, { color: palette.textMuted }]}> {tab.count}</Text>
-              )}
-            </Text>
+            <View style={styles.labelRow}>
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[
+                  styles.label,
+                  {
+                    color: selected ? palette.ink : palette.textMuted,
+                    fontWeight: selected ? fontWeight.semibold : fontWeight.medium,
+                  },
+                ]}
+              >
+                {tab.label}
+                {tab.count === null || tab.count === undefined ? null : (
+                  <Text style={[styles.count, { color: palette.textMuted }]}> {tab.count}</Text>
+                )}
+              </Text>
+              {tab.dot ? (
+                <View
+                  testID={testID ? `${testID}-${tab.value}-dot` : undefined}
+                  style={[styles.dot, { backgroundColor: palette.primary }]}
+                />
+              ) : null}
+            </View>
           </Pressable>
         );
       })}
@@ -94,7 +109,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     marginBottom: -1,
   },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   label: { fontSize: 15, lineHeight: 20 },
+  dot: { width: 7, height: 7, borderRadius: 4 },
   count: { fontWeight: fontWeight.medium },
   pressed: { opacity: 0.8 },
 });

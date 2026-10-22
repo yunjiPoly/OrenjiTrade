@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -7527,6 +7527,1324 @@ exit 0; `npm run test:mobile:e2e` **60 passed**; the native suite **35 / 35 flow
 on the owner's iPhone 18 Pro (left light, text size large, as the owner had it); `test:scripts`
 135; `audit:gate` OK. The Android run could not be verified (no Android SDK on this Mac).
 
+## Phone redesign R7: Home (2026-10-21)
+
+Stage R7 of the phone redesign with the owner's Home prompt of 2026-10-19
+([`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md),
+saved word for word; it replaces section 5 of the redesign spec and adds to its "Home feed"): mockup
+v50 screens 10 (Home as it opens), 10b (the whole page, its chips) and 10c (day one in a quiet
+region). Branch `feature/r7-home`, cut from `main` at c6e3118a (R1 to R6, stage G, F1, the owner's
+inventory change and the card scan). Migration **V133** (V124 and V128 stay unused; the next free
+one is **V134**). Every API change is additive: one new endpoint and one nullable column; the
+paused web builds and passes its checks against the regenerated client, unchanged (no file of
+`apps/web-angular` changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English
+only (owner, 2026-10-20). Signed-in collectors only (guests' Home is stage R15); the bell still
+opens today's notifications screen (R9 changes it).
+
+**What a collector can now do on the phone**
+
+- **Home is the first of five tabs** (Home | Search | Inventory | Messages | Profile) and the app's
+  first screen after sign-in (`/`, the `index` route). The old Map tab's links (`/?region=` and
+  `&subdivision=`) still open Search's map on their state; every other old route works as before.
+  Tapping the Home tab while on Home scrolls back to the top.
+- **The top row**: the region pill (Choose a region, screen 35; its border orange and "Not your
+  region. Back to {home}" under the field while another region is browsed) and the game pill of
+  stage G (Choose a game, screen 34), the bell on the right. **"Search cards or collectors"** opens
+  Search with the keyboard up. Everything below follows the browsed region and game.
+- **Get started** (screen 10c), under the field until done or hidden: "Do these once to sell and
+  find cards in your region.", "Hide these steps", a 3-part progress bar with "{done} of 3"
+  (spoken "{done} of 3 done") and three steps: **Choose your province** (done with a state or
+  province and "Show me on the map" on: "{province}, {country}"; without a location "Choose", with a
+  location hidden from the map "Turn on Show me on the map" and "Turn on", both opening Settings ›
+  Location), **List your first card** (orange "Add cards", done when one card is set to Public),
+  **Add a card you want** (outlined "Add a wish", opens Search with the keyboard up; done with a
+  wish). A done step shows a teal check and its title in grey. Done or hidden, it goes away for
+  good for this account on this phone; the steps are read again whenever Home comes into view.
+- **The chips** All, New cards, Wanted, Deck cores (an orange, teal or purple dot; the selected
+  one filled light with dark text, announced as selected) pin under the status bar once scrolled
+  past, reload the feed with `kind=`, and go back to All when the app restarts. No chips while the
+  game has nothing in the window.
+- **The feed**, newest first, in sections **Today**, **Earlier this week** (1 to 6 days ago) and
+  **Earlier this month** (7 to 30), by the phone's calendar; a section shows only with posts. Each
+  post's header (avatar, "{handle} {verb}", "{time} · {province}"; spoken "{handle} {verb},
+  {time}, {province}") opens the collector's profile; times "5 min", "1 h", the weekday ("Wed"),
+  then "Sep 28". **New cards**: 2 or more in a 4-column grid with the price as typed under each
+  picture (a picture opens Who has this card); from 5 cards the 4th tile is dimmed with "+{n}"
+  ("{n} more cards from this collector") and opens the collector's cards; exactly 1 card is a row
+  (picture, name, "{code} · {rarity}" with the code in JetBrains Mono, price) with the round orange
+  **Message** button ("Message {handle} about {card}") that opens or reuses the chat and pins that
+  card. **Wanted**: the picture, the name, the wish's terms as Search › Wishlist writes them, and
+  **"I have it"** (R6's flow: the chat with "I have {card} for your wishlist. Interested?" and your
+  copy ready to share; nothing sent before send). **Deck core**: the whole body opens the deck core
+  page; a 132-tall band with the first photo (or up to 3 key cards' pictures), the "Deck core" tag
+  and "{n} photos" from 2 photos; the name and the price ("$95", "Trade only"); the first line of
+  its note.
+- **The end**: a teal check, "You're all caught up", "That’s everything new for {game} in {region}
+  from the last 30 days." ("every new card", "every wish", "every deck core" with a chip) and
+  **Explore the map** (Search's map).
+- **Empty, loading, errors**: a quiet game or region shows the dashed box "Nothing new in {region}
+  yet" ("in {game}" when only the game is quiet) with "Be the first: ..." and, without Get started,
+  an orange "Add cards"; an empty chip says "No new cards in {region} in the last 30 days." (wishes,
+  deck cores) with "Show all"; the first load shows two post outlines and four card-shaped boxes;
+  "Couldn't load what's new." with "Try again" without data, "Couldn't load more" with "Try again"
+  at the bottom; offline, the cached page under the app's offline banner. Pull to refresh; coming
+  back to Home refreshes data older than 5 minutes; nothing slides in while someone reads. A post
+  that stopped being public opens the target's own "no longer available" state and leaves the feed
+  at the next refresh.
+- **The largest text sizes**: rows stack (the avatar above the header's words, the buttons under
+  the rows' words, Get started's buttons under their steps), names and prices end with "…" (two
+  lines for a row's name), the four prices of a grid follow the text size a little so they stay
+  readable, titles and the field at most twice their size.
+
+**What the API does** (contract [`docs/api/contracts/r7-home-feed.md`](docs/api/contracts/r7-home-feed.md))
+
+| Part | What |
+| --- | --- |
+| `GET /api/v1/feed` | signed in; `game` required (400 without or unknown), `region` (default: home region), `kind` `ALL` / `NEW_CARDS` / `WANTED` / `DECK_CORES`, `cursor`, `limit` 1 to 50 (20); newest first by `at` then `id`, keyset cursor; `windowDays`, `nextCursor` (null at the end), `hasMore`, `gameHasPosts`, `regionHasPosts` |
+| What appears | discoverable collectors located in the region; never the caller; never a block either way (`DiscoverySql.notBlocked`, in the SQL before the limit); public fresh cards of the game dated by `listing_changed_at` and grouped per collector and UTC clock hour (4 previews and the total), never a card filed in a deck core; wishes of collectors who show their wishlist, by `created_at`; public unsold deck cores of the game by the later of `listing_changed_at` and `core_since` |
+| A post | `id` (stable: wish, binder, or `md5('NEW_CARDS:<owner>:<hour>')`), `kind`, `at`, `collector {id, handle, displayName, avatarUrl}`, `place` (the usual `Place`); `newCards {total, previews[{itemId, cardId, printingId, name, printingCode, rarity, imageUrl, askingPriceText, askingPrice, currency}]}`, `wanted {wishId, cardId, name, imageUrl, printing, rarity, nearMintOnly, priceTerm}` or `deckCore {binderId, name, askingPriceText, photoUrl, photoCount, previewImages, noteFirstLine}` |
+| The window | `orenji.feed.window-days` (`FEED_WINDOW_DAYS`, 30, 1 to 365) |
+| V133 | `binder.core_since` + trigger `trg_binder_core_since` (set when `sells_as_core` turns on, cleared when off; existing deck cores: `created_at`); indexes `ix_inventory_item_listed_since`, `ix_wishlist_item_created` |
+| Seeds | dated relative to now at every start (`listedMinutesAgo`, `FEED_WISHES`): collector5's 12 cards (5 min) and 1 card (6 h), collector2's wish (1 h) and deck core $95 (3 h), collector5's wish (2 days), collector2's 3 cards (3 days), collector5's deck core "Trade only" (4 days), collector1's 5 cards (9 days), collector5's wish (12 days); the other seed listings 45 days back; the feed's rows kept confirmed; collector5's wishlist visible (`docs/development/seed-data.md`) |
+| Privacy | `GeoPrivacyContractTest.homeFeedCarriesPlacesOnly`: every seed account, every region and game, every kind |
+
+**Decisions, and why**
+
+1. **The feed lives in the search module** (`FeedRepository`, `FeedService`, `FeedController`): it is
+   a discovery list and must reuse `DiscoverySql` (discoverable, region, `notBlocked`, the live
+   public rules), which is package-private there. No new module, so CLAUDE.md's module list stays.
+2. **V133 was needed for deck cores.** A public binder switched to a deck core kept its old
+   `listing_changed_at` and would never reach Home; `binder.core_since` (a trigger, so every write
+   path keeps it) dates the moment it became a deck core. Existing deck cores take their creation
+   time: nothing old appears as new.
+3. **A card's time is `listing_changed_at` while `publicly_listed`** (when the materialised public
+   flag last flipped to true), the live rules deciding whether it may appear; a wish's time is
+   `created_at` (turning "Show my wishlist" on later does not post old wishes again).
+4. **"Within the same hour" is the UTC clock hour** (`floor(epoch / 3600)`): the same post on every
+   page and phone, and a stable post id; cards listed at 10:55 and 11:05 are two posts.
+5. **`collector.id` added to the post** (the prompt lists handle, name and avatar): "Message" and "I
+   have it" open the chat with that collector, which takes the account id. The place is the
+   existing `Place` (with codes and the label) rather than two names only.
+6. **`gameHasPosts` and `regionHasPosts`** on the first page tell the phone which quiet text to
+   show ("Nothing new in {game} yet" or "in {region}") and when to hide the chips, without a
+   second request; `windowDays` lets the phone say "the last 30 days" from the server's setting.
+7. **The property is `orenji.feed.window-days`** (the repository's prefix; the prompt's example
+   said `orenjitrade.`).
+8. **No cache**: a page belongs to its reader (their posts and blocks are left out).
+9. **"I have it" shows on every wish**, as the feed does not carry whether the collector accepts
+   messages: a refusal (their messaging setting, a block) is said in the snackbar, as on R6's
+   profile.
+10. **The seed re-dates its own listings at every start** (and keeps the feed's rows confirmed), so
+    the feed is the same a month later; every other seed listing is dated 45 days back so the feed
+    shows exactly the seed's posts. Local edits of seed cards keep their content, not their listing
+    time.
+11. **The rows stack at the largest text sizes** (`useStackedRows`, as on the profiles) and the
+    grid's prices follow the text size only a little (`PINNED_MAX_FONT_SCALE`): at the largest size
+    every price read "$..." in a 4-column grid.
+12. **Get started's step 1 is done with `GET /me/location`'s subdivision and `discoverable`**; step 2
+    reads `GET /inventory/items?markedPublic=true&size=1` (under the inventory's query keys, so any
+    inventory change refreshes it); step 3 the wishlist (any game).
+13. **Home's mobile-only colour tokens** (`color.home`: Get started's border, the chips' border and
+    text, the done step, the "+n" cover, the photo badge, the Message fill), light and dark; the web's
+    `tokens.css` is unchanged.
+14. **The feed's seed cards use printings no suite lists the holders of** (no code or name that a
+    web, mobile or native test searches): a seed copy in California showed beside the web
+    acceptance test's own seller of TMP-EN014.
+15. **Home reads `GET /regions`** as Search's map does: the region names come from the server, and a
+    region code kept on the device that the server no longer lists is dropped when the app opens on
+    Home.
+
+**The five defaults of the prompt's section 8** (the owner can change them): (1) the feed covers the
+last 30 days (`orenji.feed.window-days`); (2) Get started is hidden per account on this phone, not
+across phones; (3) the chip goes back to All when the app restarts; (4) the section titles are
+Today, Earlier this week and Earlier this month; (5) Home refreshes on pull, and on return after 5
+minutes.
+
+**Tests**
+
+- API: `FeedIT` (10: each kind with its fields, the hour, the window, a binder turned into a deck
+  core (V133), paging with 3 and 50 per page, region and game scoping, the caller, blocks both ways
+  before the limit, a hidden wishlist, a private and a stale card, a deck core's cards, a sold deck
+  core, a collector who leaves the map, validation and 401), `FeedRulesTest` (6),
+  `GeoPrivacyContractTest.homeFeedCarriesPlacesOnly`, `SeedDataRunnerIT.seedsHomesFeedRelativeToNow`
+  (and the seed's new counts: 19 binders, 61 cards, 5 wishes).
+- Phone (Jest): `features/home.test.ts` (14: sections and times across midnight and a daylight
+  saving change, groups of 1, 2, 3, 4, 5 and 12 with "+n", prices, the wish terms, chips, end and
+  empty texts, Get started and its storage), `screens/home.test.tsx` (15: the top row, the request,
+  sections and spoken headers, the grid and "+9", the single card's Message, "I have it", the deck
+  core, the chips to the end, a chip's empty state and "Show all", the next page and its error,
+  10c with Get started and "Hide these steps", "Turn on", a quiet game, loading and the error,
+  the largest text size), the tabs (five, the old map links) and back titles.
+- Mobile web E2E: `e2e/home.spec.ts` (the seed's feed with "+9", a wish with "I have it" and a deck
+  core, the Wanted chip down to the end, "Explore the map"; Get started on a fresh account with
+  "Turn on", hidden for good across a reload); the specs that landed on Search after sign-in open
+  the Search tab.
+- Native (Maestro): `home-feed.yaml` (walkthrough step 5: a new card, a wish with "I have it" that
+  opens the chat with the text and her copy, a deck core, the single card's Message; the Deck cores
+  chip down to the end and "Explore the map"), `home-get-started.yaml` (a fresh account in a quiet
+  region: the steps, "Add a wish", "Hide these steps" for good across a relaunch); the 15 flows that
+  waited for Search after sign-in wait for Home (`subflows/open-search-tab.yaml` opens Search);
+  flow G checks the home region's row by its name (see the native suite below).
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,218 tests in 188 classes** (1,206 in 186 and the catalog tests' 12 in 2), 0 failed, 0 skipped, 3 min 52 s. The first full run failed `SeedDataRunnerIT.seedsHomesFeedRelativeToNow`: it read only the first page of the region's feed, which the suite's own posts (some dated ahead by `FeedIT`) filled; it pages to the end now |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git on the final tree |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB** (under 900 kB); `git diff c6e3118a -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) on the final API. The first run: the acceptance privacy test failed, a seed copy of TMP-EN014 (the card whose holders it lists) showed California beside its seller: the feed's seed left the printings the web suites hold (TMP-EN014, GLM-EN012, GLM-EN022, SHV-EN033). The second: the smoke test "navigates to the inventory page" missed its URL once; it passed alone (6 / 6) and in the third full run |
+| `npm run test:mobile` | typecheck, lint, jest **118 suites / 1,520 tests**, 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,866,673 B (1,878 modules), Android 6,156,124 B (2,002 modules), web entry 3,111,160 B (1,495 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) on the final tree. The first run: 60 passed, 2 failed: `home.spec.ts` read `aria-selected` on a chip (React Native Web writes none on a button; the check went) and `regions.spec.ts` "a region that does not exist is neither browsed nor kept" (Home never read `GET /regions`, which drops a stale region code from the device: Home reads it now, as Search's map does) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **35 of 37 flows** in 59 min 11 s; the 2 others pass alone after the fix: `home-feed.yaml` (1 min 20 s; in the full run the suite's other flows list Yu-Gi-Oh! cards and deck cores first and collector1's Get started stands above the feed: the flow hides it and scrolls to collector5's cards and to the deck core) and `one-game-at-a-time.yaml` (1 min 36 s; its check of the region row's line "Your region · Canada, United States, Mexico" failed with `main`'s app code as well on this Mac today (`git checkout c6e3118a -- apps/mobile/src apps/mobile/app` and the old flow): the line is the row's accessibility hint and the iOS hierarchy Maestro reads lists no text under the row; the flow checks the row by its name, its screenshot shows the line). `home-get-started.yaml` passed in the full run. The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **142 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 02:30 to 03:10 and 03:24 to
+04:45; scratch Maestro flows on the isolated stack of the native harness; dark and light, the
+default and the largest text size; collector1's Home (the seed's feed) and a new collector in
+Madrid (day one, a quiet region)): screens 10, 10b and 10c match mockup v50 in layout and words.
+Fixed from the walk: the pinned chips slid under the status bar (the list now starts below it); the
+quiet box touched Get started (12 pt between them, as in 10c); at the largest size the grid's prices
+read "$..." (they follow the text size a little now), the headers' words were squeezed beside the
+avatar and the rows' words beside their buttons (they stack), Get started's steps broke word by
+word (they stack, the title follows the size at most twice). The screenshots of 10, 10b (scrolled)
+and 10c, dark at the default size, are in `.local-dev/r7-notes/pr-shots/` for the pull request.
+
+**Not done / could not be verified**: the Android run could not be verified (no Android SDK on this
+Mac). VoiceOver itself was not run: the spoken names were checked in the Jest tests and in the iOS
+hierarchy Maestro reads. "Offline with cached data" relies on the app's existing banner and the
+query cache (not walked offline). A post that stopped being public leads to the target screen's
+existing "no longer available" state (those states are R3 to R6's; not walked from Home).
+
+**Found, not fixed (not caused by this stage)**: the iOS hierarchy Maestro reads on this Mac no
+longer lists the texts under a radio sheet's row (flow G's region line, `main` as well); the web
+smoke test "navigates to the inventory page" missed its URL once under load.
+
+**Owner follow-ups**: (1) the five defaults above; (2) the local database migrates V133 at the next
+`npm run dev`, and from then on the seed dates its listings relative to the API's start at every
+start (a seed card edited locally keeps its content, not its listing time); (3) "I have it" shows on
+every wish of Home (a collector who takes no messages answers with the snackbar's refusal): the feed
+could carry `canMessage` if the owner prefers to hide it; (4) Home reads the region's feed without a
+cache: watch the feed's query time once real data exists.
+
+**Review fix 1** (2026-10-21; three reviewers: privacy, product and UX as a collector, functional;
+18 findings, all fixed with a test that fails without the fix; no migration, V134 stays the next
+free one; the API change is a cursor format and a schema description, additive for the paused web)
+
+- **Blocks on the phone (P1/F3, blocker).** Blocking a collector from their profile left their
+  posts on Home until a pull or the 5-minute refresh: the block mutation refreshed every
+  viewer-dependent cache but the feed. A block now drops their posts from the pages already read
+  at once and reads the feed again; an unblock reads it again (`useBlockMutation`; Jest "Home and
+  blocks").
+- **Old Map tab links (U1/F1, blocker).** After `/?region=&subdivision=` the Home tab redirected
+  to Search until the app restarted: the link's parameters stayed on Home's route. They are
+  cleared once the redirect has left it (`replaceParams`), so a link is followed once, as Search
+  does with its own (Jest `tabs-layout`, the mobile web `regions.spec.ts` and Maestro
+  `map-gestures-links.yaml` tap Home after the links).
+- **Paging (F2, blocker; P5).** A new-card post is dated by its newest card, so a card listed in
+  its hour between two pages lifted a post nobody had seen above the cursor and out of every page.
+  The cursor (`FeedCursor`, opaque) now carries the time the first page was read (the later of the
+  read and its newest post) and later pages count only the cards listed until then; a refresh shows
+  the post at the top with its new card. A post whose newest card leaves between pages can come
+  back once with an older `at`: the contract and the OpenAPI say clients keep the copy shown, as
+  the phone's `feedRows` does (a card made private loses its listing time, so no key can avoid
+  it). Chosen over dating groups by their first card, which would skip a group whose first card
+  leaves. A cursor of before this change is a 400.
+- **Tests the reviewers' mutants survived (P2, P3, P4, F6, F7).** `FeedIT`: blocks both ways
+  before the limit for wishes and deck cores too, chip by chip with `limit=1`; a collector off the
+  map with a public profile (their cards stay public on the profile) and expired temporarily public
+  cards and deck cores whose stored flag is not refreshed yet, left out before the limit; the
+  "anything in the window" question checked at the repository with a window only that collector's
+  posts are in (the suite's regions are shared, so `gameHasPosts: false` through the endpoint
+  would depend on the order of the suite); both paging cases. `CardImageUrlContractIT` reads the
+  feed chip by chip (a wish's picture and a deck core's key cards included). Jest: coming back
+  re-reads Get started every time and the feed only past 5 minutes, the chips pin, the chip starts
+  on All; `jest.config.js` pins `America/Toronto`, so a UTC calendar fails on the CI runners too.
+  The 8 API mutants of the reviews (blocks for wishes and for deck cores, the deck cores' and the
+  cards' live public rules, discoverable, the paging bound, a provider URL in a wish's or a deck
+  core's pictures) and the mobile ones (no refresh past 5 minutes, a refresh on every return, Get
+  started not re-read, chips not pinned, the UTC calendar under `TZ=UTC`) each fail a test now.
+- **The kinds test and the clock (F5).** `FeedIT.eachKindCarriesWhatThePhoneShowsAndAPlaceOnly`
+  dated its two cards 20 minutes back and failed in the minute after hh:20 (two hours, two posts);
+  they are dated inside one clock hour now.
+- **"Back to the map" (U2/F4).** The not-found page's button and a binder or deck core that is no
+  longer available led to `/`, Home since R7: both open Search's map (`searchMapTarget`).
+- **Errors (U3, U4).** A chip that failed hid the chip row, so All, already read, was out of reach:
+  the chips stay above an error (only a quiet region has none). A lost connection or a timeout
+  replaced "Couldn't load what's new." with the shared offline titles: `ErrorState` takes
+  `keepTitle`, the reason stays under the title.
+- **Add cards from Home (U5).** Its Back said "Inventory" ("Back to Inventory") and went to Home:
+  Home opens it with `from=home` and Back names Home.
+- **The reader's place (U6).** Coming back mid-list after 5 minutes put the new posts above and
+  the post being read went off screen: the list keeps its first row on screen in place
+  (`maintainVisibleContentPosition`, minimum index 0, so at the top new posts show at once). The
+  walk on the simulator then showed a ~60 pt move left: on iOS a refresh spinner the app turns on
+  (`refreshing` while any refetch ran) moves the list down by its height. The spinner now shows for
+  a pull only; the refresh on coming back, or after a block, runs without it. Walked on the owner's
+  iPhone 18 Pro (scratch Maestro flows on the harness's isolated stack): collector1 mid-list, Profile,
+  more than 5 minutes, a new collector of Quebec lists 3 Yu-Gi-Oh! cards, back to Home: the screen
+  is the same pixel for pixel, and the new post is at the top (screenshots in
+  `.local-dev/r7-notes/fix1-shots/`).
+
+Checks of review fix 1 (retries off; this Mac, 2026-10-21; the owner's iPhone 18 Pro under the lock):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,226 tests in 189 classes** (1,214 in 187 and the catalog tests' 12 in 2), 0 failed, 0 skipped, 4 min 14 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | the feed post's `id` description, committed; nothing left in git |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB**; `git diff c6e3118a -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.2 min) |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile`; `npm run test:mobile` | clean; jest **118 suites / 1,530 tests** (on the final tree) |
+| `npx expo export` iOS, Android, web (scratch folders) | all three exported (on the final tree) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min), on the final tree |
+| `npm run test:mobile:maestro -- --platform ios` (under the lock) | **37 of 37 flows** in 58 min 37 s (before the spinner change); then `home-feed.yaml` and `home-get-started.yaml` again on the final tree, both passed (3 min). The simulator stayed booted, light, text size large, as the owner had it |
+| `npm run test:scripts` | **142 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories until 2026-11-30) |
+
+Not verified in fix 1: the Android run could not be verified (no Android SDK), so the reader's place
+was walked on iOS only.
+
+**Review fix 2** (2026-10-21; review round 2 found one minor finding, R1-1; no code change, no
+migration, V134 stays the next free one; the OpenAPI document and the clients are unchanged)
+
+- **Page 3 and later keep the first page's time (R1-1, minor).** The feed's cursor keeps the time
+  the first page was read on every later page (`FeedService`: a later page passes on its cursor's
+  `asOf`), and the code was right, but only page 2 was tested: the mutant that takes each page's
+  own time passed every `FeedIT` test, and with it a card listed after page 1 would count from
+  page 3 on and lift a post nobody had seen above page 2's cursor, out of every page (the F2
+  blocker again). `FeedIT.laterPagesKeepTheFirstPagesTime` reads three pages and more: a card is
+  listed in a post's hour after page 1, page 2 is read, and every page after it returns that post
+  once, dated and counted as on page 1. It reads Pokémon in the region, where no post is dated
+  ahead of the clock, so the server's clock passes the posts as in real use (with posts dated
+  ahead, a page's time is its newest post and that mutant could not show). The mutant now fails it,
+  and only it. The contract's paging paragraph says every cursor carries the first page's time.
+
+Checks of review fix 2 (retries off; this Mac, 2026-10-21; the owner's iPhone 18 Pro under the lock):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,227 tests in 189 classes** (1,215 in 187 and the catalog tests' 12 in 2), 0 failed, 0 skipped, 4 min 10 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | no change; nothing left in git |
+| `npm run build -w apps/web-angular` | initial total **893.82 kB**; `git diff c6e3118a -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.2 min) |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile`; `npm run test:mobile` | clean; jest **118 suites / 1,530 tests** |
+| `npx expo export` iOS, Android, web (scratch folders) | all three exported |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | first run 61 passed and 1 failed: `binders.spec.ts` "make a binder a deck core with a photo and a price…" waited 5 min for Edit binder's "Save changes", the screen having left after the price was typed (R3's editor, untouched since fix 1's green runs); alone it passed (3.1 s), and the full suite again: **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (under the lock) | **37 of 37 flows** in 58 min 4 s (the first full native run since fix 1's spinner change). The simulator stayed booted, light, text size large, as the owner had it |
+| `npm run test:scripts` | **142 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories until 2026-11-30) |
+
+Not verified in fix 2: the Android run could not be verified (no Android SDK).
+
+## Phone redesign R9: Notifications (31) and the bell (2026-10-21)
+
+Stage R9 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R9. Notifications (31) and the bell"): mockup v50 screen 31 and the bell of every tab.
+Built on branch `feature/r7-home` after R7, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+is still **V134**; V124 and V128 stay unused). Every API change is additive: one optional parameter
+on two endpoints and new keys in the `data` of three notification types; the paused web builds and
+passes its checks against the regenerated client, unchanged (no file of `apps/web-angular`
+changed). Free for all (ADR 0019): nothing sponsored, nothing to buy. English only (owner,
+2026-10-20). Until now the bell opened the older notification centre: this stage replaces it.
+
+**What a collector can now do on the phone**
+
+- **The bell** on the top bars of Home, Search, Inventory, Messages and Profile: an orange dot
+  (9 pt in a ring of the button's colour, as in the mockup) while anything is unread, spoken
+  "Notifications, {n} new", or "Notifications" when nothing is. Chats do not count: Messages has its
+  own badge (`excludeTypes=MESSAGE`); a chat's realtime notice no longer raises the bell.
+- **Notifications** (screen 31): back, "Notifications" and a gear that opens Settings ›
+  Notifications. "New" lists the unread notifications with "Mark all as read" (teal) on its right;
+  "Earlier" the rest, newest first, older pages on scroll (cursor paging). Each row: an icon tile
+  in its kind's colours (orange heart, blue box, amber star, amber hourglass, grey flag and the grey
+  rest), "{bold subject} {rest of the sentence}", one muted line (cut to one line on a row with a
+  target; a row that opens nothing shows it whole), the time ("now", "5 min", "1 h",
+  "Yesterday", "Sat", then "Sep 30", with the year when it is another year; in the phone's time
+  zone), the card picture when there is one, an orange dot while unread; one spoken name per row
+  ("{sentence}. {line}, {time spoken in words}, unread").
+- **Tapping a row** marks it read and opens its target: a wishlist alert opens Who has this card on
+  the wished printing ("Azure-Eyes Sky Dragon from your wishlist was listed in Quebec" over
+  "{lister} · $14.00"); a sale opens the chat ("{seller} marked {card} as sold to you" over
+  "Tracking added. Rate them when it arrives."; the chat's Back is then spoken "Back to
+  Notifications"); a rating opens your profile at its ratings
+  ("{rater} rated you 5 stars"). A report decision ("Report reviewed: thanks for your report" over
+  "We took action."), system notices, and the paused web's old offer, trade, payment and dispute
+  notifications (grey, their own icons) open nothing: tapping an unread one marks it read in place
+  (spoken as a button, "Marks it as read").
+- **Freshness reminders answered in place**: "{binder}: do you still have these {n} cards?" over
+  "Confirm them, or they leave search on Oct 26."; "Still have them" confirms the binder
+  (`POST /binders/{id}/confirm`) and the row shows a teal check, "Confirmed. They stay in search."
+  (spoken too); "Review the binder" opens Edit binder (its Back is spoken "Back to Notifications").
+  A binder whose listings already left search ("{binder}: these cards left search") offers "Review
+  the binder" only. The confirmed state comes from the binder itself (confirmed at or after the
+  reminder), so it holds after leaving the screen and after a confirm made elsewhere.
+- **Empty**: "No notifications yet" and "We'll tell you when a card you want is listed in your
+  region." Loading: skeleton rows; an error: "Notifications could not load" with "Try again"; pull
+  to refresh; a failed next page has its own "Try again" at the foot.
+- **A tapped push notification** opens the same target as its row and marks it read (a reminder or
+  a notice without a target opens Notifications, a chat's push opens the chat), once per tap, the
+  one that opened the app
+  included. Device push itself stays deferred (no EAS project, no FCM sender): the opener only runs
+  outside Expo Go and the web build.
+- Large text: at the largest sizes the card picture leaves the row, the muted line wraps whole,
+  "Mark all as read" and the section titles follow the size a little (1.35) and stay on one row,
+  "Still have them" and "Review the binder" stack and line up with the text.
+
+**What the API does** (contract [`docs/api/contracts/r9-notifications.md`](docs/api/contracts/r9-notifications.md))
+
+- `excludeTypes` (optional, repeated or comma-separated `NotificationType`, at most 30, an unknown
+  one is a 400) on `GET /api/v1/notifications` (every page, with `unreadOnly`, `cursor`, `limit`) and
+  `GET /api/v1/notifications/unread-count`. Without it both behave exactly as before.
+- New keys in `data`: `WISHLIST_ALERT` `collectorHandle`, `province` (the state or province, never a
+  city), `askingPriceText` / `askingPrice` / `currency`; `SALE_RECORDED` `itemName`, `saleKind`,
+  `hasTracking` (never the number) and the card's `cardName`, `game`, `cardImageUrl` (stored
+  API-relative by the new `NotificationCards.storable`); `BINDER_STALE_WARNING` and `BINDER_HIDDEN`
+  `binderName`. The seed's reminder of collector3 names its binder and the day it leaves search.
+- The paused web's Angular client keeps `getUnreadNotificationCount()` without parameters:
+  `packages/api-client/tools/web-omits.mjs` leaves `excludeTypes` out of that operation for the web
+  only (a first optional parameter would change the signature its calls use); the phone's
+  `packages/shared-types` has it.
+
+**Decisions, and why**
+
+1. **A rating's comment and the reported collector's handle stay out of the notifications.** The
+   mockup's rows show "“Well packed, arrived in two days.”" and "thanks for flagging spam_bot42";
+   Phase 7 decided both on purpose and tests them (a moderator may hide a rating and the notice
+   would keep its comment; a report decision discloses no specifics). The rows say "See it on your
+   profile." and "thanks for your report" with "We took action." or "We found no violation of the
+   Community Guidelines." from the status.
+2. **"Mark all as read" marks every notification read** (`POST /read-all` unchanged): the prompt
+   asks for `excludeTypes` on the list and the count only; the chats' notices it also reads only
+   mirror the chats' own unread state, which the Messages badge reads from the conversations.
+3. **New and Earlier**: New is the unread query (50 at once), Earlier the whole list by pages of 20
+   without what New shows; a row read since keeps its place in New (without its dot) until the next
+   load, so nothing jumps under the finger; "Mark all as read" empties New into Earlier, as in the
+   mockup. With more than 50 unread, New pages by 50 on scroll and Earlier begins once New is whole
+   (review fix 1, F4), so an unread notification is never listed under Earlier.
+4. **System notices open nothing** (the prompt), including the daily-limit notice and the
+   moderation warning that opened the wishlist and the guidelines before; old offers, trades,
+   payments and disputes open nothing and no longer show the "Deals happen in the chat" snackbar.
+5. **A rating opens your profile by your handle today**, not the stored link (a handle changed
+   since would leave it dead).
+6. **Unfiled cards' reminders** (no binder) offer "Review the cards" (Inventory): there is no binder
+   to confirm in one tap. Not in the mockup.
+7. **The wishlist alert's row names the province alone** ("listed in Quebec", as in the mockup);
+   the body and the API's place label keep "Quebec, Canada".
+8. **Times**: "now" under a minute, minutes within the hour even across midnight, hours earlier
+   today, then calendar days; the year is added to a date of another year.
+9. **Colours**: the mockup's tones in dark; darker tones of the same hues in light (the light
+   theme's orange is under 4.5 : 1 on white, so the unread time and "Still have them" use #C2410C
+   there); the read time in dark is #8C8682, not the mockup's #78716C (3.8 : 1 on the background).
+   Mobile-only tokens (`notifications` group, `$platforms: ["mobile"]`).
+10. **The native flow uses collector3's seeded reminder** and changes it (confirm, reads): the run's
+    database is new each run and no other flow uses collector3.
+11. **The push opener does not load `expo-notifications` in Expo Go** (its import warns there, and
+    Expo Go receives no push of ours).
+
+**The prompt's default for this stage** (the owner can change it): (10) Notifications leave out
+chats and Community posts (Community posts never notify; chats have Messages' badge).
+
+**Tests**
+
+- API: `NotificationCentreIT.excludeTypesLeavesTypesOutOfTheListAndTheUnreadCount` (counts with and
+  without, repeated and comma-separated, pages of 2 without gaps or excluded types, the unread
+  filter, 400, 401); `WishlistAlertsIT` and `WishlistRulesTest` (handle, province, price keys, Puerto
+  Rico); `SaleIT` (item name, kind, tracking flag, the picture stored relative, a deck core);
+  `ActivityNotificationsIT` (`binderName`); `GeoPrivacyContractTest` (the seeded alert's province
+  and handle; both phone reads of collector1 and collector2 through the place checks).
+- Jest: `notificationRows.test.ts` (kind to icon, colours and target; push targets; the sentence of
+  every kind and the fallbacks of older rows; the spoken name; the time labels in America/Toronto,
+  across midnight, another year; the reminder's states; New and Earlier), `notifications.test.tsx`
+  (the screen: excludeTypes and limits, targets, marking read in place, Mark all as read, Still have
+  them and its error, a reminder confirmed since, paging, empty and error, gear and back, live pushes
+  without chats, the largest text size; the bell's dot, name and pushes), `pushOpener.test.tsx`, and
+  the updated tabs layout, Messages tab, Edit binder, free-for-all and notification-link tests.
+- Web E2E of the phone (`npm run test:mobile:e2e`): `wishlist.spec.ts` (the dot, "Notifications, 1
+  new", the alert's row by province and lister), `old-offers.spec.ts` (an old offer's notice is
+  marked read and opens nothing).
+- Maestro (iOS): `notifications-bell.yaml` (new: the bell from Home with its dot and name, Mark all
+  as read, Still have them, the bell without a dot afterwards) and `wishlist-alert-notification.yaml`
+  (the dot, "Notifications, 1 new", the alert under New, Who has this card).
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,229 tests in 189 classes** (the suite and the catalog tests), 0 failed, 0 skipped, 3 min 47 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git on the final tree |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff ec11a966 -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.1 min) |
+| `npm run test:mobile` | typecheck, lint, jest **120 suites / 1,559 tests**, 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,972,675 B (1,941 modules: `expo-notifications` is now in the bundle, loaded only outside Expo Go), Android 6,265,638 B (2,067 modules), web entry 3,187,328 B (1,562 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 22 s, the new `notifications-bell.yaml` included (it failed once during the build, on the confirmed line's name, fixed in b16d159f). It ran on the tree before db6c1089, an API-only guard (an empty item of `excludeTypes`), which `NotificationCentreIT` covers. The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** in 27 suites (2 new: `web-client-omits.test.mjs`) |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 14:41 to 15:05; scratch
+Maestro flows on the isolated stack of the native harness; dark and light, the default and the
+largest text size; a new collector with one notification of each kind made through the API (an
+old offer, a report resolved by the admin, a broadcast, the freshness job over two of her binders
+dated back in the test database, a sale with a tracking number, a rating, a wishlist alert), a chat
+left out of the bell (8 new on the phone, 9 unread in all), 30 older notices for paging, and a
+new collector for the empty state): screen 31 matches mockup v50 in layout and words, but for
+decisions 1 and 6. The bell showed its dot and "Notifications, 8 new" on all five tabs, then none
+and "Notifications". Every target opened (Who has this card on AZR-EN001 with the lister under
+Quebec; the chat; your profile at its ratings; Edit binder with its "getting old" banner), the
+report and the system notice were marked read in place, "Still have them" showed the check,
+"Mark all as read" emptied New, paging reached the 39th row, the gear opened Settings ›
+Notifications. Fixed from the walk: the confirmed line was named with the check's glyph (now its
+words, announced on iOS); a lone "Review the binder" was indented; Edit binder's Back said "Back to
+your binders" when a reminder opened it; at the largest size the muted line was cut at 3 lines,
+"Mark all as read" broke under its title and "Review the binder" was indented under "Still have
+them". The screenshots (dark and light at the default size, the empty state) are in
+`.local-dev/r9-notes/pr-shots/` for the pull request.
+
+**Not done / could not be verified**: the Android run could not be verified (no Android SDK on this
+Mac). A real push notification was not tapped: device push stays deferred (no EAS project, no FCM
+sender) and the opener is off in Expo Go; its rules and its hook are covered by Jest only.
+VoiceOver itself was not run: the spoken names were checked in Jest and in the iOS hierarchy
+Maestro reads.
+
+**Owner follow-ups**: (1) the default above; (2) decisions 1 (the rating's comment and the reported
+handle stay out, unlike the mockup), 2 (Mark all as read also reads chats' notices) and 6 (unfiled
+cards' reminders); (3) device push (an EAS project and an FCM sender) to see a push open its row's
+target on a phone; (4) the mockup's read time colour (#78716C) is under 4.5 : 1 in dark: this stage
+uses #8C8682.
+
+**Review fix 1** (2026-10-21; the independent reviews, functional and product and UX as a
+collector; 6 findings (F2 and U2 are one), all fixed with a test that fails without the fix; phone
+only: no API change, no migration, V134 stays the next free one)
+
+- **Long notices could not be read (F1, major).** Every row cut its muted line to one line, and a
+  row that opens nothing (a system notice, a report decision, a reminder, an old deal) has no
+  screen telling the rest: an admin broadcast (up to 1000 characters), the paused-listings notice
+  and the moderation warning stayed cut, before and after the tap. Only a row with a target (a
+  wish, a sale, a rating) keeps the mockup's one line now; the others show the whole line, at every
+  text size (`NotificationRow`; Jest "shows the whole text of a row that opens nothing, before and
+  after it is read", which fails on the old rule).
+- **A chat opened from a sale notification (U1).** Its Back was spoken "Back to messages" and
+  returned to Notifications. Notifications now opens a chat with `?from=notifications`
+  (`openedFromNotifications`), and the chat names its Back "Back to Notifications", as Edit binder
+  does for a reminder; a push still opens the bare chat, whose Back returns to Messages (Jest in
+  `notificationRows`, `notifications` and `conversation`).
+- **A tapped chat push (U2 and F2).** `pushTarget` asked the rows' targets, which have no chat, so
+  a MESSAGE push (on by default) would have opened Notifications, which never lists chats. It now
+  opens the chat named by its link (`/messages/{id}`), or Messages; the push opener still marks it
+  read (Jest cases in `notificationRows` and `pushOpener`; latent until device push is wired).
+- **The phone's time zone (F3).** Every weekday and date case was at 9:00, where Toronto and UTC
+  agree on the day. Evening cases (21:30 in Toronto, already the next day in UTC) now cover the
+  weekday, the date, the date of another year and the reminder's "leave search on {date}"; each of
+  the six formatters forced to UTC fails a test.
+- **More than 50 unread (F4).** New read one page of 50 and Earlier was everything else, so the
+  51st unread showed under Earlier with its dot. New now pages too (on scroll, 50 a page) and
+  Earlier begins once New has no page left; "Mark all as read" leaves New whole and empty, so
+  Earlier then lists them all (`listRows(fresh, all, freshComplete)`, `useMarkAllNotificationsRead`;
+  Jest: 51 unread, two pages of New on the screen, Mark all as read while New has pages left; both
+  mutants, no gate and no reset, fail).
+
+- **Walked** on the owner's iPhone 18 Pro (under the lock, on the native harness's isolated stack
+  after its run, scratch Maestro flows and two fictional collectors made through the API): a
+  superadmin broadcast of four sentences shows whole under New, and still whole once tapped (read,
+  nothing opens); the sale row opens its chat, whose Back is "Back to Notifications" (matched by
+  its accessibility label) and returns to Notifications. Its accounts were deleted afterwards; the
+  simulator stayed booted, light, text size large, as the owner had it.
+
+Checks of review fix 1 (retries off; this Mac, 2026-10-21):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,229 tests in 189 classes**, 0 failed, 0 skipped, 4 min 7 s (no API change in this round) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB**; `git diff ec11a966 -- apps/web-angular package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) |
+| `npm run test:mobile` | typecheck, lint, jest **120 suites / 1,567 tests** (8 new), 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export` (scratch folders) | iOS 5,973,281 B (1,941 modules), Android 6,266,572 B (2,067 modules), web entry 3,187,840 B (1,562 modules, 68 static pages) |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 16 s on the final code |
+| `npm run test:scripts` | **144 tests** in 27 suites |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+Not verified in this round: the Android run could not be verified (no Android SDK on this Mac); a
+real chat push was not tapped (device push stays deferred), its rule and the opener are covered by
+Jest only.
+
+## Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)
+
+Stage R10 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R10. Card data for Magic and Pokémon"): two more real card sources, and what turns visible
+on the phone once a game has cards (mockup v50 screens 34 and 53). Built on branch
+`feature/r7-home` after R9, for the one giant pull request of R7, R9 to R15 and R8 (owner's
+exception of 2026-10-21; nothing merged in between). **No migration** (the next free one is still
+**V134**; V124 and V128 stay unused). **No API change**: no endpoint, field or parameter was added,
+removed or retyped; `exportOpenApi` and `generate:api` change nothing; no file of
+`apps/web-angular` changed. (Review fix 1 changed how search reads a typed printing code and the
+two operations' descriptions, so the contract's and the clients' comments changed; still no field
+or parameter.) The prompt names the record "ADR 0020"; 0020 is the camera card scan's,
+so it is **ADR 0021** ([`0021-five-games-and-their-card-sources.md`](docs/architecture/adr/0021-five-games-and-their-card-sources.md)).
+**Agents never ran a real import and never called Scryfall, TCGdex, GitHub, YGOPRODeck, Bandai or
+Riot**: the adapters are tested against small hand-written fixtures in each provider's format; the
+owner runs the real imports (commands below). Free for all (ADR 0019); English cards only (owner,
+2026-10-20).
+
+**What a collector can now do** (once the owner has imported the two catalogs)
+
+- **Browse Magic and Pokémon.** "Choose a game" (screen 34) no longer dims them: each shows "{n} of
+  your cards" or "None of your cards yet" and can be picked; One Piece and Riftbound stay dimmed with
+  "Cards coming soon". Nothing changes on the phone for this: it follows `hasCards`, which turns true
+  after a game's first import.
+- **Find their cards**: Search typing finds Magic cards (one per Oracle card, e.g. a two-faced card
+  as "Front // Back") and Pokémon cards (one per English name, every set's printing under it), each
+  with its picture; Who has this card (screen 13) shows the card's picture, its printings ("ZCL-45 ·
+  Rare", "EMR-014 · Uncommon"), and **a chosen printing with its own picture** (Magic: one picture
+  per artwork; Pokémon: one per printing; new, found by the walk). Every picture comes from
+  `/api/v1/public/card-images/{id}`, never from Scryfall or TCGdex.
+- **Not every Magic printing yet** (review fix 1, owner decision): Scryfall's "Unique Artwork"
+  file, which the prompt names, holds one printing per artwork, so a reprint that shares its
+  artwork with another printing (core sets, Commander decks, Masters sets) cannot be picked by its
+  own set code and number; the card and its picture are there. The owner decides whether to read
+  Scryfall's "Default Cards" instead (owner follow-up 7). A Magic code typed as the card prints it
+  (`ZTK 0012`, `ztk 12`) finds the printing `ZTK-12` (review fix 1).
+- **See the credits**: under a Magic card's pictures "Card data and images courtesy of Scryfall."
+  with Wizards of the Coast's Fan Content Policy notice; under a Pokémon card's "Card data courtesy of
+  TCGdex (MIT licence)." with "Pokémon card content is © The Pokémon Company, Nintendo, Creatures and
+  GAME FREAK. OrenjiTrade is not affiliated with them." (both drafts for the lawyer review).
+  **Settings › Appearance** (screen 53) gains "Card data and images" under About, as in the mockup:
+  one sentence per game that holds cards, in the games' order ("Yu-Gi-Oh! card data from YGOPRODeck.
+  Pokémon card data from TCGdex. Magic card data and images from Scryfall.") and "Not affiliated with
+  or endorsed by the game publishers."; a skeleton while the games load, every credit when they
+  cannot load; one VoiceOver stop ("Card data and images. …").
+
+**The owner's step** (in the report; the API running, `npm run api:dev`):
+
+```bash
+npm run catalog:import -- --game mtg --provider scryfall --images all
+npm run catalog:import -- --game pokemon --provider tcgdex --images all
+npm run card-images:status
+```
+
+Expected: Magic about 1.9 GB of pictures, Pokémon about 0.85 GB, all five games about 3.5 to 4.2 GB
+in the 5 GB cache. Read each report's `warnings` (rows left out on purpose, by category) after the
+first real import: it is the adapters' first contact with the real files.
+
+**What the API does** (contract [`docs/api/contracts/r10-card-sources.md`](docs/api/contracts/r10-card-sources.md);
+providers [`docs/providers/scryfall.md`](docs/providers/scryfall.md) and [`docs/providers/tcgdex.md`](docs/providers/tcgdex.md))
+
+- **`ScryfallCardProvider`** (`cards/infra/scryfall`, provider `scryfall`, game `mtg`): `GET
+  /bulk-data` → the "Unique Artwork" file (its `download_uri` must be on the configured bulk host),
+  kept raw under `PROVIDER_DATA_DIR/scryfall/<updated_at>/bulk.json`, read as a stream (gzip or not);
+  a file younger than 24 hours is reused without any call (`refresh-interval`, refused under 24 h),
+  a newer `updated_at` downloads once; `User-Agent` and `Accept` on every call; 8 requests a second
+  by default, refused above 10; `SCRYFALL_SNAPSHOT_ONLY` imports the stored file offline. Mapping:
+  English paper cards only (`lang` en, not digital, `games` with paper; art series, tokens, emblems
+  and oversized cards left out and counted); one card per `oracle_id`; one printing per card object
+  (set + collector number, `<SET>-<NUMBER>` code when it fits, rarity Common / Uncommon / Rare /
+  Mythic Rare / Special / Bonus, the first finish, edition UNLIMITED, language en, the artist); one
+  artwork per `illustration_id` (the front face's), the `normal` image (never a crop); no prices.
+- **`TcgdexCardProvider`** (`cards/infra/tcgdex`, provider `tcgdex`, game `pokemon`): one GitHub call
+  for the branch's newest commit (`Accept: application/vnd.github.sha`), the repository archive of
+  that commit downloaded once from codeload and kept raw with the repository's `LICENSE` beside it
+  (`PROVIDER_DATA_DIR/tcgdex/<sha>/`), reused for 24 hours without a call; `TsLiteral` reads the
+  TypeScript data files of `data/` (no JavaScript engine; a file that is not a plain literal is
+  skipped and counted); English only, Pokémon TCG Pocket (serie `tcgp`) left out; one card per
+  English name, one printing per TCGdex card, set codes the official abbreviation when unique, else
+  the id without punctuation; one image per printing from `assets.tcgdex.net`; no prices.
+- **Printings on their own artwork**: the importer points `card_printing.image_id` at the printing's
+  provider artwork (a card-level row of its card; only when it changes, so a second import writes
+  nothing), and the printing lists (`PrintingSummary.images`: card pages, sets, inventory, holders)
+  show it; a card's primary artwork is its earliest printing's, the printing the catalogue already
+  shows a card with. Yu-Gi-Oh! and the mock catalogue are unchanged.
+- Both providers are `REHOST_REQUIRED` with an SSRF guard on their image hosts; the test profile
+  points them at closed local ports in snapshot-only mode; the web, mobile and purge harnesses and
+  the CI E2E job turn every provider off (`NO_CARD_PROVIDERS` in `scripts/lib/web-e2e-guard.mjs`).
+- Shared infrastructure: `ProviderSnapshotStore`, `ProviderText`, `ProviderWarnings` in
+  `cards/infra/http`.
+
+**Decisions, and why**
+
+1. **No migration.** The printings' own artworks reuse `card_printing.image_id`; the GameSchema
+   rarity lists of `mtg` and `pokemon` (they only check printings an admin makes) are left as they
+   are until the first real import shows the real vocabulary (owner follow-up).
+2. **A Pokémon card is an English name** (typographic apostrophes unified): Pokémon has no
+   Oracle-like identity, and one card per printing would list "Emberpup" (or "Pikachu") once per set
+   in Search typing, indistinguishable. The card's game data comes from its earliest printing.
+3. **A card shows its earliest printing**, so its primary artwork is that printing's: the catalogue
+   already pictures a card by its earliest printing (summaries and suggestions), and the image
+   cache's `REFERENCED` mode caches `card.image_id` for "any printing" references.
+4. **Magic printings take their first finish** (non-foil, else foil, else etched) with the list in
+   their metadata: the owner defines a printing as set code plus collector number, and the
+   inventory item records its copy's finish (as Yu-Gi-Oh!'s edition).
+5. **No market prices** from Scryfall or TCGdex (not asked; their price terms not reviewed).
+6. **Refresh at most daily for both** (the prompt asks it of Scryfall; the same courtesy for
+   GitHub), restarted when the provider confirms the stored copy.
+7. **TCGdex image file `high.jpg`** (configurable `image-file`: high or low, jpg, png or webp): the
+   smallest file above the 320 px rendition; to be confirmed by the first real import (an image that
+   is not found becomes `MISSING_AT_SOURCE` and shows the placeholder).
+8. **Appearance's credits follow the mockup's sentence per game**; the full credit with the notices
+   stays under the card's pictures (Who has this card), where the content shows.
+9. **Who has this card shows a chosen printing's own picture** (found by the walk: with one picture
+   per Magic artwork the header kept the first printing's art).
+10. **Riftbound's fictional cards stay in the local seed** (stage G's tests and seed collectors use
+    them); production has no Riftbound cards, so it stays dimmed there.
+11. **Magic keeps "Unique Artwork", as the prompt names it** (review fix 1): it leaves out reprints
+    that share an artwork (above), which the owner decides on (owner follow-up 7). ADR 0021 first
+    rejected Scryfall's "Default Cards" as "every printing in every language"; that is "All Cards".
+    "Default Cards" is English first, and the importer already keeps one image per
+    `illustration_id` across printings, so it would keep the pictures at about 1.9 GB.
+
+**The prompt's default for this stage** (the owner can change it): (12) One Piece and Riftbound wait
+for Bandai's permission and Riot's key; Magic keeps one image per artwork; Pokémon is English only.
+
+**Tests**
+
+- API: `ScryfallMapperTest` (6: English paper cards only and the warnings, one card per Oracle id,
+  printings in the catalogue's order, every rarity, one image per artwork with each printing on its
+  own, two-faced cards and odd numbers, finishes and image hosts), `TcgdexMapperTest` (5: English
+  only and the licence, set codes, one card per English name with its printings and rarities, one
+  image per printing, stages and finishes), `TsLiteralTest` (4), `ScryfallCardProviderTest` (6: one
+  download with `User-Agent` and `Accept`, reused for a day, one list call after a day and a download
+  only for a newer file, snapshot-only calls nothing, a bulk file elsewhere refused, image
+  allow-list, the 10/s and never-a-crop guards), `TcgdexCardProviderTest` (4), and
+  `CardSourcesImportIT` (2: hidden test games `mtg-srctest` and `pkm-srctest`: **`hasCards` false
+  before and true after a fixture import**, 6 cards / 8 printings / 3 sets / 6 artworks for Magic and
+  4 / 7 / 3 / 7 for Pokémon, the rarities stored, each printing on its own artwork, pictures served
+  as 320 px JPEGs by `/api/v1/public/card-images/{id}`, printing lists with OrenjiTrade's URLs only,
+  a second import changing and downloading nothing, nothing fetched for the catalogues).
+  `CardSourceStub` serves the fixtures and generated pictures on 127.0.0.1.
+- Scripts: the harness guards refuse an enabled Scryfall or TCGdex and their remote addresses.
+- Jest: `cardImages.test.ts` (the credits, `creditedGames`, no Scryfall or TCGdex URL ever shown),
+  `ui.test.tsx` (the Scryfall and TCGdex credit lines), `settings.test.tsx` (Appearance before and
+  after a fixture import, loading, offline), `card-detail.test.tsx` (a chosen Magic printing's own
+  picture and the Scryfall credit).
+- Web E2E of the phone: `profiles.spec.ts` (Appearance credits Yu-Gi-Oh!, Pokémon and Magic from the
+  fictional catalogue). Maestro: `profile-pages-settings-gear.yaml` (native flow 6) opens Appearance
+  and checks the credits' spoken name.
+- GeoPrivacyContractTest: nothing to add (no endpoint and no representation of a place or a person
+  changed).
+
+**Checks** (retries off, the real numbers; this Mac, 2026-10-21, the owner's iPhone 18 Pro simulator
+under the lock)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean (a first `test:api` run found the two re-flowed javadocs, fixed) |
+| `npm run test:api` | **1,256 tests in 195 classes** (the suite and the catalog tests; 27 new in 6 classes), 0 failed, 0 skipped, 4 min 9 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing changed in git (no API change) |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff 62675615 -- apps/web-angular packages package-lock.json` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) |
+| `npm run test:mobile` | typecheck, lint, jest **120 suites / 1,573 tests** (6 new), 28 harness guard tests |
+| `npm run format:check -w apps/mobile` | clean |
+| `npx expo export --platform ios`, `android`, `web` (throw-away directories) | all three bundled |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 27 s (flow 6 with the new Appearance credits). The simulator stayed booted and was left light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** (the guards' new provider checks inside the existing tests) |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+
+**The walk on the simulator** (the owner's iPhone 18 Pro under the lock, 21:05 to 21:21; a stack of
+its own: the API jar on 8480 with the database `orenjitrade_r10_check` and Redis db 5, Scryfall and
+TCGdex in snapshot-only mode on the fixtures, their pictures from a local static server on 8483
+with fictional generated pictures, Metro on 8082; collector1). **Before**: the seed's fictional
+Magic, Pokémon and Riftbound cards were moved to hidden games in that database, so the catalogue
+looked like production before the owner's import: "Choose a game" dimmed Pokémon, Magic, One Piece
+and Riftbound ("Cards coming soon"), and Appearance credited Yu-Gi-Oh! alone. **The fixture
+imports** (`npm run catalog:import -- --api http://localhost:8480 …`): Magic 6 cards, 8 printings,
+3 sets, 6 pictures downloaded, the five warning categories; Pokémon 4 cards, 7 printings, 3 sets, 7
+pictures; `card-images:status` 13 cached. **After**: Pokémon and Magic pickable ("None of your cards
+yet"), One Piece and Riftbound still dimmed; Search typing found "Zephyrine Archivist" (Magic) and
+"Emberpup" (Pokémon, one result for three printings) with their pictures; Who has this card showed
+the pictures, the printings and the Scryfall and TCGdex credits with their notices; Appearance listed
+the three credits. Dark and light, the default and the largest text size (the sheets scroll, the
+credits wrap whole). **Found and fixed**: Who has this card kept the card's picture when a printing
+was chosen; it now shows the printing's own picture (Jest test added). The stack was stopped, its
+database dropped and Redis db 5 flushed; the screenshots of the stage's mockup screens (34, 12, 13,
+53, dark, default size, before and after) are in `.local-dev/r10-notes/pr-shots/` for the pull
+request. The mockup v50 (GameSheet, Appearance) matches in layout and words; Appearance keeps
+today's Settings look (R13 restyles Settings).
+
+**Not done / could not be verified**: no real import was run (agents never call the providers):
+the adapters met only hand-written fixtures written from the providers' published formats, so the
+first real import is the first contact with the real Scryfall file and the real TCGdex repository
+(its layout, `TsLiteral` on every file, the image file name `high.jpg`); its report's warnings say
+what was left out. The sizes (Magic about 1.9 GB, Pokémon about 0.85 GB) are the prompt's estimates.
+The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups**: (1) run the two imports and `npm run card-images:status`, and read the
+warnings; (2) the lawyer review of the Scryfall and TCGdex notices (drafts), Wizards' Fan Content
+Policy and showing Pokémon images; (3) after the first import, align the `mtg` and `pokemon`
+GameSchema rarity lists with the imported vocabulary (a migration like V101); (4) market prices for
+Magic and Pokémon are not imported (decide whether you want them and from which source); (5) in a
+local database the seed's fictional Magic and Pokémon cards stay beside the real ones (a real set
+with a fictional code is skipped and reported); (6) the paused web shows no Magic or Pokémon credit
+(its attributions are Yu-Gi-Oh!'s); add them when it resumes; (7) **decide which Scryfall file
+Magic reads** (review fix 1): "Unique Artwork" (today, as the prompt says: one printing per
+artwork, so a reprint sharing its artwork, common in core sets, Commander decks and Masters sets,
+cannot be listed by its own set code and number) or "Default Cards" (every English paper printing,
+still one picture per artwork, about the same 1.9 GB of pictures, a larger bulk file and more
+printing rows; a small additive change: the bulk type `default_cards` with a snapshot folder of its
+own, then the next import adds the missing printings); (8) **the TCGdex MIT notice in the app**
+(review fix 1, with the lawyer): the phone shows "Card data courtesy of TCGdex (MIT licence)." but
+not the licence's copyright and permission text, which is kept only beside the server's copy; if
+the lawyer wants it in the app, add a Settings › Legal › Licences entry in stage R13 with the
+`LICENSE` text kept beside your first real snapshot (`PROVIDER_DATA_DIR/tcgdex/<sha>/LICENSE`),
+word for word; (9) after the first real import, check that Magic codes typed as printed find their
+printings (`ZTK 0012` → `ZTK-12`; a code typed without a separator, `ztk12`, is not guessed) and
+that a Pokémon code typed as printed lists that printing only (a set's `001` never lists its
+`100` to `199`; review fix 2).
+
+### Review fix 1 (2026-10-22)
+
+The functional verifier and the product and UX review (as a collector) found one major and four
+minor points; each is fixed at its cause or answered, with a test where it is code. No migration
+(the next is still **V134**), no field or parameter added, removed or retyped, no phone or web
+change.
+
+- **F1 (major), the TCGdex set-code rule had no test** (two mutants survived: a shared
+  abbreviation used twice, an abbreviation equal to another set's id code). `TcgdexMapperTest`
+  now feeds the mapper five fictional sets of a serie "Code Era": two promo sets with the same
+  official code, an abbreviation equal to another set's id code, and a unique one; the first four
+  take their id codes, the unique one keeps its abbreviation, and no set is skipped. The other
+  surviving mutants of the review got a test each: a TCGdex card read twice is one printing
+  (`TcgdexMapperTest`), an image address with `..` in a part the pattern accepts is refused
+  (`TcgdexCardProviderTest`), a Scryfall card flagged digital alone and one whose games lack paper
+  alone are each left out (`ScryfallMapperTest`). The six mutants (A2, A14, A23, A26, A29, A31)
+  were re-run on this branch: all six now fail the tests.
+- **U2, a Magic code typed as the card prints it found nothing** (`ZTK 12`, `ZTK-012`, `ztk12`).
+  The card prints the set code apart from a padded number; the catalogue's code is `ZTK-12`.
+  `CatalogText.printingCodeCandidates` reads a space between the set code and a number that holds
+  a digit as the dash and also tries the number without its leading zeros, the code as typed first;
+  `GET /cards`, `GET /cards/suggest`, the unified search's printings and its card resolution use
+  it. A code typed without a separator (`ztk12`) is not guessed (a set code may end in a digit,
+  `M21`). The phone's hint "Try fewer letters, or the code printed on the card" is now true for
+  Magic, so it stays as the mockup words it. Tests: `CatalogTextTest` (the candidates),
+  `CatalogSearchIT` (`azr en001`, `TDX 001`), `CardSourcesImportIT` (after the Magic fixture
+  import, `ZTK 0012` is the first suggestion and `ztk 12`, `ZTK-012`, `ztk - 0012` find the card).
+  The two operations' descriptions say it (`exportOpenApi` and `generate:api` changed only those
+  comments in `docs/api/openapi.json`, `packages/api-client` and `packages/shared-types`).
+- **U1 and F2, "Unique Artwork" leaves out reprints that share an artwork, and the owner was not
+  told.** The prompt names that file, so it stays; it is now an owner decision (follow-up 7) in
+  this section ("What a collector can now do", decision 11), ADR 0021 (point 2 and "Rejected and
+  deferred") and `docs/providers/scryfall.md`. ADR 0021's reason for rejecting "Default Cards"
+  ("every printing in every language") described "All Cards" and is corrected: "Default Cards" is
+  English first, and the importer keeps one image per `illustration_id` across printings (a new
+  `ScryfallMapperTest` case: two printings sharing an artwork keep one image), so it would keep
+  the pictures at about 1.9 GB. Switching is additive and small (the bulk type `default_cards` with
+  a snapshot folder of its own); not done without the owner's word.
+- **U3, the TCGdex MIT notice is not shown in the app.** Answered as an owner and lawyer follow-up
+  (8), in ADR 0021's consequences and `docs/providers/tcgdex.md`: agents never fetch the real
+  repository, so the app has no copy of the real notice; if the lawyer wants it in the app, stage
+  R13's Settings gets a Legal › Licences entry with the `LICENSE` kept beside the owner's first real
+  snapshot, word for word.
+
+**Checks** (retries off; this Mac, 2026-10-22)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,261 tests in 195 classes** (the suite 1,249 and the catalog tests 12; 5 new tests, new checks in three existing ones), 0 failed, 0 skipped, 4 min 16 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | the two operations' descriptions only (`docs/api/openapi.json`, `packages/api-client`, `packages/shared-types`), committed; git clean afterwards |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile` | clean |
+| `npm run test:mobile` | jest **120 suites / 1,573 tests**, 28 harness guard tests |
+| `npx expo export --platform ios`, `android`, `web` (throw-away directories) | all three bundled |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 6 s; the simulator stayed booted, light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+| The six surviving mutants of the review (A2, A14, A23, A26, A29, A31), re-run on this branch | all six fail the tests now |
+
+Not verified: the Android run could not be verified (no Android SDK on this Mac); no real import
+was run, so the typed-code reading and the "Unique Artwork" gap were checked on the fixtures only.
+
+### Review fix 2 (2026-10-22)
+
+The re-review (the functional verifier on the iPhone, with the TCGdex fixture imported) found one
+major and one minor point, both caused by review fix 1's U2; both are fixed at their cause, with
+tests that fail on the code before the fix. No migration (the next is still **V134**), no field or
+parameter added, removed or retyped, no phone or web change.
+
+- **R1-1 (major), a Pokémon code typed exactly as printed listed other cards' printings as exact
+  printings.** Suggestions and the unified search's printings queried every form of the typed code
+  and joined the rows; the number without its leading zeros was also a prefix, so `ZSK 001`
+  (Pokémon keeps TCGdex's padded number) listed `ZSK-001`, `ZSK-100` and `ZSK-101`, `EMR 001` (not
+  in the catalogue) listed another card's `EMR-150`, and the Magic mock's `TDX 001` listed
+  `TDX-101`. Now (`CatalogService.printingsOfTypedCode`) the code as typed is the only prefix used
+  when it finds a printing; only when it finds none, and the number was typed with leading zeros,
+  does the number without them count, and then as the **whole number**: codes that start with it
+  and do not go on with a digit (`CatalogQueryRepository.WHOLE_NUMBER`, in SQL before the limit;
+  `ZTK 0012` finds `ZTK-12` and `ZTK-12P`, never `ZTK-120`). The exact search (`GET /cards`) and
+  the unified search's resolution already took the first form that finds a printing. Decision: the
+  reviewer's "prefer an exact match over prefix matches" is taken in its strict form, since a
+  prefix of the unpadded number would still list `EMR-150` for `EMR 001`; the cost is that a Magic
+  number typed halfway with its zeros (`ZCL 01` on the way to `ZCL 0101`) lists nothing until the
+  number is whole, while the same code typed without zeros (`ZCL 1`) still lists `ZCL-101` and
+  `ZCL-102` as a prefix.
+- **R1-2 (minor), the same printing twice when the typed number starts with "00"** (`ARC-00` listed
+  `ARC-004`'s two printings twice each). Only one lookup's rows are used now, and those rows are
+  one per printing (the joins are many-to-one), so no printing repeats, in suggestions and in the
+  unified search.
+
+Tests: `CardSourcesImportIT` (after the TCGdex fixture import: `ZSK 001` and `zsk-001` suggest
+`ZSK-001` alone, `EMR 001` suggests no printing, `ZSK-00` lists `ZSK-001` once, `ZSK 1` still lists
+`ZSK-100` and `ZSK-101`, the unified search lists `ZSK-001` alone and nothing for `EMR 001`, and
+`GET /cards?query=ZSK 001` finds the card; after the Scryfall fixture import: `ZTK 0012` suggests
+`ZTK-12` alone, `ZCL 0101` `ZCL-101`, `ZCL 0010` no printing, in suggestions and the unified
+search, while `ZCL 1`, typed without zeros, still lists `ZCL-101` and `ZCL-102` as a prefix) and `CatalogSearchIT` (the mock catalogue: `TDX 001` lists `TDX-001` only, and `ARC-00`,
+`EMB-00`, `EVD-00`, `EVD 00` list each printing once, in suggestions and the unified search). On
+the code before the fix the three tests fail (`ZSK-001, ZSK-100, ZSK-101`; `TDX-001, TDX-001,
+TDX-101, TDX-101`; `ZCL-101, ZCL-102`). The suggest operation's description says the rule
+(`exportOpenApi` and `generate:api` changed only that comment); ADR 0021, `docs/providers/scryfall.md`
+and the R10 contract say it too.
+
+**Checks** (retries off; this Mac, 2026-10-22)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **1,262 tests in 195 classes** (the suite 1,249 and the catalog tests 13; 1 new test, new checks in two existing ones), 0 failed, 0 skipped, 4 min 3 s |
+| `./gradlew exportOpenApi` then `npm run generate:api` | the suggest operation's description only (`docs/api/openapi.json`, `packages/api-client`, `packages/shared-types`), committed; git clean afterwards |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile` | clean |
+| `npm run test:mobile` | jest **120 suites / 1,573 tests** |
+| `npx expo export --platform ios`, `android`, `web` (throw-away directories) | all three bundled |
+| `npm run test:mobile:e2e -- --retries=0` (under the lock) | **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows** in 59 min 6 s; the simulator stayed booted, light, text size large, as the owner had it |
+| `npm run test:scripts` | **144 tests** |
+| `npm run audit:gate` | OK (the 2 allowlisted advisories, `braces` and `node-forge`, until 2026-11-30) |
+| The three new checks on the code before the fix | all three fail |
+
+Not verified: the Android run could not be verified (no Android SDK on this Mac); no real import
+was run, so the typed-code reading was checked on the fixtures and the mock catalogue only; the
+reviewer's iPhone steps (Add cards with the TCGdex fixture imported) were not walked again: the
+fix is in the API only, which the phone lists as it comes (its `uniqueSuggestions` unchanged).
+
+## Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)
+
+Stage R11 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R11. Messages › Community (32, 33): one simple room per game"; the owner: "in message
+section, add a section for community by region, game", "just a simple one"). Mockup v50 screens 32
+(Messages › Community), 33 (a room) and 22's Chats | Community tabs. Built on branch
+`feature/r7-home` after R10, for the one giant pull request of R7, R9 to R15 and R8 (owner's
+exception of 2026-10-21; nothing merged in between). **Migration V134** (the next free one is
+**V135**; V124 and V128 stay unused); no ADR (the rooms are data, the decisions are below). Every API
+change is additive (new optional fields, a new enum value, a new optional request field); no file of
+`apps/web-angular` changed. Free for all (ADR 0019); deals ship by mail (ADR 0018); English only.
+
+**What a collector can now do**
+
+- **Messages has two tabs, Chats and Community** (screen 22; Community while the `publicChat` flag is
+  on, which V134 switches on). **Chats has an orange dot** while a chat is unread (VoiceOver "Chats,
+  {n} unread"); the tab bar's badge still counts chats only. `?view=chats` (and the older `inbox`) and
+  `?view=community` open a tab.
+- **Community** (screen 32): the region pill (the browsed region; "Not your region. Back to …" while
+  away), then **the five rooms of that region, the browsed game's room first**, then the others in
+  the games' order. A row is the game's tile and name, the last post ("{handle}: {text}", one line)
+  and its time, **bold with an orange dot while someone else posted after the collector's last visit
+  on this phone** (their own last post never counts); "No posts yet. Say hi!" when a room is empty;
+  at the end "Every collector in {region} can read these rooms. Keep deals and addresses in private
+  chats." Pull to refresh, skeleton rows, an error with "Try again", "The community is closed right
+  now" while the flag is off.
+- **A room** (screen 33): back ("Back to Community"), the game's tile, its name and "{region} · public
+  room", and **Room rules** (the four rules of the mockup, "You can post up to 10 times an hour in each
+  room.", "Got it"). The banner "Every collector can read this room. Keep deals and addresses in
+  private chats." stays above the posts. **Posts read like a chat**, newest at the bottom, with day
+  separators ("Today", "Yesterday", "Monday, September 28"): the avatar, the handle (", you" and an
+  orange "· You" on one's own), **"{province} · {time}"** (the time alone when the author does not
+  share a place; **never a city**), the text, **up to 4 photos** (full screen on tap), **a shared card**
+  (its picture, name and code; opens Who has this card on that printing) or **a shared binder or deck
+  core** (a deck core buyers can find shows its picture, the purple "Deck core" badge and its price;
+  opens its page). Older posts load as the collector scrolls up.
+- **"⋯" on a post**: "Message {handle}" (opens or starts the private chat without a pinned card),
+  "Report this post" (the report screen with the post as context), "Block {handle}" in red (the
+  confirmation, then their posts leave every room); on one's own post, "Delete" (after a
+  confirmation; its photos go too).
+- **The message box**: "+" opens "Send a photo", "Share a card" (the catalogue picker) and "Share a
+  binder or deck core" (one's own public binders); "Write to the room"; the send button turns orange
+  with text (a post always has a few words: photos alone are not a post). Photos: up to 4 per post,
+  JPEG, PNG or WebP of **3 MB** at most, picked several at once and checked on the phone, each
+  removable; uploaded as `COMMUNITY` when the post is sent, **EXIF and GPS stripped** by the API.
+- **Errors keep the text**: "You can post up to 10 times an hour in each room. Try again later." (429),
+  "You already posted this." (409 `DUPLICATE_POST`), the moderation refusal, a photo refused by the
+  upload, and **a network error with "Try again"** (the same post again). Blocked pairs, removed posts
+  and suspended accounts never show; **posts never notify anyone**.
+
+**What the API does** (contract [`docs/api/contracts/r11-community-rooms.md`](docs/api/contracts/r11-community-rooms.md);
+schema: V134 in [`docs/database/schema.md`](docs/database/schema.md))
+
+- **V134 `community_rooms_per_game`**: the 15 rooms (`community_channel` kind `REGION` with
+  `game_slug` and `region_label`, slug `{region}-{game}`, the game's name as the mockup writes it,
+  "{game} collectors in {region}: trades and sales by mail.", stable ids `…8e00-0000000000{21–25,
+  31–35, 41–45}`); **every other channel `ARCHIVED`** (V041's topics, V110's region channels, the old
+  city channels, any admin channel; nothing deleted, posts kept); `publicChat` on (`rollout_percent`
+  100) unless an admin set it; `image_upload.kind` gains `COMMUNITY` (`ck_image_upload_kind`); new
+  table `community_post_photo` (post, storage key, size, position; cascade with the post).
+- **`GET /community/channels`**: each channel gains `lastPost` (`CommunityLastPost`: id, the author's
+  handle, the text on one line cut to 140 characters with "…", when, `mine`), the newest post **the
+  caller may see** (one `LATERAL` query: not deleted, not removed, author active, not blocked either
+  way), `null` when none; no place.
+- **Posts** gain `place` (`Place`, the author's state or province and country, only when the author
+  is discoverable and their profile not private: the privacy matrix's `canSeeLocation`, the profile's
+  own rule, decided for a member who is not the author since review fix 1; `null` otherwise, never a
+  city), `payload.photos` (`PostPhoto`: url, width, height, in order) and, for a shared binder,
+  `deckCore`, `askingPriceText` and `imageUrl` while the reader can open it
+  (`BinderService.chatDeckCores`; since review fix 1 a binder the reader cannot open is left out with
+  its stored name and handle, and `payload.binderUnavailable` is `true`; messages' binder links are
+  unchanged).
+- **`POST /community/channels/{slug}/posts`** takes `photoUploadIds` (at most 4, each the caller's
+  `COMMUNITY` upload of the last hour, each once; 400 otherwise), locked with the post and marked
+  attached when it is stored (a refused post leaves them unattached).
+- **`POST /uploads/images?kind=COMMUNITY`**: 3 MB (413 "The image must be at most 3 MB"), JPEG / PNG /
+  WebP sniffed from the content (a video is 415), re-encoded as a JPEG of at most 1600 px without EXIF
+  or GPS data; `MESSAGE` keeps 8 MB. A `COMMUNITY` upload cannot be attached to a message, nor a
+  `MESSAGE` upload to a post.
+- **Photo files are deleted** (after commit) with a deleted post (author or moderator), a moderator's
+  removal and an account's deletion; the account export lists each post's photo URLs.
+- **Seed** (`CommunitySeedContributor`): nine fictional posts in the rooms, found by slug (in the
+  Yu-Gi-Oh! room of Americas (North) a binder, a "looking for" with a card, collector2's Moth Queen
+  deck core and a question; Pokémon and Magic rooms of Americas (North), Americas (South)'s Pokémon,
+  Europe's Yu-Gi-Oh! and Riftbound). A database seeded before V134 keeps its first five posts in the
+  archived channels and gains the new ones. No seeded photos (seeds hold no files).
+
+**The phone** (`apps/mobile`): `app/(tabs)/messages.tsx` (Chats | Community with `UnderlineTabs`, a
+dot and a spoken label per tab), `src/features/community/RoomList.tsx` (32), `app/community/[slug].tsx`
+(33), `RoomPost.tsx`, `RoomComposer.tsx`, `communityHelpers.ts` (room order, unread, previews, day
+items, the draft and its request, photo rules, error wording), `roomVisits.ts` (the newest post read
+per room, per account, in AsyncStorage; nothing on the server), `communityCopy.ts` (the copy in one
+place), `useCommunityRooms` / `useCreatePost` (uploads, then the post) in `src/api/hooks/community.ts`;
+`GameTile` gains the 36 and 46 pt sizes. The old channel list, post item, post composer, replies and
+editing on the phone are gone (`ChannelList.tsx`, `PostItem.tsx`, `PostComposer.tsx`).
+
+**Decisions, and why**
+
+1. **The paused web's suites keep their channels in their own database.** V134 archives
+   `americas-north`, `looking-for` and the other channels the paused web's community, reporting and
+   acceptance specs post in and list; nothing under `apps/web-angular` may change. The web E2E harness
+   (`scripts/lib/web-e2e.mjs`) and the CI E2E job put those seven channels back to `ACTIVE` in the
+   web suite's own throw-away database `orenjitrade_e2e` only (`PAUSED_WEB_CHANNELS`,
+   `pausedWebChannelsSql`, refused for any other database; guard test in `web-e2e-guard.test.mjs`).
+   The real web, if it ran against a migrated database, would list the 15 rooms (kind `REGION`) under
+   "Regions" and land on the first room of the browsed region. Owner follow-up 1.
+2. **`publicChat` is switched on unless an admin set it** (`updated_by`), as V105 did for the money
+   flags: "on by default", and an admin's explicit choice is kept; it stays the kill switch.
+3. **A post's place follows the profile's rule** (discoverable and not private): a collector who is
+   not on the map does not show their province in a public room either; their own post shows what
+   others see. Never a city.
+4. **Rooms are `REGION` channels with a game** (like V041's city channels), named after the game as
+   the mockup writes it ("Magic: The Gathering", "One Piece"), not `game.name`; the phone orders them
+   (browsed game first, then the order of `GET /games`), the API keeps one display order.
+5. **"New posts" lives on the phone** (the prompt: "since your last visit on this phone"): the newest
+   post read in each room, per account, in AsyncStorage; a room never visited shows its dot while it
+   has someone else's post; opening a room records its newest post.
+6. **A post always has text** (the DB keeps `body` 1–2000, the send button turns orange "with text");
+   photos alone are not sent ("Write a few words to go with your post.").
+7. **No reply threads and no editing on the phone** (the prompt's "⋯" lists Message, Report, Block
+   and Delete); both stay on the API and the paused web. The phone's own post sheet has Delete only.
+8. **Photo limits are constants** (4 per post, 3 MB), not admin settings: the prompt fixes them; S4's
+   admin settings and gallery stay skipped (owner, 2026-10-13). The phone picks photos at quality 0.7
+   (a camera photo of more than 3 MB as it is fits once re-encoded on the phone), checks 3 MB, and the
+   API re-encodes without metadata.
+9. **Photo files go with the post** (author delete, moderator delete, removal, account deletion), as
+   the 2026-10-08 spec asked; a removal keeps the text for the moderators' history, not the photos.
+10. **A shared deck core's badge, price and picture are read live** and only while buyers can find
+    it (public, unsold, the owner's listings public, no block with the reader). `BinderLink` gains
+    three optional fields, filled in posts only (absent in messages). Since review fix 1 a binder the
+    reader can no longer open is left out entirely (decision 15).
+11. **The Chats dot reads the inbox passively** (`useConversations(false)`): the tab bar keeps the
+    inbox fresh; a second reader would ask again for a list that had just failed.
+12. **The banner and the region pill follow the text size a little only** (pinned content; the walk
+    at the largest size found the banner taking the whole screen and the pill's text cut).
+13. **Community waits for the browsed region and game** before it asks for the rooms (skeleton rows
+    meanwhile), so a collector of another region never sees Americas (North)'s rooms first and the
+    rows never move once shown.
+14. **A photo refused by the uploads' own hourly limit** (30 per collector, messages and rooms
+    together) says "You sent a lot of photos in a short time. Try again later.", not the room's
+    posting limit.
+
+15. **(Review fix 1) A shared binder the reader can no longer open shows nothing of it**: not
+    public any more, sold, deleted, its owner suspended, not listed or PRIVATE, or blocked with the
+    reader in either direction. The post's `binder` is left out with the name and the owner's handle
+    stored when it was shared (they were frozen in someone else's post, and the link opened "This
+    binder is not available"); the new optional `payload.binderUnavailable` lets the phone say
+    "Binder no longer available" in a plain row without a link. The paused web, which does not read
+    the new field, shows no binder for such a post. Binder links in private messages are unchanged
+    (Phase 5 behaviour, outside this stage).
+16. **(Review fix 1) An open room asks for its first page again every 15 s** while it is on screen
+    and the app in the foreground (TanStack Query's `refetchInterval`, paused in the background), on
+    coming back to it after 15 s, and with a pull at the newest end (an inverted list shows the
+    spinner at the bottom on iOS). Rooms have no push (the realtime channel carries private chats
+    only); a poll keeps "reads like a chat" without a new server feature.
+17. **(Review fix 1) The avatar and the handle of a post open the author's profile** (the old post
+    item did; the room's own rule says to check ratings before an e-Transfer). The handle's block
+    is the link screen readers stop on ("collector2, Ontario, 8:14 AM", hint "Opens the profile of
+    collector2"); the avatar is a larger target for a finger, hidden from screen readers.
+18. **(Review fix 1) A room's `postCount24h` counts what the caller may see** (blocks both ways,
+    suspended authors, removed and deleted posts), in the SQL like the newest post
+    (`ChannelRepository.listForMember`); the moderators' channel list keeps counting every post not
+    deleted or removed. The phone does not show the count; the paused web may.
+19. **(Review fix 1) The kill switch covers the room's photos**: `POST /uploads/images?kind=COMMUNITY`
+    answers 404 `FEATURE_DISABLED` while `publicChat` is off (before reading the file); `MESSAGE`
+    uploads do not depend on it.
+
+**The defaults this stage applies** (the prompt's list, item 11, and this stage's own): one room per
+platform region and game; the old channels archived (never deleted); `publicChat` on by default (an
+admin's choice kept); up to 4 photos of 3 MB per post; "new posts" remembered on the phone; a post's
+province only for discoverable authors; no replies or editing on the phone; posts never notify.
+
+**Tests**
+
+- API: `CommunityRoomsIT` (7: the room list's newest post with blocks both ways, a suspended author
+  and a removal; 4 photos in order, a fifth, a `MESSAGE` upload, another collector's and a repeated
+  one refused, a `COMMUNITY` upload refused by a message, EXIF and GPS gone from the stored files, an
+  upload used once, files deleted with the post; 3 MB and video refusals; removal and account
+  deletion delete the photos, the export lists them; the place only for discoverable authors, never a
+  city; a shared deck core's badge, price and picture, gone once private; posts never notify),
+  `CommunityRoomsMigrationIT` (4, two scratch databases at V133: the 15 rooms, every other channel
+  archived with its posts, the flag on unless an admin chose, the `COMMUNITY` kind and the photo
+  table), `RoomRulesTest` (4: the preview, the limits, the deck core rules, the empty payload);
+  `CommunityIT` moved onto the rooms (the 15 rooms and the archived channels gone, 404 on each old
+  slug); `GeoPrivacyContractTest.messagingAndCommunityResponsesNeverCarryGeography` reads every room
+  of every region as every seed account; `AgeConfirmationIT` and `AnalyticsIT` post in a room.
+- Phone (Jest): `community.test.ts` (room order, unread dots and their memory, previews, day
+  separators, places, the send button, the request, photo rules, error wording and "Try again"),
+  `community-room.test.tsx` (the top bar, banner and day separators; rules; the "⋯" sheet for others
+  and for one's own post; report; block; delete; posting; 4 photos uploaded as `COMMUNITY` in order
+  with the 3 MB refusal; the uploads' own limit; 429 and duplicate; a network error and "Try again"; skeleton, empty, closed,
+  off and error states), `messages-tab.test.tsx` (the tabs, the Chats dot, the five rooms in order
+  with their last posts and dots, a visited room, the closed state, the error with retry).
+- Mobile web E2E `e2e/community.spec.ts`: the rooms of the region (Pokémon first for a Pokémon
+  collector), the Yu-Gi-Oh! room, its rules, a post with a photo (the file chooser), the duplicate,
+  the "⋯" sheet and the report, delete.
+- Native flow `community-post.yaml` (iOS, the owner's iPhone 18 Pro): Messages › Community, the
+  Yu-Gi-Oh! room, the rules, a post with a photo from the library (checked on the API: one photo),
+  the report of another collector's post (checked on the API: one open SPAM report).
+
+**Checks** (retries off. The API and web checks ran on the final API, client and web code; the full
+native suite and the full mobile web E2E on `cb1356de`; the two phone changes after it, `c214e471`
+and `62140a7f`, were re-checked: Jest, typecheck, lint, format and the exports on the final tree, the
+native flows `community-post` and `messages-inbox-thread` and the mobile web specs `community` and
+`messages` alone)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **196 classes / 1,264 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 22 s; `CommunityRoomsIT` (7), `CommunityRoomsMigrationIT` (4) and `RoomRulesTest` (4) among them |
+| `exportOpenApi` then `generate:api` | the contract and both clients regenerated and committed (`0567b58a`); a second run on the final tree changes nothing |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); `git diff c99cb70c -- apps/web-angular` is empty |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.3 min); the harness logged the paused web's channels back in `orenjitrade_e2e` |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **120 suites / 1,587 tests** |
+| `npx expo export` (scratch folders) | iOS 1,943 modules (Hermes bundle 5,994,514 B), Android 2,069 modules (6,292,425 B), web 1,564 modules, 68 static pages |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **61 passed, 1 failed** (`community.spec.ts`: the spec looked a post up by `getByText`, which matched the message box's text on the web build; fixed in `cb1356de` to read the post from its `POST` answer and look for posts by id), then `community.spec.ts` alone **1 passed**; on the final tree `community` and `messages` **3 passed** |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows passed** (59 min 32 s), `community-post` among them; on the final tree `community-post` and `messages-inbox-thread` passed alone |
+| `npm run test:scripts` | **145 / 145** (the guard test of `PAUSED_WEB_CHANNELS` among them) |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The walk** (the owner's iPhone 18 Pro, iOS 27, on the native harness's stack with the seed
+collectors; their 18+ confirmation recorded in that throw-away database only; screenshots for the
+pull request in `.local-dev/r11-notes/pr-shots/`): Messages with Chats | Community and the Chats dot
+turning on live when a chat arrived; Community with the Yu-Gi-Oh! room first, the dots, the times,
+"No posts yet. Say hi!" and the footnote; the Yu-Gi-Oh! room with the rules sheet, the banner, the
+day separators, a two-photo post and a one-photo post, a shared card, a binder and collector2's deck
+core with "Deck core" and "$95"; the "⋯" sheet, the "+" sheet; a duplicate ("You already posted
+this."), the room's limit after ten posts through the API ("You can post up to 10 times an hour in
+each room. Try again later."), and the API stopped ("Your post was not sent. Check your connection."
+with "Try again", the text kept); dark and light; the default and the largest text size (the
+launch argument of `relaunch-large-text.yaml`; the device's setting was put back to `large`). It
+found four things, fixed: a post's only photo was 260 × 320 pt (now its own shape within 220 pt),
+the "+" sheet had a title and a detail line the mockup does not (removed), and at the largest size
+the banner took the whole screen and the region pill's name was cut (both now follow the text size a
+little only). Compared with `/Users/yunji/Dev/.orenji-redesign-v50/project` (Community, CommunityRoom,
+Messages): the same rows, tiles, bars, sheets and wording; the mockup's coloured initials avatars
+are the app's usual avatar.
+
+**What could not be verified**
+
+- **The Android run could not be verified** (no Android SDK on this Mac).
+- A real iPhone camera roll: the simulator's photos are small; whether a 12-megapixel photo picked at
+  quality 0.7 always stays under 3 MB was not measured on a phone (a larger one is refused on the
+  phone with "Choose a photo up to 3 MB." before any upload).
+- Picking 4 photos at once natively (the native flow picks one; Jest and the API test cover four).
+- The paused web against a database migrated to V134 (the web is paused; its suites run with their
+  old channels put back, decision 1).
+
+**Owner follow-ups**
+
+1. **The paused web**: its community, reporting and acceptance specs post in channels V134 archived;
+   their test database gets them back (`PAUSED_WEB_CHANNELS`, the local harness and the CI E2E job).
+   When the web resumes, move its specs and its community page to the rooms and drop that step.
+2. **Your local database**: after `npm run dev` migrates it to V134, the five community posts seeded
+   before stay in the archived channels and the rooms show the four new seed posts (and anything
+   posted later); a reset of the local database gives the full seed in the rooms.
+3. **`publicChat`**: switched on by V134 unless an admin had set it; if you turned it off on
+   purpose, it stays off.
+4. **Photo limits** (4 per post, 3 MB) are constants of the API and the phone, as the prompt fixes
+   them; say if they should become admin settings (S4's settings and gallery stay skipped).
+5. **A post shows the author's province only when they are discoverable** (the profile's rule);
+   say if every post should show it (the mockup shows one on each post).
+6. **Rooms never visited show their dot** while they hold someone else's post (the "last visit on
+   this phone" rule taken literally); say if a new phone should start quiet.
+7. **Uploads share one hourly limit** (30 per collector, messages and rooms together); the phone
+   says "You sent a lot of photos in a short time. Try again later." when it is reached.
+8. The simulator's photo library holds one more copy of the fictional card photo per native run
+   (`addMedia`), as for native flow 1.
+
+### Review fix 1 (2026-10-22)
+
+Three reviewers (functional, product and UX as a collector, privacy) sent fifteen findings, three of
+them major (the open room's refresh, found by two of them, and the profile link); three pairs were
+the same problem seen twice (U1 and F1, P1 and F6, P2 and F5). Each is fixed at its cause with a test
+that fails without the fix (the reviewers' surviving mutants re-checked: each now fails a test). No migration (the next is still **V135**);
+one new optional response field (`PostPayload.binderUnavailable`); no file of `apps/web-angular`
+changed.
+
+- **An open room shows newer posts** (U1, F1, major; the old channel screen had pull to refresh):
+  `useCommunityPosts(slug, live)` asks again every 15 s while the room is on screen and the app in
+  the foreground, the room asks on coming back after 15 s, and a pull at the newest end asks at once
+  (decision 16). Jest: an answer arriving while the room is open, then a pull; the native flow
+  `community-post` has Bo answer through the API while Ada's room is open and waits for it on screen.
+- **A post's avatar and handle open the author's profile** (F2, major; the old post item did):
+  decision 17. Jest, and the native flow taps Bo's handle and comes back.
+- **"{province} · {time}" goes under the handle at large text sizes** (U2): above a font scale of
+  1.3 the handle wraps (up to three lines, "· You" included), the line goes under it (two lines),
+  the "⋯" button stays beside the handle. Jest at the largest size.
+- **Community closes when a refresh finds `publicChat` off** (U3): the closed state is checked before
+  the rooms already shown. Jest: rooms, then a pull that answers `FEATURE_DISABLED`.
+- **A post's place is decided for a member who is not its author** (P2, F5): a discoverable author
+  with a PRIVATE profile read their own province on their own post, which nobody else reads
+  (`CommunityService.ROOM_READER`); the contract already said "the author's own posts included".
+- **A shared binder the reader can no longer open shows nothing of it** (P1, F6): decision 15; the
+  phone's "Binder no longer available" row has no link.
+- **`postCount24h` counts what the caller may see** (P5): decision 18.
+- **`COMMUNITY` uploads answer 404 `FEATURE_DISABLED` while `publicChat` is off** (F7): decision 19.
+- **Tests the reviewers asked for** (P3, P4, F3, F4): `CommunityRoomsIT` (9) gains a discoverable
+  author with a PRIVATE profile (no place for a reader, another author or the author, in the room and
+  in the answer to a new post), the deck core shared by a third collector across a block in each
+  direction, a suspended owner and a private binder (nothing of it, its name and handle included;
+  the owner still reads it while public), the 24 h count across a block, a suspension and a removal,
+  and the upload refused while the community is off; `GeoPrivacyContractTest` first has collector7
+  (not discoverable) and a discoverable account with a PRIVATE profile post through the API (deleted
+  at the end), so its `null` rules run for every seed reader and the author's own read;
+  `CommunityIT`'s posting limit uses two channels of 2 posts an hour (the second takes its own two,
+  then 429); `RoomRulesTest` checks the left-out binder in each case; Jest checks that no
+  `GET /community/channels` goes out before the browsed game settles, that a blocked author's posts
+  leave the room before any new read, the "Block {handle}" row in red and the send button's two
+  colours.
+
+**Owner follow-ups of review fix 1**
+
+9. **An open room asks the API every 15 s** while it is on screen and the app in the foreground
+   (one small request for its first page). Rooms have no push today; if rooms grow busy, the
+   realtime channel of private chats could carry room posts instead (a server feature, not built).
+10. **Binder links in private messages keep the name and handle stored when they were shared**, as
+    since Phase 5, even when the reader can no longer open the binder; rooms no longer do (decision
+    15). Say if messages should follow the rooms' rule.
+
+**Checks of review fix 1** (retries off, all on the final code; `test:api` and the paused web's E2E
+ran while the native suite ran, nothing failed):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **196 classes / 1,266 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 26 s; `CommunityRoomsIT` (9), `CommunityIT` (8), `RoomRulesTest` (4), `GeoPrivacyContractTest` (15) among them |
+| `exportOpenApi` then `generate:api` | the contract and both clients regenerated and committed (`ff54885e`: `PostPayload.binderUnavailable`, the upload's 404 in its description); a second run on the final tree changes nothing |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); no file of `apps/web-angular` changed |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.3 min) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **120 suites / 1,593 tests** |
+| `npx expo export` (scratch folders) | iOS 1,943 modules (Hermes bundle 5,997,140 B), Android 2,069 modules (6,290,667 B), web 1,564 modules, 68 static pages |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows passed** (59 min 21 s); `community-post` with Bo's answer showing in the open room and his handle opening his profile |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+A short walk on the iPhone 18 Pro at the largest text size (the launch argument of
+`relaunch-large-text.yaml`, the device's own setting untouched): a post reads "collector2", then
+"Ontario · 10:26 AM" under it, the "⋯" button beside the handle. **The Android run could not be
+verified** (no Android SDK on this Mac). Not walked natively: the pull at the newest end of the
+room (Jest calls the refresh control; the 15 s refresh is the native flow's check).
+
+### Review fix 2 (2026-10-22)
+
+The reviewers' check of review fix 1 approved it and sent two minor findings, both about the
+largest text size; both are fixed at their cause with a test that fails without the fix. Phone
+only: no migration (the next is still **V135**), no API change, no file of `apps/web-angular`
+changed.
+
+- **A post's time is never cut by a long province** (R1-1, the rest of U2): at the largest size the
+  line under the handle was capped at two lines, so "Community of Madrid · 12:16 PM" read
+  "Community of / Madrid · 12:1…" (and "Buenos Aires City · 12:16 P…"). Above a font scale of 1.3
+  the line now takes as many lines as it needs. Beside the handle (the default sizes) the province
+  and the time are two texts: the province gives way, the time never shrinks (at the default size a
+  long province such as "Santiago Metropolitan Region" cut the time the same way; a handle that
+  fills the row still cuts it, as before). Jest: a "Newfoundland and Labrador" post at the default
+  size (the time its own text that never shrinks) and at the largest (no cap); a two-line cap fails.
+- **The community's closed, empty, not found and error states scroll** (R1-2): centred in a plain
+  view, "The Community is closed right now" ran over the status bar, the "Messages" title and the
+  tabs at the largest size, its "Open chats" button off screen. A new `StateScroll`
+  (`src/components/ui`: a scroll view whose content grows to the screen, so a state stays centred
+  while it fits) holds Community's closed state and its error (with the region pill), and the
+  room's closed, not found, error and empty states. Jest: `StateScroll`'s content grows; each state
+  of the list and the room sits in it.
+
+**Checks of review fix 2** (retries off, all on the final code; `test:api` and the paused web's E2E
+ran while the native suite ran, nothing failed):
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | clean |
+| `npm run test:api` | **196 classes / 1,266 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 46 s |
+| `exportOpenApi` then `generate:api` | nothing changed (no API change in this fix) |
+| `npm run build -w apps/web-angular` | initial total **893.88 kB** (under 900 kB); no file of `apps/web-angular` changed |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; lint and format clean |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.4 min) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | clean |
+| `npm run test:mobile` | **120 suites / 1,595 tests** (two new: `StateScroll`, the time beside a long province) |
+| `npx expo export` (scratch folders) | iOS 1,944 modules (Hermes bundle 5,998,438 B), Android 2,070 modules (6,296,632 B), web 1,564 modules, 68 static pages |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **62 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock) | **38 / 38 flows passed** (59 min 24 s) |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+A walk on the iPhone 18 Pro on the native suite's kept stack (three fictional posts by seed
+collectors of long provinces through the API, deleted afterwards; the largest size by the launch
+argument of `relaunch-large-text.yaml`, the device's own setting untouched): at the device's size
+"collector6  Santiago Metropolitan Re… · 1:32 PM", "Community of Madrid · 1:32 PM" and "Buenos
+Aires City · 1:32 PM", each time whole; at the largest size "Community of Madrid · 1:32 PM" and
+"Santiago Metropolitan Region · 1:32 PM" wrap whole under the handle. With `publicChat` switched
+off through the admin API (on again afterwards), a pull on Community shows the closed state under
+the tabs, which scrolls to "Open chats"; a link to the room shows its closed state under the top bar,
+which scrolls the same way; "Open chats" opens the chats. **The Android run could not be verified**
+(no Android SDK on this Mac). Seen on the way, not changed (the reviewers' nit R1-3 is of the same
+kind and was not sent to this round): at the largest size a word wider than the screen breaks inside
+itself, as "communi / ty" in the shared `EmptyState`'s title and "availabl / e" in the binder row.
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -7535,26 +8853,68 @@ on the owner's iPhone 18 Pro (left light, text size large, as the owner had it);
 > cards only** (no French text, no French legal work, no language switch, no card-language choice
 > beyond English; the existing French legal texts and their flow stay as they are for now).
 
-> **Stage R6 is merged** (#82, `3d56a090`). **Stage G of the phone redesign is built** ("One game
-> at a time", mockup v50 screens 34 and 35 and the changes to 11, 12, 14, 15, 17 and 18; section
-> "Phone redesign G: one game at a time (2026-10-20)" above; branch `feature/g-one-game`, builder
-> done, not pushed): the browsed game per account with the game pill and "Choose a game" (games
-> without cards dimmed), the restyled "Choose a region", Search scoped to the game (no game chips),
-> binders of one game (V130 One Piece, V131 `binder.game_id` with the migration of existing
-> binders, 409 `BINDER_GAME_LOCKED` / `BINDER_GAME_MISMATCH`), Inventory › Binders by game, New
-> binder's Game picker, Edit binder's locked game, `game=` on the discovery reads (contract
-> `docs/api/contracts/g-one-game.md`). V132 is review fix 1's; the next migration is **V133** (V124 and V128 unused).
+> **Stage G is merged** (#85, `c6e3118a`). **Stage R7 of the phone redesign is built** ("Home",
+> mockup v50 screens 10, 10b and 10c; section "Phone redesign R7: Home (2026-10-21)" above; branch
+> `feature/r7-home`, builder done, not pushed): Home as the first of five tabs with the region and
+> game pills, the search field, Get started, the chips pinned on scroll, the feed in sections by
+> time with new cards ("+n"), wishes ("I have it"), deck cores and the end; `GET /api/v1/feed`
+> (contract `docs/api/contracts/r7-home-feed.md`), V133 `binder.core_since`. The next migration is
+> **V134** (V124 and V128 unused; an ADR takes 0021 or later, 0020 is the card scan's).
 >
-> **Exact next task: stage G's ship step** (review fixes 1 and 2 are done, see "Review fix 1" and
-> "Review fix 2" in the G section; the second review round found one minor finding, fixed): merge
-> `main`, the handoff's full check list, the pull request, the merge on green. The next migration is **V133**. **Then R7** with
-> [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
-> (Home, the first of five tabs: it places the `GamePill` of `src/features/games` right of the
-> region pill, and its feed takes `game=` like Search; its "I have it" reuses R6's `useIHaveIt`),
-> then R8, then R9 to R15 (R15 after R12), one branch and one PR each, none bringing back a paid
-> feature (ADR 0019). Read first: `CLAUDE.md`, `docs/development/claude-handoff.md`, this section,
-> the two prompts, R2's to R6's and G's sections of this file, `docs/api/contracts/r3-binders-deck-cores.md`,
-> `r4-messages-sales.md`, `r5-search.md`, `r6-profiles.md` and `g-one-game.md`.
+> **One giant pull request (owner's exception of 2026-10-21):** stages R7, R9 to R15 and the
+> wrap-up R8 are built one after another on `feature/r7-home` without merging into `main` in
+> between; the lead pushes it to a draft pull request whose CI runs on every push. **Stage R9 is
+> built** ("Notifications (31) and the bell"; section "Phone redesign R9: Notifications (31) and the
+> bell (2026-10-21)" above; contract `docs/api/contracts/r9-notifications.md`; no migration, the
+> next is still **V134**): the bell's dot and "Notifications, {n} new" on the five tabs,
+> Notifications with New, Earlier, each kind's target, reminders answered in place, a tapped push
+> opening its row's target; `excludeTypes` on the notification list and unread count.
+>
+> **Stage R10 is built** ("Card data for Magic and Pokémon"; section "Phone redesign R10: Card data
+> for Magic and Pokémon (2026-10-21)" above; ADR 0021; contract `docs/api/contracts/r10-card-sources.md`;
+> no migration, the next is still **V134**; no API change): Scryfall (Magic, "Unique Artwork") and
+> TCGdex (Pokémon, English only) adapters tested on hand-written fixtures, printings on their own
+> artwork, the credits under the pictures and in Settings › Appearance, Who has this card showing a
+> chosen printing's picture. **The owner's step** (agents never import for real):
+> `npm run catalog:import -- --game mtg --provider scryfall --images all`,
+> `npm run catalog:import -- --game pokemon --provider tcgdex --images all`, then
+> `npm run card-images:status`. **R10's review fixes 1 and 2 are done** (tests for the TCGdex
+> set-code rule and the other surviving mutants; a Magic code typed as printed, `ZTK 0012`, finds
+> `ZTK-12`; ADR 0021 corrected; fix 2: a padded code lists its own printings only, each once). **Two owner decisions wait** (R10's owner follow-ups 7 and 8): which Scryfall
+> file Magic reads ("Unique Artwork", one printing per artwork, so reprints sharing an artwork
+> cannot be listed by their own set code and number; or "Default Cards", every English paper
+> printing with one picture per artwork, a small additive change), and whether the TCGdex MIT
+> notice goes into the app (with the lawyer; if so, **stage R13's Settings gets a Legal ›
+> Licences entry** with the `LICENSE` text kept beside the owner's first real snapshot).
+>
+> **Stage R11 is built** ("Messages › Community (32, 33): one simple room per game"; section
+> "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)" above;
+> contract `docs/api/contracts/r11-community-rooms.md`; **V134**, the next migration is **V135**):
+> Messages with Chats | Community and the Chats dot; one room per platform region and game (15, the
+> other channels archived, `publicChat` on unless an admin chose); the browsed region's rooms with
+> the browsed game's first and the "new posts" dot remembered on the phone; a room read like a chat
+> with rules, banner, day separators, photos (`COMMUNITY` uploads, 3 MB), a shared card, binder or
+> deck core, the "⋯" sheet and the message box; the paused web's suites keep their old channels in
+> their own E2E database (`PAUSED_WEB_CHANNELS`, R11 decision 1).
+>
+> **R11's review fix 1 is done** (an open room shows newer posts every 15 s, on coming back and
+> with a pull; a post's avatar and handle open the profile; the line under the handle at large text
+> sizes; Community closes when a refresh finds it off; a post's place decided for a member who is
+> not the author; a binder the reader can no longer open left out with its name and handle,
+> `payload.binderUnavailable`; the count of what the caller may see; `COMMUNITY` uploads refused
+> while `publicChat` is off; the tests the reviewers asked for; see "Review fix 1" in the R11
+> section).
+>
+> **R11's review fix 2 is done** (the reviewers' check of fix 1 approved it with two minor
+> findings at the largest text size: a post's time is never cut by a long province, and the
+> community's closed, empty and error states scroll; see "Review fix 2" in the R11 section).
+>
+> **Exact next task: the lead's check of R11's review fix 2**, **then stage R12** ("Sign-in, sign-up and welcome", the same prompt's section R12) on the same
+> branch, then R13 to R15 (R15 after R12) and
+> the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test accounts and seed
+> documents, a walk of every mockup screen with a screenshot each, the exact next task), none
+> bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship step is
+> the giant pull request's.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)

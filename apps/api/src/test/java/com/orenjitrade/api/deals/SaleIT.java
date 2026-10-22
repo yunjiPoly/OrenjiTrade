@@ -97,7 +97,36 @@ class SaleIT extends AbstractDealsIT {
         assertThat(notified.get(0).path("data").path("deepLink").asString())
                 .isEqualTo("/messages/" + chatId);
         assertThat(notified.get(0).toString()).doesNotContain("7023");
+        // Stage R9: the phone's row names the card and shows its picture; a tracking number came
+        // with it (a flag only, never the number).
+        JsonNode data = notified.get(0).path("data");
+        assertThat(data.path("itemName").asString()).isEqualTo(payloadName(seller, chatId));
+        assertThat(data.path("saleKind").asString()).isEqualTo("CARD");
+        assertThat(data.path("hasTracking").asBoolean()).isTrue();
+        assertThat(data.path("cardName").asString()).isEqualTo(data.path("itemName").asString());
+        assertThat(data.path("game").asString()).isNotBlank();
+        assertThat(data.path("cardImageUrl").asString()).startsWith("http").contains("/api/v1/");
+        assertThat(
+                        testUsers
+                                .query(
+                                        "SELECT data ->> 'cardImageUrl' AS url FROM notification"
+                                                + " WHERE user_id = ? AND type = 'SALE_RECORDED'",
+                                        buyer.id())
+                                .get(0)
+                                .get("url")
+                                .toString())
+                .as("stored API-relative, never with the request's origin")
+                .startsWith("/api/v1/");
         assertThat(notifications(seller, "SALE_RECORDED")).isEmpty();
+    }
+
+    private String payloadName(Collector member, String chatId) {
+        return saleMessages(member, chatId)
+                .get(0)
+                .path("payload")
+                .path("sale")
+                .path("name")
+                .asString();
     }
 
     @Test
@@ -205,6 +234,12 @@ class SaleIT extends AbstractDealsIT {
         assertThat(sale.path("kind").asString()).isEqualTo("DECK_CORE");
         assertThat(sale.path("binderId").asString()).isEqualTo(coreId);
         assertThat(item(seller, itemId, 200).path("quantity").asInt()).isEqualTo(3);
+        // Stage R9: a deck core's notification names it, without a card picture or tracking.
+        JsonNode coreData = notifications(buyer, "SALE_RECORDED").get(0).path("data");
+        assertThat(coreData.path("saleKind").asString()).isEqualTo("DECK_CORE");
+        assertThat(coreData.path("itemName").asString()).isNotBlank();
+        assertThat(coreData.path("hasTracking").asBoolean()).isFalse();
+        assertThat(coreData.has("cardImageUrl")).isFalse();
 
         // The buyer goes back to the card: the core's sale does not make the card "Sold", and a
         // sale naming the core now is refused in turn.

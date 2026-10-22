@@ -7,6 +7,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { CommunityLastPost } from './communityLastPost';
 
 
 /**
@@ -21,6 +22,10 @@ export interface CommunityChannel {
     regionLabel?: string | null;
     description: string;
     postCount24h: number;
+    /**
+     * Stage R11: the newest post the caller may see (blocked collectors, suspended accounts, deleted and removed posts left out), null when none
+     */
+    lastPost?: CommunityLastPost;
 }
 export enum CommunityChannelKindEnum {
     Game = 'GAME',

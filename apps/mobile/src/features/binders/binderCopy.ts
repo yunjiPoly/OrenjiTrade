@@ -56,6 +56,7 @@ export const EDIT_BINDER_COPY = {
   titleEdit: 'Edit binder',
   titleNew: 'New binder',
   backLabel: 'Back to your binders',
+  backToNotifications: 'Back to Notifications',
   name: 'Name',
   namePlaceholder: 'Trade binder',
   nameRequired: 'Give your binder a name.',

@@ -2,6 +2,7 @@ package com.orenjitrade.api.community.api;
 
 import com.orenjitrade.api.community.domain.ChannelKind;
 import com.orenjitrade.api.community.domain.ChannelStatus;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.Max;
@@ -9,6 +10,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -25,7 +27,17 @@ public final class CommunityRequests {
                     @Size(max = 2000)
                     String body,
             @Schema(description = "Optional shared printing") @Nullable UUID cardPrintingId,
-            @Schema(description = "Optional shared public binder") @Nullable UUID binderId) {}
+            @Schema(description = "Optional shared public binder") @Nullable UUID binderId,
+            @ArraySchema(
+                            arraySchema =
+                                    @Schema(
+                                            description =
+                                                    "Stage R11: up to 4 photos, the uploadIds of"
+                                                            + " POST /uploads/images?kind=COMMUNITY"
+                                                            + " (yours, within 1 h), in order"),
+                            maxItems = 4)
+                    @Size(max = 4)
+                    @Nullable List<@NotNull UUID> photoUploadIds) {}
 
     /** {@code PATCH /community/posts/{id}}. */
     @Schema(name = "UpdatePostRequest")

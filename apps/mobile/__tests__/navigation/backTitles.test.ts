@@ -11,8 +11,8 @@ describe('iOS back button over a route group', () => {
   it('names the tab the collector comes from, never the "(tabs)" folder', () => {
     expect(groupBackTitle('(tabs)', 'profile')).toBe('Profile');
     expect(groupBackTitle('(tabs)', 'messages')).toBe('Messages');
-    // The old Map and Wishlist tabs redirect into Search (stage R5).
-    expect(groupBackTitle('(tabs)', 'index')).toBe('Search');
+    // Home is the `index` route (stage R7); the old Wishlist tab redirects into Search (R5).
+    expect(groupBackTitle('(tabs)', 'index')).toBe('Home');
     expect(groupBackTitle('(tabs)', 'wishlist')).toBe('Search');
     for (const tab of TABS) {
       expect(groupBackTitle('(tabs)', tab.name)).toBe(tab.title);
@@ -20,7 +20,7 @@ describe('iOS back button over a route group', () => {
   });
 
   it('uses the first screen of the group until the group has navigated', () => {
-    expect(groupBackTitle('(tabs)', undefined)).toBe('Search');
+    expect(groupBackTitle('(tabs)', undefined)).toBe('Home');
     expect(groupBackTitle('(auth)', undefined)).toBe('Sign in');
     expect(groupBackTitle('(account)', undefined)).toBe('Verify your email');
   });

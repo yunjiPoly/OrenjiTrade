@@ -22,10 +22,7 @@ tags:
     env:
       EMAIL: ${output.wren.email}
       PASSWORD: ${output.wren.password}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 
 # The card search (stage R5): collectors whose name matches show under the cards, at most three,
 # with their state only. Two letters first: the field keeps what is typed next.

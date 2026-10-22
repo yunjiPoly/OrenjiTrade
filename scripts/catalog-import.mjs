@@ -2,10 +2,13 @@
 // Catalog import from the command line (ADR 0015, docs/development/local-setup.md):
 //
 //   npm run catalog:import -- --game yugioh --provider ygoprodeck --images referenced
+//   npm run catalog:import -- --game mtg --provider scryfall --images all       (Magic, ADR 0021)
+//   npm run catalog:import -- --game pokemon --provider tcgdex --images all     (Pokémon, ADR 0021)
 //
 // Options:
 //   --game <slug>          game to import (default yugioh)
-//   --provider <id>        provider id (default ygoprodeck; "mock" re-imports the fictional catalog)
+//   --provider <id>        provider id (default ygoprodeck; scryfall for mtg, tcgdex for pokemon;
+//                          "mock" re-imports the fictional catalog)
 //   --images <mode>        none | referenced (default) | all | limit:<n>   (or: limit --limit <n>)
 //   --limit <n>            artworks of a LIMIT run
 //   --mode <mode>          full (default) | incremental
@@ -14,8 +17,8 @@
 // Queues POST /internal/jobs/catalog-import with the local service token, polls
 // GET /internal/jobs/catalog-import/{id} until the run finished and prints the report. The card
 // metadata is always imported completely; the images go into the local cache, which never grows
-// beyond CARD_IMAGE_LOCAL_CACHE_MAX_MB (at most 5 GB = 5120 MiB, enough for the whole Yu-Gi-Oh!
-// catalog at 320 px). Needs a running API (npm run api:dev).
+// beyond CARD_IMAGE_LOCAL_CACHE_MAX_MB (at most 5 GB = 5120 MiB, enough for every game at 320 px:
+// Magic about 1.9 GB, Pokémon about 0.85 GB). Needs a running API (npm run api:dev).
 
 import { fail, formatDuration, log, table } from './lib/util.mjs';
 import { apiBase, internal, mb, parseOptions } from './lib/internal-api.mjs';

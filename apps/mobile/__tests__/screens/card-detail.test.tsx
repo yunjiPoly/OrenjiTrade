@@ -384,6 +384,41 @@ describe('Who has this card (screen 13)', () => {
     expect(within(empty).getByRole('button', { name: 'Add to wishlist' })).toBeOnTheScreen();
   });
 
+  it('shows a chosen Magic printing with its own artwork, and the Scryfall credit (stage R10)', async () => {
+    const art = (id: string) => [
+      { kind: 'FRONT' as const, url: `/api/v1/public/card-images/${id}`, width: 320, height: 446 },
+    ];
+    const archivist = cardDetailFixture({
+      game: 'mtg',
+      name: 'Zephyrine Archivist',
+      primaryImageUrl: '/api/v1/public/card-images/art-ztk',
+      printings: [
+        printingFixture({ printingCode: 'ZTK-12', rarity: 'Uncommon', images: art('art-ztk') }),
+        printingFixture({
+          id: PRINTING_B,
+          printingCode: 'ZCL-45',
+          rarity: 'Rare',
+          images: art('art-zcl'),
+        }),
+      ],
+    });
+    mockApi(routes({ 'GET /api/v1/cards/{id}': ok(archivist) }));
+    render();
+    const source = () => screen.getByTestId('card-picture-img').props.source;
+    await waitFor(() =>
+      expect(source()).toEqual([{ uri: 'http://localhost:8080/api/v1/public/card-images/art-ztk' }])
+    );
+    fireEvent.press(screen.getByTestId('card-printing'));
+    const sheet = await screen.findByTestId('card-printing-sheet');
+    fireEvent.press(within(sheet).getByRole('radio', { name: 'ZCL-45 · Rare' }));
+    await waitFor(() =>
+      expect(source()).toEqual([{ uri: 'http://localhost:8080/api/v1/public/card-images/art-zcl' }])
+    );
+    expect(screen.getByTestId('card-data-credit')).toHaveTextContent(
+      /Card data and images courtesy of Scryfall\./
+    );
+  });
+
   it('credits the picture provider of Yu-Gi-Oh! cards', async () => {
     mockApi(routes());
     render();

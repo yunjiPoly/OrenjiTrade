@@ -70,7 +70,8 @@ public class CatalogQueryRepository {
             p.printing_code, p.rarity, p.edition, p.language, p.finish, p.market_price,
             p.market_price_currency, p.market_price_updated_at,
             p.external_ref ->> 'provider' AS price_provider, p.metadata::text AS metadata,
-            g.slug AS game, c.slug AS card_slug, c.image_id AS card_image_id
+            g.slug AS game, c.slug AS card_slug,
+            coalesce(p.image_id, c.image_id) AS artwork_id
             """;
 
     private static final String PRINTING_FROM =
@@ -80,6 +81,16 @@ public class CatalogQueryRepository {
              JOIN card c ON c.id = p.card_id
              JOIN game g ON g.id = c.game_id
             """;
+
+    /**
+     * With {@code :whole}, a printing code matched by the prefix {@code :code} must not go on with
+     * a digit: the number of {@code :code} is the whole number ({@code ZSK-1} is ZSK-1 or ZSK-1A,
+     * never ZSK-100). Used for a number typed with leading zeros once the code as typed found
+     * nothing (stage R10, review fix 2).
+     */
+    static final String WHOLE_NUMBER =
+            " AND (NOT :whole OR substring(p.printing_code FROM char_length(:code) + 1 FOR 1)"
+                    + " !~ '[0-9]')";
 
     private static final String PRINTING_ORDER =
             " ORDER BY s.release_date NULLS LAST, s.code, p.collector_number, p.edition,"
@@ -269,9 +280,13 @@ public class CatalogQueryRepository {
                 .list();
     }
 
-    /** Printings of ACTIVE games whose code starts with {@code prefix} (upper-case). */
+    /**
+     * Printings of ACTIVE games whose code starts with {@code prefix} (upper-case); with {@code
+     * wholeNumber}, only those whose code does not go on with a digit after it ({@code ZTK-12}
+     * finds ZTK-12 and ZTK-12P, never ZTK-120: {@link #WHOLE_NUMBER}).
+     */
     public List<PrintingSummary> printingsByCodePrefix(
-            String prefix, @Nullable UUID gameId, int limit) {
+            String prefix, boolean wholeNumber, @Nullable UUID gameId, int limit) {
         List<PrintingRow> rows =
                 jdbc.sql(
                                 "SELECT "
@@ -279,11 +294,14 @@ public class CatalogQueryRepository {
                                         + PRINTING_FROM
                                         + " WHERE g.status = 'ACTIVE'"
                                         + " AND p.printing_code LIKE :prefix ESCAPE '\\'"
+                                        + WHOLE_NUMBER
                                         + " AND (CAST(:gameId AS uuid) IS NULL"
                                         + " OR c.game_id = CAST(:gameId AS uuid))"
                                         + " ORDER BY p.printing_code, p.edition, p.language,"
                                         + " p.finish, p.id LIMIT :limit")
                         .param("prefix", CatalogText.escapeLike(prefix) + "%")
+                        .param("code", prefix)
+                        .param("whole", wholeNumber)
                         .param("gameId", gameId, java.sql.Types.OTHER)
                         .param("limit", limit)
                         .query(this::mapPrinting)
@@ -426,7 +444,8 @@ public class CatalogQueryRepository {
     }
 
     /**
-     * Adds images to printing rows: the printing's own images, else the card's primary artwork,
+     * Adds images to printing rows: the printing's own images (placeholders), else its own provider
+     * artwork ({@code card_printing.image_id}: Magic and Pokémon), else the card's primary artwork,
      * else the placeholder.
      */
     public List<PrintingSummary> withImages(List<PrintingRow> rows) {
@@ -452,7 +471,7 @@ public class CatalogQueryRepository {
                 imageRefs(
                         rows.stream()
                                 .filter(row -> !own.containsKey(row.id()))
-                                .map(PrintingRow::cardImageId)
+                                .map(PrintingRow::artworkId)
                                 .filter(Objects::nonNull)
                                 .toList());
         return rows.stream()
@@ -472,9 +491,9 @@ public class CatalogQueryRepository {
                                                 .toList();
                             } else {
                                 @Nullable ImageRef card =
-                                        row.cardImageId() == null
+                                        row.artworkId() == null
                                                 ? null
-                                                : cardImages.get(row.cardImageId());
+                                                : cardImages.get(row.artworkId());
                                 printingImages =
                                         List.of(
                                                 images.printingImage(
@@ -558,8 +577,12 @@ public class CatalogQueryRepository {
     private record SuggestionRow(
             CardSuggestion suggestion, String cardSlug, @Nullable UUID imageId) {}
 
-    /** Printing codes starting with {@code prefix} (autocomplete). */
-    public List<CardSuggestion> suggestPrintings(@Nullable UUID gameId, String prefix, int limit) {
+    /**
+     * Printing codes starting with {@code prefix} (autocomplete); with {@code wholeNumber}, only
+     * those that do not go on with a digit after it ({@link #WHOLE_NUMBER}).
+     */
+    public List<CardSuggestion> suggestPrintings(
+            @Nullable UUID gameId, String prefix, boolean wholeNumber, int limit) {
         return jdbc
                 .sql(
                         """
@@ -572,11 +595,16 @@ public class CatalogQueryRepository {
                           JOIN game g ON g.id = c.game_id
                           JOIN card_set s ON s.id = p.set_id
                          WHERE g.status = 'ACTIVE' AND p.printing_code LIKE :prefix ESCAPE '\\'
-                           AND (CAST(:gameId AS uuid) IS NULL OR c.game_id = CAST(:gameId AS uuid))
-                         ORDER BY p.printing_code, p.edition, p.language, p.finish
-                         LIMIT :limit
-                        """)
+                        """
+                                + WHOLE_NUMBER
+                                + """
+                                   AND (CAST(:gameId AS uuid) IS NULL OR c.game_id = CAST(:gameId AS uuid))
+                                 ORDER BY p.printing_code, p.edition, p.language, p.finish, p.id
+                                 LIMIT :limit
+                                """)
                 .param("prefix", CatalogText.escapeLike(prefix) + "%")
+                .param("code", prefix)
+                .param("whole", wholeNumber)
                 .param("gameId", gameId, java.sql.Types.OTHER)
                 .param("limit", limit)
                 .query(
@@ -1033,7 +1061,7 @@ public class CatalogQueryRepository {
                 readMap(rs.getString("metadata")),
                 rs.getString("game"),
                 rs.getString("card_slug"),
-                rs.getObject("card_image_id", UUID.class));
+                rs.getObject("artwork_id", UUID.class));
     }
 
     private static @Nullable LocalDate localDate(@Nullable Date date) {
@@ -1094,7 +1122,7 @@ public class CatalogQueryRepository {
             Map<String, Object> metadata,
             String game,
             String cardSlug,
-            @Nullable UUID cardImageId) {
+            @Nullable UUID artworkId) {
 
         PrintingSummary toSummary(List<PrintingImage> images) {
             return new PrintingSummary(

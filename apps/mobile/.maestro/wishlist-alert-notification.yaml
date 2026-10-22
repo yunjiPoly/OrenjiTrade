@@ -3,8 +3,9 @@
 # Emberfang Fox to her wishlist through the app with a public note, "Near Mint only" and a price
 # term (no price, trade preference, private note or alert switch any more); Hal, in the same
 # region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
-# alert over the realtime channel: the bell's badge rises without a reload; the alert names Hal's
-# state (never a city, a distance or a position) and opens the card page.
+# alert over the realtime channel: the bell's orange dot shows without a reload (stage R9); the
+# alert, under New in Notifications, names Hal's state (never a city, a distance or a position)
+# and opens Who has this card.
 appId: ${APP_ID}
 name: Wishlist alert, notification and card page
 tags:
@@ -22,10 +23,7 @@ tags:
     env:
       EMAIL: ${output.wren.email}
       PASSWORD: ${output.wren.password}
-- extendedWaitUntil:
-    visible:
-      id: 'screen-search'
-    timeout: 60000
+- runFlow: subflows/open-search-tab.yaml
 # Search › Wishlist (the old Wishlist tab, stage R5): the alert switch, "Add a wish".
 - tapOn:
     id: 'search-segment-wishlist'
@@ -107,11 +105,15 @@ tags:
       BINDER: ${output.hal.binderId}
 - extendedWaitUntil:
     visible:
-      id: 'notification-bell-search-badge'
+      id: 'notification-bell-search-dot'
     timeout: 90000
+- assertVisible:
+    id: 'notification-bell-search'
+    text: 'Notifications, 1 new'
 - takeScreenshot: wishlist-alert-live
 
-# The notification centre, then the card page.
+# Notifications (stage R9): the alert under New, "{card} from your wishlist was listed in
+# {province}" over "{lister} · {price}", then Who has this card.
 - tapOn:
     id: 'notification-bell-search'
 - extendedWaitUntil:
@@ -119,15 +121,16 @@ tags:
       id: 'screen-notifications'
     timeout: 60000
 - extendedWaitUntil:
-    visible: '.*Wishlist alert: Emberfang Fox.*'
+    visible: 'Emberfang Fox from your wishlist was listed in Montevideo\. .*'
     timeout: 60000
-- assertVisible: '.*was just listed by @.* in Montevideo, Uruguay.*'
+- assertVisible:
+    id: 'notifications-section-fresh'
+- assertNotVisible: '.*Uruguay.*'
 - assertNotVisible: '.*km away.*'
 - takeScreenshot: notifications-centre
-# The alert by the start of its name: Android lists the title as a text of its own, iOS names the
-# whole row "Wishlist alert: Emberfang Fox. …" (a pattern open at the front would also match the
-# row's "Mark as read: …" button).
-- tapOn: 'Wishlist alert: Emberfang Fox.*'
+# The alert by the start of its name: iOS names the whole row "Emberfang Fox from your wishlist
+# was listed in Montevideo. hal… · …, 1 minute ago, unread".
+- tapOn: 'Emberfang Fox from your wishlist was listed in Montevideo\. .*'
 - extendedWaitUntil:
     visible:
       id: 'card-name'

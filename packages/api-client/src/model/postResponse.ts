@@ -9,6 +9,7 @@
  */
 import { CommunityAuthor } from './communityAuthor';
 import { PostPayload } from './postPayload';
+import { Place } from './place';
 
 
 /**
@@ -27,6 +28,10 @@ export interface PostResponse {
     canEdit: boolean;
     canDelete: boolean;
     moderationState: PostResponseModerationStateEnum;
+    /**
+     * Stage R11: the author\'s state or province and country (ADR 0017), null unless the author is discoverable and their profile is not private. Never a city.
+     */
+    place?: Place;
 }
 export enum PostResponseModerationStateEnum {
     Ok = 'OK',

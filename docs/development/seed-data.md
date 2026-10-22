@@ -107,9 +107,45 @@ entries. Nothing happens while the real catalog is absent.
 - Community channels: one per platform region (Americas (North), Americas (South), Europe, V110),
   Looking For, New Listings, Trades, General; the former Montréal city channels are archived
   (kept for their posts, not listed to members). Their descriptions say "trades and sales by
-  mail" since V116 (stage R1), no longer "trades, meetups, locals".
+  mail" since V116 (stage R1), no longer "trades, meetups, locals". **Since V134 (stage R11)** the
+  active channels are the 15 rooms, one per platform region and game (`americas-north-yugioh` …
+  `europe-riftbound`); the channels above are archived. The community seed puts nine fictional
+  posts in the rooms (found by slug): in the Yu-Gi-Oh! room of Americas (North) collector1's
+  binder, collector5's "looking for" with a card, collector2's Moth Queen deck core and a question;
+  the Pokémon and Magic rooms of Americas (North), Americas (South)'s Pokémon room, Europe's
+  Yu-Gi-Oh! and Riftbound rooms. No seeded photos. A database seeded before V134 keeps its first
+  five posts in the archived channels and gains the others.
 - Profile tags: the curated "Local Meetups" tag is hidden since V115 (stage R1); seed profiles 01
   and 07 carry "Shipping" instead.
+
+### Home's feed (stage R7)
+
+Home (`GET /feed`) shows what became public in the last 30 days, so the seed dates its posts
+**relative to the API's start, at every start** (`listedMinutesAgo` in `db/seed/inventory.json`,
+`WishlistSeedContributor.FEED_WISHES`): only the times are written, and the rows Home shows are
+kept confirmed no earlier than their listing time (a month later they are still fresh). Every
+other seed card and binder is dated 45 days back, outside the window, so the feed is exactly this
+(Americas (North), Yu-Gi-Oh!; collector1 sees all of it but her own cards, collector2 and
+collector5 see the others' posts):
+
+| When | Who | Post |
+| --- | --- | --- |
+| 5 minutes ago | collector5 (California) | listed 12 cards (13 unfiled public cards of collector5 since R7, prices "$11.50", "90% TCG"...; the grid shows 3 and "+9") |
+| 1 hour ago | collector2 (Ontario) | wants Azure-Eyes Sky Dragon (AZR-EN001 · NM only · 90% TCG; collector1 has it, so "I have it" attaches her copy) |
+| 3 hours ago | collector2 | is selling the deck core "Moth Queen core", $95 (no photo: its key cards in the band) |
+| 6 hours ago | collector5 | listed a card: Shadowvale Revenant King, $24.00 (the round Message button) |
+| 2 days ago | collector5 | wants Obsidian Magician Adept (any printing · NM only · 85% TCG) |
+| 3 days ago | collector2 | listed 3 cards (3 unfiled public cards since R7) |
+| 4 days ago | collector5 | is selling the deck core "Monarch core", "Trade only" (a new binder of R7 with 3 cards) |
+| 9 days ago | collector1 (Quebec) | listed 5 cards (her Yu-Gi-Oh! trade binder; "+2"; seen by the others) |
+| 12 days ago | collector5 | wants Gravehollow Fiend (AZR-EN021 · NM only · 100% TCG) |
+
+collector5's wishlist is visible on their profile since R7 (the first run turns it on, as for
+collector2). Europe and Americas (South) are quiet (the empty state of 10c; a fresh collector there
+sees Get started); in Americas (North), collector2's Pokémon and Magic wishes (dated by the first
+run, two days before it) show in those games' feeds for their first month. A dev database keeps
+these times fresh by restarting the API; editing a seed card locally keeps the edit, but its
+listing time is written again at the next start.
 
 ### A database seeded before stage R1
 

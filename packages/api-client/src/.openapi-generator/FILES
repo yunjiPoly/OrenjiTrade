@@ -60,6 +60,8 @@ api/disputes.service.ts
 api/disputes.serviceInterface.ts
 api/featureFlags.service.ts
 api/featureFlags.serviceInterface.ts
+api/feed.service.ts
+api/feed.serviceInterface.ts
 api/internal.service.ts
 api/internal.serviceInterface.ts
 api/inventory.service.ts
@@ -191,6 +193,7 @@ model/collectorTag.ts
 model/commitInventoryImportRequest.ts
 model/communityAuthor.ts
 model/communityChannel.ts
+model/communityLastPost.ts
 model/consentRequest.ts
 model/consentSummary.ts
 model/conversationParticipant.ts
@@ -237,6 +240,13 @@ model/disputeSummary.ts
 model/fakeCheckout.ts
 model/fakeCheckoutConfirmRequest.ts
 model/featureFlag.ts
+model/feedCardPreview.ts
+model/feedCollector.ts
+model/feedDeckCore.ts
+model/feedNewCards.ts
+model/feedPage.ts
+model/feedPost.ts
+model/feedWish.ts
 model/freezeDisputeRequest.ts
 model/freshness.ts
 model/freshnessJobResponse.ts
@@ -346,6 +356,7 @@ model/pingResponse.ts
 model/place.ts
 model/platformRegion.ts
 model/postPayload.ts
+model/postPhoto.ts
 model/postResponse.ts
 model/printingDetail.ts
 model/printingImage.ts

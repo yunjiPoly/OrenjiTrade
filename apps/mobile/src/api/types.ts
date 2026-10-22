@@ -159,6 +159,10 @@ export type PostPage = Schemas['CursorPagePostResponse'];
 export type ReplyResponse = Schemas['ReplyResponse'];
 export type ReplyPage = Schemas['CursorPageReplyResponse'];
 export type CreatePostRequest = Schemas['CreatePostRequest'];
+/** Stage R11: the newest post of a room the caller may see (the room list). */
+export type CommunityLastPost = Schemas['CommunityLastPost'];
+/** Stage R11: a photo of a post (no EXIF or GPS data). */
+export type PostPhoto = Schemas['PostPhoto'];
 
 // --- Wishlist (stage S2) + notifications (Phase 6) ---------------------------------------------
 export type WishlistItemResponse = Schemas['WishlistItemResponse'];
@@ -194,3 +198,13 @@ export type ReportStatus = MyReport['status'];
 // Offers, trades, protected payments and disputes (Phases 8 and 9) left the phone (ADR 0018): the
 // API keeps them for the paused web; old conversations still carry `OfferLink` payloads. Premium,
 // credits, ads and donations (Phase 10) left the app and the API (ADR 0019).
+
+// --- Home's feed (stage R7, `GET /api/v1/feed`) -------------------------------------------------
+export type FeedPage = Schemas['FeedPage'];
+export type FeedPost = Schemas['FeedPost'];
+export type FeedPostKind = FeedPost['kind'];
+export type FeedCollector = Schemas['FeedCollector'];
+export type FeedNewCards = Schemas['FeedNewCards'];
+export type FeedCardPreview = Schemas['FeedCardPreview'];
+export type FeedWish = Schemas['FeedWish'];
+export type FeedDeckCore = Schemas['FeedDeckCore'];

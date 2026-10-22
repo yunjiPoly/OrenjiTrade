@@ -105,6 +105,14 @@ jobs:
           YGOPRODECK_ENABLED: "false"
           YGOPRODECK_API_BASE_URL: http://127.0.0.1:9/api/v7/
           YGOPRODECK_IMAGE_BASE_URL: http://127.0.0.1:9/images/cards/
+          SCRYFALL_ENABLED: "false"
+          SCRYFALL_API_BASE_URL: http://127.0.0.1:9/scryfall-api/
+          SCRYFALL_BULK_BASE_URL: http://127.0.0.1:9/scryfall-data/
+          SCRYFALL_IMAGE_BASE_URL: http://127.0.0.1:9/scryfall-images/
+          TCGDEX_ENABLED: "false"
+          TCGDEX_REPOSITORY_API_URL: http://127.0.0.1:9/github/
+          TCGDEX_ARCHIVE_BASE_URL: http://127.0.0.1:9/codeload/
+          TCGDEX_ASSET_BASE_URL: http://127.0.0.1:9/tcgdex-assets/
           PAYMENT_PROVIDER: fake
           PUSH_PROVIDER: log
           EMAIL_PROVIDER: log
@@ -159,6 +167,17 @@ jobs:
             sleep 5
           done
           echo "::error::The API did not become ready"; tail -n 200 "$RUNNER_TEMP/api.log"; exit 1
+
+      # Stage R11 archived the community channels the paused web's specs use (V134: one room per
+      # platform region and game); they come back in the E2E database only, as `npm run test:e2e`
+      # does (scripts/lib/web-e2e-guard.mjs, PAUSED_WEB_CHANNELS).
+      - name: Bring back the paused web's community channels (E2E database only)
+        env:
+          E2E_DB_CONTAINER: orenjitrade-postgres
+        run: >-
+          node --input-type=module -e "import { psql } from './scripts/lib/local-db.mjs';
+          import { E2E_DB, pausedWebChannelsSql } from './scripts/lib/web-e2e-guard.mjs';
+          psql(E2E_DB, pausedWebChannelsSql(E2E_DB));"
 
       # Playwright's webServer writes e2e/.runtime/config.json (API :8180) and starts
       # `ng serve --configuration e2e` on :4300; retries and workers come from playwright.config.ts

@@ -10,11 +10,8 @@ import { NotificationBell } from '@/src/features/notifications/NotificationBell'
 import { HIDDEN_TAB_ROUTES, TABS } from '@/src/navigation/tabs';
 import { useTheme } from '@/src/theme/useTheme';
 
-/**
- * Search is the first tab (stage R5): the hidden `index` route (the old Map tab) is never the
- * tabs' initial route, so it is mounted only when `/` itself is opened.
- */
-export const unstable_settings = { initialRouteName: 'search' };
+/** Home is the first tab and the app's first screen (stage R7): the `index` route, `/`. */
+export const unstable_settings = { initialRouteName: 'index' };
 
 /** Unread chats of the inbox (not muted), for the Messages tab badge (stage R4). */
 function useInboxUnread(): number {
@@ -56,7 +53,7 @@ export default function TabLayout() {
                 ? `${tab.title} tab, ${unreadMessages} unread ${unreadMessages === 1 ? 'chat' : 'chats'}`
                 : `${tab.title} tab`,
               // Stable selector for the native Maestro flows (resource-id on Android).
-              tabBarButtonTestID: `tab-${tab.name}`,
+              tabBarButtonTestID: `tab-${tab.id}`,
               tabBarBadge: badge,
               // The notification centre is one tap away from every tab (the web's top-bar bell).
               headerRight: () => <NotificationBell testID={`notification-bell-${tab.name}`} />,

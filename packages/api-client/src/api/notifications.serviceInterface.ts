@@ -30,6 +30,7 @@ export interface ListNotificationsRequestParams {
     cursor?: string;
     limit?: number;
     unreadOnly?: boolean;
+    excludeTypes?: Array<'WISHLIST_ALERT' | 'MESSAGE' | 'OFFER_RECEIVED' | 'OFFER_ACCEPTED' | 'OFFER_COUNTERED' | 'OFFER_DECLINED' | 'OFFER_CANCELLED' | 'OFFER_EXPIRED' | 'BINDER_EXPIRING' | 'BINDER_STALE_WARNING' | 'BINDER_HIDDEN' | 'RATING_RECEIVED' | 'TRADE_UPDATE' | 'SHIPMENT_STATUS' | 'PAYMENT_UPDATE' | 'DISPUTE_UPDATE' | 'REPORT_DECISION' | 'SALE_RECORDED' | 'SYSTEM'>;
 }
 
 export interface MarkNotificationReadRequestParams {
@@ -55,14 +56,14 @@ export interface NotificationsServiceInterface {
 
     /**
      * Number of unread notifications (badge)
-     * 
+     * &#x60;excludeTypes&#x60; leaves types out of the count (stage R9), as on the list.
      * @endpoint get /api/v1/notifications/unread-count
 */
     getUnreadNotificationCount(extraHttpRequestParams?: any): Observable<UnreadNotificationCount>;
 
     /**
      * The caller\&#39;s notifications (newest first)
-     * Cursor-paginated, newest first; &#x60;unreadOnly&#x3D;true&#x60; lists unread ones only. Notifications whose in-app channel was disabled by the caller\&#39;s preferences are never listed.
+     * Cursor-paginated, newest first; &#x60;unreadOnly&#x3D;true&#x60; lists unread ones only, &#x60;excludeTypes&#x60; leaves types out (stage R9). Notifications whose in-app channel was disabled by the caller\&#39;s preferences are never listed.
      * @endpoint get /api/v1/notifications
 * @param requestParameters
      */

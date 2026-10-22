@@ -48,6 +48,11 @@ heartbeat; exposed only when `showOnlineStatus`.
 
 ## Community chat
 
+> **Stage R11 (2026-10-22):** the active channels are the 15 rooms, one per platform region and
+> game (V134; every other channel archived); channels carry `lastPost`, posts their photos, their
+> author's place and a shared deck core's details, and `POST /uploads/images` takes `kind=COMMUNITY`
+> (3 MB). See [r11-community-rooms.md](r11-community-rooms.md).
+
 - `GET /community/channels?game=&region=` → `[ { id, slug, name, kind, game, regionLabel, description, postCount24h } ]` (seed: Montréal / Yu-Gi-Oh!, Montréal / Pokémon, Montréal / Magic, Montréal / Riftbound, Looking For, New Listings, Trades, General; region channels are created per `public_label` city as users appear — admin can add)
 - `GET /community/channels/{slug}/posts?cursor=&limit=` → `CursorPage<PostResponse>` `{ id, author: {id, handle, displayName, avatarUrl}, body, payload, createdAt, editedAt, replyCount, lastReplyAt, canEdit, canDelete }`
 - `POST /community/channels/{slug}/posts` `{ body, cardPrintingId?, binderId? }` (rate limit per channel `post_rate_limit_per_hour`, default 10; banned terms; duplicate-body detection within 24 h → `409 DUPLICATE_POST`)

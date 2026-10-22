@@ -25,6 +25,7 @@ tags:
     env:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
+- runFlow: subflows/open-search-tab.yaml
 - extendedWaitUntil:
     visible:
       id: 'search-region'
@@ -146,6 +147,14 @@ tags:
 - assertNotVisible:
     id: 'search-map-counts-error'
 - takeScreenshot: map-after-a-link-to-no-region
+# After those links the Home tab opens Home: their parameters stayed on Home and sent every later
+# visit back to Search (R7 review U1/F1).
+- tapOn:
+    id: 'tab-home'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 30000
 
 # The old public binders of a state (stage M9): Search › Binders on that state, on the link's
 # region (the link crashed the tabs: stage R5 review, P1).

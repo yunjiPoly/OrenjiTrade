@@ -15,6 +15,9 @@ import {
   snackbar,
 } from './support/stack';
 
+/** The state of the run's collectors (UY-MO), as a wishlist alert's row names it (stage R9). */
+const PROVINCE = 'Montevideo';
+
 /**
  * Mobile wishlist and wishlist alerts (stage S2 of the 2026-10-08 product change) against the
  * real, isolated stack with two fresh fictional collectors of Americas (South) (no other mobile
@@ -148,9 +151,11 @@ test.describe('mobile wishlist and notifications', () => {
     // Hal lists the card (Near Mint) in the region: one alert reaches Wren live, and the wish
     // reads "Available" (it opens Who has this card on the wished printing).
     await apiListCopy(request, hal, binderId, printingId, 12);
-    await expect(page.getByTestId('notification-bell-search-badge')).toHaveText('1', {
+    // Stage R9: an orange dot, and the bell says how many are new.
+    await expect(page.getByTestId('notification-bell-search-dot')).toBeVisible({
       timeout: 60_000,
     });
+    await expect(bell).toHaveAttribute('aria-label', 'Notifications, 1 new');
     const available = wishlist.getByTestId(`wish-${wish.id}-available`);
     await expect(available).toHaveText('Available', { timeout: 30_000 });
     await available.click();
@@ -162,14 +167,18 @@ test.describe('mobile wishlist and notifications', () => {
     ).toHaveText('Montevideo · your province', { timeout: 30_000 });
     await page.goBack();
 
-    // The notification centre, then the card page.
+    // Notifications (stage R9): the alert under New names the province and the lister, then
+    // opens the card page.
     await bell.click();
     const centre = screen(page, 'notifications');
-    const entry = centre.getByRole('link', { name: new RegExp(`Wishlist alert: ${WISHED_CARD}`) });
+    await expect(centre.getByRole('heading', { name: 'New' })).toBeVisible({ timeout: 30_000 });
+    const entry = centre.getByRole('link', {
+      name: new RegExp(`^${WISHED_CARD} from your wishlist was listed in ${PROVINCE}\\.`),
+    });
     await expect(entry).toBeVisible({ timeout: 30_000 });
-    await expect(entry).toContainText(
-      `was just listed by @${hal.handle} in ${PLACE_LABELS.montevideo}.`
-    );
+    await expect(entry).toContainText(`from your wishlist was listed in ${PROVINCE}`);
+    await expect(entry).toContainText(hal.handle);
+    await expect(entry).not.toContainText(PLACE_LABELS.montevideo);
     await expect(entry).not.toContainText('Zqhalcity');
     await expect(entry).not.toContainText(/\bkm\b/);
     await expect(centre.getByTestId('notification-unread-dot')).toHaveCount(1);
@@ -282,18 +291,15 @@ test.describe('mobile wishlist and notifications', () => {
     // on "Any printing". No printing is selected for Wren, none is checked, no price is shown
     // (the catalog's first printing is the 1st Edition, which nobody listed).
     await apiListCopy(request, hal, binderId, unlimited.id, 12.5);
-    await expect(page.getByTestId('notification-bell-search-badge')).toHaveText('1', {
+    await expect(page.getByTestId('notification-bell-search-dot')).toBeVisible({
       timeout: 60_000,
     });
     await page.getByTestId('notification-bell-search').click();
     const centre = screen(page, 'notifications');
     const entry = centre.getByRole('link', {
-      name: new RegExp(`Wishlist alert: ${SHARED_CODE_CARD}`),
+      name: new RegExp(`^${SHARED_CODE_CARD} from your wishlist was listed in ${PROVINCE}\\.`),
     });
-    await expect(entry).toContainText(
-      `${SHARED_CODE_CARD} ${SHARED_CODE} Super Rare was just listed by @${hal.handle} in ${PLACE_LABELS.montevideo}.`,
-      { timeout: 30_000 }
-    );
+    await expect(entry).toContainText(`${hal.handle} · $12.50`, { timeout: 30_000 });
     await entry.click();
     const cardScreen = screen(page, 'card');
     await expect(cardScreen.getByTestId('card-name')).toHaveText(SHARED_CODE_CARD, {

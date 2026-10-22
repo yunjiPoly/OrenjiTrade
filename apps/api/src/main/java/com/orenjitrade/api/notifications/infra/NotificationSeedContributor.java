@@ -101,8 +101,10 @@ public class NotificationSeedContributor implements SeedContributor {
                                         + " available.",
                                 "{\"binderId\": \""
                                         + STALE_BINDER
-                                        + "\", \"itemCount\": 0, \"deepLink\":"
-                                        + " \"/inventory?binder="
+                                        + "\", \"binderName\": \"Vintage Yu-Gi-Oh! singles\","
+                                        + " \"itemCount\": 0, \"hidesAt\": \""
+                                        + now.plus(Duration.ofDays(6))
+                                        + "\", \"deepLink\": \"/inventory?binder="
                                         + STALE_BINDER
                                         + "\"}",
                                 now.minus(Duration.ofHours(2)),

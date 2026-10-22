@@ -15,6 +15,7 @@ import { ApiError } from '@/src/api/ApiError';
 import { Button } from '@/src/components/ui/Button';
 import { CardDataCredit, CardImage } from '@/src/components/ui/CardImage';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import {
   Checkbox,
   FormMessage,
@@ -25,6 +26,7 @@ import {
 import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Stepper } from '@/src/components/ui/Stepper';
 
 import { darkPalette } from '@/src/theme/palette';
@@ -84,8 +86,22 @@ describe('CardImage', () => {
   it('credits the provider of a game catalog', () => {
     renderWithProviders(<CardDataCredit game="yugioh" />);
     expect(screen.getByText('YGOPRODeck')).toBeOnTheScreen();
-    renderWithProviders(<CardDataCredit game="pokemon" testID="none" />);
+    renderWithProviders(<CardDataCredit game="riftbound" testID="none" />);
     expect(screen.queryByTestId('none')).toBeNull();
+  });
+
+  it('credits Scryfall and TCGdex with their notices (stage R10)', () => {
+    renderWithProviders(<CardDataCredit game="mtg" testID="magic-credit" />);
+    expect(screen.getByTestId('magic-credit')).toHaveTextContent(
+      /Card data and images courtesy of Scryfall\./
+    );
+    expect(screen.getByTestId('magic-credit')).toHaveTextContent(/Fan Content Policy/);
+    renderWithProviders(<CardDataCredit game="pokemon" testID="pokemon-credit" />);
+    expect(screen.getByTestId('pokemon-credit')).toHaveTextContent(
+      /Card data courtesy of TCGdex \(MIT licence\)\./
+    );
+    expect(screen.getByTestId('pokemon-credit')).toHaveTextContent(/GAME FREAK/);
+    expect(screen.getByRole('link', { name: 'TCGdex' })).toBeOnTheScreen();
   });
 });
 
@@ -121,6 +137,24 @@ describe('Screen', () => {
     );
     expect(screen.UNSAFE_queryByType(KeyboardAvoidingView)).toBeNull();
     expect(screen.getByText('Plain')).toBeOnTheScreen();
+  });
+});
+
+describe('StateScroll', () => {
+  it('lets a screen-filling state scroll instead of running over the screen at large text sizes', () => {
+    renderWithProviders(
+      <StateScroll testID="state-scroll">
+        <EmptyState testID="state-closed" title="Closed" description="Come back later." />
+      </StateScroll>
+    );
+    const scroll = screen.UNSAFE_getByType(ScrollView);
+    expect(scroll.props.testID).toBe('state-scroll');
+    // The content grows to the screen (the state stays centred while it fits) and past it.
+    expect(StyleSheet.flatten(scroll.props.contentContainerStyle)).toMatchObject({ flexGrow: 1 });
+    expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(
+      within(screen.getByTestId('state-scroll')).getByTestId('state-closed')
+    ).toHaveTextContent(/Closed.*Come back later\./);
   });
 });
 

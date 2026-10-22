@@ -793,8 +793,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Upload an image for a message
-         * @description Multipart part `file` (JPEG, PNG or WebP up to 8 MB; type sniffed from the content) and form field `kind` (MESSAGE, the default; INVENTORY is refused: inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it with an IMAGE message within 1 h (`expiresAt`); unattached uploads are deleted. 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).
+         * Upload an image for a message or a community post
+         * @description Multipart part `file` (JPEG, PNG or WebP; type sniffed from the content, so a video or any other file is 415) and form field `kind`: MESSAGE (the default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3 MB; stage R11); INVENTORY is refused (inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it within 1 h (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY upload in a post's `photoUploadIds`; unattached uploads are deleted. 413 above the kind's limit, 415 for other types, 400 for unreadable images, 404 FEATURE_DISABLED for COMMUNITY while the community (publicChat) is off. Rate-limited (30 per hour).
          */
         post: operations["uploadImage"];
         delete?: never;
@@ -1658,13 +1658,13 @@ export interface paths {
         };
         /**
          * Posts of a channel (newest first)
-         * @description Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. 404 for unknown or archived channels.
+         * @description Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. Each post carries its photos and its author's state or province (`place`, discoverable authors only; never a city). 404 for unknown or archived channels.
          */
         get: operations["listCommunityPosts"];
         put?: never;
         /**
          * Post in a channel
-         * @description `body` 1-2000 characters, optional `cardPrintingId` and public `binderId` links. 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review).
+         * @description `body` 1-2000 characters, optional `cardPrintingId` and public `binderId` links, and up to 4 `photoUploadIds` (stage R11: COMMUNITY uploads of the caller from the last hour, each used once; 400 otherwise). 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review). Posts never notify anyone.
          */
         post: operations["createCommunityPost"];
         delete?: never;
@@ -2576,7 +2576,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a post (author or MODERATOR+)
-         * @description Soft delete; a moderator deleting another member's post is audited.
+         * @description Soft delete; its photos and their files are deleted. A moderator deleting another member's post is audited.
          */
         delete: operations["deleteCommunityPost"];
         options?: never;
@@ -3230,7 +3230,7 @@ export interface paths {
         };
         /**
          * The caller's notifications (newest first)
-         * @description Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only. Notifications whose in-app channel was disabled by the caller's preferences are never listed.
+         * @description Cursor-paginated, newest first; `unreadOnly=true` lists unread ones only, `excludeTypes` leaves types out (stage R9). Notifications whose in-app channel was disabled by the caller's preferences are never listed.
          */
         get: operations["listNotifications"];
         put?: never;
@@ -3248,7 +3248,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Number of unread notifications (badge) */
+        /**
+         * Number of unread notifications (badge)
+         * @description `excludeTypes` leaves types out of the count (stage R9), as on the list.
+         */
         get: operations["getUnreadNotificationCount"];
         put?: never;
         post?: never;
@@ -3532,6 +3535,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What became public in a region for a game (Home)
+         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored.
+         */
+        get: operations["getFeed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/disputes/{id}": {
         parameters: {
             query?: never;
@@ -3581,7 +3604,7 @@ export interface paths {
         };
         /**
          * Community channels
-         * @description Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.
+         * @description Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). Since stage R11 the active channels are the rooms, one per platform region and game, each with the newest post the caller may see (`lastPost`). 404 FEATURE_DISABLED while the publicChat flag is off.
          */
         get: operations["listCommunityChannels"];
         put?: never;
@@ -3721,7 +3744,7 @@ export interface paths {
         };
         /**
          * Search cards (public)
-         * @description Full-text search on name, type and text (accent-insensitive, `simple` config) ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5 rows match. An exact printing code (`AZR-EN001`) returns that card only. Filters: `game`, `set` (id or code), printing `rarity`, `language`, `edition`, and `metadata.<key>=<value>` for the game's filterable GameSchema fields (requires `game`; number, string, string_list and boolean fields; repeat a string_list key to require several values). Without `query`: by name. `metadata` in the results holds the game's summary fields.
+         * @description Full-text search on name, type and text (accent-insensitive, `simple` config) ranked with ts_rank_cd, plus trigram typo tolerance when fewer than 5 rows match. An exact printing code (`AZR-EN001`; typed as printed, a space for the dash and a padded number also read: `ZTK 0012` also reads as `ZTK-12`) returns that card only. Filters: `game`, `set` (id or code), printing `rarity`, `language`, `edition`, and `metadata.<key>=<value>` for the game's filterable GameSchema fields (requires `game`; number, string, string_list and boolean fields; repeat a string_list key to require several values). Without `query`: by name. `metadata` in the results holds the game's summary fields.
          */
         get: operations["searchCards"];
         put?: never;
@@ -3781,7 +3804,7 @@ export interface paths {
         };
         /**
          * Autocomplete cards and printing codes (public)
-         * @description Printing-code prefixes (`AZR-EN0`) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).
+         * @description Printing-code prefixes (`AZR-EN0`; a space reads as the dash) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD). Only when no code starts as typed does a padded number read without its zeros, as the whole number: `ZTK 0012` lists `ZTK-12` (and `ZTK-12P`), never `ZTK-120`; `ZSK 001` lists `ZSK-001` alone when the catalogue holds it. Each printing is listed once.
          */
         get: operations["suggestCards"];
         put?: never;
@@ -7277,6 +7300,15 @@ export interface components {
             name: string;
             /** @example collector1 */
             ownerHandle: string;
+            /** @description Community posts only (stage R11): a deck core buyers can find right now. Absent in messages. */
+            deckCore?: boolean;
+            /**
+             * @description Community posts only: the deck core's price as typed ("$95"). Absent without one.
+             * @example $95
+             */
+            askingPriceText?: string;
+            /** @description Community posts only: the binder's first photo, else the first card picture buyers see, while it is public. */
+            imageUrl?: string;
         };
         /** @description A printing shared in a message or post */
         CardLink: {
@@ -7390,11 +7422,25 @@ export interface components {
              * @description Optional shared public binder
              */
             binderId?: string;
+            /** @description Stage R11: up to 4 photos, the uploadIds of POST /uploads/images?kind=COMMUNITY (yours, within 1 h), in order */
+            photoUploadIds?: string[];
         };
-        /** @description Links attached to a community post */
+        /** @description Links and photos attached to a community post */
         PostPayload: {
             card?: components["schemas"]["CardLink"];
             binder?: components["schemas"]["BinderLink"];
+            /** @description Up to 4 photos in their order (stage R11); empty when none */
+            photos?: components["schemas"]["PostPhoto"][];
+            /** @description Stage R11: true when the post shared a binder the reader can no longer open (no longer public, sold or deleted, its owner hidden or blocked with the reader); `binder` is absent then. Absent otherwise. */
+            binderUnavailable?: boolean;
+        };
+        /** @description A photo of a community post (no EXIF or GPS data) */
+        PostPhoto: {
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
         };
         /** @description A community post */
         PostResponse: {
@@ -7417,6 +7463,8 @@ export interface components {
             canDelete: boolean;
             /** @enum {string} */
             moderationState: "OK" | "FLAGGED" | "REMOVED";
+            /** @description Stage R11: the author's state or province and country (ADR 0017), null unless the author is discoverable and their profile is not private. Never a city. */
+            place?: components["schemas"]["Place"];
         };
         /** @description What the phone read on one card */
         CardScanMatchRequest: {
@@ -9232,6 +9280,143 @@ export interface components {
              */
             previewTtlMinutes: number;
         };
+        /** @description A public card of a new-cards post */
+        FeedCardPreview: {
+            /**
+             * Format: uuid
+             * @description The inventory item ("Message" pins it in the chat)
+             */
+            itemId: string;
+            /** Format: uuid */
+            cardId: string;
+            /** Format: uuid */
+            printingId: string;
+            /** @example Azure-Eyes Sky Dragon */
+            name: string;
+            /** @example AZR-EN001 */
+            printingCode?: string | null;
+            /** @example Ultra Rare */
+            rarity?: string | null;
+            /** Format: uri */
+            imageUrl?: string | null;
+            /**
+             * @description The asking price as typed; null when none
+             * @example 85% TCG
+             */
+            askingPriceText?: string | null;
+            /**
+             * @description The amount of a price set without a text (before stage R2, or on the web)
+             * @example 45
+             */
+            askingPrice?: number | null;
+            /** @example CAD */
+            currency: string;
+        };
+        /** @description The collector of a post */
+        FeedCollector: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+        };
+        /** @description A public, unsold deck core */
+        FeedDeckCore: {
+            /** Format: uuid */
+            binderId: string;
+            /** @example Yubel core */
+            name: string;
+            /** @example Trade only */
+            askingPriceText?: string | null;
+            /**
+             * Format: uri
+             * @description The first photo
+             */
+            photoUrl?: string | null;
+            /**
+             * Format: int32
+             * @example 4
+             */
+            photoCount: number;
+            /** @description Up to 3 key card pictures, for a deck core without photos (empty otherwise) */
+            previewImages: string[];
+            /** @description The first line of the public note, at most 120 characters (ending with … when cut) */
+            noteFirstLine?: string | null;
+        };
+        /** @description One collector's new cards of one hour */
+        FeedNewCards: {
+            /**
+             * Format: int64
+             * @example 12
+             */
+            total: number;
+            /** @description The newest 4 at most, newest first */
+            previews: components["schemas"]["FeedCardPreview"][];
+        };
+        /** @description What became public in the region for the game in the last `windowDays` days, newest first */
+        FeedPage: {
+            /** @example americas-north */
+            region: string;
+            /** @example yugioh */
+            game: string;
+            /** @enum {string} */
+            kind: "ALL" | "NEW_CARDS" | "WANTED" | "DECK_CORES";
+            /**
+             * Format: int32
+             * @description The window (a server setting): nothing older than this many days is ever returned
+             * @example 30
+             */
+            windowDays: number;
+            items: components["schemas"]["FeedPost"][];
+            /** @description Cursor of the next page; null after the last one (the end of the window) */
+            nextCursor?: string | null;
+            hasMore: boolean;
+            /** @description The game has a post of any kind in the window (for the caller), whatever `kind` is; always true after the first page */
+            gameHasPosts: boolean;
+            /** @description The region has a post of any kind in the window in any game; false: the whole region is quiet */
+            regionHasPosts: boolean;
+        };
+        /** @description A post of Home's feed: exactly one of newCards, wanted and deckCore is set, by kind */
+        FeedPost: {
+            /**
+             * Format: uuid
+             * @description Stable across pages and refreshes. A later page may return an id already shown, with a new `at`, when its post lost its newest card in between: keep the copy already shown
+             */
+            id: string;
+            /** @enum {string} */
+            kind: "NEW_CARDS" | "WANTED" | "DECK_CORE";
+            /**
+             * Format: date-time
+             * @description When it became public (the newest card of a NEW_CARDS post)
+             */
+            at: string;
+            collector: components["schemas"]["FeedCollector"];
+            /** @description The collector's state or province and country */
+            place: components["schemas"]["Place"];
+            newCards?: components["schemas"]["FeedNewCards"];
+            wanted?: components["schemas"]["FeedWish"];
+            deckCore?: components["schemas"]["FeedDeckCore"];
+        };
+        /** @description A public wish */
+        FeedWish: {
+            /** Format: uuid */
+            wishId: string;
+            /** Format: uuid */
+            cardId: string;
+            /** @example Ash Blossom & Joyous Spring */
+            name: string;
+            /** Format: uri */
+            imageUrl?: string | null;
+            /** @description The wished printing; null = any printing */
+            printing?: components["schemas"]["PrintingSummary"];
+            /** @description Any printing of this rarity; null = any */
+            rarity?: string | null;
+            nearMintOnly: boolean;
+            priceTerm?: components["schemas"]["WishPriceTerm"];
+        };
         /** @description Cursor-paginated list */
         CursorPageConversationSummary: {
             /** @description Items of the current slice */
@@ -9276,6 +9461,21 @@ export interface components {
             description: string;
             /** Format: int32 */
             postCount24h: number;
+            /** @description Stage R11: the newest post the caller may see (blocked collectors, suspended accounts, deleted and removed posts left out), null when none */
+            lastPost?: components["schemas"]["CommunityLastPost"];
+        };
+        /** @description The newest post of a room the caller may see (no place) */
+        CommunityLastPost: {
+            /** Format: uuid */
+            id: string;
+            /** @example collector1 */
+            authorHandle: string;
+            /** @description The post's text, cut to 140 characters with "…" */
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description The caller wrote it */
+            mine: boolean;
         };
         /** @description Cursor-paginated list */
         CursorPagePostResponse: {
@@ -13379,8 +13579,8 @@ export interface operations {
     uploadImage: {
         parameters: {
             query?: {
-                /** @description MESSAGE (default) or INVENTORY */
-                kind?: "MESSAGE" | "INVENTORY";
+                /** @description MESSAGE (default), COMMUNITY or INVENTORY (refused) */
+                kind?: "MESSAGE" | "INVENTORY" | "COMMUNITY";
             };
             header?: never;
             path?: never;
@@ -24080,6 +24280,8 @@ export interface operations {
                 limit?: number;
                 /** @description true: unread notifications only */
                 unreadOnly?: boolean;
+                /** @description Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before. */
+                excludeTypes?: ("WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM")[];
             };
             header?: never;
             path?: never;
@@ -24154,7 +24356,10 @@ export interface operations {
     };
     getUnreadNotificationCount: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Types left out (stage R9: the phone sends `MESSAGE`, chats having their own badge). Repeated or comma-separated; an unknown type is a 400. Without it, every type counts, as before. */
+                excludeTypes?: ("WISHLIST_ALERT" | "MESSAGE" | "OFFER_RECEIVED" | "OFFER_ACCEPTED" | "OFFER_COUNTERED" | "OFFER_DECLINED" | "OFFER_CANCELLED" | "OFFER_EXPIRED" | "BINDER_EXPIRING" | "BINDER_STALE_WARNING" | "BINDER_HIDDEN" | "RATING_RECEIVED" | "TRADE_UPDATE" | "SHIPMENT_STATUS" | "PAYMENT_UPDATE" | "DISPUTE_UPDATE" | "REPORT_DECISION" | "SALE_RECORDED" | "SYSTEM")[];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24168,6 +24373,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadNotificationCount"];
+                };
+            };
+            /** @description VALIDATION_FAILED (an unknown type) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */
@@ -25060,6 +25274,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getFeed: {
+        parameters: {
+            query: {
+                /** @description Platform region code (GET /regions); default: the caller's home region, else americas-north */
+                region?: string;
+                /** @description Game slug (GET /games): the phone's browsed game */
+                game: string;
+                /** @description Every post, or the posts of one kind (Home's chips) */
+                kind?: "ALL" | "NEW_CARDS" | "WANTED" | "DECK_CORES";
+                /** @description The `nextCursor` of the previous page */
+                cursor?: string;
+                /** @description Posts per page (20 by default) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the feed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedPage"];
+                };
+            };
+            /** @description VALIDATION_FAILED: game missing or unknown, unknown region or kind, invalid cursor or limit */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Rate limited (`Retry-After` header) */

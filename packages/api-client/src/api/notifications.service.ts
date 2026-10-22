@@ -115,6 +115,7 @@ export class NotificationsService extends BaseService implements NotificationsSe
 
     /**
      * Number of unread notifications (badge)
+     * &#x60;excludeTypes&#x60; leaves types out of the count (stage R9), as on the list.
      * @endpoint get /api/v1/notifications/unread-count
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
      * @param reportProgress flag to report request and response progress.
@@ -171,7 +172,7 @@ export class NotificationsService extends BaseService implements NotificationsSe
 
     /**
      * The caller\&#39;s notifications (newest first)
-     * Cursor-paginated, newest first; &#x60;unreadOnly&#x3D;true&#x60; lists unread ones only. Notifications whose in-app channel was disabled by the caller\&#39;s preferences are never listed.
+     * Cursor-paginated, newest first; &#x60;unreadOnly&#x3D;true&#x60; lists unread ones only, &#x60;excludeTypes&#x60; leaves types out (stage R9). Notifications whose in-app channel was disabled by the caller\&#39;s preferences are never listed.
      * @endpoint get /api/v1/notifications
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
@@ -185,6 +186,7 @@ export class NotificationsService extends BaseService implements NotificationsSe
         const cursor = requestParameters?.cursor;
         const limit = requestParameters?.limit;
         const unreadOnly = requestParameters?.unreadOnly;
+        const excludeTypes = requestParameters?.excludeTypes;
 
         let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
 
@@ -210,6 +212,15 @@ export class NotificationsService extends BaseService implements NotificationsSe
             localVarQueryParameters,
             'unreadOnly',
             <any>unreadOnly,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'excludeTypes',
+            <any>excludeTypes,
             QueryParamStyle.Form,
             true,
         );

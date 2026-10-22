@@ -1,64 +1,12 @@
 import type { NotificationResponse } from '@/src/api/types';
-import type { IconName } from '@/src/components/ui/EmptyState';
 import { ANY_PRINTING_PARAM } from '@/src/lib/catalog';
 
 /**
- * Display vocabulary of the notification centre (Phase 6 contract, mirror of the web's
- * `core/notifications/notification-kinds.ts`): an icon, a tone and a short category label per
- * notification type, the in-app page a notification opens, and the card it shows. Unknown types
- * (added by a newer server) still render with a neutral look.
+ * Links of notifications (Phase 6 contract, mirror of the web's
+ * `core/notifications/notification-kinds.ts`): the web path a notification names, the app screen
+ * of a web path, and the card a notification shows. What each kind looks like, says and opens on
+ * the phone since stage R9 is in `notificationRows.ts`.
  */
-export type NotificationTone = 'match' | 'message' | 'offer' | 'trade' | 'warning' | 'system';
-
-export interface NotificationKind {
-  icon: IconName;
-  tone: NotificationTone;
-  /** Short category shown above the title ("Wishlist alert"). */
-  label: string;
-}
-
-const KINDS: Record<string, NotificationKind> = {
-  WISHLIST_ALERT: { icon: 'heart', tone: 'match', label: 'Wishlist alert' },
-  MESSAGE: { icon: 'message-text', tone: 'message', label: 'Message' },
-  OFFER_RECEIVED: { icon: 'tag', tone: 'offer', label: 'Offer' },
-  OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
-  OFFER_COUNTERED: { icon: 'swap-horizontal', tone: 'offer', label: 'Counter-offer' },
-  OFFER_DECLINED: { icon: 'minus-circle', tone: 'offer', label: 'Offer declined' },
-  OFFER_CANCELLED: { icon: 'undo', tone: 'offer', label: 'Offer withdrawn' },
-  OFFER_EXPIRED: { icon: 'timer-off-outline', tone: 'offer', label: 'Offer expired' },
-  BINDER_EXPIRING: { icon: 'timer-sand', tone: 'warning', label: 'Binder' },
-  BINDER_STALE_WARNING: { icon: 'timer-sand-complete', tone: 'warning', label: 'Binder reminder' },
-  BINDER_HIDDEN: { icon: 'eye-off', tone: 'warning', label: 'Listings hidden' },
-  RATING_RECEIVED: { icon: 'star', tone: 'trade', label: 'Rating' },
-  TRADE_UPDATE: { icon: 'swap-horizontal-bold', tone: 'trade', label: 'Trade' },
-  SHIPMENT_STATUS: { icon: 'truck-outline', tone: 'trade', label: 'Shipment' },
-  PAYMENT_UPDATE: { icon: 'cash', tone: 'trade', label: 'Payment' },
-  DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Dispute' },
-  REPORT_DECISION: { icon: 'gavel', tone: 'system', label: 'Report decision' },
-  // Stage R4: the seller marked the chat's card sold to the reader; it opens the chat.
-  SALE_RECORDED: { icon: 'package-variant-closed', tone: 'trade', label: 'Sold to you' },
-  SYSTEM: { icon: 'bullhorn-outline', tone: 'system', label: 'OrenjiTrade' },
-};
-
-const FALLBACK: NotificationKind = { icon: 'bell', tone: 'system', label: 'Notification' };
-
-/** Icon, tone and label of a notification (the daily limit notice gets the limit icon). */
-export function notificationKind(
-  notification: Pick<NotificationResponse, 'type' | 'data'>
-): NotificationKind {
-  const kind = KINDS[notification.type] ?? FALLBACK;
-  if (notification.type === 'SYSTEM') {
-    switch (notification.data?.['kind']) {
-      case 'LIMIT_REACHED':
-        return { icon: 'speedometer', tone: 'system', label: 'Limit reached' };
-      case 'LISTINGS_PAUSED':
-        return { icon: 'pause-circle-outline', tone: 'warning', label: 'Listings paused' };
-      case 'MODERATION_WARNING':
-        return { icon: 'flag-outline', tone: 'warning', label: 'Moderation' };
-    }
-  }
-  return kind;
-}
 
 /** Characters allowed in an in-app path (with its query string); nothing else is followed. */
 const APP_PATH = /^\/(?!\/)[\w\-/?=&.%~]*$/;
@@ -298,18 +246,6 @@ export function mobileTarget(webPath: string): NotificationTarget {
   }
 }
 
-/** The mobile target of a notification. */
-export function notificationTarget(
-  notification: Pick<NotificationResponse, 'type' | 'data'>
-): NotificationTarget {
-  return mobileTarget(notificationLink(notification));
-}
-
-/** True while the notification has not been read. */
-export function isUnread(notification: Pick<NotificationResponse, 'readAt'>): boolean {
-  return !notification.readAt;
-}
-
 /** A card carried by a notification's payload (wishlist alerts, offers). */
 export interface NotificationCard {
   name: string;
@@ -335,44 +271,4 @@ export function notificationCard(
     return null;
   }
   return { imageUrl, name: textOf(data, 'cardName') ?? '', game: textOf(data, 'game') };
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function startOfDay(time: number): number {
-  const date = new Date(time);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-export interface FeedSection {
-  title: string;
-  data: NotificationResponse[];
-}
-
-/** Newest-first notifications in day sections ("Today", "Yesterday", "Earlier this week", "Older"). */
-export function groupByDay(
-  items: readonly NotificationResponse[],
-  now: number = Date.now()
-): FeedSection[] {
-  const today = startOfDay(now);
-  const labels = ['Today', 'Yesterday', 'Earlier this week', 'Older'];
-  const groups: NotificationResponse[][] = [[], [], [], []];
-  for (const item of items) {
-    const created = Date.parse(item.createdAt);
-    let index = 3;
-    if (Number.isFinite(created)) {
-      if (created >= today) {
-        index = 0;
-      } else if (created >= today - DAY_MS) {
-        index = 1;
-      } else if (created >= today - 6 * DAY_MS) {
-        index = 2;
-      }
-    }
-    groups[index]?.push(item);
-  }
-  return groups
-    .map((data, index) => ({ title: labels[index] ?? 'Older', data }))
-    .filter((section) => section.data.length > 0);
 }

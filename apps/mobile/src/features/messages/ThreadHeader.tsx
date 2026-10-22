@@ -37,6 +37,7 @@ export function ThreadHeader({
   typing,
   blocked,
   canRate = false,
+  backLabel = CHAT_COPY.back,
   menuOpen,
   topInset,
   onBack,
@@ -50,6 +51,8 @@ export function ThreadHeader({
   blocked: boolean;
   /** An interaction with the other collector can still be rated ("Rate …"). */
   canRate?: boolean;
+  /** What Back is called: "Back to messages", or the screen it returns to (stage R9). */
+  backLabel?: string;
   menuOpen: boolean;
   /** The status bar's height: the bar draws below it. */
   topInset: number;
@@ -75,7 +78,7 @@ export function ThreadHeader({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={CHAT_COPY.back}
+        accessibilityLabel={backLabel}
         onPress={onBack}
         // The id of the navigation header's back button: the flows go back the same way.
         testID="BackButton"

@@ -1,24 +1,34 @@
-# Community (mobile Phase 5): a fresh fictional collector opens the public channels from the
-# Messages tab (Inbox | Community), posts in "General", then replies to the post. The channel keeps
-# the posts of earlier runs, so the texts carry the run's unique handle. The host script
-# scripts/community.js finds the post in the isolated API and checks its reply count.
+# Messages › Community (stage R11, owner prompt 2026-10-20, mockup v50 screens 32 and 33): Ada, a
+# fresh fictional collector, opens Messages › Community (Chats | Community), sees the five rooms of
+# Americas (North), opens the Yu-Gi-Oh! room, reads its rules, posts a few words with a photo, and
+# reports Bo's post (Bo, fresh and fictional, posted it through the API: scripts/reports.js). The
+# host scripts check what the isolated API holds: the post and its one photo (scripts/community.js)
+# and Ada's open report (scripts/reports.js). Review fix 1: Bo answers through the API while the
+# room is open and the answer shows without leaving it; Bo's handle opens his profile.
+#
+# The photo is the fictional picture of native flow 1 (media/fictional-card-photo.jpg, 600 × 800),
+# put in the simulator's photo library by `addMedia` and picked as the newest photo
+# (subflows/pick-newest-photo.yaml; see inventory-add-edit-undo.yaml). The room keeps the posts of
+# earlier runs, so the texts carry the run's unique handles.
 appId: ${APP_ID}
-name: Community channel post and reply
+name: Open the Yu-Gi-Oh! room, post with a photo, report a post
 tags:
-  - mobile-m4
+  - mobile-r11
   - community
 ---
 - runScript:
-    file: scripts/create-collector.js
+    file: scripts/reports.js
     env:
-      PREFIX: comm
-      DISPLAY_NAME: Maestro Community
+      ACTION: community
+      SLUG: americas-north-yugioh
+- addMedia:
+    - media/fictional-card-photo.jpg
 - runFlow: subflows/launch-fresh.yaml
 - runFlow:
     file: subflows/sign-in.yaml
     env:
-      EMAIL: ${output.collector.email}
-      PASSWORD: ${output.collector.password}
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
 - extendedWaitUntil:
     visible:
       id: 'tab-messages'
@@ -33,64 +43,148 @@ tags:
     id: 'messages-view-community'
 - extendedWaitUntil:
     visible:
-      id: 'community-channels'
-    timeout: 60000
-- takeScreenshot: community-channels
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'channel-general'
-- tapOn:
-    id: 'channel-general'
-- extendedWaitUntil:
-    visible:
-      id: 'channel-head'
+      id: 'room-americas-north-yugioh'
     timeout: 60000
 - assertVisible:
-    id: 'channel-activity'
-    text: '.*posts? today'
-
-# Post.
+    id: 'room-americas-north-pokemon'
+- assertVisible:
+    id: 'room-preview-americas-north-yugioh'
+    text: '${output.bo.handle}: ${output.boPost.body}'
+- takeScreenshot: community-rooms
 - tapOn:
-    id: 'post-text'
-- inputText: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
-- runFlow: subflows/hide-keyboard.yaml
-- tapOn:
-    id: 'post-submit'
+    id: 'room-americas-north-yugioh'
 - extendedWaitUntil:
-    visible: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
+    visible:
+      id: 'room-subtitle'
+      text: 'Americas \(North\) · public room'
     timeout: 60000
+- assertVisible:
+    id: 'room-banner'
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-more-${output.boPost.id}'
+    timeout: 60000
+
+# The room rules.
+- tapOn:
+    id: 'room-rules'
+- extendedWaitUntil:
+    visible:
+      id: 'room-rate-rule'
+      text: 'You can post up to 10 times an hour in each room\.'
+    timeout: 15000
+- tapOn:
+    id: 'room-rules-ok'
+- extendedWaitUntil:
+    notVisible:
+      id: 'room-rate-rule'
+    timeout: 15000
+
+# A post with a photo.
+- tapOn:
+    id: 'room-attach'
+- extendedWaitUntil:
+    visible:
+      id: 'room-attach-photo'
+    timeout: 15000
+- tapOn:
+    id: 'room-attach-photo'
+- runFlow:
+    file: subflows/pick-newest-photo.yaml
+    env:
+      BEHIND: 'room-send'
+- extendedWaitUntil:
+    visible:
+      id: 'room-attachment-photo-0'
+    timeout: 30000
+- tapOn:
+    id: 'room-input'
+- inputText: 'Maestro ${output.ada.handle} shows a binder photo'
+# The send button stays above the keyboard (a drag on the photo row would not put it away).
+- tapOn:
+    id: 'room-send'
+- extendedWaitUntil:
+    visible: 'Maestro ${output.ada.handle} shows a binder photo'
+    timeout: 60000
+- runFlow: subflows/hide-keyboard.yaml
 - runScript:
     file: scripts/community.js
     env:
-      EMAIL: ${output.collector.email}
-      PASSWORD: ${output.collector.password}
-      SLUG: general
-      BODY: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
-- takeScreenshot: community-post
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      SLUG: americas-north-yugioh
+      BODY: 'Maestro ${output.ada.handle} shows a binder photo'
+      EXPECT_PHOTOS: '1'
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-${output.post.id}'
+    timeout: 30000
+- assertVisible:
+    id: 'room-photo-0'
+- takeScreenshot: community-room-photo-post
 
-# Reply to it.
+# Bo answers while the room is open: it shows by itself (the room asks again every 15 s).
+- runScript:
+    file: scripts/reports.js
+    env:
+      ACTION: community-answer
+      EMAIL: ${output.bo.email}
+      PASSWORD: ${output.bo.password}
+      SLUG: americas-north-yugioh
+      BODY: 'Maestro ${output.bo.handle} answers while the room is open'
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-${output.boAnswer.id}'
+    timeout: 45000
+- takeScreenshot: community-room-answer
+
+# Bo's handle opens his profile; back to the room.
 - tapOn:
-    id: 'post-replies-toggle-${output.post.id}'
+    id: 'room-post-author-${output.boAnswer.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.bo.displayName}
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-more-${output.boPost.id}'
+    timeout: 30000
+
+# Report Bo's post from its "⋯" sheet.
+- tapOn:
+    id: 'room-post-more-${output.boPost.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-report'
+    timeout: 15000
+- assertVisible: 'Message ${output.bo.handle}'
+- assertVisible: 'Block ${output.bo.handle}'
+- tapOn:
+    id: 'room-post-report'
+- extendedWaitUntil:
+    visible:
+      id: 'report-reason-SPAM'
+    timeout: 60000
+- tapOn:
+    id: 'report-reason-SPAM'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'reply-text-${output.post.id}'
+      ID: 'report-confirm'
 - tapOn:
-    id: 'reply-text-${output.post.id}'
-- inputText: 'Any condition works for ${output.collector.handle}'
-- runFlow: subflows/hide-keyboard.yaml
-- tapOn:
-    id: 'reply-submit-${output.post.id}'
+    id: 'report-confirm'
 - extendedWaitUntil:
-    visible: 'Any condition works for ${output.collector.handle}'
+    visible:
+      id: 'report-sent'
     timeout: 60000
+- takeScreenshot: community-report-sent
 - runScript:
-    file: scripts/community.js
+    file: scripts/reports.js
     env:
-      EMAIL: ${output.collector.email}
-      PASSWORD: ${output.collector.password}
-      SLUG: general
-      BODY: 'Maestro ${output.collector.handle} wants an Emberfang Fox'
-      EXPECT_REPLIES: '1'
-- takeScreenshot: community-reply
+      ACTION: expect-report
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+      HANDLE: ${output.bo.handle}
+      REASON: SPAM

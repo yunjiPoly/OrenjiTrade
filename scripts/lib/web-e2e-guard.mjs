@@ -38,6 +38,33 @@ export const RESERVED_PORTS = Object.freeze({
  * 1 the mobile E2E harness's.
  */
 export const E2E_REDIS_DB = 2;
+
+/**
+ * The community channels the paused web's specs post in and list (V041 and V110). Stage R11 (V134)
+ * archived them for the rooms, one per platform region and game; the web is paused since
+ * 2026-10-12 (nothing under apps/web-angular changes), so its suite finds them active again in its
+ * own throw-away database only (`pausedWebChannelsSql`). Never the developer database. When the
+ * web resumes, its specs move to the rooms and this goes.
+ */
+export const PAUSED_WEB_CHANNELS = Object.freeze([
+  'americas-north',
+  'americas-south',
+  'europe',
+  'looking-for',
+  'new-listings',
+  'trades',
+  'general',
+]);
+
+/** The statement that puts the paused web's channels back for its suite (E2E database only). */
+export function pausedWebChannelsSql(database) {
+  if (database !== E2E_DB) {
+    throw new Error(`The paused web's channels come back in ${E2E_DB} only, not in ${database}.`);
+  }
+  const slugs = PAUSED_WEB_CHANNELS.map((slug) => `'${slug}'`).join(', ');
+  return `UPDATE community_channel SET status = 'ACTIVE', updated_at = now() WHERE status = 'ARCHIVED' AND slug IN (${slugs})`;
+}
+
 /**
  * Prefix of the E2E API's realtime fan-out channels. Redis pub/sub ignores the logical database,
  * so without it a push for a seed account (same id in every database) would reach the developer's
@@ -84,6 +111,47 @@ export function isLocalUrl(url) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Every real card provider off (ADR 0015, ADR 0021): YGOPRODeck, Scryfall and TCGdex, with their
+ * addresses on a closed local port, so even an unexpected call never leaves the machine. Tests
+ * and the end-to-end APIs use the mock catalog only.
+ */
+export const NO_CARD_PROVIDERS = Object.freeze({
+  YGOPRODECK_ENABLED: 'false',
+  YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
+  YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+  SCRYFALL_ENABLED: 'false',
+  SCRYFALL_API_BASE_URL: 'http://127.0.0.1:9/scryfall-api/',
+  SCRYFALL_BULK_BASE_URL: 'http://127.0.0.1:9/scryfall-data/',
+  SCRYFALL_IMAGE_BASE_URL: 'http://127.0.0.1:9/scryfall-images/',
+  TCGDEX_ENABLED: 'false',
+  TCGDEX_REPOSITORY_API_URL: 'http://127.0.0.1:9/github/',
+  TCGDEX_ARCHIVE_BASE_URL: 'http://127.0.0.1:9/codeload/',
+  TCGDEX_ASSET_BASE_URL: 'http://127.0.0.1:9/tcgdex-assets/',
+});
+
+const CARD_PROVIDER_NAMES = Object.freeze({
+  YGOPRODECK_ENABLED: 'YGOPRODeck',
+  SCRYFALL_ENABLED: 'Scryfall',
+  TCGDEX_ENABLED: 'TCGdex',
+});
+
+/** Why `env` could reach a real card provider (empty when every provider is off and local). */
+export function cardProviderProblems(env) {
+  const problems = [];
+  for (const [flag, provider] of Object.entries(CARD_PROVIDER_NAMES)) {
+    if (String(env[flag]) !== 'false') {
+      problems.push(`${flag} must be false (tests never call ${provider}; mock catalog only).`);
+    }
+  }
+  for (const name of Object.keys(NO_CARD_PROVIDERS).filter((key) => !key.endsWith('_ENABLED'))) {
+    if (!isLocalUrl(env[name])) {
+      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
+    }
+  }
+  return problems;
 }
 
 /** Port of an http(s) URL (80/443 when implicit), null when unparsable. */
@@ -256,11 +324,9 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     STORAGE_PUBLIC_BASE_URL: '',
     CARD_IMAGE_CACHE_DIR: path.join(workDir, 'card-images'),
     PROVIDER_DATA_DIR: path.join(workDir, 'provider-data'),
-    // Mock catalog only: no card image downloads, no YGOPRODeck call (ADR 0015).
+    // Mock catalog only: no card image downloads, no card provider call (ADR 0015, ADR 0021).
     CARD_IMAGE_ON_DEMAND_ENABLED: 'false',
-    YGOPRODECK_ENABLED: 'false',
-    YGOPRODECK_API_BASE_URL: 'http://127.0.0.1:9/api/v7/',
-    YGOPRODECK_IMAGE_BASE_URL: 'http://127.0.0.1:9/images/cards/',
+    ...NO_CARD_PROVIDERS,
     CORS_ALLOWED_ORIGINS: `http://localhost:${webPort}`,
     FIREBASE_PROJECT_ID: 'orenjitrade-local',
     FIREBASE_AUTH_EMULATOR_HOST: valueOf(base, 'FIREBASE_AUTH_EMULATOR_HOST') ?? 'localhost:9099',
@@ -333,14 +399,7 @@ export function isolationProblems(env, { workDir, devDirs }) {
   if (String(env.CARD_IMAGE_ON_DEMAND_ENABLED) !== 'false') {
     problems.push('CARD_IMAGE_ON_DEMAND_ENABLED must be false (no card image downloads during tests).');
   }
-  if (String(env.YGOPRODECK_ENABLED) !== 'false') {
-    problems.push('YGOPRODECK_ENABLED must be false (tests never call YGOPRODeck; mock catalog only).');
-  }
-  for (const name of ['YGOPRODECK_API_BASE_URL', 'YGOPRODECK_IMAGE_BASE_URL']) {
-    if (!isLocalUrl(env[name])) {
-      problems.push(`${name} must point at a closed local port, not "${env[name] ?? ''}".`);
-    }
-  }
+  problems.push(...cardProviderProblems(env));
   return problems;
 }
 

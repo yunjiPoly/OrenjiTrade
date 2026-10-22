@@ -620,3 +620,133 @@ screens 34 and 35, changes to 10 to 18):
 
 Built as stage G (`IMPLEMENTATION_STATUS.md`, "Phone redesign G: one game at a time
 (2026-10-20)"; API contract [`docs/api/contracts/g-one-game.md`](../../api/contracts/g-one-game.md)).
+
+---
+
+## Changed by the owner on 2026-10-19: Home
+
+The owner's prompt of 2026-10-19 ([`2026-10-19-home-full-design.md`](2026-10-19-home-full-design.md),
+saved word for word; mockup version 50, screens 10, 10b and 10c) designs the whole Home page for
+stage R7. The prompt above is kept as it was; for Home these points replace its section 5 and add
+to the "Home feed" part of its section 12:
+
+1. **The top row** holds the region pill and stage G's game pill on the left, the bell on the
+   right; everything below follows the browsed region and game. "Search cards or collectors" opens
+   Search with the keyboard up.
+2. **Get started** (screen 10c), until done or hidden: "Choose your province" (done with a
+   province and "Show me on the map" on; "Turn on" when hidden from the map), "List your first
+   card", "Add a card you want", a 3-part progress bar; hidden for good per account on the phone.
+3. **Chips** All, New cards, Wanted, Deck cores, with their kind's dot, pinned on scroll; none in
+   a region with nothing in the window. The choice goes back to All when the app restarts.
+4. **Sections** "Today", "Earlier this week" (1 to 6 days ago), "Earlier this month" (7 to 30),
+   in the phone's time zone ("Today in your region" becomes "Today"); times "5 min", "1 h", the
+   weekday, then the date.
+5. **The posts** share one header ("{handle} {verb}", then "{time} · {province}"; the verb grey,
+   teal or purple): new cards as a 4-column grid with "+{n}" from 5 cards, or one card as a row
+   with a round Message button that pins it; a wish with its terms and "I have it"; a deck core
+   with a 132-tall band, its tag, "{n} photos", its price and the first line of its note. This
+   replaces the "Wanted · {handle} · {province}" and "Deck core · {handle} · {province}" lines.
+6. **The end** says "You're all caught up" and what was everything (per chip), with "Explore the
+   map"; the empty state is "Nothing new in {region} yet" ("in {game}" when only the game is
+   quiet) with "Be the first: ...", and "Add cards" when Get started is not shown.
+7. **`GET /api/v1/feed`** takes `game=` (required), keeps a 30-day window as a server setting
+   (`orenji.feed.window-days`), groups a collector's cards per hour, leaves the cards of a public
+   deck core to the core's post, and carries the fields of section 5 of the prompt.
+
+Built as stage R7 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R7: Home (2026-10-21)"; API contract
+[`docs/api/contracts/r7-home-feed.md`](../../api/contracts/r7-home-feed.md)).
+
+---
+
+## Changed by the owner on 2026-10-19: Notifications and the bell
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R9, saved word for word; mockup version 50, screen 31) designs the notifications. The
+prompt above is kept as it was; for the bell and its screen these points replace what it said of
+the notification centre:
+
+1. **The bell** sits on the top bars of Home, Search, Inventory, Messages and Profile: an orange dot
+   while anything is unread, spoken "Notifications, {n} new" (or "Notifications"). Chats are left
+   out (Messages has its own badge).
+2. **Notifications** has back, the title and a gear (Settings › Notifications); "New" with "Mark
+   all as read", "Earlier" with the rest, newest first, by cursor pages. A row: an icon tile in its
+   kind's colours, "{bold subject} {rest}", one muted line, the time ("5 min", "1 h", "Yesterday",
+   "Sat", "Sep 30"), the card picture, an orange dot while unread.
+3. **Targets**: a wishlist alert opens Who has this card on its printing, a sale the chat, a rating
+   your ratings on your profile; reports, system notices and the paused web's old offers, trades,
+   payments and disputes open nothing (grey). Freshness reminders are answered in place ("Still have
+   them", "Review the binder", then "Confirmed. They stay in search."). A push notification opens
+   the same target as its row.
+4. **The API** gains `excludeTypes` on `GET /notifications` and its unread count (the phone sends
+   `MESSAGE`); without it both behave as before.
+
+Built as stage R9 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R9: Notifications (31) and the bell
+(2026-10-21)"; API contract [`docs/api/contracts/r9-notifications.md`](../../api/contracts/r9-notifications.md)).
+A rating's comment and the reported collector's handle stay out of the rows (Phase 7 rules), unlike
+the mockup's example rows.
+
+## Changed by the owner on 2026-10-19: Card data for Magic and Pokémon
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R10, saved word for word) gives two more games real cards. The prompt above is kept as it
+was; for the catalogue these points replace what it said of the card data:
+
+1. **Magic** comes from Scryfall's daily bulk file "Unique Artwork": English paper cards, one image
+   per artwork, printings by set code and collector number. **Pokémon** comes from TCGdex's card
+   database (MIT licence), English only, one image per printing. The owner runs both imports (agents
+   never do): `npm run catalog:import -- --game mtg --provider scryfall --images all`,
+   `npm run catalog:import -- --game pokemon --provider tcgdex --images all`, then
+   `npm run card-images:status`.
+2. **Once a game has cards** it is no longer dimmed in "Choose a game" (screen 34): Search typing
+   finds its cards and Who has this card shows their pictures, always through
+   `/api/v1/public/card-images` (never hotlink provider images, for every provider).
+3. **Credits**: under a Magic card's pictures "Card data and images courtesy of Scryfall" with
+   Wizards of the Coast's Fan Content Policy notice; under a Pokémon card's "Card data courtesy of
+   TCGdex (MIT licence)" with the Pokémon copyright notice (both drafts for the lawyer review);
+   Settings › Appearance (screen 53) lists the card data of every game that has cards ("Yu-Gi-Oh!
+   card data from YGOPRODeck. Pokémon card data from TCGdex. Magic card data and images from
+   Scryfall. Not affiliated with or endorsed by the game publishers.").
+4. **One Piece and Riftbound** stay "Cards coming soon": One Piece waits for Bandai's written
+   permission, Riftbound for Riot's production key.
+
+Built as stage R10 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R10: Card data for Magic and
+Pokémon"; [ADR 0021](../../architecture/adr/0021-five-games-and-their-card-sources.md); API contract
+[`docs/api/contracts/r10-card-sources.md`](../../api/contracts/r10-card-sources.md)). The prompt calls
+the record "ADR 0020"; that number was the camera card scan's, so it is ADR 0021.
+
+## Changed by the owner on 2026-10-19: Messages › Community
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R11, saved word for word; mockup version 50, screens 32 and 33, and screen 22's tabs) asks for
+"a section for community by region, game", "just a simple one". The prompt above is kept as it was;
+for the community these points replace what it said (section 10 kept today's "Inbox | Community"
+switch over the channels):
+
+1. **Messages** has two tabs, **Chats** and **Community** (Community while the `publicChat` flag is
+   on; a migration turns it on, and it stays the kill switch). Chats has an orange dot while a chat
+   is unread; the tab bar's badge counts chats only.
+2. **One room per platform region and game**, 15 in all (slug `{region}-{game}`, the game's name,
+   "{game} collectors in {region}: trades and sales by mail."); every other channel is archived,
+   nothing deleted.
+3. **The room list** (screen 32): the region pill, the browsed region's five rooms with the browsed
+   game's room first and the others in the games' order; each row the game's tile and name, the
+   last post ("{handle}: {text}") and its time, bold with an orange dot while there are posts newer
+   than the last visit on this phone; "No posts yet. Say hi!"; at the end "Every collector in
+   {region} can read these rooms. Keep deals and addresses in private chats."
+4. **A room** (screen 33): back, the tile, the name and "{region} · public room", Room rules, the
+   banner "Every collector can read this room. Keep deals and addresses in private chats.", posts
+   like a chat (newest at the bottom, day separators; avatar, handle, "{province} · {time}" and never
+   a city, the text, up to 4 photos, a shared card or binder or deck core); "⋯" with "Message
+   {handle}", "Report this post", "Block {handle}", or "Delete" on one's own; no reply threads on the
+   phone. The message box: "+" (Send a photo, Share a card, Share a binder or deck core), "Write to
+   the room", the send button orange with text.
+5. **Photos**: up to 4 per post, 3 MB each, photos only, uploaded as `COMMUNITY` with EXIF and GPS
+   stripped. **Errors**: "You can post up to 10 times an hour in each room. Try again later.", "You
+   already posted this.", a network error keeps the text with "Try again". Blocked pairs, removed
+   posts and suspended accounts stay hidden; posts never notify.
+
+Built as stage R11 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R11: Messages > Community (32, 33):
+one simple room per game"; API contract
+[`docs/api/contracts/r11-community-rooms.md`](../../api/contracts/r11-community-rooms.md); V134). A
+post's place shows only for authors who are discoverable (the profile's own rule), and the paused
+web's suites keep the archived channels in their own test database until the web resumes.

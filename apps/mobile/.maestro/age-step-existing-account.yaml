@@ -88,7 +88,7 @@ tags:
     timeout: 30000
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
 - runScript:
     file: scripts/check-age.js
@@ -102,6 +102,6 @@ tags:
 - runFlow: subflows/relaunch.yaml
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
 - assertNotVisible: 'Are you 18 or older?'

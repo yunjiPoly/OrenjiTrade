@@ -37,9 +37,10 @@ tags:
       PASSWORD: ${SEED_PASSWORD}
 - extendedWaitUntil:
     visible:
-      id: 'screen-search'
+      id: 'screen-home'
     timeout: 60000
 - runFlow: subflows/relaunch-large-text.yaml
+- runFlow: subflows/open-search-tab.yaml
 - extendedWaitUntil:
     visible:
       id: 'search-field'

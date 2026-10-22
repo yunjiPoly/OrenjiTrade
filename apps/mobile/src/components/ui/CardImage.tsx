@@ -133,7 +133,7 @@ export function CardDataCredit({ game, testID = 'card-data-credit' }: CardDataCr
         >
           {attribution.provider}
         </Text>
-        .
+        {attribution.creditSuffix ?? ''}.
       </Text>
       <Text style={[textStyle('xs'), { color: palette.textDisabled }]}>{attribution.notice}</Text>
     </View>

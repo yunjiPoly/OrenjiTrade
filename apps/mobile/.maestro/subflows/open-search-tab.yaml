@@ -1,0 +1,14 @@
+# Since stage R7 the app opens on Home, the first of five tabs: waits for Home, then opens the
+# Search tab (its map, the default view).
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible:
+      id: 'screen-home'
+    timeout: 60000
+- tapOn:
+    id: 'tab-search'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-search'
+    timeout: 30000

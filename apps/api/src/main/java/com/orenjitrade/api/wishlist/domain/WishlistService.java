@@ -140,6 +140,28 @@ public class WishlistService {
     }
 
     /**
+     * The wishes {@code ids} with their cards and printings, in the order of {@code ids}; unknown
+     * ids are left out. For Home's feed (stage R7), whose SQL already decided that each wish is
+     * public (its owner shows their wishlist and is discoverable) and seen by the viewer: this only
+     * reads the catalog references, it decides nothing.
+     */
+    @Transactional(readOnly = true)
+    public List<WishlistItemView> viewsOf(List<UUID> ids) {
+        Map<UUID, WishlistItemRow> byId = new HashMap<>();
+        for (WishlistItemRow row : repository.findByIds(ids)) {
+            byId.put(row.id(), row);
+        }
+        List<WishlistItemRow> ordered = new ArrayList<>();
+        for (UUID id : ids) {
+            WishlistItemRow row = byId.get(id);
+            if (row != null) {
+                ordered.add(row);
+            }
+        }
+        return views(ordered);
+    }
+
+    /**
      * {@code GET /wishlist?region=}: the caller's items, newest first, and which of them are
      * available in the region (stage R5: "Available" or "None yet"), computed by one grouped query
      * for the whole list.

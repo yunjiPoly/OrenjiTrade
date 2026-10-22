@@ -14,8 +14,11 @@ function plural(count: number, one: string, many: string): string {
 /** Messages, the inbox (screen 22). */
 export const INBOX_COPY = {
   title: 'Messages',
-  viewLabel: 'Messages view',
+  viewLabel: 'Messages',
   inbox: 'Inbox',
+  /** The first tab of Messages (stage R11). */
+  chats: 'Chats',
+  chatsUnread: (count: number) => `Chats, ${count} unread`,
   community: 'Community',
   loadError: 'Conversations could not load',
   emptyTitle: 'No messages yet',
@@ -37,6 +40,8 @@ export const INBOX_COPY = {
 /** The chat's top bar and its "⋯" sheet (screens 23 and 24). */
 export const CHAT_COPY = {
   back: 'Back to messages',
+  /** Back from a chat opened by a sale notification (`?from=notifications`, stage R9). */
+  backToNotifications: 'Back to Notifications',
   profile: (handle: string) => `${handle}, open profile`,
   more: (handle: string) => `More for ${handle}`,
   online: 'Online',

@@ -44,9 +44,11 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
                         "SELECT count(*) FROM inventory_item WHERE id::text LIKE"
                                 + " '00000000-0000-4000-8c00-%'");
         // Stage R3 added collector2's deck core "Moth Queen core" and its three cards; stage G
-        // split the five binders that mixed games into one binder per game (18).
-        assertThat(binders).isEqualTo(18);
-        assertThat(items).isEqualTo(42);
+        // split the five binders that mixed games into one binder per game (18); stage R7 added
+        // Home's feed: collector5's deck core "Monarch core" (3 cards), 13 public unfiled cards
+        // of collector5 and 3 of collector2 (19 binders, 61 cards).
+        assertThat(binders).isEqualTo(19);
+        assertThat(items).isEqualTo(61);
         seedDataRunner.seedAll();
         assertThat(
                         testUsers.count(
@@ -137,7 +139,8 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
         String seededNotifications =
                 "SELECT count(*) FROM notification WHERE id::text LIKE"
                         + " '00000000-0000-4000-9a00-%'";
-        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        // collector2's three, and collector5's two of stage R7 (Home's feed).
+        assertThat(testUsers.count(wishes)).isEqualTo(5);
         assertThat(
                         testUsers.count(
                                 "SELECT count(*) FROM wishlist_item WHERE owner_id = ? AND"
@@ -182,7 +185,7 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
 
         seedDataRunner.seedAll();
 
-        assertThat(testUsers.count(wishes)).isEqualTo(3);
+        assertThat(testUsers.count(wishes)).isEqualTo(5);
         assertThat(testUsers.count(seededNotifications)).isEqualTo(4);
         assertThat(testUsers.count(collector2Alerts, collector2)).isEqualTo(alerts);
         assertThat(
@@ -204,6 +207,128 @@ class SeedDataRunnerIT extends AbstractIntegrationTest {
      * asked instead: the alert step runs again while the sent-alert key is missing, and the stored
      * notification stays the only one (its dedup key).
      */
+    /**
+     * Home's feed (stage R7) as collector1 reads it, Yu-Gi-Oh! in Americas (North): the seed's
+     * posts of collector2 and collector5 today, this week and this month, every kind, groups of 12
+     * and 3 cards and a single card, two deck cores (one "Trade only"), three wishes; collector2
+     * sees collector1's five cards of the month. The times are relative to now and written again at
+     * every start, so the feed looks the same a month later.
+     */
+    @Test
+    void seedsHomesFeedRelativeToNow() {
+        String collector1 = "seed-collector1:collector1@orenjitrade.test";
+        String collector2 = "seed-collector2:collector2@orenjitrade.test";
+        java.util.List<JsonNode> posts = seedPosts(collector1);
+        assertThat(
+                        posts.stream()
+                                .map(
+                                        post ->
+                                                post.path("kind").asString()
+                                                        + " "
+                                                        + post.path("collector")
+                                                                .path("handle")
+                                                                .asString())
+                                .toList())
+                .containsExactly(
+                        "NEW_CARDS collector5",
+                        "WANTED collector2",
+                        "DECK_CORE collector2",
+                        "NEW_CARDS collector5",
+                        "WANTED collector5",
+                        "NEW_CARDS collector2",
+                        "DECK_CORE collector5",
+                        "WANTED collector5");
+        JsonNode twelve = posts.get(0).path("newCards");
+        assertThat(twelve.path("total").asLong()).isEqualTo(12);
+        assertThat(twelve.path("previews")).hasSize(4);
+        assertThat(twelve.path("previews").get(0).path("name").asString())
+                .isEqualTo("Monarch's Tempest Decree");
+        assertThat(twelve.path("previews").get(0).path("askingPriceText").asString())
+                .isEqualTo("$11.50");
+        assertThat(twelve.path("previews").get(1).path("askingPriceText").asString())
+                .isEqualTo("90% TCG");
+        assertThat(posts.get(2).path("deckCore").path("askingPriceText").asString())
+                .isEqualTo("$95");
+        assertThat(posts.get(3).path("newCards").path("total").asLong()).isEqualTo(1);
+        assertThat(posts.get(5).path("newCards").path("total").asLong()).isEqualTo(3);
+        assertThat(posts.get(6).path("deckCore").path("askingPriceText").asString())
+                .isEqualTo("Trade only");
+        assertThat(posts.get(6).path("deckCore").path("noteFirstLine").asString())
+                .isEqualTo("Looking for Moth Queen pieces in trade. All NM, in sleeves.");
+        java.time.Instant now = java.time.Instant.now();
+        assertAgo(posts.get(0), now, java.time.Duration.ofMinutes(5));
+        assertAgo(posts.get(1), now, java.time.Duration.ofHours(1));
+        assertAgo(posts.get(2), now, java.time.Duration.ofHours(3));
+        assertAgo(posts.get(3), now, java.time.Duration.ofHours(6));
+        assertAgo(posts.get(4), now, java.time.Duration.ofDays(2));
+        assertAgo(posts.get(5), now, java.time.Duration.ofDays(3));
+        assertAgo(posts.get(6), now, java.time.Duration.ofDays(4));
+        assertAgo(posts.get(7), now, java.time.Duration.ofDays(12));
+
+        // collector2 sees collector1's Yu-Gi-Oh! binder, listed this month (five cards).
+        java.util.List<JsonNode> seenByCollector2 = seedPosts(collector2);
+        JsonNode fromCollector1 =
+                seenByCollector2.stream()
+                        .filter(
+                                post ->
+                                        post.path("collector")
+                                                .path("handle")
+                                                .asString()
+                                                .equals("collector1"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(fromCollector1.path("newCards").path("total").asLong()).isEqualTo(5);
+        assertAgo(fromCollector1, now, java.time.Duration.ofDays(9));
+
+        // Dated again at every start: an old listing time comes back to "5 minutes ago".
+        testUsers.update(
+                "UPDATE inventory_item SET listing_changed_at = now() - interval '40 days' WHERE"
+                        + " id::text LIKE '00000000-0000-4000-8c00-0000000500%'");
+        seedDataRunner.seedAll();
+        assertAgo(
+                seedPosts(collector1).get(0),
+                java.time.Instant.now(),
+                java.time.Duration.ofMinutes(5));
+    }
+
+    /**
+     * The seed collectors' posts of the Yu-Gi-Oh! feed of Americas (North), as {@code uid}, page by
+     * page to the end (the suite's other tests add posts of their own, some dated ahead).
+     */
+    private java.util.List<JsonNode> seedPosts(String uid) {
+        java.util.List<JsonNode> posts = new java.util.ArrayList<>();
+        String cursor = null;
+        for (int page = 0; page < 100; page++) {
+            String path = "/api/v1/feed?region=americas-north&game=yugioh&limit=50";
+            if (cursor != null) {
+                path += "&cursor=" + cursor;
+            }
+            JsonNode body = callJson(HttpMethod.GET, path, uid, null, 200);
+            body.path("items")
+                    .forEach(
+                            post -> {
+                                if (post.path("collector")
+                                        .path("id")
+                                        .asString()
+                                        .startsWith("00000000-0000-4000-8000-0000000000")) {
+                                    posts.add(post);
+                                }
+                            });
+            if (body.path("nextCursor").isNull()) {
+                return posts;
+            }
+            cursor = body.path("nextCursor").asString();
+        }
+        throw new AssertionError("the feed never ended");
+    }
+
+    private static void assertAgo(JsonNode post, java.time.Instant now, java.time.Duration ago) {
+        java.time.Instant at = java.time.Instant.parse(post.path("at").asString());
+        assertThat(java.time.Duration.between(at, now).minus(ago).abs())
+                .as("%s became public about %s ago", post.path("id").asString(), ago)
+                .isLessThan(java.time.Duration.ofMinutes(10));
+    }
+
     @Test
     void anUpgradedDatabaseGetsTheSeedWishValuesAndTheSampleAlertOnce() {
         UUID collector2 = UUID.fromString("00000000-0000-4000-8000-000000000002");

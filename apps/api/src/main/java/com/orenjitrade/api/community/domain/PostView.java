@@ -1,6 +1,7 @@
 package com.orenjitrade.api.community.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.orenjitrade.api.location.api.PlaceResponse;
 import com.orenjitrade.api.moderation.domain.ContentModerationState;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -23,6 +24,8 @@ import org.jspecify.annotations.Nullable;
  * @param canEdit the caller wrote the post
  * @param canDelete the caller wrote the post or is a moderator
  * @param moderationState OK or FLAGGED (removed posts are not served)
+ * @param place the author's state or province and country (stage R11, ADR 0017), {@code null}
+ *     unless the author is discoverable and their profile is not private; never a city
  */
 @Schema(name = "PostResponse", description = "A community post")
 public record PostView(
@@ -39,4 +42,12 @@ public record PostView(
                 @Nullable Instant lastReplyAt,
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean canEdit,
         @Schema(requiredMode = RequiredMode.REQUIRED) boolean canDelete,
-        @Schema(requiredMode = RequiredMode.REQUIRED) ContentModerationState moderationState) {}
+        @Schema(requiredMode = RequiredMode.REQUIRED) ContentModerationState moderationState,
+        @Schema(
+                        nullable = true,
+                        description =
+                                "Stage R11: the author's state or province and country (ADR"
+                                        + " 0017), null unless the author is discoverable and"
+                                        + " their profile is not private. Never a city.")
+                @JsonInclude(JsonInclude.Include.ALWAYS)
+                @Nullable PlaceResponse place) {}

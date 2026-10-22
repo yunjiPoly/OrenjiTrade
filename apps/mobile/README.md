@@ -56,8 +56,10 @@ names the Map and Wishlist tabs of before).
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
 the card screen, "Who wants it", "Wanted by N", a server-side search history) and S4 (photos in
-community posts) are **not built** (skipped by the owner on 2026-10-13); the recent searches of the
-Search tab are kept on the device only (stage M2).
+community posts, with admin settings and a lightbox gallery) are **not built** (skipped by the owner
+on 2026-10-13); the recent searches of the Search tab are kept on the device only (stage M2).
+Stage R11 of the owner's prompt of 2026-10-20 brought a simpler version of S4's photos to the
+rooms (up to 4 photos of 3 MB per post, no setting).
 
 Read the root `CLAUDE.md`, `IMPLEMENTATION_STATUS.md` (mobile rows) and
 `docs/architecture/adr/0006-angular-web-react-native-mobile.md` first. Privacy (ADR 0017, which
@@ -105,14 +107,21 @@ Phases 5 and 6 (stage M4) are implemented on the same API and realtime channel a
 signed in, paused in the background, reconnecting with backoff), the **Messages** tab (Inbox |
 Community: the inbox with unread counts and previews, the full conversation with card / binder /
 photos, read markers, typing, "Seen", mute / archive / block; old offer links and offer or trade
-updates read "Offer (no longer available)" since stage R1, in the chat and in the inbox; the public community
-channels with posts, replies and own edits), the **Wishlist** tab (stage S2: which copy, public
+updates read "Offer (no longer available)" since stage R1, in the chat and in the inbox; since stage
+R11 the tabs are **Chats | Community**, Chats with an orange dot while a chat is unread, and
+Community is one public room per platform region and game (`community/[slug]`: the browsed region's
+five rooms, the browsed game's first, a dot for posts newer than the last visit on this phone; a
+room reads like a chat with day separators, posts with up to 4 photos of 3 MB, a shared card or
+binder or deck core, the "⋯" sheet with Message, Report, Block or Delete, the room rules; no reply
+threads and no editing on the phone), the **Wishlist** tab (stage S2: which copy, public
 note, "Near Mint only" and price term chips, edit, remove, "Let others see what you want", a prompt
 to set a location for alerts; "Add to wishlist" on the card detail with its printing or rarity;
-no matches) and the **notification centre** (a bell
-with a live unread badge on every tab, the list, mark read, a deep link per notification kind).
-Device push is not wired (it needs an EAS project and a real FCM sender): notifications arrive in
-the app. An ended session leads to the sign-in screen with an explanation, and a link opened while
+no matches) and **Notifications** (stage R9, mockup v50 screen 31: the bell on the top bar of
+every tab with an orange dot while anything is unread, chats left out; New with "Mark all as
+read", Earlier by pages; each kind's icon, colours, sentence and target; freshness reminders
+answered in place). Device push is not wired (it needs an EAS project and a real FCM sender):
+notifications arrive in the app; a tapped push would open its row's target, a chat's push the chat
+(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
 signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
 `mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
@@ -126,7 +135,7 @@ criteria (communication, card condition, shipping; "meetup reliability" left wit
 an eligible interaction, edits for 14 days, one reference per collector, from profiles and
 conversations). Stage M5 also built **offers** and **trades**; stage R1 of the phone redesign
 deleted them (ADR 0018: deals happen in the chat): their screens, Settings → Offers and the
-Profile tab's rows are gone, an old offer or trade notification opens nothing and says so, and a
+Profile tab's rows are gone, an old offer or trade notification opens nothing (grey since R9), and a
 link to `offers/…`, `trades/…` or `disputes/…` lands on Messages. Admin and moderator consoles
 stay on the web.
 
@@ -374,7 +383,7 @@ app/                       expo-router routes
   community/[slug].tsx     a public channel (posts, replies, own edits)
   (tabs)/wishlist.tsx      the old Wishlist tab: redirects to Search › Wishlist; wishlist/new
                            (`?cardId=&printingId=&rarity=`), edit (`?id=`, with Remove)
-  notifications.tsx        the notification centre (the bell in every tab header opens it)
+  notifications.tsx        Notifications (stage R9; the bell of every tab opens it)
   report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
   ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),
                            reference (one per collector)
@@ -437,6 +446,8 @@ Conventions later stages reuse:
   "No answer from OrenjiTrade" with "Try again" instead of a skeleton for minutes (writes are
   left alone); mutations invalidate the narrowest key they change. Screens render
   `QueryState` (skeleton, empty, error with retry) and the root `OfflineBanner` covers offline use.
+  A screen-filling state outside a list (closed, empty, not found, error) sits in `StateScroll`, so
+  it scrolls at the largest text sizes instead of running over the header (stage R11).
 - **Lists**: paged endpoints use `useInfiniteQuery` (`nextPage`) in a `FlatList` with
   `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change
   (region-scoped lists keep the previous results within one region only: `previousOfSameRegion`
@@ -528,8 +539,12 @@ Conventions later stages reuse:
     Inventory tab; from a text scale of 1.4 a line puts its name and controls under the picture,
     across the width, and the counts stand one per line.
 - **Card pictures**: `CardImage` (expo-image) renders only API picture URLs
-  (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of the web;
-  anything else (for example a YGOPRODeck URL) shows the placeholder.
+  (`/api/v1/public/card-images/{id}`, placeholders) with the provider credit line of each game
+  (`CARD_DATA_ATTRIBUTIONS` in `src/lib/cardImages.ts`: YGOPRODeck for Yu-Gi-Oh!, Scryfall for
+  Magic and TCGdex for Pokémon since stage R10, ADR 0021); anything else (for example a
+  YGOPRODeck, Scryfall or TCGdex URL) shows the placeholder. Who has this card shows a chosen
+  printing with its own picture; Settings → Appearance lists the card data credits of the games
+  that hold cards.
 - **Places (ADR 0017)**: the app handles no coordinates, distances or GPS. Collectors declare a
   region, country, state or province and an optional city (`src/features/location/`:
   `LocationFields` with SelectSheet pickers fed by `GET /regions` through `useRegions`,
@@ -697,7 +712,7 @@ Both end-to-end suites use their own stack and never touch a developer's: the da
 `orenjitrade_mobile_e2e` (dropped and recreated per run, migrated and seeded by the API), an API
 jar on **:8090** (profile `local`, Redis database 1 (flushed with the database) with its own realtime channels
 `e2e-mobile:rt:user:*`, media, card-image cache and provider snapshots under
-`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck disabled and pointed at a closed local port,
+`.local-dev/mobile-e2e/`, mock catalog only: YGOPRODeck, Scryfall and TCGdex disabled and pointed at a closed local port,
 no image downloads; plus, since stage S5, the three fictional deck passcodes of
 `SEED_IMPORT_FIXTURES` (910000001 to 910000003, `ImportFixtureSeedContributor`), which only this
 isolated database gets: a deck file is matched through the provider `ygoprodeck`, and a

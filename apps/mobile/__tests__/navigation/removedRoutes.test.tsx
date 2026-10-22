@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import NotFoundScreen from '@/app/+not-found';
 import {
@@ -109,5 +109,11 @@ describe('links to the screens that left the phone (ADR 0018 and ADR 0019)', () 
     renderWithProviders(<NotFoundScreen />, { port: new FakeAuthPort(testUser()) });
     expect(screen.getByText('This page does not exist')).toBeOnTheScreen();
     expect(mockRouter.replace).not.toHaveBeenCalled();
+    // "Back to the map" opens Search's map: `/` is Home since stage R7 (R7 review U2/F4).
+    fireEvent.press(screen.getByText('Back to the map'));
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      pathname: '/search',
+      params: { segment: 'cards' },
+    });
   });
 });
