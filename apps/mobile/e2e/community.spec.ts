@@ -100,20 +100,27 @@ test.describe('mobile community rooms', () => {
         response.url().includes('/api/v1/uploads/images') &&
         response.url().includes('kind=COMMUNITY')
     );
+    const created = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().endsWith(`/api/v1/community/channels/${ROOM}/posts`)
+    );
     await send.click();
     expect((await upload).status()).toBe(201);
-    await expect(room.getByText(text)).toBeVisible({ timeout: 30_000 });
-    const mine = (
-      (await (
-        await request.get(`${API_URL}/api/v1/community/channels/${ROOM}/posts?limit=20`, {
-          headers: authHeader(poster.idToken),
-        })
-      ).json()) as { items: { id: string; body: string; payload: { photos?: unknown[] } }[] }
-    ).items.find((item) => item.body === text);
-    expect(mine, 'the new post').toBeTruthy();
-    expect(mine!.payload.photos ?? []).toHaveLength(1);
+    const answer = await created;
+    expect(answer.status(), 'POST the post').toBe(201);
+    const mine = (await answer.json()) as {
+      id: string;
+      body: string;
+      payload: { photos?: unknown[] };
+    };
+    expect(mine.body).toBe(text);
+    expect(mine.payload.photos ?? []).toHaveLength(1);
+    await expect(room.getByTestId(`room-post-body-${mine.id}`)).toHaveText(text, {
+      timeout: 30_000,
+    });
     await expect(
-      room.getByTestId(`room-post-${mine!.id}`).getByTestId('room-photo-0')
+      room.getByTestId(`room-post-${mine.id}`).getByTestId('room-photo-0')
     ).toBeVisible();
     await expect(room.getByLabel('Write to the Yu-Gi-Oh! room')).toHaveValue('');
 
@@ -134,11 +141,12 @@ test.describe('mobile community rooms', () => {
     await page.goBack();
 
     // Delete your own post.
-    await expect(room.getByTestId(`room-post-${mine!.id}`)).toBeVisible({ timeout: 30_000 });
-    await room.getByTestId(`room-post-more-${mine!.id}`).click();
+    await expect(room.getByTestId(`room-post-${mine.id}`)).toBeVisible({ timeout: 30_000 });
+    await room.getByTestId(`room-post-more-${mine.id}`).click();
     await page.getByTestId('room-post-delete').click();
     await page.getByTestId('room-delete-dialog').getByRole('button', { name: 'Delete' }).click();
     await expect(snackbar(page)).toHaveText('Post deleted.');
-    await expect(room.getByText(text)).toBeHidden();
+    // (The message box still holds the refused duplicate: look for the post itself.)
+    await expect(room.getByTestId(`room-post-${mine.id}`)).toHaveCount(0);
   });
 });
