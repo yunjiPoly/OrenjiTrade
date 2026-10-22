@@ -9,7 +9,8 @@
 # gear opening Settings, and "See all" of the cards and of the binders leading to the Inventory,
 # twice for the binders. Last, the "See all" pages across a block, their titles in view: Vic blocks
 # Dana ("You blocked", Unblock), then Dana blocks Vic ("not available") (scripts/parity.js,
-# ACTION=profiles, check-have and block).
+# ACTION=profiles, check-have and block). Stage R10: Settings › Appearance credits the card data of
+# the games that hold cards.
 appId: ${APP_ID}
 name: Profile pages and the Settings gear
 tags:
@@ -222,6 +223,24 @@ tags:
 - assertNotVisible: 'Premium'
 - assertNotVisible: 'Payouts'
 - takeScreenshot: r6-settings-from-gear
+
+# Settings › Appearance credits the card data of every game that holds cards (stage R10): the
+# seed's fictional catalogue holds Yu-Gi-Oh!, Pokémon and Magic cards.
+- tapOn:
+    id: 'settings-link-appearance'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings-appearance'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'card-data-credits'
+- assertVisible:
+    id: 'card-data-credits'
+    text: 'Card data and images\. Yu-Gi-Oh! card data from YGOPRODeck\. Pokémon card data from TCGdex\. Magic card data and images from Scryfall\. Not affiliated with or endorsed by the game publishers\.'
+- takeScreenshot: r10-appearance-credits
+- runFlow: subflows/go-back.yaml
 - runFlow: subflows/go-back.yaml
 
 # "See all" of your cards is your Inventory.

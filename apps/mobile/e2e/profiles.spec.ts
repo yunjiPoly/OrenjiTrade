@@ -174,5 +174,15 @@ test.describe('mobile profiles (stage R6)', () => {
     await expect(settings.getByRole('button', { name: 'Sign out' })).toBeVisible();
     // Nothing paid, no offers or payouts (ADR 0018, ADR 0019).
     await expect(settings).not.toContainText(/Premium|Credits|Support OrenjiTrade|Offers|Payouts/);
+
+    // Settings › Appearance credits the card data of the games that hold cards (stage R10): the
+    // fictional catalogue holds Yu-Gi-Oh!, Pokémon and Magic cards.
+    await settings.getByRole('link', { name: 'Appearance', exact: true }).click();
+    const credits = screen(page, 'settings-appearance').getByTestId('card-data-credits');
+    await expect(credits).toContainText(
+      'Yu-Gi-Oh! card data from YGOPRODeck. Pokémon card data from TCGdex. Magic card data and ' +
+        'images from Scryfall. Not affiliated with or endorsed by the game publishers.',
+      { timeout: 30_000 }
+    );
   });
 });
