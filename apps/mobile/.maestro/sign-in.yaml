@@ -2,7 +2,7 @@
 # collector signs in, lands on the tabs (Map | Inventory | Search | Messages | Wishlist | Profile)
 # and sees their profile. The seed account is only signed in to, never modified in the emulator;
 # its 18+ confirmation (the seed predates the rule) is recorded through the API first, as the
-# onboarding age step would (proven on its own by age-step-existing-account.yaml).
+# age line of Review our terms would (proven on its own by age-step-existing-account.yaml).
 appId: ${APP_ID}
 name: Sign in with a seed collector
 tags:

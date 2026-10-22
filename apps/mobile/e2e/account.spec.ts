@@ -105,9 +105,12 @@ test.describe('mobile account settings', () => {
 
     // Changed their mind.
     await pending.getByRole('button', { name: 'Cancel deletion' }).click();
-    await expect(snackbar(page)).toHaveText('Deletion cancelled. Welcome back!', {
+    // Stage R12: "Deletion cancelled" and "Welcome back!" in place, then Continue.
+    await expect(pending.getByRole('heading', { name: 'Deletion cancelled' })).toBeVisible({
       timeout: 30_000,
     });
+    await expect(pending.getByTestId('deletion-cancelled')).toHaveText('Welcome back!');
+    await pending.getByRole('button', { name: 'Continue' }).click();
     await openTab(page, 'Profile');
     await expect(screen(page, 'profile').getByTestId('profile-name')).toHaveText('Mobile Leaver', {
       timeout: 30_000,

@@ -55,6 +55,7 @@ export function WelcomeHeader({ current, total, onBack, backLabel }: WelcomeHead
         </Text>
       </View>
       <View
+        accessible
         accessibilityRole="progressbar"
         accessibilityLabel={stepLabel}
         accessibilityValue={{ min: 1, max: total, now: current }}

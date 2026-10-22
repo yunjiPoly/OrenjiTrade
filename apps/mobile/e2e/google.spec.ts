@@ -102,35 +102,33 @@ test.describe('mobile Google sign-in', () => {
     await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
-    await consent.getByRole('button', { name: 'Accept and continue' }).click();
-    await expect(consent.getByText('Please accept every document to continue.')).toBeVisible();
+    // "Accept and continue" waits until every box is ticked (stage R12).
+    const accept = consent.getByRole('button', { name: 'Accept and continue' });
+    await expect(accept).toHaveAttribute('aria-disabled', 'true');
     await consent.getByRole('checkbox', { name: 'Accept all' }).click();
-    // A Google sign-up never saw the sign-up screen: the consent screen collects the 18+
+    // A Google sign-up never saw the sign-up screen: Review our terms collects the 18+
     // confirmation too (its own checkbox, never ticked by "Accept all").
-    await consent.getByRole('button', { name: 'Accept and continue' }).click();
-    await expect(
-      consent.getByText(
-        'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
-      )
-    ).toBeVisible();
+    await expect(accept).toHaveAttribute('aria-disabled', 'true');
     await consent
       .getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' })
       .click();
-    await consent.getByRole('button', { name: 'Accept and continue' }).click();
+    await accept.click();
 
-    // Onboarding, with the name Google returned prefilled (no age step: confirmed already).
+    // The welcome, with the name Google returned prefilled (no age step: confirmed already).
     const onboarding = screen(page, 'onboarding');
-    await expect(
-      onboarding.getByRole('heading', { name: "Let's set up your collector profile" })
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(onboarding.getByRole('heading', { name: 'Who are you?' })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(onboarding.getByLabel('Display name')).toHaveValue('Google Newbie');
     await onboarding.getByLabel('Handle').fill(handle);
     await onboarding.getByRole('button', { name: 'Continue' }).click();
     await expect(onboarding.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
-    await onboarding.getByRole('checkbox', { name: 'Pokémon' }).click();
+    await onboarding.getByRole('checkbox', { name: /^Pokémon/ }).click();
     await onboarding.getByRole('button', { name: 'Continue' }).click();
-    // Where are you? Skipping is allowed (no location yet, hidden from the map).
-    await expect(onboarding.getByRole('heading', { name: 'Where are you?' })).toBeVisible();
+    // Where do you ship from? Skipping is allowed (no location yet, hidden from the map).
+    await expect(
+      onboarding.getByRole('heading', { name: 'Where do you ship from?' })
+    ).toBeVisible();
     await onboarding.getByRole('button', { name: 'Skip for now' }).click();
     await expect(snackbar(page)).toHaveText('Welcome to OrenjiTrade! Your profile is ready.', {
       timeout: 30_000,

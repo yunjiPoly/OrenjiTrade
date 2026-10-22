@@ -1,13 +1,15 @@
-# The 18+ rule on an existing account (launch readiness): a fictional collector created on the
-# host WITHOUT the AGE_CONFIRMATION consent (every document accepted, profile complete: an
-# account from before the rule) signs in and is asked for the confirmation alone, as the first
-# and only onboarding step; nothing is recorded while the checkbox is unticked; once confirmed,
-# the tabs, "Welcome back" and the consent checked on the API (scripts/check-age.js).
+# The 18+ rule on an existing account (launch readiness; Review our terms since stage R12 of the
+# phone redesign): a fictional collector created on the host WITHOUT the AGE_CONFIRMATION consent
+# (every document accepted, profile complete: an account from before the rule) signs in and lands
+# on Review our terms with the age line alone (no document due, no welcome step); "Accept and
+# continue" waits while it is unticked and nothing is recorded; once confirmed, the tabs, "Welcome
+# back" and the consent checked on the API (scripts/check-age.js).
 appId: ${APP_ID}
-name: Existing account confirms its age
+name: Existing account confirms its age on Review our terms
 tags:
   - launch-readiness
   - onboarding
+  - r12
 ---
 - runScript:
     file: scripts/create-collector.js
@@ -28,15 +30,14 @@ tags:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
 
-# Only the age step: no profile fields for a complete profile.
+# Review our terms with the age line alone: no document, no welcome step.
 - extendedWaitUntil:
     visible:
-      id: 'onboarding-age'
+      id: 'screen-consent'
     timeout: 60000
-- assertVisible: 'Are you 18 or older?'
-# (On iOS the checkbox is one element named in both languages; on Android the French line is a
-# text of its own: the pattern fits both.)
-- assertVisible: '.*Je confirme avoir 18 ans ou plus'
+- assertVisible: 'Please confirm your age to keep using OrenjiTrade\.'
+- assertNotVisible:
+    id: 'legal-consents'
 - assertNotVisible:
     id: 'onboarding-profile'
 - extendedWaitUntil:
@@ -47,17 +48,15 @@ tags:
     file: subflows/assert-unchecked.yaml
     env:
       ID: 'age-confirmation'
-- takeScreenshot: age-step
+# English only (owner, 2026-10-20).
+- assertNotVisible: '.*Je confirme.*'
+- takeScreenshot: age-review-terms
 
-# Unticked: refused in both languages, nothing recorded.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'onboarding-age-continue'
+# Unticked: "Accept and continue" does nothing, nothing is recorded.
 - tapOn:
-    id: 'onboarding-age-continue'
-- assertVisible: 'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
-- assertVisible: 'Vous devez confirmer avoir 18 ans ou plus pour utiliser OrenjiTrade.'
+    id: 'consent-accept'
+- assertVisible:
+    id: 'screen-consent'
 - runScript:
     file: scripts/check-age.js
     env:
@@ -66,22 +65,14 @@ tags:
       EXPECT: 'false'
 
 # Ticked: recorded, welcome back on the tabs.
-- runFlow:
-    file: subflows/scroll-up-to.yaml
-    env:
-      ID: 'age-confirmation'
 - tapOn:
     id: 'age-confirmation'
 - runFlow:
     file: subflows/assert-checked.yaml
     env:
       ID: 'age-confirmation'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'onboarding-age-continue'
 - tapOn:
-    id: 'onboarding-age-continue'
+    id: 'consent-accept'
 # The welcome-back snackbar shows as soon as the consent is recorded, then the tabs.
 - extendedWaitUntil:
     visible: 'Thanks for confirming\. Welcome back!'
@@ -96,7 +87,7 @@ tags:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
       EXPECT: 'true'
-- takeScreenshot: age-step-confirmed
+- takeScreenshot: age-review-terms-confirmed
 
 # Never asked again: a relaunch restores the session on the tabs.
 - runFlow: subflows/relaunch.yaml
@@ -104,4 +95,5 @@ tags:
     visible:
       id: 'screen-home'
     timeout: 60000
-- assertNotVisible: 'Are you 18 or older?'
+- assertNotVisible:
+    id: 'screen-consent'

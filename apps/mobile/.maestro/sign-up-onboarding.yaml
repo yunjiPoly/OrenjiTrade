@@ -1,14 +1,18 @@
-# Sign up -> verification -> onboarding -> tabs (Phase 1): a new fictional collector
-# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) accepts the versioned legal documents and the
-# 18+ confirmation (its own checkbox, never ticked by "Accept all"), verifies the email through
-# the local Auth emulator, completes the three onboarding steps (the location step with the
-# pickers: Canada, Quebec) and stays hidden from the map (discoverability defaults to off).
+# Sign up -> verification -> the welcome -> Home (Phase 1; stage R12 of the phone redesign): a new
+# fictional collector (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) sees "Create account" wait
+# for every box with the line saying what is missing, accepts the versioned legal documents with
+# "Accept all" and the 18+ confirmation in its own card (never ticked by "Accept all"), verifies the
+# email through the local Auth emulator, walks the three welcome steps (the handle's live check,
+# Pokémon then Yu-Gi-Oh! with "Opens first" on Pokémon, the place with the pickers: Canada,
+# Quebec), stays hidden from the map (discoverability defaults to off) and lands on Home browsing
+# the first game picked, Pokémon.
 appId: ${APP_ID}
-name: Sign up and onboarding
+name: Sign up and the welcome
 tags:
   - mobile-m1
   - auth
   - onboarding
+  - r12
 ---
 - runScript: scripts/new-identity.js
 - runFlow: subflows/launch-fresh.yaml
@@ -16,28 +20,29 @@ tags:
     visible:
       id: 'screen-sign-in'
     timeout: 60000
+- assertVisible: 'Find collectors in your region who own, trade or want the cards you care about\.'
 - tapOn: 'Create an account'
 - extendedWaitUntil:
     visible:
       id: 'screen-sign-up'
     timeout: 30000
 
-# Validation first (the legal documents come from the API; the button sits below them).
+# Nothing ticked: Create account waits and says what is missing (the documents come from the API;
+# the button sits below them).
 - extendedWaitUntil:
     visible: 'Accept all'
     timeout: 30000
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'sign-up-submit'
-- tapOn:
-    id: 'sign-up-submit'
-- assertVisible: 'Please accept every document to continue.'
+      ID: 'sign-up-blocker'
+- assertVisible:
+    id: 'sign-up-blocker'
+    text: 'Accept the documents and confirm your age to continue\.'
 - runFlow:
     file: subflows/scroll-up-to.yaml
     env:
       ID: 'sign-up-display-name'
-- assertVisible: 'Enter a display name.'
 
 - tapOn:
     id: 'sign-up-display-name'
@@ -55,7 +60,7 @@ tags:
       ID: 'legal-consents-all'
 - tapOn:
     id: 'legal-consents-all'
-# The 18+ confirmation stays unticked after "Accept all" and is required on its own.
+# The 18+ confirmation stays unticked after "Accept all": the line asks for it alone.
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -67,10 +72,10 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'sign-up-submit'
-- tapOn:
-    id: 'sign-up-submit'
-- assertVisible: 'You must confirm that you are 18 years of age or older to use OrenjiTrade.'
+      ID: 'sign-up-blocker'
+- assertVisible:
+    id: 'sign-up-blocker'
+    text: 'Confirm that you are 18 or older to continue\.'
 - runFlow:
     file: subflows/scroll-up-to.yaml
     env:
@@ -81,10 +86,34 @@ tags:
     file: subflows/assert-checked.yaml
     env:
       ID: 'age-confirmation'
+# A document unticked again: the line asks for the documents alone.
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-consents-TERMS'
+- tapOn:
+    id: 'legal-consents-TERMS'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'sign-up-blocker'
+- assertVisible:
+    id: 'sign-up-blocker'
+    text: 'Accept every document to continue\.'
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'legal-consents-TERMS'
+- tapOn:
+    id: 'legal-consents-TERMS'
+# Every box ticked: no line, and the account is created.
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
       ID: 'sign-up-submit'
+- assertNotVisible:
+    id: 'sign-up-blocker'
+- takeScreenshot: sign-up-every-box
 - tapOn:
     id: 'sign-up-submit'
 
@@ -101,41 +130,53 @@ tags:
 - tapOn:
     id: 'verify-check'
 
-# Onboarding step 1: profile, prefilled with the display name and the handle the API derived.
+# Welcome, step 1 of 3: "Who are you?", prefilled with the display name and the handle the API
+# derived, which the live check finds the collector's own (a teal check).
 - extendedWaitUntil:
     visible:
       id: 'onboarding-profile'
     timeout: 60000
+- assertVisible: 'Step 1 of 3'
 - assertVisible:
     id: 'profile-display-name'
     text: 'Maestro Newbie'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'onboarding-profile-continue'
+- extendedWaitUntil:
+    visible:
+      id: 'handle-available'
+    timeout: 15000
+- takeScreenshot: welcome-step-1
 - tapOn:
     id: 'onboarding-profile-continue'
 
-# Step 2: interests.
+# Step 2 of 3: "What do you collect?": at least one game; the first picked opens first.
 - extendedWaitUntil:
     visible:
       id: 'onboarding-interests'
     timeout: 30000
+- assertVisible: 'Step 2 of 3'
+- assertVisible:
+    id: 'interests-missing'
+    text: 'Choose at least one game\.'
 - tapOn:
     id: 'game-pokemon'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'onboarding-interests-continue'
+- tapOn:
+    id: 'game-yugioh'
+- assertVisible:
+    id: 'game-pokemon-note'
+    text: 'Opens first'
+- assertNotVisible:
+    id: 'interests-missing'
+- takeScreenshot: welcome-step-2
 - tapOn:
     id: 'onboarding-interests-continue'
 
-# Step 3: where are you? The pickers fed by GET /regions (Canada, then Quebec): no map, no GPS
-# (ADR 0017); the map opt-in stays off.
+# Step 3 of 3: "Where do you ship from?" The pickers fed by GET /regions (Canada, then Quebec): no
+# map, no GPS (ADR 0017); the map opt-in stays off.
 - extendedWaitUntil:
     visible:
       id: 'onboarding-location'
     timeout: 30000
+- assertVisible: 'Step 3 of 3'
 - extendedWaitUntil:
     visible:
       id: 'location-country'
@@ -171,18 +212,21 @@ tags:
     file: subflows/assert-unchecked.yaml
     env:
       ID: 'onboarding-discoverable'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'onboarding-finish'
 - tapOn:
     id: 'onboarding-finish'
 
-# The tabs, and the profile of the new collector, hidden from the map.
+# Home, browsing the first game picked (Pokémon), then the profile of the new collector, hidden
+# from the map.
 - extendedWaitUntil:
     visible:
       id: 'screen-home'
     timeout: 60000
+- extendedWaitUntil:
+    visible:
+      id: 'home-game'
+      text: 'Game: Pokémon\. Change game'
+    timeout: 30000
+- takeScreenshot: sign-up-home-first-game
 - runFlow: subflows/open-profile-tab.yaml
 - assertVisible:
     id: 'profile-name'
