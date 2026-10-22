@@ -3,7 +3,8 @@
 # Americas (North), opens the Yu-Gi-Oh! room, reads its rules, posts a few words with a photo, and
 # reports Bo's post (Bo, fresh and fictional, posted it through the API: scripts/reports.js). The
 # host scripts check what the isolated API holds: the post and its one photo (scripts/community.js)
-# and Ada's open report (scripts/reports.js).
+# and Ada's open report (scripts/reports.js). Review fix 1: Bo answers through the API while the
+# room is open and the answer shows without leaving it; Bo's handle opens his profile.
 #
 # The photo is the fictional picture of native flow 1 (media/fictional-card-photo.jpg, 600 × 800),
 # put in the simulator's photo library by `addMedia` and picked as the newest photo
@@ -121,6 +122,35 @@ tags:
 - assertVisible:
     id: 'room-photo-0'
 - takeScreenshot: community-room-photo-post
+
+# Bo answers while the room is open: it shows by itself (the room asks again every 15 s).
+- runScript:
+    file: scripts/reports.js
+    env:
+      ACTION: community-answer
+      EMAIL: ${output.bo.email}
+      PASSWORD: ${output.bo.password}
+      SLUG: americas-north-yugioh
+      BODY: 'Maestro ${output.bo.handle} answers while the room is open'
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-${output.boAnswer.id}'
+    timeout: 45000
+- takeScreenshot: community-room-answer
+
+# Bo's handle opens his profile; back to the room.
+- tapOn:
+    id: 'room-post-author-${output.boAnswer.id}'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: ${output.bo.displayName}
+    timeout: 60000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'room-post-more-${output.boPost.id}'
+    timeout: 30000
 
 # Report Bo's post from its "⋯" sheet.
 - tapOn:

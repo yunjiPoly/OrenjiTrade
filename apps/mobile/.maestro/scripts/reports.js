@@ -8,8 +8,10 @@
 //   Outputs: output.ada.{email, password, displayName}, output.bo.{handle, displayName}
 // ACTION=community (stage R11) creates Ada (the app user) and Bo, who posts BODY in the room SLUG
 //   (a Yu-Gi-Oh! room of Americas (North) by default) through the API.
-//   Outputs: output.ada.{email, password, displayName, handle}, output.bo.{handle, displayName},
-//   output.boPost.{id}
+//   Outputs: output.ada.{email, password, displayName, handle},
+//   output.bo.{handle, displayName, email, password}, output.boPost.{id}
+// ACTION=community-answer (R11 review fix 1) signs in as EMAIL / PASSWORD and posts BODY in the
+//   room SLUG through the API while the app shows it. Output: output.boAnswer.{id}
 // ACTION=expect-report checks, as Ada, that she has one OPEN report against HANDLE with REASON.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, RUN_ID, ACTION, and per action EMAIL, PASSWORD,
@@ -179,8 +181,22 @@ if (action === 'reporting') {
     displayName: poster.displayName,
     handle: poster.handle,
   };
-  output.bo = { handle: other.handle, displayName: other.displayName };
+  output.bo = {
+    handle: other.handle,
+    displayName: other.displayName,
+    email: other.email,
+    password: other.password,
+  };
   output.boPost = { id: post.id, body: body };
+} else if (action === 'community-answer') {
+  var answer = check(
+    http.post(api + '/api/v1/community/channels/' + SLUG + '/posts', {
+      headers: jsonHeaders(signIn(EMAIL, PASSWORD)),
+      body: JSON.stringify({ body: BODY }),
+    }),
+    'POST an answer'
+  );
+  output.boAnswer = { id: answer.id };
 } else if (action === 'expect-report') {
   var reports = check(
     http.get(api + '/api/v1/me/reports', { headers: jsonHeaders(signIn(EMAIL, PASSWORD)) }),

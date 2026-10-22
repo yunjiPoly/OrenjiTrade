@@ -44,6 +44,7 @@ Unchanged parameters (`game`, `region`). Each channel gains:
 | `lastPost.body` | its text on one line (runs of white space as one space), cut to 140 characters with "…" (never in the middle of an emoji) |
 | `lastPost.createdAt` | when it was posted |
 | `lastPost.mine` | the caller wrote it |
+| `postCount24h` | (review fix 1) the posts of the last 24 hours **the caller may see**, by the same rule as `lastPost`, in the SQL; `/admin/community/channels` keeps counting every post not deleted or removed |
 
 The phone asks `?region={browsed region}` and orders the five rooms itself (the browsed game's room
 first, then the games' order). "New posts" is the phone's own memory: the newest post read in each
@@ -56,11 +57,13 @@ posts left out). Each post gains:
 
 | Field | Rule |
 | --- | --- |
-| `place` | nullable `Place` (`subdivisionName`, `countryName`, `label`, codes): the author's state or province and country **only when the author is discoverable and their profile is not private** (the privacy matrix's `canSeeLocation`, the profile's own rule); `null` otherwise, the author's own posts included (you read what others read). Never a city |
+| `place` | nullable `Place` (`subdivisionName`, `countryName`, `label`, codes): the author's state or province and country **only when the author is discoverable and their profile is not private** (the privacy matrix's `canSeeLocation` for a member who is not the author, the profile's own rule); `null` otherwise, the author's own posts included (you read what others read; review fix 1: the author's own posts were decided for the author, who passes every profile rule). Never a city |
 | `payload.photos` | the post's photos in order (`PostPhoto`: `url`, `width`, `height`), `[]` when none |
-| `payload.binder.deckCore` | posts only: `true` while the shared binder is a deck core buyers can find (public, unsold, its owner's listings public, the owner not blocked with the reader); `false` otherwise. Absent in messages |
+| `payload.binder` | (review fix 1) only while the reader can open the shared binder: public, unsold, its owner listed (active, discoverable or with a PUBLIC profile, not PRIVATE) and not blocked with the reader in either direction (what `GET /public/binders/{id}` answers 200 for). Otherwise **absent, with the name and the owner's handle stored with the post**, and `payload.binderUnavailable` is `true` |
+| `payload.binderUnavailable` | (review fix 1) `true` when the post shared a binder the reader can no longer open (above, or deleted); absent otherwise. The phone shows "Binder no longer available", without a link |
+| `payload.binder.deckCore` | posts only: `true` when the shared binder is a deck core (its owner sells it as a core); `false` for a plain binder. Absent in messages |
 | `payload.binder.askingPriceText` | posts only, while `deckCore`: its price as typed ("$95"); absent otherwise |
-| `payload.binder.imageUrl` | posts only, while the binder can be found: its first photo, else the first card picture buyers see; absent otherwise |
+| `payload.binder.imageUrl` | posts only: its first photo, else the first card picture buyers see |
 
 The card link (`payload.card`) is unchanged (it opens Who has this card on that printing).
 
@@ -95,7 +98,7 @@ text. The account export lists each post's photo URLs.
 | Kind | Limit | Attached with |
 | --- | --- | --- |
 | `MESSAGE` (default) | 8 MB | an `IMAGE` message's `imageUploadId` |
-| `COMMUNITY` | **3 MB** (owner, 2026-10-08) | a post's `photoUploadIds` |
+| `COMMUNITY` | **3 MB** (owner, 2026-10-08); **404 `FEATURE_DISABLED`** while `publicChat` is off (review fix 1) | a post's `photoUploadIds` |
 | `INVENTORY` | refused (400) | inventory photos keep `POST /inventory/items/{id}/images` |
 
 Same pipeline for both: JPEG, PNG or WebP sniffed from the content (a video or anything else: 415
@@ -110,7 +113,10 @@ upload to a post.
 `GeoPrivacyContractTest.messagingAndCommunityResponsesNeverCarryGeography` reads every room of every
 region and every post in them as every seed account: a post's place is its author's seeded state or
 province and country, `null` for collectors who are not discoverable, never a city; the room list's
-newest post carries no place; no coordinate, distance or radius anywhere.
+newest post carries no place; no coordinate, distance or radius anywhere. Since review fix 1 it
+first has collector7 (not discoverable) and a discoverable account with a PRIVATE profile post in
+`americas-north-yugioh` through the API (deleted at the end), so both `null` rules run for every
+reader, the PRIVATE author's own read included.
 
 ## What the phone does with it
 
@@ -128,4 +134,7 @@ newest post carries no place; no coordinate, distance or radius anywhere.
   photos, a shared card or binder or deck core), "⋯" (Message {handle}, Report this post, Block
   {handle} in red; Delete on one's own), the message box ("+": Send a photo, Share a card, Share a
   binder or deck core; "Write to the room"; the send button orange with text). No reply threads,
-  no editing on the phone (both stay on the API and the paused web).
+  no editing on the phone (both stay on the API and the paused web). Review fix 1: the open room
+  asks for its first page again every 15 s while it is on screen and the app in the foreground, on
+  coming back to it, and with a pull at the newest end; the avatar and the handle open the author's
+  profile; "Binder no longer available" for `binderUnavailable`.
