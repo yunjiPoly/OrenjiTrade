@@ -241,7 +241,7 @@ class AnalyticsIT extends AbstractIntegrationTest {
                 201);
         callJson(
                 HttpMethod.POST,
-                "/api/v1/community/channels/general/posts",
+                "/api/v1/community/channels/americas-north-yugioh/posts",
                 sender,
                 Map.of("body", "Public question about card sleeves " + UUID.randomUUID()),
                 201);
@@ -267,7 +267,8 @@ class AnalyticsIT extends AbstractIntegrationTest {
         assertThat(sent.path("payload").path("recipient_hash").asString())
                 .isEqualTo(actorHasher.hash(recipientId));
         JsonNode posted = first(mine, "community_post_created");
-        assertThat(posted.path("payload").path("channel").asString()).isEqualTo("general");
+        assertThat(posted.path("payload").path("channel").asString())
+                .isEqualTo("americas-north-yugioh");
         for (JsonNode event : mine) {
             assertThat(event.toString())
                     .doesNotContain("Secret meeting")

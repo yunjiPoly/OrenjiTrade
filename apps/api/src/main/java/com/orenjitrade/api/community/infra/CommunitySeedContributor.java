@@ -24,18 +24,20 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * Seeds a few fictional community posts and replies in the V041 channels (stable ids {@code
- * 00000000-0000-4000-8e00-0000000001NN} for posts and {@code ...0000000002NN} for replies), dated
- * relative to the first seed run: a trading post with collector1's public binder, a "looking for"
- * post with a card link, a new-listings post with collector5's binder, a welcome thread and a trade
- * report. Inserted once ({@code ON CONFLICT DO NOTHING}); authors that are missing or inactive are
- * skipped.
+ * Seeds a few fictional community posts and replies in the rooms of V134 (stage R11: one room per
+ * platform region and game, found by slug; stable ids {@code 00000000-0000-4000-8e00-0000000001NN}
+ * for posts and {@code ...0000000002NN} for replies), dated relative to the first seed run: in the
+ * Yu-Gi-Oh! room of Americas (North) a trading post with collector1's public binder, a "looking
+ * for" post with a card link, collector2's deck core and a question; posts in the Pokémon and Magic
+ * rooms of Americas (North), Americas (South) and Europe, a welcome thread and a trade report.
+ * Inserted once ({@code ON CONFLICT DO NOTHING}): a database seeded before V134 keeps its first
+ * five posts in the archived channels and gains the new ones. Authors that are missing or inactive
+ * are skipped. No photos (seeds hold no files).
  */
 @Component
 public class CommunitySeedContributor implements SeedContributor {
 
     static final String USER_PREFIX = "00000000-0000-4000-8000-0000000000";
-    static final String CHANNEL_PREFIX = "00000000-0000-4000-8e00-0000000000";
 
     private static final Logger log = LoggerFactory.getLogger(CommunitySeedContributor.class);
 
@@ -72,21 +74,24 @@ public class CommunitySeedContributor implements SeedContributor {
     @Transactional
     public void seed() {
         Instant now = timeProvider.now().truncatedTo(ChronoUnit.SECONDS);
+        // Stage R11: one room per platform region and game (V134); the posts are spread so that
+        // the Yu-Gi-Oh! room of Americas (North) reads like the mockup (a card, a deck core, a
+        // binder) and every region has a room with posts. Bodies say "ships tracked" (ADR 0018).
         List<SeedPost> script =
                 List.of(
                         new SeedPost(
                                 1,
-                                "11",
+                                "americas-north-yugioh",
                                 "01",
-                                "My trade binder is updated: Yu-Gi-Oh! and Pokémon singles,"
-                                        + " shipped with tracking. Happy to trade or sell.",
+                                "My trade binder is updated: Yu-Gi-Oh! singles, shipped with"
+                                        + " tracking. Happy to trade or sell.",
                                 20 * 60,
                                 null,
                                 "00000000-0000-4000-8b00-000000000101"),
                         new SeedPost(
                                 2,
+                                "americas-north-yugioh",
                                 "05",
-                                "02",
                                 "Looking for this printing in near mint. I can trade Magic rares or"
                                         + " pay cash.",
                                 10 * 60,
@@ -94,29 +99,63 @@ public class CommunitySeedContributor implements SeedContributor {
                                 null),
                         new SeedPost(
                                 3,
-                                "06",
+                                "americas-north-pokemon",
                                 "05",
-                                "Just refreshed my binder with sealed Pokémon and a few Magic"
-                                        + " foils. Offers welcome!",
+                                "Just refreshed my binder with sealed Pokémon and a few holos."
+                                        + " Offers welcome!",
                                 6 * 60,
                                 null,
-                                "00000000-0000-4000-8b00-000000000501"),
+                                null),
                         new SeedPost(
                                 4,
+                                "europe-yugioh",
                                 "08",
-                                "08",
-                                "Welcome to the OrenjiTrade community! How do you ship your"
-                                        + " cards? Toploader and a bubble mailer work well for me.",
+                                "Welcome to the Yu-Gi-Oh! room! How do you ship your cards?"
+                                        + " Toploader and a bubble mailer work well for me.",
                                 3 * 60,
                                 null,
                                 null),
                         new SeedPost(
                                 5,
-                                "07",
+                                "europe-riftbound",
                                 "04",
                                 "Traded two Riftbound rares with a collector of my region by"
                                         + " mail. Tracked both ways, smooth deal, thanks!",
                                 30 * 60,
+                                null,
+                                null),
+                        new SeedPost(
+                                6,
+                                "americas-north-yugioh",
+                                "02",
+                                "My Moth Queen core is up, photos in the binder. Message me if"
+                                        + " you want it.",
+                                4 * 60,
+                                null,
+                                "00000000-0000-4000-8b00-000000000202"),
+                        new SeedPost(
+                                7,
+                                "americas-north-yugioh",
+                                "02",
+                                "Who is building a Moth deck? Looking for tips before I buy in.",
+                                45,
+                                null,
+                                null),
+                        new SeedPost(
+                                8,
+                                "americas-north-mtg",
+                                "01",
+                                "Bulk commons, $10 a box plus tracked shipping.",
+                                2 * 24 * 60,
+                                null,
+                                null),
+                        new SeedPost(
+                                9,
+                                "americas-south-pokemon",
+                                "03",
+                                "Anyone opening the new set this weekend? Trading duplicates by"
+                                        + " mail.",
+                                90,
                                 null,
                                 null));
         int inserted = 0;
@@ -141,12 +180,13 @@ public class CommunitySeedContributor implements SeedContributor {
                                     """
                                     INSERT INTO community_post (id, channel_id, author_id, body,
                                         body_hash, payload, moderation_state, created_at)
-                                    VALUES (:id, :channelId, :authorId, :body, :hash,
-                                        CAST(:payload AS jsonb), 'OK', :at)
+                                    SELECT :id, ch.id, :authorId, :body, :hash,
+                                        CAST(:payload AS jsonb), 'OK', :at
+                                      FROM community_channel ch WHERE ch.slug = :channel
                                     ON CONFLICT (id) DO NOTHING
                                     """)
                             .param("id", postId(post.index()))
-                            .param("channelId", UUID.fromString(CHANNEL_PREFIX + post.channel()))
+                            .param("channel", post.channel())
                             .param("authorId", authorId)
                             .param("body", post.body())
                             .param("hash", ModerationService.digest(post.body()))

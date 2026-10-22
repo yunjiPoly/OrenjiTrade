@@ -62,8 +62,10 @@ public class CommunityController {
             summary = "Community channels",
             description =
                     "Active channels ordered for display. `game` filters by game slug, `region` by"
-                            + " platform region code (the region channels, ADR 0017). 404"
-                            + " FEATURE_DISABLED while the publicChat flag is off.")
+                            + " platform region code (the region channels, ADR 0017). Since stage"
+                            + " R11 the active channels are the rooms, one per platform region and"
+                            + " game, each with the newest post the caller may see (`lastPost`)."
+                            + " 404 FEATURE_DISABLED while the publicChat flag is off.")
     @ApiResponse(responseCode = "200", description = "The channels")
     @ApiResponse(
             responseCode = "404",
@@ -90,7 +92,9 @@ public class CommunityController {
             description =
                     "Cursor-paginated. Posts of collectors blocked in either direction, of"
                             + " suspended or deleted accounts, deleted and removed posts are not"
-                            + " served. 404 for unknown or archived channels.")
+                            + " served. Each post carries its photos and its author's state or"
+                            + " province (`place`, discoverable authors only; never a city). 404"
+                            + " for unknown or archived channels.")
     @ApiResponse(responseCode = "200", description = "One slice of posts")
     @ApiResponse(
             responseCode = "404",
@@ -120,11 +124,13 @@ public class CommunityController {
             summary = "Post in a channel",
             description =
                     "`body` 1-2000 characters, optional `cardPrintingId` and public `binderId`"
-                        + " links. 409 DUPLICATE_POST when the caller posted the same text in the"
-                        + " last 24 hours; 429 RATE_LIMITED above the channel's"
-                        + " postRateLimitPerHour (default 10) or the moderation rate rule; 422"
-                        + " POST_BLOCKED for text the moderation rules refuse (FLAG rules store the"
-                        + " post as FLAGGED for review).")
+                        + " links, and up to 4 `photoUploadIds` (stage R11: COMMUNITY uploads of"
+                        + " the caller from the last hour, each used once; 400 otherwise). 409"
+                        + " DUPLICATE_POST when the caller posted the same text in the last 24"
+                        + " hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour"
+                        + " (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the"
+                        + " moderation rules refuse (FLAG rules store the post as FLAGGED for"
+                        + " review). Posts never notify anyone.")
     @ApiResponse(responseCode = "201", description = "The post")
     @ApiResponse(
             responseCode = "409",
@@ -145,7 +151,13 @@ public class CommunityController {
             @PathVariable @Size(max = 64) String slug,
             @Valid @RequestBody CreatePostRequest body) {
         return communityService.createPost(
-                principal, slug, new NewPost(body.body(), body.cardPrintingId(), body.binderId()));
+                principal,
+                slug,
+                new NewPost(
+                        body.body(),
+                        body.cardPrintingId(),
+                        body.binderId(),
+                        body.photoUploadIds() == null ? List.of() : body.photoUploadIds()));
     }
 
     @PatchMapping(path = "/posts/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -175,7 +187,9 @@ public class CommunityController {
     @Operation(
             operationId = "deleteCommunityPost",
             summary = "Delete a post (author or MODERATOR+)",
-            description = "Soft delete; a moderator deleting another member's post is audited.")
+            description =
+                    "Soft delete; its photos and their files are deleted. A moderator deleting"
+                            + " another member's post is audited.")
     @ApiResponse(responseCode = "204", description = "Deleted")
     @ApiResponse(
             responseCode = "403",

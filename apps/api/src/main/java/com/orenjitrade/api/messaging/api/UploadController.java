@@ -25,9 +25,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-/** {@code POST /api/v1/uploads/images}: photos for private messages. */
+/** {@code POST /api/v1/uploads/images}: photos for private messages and community posts. */
 @RestController
-@Tag(name = "uploads", description = "Image uploads attached to messages")
+@Tag(name = "uploads", description = "Image uploads attached to messages and community posts")
 public class UploadController {
 
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
@@ -45,15 +45,18 @@ public class UploadController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             operationId = "uploadImage",
-            summary = "Upload an image for a message",
+            summary = "Upload an image for a message or a community post",
             description =
-                    "Multipart part `file` (JPEG, PNG or WebP up to 8 MB; type sniffed from the"
-                        + " content) and form field `kind` (MESSAGE, the default; INVENTORY is"
-                        + " refused: inventory photos use POST /inventory/items/{id}/images)."
-                        + " Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before"
-                        + " storage. Attach it with an IMAGE message within 1 h (`expiresAt`);"
-                        + " unattached uploads are deleted. 413 above 8 MB, 415 for other types,"
-                        + " 400 for unreadable images. Rate-limited (30 per hour).")
+                    "Multipart part `file` (JPEG, PNG or WebP; type sniffed from the content, so a"
+                        + " video or any other file is 415) and form field `kind`: MESSAGE (the"
+                        + " default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3"
+                        + " MB; stage R11); INVENTORY is refused (inventory photos use POST"
+                        + " /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS"
+                        + " stripped) and inspected before storage. Attach it within 1 h"
+                        + " (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY"
+                        + " upload in a post's `photoUploadIds`; unattached uploads are deleted."
+                        + " 413 above the kind's limit, 415 for other types, 400 for unreadable"
+                        + " images. Rate-limited (30 per hour).")
     @ApiResponse(responseCode = "201", description = "The stored upload")
     @ApiResponse(
             responseCode = "413",
@@ -72,11 +75,12 @@ public class UploadController {
     public ImageUploadView upload(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @RequestPart("file") MultipartFile file,
-            @Parameter(description = "MESSAGE (default) or INVENTORY")
+            @Parameter(description = "MESSAGE (default), COMMUNITY or INVENTORY (refused)")
                     @RequestParam(name = "kind", defaultValue = "MESSAGE")
                     UploadKind kind) {
-        if (file.getSize() > ItemImageProcessor.MAX_BYTES) {
-            throw new ApiException(ErrorCode.PAYLOAD_TOO_LARGE, "The image must be at most 8 MB");
+        if (file.getSize() > Math.min(kind.maxBytes(), ItemImageProcessor.MAX_BYTES)) {
+            throw new ApiException(
+                    ErrorCode.PAYLOAD_TOO_LARGE, "The image must be at most " + kind.maxLabel());
         }
         byte[] bytes;
         try {

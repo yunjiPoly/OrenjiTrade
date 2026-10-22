@@ -679,8 +679,11 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
 
     /**
      * Phase 5 responses that carry other members (conversations, messages with card and binder
-     * links, blocks, community channels, posts and replies); the seeded conversation and posts are
-     * served as seeded; the platform region channels exist and the old city channels are archived.
+     * links, blocks, community rooms, posts and replies); the seeded conversation and posts are
+     * served as seeded; the 15 rooms of stage R11 exist and the old channels are archived. Every
+     * seed account reads every room of every region: posts carry their author's place (state or
+     * province and country) only for discoverable authors, never a city; the room list's newest
+     * post carries no place.
      */
     @Test
     void messagingAndCommunityResponsesNeverCarryGeography(CapturedOutput output) {
@@ -702,20 +705,47 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(messages.path("items")).hasSize(6);
         fetch("/api/v1/conversations", collector2);
 
+        // Stage R11: one room per platform region and game; the old channels are archived. Every
+        // seed account reads every room: a post carries its author's state or province and
+        // country (discoverable authors only), never a city; the room list carries no place.
         JsonNode channels = fetch("/api/v1/community/channels", collector1);
         List<String> slugs = new ArrayList<>();
         channels.forEach(channel -> slugs.add(channel.path("slug").asString()));
         assertThat(slugs)
-                .contains("americas-north", "americas-south", "europe")
-                .doesNotContain("montreal-yugioh");
-        for (String slug : List.of("looking-for", "new-listings", "general")) {
-            JsonNode posts = fetch("/api/v1/community/channels/" + slug + "/posts", collector2);
-            assertThat(posts.path("items")).as("seeded posts in %s", slug).isNotEmpty();
-            for (JsonNode post : posts.path("items")) {
-                fetch(
-                        "/api/v1/community/posts/" + post.path("id").asString() + "/replies",
-                        collector2);
+                .contains("americas-north-yugioh", "americas-south-pokemon", "europe-riftbound")
+                .doesNotContain("americas-north", "general", "montreal-yugioh");
+        Set<String> seededRooms = new java.util.HashSet<>();
+        for (String reader : PLACES.keySet()) {
+            String caller = seedUid(reader);
+            for (String region : List.of("americas-north", "americas-south", "europe")) {
+                for (JsonNode room : fetch("/api/v1/community/channels?region=" + region, caller)) {
+                    assertThat(room.path("lastPost").has("place")).isFalse();
+                    String slug = room.path("slug").asString();
+                    JsonNode posts = fetch("/api/v1/community/channels/" + slug + "/posts", caller);
+                    for (JsonNode post : posts.path("items")) {
+                        seededRooms.add(slug);
+                        String author = post.path("author").path("handle").asString();
+                        JsonNode place = post.path("place");
+                        if (NOT_DISCOVERABLE.contains(author)) {
+                            assertThat(place.isNull()).as("place of %s", author).isTrue();
+                        } else if (PLACES.containsKey(author)) {
+                            assertThat(place.path("label").asString())
+                                    .as("place of %s for %s", author, reader)
+                                    .isEqualTo(PLACES.get(author));
+                        }
+                        assertThat(post.path("author").has("city")).isFalse();
+                        assertThat(place.has("city")).isFalse();
+                    }
+                }
             }
+        }
+        assertThat(seededRooms)
+                .as("rooms with seeded posts")
+                .contains("americas-north-yugioh", "europe-yugioh", "americas-south-pokemon");
+        JsonNode seededPosts =
+                fetch("/api/v1/community/channels/americas-north-yugioh/posts", collector2);
+        for (JsonNode post : seededPosts.path("items")) {
+            fetch("/api/v1/community/posts/" + post.path("id").asString() + "/replies", collector2);
         }
         fetch("/api/v1/me/blocks", collector1);
         assertContract(output);
