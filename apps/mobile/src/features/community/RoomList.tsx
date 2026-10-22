@@ -115,11 +115,14 @@ function RoomRow({
 export function RoomList({ onOpenChats }: { onOpenChats: () => void }) {
   const { palette } = useTheme();
   const router = useRouter();
-  const { region } = useBrowsingRegion();
+  const { region, ready } = useBrowsingRegion();
   const options = useRegionOptions();
   const name = options.find((option) => option.code === region)?.name ?? regionName(region);
   const browsing = useBrowsingGame();
-  const rooms = useCommunityRooms(region);
+  // Asked once the region and the game are settled (the collector's home region or the one
+  // picked, the browsed game), so a collector of Europe never sees Americas (North)'s rooms first
+  // and the rows never move once shown.
+  const rooms = useCommunityRooms(region, ready && browsing.ready);
   const { visits } = useRoomVisits();
   const gameOrder = useMemo(
     () => browsing.options.map((option) => option.slug),
