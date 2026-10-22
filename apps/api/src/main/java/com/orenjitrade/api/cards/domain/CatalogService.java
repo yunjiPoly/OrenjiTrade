@@ -105,10 +105,9 @@ public class CatalogService {
         }
 
         @Nullable String text = blankToNull(query.query());
-        Optional<String> code = CatalogText.asPrintingCode(text);
-        if (code.isPresent()) {
+        for (String code : CatalogText.printingCodeCandidates(text, false)) {
             Optional<UUID> cardId =
-                    queries.cardIdByPrintingCode(code.get(), game == null ? null : game.id());
+                    queries.cardIdByPrintingCode(code, game == null ? null : game.id());
             if (cardId.isPresent()) {
                 List<CardSummary> items =
                         queries.findCardSummary(cardId.get(), true).map(this::summary).stream()
@@ -152,9 +151,16 @@ public class CatalogService {
         }
         @Nullable UUID gameId = game == null ? null : game.id();
         List<CardSuggestion> result = new ArrayList<>();
-        Optional<String> prefix = CatalogText.asPrintingCodePrefix(q);
-        if (prefix.isPresent()) {
-            result.addAll(queries.suggestPrintings(gameId, prefix.get(), limit));
+        for (String prefix : CatalogText.printingCodePrefixCandidates(q)) {
+            if (result.size() >= limit) {
+                break;
+            }
+            for (CardSuggestion printing : queries.suggestPrintings(gameId, prefix, limit)) {
+                if (result.size() >= limit) {
+                    break;
+                }
+                result.add(printing);
+            }
         }
         if (result.size() < limit) {
             Set<UUID> seen = new LinkedHashSet<>();
@@ -214,9 +220,11 @@ public class CatalogService {
         if (text.isEmpty()) {
             return Optional.empty();
         }
-        Optional<String> code = CatalogText.asPrintingCode(text);
-        if (code.isPresent()) {
-            List<UUID[]> printings = queries.printingsByCode(code.get(), gameId);
+        for (String code : CatalogText.printingCodeCandidates(text, false)) {
+            List<UUID[]> printings = queries.printingsByCode(code, gameId);
+            if (printings.isEmpty()) {
+                continue;
+            }
             if (printings.size() == 1) {
                 return Optional.of(new CatalogResolution(printings.get(0)[0], printings.get(0)[1]));
             }
@@ -225,9 +233,7 @@ public class CatalogService {
             if (cards.size() == 1) {
                 return Optional.of(new CatalogResolution(null, cards.iterator().next()));
             }
-            if (!printings.isEmpty()) {
-                return Optional.empty();
-            }
+            return Optional.empty();
         }
         List<UUID> byName = queries.cardIdsByExactName(CatalogText.normalise(text), gameId, 2);
         return byName.size() == 1
@@ -243,10 +249,15 @@ public class CatalogService {
     public List<PrintingSummary> searchPrintings(
             @Nullable String gameSlug, String q, @Nullable UUID resolvedCardId, int limit) {
         @Nullable UUID gameId = requireGameId(gameSlug);
-        Optional<String> prefix = CatalogText.asPrintingCodePrefix(q);
-        if (prefix.isPresent()) {
-            List<PrintingSummary> byCode =
-                    queries.printingsByCodePrefix(prefix.get(), gameId, limit);
+        List<String> prefixes = CatalogText.printingCodePrefixCandidates(q);
+        if (!prefixes.isEmpty()) {
+            List<PrintingSummary> byCode = new ArrayList<>();
+            for (String prefix : prefixes) {
+                if (byCode.size() >= limit) {
+                    break;
+                }
+                byCode.addAll(queries.printingsByCodePrefix(prefix, gameId, limit - byCode.size()));
+            }
             if (!byCode.isEmpty() || resolvedCardId == null) {
                 return byCode;
             }

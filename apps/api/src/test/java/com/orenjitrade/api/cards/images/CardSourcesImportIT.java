@@ -261,6 +261,31 @@ class CardSourcesImportIT extends AbstractCardImageIT {
                     .contains("/api/v1/public/card-images/" + classicArt)
                     .doesNotContain(SOURCES.baseUrl())
                     .doesNotContain("scryfall.io");
+
+            // A code typed as the Magic card prints it (the set code apart from a padded number)
+            // finds the printing ZTK-12 (review fix 1, U2), in Search typing and suggestions.
+            JsonNode typed =
+                    callJson(
+                            HttpMethod.GET,
+                            "/api/v1/cards/suggest?game=" + MTG + "&q=ZTK 0012",
+                            null,
+                            null,
+                            200);
+            assertThat(typed.get(0).path("kind").asString()).isEqualTo("PRINTING");
+            assertThat(typed.get(0).path("printingCode").asString()).isEqualTo("ZTK-12");
+            for (String query : new String[] {"ztk 12", "ZTK-012", "ztk - 0012"}) {
+                JsonNode found =
+                        callJson(
+                                HttpMethod.GET,
+                                "/api/v1/cards?game=" + MTG + "&query=" + query,
+                                null,
+                                null,
+                                200);
+                assertThat(found.path("totalItems").asLong()).as(query).isEqualTo(1);
+                assertThat(found.path("items").get(0).path("id").asString())
+                        .as(query)
+                        .isEqualTo(cardId.toString());
+            }
         } finally {
             testUsers.update("UPDATE game SET status = 'HIDDEN' WHERE slug = ?", MTG);
             gameService.invalidate();

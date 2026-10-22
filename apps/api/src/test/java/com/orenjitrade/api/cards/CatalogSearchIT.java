@@ -102,6 +102,11 @@ class CatalogSearchIT extends AbstractIntegrationTest {
                 .containsExactly("Azure-Eyes Sky Dragon");
         assertThat(names(get("/api/v1/cards?game=mtg&query=TDX-001")))
                 .containsExactly("Tidebinder Sovereign");
+        // Stage R10, review fix 1: a space between the set code and the number reads as the dash.
+        assertThat(names(get("/api/v1/cards?query=azr en001")))
+                .containsExactly("Azure-Eyes Sky Dragon");
+        assertThat(names(get("/api/v1/cards?game=mtg&query=TDX 001")))
+                .containsExactly("Tidebinder Sovereign");
         // A code of another game with a game filter does not match.
         assertThat(names(get("/api/v1/cards?game=pokemon&query=AZR-EN001")))
                 .doesNotContain("Azure-Eyes Sky Dragon");
