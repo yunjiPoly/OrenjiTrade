@@ -52,7 +52,9 @@ export function GoogleButton({
           importantForAccessibility="no-hide-descendants"
           style={[styles.mark, { borderColor: palette.border }]}
         >
-          <Text style={styles.markText}>G</Text>
+          <Text allowFontScaling={false} style={styles.markText}>
+            G
+          </Text>
         </View>
       )}
       <Text style={[textStyle('md'), styles.label, { color: palette.ink }]}>{text}</Text>

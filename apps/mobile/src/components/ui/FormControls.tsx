@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 import { TextField, type TextFieldProps } from './TextField';
 
@@ -84,6 +84,9 @@ export interface SwitchRowProps {
  */
 export function SwitchRow({ label, help, value, onChange, disabled, testID }: SwitchRowProps) {
   const { palette } = useTheme();
+  // At the largest text sizes the switch goes under its words, which keep the row's width
+  // (beside them it left the words a narrow column and sat off screen in a row taller than it).
+  const stacked = useStackedRows();
   return (
     <Pressable
       testID={testID}
@@ -96,11 +99,12 @@ export function SwitchRow({ label, help, value, onChange, disabled, testID }: Sw
       onPress={() => onChange(!value)}
       style={({ pressed }) => [
         styles.switchRow,
+        stacked && styles.switchRowStacked,
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
     >
-      <View style={styles.grow}>
+      <View style={stacked ? undefined : styles.grow}>
         <Text style={[textStyle('md'), styles.rowLabel, { color: palette.ink }]}>{label}</Text>
         {help ? <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{help}</Text> : null}
       </View>
@@ -302,6 +306,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingVertical: spacing[2],
   },
+  switchRowStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: spacing[2] },
   rowLabel: { fontWeight: fontWeight.medium },
   radioGroup: { gap: spacing[1] },
   radioRow: {

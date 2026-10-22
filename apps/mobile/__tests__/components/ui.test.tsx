@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import {
+  Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -269,6 +270,35 @@ describe('form controls', () => {
     expect(contrast(native.props.thumbColor, darkPalette.borderStrong)).toBeGreaterThan(3);
     expect(contrast(native.props.thumbColor, darkPalette.surface)).toBeGreaterThan(3);
   });
+
+  it.each([
+    [1, 'row'],
+    [3.1, 'column'],
+  ])(
+    'puts a switch beside its words, under them at large text sizes (text size %s)',
+    (fontScale, direction) => {
+      const window = Dimensions.get('window');
+      act(() => {
+        Dimensions.set({ window: { ...window, fontScale }, screen: { ...window, fontScale } });
+      });
+      try {
+        renderWithProviders(
+          <SwitchRow
+            label="Show me on the map"
+            help="Collectors of Americas (North) can find your public binders in Quebec."
+            value={false}
+            onChange={jest.fn()}
+            testID="switch-row"
+          />
+        );
+        expect(screen.getByTestId('switch-row')).toHaveStyle({ flexDirection: direction });
+      } finally {
+        act(() => {
+          Dimensions.set({ window, screen: window });
+        });
+      }
+    }
+  );
 
   it('selects a radio option', () => {
     const onChange = jest.fn();

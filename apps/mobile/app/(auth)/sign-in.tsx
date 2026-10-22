@@ -20,8 +20,8 @@ import {
   fontFamily,
   fontWeight,
   spacing,
+  PINNED_MAX_FONT_SCALE,
   textStyle,
-  TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
 
@@ -87,7 +87,9 @@ export default function SignInScreen() {
         <Text
           accessibilityRole="header"
           accessibilityLabel={SIGN_IN_COPY.wordmarkLabel}
-          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          numberOfLines={1}
+          adjustsFontSizeToFit
           style={[styles.wordmark, { color: palette.ink }]}
         >
           Orenji<Text style={{ color: palette.primary }}>Trade</Text>
