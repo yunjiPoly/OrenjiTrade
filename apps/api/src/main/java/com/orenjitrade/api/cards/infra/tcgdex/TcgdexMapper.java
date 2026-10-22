@@ -303,7 +303,8 @@ final class TcgdexMapper {
                     || !PATH_PART.matcher(set.id()).matches()
                     || !PATH_PART.matcher(card.localId()).matches()
                     || !IMAGE_ID.matcher(externalId).matches()) {
-                warnings.add("printings without an image address skipped", externalId);
+                warnings.add(
+                        "printings left without a picture (no usable image address)", externalId);
                 return null;
             }
             String url =
