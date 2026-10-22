@@ -8,9 +8,10 @@ import java.util.Set;
 /**
  * External catalog source (ADR 0005, ADR 0021): {@code YgoProDeckCardProvider} (Yu-Gi-Oh!), {@code
  * ScryfallCardProvider} (Magic), {@code TcgdexCardProvider} (Pokémon); One Piece and Riftbound wait
- * for their publishers; {@code MockCardProvider} (fixtures, profiles local/dev/test). Providers only read; {@code CatalogImportService} maps their DTOs to the catalog
- * tables idempotently (keyed by {@code external_ref}) and {@code CardImageCache} stores their
- * artworks according to {@link #imageHostingPolicy()} (ADR 0015).
+ * for their publishers; {@code MockCardProvider} (fixtures, profiles local/dev/test). Providers
+ * only read; {@code CatalogImportService} maps their DTOs to the catalog tables idempotently (keyed
+ * by {@code external_ref}) and {@code CardImageCache} stores their artworks according to {@link
+ * #imageHostingPolicy()} (ADR 0015).
  */
 public interface CardProvider {
 

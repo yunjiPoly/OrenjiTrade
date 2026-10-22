@@ -14,8 +14,8 @@ import org.jspecify.annotations.Nullable;
  * Body of {@code POST /api/v1/admin/catalog/sync} and {@code POST /internal/jobs/catalog-import}.
  *
  * @param gameSlug game to import
- * @param provider provider id ({@code mock} locally; {@code ygoprodeck}, {@code scryfall} and {@code
- *     tcgdex} for the real Yu-Gi-Oh!, Magic and Pokémon catalogs)
+ * @param provider provider id ({@code mock} locally; {@code ygoprodeck}, {@code scryfall} and
+ *     {@code tcgdex} for the real Yu-Gi-Oh!, Magic and Pokémon catalogs)
  * @param mode FULL or INCREMENTAL
  * @param imageMode image cache fill after the metadata (default: REFERENCED for providers that
  *     offer image downloads, NONE otherwise)
