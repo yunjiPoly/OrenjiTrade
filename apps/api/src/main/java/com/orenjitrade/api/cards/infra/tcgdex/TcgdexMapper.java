@@ -42,14 +42,15 @@ import tools.jackson.databind.JsonNode;
  *       different cards of one name are printings of that name): {@code card_type} Pokémon /
  *       Trainer / Energy, {@code subtype} the stage, trainer or energy type, rules text (abilities,
  *       attacks, effects) and metadata ({@code hp}, {@code types}, {@code stage}, {@code weakness})
- *       of its newest printing.
+ *       of its earliest printing.
  *   <li>Printing: one per TCGdex card ({@code <setId>-<localId>}): collector number = {@code
  *       localId}, rarity as written ({@code None} → none), edition {@code UNLIMITED}, language
  *       {@code en}, finish {@code NORMAL}, else {@code HOLO}, else {@code REVERSE_HOLO} (the
  *       variants are kept in {@code metadata.variants}), printing code {@code <SET>-<NUMBER>} when
  *       it fits, illustrator and regulation mark. No market price.
  *   <li>Images: one per printing, {@code <assetBaseUrl>en/<serie>/<set>/<localId>/<imageFile>},
- *       server-side only; the card's primary artwork is its newest printing's.
+ *       server-side only; the card's primary artwork is its earliest printing's (the catalog shows
+ *       a card with its earliest printing).
  * </ul>
  */
 final class TcgdexMapper {
@@ -174,11 +175,15 @@ final class TcgdexMapper {
                 byName.computeIfAbsent(nameKey(card.name()), k -> new ArrayList<>()).add(card);
             }
 
+            // The catalog's order of a card's printings (a card shows its earliest printing): the
+            // set's release date, then the printing code, then the number.
             Comparator<CardDraft> order =
                     Comparator.comparing(
                                     (CardDraft c) -> sets.get(c.setKey()).releaseDate(),
-                                    Comparator.nullsLast(Comparator.reverseOrder()))
-                            .thenComparing(c -> codes.get(c.setKey()))
+                                    Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
+                            .thenComparing(
+                                    c -> printingCode(codes.get(c.setKey()), c.localId()),
+                                    Comparator.nullsLast(Comparator.<String>naturalOrder()))
                             .thenComparing(
                                     CardDraft::localId, ProviderText::compareCollectorNumbers);
             List<ProviderCard> result = new ArrayList<>();
@@ -326,7 +331,6 @@ final class TcgdexMapper {
             String setCode,
             CardDraft card,
             @Nullable ProviderImage artwork) {
-        String code = setCode + "-" + upper(card.localId());
         Map<String, Object> metadata = new LinkedHashMap<>();
         if (!card.illustrator().isEmpty()) {
             metadata.put("illustrator", truncate(card.illustrator(), 120));
@@ -346,10 +350,16 @@ final class TcgdexMapper {
                 "UNLIMITED",
                 LANGUAGE,
                 finish(card.variants()),
-                CatalogText.PRINTING_CODE.matcher(code).matches() ? code : null,
+                printingCode(setCode, card.localId()),
                 metadata,
                 artwork == null ? List.of() : List.of(artwork),
                 null);
+    }
+
+    /** {@code <SET>-<NUMBER>} when the code pattern can hold it, else null. */
+    static @Nullable String printingCode(String setCode, String localId) {
+        String code = setCode + "-" + upper(localId);
+        return CatalogText.PRINTING_CODE.matcher(code).matches() ? code : null;
     }
 
     static String finish(List<String> variants) {

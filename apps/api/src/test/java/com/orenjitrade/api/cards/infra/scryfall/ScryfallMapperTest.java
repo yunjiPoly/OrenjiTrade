@@ -104,11 +104,11 @@ class ScryfallMapperTest {
                 .containsEntry("typeLine", "Creature — Human Wizard")
                 .containsEntry("power", "1")
                 .containsEntry("toughness", "3");
-        // Newest non-promo printing first; the promo last.
+        // The catalog's order: the earliest set first.
         assertThat(archivist.printings())
                 .extracting(ProviderPrinting::printingCode)
-                .containsExactly("ZCL-45", "ZTK-12", "PZTK-12P");
-        ProviderPrinting classic = archivist.printings().get(0);
+                .containsExactly("ZTK-12", "ZCL-45", "PZTK-12P");
+        ProviderPrinting classic = archivist.printings().get(1);
         assertThat(classic.externalId()).isEqualTo("5c000000-0000-4000-8000-000000000002");
         assertThat(classic.externalCardId()).isEqualTo(ARCHIVIST);
         assertThat(classic.setCode()).isEqualTo("ZCL");
@@ -121,7 +121,7 @@ class ScryfallMapperTest {
         assertThat(classic.metadata())
                 .containsEntry("artist", "Studio Mikan")
                 .containsEntry("finishes", List.of("foil"));
-        ProviderPrinting original = archivist.printings().get(1);
+        ProviderPrinting original = archivist.printings().get(0);
         assertThat(original.rarity()).isEqualTo("Uncommon");
         assertThat(original.finish()).isEqualTo("NORMAL");
         assertThat(original.metadata()).containsEntry("finishes", List.of("nonfoil", "foil"));
@@ -143,12 +143,12 @@ class ScryfallMapperTest {
         ProviderCard archivist = card(ARCHIVIST);
         assertThat(archivist.images())
                 .extracting(ProviderImage::providerImageId)
-                .as("the newest non-promo artwork is the primary one")
+                .as("the earliest printing's artwork is the primary one")
                 .containsExactly(
-                        "1a000000-0000-4000-8000-000000000002",
                         "1a000000-0000-4000-8000-000000000001",
+                        "1a000000-0000-4000-8000-000000000002",
                         "1a000000-0000-4000-8000-000000000003");
-        assertThat(archivist.images().get(0).url())
+        assertThat(archivist.images().get(1).url())
                 .isEqualTo(
                         IMAGES
                                 + "normal/front/5/c/5c000000-0000-4000-8000-000000000002.jpg"
@@ -159,7 +159,7 @@ class ScryfallMapperTest {
             assertThat(printing.images()).hasSize(1);
         }
         assertThat(archivist.printings().get(1).images().get(0).providerImageId())
-                .isEqualTo("1a000000-0000-4000-8000-000000000001");
+                .isEqualTo("1a000000-0000-4000-8000-000000000002");
 
         // A two-faced card: the front face's artwork only.
         ProviderCard colossus = card(COLOSSUS);

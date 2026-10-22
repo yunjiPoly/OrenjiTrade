@@ -48,8 +48,8 @@ import org.jspecify.annotations.Nullable;
  *       <SET>-<NUMBER>} when it fits the code pattern, the artist. No market price.
  *   <li>Images: one per artwork ({@code illustration_id}, the front face's for multi-faced cards),
  *       the {@code normal} image (never a crop); each printing points at its own artwork; the
- *       card's primary artwork is that of its newest non-promo printing. Source URLs stay
- *       server-side.
+ *       card's primary artwork is its earliest printing's (the catalog shows a card with its
+ *       earliest printing). Source URLs stay server-side.
  * </ul>
  */
 final class ScryfallMapper {
@@ -81,16 +81,27 @@ final class ScryfallMapper {
                     "special", "Special",
                     "bonus", "Bonus");
 
-    /** Newest non-promo printing first, then set code and collector number. */
-    static final Comparator<ScryfallDtos.Card> PRINTING_ORDER =
-            Comparator.comparing((ScryfallDtos.Card c) -> Boolean.TRUE.equals(c.promo()))
-                    .thenComparing(
-                            c -> ProviderText.parseDate(c.releasedAt()),
-                            Comparator.nullsLast(Comparator.reverseOrder()))
-                    .thenComparing(c -> upper(c.set()))
-                    .thenComparing(
-                            c -> trim(c.collectorNumber()), ProviderText::compareCollectorNumbers)
-                    .thenComparing(c -> trim(c.id()));
+    /**
+     * The catalog's order of a card's printings (the card shows its earliest printing's picture):
+     * the set's release date, then the printing code, then the collector number.
+     */
+    static Comparator<ScryfallDtos.Card> printingOrder(Map<String, SetDraft> sets) {
+        return Comparator.comparing(
+                        (ScryfallDtos.Card c) -> sets.get(upper(c.set())).releaseDate,
+                        Comparator.nullsLast(Comparator.<LocalDate>naturalOrder()))
+                .thenComparing(
+                        ScryfallMapper::printingCode,
+                        Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(
+                        c -> trim(c.collectorNumber()), ProviderText::compareCollectorNumbers)
+                .thenComparing(c -> trim(c.id()));
+    }
+
+    /** {@code <SET>-<NUMBER>} when the code pattern can hold it, else null. */
+    static @Nullable String printingCode(ScryfallDtos.Card card) {
+        String code = upper(card.set()) + "-" + upper(card.collectorNumber());
+        return CatalogText.PRINTING_CODE.matcher(code).matches() ? code : null;
+    }
 
     private ScryfallMapper() {}
 
@@ -134,12 +145,13 @@ final class ScryfallMapper {
             sets.computeIfAbsent(setCode, SetDraft::new).add(card);
         }
 
+        Comparator<ScryfallDtos.Card> order = printingOrder(sets);
         Map<String, String> artworkOwners = new HashMap<>();
         List<ProviderCard> cards = new ArrayList<>();
         for (Map.Entry<String, List<ScryfallDtos.Card>> entry : byOracle.entrySet()) {
             String oracleId = entry.getKey();
             List<ScryfallDtos.Card> printings = new ArrayList<>(entry.getValue());
-            printings.sort(PRINTING_ORDER);
+            printings.sort(order);
             ScryfallDtos.Card head = printings.get(0);
 
             Map<String, ProviderImage> artworks = new LinkedHashMap<>();
@@ -315,7 +327,6 @@ final class ScryfallMapper {
             String oracleId, ScryfallDtos.Card card, @Nullable ProviderImage artwork) {
         String setCode = upper(card.set());
         String number = trim(card.collectorNumber());
-        String code = setCode + "-" + number.toUpperCase(Locale.ROOT);
         Map<String, Object> metadata = new LinkedHashMap<>();
         ScryfallDtos.@Nullable Face front = front(card);
         String artist = trim(card.artist());
@@ -347,7 +358,7 @@ final class ScryfallMapper {
                 "UNLIMITED",
                 "en",
                 finish(finishes),
-                CatalogText.PRINTING_CODE.matcher(code).matches() ? code : null,
+                printingCode(card),
                 metadata,
                 artwork == null ? List.of() : List.of(artwork),
                 null);
@@ -411,7 +422,7 @@ final class ScryfallMapper {
     }
 
     /** A set assembled from its card objects: the earliest release date names its day. */
-    private static final class SetDraft {
+    static final class SetDraft {
         final String code;
         String externalId;
         String name = "";

@@ -57,7 +57,7 @@ class TcgdexMapperTest {
         assertThat(result.providerVersion()).isEqualTo(CardSourceStub.TCGDEX_SHA);
         assertThat(result.cards())
                 .extracting(ProviderCard::name)
-                .containsExactly("Emberhound ex", "Emberpup", "Professor’s Notes", "Spark Energy");
+                .containsExactly("Emberhound ex", "Emberpup", "Professor's Notes", "Spark Energy");
         assertThat(result.warnings())
                 .contains(
                         "1 sets without an English name skipped (e.g. tst0)",
@@ -97,19 +97,19 @@ class TcgdexMapperTest {
         assertThat(pup.cardType()).isEqualTo("Pokémon");
         assertThat(pup.subtype()).isEqualTo("Basic");
         assertThat(pup.printings())
-                .as("newest set first")
+                .as("the catalog's order: the earliest set first")
                 .extracting(ProviderPrinting::printingCode)
-                .containsExactly("TST25-007", "EMR-014", "ZSK-001");
+                .containsExactly("ZSK-001", "EMR-014", "TST25-007");
         assertThat(pup.printings())
                 .extracting(ProviderPrinting::externalId)
-                .containsExactly("tst2.5-007", "tst2-014", "tst1-001");
+                .containsExactly("tst1-001", "tst2-014", "tst2.5-007");
         assertThat(pup.printings())
                 .extracting(ProviderPrinting::rarity)
-                .containsExactly("Promo", "Uncommon", "Common");
+                .containsExactly("Common", "Uncommon", "Promo");
         assertThat(pup.printings())
                 .extracting(ProviderPrinting::finish)
-                .containsExactly("HOLO", "HOLO", "NORMAL");
-        ProviderPrinting first = pup.printings().get(2);
+                .containsExactly("NORMAL", "HOLO", "HOLO");
+        ProviderPrinting first = pup.printings().get(0);
         assertThat(first.collectorNumber()).isEqualTo("001");
         assertThat(first.language()).isEqualTo("en");
         assertThat(first.edition()).isEqualTo("UNLIMITED");
@@ -118,7 +118,7 @@ class TcgdexMapperTest {
                 .containsEntry("illustrator", "Atelier Orenji")
                 .containsEntry("regulationMark", "G")
                 .containsEntry("variants", List.of("normal", "reverse"));
-        // The card's game data is its newest printing's.
+        // The card's game data is its earliest printing's.
         assertThat(pup.metadata())
                 .containsEntry("hp", 70)
                 .containsEntry("types", List.of("Fire"))
@@ -139,14 +139,14 @@ class TcgdexMapperTest {
         assertThat(hound.printings().get(0).finish()).as("variants as a list").isEqualTo("HOLO");
 
         // Typographic and straight apostrophes are one name.
-        ProviderCard notes = named("Professor’s Notes");
+        ProviderCard notes = named("Professor's Notes");
         assertThat(notes.externalId()).isEqualTo("name:Professor's Notes");
         assertThat(notes.cardType()).isEqualTo("Trainer");
         assertThat(notes.subtype()).isEqualTo("Supporter");
         assertThat(notes.text()).isEqualTo("Draw 3 cards.");
         assertThat(notes.printings())
                 .extracting(ProviderPrinting::printingCode)
-                .containsExactly("EMR-150", "ZSK-100");
+                .containsExactly("ZSK-100", "EMR-150");
 
         ProviderCard energy = named("Spark Energy");
         assertThat(energy.cardType()).isEqualTo("Energy");
@@ -160,8 +160,8 @@ class TcgdexMapperTest {
         ProviderCard pup = named("Emberpup");
         assertThat(pup.images())
                 .extracting(ProviderImage::providerImageId)
-                .containsExactly("tst2.5-007", "tst2-014", "tst1-001");
-        assertThat(pup.images().get(0).url()).isEqualTo(ASSETS + "en/tst/tst2.5/007/high.jpg");
+                .containsExactly("tst1-001", "tst2-014", "tst2.5-007");
+        assertThat(pup.images().get(2).url()).isEqualTo(ASSETS + "en/tst/tst2.5/007/high.jpg");
         assertThat(pup.images()).allMatch(image -> image.source().equals("tcgdex"));
         for (ProviderPrinting printing : pup.printings()) {
             assertThat(printing.images()).hasSize(1);
