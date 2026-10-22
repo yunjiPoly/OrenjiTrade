@@ -1,8 +1,11 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Dimensions } from 'react-native';
 
 import RoomScreen from '@/app/community/[slug]';
+import { ROOM_REFRESH_MS } from '@/src/api/hooks/community';
 import { useRoomVisitsStore } from '@/src/features/community/roomVisits';
+import { lightPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -14,7 +17,14 @@ import {
   postFixture,
   postPage,
 } from '../support/fixtures';
-import { mockApi, noContent, ok, problem, type MockRoutes } from '../support/mockApi';
+import {
+  mockApi,
+  noContent,
+  ok,
+  problem,
+  type MockAnswer,
+  type MockRoutes,
+} from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
 import { renderWithProviders, resetAppState } from '../test-utils';
@@ -159,6 +169,133 @@ describe('A room (stage R11, screen 33)', () => {
     );
   });
 
+  it('shows newer posts while the room is open: every 15 s, and with a pull at the newest end', async () => {
+    jest.useFakeTimers();
+    try {
+      const answer = postFixture({
+        id: '00000000-0000-4000-8f10-000000000004',
+        body: 'I have one, ships tracked tomorrow.',
+        createdAt: '2026-10-05T16:30:00Z',
+      });
+      const later = postFixture({
+        id: '00000000-0000-4000-8f10-000000000005',
+        body: 'Sent you a message.',
+        createdAt: '2026-10-05T16:40:00Z',
+      });
+      const api = mockApi(
+        routes({
+          'GET /api/v1/community/channels/{slug}/posts': [
+            ok(postPage(POSTS)),
+            ok(postPage([answer, ...POSTS])),
+            ok(postPage([later, answer, ...POSTS])),
+          ],
+        })
+      );
+      render();
+      expect(await screen.findByTestId(`room-post-${PHOTO_POST.id}`)).toBeOnTheScreen();
+      expect(screen.queryByTestId(`room-post-${answer.id}`)).toBeNull();
+      // Someone answers while the room is open: it shows at the bottom, without leaving the room.
+      await act(async () => {
+        jest.advanceTimersByTime(ROOM_REFRESH_MS);
+      });
+      expect(await screen.findByTestId(`room-post-${answer.id}`)).toBeOnTheScreen();
+      expect((screen.getByTestId('room-posts').props.data as { key: string }[])[0]?.key).toBe(
+        answer.id
+      );
+      await waitFor(() =>
+        expect(
+          useRoomVisitsStore.getState().visits[testUser().uid]?.['americas-north-yugioh']
+        ).toBe(answer.createdAt)
+      );
+      // A pull at the newest end asks at once.
+      const refresh = screen.getByTestId('room-posts').props.refreshControl as {
+        props: { onRefresh: () => void };
+      };
+      await act(async () => {
+        refresh.props.onRefresh();
+      });
+      expect(await screen.findByTestId(`room-post-${later.id}`)).toBeOnTheScreen();
+      expect(api.callsTo('GET /api/v1/community/channels/{slug}/posts')).toHaveLength(3);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('opens the author’s profile from the avatar and the handle', async () => {
+    mockApi(routes());
+    render();
+    const author = await screen.findByTestId(`room-post-author-${PHOTO_POST.id}`);
+    expect(author.props.accessibilityRole).toBe('link');
+    expect(author.props.accessibilityLabel).toMatch(/^maya_k, Quebec, \d{1,2}:\d{2} [AP]M$/);
+    expect(author.props.accessibilityHint).toBe('Opens the profile of maya_k');
+    fireEvent.press(author);
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/collectors/[id]',
+      params: { id: 'maya_k' },
+    });
+    mockRouter.push.mockClear();
+    // The avatar is a target for a finger only (the handle is the link screen readers stop on).
+    fireEvent.press(
+      screen.getByTestId(`room-post-avatar-${CORE_POST.id}`, { includeHiddenElements: true })
+    );
+    expect(mockRouter.push).toHaveBeenLastCalledWith({
+      pathname: '/collectors/[id]',
+      params: { id: 'duelist.jp' },
+    });
+  });
+
+  it('puts the province and the time under the handle at the largest text size', async () => {
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      mockApi(routes());
+      render();
+      const own = ownPostFixture();
+      const line = await screen.findByTestId(`room-post-line-${PHOTO_POST.id}`);
+      expect(line).toHaveTextContent(/^Quebec · \d{1,2}:\d{2} [AP]M$/);
+      expect(line).toHaveProp('numberOfLines', 2);
+      // A column: the handle (and "· You") wraps, the line goes under it.
+      expect(screen.getByTestId(`room-post-author-${PHOTO_POST.id}`)).not.toHaveStyle({
+        flexDirection: 'row',
+      });
+      expect(
+        within(screen.getByTestId(`room-post-author-${own.id}`)).getByText(/^maika/)
+      ).toHaveProp('numberOfLines', 3);
+      // The ⋯ button stays beside the handle.
+      expect(screen.getByTestId(`room-post-more-${own.id}`)).toBeOnTheScreen();
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
+  });
+
+  it('shows a shared binder the reader can no longer open as a plain row, without its name or owner', async () => {
+    const gone = postFixture({
+      id: '00000000-0000-4000-8f10-000000000006',
+      body: 'Look at this deck core',
+      createdAt: '2026-10-05T15:30:00Z',
+      payload: { photos: [], binderUnavailable: true },
+    });
+    mockApi(
+      routes({ 'GET /api/v1/community/channels/{slug}/posts': ok(postPage([gone, ...POSTS])) })
+    );
+    render();
+    const post = within(await screen.findByTestId(`room-post-${gone.id}`));
+    const row = post.getByTestId('room-binder-unavailable');
+    expect(row).toHaveTextContent(/Binder no longer available$/);
+    expect(row.props.accessibilityRole).toBeUndefined();
+    expect(post.queryByTestId('room-shared-binder')).toBeNull();
+    expect(post.queryByTestId('room-shared-deck-core')).toBeNull();
+    fireEvent.press(row);
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
   it('opens the room rules and closes them with Got it', async () => {
     mockApi(routes());
     render();
@@ -225,25 +362,37 @@ describe('A room (stage R11, screen 33)', () => {
   });
 
   it('blocks an author after a confirmation and hides their posts', async () => {
-    let blocked = false;
+    const waiting: ((answer: MockAnswer) => void)[] = [];
     const api = mockApi(
       routes({
-        'POST /api/v1/users/{id}/block': () => {
-          blocked = true;
-          return ok({});
-        },
-        // The API leaves a blocked collector's posts out once the block exists.
-        'GET /api/v1/community/channels/{slug}/posts': () =>
-          ok(postPage(blocked ? POSTS.filter((post) => post.id !== PHOTO_POST.id) : POSTS)),
+        'POST /api/v1/users/{id}/block': ok({}),
+        // Later reads of the room answer only at the end: the posts leave the room at once, from
+        // what the phone already holds, not from a new read (review fix 1, F4).
+        'GET /api/v1/community/channels/{slug}/posts': [
+          ok(postPage(POSTS)),
+          () => new Promise<MockAnswer>((resolve) => waiting.push(resolve)),
+        ],
       })
     );
     render();
     fireEvent.press(await screen.findByTestId(`room-post-more-${PHOTO_POST.id}`));
+    const sheet = await screen.findByTestId('room-post-sheet');
+    // "Block {handle}" in red, the other actions in ink.
+    expect(within(sheet).getByText('Block maya_k')).toHaveStyle({ color: lightPalette.danger });
+    expect(within(sheet).getByText('Report this post')).toHaveStyle({ color: lightPalette.ink });
     fireEvent.press(await screen.findByTestId('room-post-block'));
     expect(await screen.findByText('Block maya_k?')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Block' }));
     await waitFor(() => expect(api.callsTo('POST /api/v1/users/{id}/block')).toHaveLength(1));
     await waitFor(() => expect(screen.queryByTestId(`room-post-${PHOTO_POST.id}`)).toBeNull());
+    expect(screen.getByTestId(`room-post-${CORE_POST.id}`)).toBeOnTheScreen();
+    // The reads that waited answer as the API would, without the blocked author.
+    await act(async () => {
+      waiting.forEach((answer) =>
+        answer(ok(postPage(POSTS.filter((post) => post.id !== PHOTO_POST.id))))
+      );
+    });
+    expect(screen.queryByTestId(`room-post-${PHOTO_POST.id}`)).toBeNull();
   });
 
   it('deletes your own post after a confirmation', async () => {
@@ -271,6 +420,9 @@ describe('A room (stage R11, screen 33)', () => {
     render();
     await screen.findByTestId(`room-post-${PHOTO_POST.id}`);
     expect(screen.getByTestId('room-send')).toBeDisabled();
+    expect(screen.getByTestId('room-send')).toHaveStyle({
+      backgroundColor: lightPalette.surfaceVariant,
+    });
     fireEvent.changeText(screen.getByLabelText('Write to the Yu-Gi-Oh! room'), '   ');
     expect(screen.getByTestId('room-send')).toBeDisabled();
     fireEvent.changeText(
@@ -278,6 +430,8 @@ describe('A room (stage R11, screen 33)', () => {
       'Shipping a few trades tonight'
     );
     expect(screen.getByTestId('room-send')).toBeEnabled();
+    // Orange with text.
+    expect(screen.getByTestId('room-send')).toHaveStyle({ backgroundColor: lightPalette.primary });
     fireEvent.press(screen.getByTestId('room-send'));
     await waitFor(() =>
       expect(api.callsTo('POST /api/v1/community/channels/{slug}/posts')[0]?.body).toEqual({

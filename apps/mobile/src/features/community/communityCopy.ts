@@ -86,6 +86,8 @@ export const ROOM_COPY = {
   photoUnavailable: 'Photo unavailable',
   deckCore: 'Deck core',
   binder: (name: string, handle: string) => `Binder: ${name} by ${handle}`,
+  binderUnavailable: 'Binder no longer available',
+  profileHint: (handle: string) => `Opens the profile of ${handle}`,
   deckCoreLabel: (name: string, price: string | null) =>
     `Deck core: ${name}${price ? `, ${price}` : ''}`,
 } as const;

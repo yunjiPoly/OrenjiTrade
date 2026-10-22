@@ -10,6 +10,7 @@ import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CHANNELS,
   CONVERSATION_ID,
+  GAMES,
   SELF_ID,
   conversationFixture,
   conversationPage,
@@ -18,7 +19,7 @@ import {
   saleMessageFixture,
   subjectFixture,
 } from '../support/fixtures';
-import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
+import { mockApi, ok, problem, type MockAnswer, type MockRoutes } from '../support/mockApi';
 import { fakeRealtime, type FakeRealtime } from '../support/realtime';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
@@ -369,6 +370,65 @@ describe('Messages tab: community (stage R11)', () => {
       pathname: '/community/[slug]',
       params: { slug: 'americas-north-yugioh' },
     });
+  });
+
+  it('asks for the rooms only once the browsed region and game are settled', async () => {
+    mockParams.current = { view: 'community' };
+    const waiting: ((answer: MockAnswer) => void)[] = [];
+    const api = mockApi(
+      routes({
+        ...COMMUNITY_ON,
+        // The games (and so the browsed game) answer late.
+        'GET /api/v1/games': () => new Promise<MockAnswer>((resolve) => waiting.push(resolve)),
+      })
+    );
+    const answerGames = () =>
+      act(async () => {
+        waiting.splice(0).forEach((answer) => answer(ok(GAMES)));
+      });
+    try {
+      render();
+      expect(await screen.findByTestId('community-loading')).toBeOnTheScreen();
+      await waitFor(() => expect(api.callsTo('GET /api/v1/games').length).toBeGreaterThan(0));
+      // The account, the profile and the stored region are in (the conversations too).
+      await screen.findByTestId('messages-view-community');
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+      // No other region's or game's rooms first (review fix 1, F4).
+      expect(api.callsTo('GET /api/v1/community/channels')).toHaveLength(0);
+    } finally {
+      await answerGames();
+    }
+    expect(await screen.findByTestId('room-americas-north-pokemon')).toBeOnTheScreen();
+    const asked = api.callsTo('GET /api/v1/community/channels');
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.query.get('region')).toBe('americas-north');
+  });
+
+  it('shows the closed community when a refresh finds it switched off, even after rooms showed', async () => {
+    mockParams.current = { view: 'community' };
+    mockApi(
+      routes({
+        ...COMMUNITY_ON,
+        'GET /api/v1/community/channels': [
+          ok(CHANNELS),
+          problem(404, 'FEATURE_DISABLED', 'Disabled'),
+        ],
+      })
+    );
+    render();
+    expect(await screen.findByTestId('room-americas-north-yugioh')).toBeOnTheScreen();
+    const refresh = screen.getByTestId('community-rooms').props.refreshControl as {
+      props: { onRefresh: () => void };
+    };
+    await act(async () => {
+      refresh.props.onRefresh();
+    });
+    expect(await screen.findByTestId('community-disabled')).toHaveTextContent(
+      /The community is closed right now/
+    );
+    expect(screen.queryByTestId('room-americas-north-yugioh')).toBeNull();
   });
 
   it('drops a room’s dot once its newest post was read on this phone', async () => {

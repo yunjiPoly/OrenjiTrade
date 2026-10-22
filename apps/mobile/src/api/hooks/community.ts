@@ -21,6 +21,12 @@ import { useUid } from './useUid';
 /** Posts per page of `GET /community/channels/{slug}/posts`. */
 export const POSTS_PAGE = 20;
 
+/**
+ * How often an open room asks for newer posts (stage R11 review fix 1: a room reads like a chat, so
+ * the answers to a question show while it is open; the API has no push for rooms).
+ */
+export const ROOM_REFRESH_MS = 15_000;
+
 type Uid = string | null;
 type PostsData = InfiniteData<PostPage>;
 
@@ -58,8 +64,12 @@ export function useCommunityRooms(region?: string | null, enabled = true) {
   });
 }
 
-/** A room's posts, newest first, cursor pages. 404 for an unknown or archived room. */
-export function useCommunityPosts(slug: string | null | undefined) {
+/**
+ * A room's posts, newest first, cursor pages. 404 for an unknown or archived room. While `live`
+ * (the room is on screen and the app in the foreground), they are asked again every
+ * {@link ROOM_REFRESH_MS}, so newer posts show without leaving the room.
+ */
+export function useCommunityPosts(slug: string | null | undefined, live = false) {
   const uid = useUid();
   const ready = useReady();
   return useInfiniteQuery<PostPage, ApiError>({
@@ -79,6 +89,7 @@ export function useCommunityPosts(slug: string | null | undefined) {
     getNextPageParam: (last) => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
     enabled: !!slug && ready,
     staleTime: 15_000,
+    refetchInterval: live ? ROOM_REFRESH_MS : false,
   });
 }
 

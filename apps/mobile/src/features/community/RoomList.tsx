@@ -139,19 +139,22 @@ export function RoomList({ onOpenChats }: { onOpenChats: () => void }) {
     </View>
   );
 
+  // Closed, even when rooms were shown before: a refresh that finds the community switched off
+  // hides them (review fix 1: the cached rooms and their last posts stayed on screen).
+  if (rooms.error?.errorCode === 'FEATURE_DISABLED') {
+    return (
+      <EmptyState
+        testID="community-disabled"
+        icon="message-off-outline"
+        title={ROOMS_COPY.closedTitle}
+        description={ROOMS_COPY.closedBody}
+        actionLabel={ROOMS_COPY.closedAction}
+        onAction={onOpenChats}
+      />
+    );
+  }
+
   if (!rooms.data) {
-    if (rooms.error?.errorCode === 'FEATURE_DISABLED') {
-      return (
-        <EmptyState
-          testID="community-disabled"
-          icon="message-off-outline"
-          title={ROOMS_COPY.closedTitle}
-          description={ROOMS_COPY.closedBody}
-          actionLabel={ROOMS_COPY.closedAction}
-          onAction={onOpenChats}
-        />
-      );
-    }
     if (rooms.error) {
       return (
         <View style={styles.fill}>

@@ -1,14 +1,23 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import type { ApiError } from '@/src/api/ApiError';
 import {
   hideAuthor,
+  ROOM_REFRESH_MS,
   useCommunityPosts,
   useCommunityRooms,
   useCreatePost,
@@ -65,7 +74,9 @@ function splitSlug(
  * pinned card), "Report this post", "Block {handle}" in red, or "Delete" on one's own. The message
  * box posts text with up to 4 photos, a card, a binder or a deck core. Blocked pairs, removed
  * posts and suspended accounts never show (the API leaves them out); posts never notify. Opening
- * the room records the newest post read, so the list stops showing it as new.
+ * the room records the newest post read, so the list stops showing it as new. While the room is on
+ * screen, newer posts show by themselves (asked again every 15 s, on coming back to the room, and
+ * with a pull at the newest end); review fix 1: the room had lost the old screen's refresh.
  */
 export default function RoomScreen() {
   const { slug: param } = useLocalSearchParams<{ slug: string }>();
@@ -79,7 +90,28 @@ export default function RoomScreen() {
   const selfId = useAccount().me?.id ?? null;
   const regionOptions = useRegionOptions();
   const rooms = useCommunityRooms(null);
-  const posts = useCommunityPosts(slug);
+  // On screen (not covered by a profile, a card or a binder opened from a post): the posts are
+  // asked again every 15 s while the app is in the foreground.
+  const [focused, setFocused] = useState(true);
+  const posts = useCommunityPosts(slug, focused);
+  const refetchPosts = posts.refetch;
+  // When the posts were last read, for the focus below (a ref: a new page must not re-run it).
+  const updatedAt = useRef(0);
+  useEffect(() => {
+    updatedAt.current = posts.dataUpdatedAt;
+  }, [posts.dataUpdatedAt]);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      // Back in the room: what was posted meanwhile.
+      if (updatedAt.current > 0 && Date.now() - updatedAt.current > ROOM_REFRESH_MS) {
+        void refetchPosts();
+      }
+      return () => setFocused(false);
+    }, [refetchPosts])
+  );
+  // Only a pull shows the spinner (the refreshes above stay silent).
+  const [pulling, setPulling] = useState(false);
   const create = useCreatePost(slug);
   const remove = useDeletePost(slug);
   const { visit } = useRoomVisits();
@@ -253,6 +285,16 @@ export default function RoomScreen() {
           )
         }
         contentContainerStyle={styles.list}
+        // Inverted: the pull happens at the newest end, at the bottom.
+        refreshControl={
+          <RefreshControl
+            refreshing={pulling}
+            onRefresh={() => {
+              setPulling(true);
+              void posts.refetch().finally(() => setPulling(false));
+            }}
+          />
+        }
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         onEndReached={() => {

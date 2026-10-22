@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { BinderLink, CardLink, PostPhoto, PostResponse } from '@/src/api/types';
@@ -238,6 +238,40 @@ function SharedBinder({ binder }: { binder: BinderLink }) {
   );
 }
 
+/**
+ * A binder the post shared that the reader can no longer open (no longer public, sold or deleted,
+ * its owner blocked with the reader): a plain row without a link, its name or its owner (stage R11
+ * review fix 1).
+ */
+function UnavailableBinder() {
+  const { palette } = useTheme();
+  return (
+    <View
+      accessible
+      accessibilityLabel={ROOM_COPY.binderUnavailable}
+      testID="room-binder-unavailable"
+      style={[
+        styles.link,
+        styles.binderLink,
+        { backgroundColor: palette.surface, borderColor: palette.border },
+      ]}
+    >
+      <View
+        style={[
+          styles.binderThumb,
+          styles.binderIcon,
+          { borderColor: palette.border, backgroundColor: palette.surfaceVariant },
+        ]}
+      >
+        <MaterialCommunityIcons name="book-off-outline" size={22} color={palette.textMuted} />
+      </View>
+      <Text style={[styles.linkText, styles.small, { color: palette.textMuted }]}>
+        {ROOM_COPY.binderUnavailable}
+      </Text>
+    </View>
+  );
+}
+
 export interface RoomPostProps {
   post: PostResponse;
   /** The reader wrote it. */
@@ -250,37 +284,60 @@ export interface RoomPostProps {
  * One post of a room (stage R11, mockup v50 screen 33), read like a chat: the avatar, the handle,
  * "{province} · {time}" (never a city; the time alone when the author does not share a place),
  * "⋯", the text, up to 4 photos, a shared card (opens Who has this card) or a shared binder or
- * deck core (opens its page). No reply threads on the phone.
+ * deck core (opens its page). The avatar and the handle open the author's profile (their ratings
+ * before an e-Transfer). At large text sizes "{province} · {time}" goes under the handle. No reply
+ * threads on the phone.
  */
 export function RoomPost({ post, own, onMore }: RoomPostProps) {
   const { palette } = useTheme();
+  const router = useRouter();
   const handle = post.author.handle;
   const place = postPlace(post);
   const time = postTime(post.createdAt);
   const line = [place, time].filter(Boolean).join(' · ');
   const photos = post.payload?.photos ?? [];
+  // Side by side, the handle and the line were cut to a few letters at the largest sizes.
+  const large = useWindowDimensions().fontScale > 1.3;
+  const openProfile = () =>
+    router.push({ pathname: '/collectors/[id]', params: { id: post.author.handle } });
   return (
     <View testID={`room-post-${post.id}`} style={styles.post}>
-      <Avatar src={post.author.avatarUrl} name={post.author.displayName} size={34} />
+      {/* The handle below is the accessible link; the avatar is a larger target for a finger. */}
+      <Pressable
+        onPress={openProfile}
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        testID={`room-post-avatar-${post.id}`}
+        style={({ pressed }) => pressed && styles.pressed}
+      >
+        <Avatar src={post.author.avatarUrl} name={post.author.displayName} size={34} />
+      </Pressable>
       <View style={styles.main}>
-        <View style={styles.head}>
-          <View
-            accessible
+        <View style={[styles.head, large && styles.headLarge]}>
+          <Pressable
+            accessibilityRole="link"
             accessibilityLabel={ROOM_COPY.postLabel({ handle, own, place, time })}
-            style={styles.headText}
+            accessibilityHint={ROOM_COPY.profileHint(handle)}
+            onPress={openProfile}
+            testID={`room-post-author-${post.id}`}
+            style={({ pressed }) => [
+              large ? styles.headTextLarge : styles.headText,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text numberOfLines={1} style={[styles.handle, { color: palette.ink }]}>
+            <Text numberOfLines={large ? 3 : 1} style={[styles.handle, { color: palette.ink }]}>
               {handle}
               {own ? <Text style={{ color: palette.primary }}> · {ROOM_COPY.you}</Text> : null}
             </Text>
             <Text
-              numberOfLines={1}
+              numberOfLines={large ? 2 : 1}
               testID={`room-post-line-${post.id}`}
-              style={[styles.line, { color: palette.textDisabled }]}
+              style={[large ? styles.lineLarge : styles.line, { color: palette.textDisabled }]}
             >
               {line}
             </Text>
-          </View>
+          </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={ROOM_COPY.more(handle)}
@@ -302,6 +359,7 @@ export function RoomPost({ post, own, onMore }: RoomPostProps) {
         <PostPhotos photos={photos} handle={handle} />
         {post.payload?.card ? <SharedCard card={post.payload.card} /> : null}
         {post.payload?.binder ? <SharedBinder binder={post.payload.binder} /> : null}
+        {!post.payload?.binder && post.payload?.binderUnavailable ? <UnavailableBinder /> : null}
       </View>
     </View>
   );
@@ -318,8 +376,11 @@ const styles = StyleSheet.create({
   main: { flex: 1, minWidth: 0, gap: 5 },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], minHeight: 20 },
   headText: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headLarge: { alignItems: 'flex-start' },
+  headTextLarge: { flex: 1, minWidth: 0, gap: 2 },
   handle: { flexShrink: 1, fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
   line: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 16 },
+  lineLarge: { fontSize: 12, lineHeight: 16 },
   more: {
     width: 32,
     height: 32,
