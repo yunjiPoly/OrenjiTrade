@@ -446,6 +446,8 @@ Conventions later stages reuse:
   "No answer from OrenjiTrade" with "Try again" instead of a skeleton for minutes (writes are
   left alone); mutations invalidate the narrowest key they change. Screens render
   `QueryState` (skeleton, empty, error with retry) and the root `OfflineBanner` covers offline use.
+  A screen-filling state outside a list (closed, empty, not found, error) sits in `StateScroll`, so
+  it scrolls at the largest text sizes instead of running over the header (stage R11).
 - **Lists**: paged endpoints use `useInfiniteQuery` (`nextPage`) in a `FlatList` with
   `ListFooter` (spinner / retry), pull to refresh and `keepPreviousData` while filters change
   (region-scoped lists keep the previous results within one region only: `previousOfSameRegion`
