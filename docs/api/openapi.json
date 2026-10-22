@@ -20839,7 +20839,7 @@
           "catalog"
         ],
         "summary": "Autocomplete cards and printing codes (public)",
-        "description": "Printing-code prefixes (`AZR-EN0`; a space for the dash and a padded number also read: `ZTK 001` also reads as `ZTK-1`) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).",
+        "description": "Printing-code prefixes (`AZR-EN0`; a space reads as the dash) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD). Only when no code starts as typed does a padded number read without its zeros, as the whole number: `ZTK 0012` lists `ZTK-12` (and `ZTK-12P`), never `ZTK-120`; `ZSK 001` lists `ZSK-001` alone when the catalogue holds it. Each printing is listed once.",
         "operationId": "suggestCards",
         "parameters": [
           {

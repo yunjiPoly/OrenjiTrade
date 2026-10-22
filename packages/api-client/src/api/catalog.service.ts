@@ -671,7 +671,7 @@ export class CatalogService extends BaseService implements CatalogServiceInterfa
 
     /**
      * Autocomplete cards and printing codes (public)
-     * Printing-code prefixes (&#x60;AZR-EN0&#x60;; a space for the dash and a padded number also read: &#x60;ZTK 001&#x60; also reads as &#x60;ZTK-1&#x60;) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD).
+     * Printing-code prefixes (&#x60;AZR-EN0&#x60;; a space reads as the dash) first (kind PRINTING), then cards by name: prefix, substring, full text, trigram (kind CARD). Only when no code starts as typed does a padded number read without its zeros, as the whole number: &#x60;ZTK 0012&#x60; lists &#x60;ZTK-12&#x60; (and &#x60;ZTK-12P&#x60;), never &#x60;ZTK-120&#x60;; &#x60;ZSK 001&#x60; lists &#x60;ZSK-001&#x60; alone when the catalogue holds it. Each printing is listed once.
      * @endpoint get /api/v1/cards/suggest
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
