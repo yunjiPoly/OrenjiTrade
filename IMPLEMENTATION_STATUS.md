@@ -8576,6 +8576,12 @@ editing on the phone are gone (`ChannelList.tsx`, `PostItem.tsx`, `PostComposer.
     inbox fresh; a second reader would ask again for a list that had just failed.
 12. **The banner and the region pill follow the text size a little only** (pinned content; the walk
     at the largest size found the banner taking the whole screen and the pill's text cut).
+13. **Community waits for the browsed region and game** before it asks for the rooms (skeleton rows
+    meanwhile), so a collector of another region never sees Americas (North)'s rooms first and the
+    rows never move once shown.
+14. **A photo refused by the uploads' own hourly limit** (30 per collector, messages and rooms
+    together) says "You sent a lot of photos in a short time. Try again later.", not the room's
+    posting limit.
 
 **The defaults this stage applies** (the prompt's list, item 11, and this stage's own): one room per
 platform region and game; the old channels archived (never deleted); `publicChat` on by default (an
@@ -8600,7 +8606,7 @@ province only for discoverable authors; no replies or editing on the phone; post
   separators, places, the send button, the request, photo rules, error wording and "Try again"),
   `community-room.test.tsx` (the top bar, banner and day separators; rules; the "⋯" sheet for others
   and for one's own post; report; block; delete; posting; 4 photos uploaded as `COMMUNITY` in order
-  with the 3 MB refusal; 429 and duplicate; a network error and "Try again"; skeleton, empty, closed,
+  with the 3 MB refusal; the uploads' own limit; 429 and duplicate; a network error and "Try again"; skeleton, empty, closed,
   off and error states), `messages-tab.test.tsx` (the tabs, the Chats dot, the five rooms in order
   with their last posts and dots, a visited room, the closed state, the error with retry).
 - Mobile web E2E `e2e/community.spec.ts`: the rooms of the region (Pokémon first for a Pokémon
