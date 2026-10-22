@@ -4145,7 +4145,7 @@
           "uploads"
         ],
         "summary": "Upload an image for a message or a community post",
-        "description": "Multipart part `file` (JPEG, PNG or WebP; type sniffed from the content, so a video or any other file is 415) and form field `kind`: MESSAGE (the default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3 MB; stage R11); INVENTORY is refused (inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it within 1 h (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY upload in a post's `photoUploadIds`; unattached uploads are deleted. 413 above the kind's limit, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).",
+        "description": "Multipart part `file` (JPEG, PNG or WebP; type sniffed from the content, so a video or any other file is 415) and form field `kind`: MESSAGE (the default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3 MB; stage R11); INVENTORY is refused (inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it within 1 h (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY upload in a post's `photoUploadIds`; unattached uploads are deleted. 413 above the kind's limit, 415 for other types, 400 for unreadable images, 404 FEATURE_DISABLED for COMMUNITY while the community (publicChat) is off. Rate-limited (30 per hour).",
         "operationId": "uploadImage",
         "parameters": [
           {
@@ -32168,6 +32168,10 @@
             "items": {
               "$ref": "#/components/schemas/PostPhoto"
             }
+          },
+          "binderUnavailable": {
+            "type": "boolean",
+            "description": "Stage R11: true when the post shared a binder the reader can no longer open (no longer public, sold or deleted, its owner hidden or blocked with the reader); `binder` is absent then. Absent otherwise."
           }
         }
       },
