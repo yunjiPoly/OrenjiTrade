@@ -135,6 +135,7 @@ export * from './gameMetadataField';
 export * from './gameRequest';
 export * from './gameResponse';
 export * from './gameSchema';
+export * from './handleAvailabilityResponse';
 export * from './hideListingRequest';
 export * from './hideRatingRequest';
 export * from './historyFlag';

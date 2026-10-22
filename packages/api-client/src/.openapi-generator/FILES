@@ -254,6 +254,7 @@ model/gameMetadataField.ts
 model/gameRequest.ts
 model/gameResponse.ts
 model/gameSchema.ts
+model/handleAvailabilityResponse.ts
 model/hideListingRequest.ts
 model/hideRatingRequest.ts
 model/historyFlag.ts

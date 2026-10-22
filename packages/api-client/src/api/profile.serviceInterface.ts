@@ -12,6 +12,7 @@ import { HttpHeaders }                                       from '@angular/comm
 import { Observable }                                        from 'rxjs';
 
 import { AvatarResponse } from '../model/models';
+import { HandleAvailabilityResponse } from '../model/models';
 import { MyProfileResponse } from '../model/models';
 import { ProblemDetail } from '../model/models';
 import { TagResponse } from '../model/models';
@@ -21,6 +22,10 @@ import { UpdateProfileTagsRequest } from '../model/models';
 
 import { Configuration }                                     from '../configuration';
 
+
+export interface GetHandleAvailabilityRequestParams {
+    handle: string;
+}
 
 export interface SearchTagsRequestParams {
     query?: string;
@@ -51,6 +56,14 @@ export interface ProfileServiceInterface {
      * @endpoint delete /api/v1/me/profile/avatar
 */
     deleteMyAvatar(extraHttpRequestParams?: any): Observable<{}>;
+
+    /**
+     * Whether the caller could save a handle
+     * Stage R12: the welcome step checks the handle while the collector types. The save\&#39;s own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_], unique case-insensitively, reserved words refused), nothing saved. A reserved handle reads TAKEN, as the save says. The caller\&#39;s own handle is CURRENT. Members only; rate-limited (60 per 10 minutes). The save (PUT /me/profile) still decides.
+     * @endpoint get /api/v1/me/profile/handle-availability
+* @param requestParameters
+     */
+    getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, extraHttpRequestParams?: any): Observable<HandleAvailabilityResponse>;
 
     /**
      * The caller\&#39;s profile

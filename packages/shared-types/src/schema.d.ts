@@ -3338,6 +3338,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/handle-availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether the caller could save a handle
+         * @description Stage R12: the welcome step checks the handle while the collector types. The save's own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_], unique case-insensitively, reserved words refused), nothing saved. A reserved handle reads TAKEN, as the save says. The caller's own handle is CURRENT. Members only; rate-limited (60 per 10 minutes). The save (PUT /me/profile) still decides.
+         */
+        get: operations["getHandleAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/ping": {
         parameters: {
             query?: never;
@@ -9107,6 +9127,20 @@ export interface components {
             /** Format: date-time */
             resolvedAt?: string | null;
             reportedUser: components["schemas"]["ReportMember"];
+        };
+        HandleAvailabilityResponse: {
+            /**
+             * @description The handle as it would be saved: trimmed and lower-cased
+             * @example sam_trades
+             */
+            handle: string;
+            /**
+             * @description AVAILABLE: free; CURRENT: the caller's own handle; TAKEN: held by another account or reserved (a save answers 409 HANDLE_TAKEN); INVALID: not 3-24 characters [a-z0-9_] (a save answers 400)
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "CURRENT" | "TAKEN" | "INVALID";
+            /** @description Whether saving it would succeed (AVAILABLE or CURRENT) */
+            available: boolean;
         };
         /** @description Authenticated connectivity check */
         PingResponse: {
@@ -24624,6 +24658,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyReport"][];
+                };
+            };
+            /** @description Unauthenticated (missing or invalid token) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getHandleAvailability: {
+        parameters: {
+            query: {
+                /**
+                 * @description The handle to check, as typed
+                 * @example sam_trades
+                 */
+                handle: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandleAvailabilityResponse"];
                 };
             };
             /** @description Unauthenticated (missing or invalid token) */

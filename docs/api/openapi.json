@@ -18757,6 +18757,90 @@
         }
       }
     },
+    "/api/v1/me/profile/handle-availability": {
+      "get": {
+        "tags": [
+          "profile"
+        ],
+        "summary": "Whether the caller could save a handle",
+        "description": "Stage R12: the welcome step checks the handle while the collector types. The save's own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_], unique case-insensitively, reserved words refused), nothing saved. A reserved handle reads TAKEN, as the save says. The caller's own handle is CURRENT. Members only; rate-limited (60 per 10 minutes). The save (PUT /me/profile) still decides.",
+        "operationId": "getHandleAvailability",
+        "parameters": [
+          {
+            "name": "handle",
+            "in": "query",
+            "description": "The handle to check, as typed",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "sam_trades"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandleAvailabilityResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated (missing or invalid token)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden (role, MFA or account state)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Terms acceptance required (extension `requiredConsents[]`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me/ping": {
       "get": {
         "tags": [
@@ -36982,6 +37066,35 @@
           "id",
           "reason",
           "reportedUser",
+          "status"
+        ]
+      },
+      "HandleAvailabilityResponse": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "description": "The handle as it would be saved: trimmed and lower-cased",
+            "example": "sam_trades"
+          },
+          "status": {
+            "type": "string",
+            "description": "AVAILABLE: free; CURRENT: the caller's own handle; TAKEN: held by another account or reserved (a save answers 409 HANDLE_TAKEN); INVALID: not 3-24 characters [a-z0-9_] (a save answers 400)",
+            "enum": [
+              "AVAILABLE",
+              "CURRENT",
+              "TAKEN",
+              "INVALID"
+            ]
+          },
+          "available": {
+            "type": "boolean",
+            "description": "Whether saving it would succeed (AVAILABLE or CURRENT)"
+          }
+        },
+        "required": [
+          "available",
+          "handle",
           "status"
         ]
       },

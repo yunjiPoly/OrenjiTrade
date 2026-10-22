@@ -19,6 +19,8 @@ import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 // @ts-ignore
 import { AvatarResponse } from '../model/avatarResponse';
 // @ts-ignore
+import { HandleAvailabilityResponse } from '../model/handleAvailabilityResponse';
+// @ts-ignore
 import { MyProfileResponse } from '../model/myProfileResponse';
 // @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
@@ -35,6 +37,7 @@ import { Configuration }                                     from '../configurat
 import { BaseService } from '../api.base.service';
 import {
     ProfileServiceInterface,
+    GetHandleAvailabilityRequestParams,
     SearchTagsRequestParams,
     UpdateMyProfileRequestParams,
     UpdateMyProfileTagsRequestParams,
@@ -97,6 +100,80 @@ export class ProfileService extends BaseService implements ProfileServiceInterfa
         return this.httpClient.request<any>('delete', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
+                responseType: <any>responseType_,
+                ...(withCredentials ? { withCredentials } : {}),
+                headers: localVarHeaders,
+                observe: observe,
+                ...(localVarTransferCache !== undefined ? { transferCache: localVarTransferCache } : {}),
+                reportProgress: reportProgress
+            }
+        );
+    }
+
+    /**
+     * Whether the caller could save a handle
+     * Stage R12: the welcome step checks the handle while the collector types. The save\&#39;s own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_], unique case-insensitively, reserved words refused), nothing saved. A reserved handle reads TAKEN, as the save says. The caller\&#39;s own handle is CURRENT. Members only; rate-limited (60 per 10 minutes). The save (PUT /me/profile) still decides.
+     * @endpoint get /api/v1/me/profile/handle-availability
+     * @param requestParameters
+     * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.
+     * @param reportProgress flag to report request and response progress.
+     * @param options additional options
+     */
+    public getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HandleAvailabilityResponse>;
+    public getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<HandleAvailabilityResponse>>;
+    public getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<HandleAvailabilityResponse>>;
+    public getHandleAvailability(requestParameters: GetHandleAvailabilityRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
+        const handle = requestParameters?.handle;
+        if (handle === null || handle === undefined) {
+            throw new Error('Required parameter handle was null or undefined when calling getHandleAvailability.');
+        }
+
+        let localVarQueryParameters = new OpenApiHttpParams(this.encoder);
+
+        localVarQueryParameters = this.addToHttpParams(
+            localVarQueryParameters,
+            'handle',
+            <any>handle,
+            QueryParamStyle.Form,
+            true,
+        );
+
+
+        let localVarHeaders = this.defaultHeaders;
+
+        // authentication (bearerAuth) required
+        localVarHeaders = this.configuration.addCredentialToHeaders('bearerAuth', 'Authorization', localVarHeaders, 'Bearer ');
+
+        const localVarHttpHeaderAcceptSelected: string | undefined = options?.httpHeaderAccept ?? this.configuration.selectHeaderAccept([
+            'application/json',
+            'application/problem+json'
+        ]);
+        if (localVarHttpHeaderAcceptSelected !== undefined) {
+            localVarHeaders = localVarHeaders.set('Accept', localVarHttpHeaderAcceptSelected);
+        }
+
+        const localVarHttpContext: HttpContext = options?.context ?? new HttpContext();
+
+        const localVarTransferCache: boolean = options?.transferCache ?? true;
+
+
+        let responseType_: 'text' | 'json' | 'blob' = 'json';
+        if (localVarHttpHeaderAcceptSelected) {
+            if (localVarHttpHeaderAcceptSelected.startsWith('text')) {
+                responseType_ = 'text';
+            } else if (this.configuration.isJsonMime(localVarHttpHeaderAcceptSelected)) {
+                responseType_ = 'json';
+            } else {
+                responseType_ = 'blob';
+            }
+        }
+
+        let localVarPath = `/api/v1/me/profile/handle-availability`;
+        const { basePath, withCredentials } = this.configuration;
+        return this.httpClient.request<HandleAvailabilityResponse>('get', `${basePath}${localVarPath}`,
+            {
+                context: localVarHttpContext,
+                params: localVarQueryParameters.toHttpParams(),
                 responseType: <any>responseType_,
                 ...(withCredentials ? { withCredentials } : {}),
                 headers: localVarHeaders,
