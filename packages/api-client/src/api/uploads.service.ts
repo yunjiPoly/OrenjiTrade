@@ -42,8 +42,8 @@ export class UploadsService extends BaseService implements UploadsServiceInterfa
     }
 
     /**
-     * Upload an image for a message
-     * Multipart part &#x60;file&#x60; (JPEG, PNG or WebP up to 8 MB; type sniffed from the content) and form field &#x60;kind&#x60; (MESSAGE, the default; INVENTORY is refused: inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it with an IMAGE message within 1 h (&#x60;expiresAt&#x60;); unattached uploads are deleted. 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).
+     * Upload an image for a message or a community post
+     * Multipart part &#x60;file&#x60; (JPEG, PNG or WebP; type sniffed from the content, so a video or any other file is 415) and form field &#x60;kind&#x60;: MESSAGE (the default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3 MB; stage R11); INVENTORY is refused (inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it within 1 h (&#x60;expiresAt&#x60;): a MESSAGE upload with an IMAGE message, a COMMUNITY upload in a post\&#39;s &#x60;photoUploadIds&#x60;; unattached uploads are deleted. 413 above the kind\&#39;s limit, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).
      * @endpoint post /api/v1/uploads/images
      * @param requestParameters
      * @param observe set whether or not to return the data Observable as the body, response or events. defaults to returning the body.

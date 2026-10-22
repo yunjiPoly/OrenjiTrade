@@ -793,8 +793,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Upload an image for a message
-         * @description Multipart part `file` (JPEG, PNG or WebP up to 8 MB; type sniffed from the content) and form field `kind` (MESSAGE, the default; INVENTORY is refused: inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it with an IMAGE message within 1 h (`expiresAt`); unattached uploads are deleted. 413 above 8 MB, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).
+         * Upload an image for a message or a community post
+         * @description Multipart part `file` (JPEG, PNG or WebP; type sniffed from the content, so a video or any other file is 415) and form field `kind`: MESSAGE (the default, up to 8 MB), COMMUNITY (a photo of a community post, up to 3 MB; stage R11); INVENTORY is refused (inventory photos use POST /inventory/items/{id}/images). Re-encoded as JPEG (≤ 1600 px, EXIF/GPS stripped) and inspected before storage. Attach it within 1 h (`expiresAt`): a MESSAGE upload with an IMAGE message, a COMMUNITY upload in a post's `photoUploadIds`; unattached uploads are deleted. 413 above the kind's limit, 415 for other types, 400 for unreadable images. Rate-limited (30 per hour).
          */
         post: operations["uploadImage"];
         delete?: never;
@@ -1658,13 +1658,13 @@ export interface paths {
         };
         /**
          * Posts of a channel (newest first)
-         * @description Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. 404 for unknown or archived channels.
+         * @description Cursor-paginated. Posts of collectors blocked in either direction, of suspended or deleted accounts, deleted and removed posts are not served. Each post carries its photos and its author's state or province (`place`, discoverable authors only; never a city). 404 for unknown or archived channels.
          */
         get: operations["listCommunityPosts"];
         put?: never;
         /**
          * Post in a channel
-         * @description `body` 1-2000 characters, optional `cardPrintingId` and public `binderId` links. 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review).
+         * @description `body` 1-2000 characters, optional `cardPrintingId` and public `binderId` links, and up to 4 `photoUploadIds` (stage R11: COMMUNITY uploads of the caller from the last hour, each used once; 400 otherwise). 409 DUPLICATE_POST when the caller posted the same text in the last 24 hours; 429 RATE_LIMITED above the channel's postRateLimitPerHour (default 10) or the moderation rate rule; 422 POST_BLOCKED for text the moderation rules refuse (FLAG rules store the post as FLAGGED for review). Posts never notify anyone.
          */
         post: operations["createCommunityPost"];
         delete?: never;
@@ -2576,7 +2576,7 @@ export interface paths {
         post?: never;
         /**
          * Delete a post (author or MODERATOR+)
-         * @description Soft delete; a moderator deleting another member's post is audited.
+         * @description Soft delete; its photos and their files are deleted. A moderator deleting another member's post is audited.
          */
         delete: operations["deleteCommunityPost"];
         options?: never;
@@ -3604,7 +3604,7 @@ export interface paths {
         };
         /**
          * Community channels
-         * @description Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). 404 FEATURE_DISABLED while the publicChat flag is off.
+         * @description Active channels ordered for display. `game` filters by game slug, `region` by platform region code (the region channels, ADR 0017). Since stage R11 the active channels are the rooms, one per platform region and game, each with the newest post the caller may see (`lastPost`). 404 FEATURE_DISABLED while the publicChat flag is off.
          */
         get: operations["listCommunityChannels"];
         put?: never;
@@ -7300,6 +7300,15 @@ export interface components {
             name: string;
             /** @example collector1 */
             ownerHandle: string;
+            /** @description Community posts only (stage R11): a deck core buyers can find right now. Absent in messages. */
+            deckCore?: boolean;
+            /**
+             * @description Community posts only: the deck core's price as typed ("$95"). Absent without one.
+             * @example $95
+             */
+            askingPriceText?: string;
+            /** @description Community posts only: the binder's first photo, else the first card picture buyers see, while it is public. */
+            imageUrl?: string;
         };
         /** @description A printing shared in a message or post */
         CardLink: {
@@ -7413,11 +7422,23 @@ export interface components {
              * @description Optional shared public binder
              */
             binderId?: string;
+            /** @description Stage R11: up to 4 photos, the uploadIds of POST /uploads/images?kind=COMMUNITY (yours, within 1 h), in order */
+            photoUploadIds?: string[];
         };
-        /** @description Links attached to a community post */
+        /** @description Links and photos attached to a community post */
         PostPayload: {
             card?: components["schemas"]["CardLink"];
             binder?: components["schemas"]["BinderLink"];
+            /** @description Up to 4 photos in their order (stage R11); empty when none */
+            photos?: components["schemas"]["PostPhoto"][];
+        };
+        /** @description A photo of a community post (no EXIF or GPS data) */
+        PostPhoto: {
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
         };
         /** @description A community post */
         PostResponse: {
@@ -7440,6 +7461,8 @@ export interface components {
             canDelete: boolean;
             /** @enum {string} */
             moderationState: "OK" | "FLAGGED" | "REMOVED";
+            /** @description Stage R11: the author's state or province and country (ADR 0017), null unless the author is discoverable and their profile is not private. Never a city. */
+            place?: components["schemas"]["Place"];
         };
         /** @description What the phone read on one card */
         CardScanMatchRequest: {
@@ -9436,6 +9459,21 @@ export interface components {
             description: string;
             /** Format: int32 */
             postCount24h: number;
+            /** @description Stage R11: the newest post the caller may see (blocked collectors, suspended accounts, deleted and removed posts left out), null when none */
+            lastPost?: components["schemas"]["CommunityLastPost"];
+        };
+        /** @description The newest post of a room the caller may see (no place) */
+        CommunityLastPost: {
+            /** Format: uuid */
+            id: string;
+            /** @example collector1 */
+            authorHandle: string;
+            /** @description The post's text, cut to 140 characters with "…" */
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description The caller wrote it */
+            mine: boolean;
         };
         /** @description Cursor-paginated list */
         CursorPagePostResponse: {
@@ -13539,8 +13577,8 @@ export interface operations {
     uploadImage: {
         parameters: {
             query?: {
-                /** @description MESSAGE (default) or INVENTORY */
-                kind?: "MESSAGE" | "INVENTORY";
+                /** @description MESSAGE (default), COMMUNITY or INVENTORY (refused) */
+                kind?: "MESSAGE" | "INVENTORY" | "COMMUNITY";
             };
             header?: never;
             path?: never;

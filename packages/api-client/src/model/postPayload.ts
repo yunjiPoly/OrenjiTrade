@@ -9,13 +9,18 @@
  */
 import { BinderLink } from './binderLink';
 import { CardLink } from './cardLink';
+import { PostPhoto } from './postPhoto';
 
 
 /**
- * Links attached to a community post
+ * Links and photos attached to a community post
  */
 export interface PostPayload { 
     card?: CardLink;
     binder?: BinderLink;
+    /**
+     * Up to 4 photos in their order (stage R11); empty when none
+     */
+    photos?: Array<PostPhoto>;
 }
 

@@ -193,6 +193,7 @@ model/collectorTag.ts
 model/commitInventoryImportRequest.ts
 model/communityAuthor.ts
 model/communityChannel.ts
+model/communityLastPost.ts
 model/consentRequest.ts
 model/consentSummary.ts
 model/conversationParticipant.ts
@@ -355,6 +356,7 @@ model/pingResponse.ts
 model/place.ts
 model/platformRegion.ts
 model/postPayload.ts
+model/postPhoto.ts
 model/postResponse.ts
 model/printingDetail.ts
 model/printingImage.ts
