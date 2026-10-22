@@ -70,6 +70,29 @@ crops; the 320 px rendition does not need the larger files).
 
 An artwork listed by two Oracle cards stays with the first and is reported.
 
+### What "Unique Artwork" leaves out (owner decision)
+
+"Unique Artwork" holds one card object per artwork, the printing Scryfall picked for the best
+scan. A reprint that shares its artwork with another printing (core sets, Commander decks, Masters
+sets) has no card object there, so its set code and collector number are not in the catalogue: the
+card and its picture are, but a collector cannot list the exact printing they own. The owner's
+prompt names this file, so stage R10 keeps it. The alternative, for the owner to decide: Scryfall's
+**"Default Cards"** file (every card object in English, or in its printed language when it has no
+English version; "All Cards" is the one with every language). With today's English paper filter it
+gives every English paper printing, and the importer already keeps one image per
+`illustration_id` across printings, so the picture cache stays about 1.9 GB while the bulk file and
+the printing rows grow. Switching is additive (the next import adds the missing printings; nothing
+imported changes) and needs a small change: the bulk type `default_cards` with a snapshot folder of
+its own (the stored file is reused for 24 hours whatever the bulk type). See ADR 0021.
+
+### Codes typed as printed
+
+A Magic printing code is `<SET>-<NUMBER>` with Scryfall's unpadded collector number (`ZTK-12`).
+The card prints the set code apart from a padded number (`ZTK`, `0012`), so `GET /cards`,
+`GET /cards/suggest` and the unified search read a space as the dash and also try the number
+without its leading zeros (`ZTK 0012`, `ztk - 012` and `ZTK-012` find `ZTK-12`). A code typed
+without any separator (`ztk12`) is not guessed: a set code may end in a digit (`M21`).
+
 ## Commands
 
 ```bash

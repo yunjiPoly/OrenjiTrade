@@ -1,6 +1,8 @@
 # ADR 0021 — Five games and their card sources
 
-**Status:** Accepted · **Date:** 2026-10-21 · **Relates to:**
+**Status:** Accepted · **Date:** 2026-10-21 (amended 2026-10-22, stage R10's review fix 1: what
+"Unique Artwork" leaves out, the rejection of "Default Cards" corrected, codes typed as printed, the
+TCGdex notice in the app) · **Relates to:**
 [0005](0005-multi-tcg-data-model.md) (one catalog for every game),
 [0015](0015-card-images-provider-hosting-capped-cache.md) (images: re-hosted, capped cache),
 [0019](0019-free-for-all-no-paid-features.md) (free), [0020](0020-camera-card-scan-reads-text-on-the-phone.md)
@@ -44,7 +46,17 @@ English only, one image per printing. One Piece and Riftbound keep waiting. The 
    holds one printing per artwork: a card is an Oracle card (`oracle_id`), a printing is a set code
    plus a collector number (rarity Common, Uncommon, Rare, Mythic Rare, Special or Bonus; edition
    `UNLIMITED`; language `en`; the printing's first finish, the finishes listed in its metadata;
-   collectors record the finish of their own copy, as the edition for Yu-Gi-Oh!). Only English
+   collectors record the finish of their own copy, as the edition for Yu-Gi-Oh!). **What this file
+   leaves out:** a reprint that shares its artwork with another printing (core sets, Commander
+   decks, Masters sets) has no card object of its own in "Unique Artwork" (Scryfall keeps one
+   printing per artwork, the best scan), so its set code and collector number are not in the
+   catalogue: the card and its picture are there, but a collector cannot pick that exact printing,
+   and a camera scan of Magic codes (ADR 0020 reads Yu-Gi-Oh! codes today) could not match it. The prompt names this file, so the
+   stage keeps it; the alternative is the owner's decision (see "Rejected and deferred"). A Magic
+   printing code is OrenjiTrade's `<SET>-<NUMBER>` with Scryfall's unpadded collector number
+   (`ZTK-12`); the card prints the set code apart from a padded number (`ZTK`, `0012`), so search
+   and suggestions read a space as the dash and a number without its leading zeros (`ZTK 0012`
+   finds `ZTK-12`; a code typed without a separator, `ztk12`, is not guessed). Only English
    paper cards: `lang` `en`, not digital, `games` with `paper`; art series cards, tokens, emblems
    and oversized cards are left out and counted in the import report. The image of a printing is
    its front face's artwork, the `normal` size scaled to the 320 px JPEG; it is never cropped,
@@ -101,6 +113,11 @@ English only, one image per printing. One Piece and Riftbound keep waiting. The 
 - Pokémon card images are copyrighted by The Pokémon Company and its partners; TCGdex's MIT
   licence covers its data, not the publisher's artwork. Showing them is part of the same legal
   review as YGOPRODeck's and Scryfall's images.
+- TCGdex's MIT notice (its copyright line and permission text) is kept beside the server's copy of
+  the database; the phone shows the credit with "(MIT licence)" but not the notice itself. Whether
+  the notice must also be reachable in the app is part of the lawyer review; the planned place is a
+  Settings › Legal › Licences entry (stage R13's Settings) with the text of the `LICENSE` kept
+  beside the owner's first real snapshot (agents never fetch it, so the app holds no copy yet).
 - After a fixture or real import, Magic and Pokémon turn browsable on their own (`hasCards`): no
   phone release is needed.
 - The adapters were written against the providers' published formats and tested on hand-written
@@ -109,8 +126,18 @@ English only, one image per printing. One Piece and Riftbound keep waiting. The 
 - The GameSchema rarity lists of `mtg` and `pokemon` (which only check printings made by an admin)
   are left as they are; aligning them with the imported vocabulary is a follow-up after the first
   real import (a migration like V101 for Yu-Gi-Oh!).
-- Rejected: one API call per card (both providers ask for the bulk download); Scryfall's "Default
-  Cards" or "All Cards" files (every printing in every language: several times the images, and the
-  owner chose one image per artwork); PokémonTCG.io (per-card API with a key; the owner chose
+- Rejected and deferred: one API call per card (both providers ask for the bulk download);
+  Scryfall's "All Cards" file (every card object in every language: several times the data, and the
+  app supports English cards only). **Deferred to the owner, not rejected:** Scryfall's "Default
+  Cards" file (every card object in English, or in its printed language when it has no English
+  version). Read with the same English paper filter it gives every English paper printing, so
+  reprints that share an artwork keep their own set code and number; the importer already keeps
+  one image per `illustration_id` across printings (`ScryfallMapperTest`, "printings that share an
+  artwork keep one image"), so the pictures stay about the same (about 1.9 GB) while the bulk file
+  and the catalogue's printing rows grow. Switching is additive (nothing imported changes; the next
+  import adds the missing printings) and small: the bulk type `default_cards` and a snapshot
+  folder of its own (today's stored file is reused for 24 hours whatever the bulk type). The
+  earlier wording here ("every printing in every language") described "All Cards", not "Default
+  Cards" (review fix 1 of stage R10). Also rejected: PokémonTCG.io (per-card API with a key; the owner chose
   TCGdex); one card per Pokémon printing (a name like "Pikachu" would show dozens of identical
   results in Search typing); hotlinking either provider's images.

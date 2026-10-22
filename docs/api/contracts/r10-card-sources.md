@@ -53,6 +53,15 @@
   before; for Magic and Pokémon that is also the card's primary artwork.
 - No market price comes from Scryfall or TCGdex (`marketPrice` stays null for their printings).
 
+## Codes typed as printed (review fix 1)
+
+`GET /cards` (an exact printing code returns that card), `GET /cards/suggest` (printing-code
+prefixes first) and the unified search read a code as a collector types it from the card: a space
+between the set code and a number that holds a digit reads as the dash (`ZTK 12`, `LOB EN001`),
+and a number that starts with zeros is also tried without them (`ZTK 0012` and `ZTK-012` find the
+Magic printing `ZTK-12`; Pokémon's `ZSK-001` still matches as typed first). Behaviour only: no
+field, parameter or response shape changed; the operations' descriptions say it.
+
 ## Privacy
 
 No representation of a place or a person changes: `GeoPrivacyContractTest` needs no new endpoint.

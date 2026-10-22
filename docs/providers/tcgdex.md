@@ -96,3 +96,14 @@ Appearance lists "Pokémon card data from TCGdex."):
 
 **Draft for the lawyer review.** Before any public launch a legal review is required: showing
 Pokémon card images, the MIT notice's placement, trademark use and the wording.
+
+**The MIT notice in the app (owner and lawyer follow-up, stage R10's review fix 1).** The phone
+shows the credit "Card data courtesy of TCGdex (MIT licence)." under a Pokémon card's pictures and
+"Pokémon card data from TCGdex." in Settings › Appearance, but not the licence's copyright line and
+permission text: that notice is kept only beside the server's copy (`<sha>/LICENSE`). The MIT
+licence asks that the notice go with copies or substantial portions of the data; if the lawyer
+reads the app's catalogue as such a copy, the notice must be reachable in the app. The planned
+place is a **Settings › Legal › Licences** entry (stage R13 restyles Settings) showing the text of
+the `LICENSE` kept beside the owner's first real snapshot, word for word (agents never fetch the
+repository, so the app holds no copy of the real notice yet); the other choice is the notice under
+the credit.
