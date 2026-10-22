@@ -201,24 +201,28 @@ export function PasswordField(props: Omit<TextFieldProps, 'secureTextEntry'>) {
   const { palette } = useTheme();
   const [visible, setVisible] = useState(false);
   return (
-    <View>
-      <TextField {...props} secureTextEntry={!visible} autoCapitalize="none" autoCorrect={false} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={visible ? 'Hide password' : 'Show password'}
-        aria-pressed={visible}
-        onPress={() => setVisible((current) => !current)}
-        hitSlop={8}
-        style={styles.eye}
-        testID={props.testID ? `${props.testID}-toggle` : undefined}
-      >
-        <MaterialCommunityIcons
-          name={visible ? 'eye-off-outline' : 'eye-outline'}
-          size={20}
-          color={palette.textMuted}
-        />
-      </Pressable>
-    </View>
+    <TextField
+      {...props}
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      trailing={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          onPress={() => setVisible((current) => !current)}
+          style={styles.eye}
+          testID={props.testID ? `${props.testID}-toggle` : undefined}
+        >
+          <MaterialCommunityIcons
+            name={visible ? 'eye-off-outline' : 'eye-outline'}
+            size={20}
+            color={palette.textMuted}
+          />
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -325,7 +329,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
-  eye: { position: 'absolute', right: spacing[3], top: 36 },
+  eye: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   message: {
     flexDirection: 'row',
     alignItems: 'flex-start',

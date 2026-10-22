@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   StyleSheet,
   View,
@@ -20,6 +20,11 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   containerStyle?: StyleProp<ViewStyle>;
   /** Extra style of the input itself (the height of a large multiline field). */
   inputStyle?: StyleProp<TextStyle>;
+  /**
+   * A control inside the field's right end (the password's show / hide), centred on the input
+   * whatever the size of the label above it.
+   */
+  trailing?: ReactNode;
 }
 
 /** Labelled input with visible focus ring (2px accent) and inline error, per the design system. */
@@ -30,6 +35,7 @@ export function TextField({
   hint,
   containerStyle,
   inputStyle,
+  trailing,
   onFocus,
   onBlur,
   testID,
@@ -52,31 +58,35 @@ export function TextField({
       ) : (
         <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>{label}</Text>
       )}
-      <TextInput
-        {...inputProps}
-        testID={testID}
-        accessibilityLabel={label}
-        placeholderTextColor={palette.textDisabled}
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        style={[
-          textStyle('md'),
-          styles.input,
-          {
-            color: palette.ink,
-            backgroundColor: palette.surface,
-            borderColor,
-            borderWidth: focused || error ? tokens.focus.width : 1,
-          },
-          inputStyle,
-        ]}
-      />
+      <View>
+        <TextInput
+          {...inputProps}
+          testID={testID}
+          accessibilityLabel={label}
+          placeholderTextColor={palette.textDisabled}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          style={[
+            textStyle('md'),
+            styles.input,
+            {
+              color: palette.ink,
+              backgroundColor: palette.surface,
+              borderColor,
+              borderWidth: focused || error ? tokens.focus.width : 1,
+            },
+            trailing ? styles.inputWithTrailing : null,
+            inputStyle,
+          ]}
+        />
+        {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
+      </View>
       {error ? (
         <Text accessibilityRole="alert" style={[textStyle('xs'), { color: palette.danger }]}>
           {error}
@@ -98,5 +108,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: radius.md,
+  },
+  inputWithTrailing: { paddingRight: 48 },
+  trailing: {
+    position: 'absolute',
+    right: spacing[1],
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
 });

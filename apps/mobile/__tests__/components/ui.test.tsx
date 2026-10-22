@@ -272,8 +272,8 @@ describe('form controls', () => {
   });
 
   it.each([
-    [1, 'row'],
-    [3.1, 'column'],
+    [1, 'row' as const],
+    [3.1, 'column' as const],
   ])(
     'puts a switch beside its words, under them at large text sizes (text size %s)',
     (fontScale, direction) => {
