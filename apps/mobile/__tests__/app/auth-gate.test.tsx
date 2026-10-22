@@ -241,3 +241,157 @@ describe('auth gate: the 18+ confirmation (launch readiness, Review our terms si
     expect(api.callsTo('GET /api/v1/me')).toHaveLength(2);
   });
 });
+
+describe('auth gate: a remembered link belongs to its collector (stage R12, review fix 1)', () => {
+  const UNCONFIRMED = {
+    profileComplete: true,
+    interestsSet: true,
+    locationSet: true,
+    ageConfirmed: false,
+  };
+
+  it('forgets the screen kept for Review our terms when the collector signs out there', async () => {
+    // Collector A searches a card in Quebec when the gate asks the 18+ confirmation.
+    mockSegments.current = ['(tabs)', 'search'];
+    mockPathname.current = '/search';
+    mockParams.current = { q: 'blue eyes alternate art', place: 'CA-QC', segment: 'cards' };
+    const port = new FakeAuthPort(testUser());
+    mockApi({
+      'GET /api/v1/me': [
+        ok(meFixture({ onboarding: UNCONFIRMED })),
+        ok(meFixture({ handle: 'bee', displayName: 'Bee' })),
+      ],
+    });
+    renderWithProviders(<RootNavigator />, { port });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/consent'));
+    const kept = '/search?q=blue+eyes+alternate+art&place=CA-QC&segment=cards';
+    expect(usePendingLink.getState()).toMatchObject({ href: kept, owner: 'uid-maika' });
+
+    // A signs out on Review our terms.
+    mockSegments.current = ['(account)', 'consent'];
+    mockPathname.current = '/consent';
+    mockParams.current = {};
+    await act(async () => {
+      await port.signOut();
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState().href).toBeNull();
+
+    // Collector B creates an account on the same phone: the tabs, never A's search.
+    mockSegments.current = ['(auth)', 'sign-in'];
+    mockPathname.current = '/sign-in';
+    await act(async () => {
+      await port.signUp('bee@example.test', 'bee-password-1');
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('forgets the screen kept for the welcome when the collector signs out there', async () => {
+    mockSegments.current = ['messages', '[id]'];
+    mockPathname.current = '/messages/conv-1';
+    mockParams.current = { id: 'conv-1' };
+    const port = new FakeAuthPort(testUser());
+    mockApi({
+      'GET /api/v1/me': [
+        ok(meFixture({ onboarding: NOT_ONBOARDED })),
+        ok(meFixture({ handle: 'bee', displayName: 'Bee' })),
+      ],
+    });
+    renderWithProviders(<RootNavigator />, { port });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/onboarding'));
+    expect(usePendingLink.getState()).toMatchObject({
+      href: '/messages/conv-1',
+      owner: 'uid-maika',
+    });
+
+    mockSegments.current = ['onboarding'];
+    mockPathname.current = '/onboarding';
+    mockParams.current = {};
+    await act(async () => {
+      await port.signOut();
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState().href).toBeNull();
+
+    mockSegments.current = ['(auth)', 'sign-in'];
+    mockPathname.current = '/sign-in';
+    await act(async () => {
+      await port.signUp('bee@example.test', 'bee-password-1');
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('reopens a screen whose session ended for the same collector only', async () => {
+    const ended = async () => {
+      mockSegments.current = ['cards', '[id]'];
+      mockPathname.current = '/cards/c1';
+      mockParams.current = { id: 'c1', printing: 'p2' };
+      const port = new FakeAuthPort(testUser());
+      mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+      const view = renderWithProviders(<RootNavigator />, { port });
+      await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
+      act(() => useSessionNotice.getState().reportEnded());
+      await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+      expect(usePendingLink.getState()).toMatchObject({
+        href: '/cards/c1?printing=p2',
+        owner: 'uid-maika',
+      });
+      mockSegments.current = ['(auth)', 'sign-in'];
+      mockPathname.current = '/sign-in';
+      mockParams.current = {};
+      // Signing in again clears the notice (as `session.signIn` and `session.signUp` do).
+      act(() => useSessionNotice.getState().clear());
+      return { port, view };
+    };
+
+    // Another account signs in: the tabs, and the screen is forgotten.
+    const first = await ended();
+    await act(async () => {
+      await first.port.signUp('bee@example.test', 'bee-password-1');
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    await waitFor(() => expect(usePendingLink.getState().href).toBeNull());
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    first.view.unmount();
+
+    // The same collector signs in again: their screen reopens.
+    resetRouterMock();
+    resetAppState();
+    const second = await ended();
+    await act(async () => {
+      await second.port.signIn('maika@example.test', 'correct-password');
+    });
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith('/cards/c1?printing=p2'));
+  });
+
+  it('never pushes a remembered link on top of the welcome; the welcome takes it when it ends', async () => {
+    // The welcome's second step completed the account (`/me` says onboarded) while its third,
+    // "Where do you ship from?", is still on screen.
+    mockSegments.current = ['onboarding'];
+    mockPathname.current = '/onboarding';
+    mockParams.current = {};
+    usePendingLink.getState().set('/messages/conv-1', 'uid-maika');
+    const api = mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(testUser()) });
+    await waitFor(() => expect(api.callsTo('GET /api/v1/me')).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBe('/messages/conv-1');
+  });
+
+  it('keeps a link opened while signed out for whoever signs in', () => {
+    usePendingLink.getState().set('/collectors/collector5');
+    expect(usePendingLink.getState().take('uid-anyone')).toBe('/collectors/collector5');
+    usePendingLink.getState().set('/messages/conv-1', 'uid-maika');
+    expect(usePendingLink.getState().take('uid-bee')).toBeNull();
+    expect(usePendingLink.getState().href).toBeNull();
+    usePendingLink.getState().set('/messages/conv-1', 'uid-maika');
+    expect(usePendingLink.getState().take('uid-maika')).toBe('/messages/conv-1');
+  });
+});

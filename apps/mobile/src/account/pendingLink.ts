@@ -4,17 +4,32 @@ import { create } from 'zustand';
  * The app link a signed-out visitor opened (a collector profile, a card, a conversation, ...):
  * the gate sends them to sign-in first and reopens it once their account is ready. Not persisted:
  * it only lives for this run of the app.
+ *
+ * A link kept for a signed-in collector (sent to Review our terms or to the welcome, or whose
+ * session ended) belongs to them: `owner` is their uid, and it never opens for another account
+ * signing in on the same phone (it may hold their search text, a place, a conversation). A link
+ * opened while signed out has no owner and opens for whoever signs in.
  */
 export interface PendingLinkStore {
   href: string | null;
-  set: (href: string) => void;
+  /** The uid of the collector whose screen it was; null for a link opened while signed out. */
+  owner: string | null;
+  set: (href: string, owner?: string | null) => void;
+  /** The link for the collector `uid` (null when none, or another account's), cleared either way. */
+  take: (uid: string | null) => string | null;
   clear: () => void;
 }
 
-export const usePendingLink = create<PendingLinkStore>()((set) => ({
+export const usePendingLink = create<PendingLinkStore>()((set, get) => ({
   href: null,
-  set: (href) => set({ href }),
-  clear: () => set({ href: null }),
+  owner: null,
+  set: (href, owner = null) => set({ href, owner }),
+  take: (uid) => {
+    const { href, owner } = get();
+    set({ href: null, owner: null });
+    return href !== null && (owner === null || owner === uid) ? href : null;
+  },
+  clear: () => set({ href: null, owner: null }),
 }));
 
 /** Route roots that never come back after sign-in (auth, account states, legal). */

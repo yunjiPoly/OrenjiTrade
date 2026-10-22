@@ -158,11 +158,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
    * to the tabs. The link is taken before `/me` reloads: the gate would otherwise push it the
    * moment the account is ready, on top of this screen.
    */
-  const takePendingLink = (): string | null => {
-    const href = usePendingLink.getState().href;
-    usePendingLink.getState().clear();
-    return href;
-  };
+  const takePendingLink = (): string | null => usePendingLink.getState().take(uid);
   const navigateAway = (pending: string | null) => {
     if (pending) {
       router.replace(pending as Href);
@@ -215,7 +211,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
       navigateAway(pending);
     } catch (caught) {
       if (pending) {
-        usePendingLink.getState().set(pending);
+        usePendingLink.getState().set(pending, uid);
       }
       setPlaceError(messageOf(caught));
     } finally {
