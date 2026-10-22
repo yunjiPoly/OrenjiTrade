@@ -99,12 +99,13 @@ tags:
 - tapOn:
     id: 'room-input'
 - inputText: 'Maestro ${output.ada.handle} shows a binder photo'
-- runFlow: subflows/hide-keyboard.yaml
+# The send button stays above the keyboard (a drag on the photo row would not put it away).
 - tapOn:
     id: 'room-send'
 - extendedWaitUntil:
     visible: 'Maestro ${output.ada.handle} shows a binder photo'
     timeout: 60000
+- runFlow: subflows/hide-keyboard.yaml
 - runScript:
     file: scripts/community.js
     env:
