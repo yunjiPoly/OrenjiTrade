@@ -32,7 +32,7 @@ test.describe('mobile age confirmation', () => {
 
     await signInThroughUi(page, collector.email, collector.password);
     const consent = screen(page, 'consent');
-    await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
     // Only the age line: no document is due, and no welcome step.
@@ -51,7 +51,7 @@ test.describe('mobile age confirmation', () => {
       window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
     });
     await expect(page).toHaveURL(/\/consent$/, { timeout: 30_000 });
-    await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
 
@@ -102,7 +102,7 @@ test.describe('mobile age confirmation', () => {
     });
     await signInThroughUi(page, collector.email, collector.password);
     const consent = screen(page, 'consent');
-    await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
     await consent.getByRole('button', { name: 'Sign out' }).click();

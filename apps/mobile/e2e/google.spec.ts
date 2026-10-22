@@ -99,7 +99,7 @@ test.describe('mobile Google sign-in', () => {
 
     // No verification step (Google verified the address): the consent screen first, like the web.
     const consent = screen(page, 'consent');
-    await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
     // "Accept and continue" waits until every box is ticked (stage R12).

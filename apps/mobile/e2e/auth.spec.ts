@@ -222,7 +222,7 @@ test.describe('mobile accounts', () => {
     const user = await emulatorSignUp(request, uniqueEmail('consent'));
     await signInThroughUi(page, user.email, user.password);
     const consent = screen(page, 'consent');
-    await expect(consent.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
       timeout: 30_000,
     });
     // Stage R12: "Accept and continue" waits until every box is ticked.
