@@ -37,16 +37,20 @@ branding assets are supplied.
 | Maps | No map provider (ADR 0017): one Leaflet vector map of bundled Natural Earth boundaries (`apps/web-angular/public/boundaries`), states shaded by binder counts; no tiles, no keys. The phone's map (Search's default view) draws the same boundaries with `react-native-svg` from `apps/mobile/assets/boundaries` (a generated copy: `npm run sync:boundaries -w apps/mobile`). PostGIS stays installed but holds no personal geography |
 | Search | PostgreSQL full-text + `pg_trgm`. No Elasticsearch/OpenSearch |
 
-### Card images (ADR 0015, owner rule 2026-10-01, cap raised 2026-10-04)
+### Card images (ADR 0015 and 0021, owner rule 2026-10-01, cap raised 2026-10-04)
 The local card image cache never holds more than **5 GB** (`CARD_IMAGE_LOCAL_CACHE_MAX_MB`,
 default and ceiling 5120 MiB, start-up fails above it; temp files and reservations count; byte
 accounting is 64-bit). One 320 px JPEG per artwork, no full-size or cropped copies. **Never hotlink
-YGOPRODeck images**: browsers only get `/api/v1/public/card-images/{id}` (cached file or
-placeholder); provider URLs stay server-side (`card_image.source_url`). Card metadata is always
-imported completely; images are a separate, capped cache. Real provider imports are explicit
-(`npm run catalog:import`); seeds, tests and CI never call YGOPRODeck. Keep provider etiquette:
-checkDBVer first, reuse the stored snapshot, at most 5 requests/second, no scraping, never commit
-image binaries or snapshots.
+provider images** (YGOPRODeck, Scryfall, TCGdex, any later one): browsers only get
+`/api/v1/public/card-images/{id}` (cached file or placeholder); provider URLs stay server-side
+(`card_image.source_url`). Card metadata is always imported completely; images are a separate,
+capped cache. Sources (ADR 0021): Yu-Gi-Oh! YGOPRODeck, Magic Scryfall's "Unique Artwork" bulk
+file, Pokémon TCGdex's card database (English only); One Piece and Riftbound wait. Real provider
+imports are explicit, the owner's step (`npm run catalog:import`); seeds, tests, CI and agents never
+call a provider (hand-written fixtures only). Keep each provider's etiquette
+(`docs/providers/`): YGOPRODeck checkDBVer first and at most 5 requests/second; Scryfall's bulk file
+at most daily and at most 10 requests/second; TCGdex one archive per commit; reuse stored snapshots,
+no scraping, never commit image binaries or snapshots.
 
 ### ON HOLD by owner instruction (2026-09-29): Python ML card recognition
 Do **not** start Phase 11 (ML card identification model, the camera → upload → Pub/Sub → ML
