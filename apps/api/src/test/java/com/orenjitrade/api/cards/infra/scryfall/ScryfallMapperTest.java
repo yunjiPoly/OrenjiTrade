@@ -223,4 +223,90 @@ class ScryfallMapperTest {
             assertThat(elsewhere.cards()).allMatch(card -> card.images().isEmpty());
         }
     }
+
+    /**
+     * Each of the two paper checks leaves a card out on its own: a card flagged {@code digital},
+     * and a card whose {@code games} do not list paper (review fix 1 of stage R10).
+     */
+    @Test
+    void aDigitalFlagOrGamesWithoutPaperEachLeaveACardOut() {
+        assertThat(
+                        ScryfallMapper.exclusion(
+                                cardObject("\"games\": [\"paper\"], \"digital\": false")))
+                .isNull();
+        assertThat(
+                        ScryfallMapper.exclusion(
+                                cardObject("\"games\": [\"paper\"], \"digital\": true")))
+                .as("digital alone")
+                .isEqualTo(ScryfallMapper.SKIPPED_DIGITAL);
+        assertThat(
+                        ScryfallMapper.exclusion(
+                                cardObject("\"games\": [\"mtgo\"], \"digital\": false")))
+                .as("no paper game alone")
+                .isEqualTo(ScryfallMapper.SKIPPED_DIGITAL);
+        assertThat(ScryfallMapper.exclusion(cardObject("\"digital\": false")))
+                .as("no games listed")
+                .isEqualTo(ScryfallMapper.SKIPPED_DIGITAL);
+    }
+
+    /**
+     * Printings that share an artwork (reprints, as in Scryfall's "Default Cards" file) keep a
+     * printing each and one image between them: the alternative the owner may choose (ADR 0021).
+     */
+    @Test
+    void printingsThatShareAnArtworkKeepOneImage() {
+        String art = "1a000000-0000-4000-8000-0000000000f1";
+        List<ScryfallDtos.Card> reprints =
+                List.of(
+                        cardObject(
+                                "\"id\": \"5c000000-0000-4000-8000-0000000000f1\", \"oracle_id\":"
+                                    + " \"0f000000-0000-4000-8000-0000000000f1\", \"name\":"
+                                    + " \"Reprinted Lantern\", \"set\": \"ztk\","
+                                    + " \"collector_number\": \"30\", \"released_at\":"
+                                    + " \"2025-02-07\", \"rarity\": \"common\", \"games\":"
+                                    + " [\"paper\"], \"digital\": false, \"illustration_id\": \""
+                                        + art
+                                        + "\", \"image_status\": \"highres_scan\", \"image_uris\":"
+                                        + " {\"normal\": \""
+                                        + IMAGES
+                                        + "normal/front/5/c/5c000000-0000-4000-8000-0000000000f1.jpg\"}"),
+                        cardObject(
+                                "\"id\": \"5c000000-0000-4000-8000-0000000000f2\", \"oracle_id\":"
+                                    + " \"0f000000-0000-4000-8000-0000000000f1\", \"name\":"
+                                    + " \"Reprinted Lantern\", \"set\": \"zcl\","
+                                    + " \"collector_number\": \"112\", \"released_at\":"
+                                    + " \"2026-03-13\", \"rarity\": \"common\", \"games\":"
+                                    + " [\"paper\"], \"digital\": false, \"illustration_id\": \""
+                                        + art
+                                        + "\", \"image_status\": \"highres_scan\", \"image_uris\":"
+                                        + " {\"normal\": \""
+                                        + IMAGES
+                                        + "normal/front/5/c/5c000000-0000-4000-8000-0000000000f2.jpg\"}"));
+        SyncResult mapped = ScryfallMapper.map("mtg", IMAGES, "normal", reprints.iterator(), "v");
+        ProviderCard lantern = mapped.cards().get(0);
+        assertThat(lantern.printings())
+                .extracting(ProviderPrinting::printingCode)
+                .containsExactly("ZTK-30", "ZCL-112");
+        assertThat(lantern.images())
+                .extracting(ProviderImage::providerImageId)
+                .containsExactly(art);
+        assertThat(lantern.printings())
+                .allSatisfy(
+                        printing ->
+                                assertThat(printing.images())
+                                        .extracting(ProviderImage::providerImageId)
+                                        .containsExactly(art));
+        assertThat(mapped.warnings()).noneMatch(w -> w.contains("artworks"));
+    }
+
+    /** An English, normal-layout card object with {@code fields} added. */
+    private static ScryfallDtos.Card cardObject(String fields) {
+        return JsonMapper.builder()
+                .build()
+                .readValue(
+                        "{\"object\": \"card\", \"lang\": \"en\", \"layout\": \"normal\", "
+                                + fields
+                                + "}",
+                        ScryfallDtos.Card.class);
+    }
 }

@@ -1,6 +1,7 @@
 package com.orenjitrade.api.cards.infra.tcgdex;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.orenjitrade.api.cards.domain.provider.ProviderCard;
 import com.orenjitrade.api.cards.domain.provider.ProviderImage;
@@ -13,6 +14,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -88,6 +90,94 @@ class TcgdexMapperTest {
                 .containsEntry("abbreviation", "EMR");
         assertThat(result.sets().get(1).metadata()).containsEntry("tcgdexId", "tst2.5");
         assertThat(TcgdexMapper.fallbackCode("sv03.5")).isEqualTo("SV035");
+    }
+
+    /**
+     * The set-code rule (ADR 0021, point 3): a set takes its official abbreviation only when no
+     * other set claims that code, neither as its own abbreviation (two promo sets with the same
+     * code) nor as its id-based code; otherwise it takes its id without punctuation. No set is
+     * skipped for it (review fix 1 of stage R10, F1).
+     */
+    @Test
+    void anAbbreviationThatIsNotUniqueGivesWayToTheIdCode() {
+        JsonMapper json = JsonMapper.builder().build();
+        TcgdexMapper.Builder codes =
+                new TcgdexMapper.Builder("pokemon", ASSETS, "high.jpg", Set.of("tcgp"));
+        codes.serie(
+                "Code Era", json.readTree("{\"id\": \"cde\", \"name\": {\"en\": \"Code Era\"}}"));
+        // Two promo sets with the same official abbreviation.
+        codeSet(codes, json, "Promos A", "cdpa", "{\"official\": \"PRC\"}", null, "2026-01-02");
+        codeSet(codes, json, "Promos B", "cdpb", null, "PRC", "2026-01-03");
+        // An abbreviation equal to another set's id code (CD9 is the code of the set "cd9").
+        codeSet(codes, json, "New Code", "cdn", "{\"official\": \"CD9\"}", null, "2026-01-04");
+        codeSet(codes, json, "Old Code", "cd9", null, null, "2026-01-01");
+        // A unique abbreviation is kept.
+        codeSet(codes, json, "Unique", "cdu", "{\"official\": \"UNQ\"}", null, "2026-01-05");
+        SyncResult mapped = codes.build("code-era");
+
+        assertThat(mapped.sets())
+                .extracting(ProviderSet::externalId, ProviderSet::code)
+                .containsExactly(
+                        tuple("cd9", "CD9"),
+                        tuple("cdn", "CDN"),
+                        tuple("cdpa", "CDPA"),
+                        tuple("cdpb", "CDPB"),
+                        tuple("cdu", "UNQ"));
+        assertThat(mapped.cards())
+                .singleElement()
+                .extracting(ProviderCard::name)
+                .isEqualTo("Codepup");
+        assertThat(mapped.cards().get(0).printings())
+                .extracting(ProviderPrinting::printingCode)
+                .containsExactly("CD9-001", "CDPA-001", "CDPB-001", "CDN-001", "UNQ-001");
+        assertThat(mapped.warnings()).noneMatch(w -> w.contains("without a usable code"));
+    }
+
+    /** A card file read twice (an archive listing it twice) is one printing, reported once. */
+    @Test
+    void aCardListedTwiceIsOnePrinting() {
+        JsonMapper json = JsonMapper.builder().build();
+        TcgdexMapper.Builder twice =
+                new TcgdexMapper.Builder("pokemon", ASSETS, "high.jpg", Set.of("tcgp"));
+        twice.serie(
+                "Code Era", json.readTree("{\"id\": \"cde\", \"name\": {\"en\": \"Code Era\"}}"));
+        codeSet(twice, json, "Unique", "cdu", "{\"official\": \"UNQ\"}", null, "2026-01-05");
+        twice.card("Code Era", "Unique", "001", json.readTree(CODEPUP));
+        SyncResult mapped = twice.build("code-era");
+
+        assertThat(mapped.cards().get(0).printings())
+                .extracting(ProviderPrinting::externalId)
+                .containsExactly("cdu-001");
+        assertThat(mapped.cards().get(0).images()).hasSize(1);
+        assertThat(mapped.warnings()).contains("1 cards listed twice skipped (e.g. cdu-001)");
+    }
+
+    private static final String CODEPUP =
+            "{\"name\": {\"en\": \"Codepup\"}, \"category\": \"Pokemon\", \"rarity\": \"Common\","
+                    + " \"variants\": {\"normal\": true}}";
+
+    /** A set file of the serie "Code Era" (abbreviations, tcgOnline) with the card 001 Codepup. */
+    private static void codeSet(
+            TcgdexMapper.Builder builder,
+            JsonMapper json,
+            String dir,
+            String id,
+            @Nullable String abbreviations,
+            @Nullable String tcgOnline,
+            String releaseDate) {
+        String set =
+                "{\"id\": \""
+                        + id
+                        + "\", \"name\": {\"en\": \""
+                        + dir
+                        + "\"}"
+                        + (abbreviations == null ? "" : ", \"abbreviations\": " + abbreviations)
+                        + (tcgOnline == null ? "" : ", \"tcgOnline\": \"" + tcgOnline + "\"")
+                        + ", \"releaseDate\": \""
+                        + releaseDate
+                        + "\"}";
+        builder.set("Code Era", dir, json.readTree(set));
+        builder.card("Code Era", dir, "001", json.readTree(CODEPUP));
     }
 
     @Test

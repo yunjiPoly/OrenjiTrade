@@ -164,6 +164,9 @@ class TcgdexCardProviderTest {
                     "https://assets.tcgdex.net/en/tst/tst1/001/high.jpg",
                     STUB.tcgdexAssets() + "fr/tst/tst1/001/high.jpg",
                     STUB.tcgdexAssets() + "en/tst/../../001/high.jpg",
+                    // Three path parts as the pattern wants, one of them "..": refused all the
+                    // same.
+                    STUB.tcgdexAssets() + "en/tst/../001/high.jpg",
                     STUB.tcgdexAssets() + "en/tst/tst1/001/high.svg",
                     STUB.githubApi() + "commits/master"
                 }) {
