@@ -144,6 +144,15 @@ export const EDIT_BINDER_COPY = {
   pickerCoreHint:
     'Cards in another binder move here. Buyers see them when the deck core is public.',
   pickerEmpty: 'All your cards are already in this binder.',
+  /**
+   * The collector has no card of the binder's game at all (R14 review fix 1, U4: a new Magic
+   * binder of a collector with Yu-Gi-Oh! cards only said "All your cards are already in this
+   * binder.").
+   */
+  pickerNone: (game: string | null) =>
+    game
+      ? `You have no ${game} cards yet. Add them to your inventory first.`
+      : 'You have no cards yet. Add them to your inventory first.',
   pickerNoMatch: (text: string) => `None of your other cards match “${text}”.`,
   pickerInBinder: (binder: string) => `in ${binder}`,
   pickerUnfiled: 'unfiled',

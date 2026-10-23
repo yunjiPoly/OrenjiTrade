@@ -703,6 +703,38 @@ describe('New binder', () => {
     expect(await screen.findByText('Saved')).toBeOnTheScreen();
   });
 
+  it('says when the collector has no card of the binder’s game yet (R14 review fix 1, U4)', async () => {
+    // Yu-Gi-Oh! cards only: a Pokémon binder has none to offer.
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': (request) =>
+          ok(inventoryPage(request.query.get('game') === 'pokemon' ? [] : [FILED])),
+      })
+    );
+    renderWithProviders(<NewBinderScreen />, { port: port() });
+    expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
+    fireEvent.press(screen.getByTestId('binder-add-cards'));
+    const sheet = await screen.findByTestId('card-picker-sheet');
+    expect(await within(sheet).findByTestId('card-picker-empty')).toHaveTextContent(
+      'You have no Pokémon cards yet. Add them to your inventory first.'
+    );
+    expect(within(sheet).getByTestId('card-picker-submit')).toBeDisabled();
+    expect(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query.get('game')).toBe('pokemon');
+  });
+
+  it('says so when every card of the binder’s game is already in it', async () => {
+    mockParams.current = { id: BINDER_ID };
+    mockApi(
+      editRoutes(binderFixture(), { 'GET /api/v1/inventory/items': ok(inventoryPage([FILED])) })
+    );
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('binder-add-cards'));
+    const sheet = await screen.findByTestId('card-picker-sheet');
+    expect(await within(sheet).findByTestId('card-picker-empty')).toHaveTextContent(
+      'All your cards are already in this binder.'
+    );
+  });
+
   it('creates a deck core with its photo; a photo that fails opens Edit binder on it', async () => {
     const created = deckCoreFixture({ id: 'core-new', name: 'Branded core', photos: [] });
     const api = mockApi(

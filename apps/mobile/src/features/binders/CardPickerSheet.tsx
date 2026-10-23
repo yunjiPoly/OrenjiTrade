@@ -74,15 +74,22 @@ export function CardPickerSheet({
     onClose();
   };
 
+  const loaded = useMemo(
+    () => items.data?.pages.flatMap((page) => page.items ?? []) ?? [],
+    [items.data]
+  );
+  // Not one card of the binder's game in the inventory (no text typed, nothing more to load).
+  const none =
+    !q && !items.hasNextPage && !loaded.some((item) => !gameSlug || item.card.game === gameSlug);
   const candidates = useMemo(
     () =>
-      (items.data?.pages.flatMap((page) => page.items ?? []) ?? []).filter(
+      loaded.filter(
         (item) =>
           item.binder?.id !== binderId &&
           !excluded.has(item.id) &&
           (!gameSlug || item.card.game === gameSlug)
       ),
-    [binderId, excluded, gameSlug, items.data]
+    [binderId, excluded, gameSlug, loaded]
   );
 
   const toggle = (item: InventoryItemResponse, checked: boolean) =>
@@ -111,7 +118,11 @@ export function CardPickerSheet({
   } else if (candidates.length === 0) {
     list = (
       <Text testID="card-picker-empty" style={[textStyle('sm'), { color: palette.textMuted }]}>
-        {q ? EDIT_BINDER_COPY.pickerNoMatch(q) : EDIT_BINDER_COPY.pickerEmpty}
+        {q
+          ? EDIT_BINDER_COPY.pickerNoMatch(q)
+          : none
+            ? EDIT_BINDER_COPY.pickerNone(game?.name ?? null)
+            : EDIT_BINDER_COPY.pickerEmpty}
       </Text>
     );
   } else {
