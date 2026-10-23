@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import ResetPasswordScreen from '@/app/(auth)/reset-password';
 import SignInScreen from '@/app/(auth)/sign-in';
@@ -411,6 +411,50 @@ describe('Reset password', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Use another email' }));
     expect(screen.getByRole('button', { name: 'Send reset link' })).toBeOnTheScreen();
     expect(screen.queryByTestId('reset-sent')).toBeNull();
+  });
+
+  it('resends the link once 30 s passed, without revealing whether the account exists', async () => {
+    jest.useFakeTimers();
+    try {
+      const port = new FakeAuthPort();
+      port.sendPasswordReset
+        .mockRejectedValueOnce(new AuthError('auth/user-not-found'))
+        .mockRejectedValueOnce(new AuthError('auth/user-not-found'))
+        .mockRejectedValueOnce(new AuthError('auth/too-many-requests'));
+      mockApi({});
+      renderWithProviders(<ResetPasswordScreen />, { port });
+      fireEvent.changeText(screen.getByLabelText('Email'), 'nobody@example.test');
+      fireEvent.press(screen.getByRole('button', { name: 'Send reset link' }));
+      expect(await screen.findByTestId('reset-sent')).toBeOnTheScreen();
+
+      // The email just left: "Resend in {n} s" for 30 s (the prompt's 38, as 39).
+      expect(screen.getByRole('button', { name: 'Resend in 30 s' })).toBeDisabled();
+      const waitSeconds = (seconds: number) => {
+        for (let second = 0; second < seconds; second += 1) {
+          act(() => jest.advanceTimersByTime(1000));
+        }
+      };
+      waitSeconds(12);
+      expect(screen.getByRole('button', { name: 'Resend in 18 s' })).toBeDisabled();
+      waitSeconds(18);
+      fireEvent.press(screen.getByRole('button', { name: 'Resend email' }));
+      expect(await screen.findByTestId('reset-message')).toHaveTextContent(
+        /If an account exists for nobody@example\.test, a new reset link is on its way\.$/
+      );
+      expect(port.sendPasswordReset).toHaveBeenCalledTimes(2);
+      expect(port.sendPasswordReset).toHaveBeenLastCalledWith('nobody@example.test');
+      expect(screen.getByRole('button', { name: 'Resend in 30 s' })).toBeDisabled();
+
+      // Another failure says so, and the button is ready again at once.
+      waitSeconds(30);
+      fireEvent.press(screen.getByRole('button', { name: 'Resend email' }));
+      expect(await screen.findByTestId('reset-message')).toHaveTextContent(
+        /Too many attempts\. Wait a moment, then try again\.$/
+      );
+      expect(screen.getByRole('button', { name: 'Resend email' })).toBeEnabled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('shows other failures', async () => {

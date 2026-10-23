@@ -12,9 +12,8 @@ import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
 import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
 import { VERIFY_COPY } from '@/src/features/auth/authCopy';
+import { useResendCooldown } from '@/src/features/auth/resendCooldown';
 import { fontWeight, useTheme } from '@/src/theme';
-
-export const RESEND_COOLDOWN_S = 30;
 
 /**
  * 39 Verify your email (stage R12, mockup v50): "Check your inbox", then confirm the address
@@ -29,7 +28,7 @@ export default function VerifyEmailScreen() {
   const account = useAccount();
   const [checking, setChecking] = useState(false);
   const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
+  const [cooldown, startCooldown] = useResendCooldown();
   const [message, setMessage] = useState<{
     text: string;
     tone: 'warning' | 'success' | 'error';
@@ -38,14 +37,6 @@ export default function VerifyEmailScreen() {
   useEffect(() => {
     useFlowLock.getState().unlock();
   }, []);
-
-  useEffect(() => {
-    if (cooldown <= 0) {
-      return undefined;
-    }
-    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [cooldown]);
 
   const verified = session.user?.emailVerified ?? false;
   const proceed = () => router.dismissTo(homeFor(account.status, account.needsOnboarding));
@@ -74,7 +65,7 @@ export default function VerifyEmailScreen() {
     try {
       await session.sendEmailVerification();
       setMessage({ text: VERIFY_COPY.resent, tone: 'success' });
-      setCooldown(RESEND_COOLDOWN_S);
+      startCooldown();
     } catch (caught) {
       setMessage({ text: authErrorMessage(caught), tone: 'error' });
     } finally {

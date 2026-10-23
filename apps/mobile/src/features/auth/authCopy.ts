@@ -55,6 +55,9 @@ export const RESET_COPY = {
     `If an account exists for ${email}, a reset link is on its way. Check your inbox and spam folder.`,
   backToSignIn: 'Back to sign in',
   anotherEmail: 'Use another email',
+  resend: 'Resend email',
+  resendIn: (seconds: number) => `Resend in ${seconds} s`,
+  resent: (email: string) => `If an account exists for ${email}, a new reset link is on its way.`,
 } as const;
 
 /** 39 Verify your email. */
