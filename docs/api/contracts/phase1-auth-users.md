@@ -70,6 +70,9 @@ onboarding "Age" step before anything else. Self-declaration only: no identity v
 ```
 Handle: 3–24 chars `[a-z0-9_]`, unique (case-insensitive), reserved list rejected; `409 HANDLE_TAKEN`.
 Games are game slugs from the `games` module seed (`yugioh`, `pokemon`, `mtg`, `riftbound`).
+Stage R13 ([r13-settings.md](r13-settings.md)): an optional `"tags": { "tagIds": [...],
+"customLabels": [...] }` in the same body replaces the profile tags in the same transaction (the
+rules of `PUT /me/profile/tags`; a refused field or tag saves nothing); left out, the tags stay.
 
 `POST /me/profile/avatar` multipart `file` (jpeg/png/webp ≤ 5 MB) → `{ "avatarUrl": "…" }`.
 Server re-encodes to WebP 512×512, strips metadata, stores through `ObjectStorage`.
