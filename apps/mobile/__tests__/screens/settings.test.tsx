@@ -574,9 +574,7 @@ describe('the largest text sizes (stage R13 walk)', () => {
     const grid = await screen.findByTestId('notif-grid');
     // No column heads: each box says its channel (one topic in the fixture, one "Email").
     expect(within(grid).getAllByText('Email')).toHaveLength(1);
-    expect(
-      within(grid).getByRole('checkbox', { name: 'Messages by email' })
-    ).toBeOnTheScreen();
+    expect(within(grid).getByRole('checkbox', { name: 'Messages by email' })).toBeOnTheScreen();
     expect(within(grid).getByText('Messages')).toHaveProp('maxFontSizeMultiplier', 2.5);
   });
 
