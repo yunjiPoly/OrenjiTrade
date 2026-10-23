@@ -50,18 +50,18 @@ test.describe('mobile profile', () => {
 
     // Client validation.
     await editor.getByLabel('Display name').fill('');
-    await editor.getByLabel('Handle').fill('ab');
+    await editor.getByLabel('Handle', { exact: true }).fill('ab');
     await save.click();
     await expect(editor.getByText('Enter a display name.')).toBeVisible();
     await expect(editor.getByText('Use at least 3 characters.')).toBeVisible();
 
     // Server validation: a taken handle.
-    await editor.getByLabel('Handle').fill('collector2');
+    await editor.getByLabel('Handle', { exact: true }).fill('collector2');
     await editor.getByLabel('Display name').fill('Mobile Editor Renamed');
     await save.click();
     await expect(editor.getByText('That handle is already taken. Try another one.')).toBeVisible();
 
-    await editor.getByLabel('Handle').fill(collector.handle);
+    await editor.getByLabel('Handle', { exact: true }).fill(collector.handle);
     await editor.getByLabel('Bio').fill('Updated from the mobile app.');
     await editor.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }).click();
 

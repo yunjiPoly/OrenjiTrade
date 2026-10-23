@@ -43,9 +43,11 @@ test.describe('mobile legal pages in French', () => {
 
       await index.getByTestId('legal-link-trading-safely').click();
       const document = screen(page, 'legal-document');
-      await expect(
-        document.getByRole('heading', { name: 'Échanger en toute sécurité' })
-      ).toBeVisible({ timeout: 30_000 });
+      // The page's title (the top bar names the document too, stage R13).
+      await expect(document.getByTestId('legal-document-title')).toHaveText(
+        'Échanger en toute sécurité',
+        { timeout: 30_000 }
+      );
       await expect(document.getByText(/Date d’entrée en vigueur/)).toBeVisible();
       await expect(document.getByTestId('legal-translation-notice')).toBeVisible();
       await expect(document.getByText('Nous joindre')).toBeVisible();
@@ -58,7 +60,7 @@ test.describe('mobile legal pages in French', () => {
 
       // EN: the same page in English, the translation marking gone, the draft banner kept.
       await document.getByRole('radio', { name: 'English' }).click();
-      await expect(document.getByRole('heading', { name: 'Trading safely' })).toBeVisible();
+      await expect(document.getByTestId('legal-document-title')).toHaveText('Trading safely');
       await expect(document.getByTestId('legal-draft-banner')).toContainText(
         'Draft. Requires review'
       );
@@ -97,7 +99,7 @@ test.describe('mobile legal pages in French', () => {
     );
     await index.getByTestId('legal-link-trading-safely').click();
     const document = screen(page, 'legal-document');
-    await expect(document.getByRole('heading', { name: 'Trading safely' })).toBeVisible({
+    await expect(document.getByTestId('legal-document-title')).toHaveText('Trading safely', {
       timeout: 30_000,
     });
     await document.getByRole('radio', { name: 'Français' }).click();

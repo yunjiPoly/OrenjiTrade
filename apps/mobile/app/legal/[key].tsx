@@ -55,6 +55,7 @@ export default function LegalDocumentScreen() {
           accessibilityRole="header"
           maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[styles.title, { color: palette.ink }]}
+          testID="legal-document-title"
         >
           {document.title}
         </Text>
