@@ -11,7 +11,7 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { BLOCKED_COPY as COPY } from '@/src/features/settings/settingsCopy';
-import { SettingsGroup } from '@/src/features/settings/SettingsList';
+import { LABEL_MAX_FONT_SCALE, SettingsGroup } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { fontWeight, radius, spacing, useStackedRows, useTheme } from '@/src/theme';
@@ -106,17 +106,47 @@ function BlockedRow({
   const stacked = useStackedRows();
   return (
     <View style={[styles.row, stacked && styles.rowStacked]} testID={`blocked-${user.handle}`}>
-      <View style={styles.who}>
+      <View style={[styles.who, stacked && styles.whoStacked]}>
         <Avatar src={user.avatarUrl} name={user.displayName} size={40} />
-        <View style={styles.words}>
-          <Text style={[styles.name, { color: palette.ink }]} numberOfLines={stacked ? 0 : 1}>
-            {user.displayName}
-          </Text>
-          {/* Two lines beside Unblock: a long handle keeps "blocked {when}" in view. */}
-          <Text style={[styles.line, { color: palette.textMuted }]} numberOfLines={stacked ? 0 : 2}>
-            {COPY.line(user.handle, relativeTime(user.blockedAt))}
-          </Text>
-        </View>
+        {stacked ? (
+          // The largest text sizes (review fix 1): the picture above, the words with the row's
+          // width; the handle on a line of its own, never broken in the middle (made smaller to
+          // fit when long), then when it was blocked.
+          <View style={styles.wordsStacked}>
+            <Text
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              style={[styles.name, { color: palette.ink }]}
+            >
+              {user.displayName}
+            </Text>
+            <Text
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.4}
+              style={[styles.line, { color: palette.textMuted }]}
+              testID={`blocked-handle-${user.handle}`}
+            >
+              {COPY.handle(user.handle)}
+            </Text>
+            <Text
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              style={[styles.line, { color: palette.textMuted }]}
+            >
+              {COPY.blockedWhen(relativeTime(user.blockedAt))}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.words}>
+            <Text style={[styles.name, { color: palette.ink }]} numberOfLines={1}>
+              {user.displayName}
+            </Text>
+            {/* Two lines beside Unblock: a long handle keeps "blocked {when}" in view. */}
+            <Text style={[styles.line, { color: palette.textMuted }]} numberOfLines={2}>
+              {COPY.line(user.handle, relativeTime(user.blockedAt))}
+            </Text>
+          </View>
+        )}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -155,6 +185,8 @@ const styles = StyleSheet.create({
   rowStacked: { flexDirection: 'column', alignItems: 'flex-start' },
   who: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   words: { flex: 1, minWidth: 0, gap: 2 },
+  whoStacked: { flex: 0, flexDirection: 'column', alignItems: 'flex-start', alignSelf: 'stretch' },
+  wordsStacked: { alignSelf: 'stretch', gap: 2 },
   name: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
   line: { fontSize: 13, lineHeight: 18 },
   unblock: {

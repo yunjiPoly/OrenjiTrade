@@ -55,6 +55,12 @@ const exportMock = () =>
 
 const port = () => new FakeAuthPort(testUser());
 
+/** Undone after each test, failed or not. */
+const afterTest: (() => void)[] = [];
+afterEach(() => {
+  afterTest.splice(0).forEach((undo) => undo());
+});
+
 beforeEach(() => {
   resetRouterMock();
   resetAppState();
@@ -62,8 +68,24 @@ beforeEach(() => {
   mockLeave.held = false;
 });
 
+/** Sets the system text size (Jest's React Native starts at 2); returns the way back. */
+function setFontScale(fontScale: number): () => void {
+  const window = Dimensions.get('window');
+  const screenSize = Dimensions.get('screen');
+  act(() => {
+    Dimensions.set({ window: { ...window, fontScale }, screen: { ...screenSize, fontScale } });
+  });
+  return () =>
+    act(() => {
+      Dimensions.set({ window, screen: screenSize });
+    });
+}
+
 describe('Settings (47)', () => {
   it('shows the profile card, the groups with their values, and opens each page', async () => {
+    // The mockup's size: the handle and "Edit profile" on one line.
+    const restore = setFontScale(1);
+    afterTest.push(restore);
     const session = port();
     mockApi(
       signedInRoutes({
@@ -709,6 +731,24 @@ describe('the largest text sizes (stage R13 walk)', () => {
       'maxFontSizeMultiplier',
       2.5
     );
+    // The handle on a line of its own, made smaller to fit rather than broken (review fix 1).
+    const handle = await screen.findByTestId('settings-profile-handle');
+    expect(handle).toHaveTextContent('@maika');
+    expect(handle).toHaveProp('numberOfLines', 1);
+    expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+    expect(handle).toHaveProp('maxFontSizeMultiplier', 2.5);
+    expect(within(card).getByText('Edit profile')).toBeOnTheScreen();
+    expect(screen.queryByText('@maika · Edit profile')).toBeNull();
+  });
+
+  it('puts the reason\'s counter under "(optional)" on Delete account (review fix 1)', () => {
+    mockApi(signedInRoutes());
+    textSize(3.1);
+    renderWithProviders(<DeleteAccountScreen />, { port: port() });
+    expect(screen.getByTestId('delete-reason-label-row')).toHaveStyle({ flexDirection: 'column' });
+    expect(screen.getByText('Why are you leaving? (optional)')).not.toHaveStyle({ flex: 1 });
+    textSize(1);
+    expect(screen.getByTestId('delete-reason-label-row')).toHaveStyle({ flexDirection: 'row' });
   });
 });
 

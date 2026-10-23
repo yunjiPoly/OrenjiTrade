@@ -13,7 +13,11 @@ import { isOpenReport } from '@/src/features/reports/reportLabels';
 import { appVersion } from '@/src/features/settings/appVersion';
 import { mapStatus } from '@/src/features/settings/mapStatus';
 import { SETTINGS_HOME_COPY as COPY, THEME_NAMES } from '@/src/features/settings/settingsCopy';
-import { SettingsGroup, SettingsRow } from '@/src/features/settings/SettingsList';
+import {
+  LABEL_MAX_FONT_SCALE,
+  SettingsGroup,
+  SettingsRow,
+} from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { useAppStore } from '@/src/store/useAppStore';
 import { fontWeight, radius, useStackedRows, useTheme } from '@/src/theme';
@@ -70,12 +74,41 @@ export default function SettingsScreen() {
       >
         <Avatar src={account.me?.avatarUrl} name={account.displayName} size={48} />
         <View style={styles.words}>
-          <Text style={[styles.name, { color: palette.ink }]} testID="settings-profile-name">
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.name, { color: palette.ink }]}
+            testID="settings-profile-name"
+          >
             {account.displayName}
           </Text>
-          <Text style={[styles.line, { color: palette.textMuted }]}>
-            {COPY.profileCardLine(account.handle)}
-          </Text>
+          {stacked ? (
+            // The largest text sizes: the handle on a line of its own, never broken in the middle
+            // (made smaller to fit when long), then "Edit profile" (review fix 1).
+            <>
+              {account.handle ? (
+                <Text
+                  maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.4}
+                  style={[styles.line, { color: palette.textMuted }]}
+                  testID="settings-profile-handle"
+                >
+                  {COPY.profileCardHandle(account.handle)}
+                </Text>
+              ) : null}
+              <Text
+                maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                style={[styles.line, { color: palette.textMuted }]}
+              >
+                {COPY.editProfile}
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.line, { color: palette.textMuted }]}>
+              {COPY.profileCardLine(account.handle)}
+            </Text>
+          )}
         </View>
         {stacked ? null : (
           <MaterialCommunityIcons name="chevron-right" size={18} color={palette.settings.chevron} />

@@ -9,11 +9,15 @@ import {
 } from 'react-native';
 
 import { Text, TextInput } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
-  /** A note at the end of the label's row ("49 / 500" beside "Bio (optional)"). */
+  /**
+   * A note at the end of the label's row ("49 / 500" beside "Bio (optional)"); under the label at
+   * the largest text sizes, where beside it the label broke "(optional" from its ")" (stage R13's
+   * review fix 1).
+   */
   labelAside?: string;
   error?: string | null;
   hint?: string;
@@ -43,14 +47,20 @@ export function TextField({
 }: TextFieldProps) {
   const { palette, tokens } = useTheme();
   const [focused, setFocused] = useState(false);
+  const stacked = useStackedRows();
 
   const borderColor = error ? palette.danger : focused ? palette.focusRing : palette.borderStrong;
 
   return (
     <View style={[styles.container, containerStyle]}>
       {labelAside ? (
-        <View style={styles.labelRow}>
-          <Text style={[textStyle('sm'), styles.label, styles.grow, { color: palette.ink }]}>
+        <View
+          style={[styles.labelRow, stacked && styles.labelRowStacked]}
+          testID={testID ? `${testID}-label-row` : undefined}
+        >
+          <Text
+            style={[textStyle('sm'), styles.label, !stacked && styles.grow, { color: palette.ink }]}
+          >
             {label}
           </Text>
           <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{labelAside}</Text>
@@ -102,6 +112,7 @@ const styles = StyleSheet.create({
   container: { gap: spacing[1] },
   label: { fontWeight: fontWeight.medium },
   labelRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  labelRowStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
   grow: { flex: 1 },
   input: {
     minHeight: 48,

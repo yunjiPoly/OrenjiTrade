@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 import { LEGAL_LANGUAGES, useLegalLanguage, type LegalLanguage } from './legalLanguage';
 
@@ -11,6 +11,10 @@ const NAMES: Record<LegalLanguage, string> = { en: 'English', fr: 'Français' };
  * The English | Français switch of the legal screens (web: `app-legal-language-switch`; stage R13,
  * mockup v50 screens 58 and 59): a segmented control as wide as the page, the chosen language
  * filled. Only the legal documents have French texts (owner, 2026-10-20: no new French work).
+ *
+ * Like the app's other segmented controls (`Segmented`), each word stays on one line and follows
+ * the text size a little only (`PINNED_MAX_FONT_SCALE`), a long press showing it enlarged on iOS:
+ * at the largest size half the page's width broke "Englis / h" and "Franç / ais" (review fix 1).
  */
 export function LegalLanguageSwitch({ testID = 'legal-language-switch' }: { testID?: string }) {
   const { palette } = useTheme();
@@ -29,6 +33,8 @@ export function LegalLanguageSwitch({ testID = 'legal-language-switch' }: { test
             key={option}
             accessibilityRole="radio"
             accessibilityLabel={NAMES[option]}
+            accessibilityShowsLargeContentViewer
+            accessibilityLargeContentTitle={NAMES[option]}
             accessibilityState={{ selected, checked: selected }}
             aria-checked={selected}
             onPress={() => set(option)}
@@ -40,6 +46,8 @@ export function LegalLanguageSwitch({ testID = 'legal-language-switch' }: { test
             ]}
           >
             <Text
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              numberOfLines={1}
               style={[
                 styles.label,
                 {

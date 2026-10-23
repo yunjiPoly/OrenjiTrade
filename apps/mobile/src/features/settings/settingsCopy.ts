@@ -18,6 +18,7 @@ export const SETTINGS_HOME_COPY = {
     handle ? `${name}, @${handle}. Edit profile` : `${name}. Edit profile`,
   profileCardLine: (handle: string | null) =>
     handle ? `@${handle} · Edit profile` : 'Edit profile',
+  profileCardHandle: (handle: string) => `@${handle}`,
   shipFrom: 'Where you ship from',
   location: 'Location and discoverability',
   locationLine: (place: string | null, onMap: boolean) =>
@@ -166,6 +167,9 @@ export const BLOCKED_COPY = {
     'Blocked collectors cannot message you, and you no longer see each other’s binders, profiles and posts anywhere. They are never told.',
   listLabel: 'Blocked collectors',
   line: (handle: string, when: string) => `@${handle} · blocked ${when}`,
+  /** The largest text sizes: the handle and when on lines of their own. */
+  handle: (handle: string) => `@${handle}`,
+  blockedWhen: (when: string) => `Blocked ${when}`,
   unblock: 'Unblock',
   unblocking: 'Unblocking…',
   unblockLabel: (name: string) => `Unblock ${name}`,
