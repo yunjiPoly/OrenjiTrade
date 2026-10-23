@@ -227,7 +227,7 @@ One row per identity-provider user, created on the first authenticated request
 | `provider_uid` | `text` | Firebase uid, `UNIQUE` (`uq_user_account_provider_uid`); never shown to other users |
 | `email` | `text` | PII: owner and admins only |
 | `email_verified` | `boolean` | synced from the ID token on every login |
-| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; derived from the email local part with a numeric suffix on collision |
+| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; a random first handle at provisioning, `collector_` and six characters of `bcdfghjkmnpqrstvwxz23456789` (never a part of the email; stage R12, review fix 2), drawn again when taken; the collector picks their own in the welcome |
 | `display_name` | `text` | initial value: provider name or the handle |
 | `status` | `text` | `ACTIVE` (default), `SUSPENDED`, `DELETION_REQUESTED`, `DELETED` |
 | `suspended_until` | `timestamptz` | null = indefinite; expired suspensions are lifted lazily on the next request |

@@ -46,6 +46,10 @@ Answer `HandleAvailabilityResponse`:
   collector stops typing for 400 ms; a 429 shows no mark and the save still decides).
 - The save (`PUT /me/profile`) still decides: a handle taken between the check and the save is the
   save's 409, shown on the field.
+- **The handle the welcome starts from** (review fix 2): a new account's first handle is random,
+  `collector_` and six characters (`HandleGenerator.random`), never a part of the email, so neither
+  the check nor the save's 409 can tell whether an address has an account. The check reads it as
+  `CURRENT`. Accounts provisioned before keep theirs.
 
 ## What the phone does with the rest (no API change)
 

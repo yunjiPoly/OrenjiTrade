@@ -23,8 +23,9 @@ unless stated. Auth: `Authorization: Bearer <Firebase ID token>` for everything 
   "plan": "FREE"
 }
 ```
-First authenticated call provisions the account (role USER, status ACTIVE, handle derived from
-email local part + suffix until the user picks one). `403 ACCOUNT_SUSPENDED` when suspended.
+First authenticated call provisions the account (role USER, status ACTIVE, a random first handle
+`collector_` and six characters until the user picks one; never a part of the email since stage
+R12's review fix 2, so the handle check cannot tell whether an address has an account). `403 ACCOUNT_SUSPENDED` when suspended.
 `428 TERMS_ACCEPTANCE_REQUIRED` on every non-exempt route while `requiredConsents` is non-empty
 (exempt: `/me`, `/me/consents`, `/public/**`, `/meta`, `/me/deletion-requests`).
 
