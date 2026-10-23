@@ -56,21 +56,15 @@ export interface PriceChip {
 }
 
 /**
- * The price chips (mockup v50 screen 64): "No price", then the server's terms in their order; a
- * term's chip shows its approximate amount when one printing with a market price is chosen ("85%
- * TCG ≈ 21.25 USD").
+ * The price chips (mockup v50 screens 64 and 65): "No price", then the server's terms in their
+ * order, the terms alone. The chosen term's approximate amount for a chosen printing is said in the
+ * sentence under them ("85% TCG ≈ 21.25 USD for this printing."): on the chips the amounts made
+ * them four rows and repeated that sentence (R14 review fix 1, U7).
  */
-export function priceChips(
-  terms: readonly WishPriceTerm[],
-  current: string,
-  price: PrintingSummary['marketPrice'] | null
-): PriceChip[] {
+export function priceChips(terms: readonly WishPriceTerm[], current: string): PriceChip[] {
   return [
     { value: NO_PRICE, label: COPY.noPrice },
-    ...withCurrentTerm(terms, current).map((term) => {
-      const amount = approximateAmount(term, price);
-      return { value: termKey(term), label: amount ? `${term.label} ${amount}` : term.label };
-    }),
+    ...withCurrentTerm(terms, current).map((term) => ({ value: termKey(term), label: term.label })),
   ];
 }
 
@@ -115,8 +109,8 @@ export interface WishFieldsProps {
  * The wish form's fields (mockup v50 screens 64 and 65, stage R14; stage S2's rules): which copy
  * (any printing, any printing of one rarity, or one printing; the chosen printing written out in
  * full under the field), "Near Mint only" in its card, the price as one-choice chips ("No price",
- * then the server's terms; the chosen term's amount for a chosen printing with a market price),
- * and the public note (≤ 280). Inline validation messages.
+ * then the server's terms alone; the chosen term's amount for a chosen printing in the sentence
+ * under them), and the public note (≤ 280). Inline validation messages.
  */
 export function WishFields({
   value,
@@ -136,7 +130,7 @@ export function WishFields({
   const price = printing?.marketPrice ?? null;
   const source = marketPriceSource(price);
   const offered = withCurrentTerm(terms, value.priceTerm);
-  const chips = priceChips(terms, value.priceTerm, price);
+  const chips = priceChips(terms, value.priceTerm);
   const chosen = offered.find((term) => term.label === value.priceTerm) ?? null;
   const chosenAmount = chosen ? approximateAmount(chosen, price) : null;
 

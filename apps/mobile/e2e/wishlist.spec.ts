@@ -115,8 +115,14 @@ test.describe('mobile wishlist and notifications', () => {
     await editor.getByTestId('wish-near-mint').click();
     await editor.getByTestId('wish-copy').click();
     await page.getByTestId(`wish-copy-option-${printingId}`).click();
-    await expect(editor.getByTestId('wish-term-85')).toContainText(/85% TCG ≈ 0\.\d\d CAD/);
+    // The chips are the terms alone; the chosen term's amount is in the sentence under them
+    // (R14 review fix 1, U7).
+    await expect(editor.getByTestId('wish-term-85')).toContainText('85% TCG');
+    await expect(editor.getByTestId('wish-term-85')).not.toContainText('≈');
     await editor.getByTestId('wish-term-85').click();
+    await expect(editor.getByTestId('wish-terms-source')).toContainText(
+      /^85% TCG ≈ 0\.\d\d CAD for this printing\./
+    );
     await editor.getByRole('button', { name: 'Add to wishlist' }).click();
     await expect(snackbar(page)).toContainText(`${WISHED_CARD} is on your wishlist`);
 

@@ -5,7 +5,9 @@ import SearchScreen from '@/app/(tabs)/search';
 import EditWishScreen from '@/app/wishlist/edit';
 import NewWishScreen from '@/app/wishlist/new';
 import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
+import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
@@ -341,13 +343,20 @@ describe('Add and edit a wish', () => {
     fireEvent.press(screen.getByTestId('wish-near-mint'));
     fireEvent.press(screen.getByTestId('wish-copy'));
     fireEvent.press(await screen.findByTestId(`wish-copy-option-${PRINTING_A}`));
-    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG ≈ 32.30 CAD');
-    expect(screen.getByTestId('wish-terms')).toHaveTextContent(/Sample market price/);
+    // The chips stay the terms alone with a printing chosen (mockup v50 screen 64; R14 review fix
+    // 1, U7): the chosen term's amount is in the sentence under them.
+    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG');
+    expect(screen.getByTestId('wish-term-80')).toHaveTextContent('80% TCG');
+    expect(screen.getByTestId('wish-terms-source')).toHaveTextContent(/^Sample market price/);
     // At most one term: the second replaces the first.
     fireEvent.press(screen.getByTestId('wish-term-80'));
     fireEvent.press(screen.getByTestId('wish-term-85'));
     expect(screen.getByTestId('wish-term-80')).not.toBeChecked();
     expect(screen.getByTestId('wish-term-85')).toBeChecked();
+    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG');
+    expect(screen.getByTestId('wish-terms-source')).toHaveTextContent(
+      /^85% TCG ≈ 32\.30 CAD for this printing\. Sample market price/
+    );
     fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
@@ -366,6 +375,12 @@ describe('Add and edit a wish', () => {
     expect(screen.getByRole('header', { name: 'Add a wish' })).toBeOnTheScreen();
     expect(screen.getByTestId('wish-card-step')).toHaveTextContent(
       /Which card are you looking for\?/
+    );
+    // Above the field, it follows the text size as little as the field's controls: at the
+    // largest sizes it pushed the field under the keyboard (R14 review fix 1, U2).
+    expect(screen.getByTestId('wish-card-step')).toHaveProp(
+      'maxFontSizeMultiplier',
+      PINNED_MAX_FONT_SCALE
     );
     // Search's card search (screen 12): the browsed game's field, here Yu-Gi-Oh!.
     expect(await screen.findByLabelText('Yu-Gi-Oh! card name or code')).toBeOnTheScreen();
@@ -433,6 +448,7 @@ describe('Add and edit a wish', () => {
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
       /This card is already on your wishlist with the same printing or rarity\.$/
     );
+    expectBoundedBarMessage('wish-error', /This card is already on your wishlist/);
     expect(
       (api.callsTo('POST /api/v1/wishlist')[0]?.body as { printingId?: string }).printingId
     ).toBe(PRINTING_A);
