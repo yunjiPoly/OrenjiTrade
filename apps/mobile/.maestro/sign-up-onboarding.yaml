@@ -145,6 +145,19 @@ tags:
       id: 'handle-available'
     timeout: 15000
 - takeScreenshot: welcome-step-1
+# The keyboard never hides the field being typed in (stage R12's review fix 1): with the keyboard
+# up for the display name, the bio is tapped where it shows and typed in. Before the fix the
+# pinned Continue and Sign out sat over it, and this tap signed the collector out.
+- tapOn:
+    id: 'profile-display-name'
+- tapOn:
+    id: 'profile-bio'
+- inputText: 'Fictional bio typed with the keyboard up.'
+- takeScreenshot: welcome-step-1-bio-keyboard
+- assertVisible:
+    id: 'onboarding-profile'
+- runFlow: subflows/hide-keyboard.yaml
+- assertVisible: 'Fictional bio typed with the keyboard up\.'
 - tapOn:
     id: 'onboarding-profile-continue'
 
@@ -181,6 +194,13 @@ tags:
     visible:
       id: 'location-country'
     timeout: 30000
+# Finish without a country: what is missing shows under the pickers, in view (review fix 1).
+- tapOn:
+    id: 'onboarding-finish'
+- assertVisible:
+    id: 'location-missing'
+    text: '.*Choose your country\.'
+- takeScreenshot: welcome-step-3-missing-country
 - tapOn:
     id: 'location-country'
 - scrollUntilVisible:
@@ -204,6 +224,11 @@ tags:
 - tapOn:
     id: 'location-subdivision-option-CA-QC'
 - takeScreenshot: sign-up-location-step
+# The city field shows above the keyboard while it is typed in (review fix 1).
+- tapOn:
+    id: 'location-city'
+- takeScreenshot: welcome-step-3-city-keyboard
+- runFlow: subflows/hide-keyboard.yaml
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

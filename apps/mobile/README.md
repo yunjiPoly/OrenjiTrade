@@ -674,7 +674,10 @@ Conventions later stages reuse:
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
-  and reopened after signing in.
+  and reopened after signing in. A screen kept for a signed-in collector (sent to Review our terms
+  or to the welcome, or whose session ended) belongs to that collector's uid and never opens for
+  another account; Sign out forgets it, and the gate never pushes it on top of the welcome, which
+  takes it when it ends (stage R12's review fix 1).
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
   controls off the top-right corner just below the header: Expo Go on Android floats its tools
   button there and a Maestro tap would open the developer menu instead. (On iOS, Expo Go floats
