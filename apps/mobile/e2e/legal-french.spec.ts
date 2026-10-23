@@ -60,7 +60,7 @@ test.describe('mobile legal pages in French', () => {
       await document.getByRole('radio', { name: 'English' }).click();
       await expect(document.getByRole('heading', { name: 'Trading safely' })).toBeVisible();
       await expect(document.getByTestId('legal-draft-banner')).toContainText(
-        'Draft — requires review'
+        'Draft. Requires review'
       );
       await expect(document.getByTestId('legal-translation-notice')).toHaveCount(0);
       await expect(document.getByText(/Effective date:/)).toBeVisible();
@@ -89,7 +89,7 @@ test.describe('mobile legal pages in French', () => {
     await page.goto('/legal');
     const index = screen(page, 'legal');
     await expect(index.getByRole('heading', { name: 'Legal' })).toBeVisible({ timeout: 30_000 });
-    await expect(index.getByTestId('legal-draft-banner')).toContainText('Draft — requires review');
+    await expect(index.getByTestId('legal-draft-banner')).toContainText('Draft. Requires review');
     await expect(index.getByTestId('legal-translation-notice')).toHaveCount(0);
     await expect(index.getByRole('radio', { name: 'English' })).toHaveAttribute(
       'aria-checked',

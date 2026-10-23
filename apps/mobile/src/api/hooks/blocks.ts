@@ -6,7 +6,7 @@ import { meKeys } from '../queryKeys';
 import type { BlockedUser, FeedPage } from '../types';
 import { useIsAuthenticated, useUid } from './useUid';
 
-/** `GET /api/v1/me/blocks`: the collectors the caller blocked (Settings → Blocked users). */
+/** `GET /api/v1/me/blocks`: the collectors the caller blocked (Settings › Blocked collectors). */
 export function useMyBlocks() {
   const uid = useUid();
   return useQuery<BlockedUser[], ApiError>({

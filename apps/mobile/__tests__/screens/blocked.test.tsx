@@ -27,7 +27,7 @@ beforeEach(() => {
 
 const port = () => new FakeAuthPort(testUser());
 
-describe('Settings → Blocked users', () => {
+describe('Settings › Blocked collectors', () => {
   it('lists the blocked collectors and unblocks one', async () => {
     const api = mockApi(
       signedInRoutes({

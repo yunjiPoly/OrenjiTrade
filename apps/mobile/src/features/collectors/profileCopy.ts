@@ -98,7 +98,7 @@ export const PROFILE_COPY = {
   unblockedToast: (handle: string) => `${handle} is unblocked.`,
   blockTitle: (handle: string) => `Block ${handle}?`,
   blockBody:
-    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from their profile or from Settings › Blocked users.',
+    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from their profile or from Settings › Blocked collectors.',
   blockConfirm: 'Block',
   // Share.
   shareMessage: (name: string, url: string) => `${name} on OrenjiTrade: ${url}`,

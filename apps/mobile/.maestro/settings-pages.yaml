@@ -1,0 +1,184 @@
+# Settings (stage R13 of the phone redesign, mockup v50 screens 47 to 59): a fresh, fictional
+# collector opens Settings from the Profile tab's gear, saves a place on Location (and turns on
+# "Show me on the map", saved at once), switches "Let others see what you want" on Privacy (saved
+# at once, "All changes saved"), and goes as far as the confirmation sheet of Delete account,
+# then keeps the account. The API holds the place and the switches, and no deletion.
+appId: ${APP_ID}
+name: Settings, Location, Privacy and Delete account up to the sheet
+tags:
+  - mobile-r13
+  - settings
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: setr
+      DISPLAY_NAME: Maestro Settings
+- runFlow: subflows/launch-fresh.yaml
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+
+# The Profile tab's gear opens Settings (47).
+- runFlow: subflows/open-profile-tab.yaml
+- tapOn:
+    id: 'profile-settings'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-settings'
+    timeout: 30000
+- assertVisible:
+    id: 'settings-link-profile'
+- extendedWaitUntil:
+    visible: 'Not set yet · Not on the map'
+    timeout: 30000
+- assertVisible: 'WHERE YOU SHIP FROM'
+- takeScreenshot: r13-settings
+
+# Location (49): the switch waits for a place; save one, then turn the switch on.
+- tapOn:
+    id: 'settings-link-location'
+- extendedWaitUntil:
+    visible:
+      id: 'location-visibility'
+      text: 'You have not chosen a location yet.*'
+    timeout: 30000
+- tapOn:
+    id: 'location-country'
+- scrollUntilVisible:
+    element:
+      id: 'location-country-option-CA'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'location-country-option-CA'
+- extendedWaitUntil:
+    visible:
+      id: 'location-subdivision'
+    timeout: 15000
+- tapOn:
+    id: 'location-subdivision'
+- scrollUntilVisible:
+    element:
+      id: 'location-subdivision-option-CA-QC'
+    direction: DOWN
+    timeout: 20000
+- tapOn:
+    id: 'location-subdivision-option-CA-QC'
+- tapOn:
+    id: 'location-save'
+- extendedWaitUntil:
+    visible: '.*Location saved · Quebec, Canada\.'
+    timeout: 30000
+- runScript:
+    file: scripts/check-location.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      COUNTRY: 'CA'
+      SUBDIVISION: 'CA-QC'
+      CITY: ''
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'location-discoverable'
+- assertVisible:
+    id: 'location-visibility'
+    text: 'You are hidden from the map and from searches\.'
+- tapOn:
+    id: 'location-discoverable'
+- extendedWaitUntil:
+    visible:
+      id: 'location-visibility'
+      text: 'Collectors see you in Quebec, Canada\.'
+    timeout: 30000
+- takeScreenshot: r13-location
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible: 'Quebec, Canada · On the map'
+    timeout: 30000
+
+# Privacy (52): a switch is saved at once.
+- tapOn:
+    id: 'settings-link-privacy'
+- extendedWaitUntil:
+    visible:
+      id: 'privacy-toggle-wishlistVisible'
+    timeout: 30000
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'privacy-toggle-wishlistVisible'
+- tapOn:
+    id: 'privacy-toggle-wishlistVisible'
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'privacy-toggle-wishlistVisible'
+- extendedWaitUntil:
+    visible: 'All changes saved'
+    timeout: 30000
+- takeScreenshot: r13-privacy
+- runFlow: subflows/go-back.yaml
+
+# Account (56), then Delete account (57) up to the sheet.
+- extendedWaitUntil:
+    visible:
+      id: 'settings-link-account'
+    timeout: 30000
+- tapOn:
+    id: 'settings-link-account'
+- extendedWaitUntil:
+    visible:
+      id: 'account-email'
+      text: ${output.collector.email}
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'account-delete'
+- tapOn:
+    id: 'account-delete'
+- extendedWaitUntil:
+    visible:
+      id: 'delete-submit'
+    timeout: 30000
+- assertVisible:
+    id: 'delete-submit'
+    enabled: false
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'delete-acknowledge'
+- tapOn:
+    id: 'delete-acknowledge'
+- assertVisible:
+    id: 'delete-submit'
+    enabled: true
+- tapOn:
+    id: 'delete-password'
+- inputText: ${output.collector.password}
+- runFlow: subflows/hide-keyboard.yaml
+- tapOn:
+    id: 'delete-submit'
+- extendedWaitUntil:
+    visible:
+      id: 'delete-confirm-confirm'
+    timeout: 30000
+- assertVisible: 'Delete your account\?'
+- takeScreenshot: r13-delete-sheet
+- tapOn:
+    id: 'delete-confirm-cancel'
+- extendedWaitUntil:
+    notVisible:
+      id: 'delete-confirm-confirm'
+    timeout: 30000
+- runScript:
+    file: scripts/check-settings.js
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+      WISHLIST: 'true'
+      DISCOVERABLE: 'true'

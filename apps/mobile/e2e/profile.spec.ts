@@ -11,13 +11,13 @@ import {
 } from './support/stack';
 
 /**
- * Profile tab and Settings → Profile against the real stack: view, validation, edit, tags and the
- * public preview (`GET /collectors/{handle}`).
+ * Profile tab and Edit profile against the real stack: view, validation, edit, the tags saved with
+ * the rest by one "Save changes" (stage R13), and the public profile read again.
  */
 test.describe('mobile profile', () => {
   requireStack();
 
-  test('a collector edits the profile, saves tags and opens the public preview', async ({
+  test('a collector edits the profile and its tags and saves them once', async ({
     page,
     request,
   }) => {
@@ -40,11 +40,12 @@ test.describe('mobile profile', () => {
 
     await profile.getByRole('button', { name: 'Edit profile' }).click();
     const editor = screen(page, 'settings-profile');
-    const save = editor.getByRole('button', { name: 'Save details' });
+    // Stage R13: one "Save changes" for the whole page, "No changes yet" while nothing changed.
+    const save = editor.getByTestId('profile-save');
     await expect(editor.getByLabel('Display name')).toHaveValue('Mobile Editor', {
       timeout: 30_000,
     });
-    // Nothing changed yet: saving is disabled.
+    await expect(save).toHaveText('No changes yet');
     await expect(save).toHaveAttribute('aria-disabled', 'true');
 
     // Client validation.
@@ -63,17 +64,24 @@ test.describe('mobile profile', () => {
     await editor.getByLabel('Handle').fill(collector.handle);
     await editor.getByLabel('Bio').fill('Updated from the mobile app.');
     await editor.getByRole('checkbox', { name: 'Yu-Gi-Oh!' }).click();
-    await save.click();
-    await expect(snackbar(page)).toHaveText('Profile saved.', { timeout: 30_000 });
-    await expect(save).toHaveAttribute('aria-disabled', 'true');
 
-    // Tags: one curated suggestion.
-    const addTag = editor.getByRole('button', { name: /^Add tag / }).first();
-    await expect(addTag).toBeVisible({ timeout: 30_000 });
-    await addTag.click();
-    await expect(editor.getByTestId('tag-count')).toHaveText('1 / 12');
-    await editor.getByRole('button', { name: 'Save tags' }).click();
-    await expect(snackbar(page)).toHaveText('Tags saved.', { timeout: 30_000 });
+    // Tags: "Add a tag" opens the suggestions; one curated tag, saved with the rest.
+    await editor.getByRole('button', { name: 'Add a tag' }).click();
+    const suggestion = page.getByTestId(/^tag-suggestion-/).first();
+    await expect(suggestion).toBeVisible({ timeout: 30_000 });
+    await suggestion.click();
+    await expect(page.getByTestId('tag-count')).toHaveText('1 / 12');
+    await page.getByTestId('profile-tag-sheet-done').click();
+    const put = page.waitForRequest(
+      (candidate) => candidate.method() === 'PUT' && candidate.url().endsWith('/api/v1/me/profile')
+    );
+    await expect(save).toHaveText('Save changes');
+    await save.click();
+    const sent = (await put).postDataJSON() as { tags?: { tagIds: string[] } };
+    expect(sent.tags?.tagIds).toHaveLength(1);
+    await expect(snackbar(page)).toContainText('Profile saved.', { timeout: 30_000 });
+    await expect(save).toHaveText('No changes yet');
+    await expect(save).toHaveAttribute('aria-disabled', 'true');
 
     // The API holds the change.
     const me = await request.get(`${API_URL}/api/v1/me/profile`, {

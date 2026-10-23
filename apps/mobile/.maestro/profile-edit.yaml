@@ -47,9 +47,9 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'profile-save-details'
+      ID: 'profile-save'
 - tapOn:
-    id: 'profile-save-details'
+    id: 'profile-save'
 - runFlow:
     file: subflows/scroll-up-to.yaml
     env:
@@ -76,11 +76,11 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'profile-save-details'
+      ID: 'profile-save'
 - tapOn:
-    id: 'profile-save-details'
+    id: 'profile-save'
 - extendedWaitUntil:
-    visible: 'Profile saved.'
+    visible: '.*Profile saved\.'
     timeout: 30000
 - runFlow: subflows/go-back.yaml
 - extendedWaitUntil:

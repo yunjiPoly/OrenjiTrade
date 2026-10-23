@@ -290,6 +290,7 @@ export function SettingsRadios<T extends string>({
             accessibilityRole="radio"
             accessibilityLabel={option.label}
             accessibilityHint={option.help}
+            accessibilityState={{ selected, checked: selected, disabled }}
             aria-checked={selected}
             aria-disabled={disabled}
             disabled={disabled}

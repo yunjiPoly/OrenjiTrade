@@ -23,7 +23,7 @@ tags:
       id: 'screen-legal'
     timeout: 60000
 - assertVisible: 'Legal'
-- assertVisible: 'Draft — requires review by qualified legal counsel before production launch'
+- assertVisible: '.*Requires review by qualified legal counsel before launch\.'
 - assertNotVisible:
     id: 'legal-translation-notice'
 - runFlow:
@@ -81,7 +81,7 @@ tags:
 - assertVisible: 'Effective date:.*'
 - assertNotVisible:
     id: 'legal-translation-notice'
-- assertVisible: 'Draft — requires review by qualified legal counsel before production launch'
+- assertVisible: '.*Requires review by qualified legal counsel before launch\.'
 
 # The explicit choice (EN) survives a relaunch; FR again from the index.
 - runFlow: subflows/relaunch.yaml

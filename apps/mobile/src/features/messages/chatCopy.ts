@@ -74,7 +74,7 @@ export const CHAT_COPY = {
   unblockAction: 'Unblock',
   blockTitle: (handle: string) => `Block ${handle}?`,
   blockBody:
-    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this chat or from Settings → Blocked users.',
+    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this chat or from Settings → Blocked collectors.',
   blockConfirm: 'Block',
   blockedToast: (handle: string) => `${handle} is blocked.`,
   unblockedToast: (handle: string) => `${handle} is unblocked.`,

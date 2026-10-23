@@ -28,9 +28,11 @@ tags:
     text: 'Not on the map · Member since \d{4}'
 - tapOn:
     id: 'profile-line'
+# Stage R13: "Show me on the map" comes first and waits for a saved place.
 - extendedWaitUntil:
     visible:
-      id: 'location-none'
+      id: 'location-visibility'
+      text: 'You have not chosen a location yet.*'
     timeout: 30000
 - extendedWaitUntil:
     visible:
@@ -72,7 +74,7 @@ tags:
 - tapOn:
     id: 'location-save'
 - extendedWaitUntil:
-    visible: 'Location saved · Ontario, Canada.*'
+    visible: '.*Location saved · Ontario, Canada.*'
     timeout: 30000
 - runScript:
     file: scripts/check-location.js
@@ -82,22 +84,15 @@ tags:
       COUNTRY: 'CA'
       SUBDIVISION: 'CA-ON'
       CITY: 'Ottawa'
+
+# Hidden by default, then opt into the map (the switch at the top of the page).
 - runFlow:
     file: subflows/scroll-up-to.yaml
-    env:
-      ID: 'location-label'
-- assertVisible:
-    id: 'location-label'
-    text: 'Ontario, Canada · Americas \(North\)'
-
-# Hidden by default, then opt into the map.
-- runFlow:
-    file: subflows/scroll-down-to.yaml
     env:
       ID: 'location-visibility'
 - assertVisible:
     id: 'location-visibility'
-    text: 'You are hidden from the map.*'
+    text: 'You are hidden from the map and from searches\.'
 - runFlow:
     file: subflows/assert-unchecked.yaml
     env:
@@ -105,17 +100,13 @@ tags:
 - tapOn:
     id: 'location-discoverable'
 - extendedWaitUntil:
-    visible: 'You now appear on the map.'
+    visible: '.*You now appear on the map\.'
     timeout: 30000
 - runFlow:
     file: subflows/assert-checked.yaml
     env:
       ID: 'location-discoverable'
-- runFlow:
-    file: subflows/scroll-down-to.yaml
-    env:
-      ID: 'location-visibility'
 - assertVisible:
     id: 'location-visibility'
-    text: 'Collectors see you in Ontario, Canada.'
+    text: 'Collectors see you in Ontario, Canada\.'
 - takeScreenshot: discoverability-on

@@ -24,9 +24,9 @@ import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from 
  * cards and binders, your wishes, your bio, your ratings and references), with "Edit profile" and
  * "Share profile" instead of "Message", your wishes without "I have it", and "See all" leading to
  * your Inventory, Inventory › Binders and Search › Wishlist. Everything the tab reached before
- * stays one tap further: Settings (Location, Privacy, Shipping details, Notifications, Blocked
- * users, My reports, Account, Appearance, Legal, Sign out) behind the gear, the profile editor
- * behind "Edit profile". Coming back to the tab reads the page again (an edit made elsewhere).
+ * stays one tap further: Settings (Location, Shipping details, Notifications, Privacy,
+ * Appearance, Blocked collectors, My reports, Account, Legal, Sign out; stage R13) behind the gear,
+ * Edit profile behind "Edit profile". Coming back to the tab reads the page again (an edit made elsewhere).
  */
 export default function ProfileScreen() {
   const { palette } = useTheme();
