@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { useSnackbar, useSnackbarCover } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
@@ -83,7 +83,8 @@ export interface SettingsPageProps {
  * The layout of Settings and its pages: the safe area, the top bar, the content scrolling under
  * it (16 pt sides, 16 pt between groups) and an optional bottom bar. On iOS the scroll view keeps
  * the field being typed in above the keyboard (`automaticallyAdjustKeyboardInsets`, stage R12's
- * lesson); Android keeps the keyboard padding. A toast sits above the bottom bar.
+ * lesson); Android keeps the keyboard padding. A toast sits above the bottom bar, and the end of
+ * the content keeps room for it.
  */
 export function SettingsPage({
   title,
@@ -99,7 +100,18 @@ export function SettingsPage({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const snackbar = useSnackbar();
+  const cover = useSnackbarCover();
   const [footerHeight, setFooterHeight] = useState(0);
+  const [toastRoom, setToastRoom] = useState(0);
+  // The part of the content a toast covers (above the bottom bar, once that is laid out): the end
+  // of the content keeps that much room, so a toast never hides the page's last row ("Remove my
+  // location" under "Profile saved."); the largest room so far stays (R2's lesson: nothing moves
+  // under a finger when the toast goes).
+  const covered =
+    cover > 0 && (!footer || footerHeight > 0) ? cover - (footer ? footerHeight : 0) : 0;
+  if (covered > toastRoom) {
+    setToastRoom(covered);
+  }
 
   useEffect(() => {
     if (!footer || footerHeight === 0) {
@@ -135,7 +147,7 @@ export function SettingsPage({
           style={styles.fill}
           contentContainerStyle={[
             styles.content,
-            { paddingBottom: footer ? spacing[6] : insets.bottom + 28 },
+            { paddingBottom: (footer ? spacing[6] : insets.bottom + 28) + toastRoom },
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

@@ -157,6 +157,15 @@ describe('the tags of the welcome', () => {
     expect(full.filter((chip) => !chip.selected).every((chip) => chip.disabled)).toBe(true);
   });
 
+  it("leaves out a suggestion named as a picked tag (one's own label of the same name)", () => {
+    const chips = welcomeTagChips({
+      selected: [],
+      customLabels: ['binder Collector '],
+      suggestions: TAGS,
+    });
+    expect(chips.map((chip) => chip.label)).toEqual(['binder Collector ', 'Tracked shipping']);
+  });
+
   it('leaves the game and language tags out of the suggestions: the tiles and chips above ask them', () => {
     const english = {
       id: 'tag-en',

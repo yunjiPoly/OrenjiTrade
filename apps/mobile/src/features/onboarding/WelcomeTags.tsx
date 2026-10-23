@@ -46,6 +46,13 @@ export function welcomeTagChips(input: {
 }): ToggleChip[] {
   const full = input.selected.length + input.customLabels.length >= MAX_PROFILE_TAGS;
   const chosen = new Set(input.selected.map((tag) => tag.id));
+  // A suggestion named as a picked tag is left out too (one's own "Ships tracked" and a curated tag
+  // of the same name were listed twice, stage R13's walk).
+  const names = new Set(
+    [...input.selected.map((tag) => tag.label), ...input.customLabels].map((label) =>
+      label.trim().toLowerCase()
+    )
+  );
   return [
     ...input.selected.map((tag) => ({
       key: `tag:${tag.id}`,
@@ -60,7 +67,12 @@ export function welcomeTagChips(input: {
       testID: `tag-custom-${label}`,
     })),
     ...input.suggestions
-      .filter((tag) => !chosen.has(tag.id) && !ASKED_ABOVE.has(tag.category))
+      .filter(
+        (tag) =>
+          !chosen.has(tag.id) &&
+          !names.has(tag.label.trim().toLowerCase()) &&
+          !ASKED_ABOVE.has(tag.category)
+      )
       .slice(0, MAX_PROFILE_TAGS)
       .map((tag) => ({
         key: `tag:${tag.id}`,
