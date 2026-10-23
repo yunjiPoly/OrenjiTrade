@@ -73,8 +73,10 @@ simulator, the same Maestro flows): sign-up with the versioned legal documents, 
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
 Profile tab (since stage R6: your page as others see it, with Edit profile, Share profile and a
-gear that opens Settings), and Settings (profile, location and discoverability, privacy,
-notifications, account with data export and deletion, appearance, legal).
+gear that opens Settings), and Settings (since stage R13, mockup v50 screens 47 to 59: the profile
+card, Edit profile with one "Save changes", location and discoverability, shipping details,
+notifications with the grid of topics by channel, privacy saved at once, appearance, blocked
+collectors, my reports, account with data export and deletion, legal).
 
 Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Search** tab (card
 catalog across games, live typo-tolerant search, game / set / rarity / language / edition filters,
@@ -162,7 +164,7 @@ public binders by name with their owner, recent searches per segment), the **car
 (`holders`: "Who has this in my region" from a card as a list with sort (freshness or price),
 availability, condition, price range, freshness, edition, language and accepts-offers filters,
 paged), **"Looking for"** on a collector's profile (the public wishlist of a collector
-who enabled "Let others see what you want"), **Settings → Blocked users** (list and unblock;
+who enabled "Let others see what you want"), **Settings → Blocked collectors** (list and unblock;
 linked from Settings, from a blocked profile's Message reason, from the block dialog and from the
 settings deep links), inventory **owner photos** on a card (view, add from the library, remove;
 the web's upload rules, no camera) and **multi-select bulk actions** (visibility including
@@ -365,9 +367,13 @@ app/                       expo-router routes
                            is asked at sign-up or on Review our terms
   (tabs)/                  Search | Inventory | Messages | Profile (+ hidden index and wishlist,
                            which redirect into Search)
-  settings/                profile, location, privacy, notifications, account, delete-account,
-                           appearance (screens of the root stack, no nested stack)
-  legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
+  settings/                Settings and its pages (stage R13): profile (Edit profile), location,
+                           shipping, notifications, privacy, appearance, blocked, reports,
+                           account, delete-account; screens of the root stack (no nested stack),
+                           each with its own top bar (src/features/settings/SettingsPage.tsx) and
+                           the groups and rows of SettingsList.tsx; their words in settingsCopy.ts
+  legal/                   index + [key] (versioned documents read in-app, English | Français
+                           switch; the phone lists seven documents, PHONE_LEGAL_KEYS)
   (tabs)/search.tsx        Search (stage R5): Cards (the region map, then the card search while
                            typing), Binders, Wishlist; `?segment=`, `?q=`, `?typing=1`, `?region=`,
                            `?subdivision=`, `?state=`
@@ -429,8 +435,8 @@ src/
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
-                           (a new install starts in dark; Settings → Appearance: System / Light /
-                           Dark; on iOS the keyboard, alerts and pickers follow the chosen theme,
+                           (a new install starts in dark; Settings → Appearance: Same as the
+                           phone / Light / Dark; on iOS the keyboard, alerts and pickers follow the chosen theme,
                            and the splash is dark), fonts.ts + useAppFonts.ts (Sora, Inter,
                            JetBrains Mono, loaded before the first screen;
                            components/ui/Text.tsx maps family + weight to the loaded face, so
