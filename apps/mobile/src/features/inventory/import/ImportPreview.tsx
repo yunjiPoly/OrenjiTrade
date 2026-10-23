@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -108,6 +108,15 @@ export function ImportPreview({
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
+  // A toast stands above the bar at the bottom, never over the add button (the walk at the
+  // largest text size: "Use the newest"'s toast took the button's press).
+  const [barHeight, setBarHeight] = useState(0);
+  useEffect(() => {
+    if (barHeight === 0) {
+      return undefined;
+    }
+    return snackbar.keepClear(barHeight);
+  }, [barHeight, snackbar]);
   const queryClient = useQueryClient();
   const uid = useUid();
   const [filter, setFilter] = useState<ImportRowFilter>('ALL');
@@ -466,6 +475,7 @@ export function ImportPreview({
       />
 
       <View
+        onLayout={(event) => setBarHeight(Math.round(event.nativeEvent.layout.height))}
         testID="import-commit-bar"
         style={[
           styles.bar,
