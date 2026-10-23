@@ -9422,7 +9422,7 @@ phone's Legal list leaves out the payment protection and refund policies**.
 - API: `ProfileIT.theProfileAndItsTagsAreSavedTogetherOrNotAtAll`;
   `GeoPrivacyContractTest.settingsOfStageR13CarryNoPlace` (Edit profile's save with the tags as
   read, `GET /me/blocks`, `GET /me/reports`: no coordinate, distance or city of another collector).
-- Jest: `__tests__/screens/settings.test.tsx` rewritten (33: Settings' values, links, sign out and
+- Jest: `__tests__/screens/settings.test.tsx` rewritten (35: Settings' values, links, sign out and
   the values that wait or fail; Edit profile's one save in one request, a value changed back, the
   details without tags, the field, handle, tag and rate-limit failures, Preview and the leave
   guard, loading and Try again; Location's switch first, the place saved, no place, the remove
@@ -9430,16 +9430,60 @@ phone's Legal list leaves out the payment protection and refund policies**.
   quiet hours, the no-location warning, the states; Privacy saved at once with the restore, the
   order, the radios, the states, Remember my searches; Appearance's radios, version, server,
   credits; Account; Delete account grey until ticked, the password, the wrong password, the working
-  steps, Google, the blocked state); `__tests__/features/settingsPages.test.ts` (7: what changed,
+  steps, Google, the blocked state; the grid and the rows at the largest text size);
+  `__tests__/features/settingsPages.test.ts` (7: what changed,
   the save's body, a refused tag, the tag chips, the grid's names, the lines, member since); the
-  Legal, Blocked, My reports, Shipping and launch-configuration tests follow the restyle.
+  Legal, Blocked, My reports, Shipping and launch-configuration tests follow the restyle;
+  `welcomeSteps.test.ts` gains the suggestion named as a picked tag.
 - Maestro: **`settings-pages.yaml`** (new: the Profile gear, Settings, Location saved and the map
   switch, a Privacy switch, Delete account up to the sheet, then Keep; `scripts/check-settings.js`
   checks the API); `profile-edit.yaml`, `discoverability.yaml` and `legal-french.yaml` follow the
   pages.
 - Mobile web E2E (Playwright): `profile.spec.ts` (one save with a tag), `account.spec.ts` (grey until
   ticked; privacy waits for each save), `location.spec.ts` (the switch waits, the remove sheet),
-  `legal-french.spec.ts`, `profiles.spec.ts`, `blocked.spec.ts` follow the restyle.
+  `legal-french.spec.ts` and `safety-notice.spec.ts` (a document's own title,
+  `legal-document-title`: the top bar names the document too), `profiles.spec.ts`,
+  `blocked.spec.ts` follow the restyle.
+
+**Checks** (retries off; 2026-10-23, head of the stage before these documents)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | BUILD SUCCESSFUL: 1,270 tests in 198 classes, 0 failures (4 min 26 s); `ProfileIT` 10 / 10, `GeoPrivacyContractTest` 17 / 17 |
+| `exportOpenApi` then `npm run generate:api` | committed (`UpdateProfileRequest.tags`); git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web` | 136 files, 633 tests passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass |
+| `npm run test:mobile` | 123 suites, **1,646 tests** passed (+ typecheck, lint, the harness guard tests) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | first run 58 passed, 4 failed (a document's title read twice: the top bar names it too; "Handle" matched the handle check's own name): the specs read `legal-document-title` and the exact name; then **62 / 62** |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro) | **39 / 39** flows in 1 h 0 min 33 s (`settings-pages.yaml` new) |
+| `npm run test:scripts` | 145 / 145 |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**Not done, could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- The real push notifications (the push note stays: push arrives with a later release).
+- A report with "Under review", "Action taken" or "Dismissed" in the walk (a moderator's decision);
+  the pills are covered by Jest.
+
+**Owner follow-ups**
+
+1. The pull request's screenshots of 47 to 59 (dark, default size) are in
+   `.local-dev/r13-notes/pr-shots/` of the worktree.
+2. The draft "Trading safely" (synced from the paused web) still says "Settings → Blocked users"
+   (decision 9): with the lawyer's review or when the web resumes.
+3. Location's "Show me on the map" stays saved at once and waits for a saved place (decision 3);
+   saving it with "Save location" instead is a small change if preferred.
+4. The phone's Legal list leaves out the Payment Protection and the Refund and Dispute policies
+   (default 9); they still open from a link.
+5. The picker fields shared with the welcome (Region, Country, State or province) cut a long value
+   at the largest text size ("Americas…"); a follow-up for the shared `SelectSheet`.
+6. The paused web could use the optional `tags` of `PUT /me/profile` when it resumes.
 
 ## NEXT TASK
 

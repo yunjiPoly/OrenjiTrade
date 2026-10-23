@@ -1,8 +1,8 @@
-# Blocked users (mobile stage M7): Ada (fresh, fictional) blocks Ben from their conversation
-# (scripts/messaging.js), finds him under Settings -> Blocked users and unblocks him; the API holds
+# Blocked collectors (mobile stage M7; "Blocked users" until stage R13): Ada (fresh, fictional) blocks Ben from their conversation
+# (scripts/messaging.js), finds him under Settings -> Blocked collectors and unblocks him; the API holds
 # each step and Ben can write again afterwards.
 appId: ${APP_ID}
-name: Block from a conversation, Blocked users, unblock
+name: Block from a conversation, Blocked collectors, unblock
 tags:
   - mobile-m7
   - settings
@@ -33,7 +33,7 @@ tags:
     visible: 'Hi Ada, still trading the Emberfang Fox?'
     timeout: 60000
 
-# Block Ben, after the confirmation that names Settings -> Blocked users.
+# Block Ben, after the confirmation that names Settings -> Blocked collectors.
 - tapOn:
     id: 'conversation-menu'
 - extendedWaitUntil:
@@ -63,7 +63,7 @@ tags:
       EXPECT_COUNT: 1
       HANDLE: ${output.ben.handle}
 
-# Settings -> Blocked users: Ben, then Unblock (back to the inbox first: the tabs sit under the
+# Settings -> Blocked collectors: Ben, then Unblock (back to the inbox first: the tabs sit under the
 # conversation).
 - runFlow: subflows/go-back.yaml
 - extendedWaitUntil:
