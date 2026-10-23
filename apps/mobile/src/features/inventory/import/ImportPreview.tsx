@@ -1,6 +1,8 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
+import { Stack } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ApiError } from '@/src/api/ApiError';
@@ -21,20 +23,22 @@ import { useGames } from '@/src/api/hooks/profile';
 import { useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
 import type { ImportRow, InventoryImport, UpdateImportRowRequest } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
 import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
-import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { ListFooter } from '@/src/components/ui/ListFooter';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
+import { SettingsTopBar } from '@/src/features/settings/SettingsPage';
 import { isLimitReached, limitReachedInfo } from '@/src/lib/limits';
-import { PINNED_MAX_FONT_SCALE, spacing, textStyle, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, spacing, useTheme } from '@/src/theme';
 
+import { IMPORT_COPY } from './importCopy';
 import { ImportConditionSheet } from './ImportConditionSheet';
 import { ImportPreviewHeader } from './ImportPreviewHeader';
 import { ImportPrintingSheet } from './ImportPrintingSheet';
@@ -50,8 +54,10 @@ import {
   lineNoun,
   mostRecentMessage,
   limitRoomText,
+  needPrintingBar,
   pluralLines,
   rowTitle,
+  sectionsLine,
 } from './importLabels';
 
 /** A preview the API no longer has: it expired (410) or was purged or replaced (404). */
@@ -62,6 +68,10 @@ export function isImportGone(error: unknown): boolean {
 
 export interface ImportPreviewProps {
   preview: InventoryImport;
+  /** The name of the file this phone sent, when it sent one (memory only). */
+  fileName?: string | null;
+  /** The top bar's back (the screen's leave guard asks first). */
+  onBack: () => void;
   /** The preview expired or is gone: the flow starts over. */
   onGone: () => void;
   /** The preview was discarded by the collector. */
@@ -87,7 +97,14 @@ export interface ImportPreviewProps {
  * still being saved the button waits ("Saving your changes…"), and the commit itself queues
  * behind the edits: what the collector sees as left out is never imported.
  */
-export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: ImportPreviewProps) {
+export function ImportPreview({
+  preview,
+  fileName = null,
+  onBack,
+  onGone,
+  onDiscarded,
+  onLateEdit,
+}: ImportPreviewProps) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
   const snackbar = useSnackbar();
@@ -105,7 +122,6 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
   const saving = useImportEditsPending(preview.id) > 0;
   const limits = useMyLimits({ fresh: true });
   const listRef = useRef<FlatList<ImportRow>>(null);
-  const headerHeight = useRef(0);
   const [printingRowId, setPrintingRowId] = useState<string | null>(null);
   const [editRowId, setEditRowId] = useState<string | null>(null);
   const [conditionSheet, setConditionSheet] = useState(false);
@@ -114,6 +130,21 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const list = useMemo(() => loadedRows(rows.data), [rows.data]);
+  // Cards that stand on more than one line: those lines say what the file said (stage R14).
+  const twins = useMemo(() => {
+    const seen = new Set<string>();
+    const twice = new Set<string>();
+    for (const row of list) {
+      const id = row.card?.id;
+      if (id) {
+        if (seen.has(id)) {
+          twice.add(id);
+        }
+        seen.add(id);
+      }
+    }
+    return twice;
+  }, [list]);
   const printingRow = list.find((row) => row.id === printingRowId) ?? null;
   const editRow = list.find((row) => row.id === editRowId) ?? null;
   const committing = commit.isPending;
@@ -239,54 +270,116 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
     .filter((grade): grade is string => !!grade);
   const room = limits.data?.limits?.find((limit) => limit.key === 'inventory.items.max');
   const limitRoom = limitRoomText(preview.summary, room?.limit == null ? null : room.remaining);
+  const { summary } = preview;
+  const what = [
+    fileName ?? IMPORT_COPY.fileFallback[preview.source],
+    preview.sections ? sectionsLine(preview.sections) : pluralLines(summary.rows, preview.source),
+  ];
 
-  /** A filter from the bar that stays on screen: its first line comes up under the bar. */
+  /** A filter from the chips that stay on screen: the list starts at its first line. */
   const chooseFilter = (next: ImportRowFilter) => {
     setFilter(next);
-    listRef.current?.scrollToOffset({ offset: headerHeight.current, animated: false });
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
 
   const header = (
-    <View
-      onLayout={(event) => {
-        headerHeight.current = event.nativeEvent.layout.height;
-      }}
+    <ImportPreviewHeader
+      preview={preview}
+      onFilter={chooseFilter}
+      onSections={(patch) => updateSections.mutate(patch, { onError: (error) => refused(error) })}
+      onCondition={() => setConditionSheet(true)}
+      leaveOut={leaveOut}
+      onLeaveOut={setLeaveOut}
+      busy={wholeBusy}
+      lowestGrades={lowestGrades}
+      limitRoom={limitRoom}
+    />
+  );
+
+  const discardButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={IMPORT_COPY.discard}
+      disabled={committing}
+      onPress={() => setConfirmDiscard(true)}
+      testID="import-discard"
+      style={({ pressed }) => [styles.trash, pressed && styles.pressed]}
     >
-      <ImportPreviewHeader
-        preview={preview}
-        onFilter={chooseFilter}
-        onSections={(patch) => updateSections.mutate(patch, { onError: (error) => refused(error) })}
-        onMostRecent={mostRecent}
-        onCondition={() => setConditionSheet(true)}
-        leaveOut={leaveOut}
-        onLeaveOut={setLeaveOut}
-        busy={wholeBusy}
-        lowestGrades={lowestGrades}
-        limitRoom={limitRoom}
-      />
-    </View>
+      <MaterialCommunityIcons name="trash-can-outline" size={22} color={palette.textMuted} />
+    </Pressable>
   );
 
   return (
-    <View style={styles.root} testID="import-preview">
-      <View
-        testID="import-filter-bar"
-        style={[
-          styles.filterBar,
-          { borderBottomColor: palette.border, backgroundColor: palette.background },
-        ]}
-      >
+    <View
+      style={[styles.root, { backgroundColor: palette.background, paddingTop: insets.top }]}
+      testID="import-preview"
+    >
+      <Stack.Screen options={{ headerShown: false, title: IMPORT_COPY.checkTitle }} />
+      <SettingsTopBar
+        title={IMPORT_COPY.checkTitle}
+        onBack={onBack}
+        backLabel={IMPORT_COPY.back}
+        right={discardButton}
+      />
+      <View testID="import-filter-bar" style={styles.fixed}>
+        <Text
+          style={[styles.what, { color: palette.textMuted }]}
+          testID="import-summary"
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        >
+          <Text style={[styles.whatName, { color: palette.ink }]}>{what[0]}</Text>
+          {` · ${what[1]}`}
+        </Text>
         <ChoiceChips
-          label={preview.source === 'YDK' ? 'Cards shown' : 'Lines shown'}
+          label={IMPORT_COPY.filterLabel}
           hideLabel
           scroll
           revealSelected
+          variant="pill"
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          options={filterOptions(preview.summary, filter, preview.source)}
+          options={filterOptions(summary, filter, preview.source)}
           value={filter}
           onChange={chooseFilter}
           testID="import-filter"
         />
+        {summary.toChoose > 0 ? (
+          <View
+            testID="import-unchosen"
+            style={[
+              styles.amber,
+              {
+                backgroundColor: palette.settings.draftBackground,
+                borderColor: palette.settings.draftBorder,
+              },
+            ]}
+          >
+            <Text
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.amberText, { color: palette.settings.draftText }]}
+            >
+              {needPrintingBar(summary.toChoose, preview.source)}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint={IMPORT_COPY.useNewestHint}
+              disabled={wholeBusy}
+              onPress={mostRecent}
+              testID="import-bulk-recent"
+              style={({ pressed }) => [
+                styles.newest,
+                { borderColor: palette.settings.draftIcon },
+                (pressed || wholeBusy) && styles.pressed,
+              ]}
+            >
+              <Text
+                maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                style={[styles.newestText, { color: palette.settings.draftIcon }]}
+              >
+                {IMPORT_COPY.useNewest}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
       <FlatList
         ref={listRef}
@@ -300,9 +393,9 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
             onEdit={openEdit}
             onToggle={toggle}
             disabled={committing}
+            showSource={!!item.card?.id && twins.has(item.card.id)}
           />
         )}
-        ItemSeparatorComponent={Separator}
         ListHeaderComponent={header}
         ListEmptyComponent={
           !rows.data && rows.error ? (
@@ -314,7 +407,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
               onRetry={() => void rows.refetch()}
             />
           ) : !rows.data ? (
-            <SkeletonList rows={4} rowHeight={120} testID="import-rows-loading" />
+            <SkeletonList rows={4} rowHeight={72} testID="import-rows-loading" />
           ) : (
             <EmptyState
               testID="import-rows-empty"
@@ -329,23 +422,12 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           )
         }
         ListFooterComponent={
-          <View style={styles.listFooter}>
-            <ListFooter
-              loading={rows.isFetchingNextPage}
-              failed={!!rows.error && !!rows.data && rows.hasNextPage}
-              onRetry={() => void rows.fetchNextPage()}
-              testID="import-rows-footer"
-            />
-            <Button
-              label="Discard this import"
-              icon="trash-can-outline"
-              variant="ghost"
-              disabled={committing}
-              onPress={() => setConfirmDiscard(true)}
-              style={styles.discard}
-              testID="import-discard"
-            />
-          </View>
+          <ListFooter
+            loading={rows.isFetchingNextPage}
+            failed={!!rows.error && !!rows.data && rows.hasNextPage}
+            onRetry={() => void rows.fetchNextPage()}
+            testID="import-rows-footer"
+          />
         }
         onEndReached={() => {
           if (rows.hasNextPage && !rows.isFetchingNextPage && !rows.error) {
@@ -353,8 +435,8 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           }
         }}
         onEndReachedThreshold={0.6}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
         windowSize={9}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -367,7 +449,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           />
         }
         contentContainerStyle={styles.listContent}
-        accessibilityLabel={pluralLines(preview.summary.rows, preview.source)}
+        accessibilityLabel={pluralLines(summary.rows, preview.source)}
       />
 
       <View
@@ -377,7 +459,7 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           {
             borderTopColor: palette.border,
             backgroundColor: palette.background,
-            paddingBottom: insets.bottom + spacing[3],
+            paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2],
           },
         ]}
       >
@@ -395,21 +477,10 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
               : friendlyMessage(failure)}
           </FormMessage>
         ) : null}
-        {saving || state.reason ? (
-          <Text
-            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-            style={[textStyle('xs'), { color: palette.textMuted }]}
-            accessibilityLiveRegion={saving ? 'polite' : undefined}
-            testID="import-commit-reason"
-          >
-            {saving ? SAVING_CHANGES : state.reason}
-          </Text>
-        ) : null}
-        <Button
+        <PillButton
           label={state.shortLabel}
           accessibilityLabel={state.label}
           loadingLabel="Adding to your inventory…"
-          icon="tray-arrow-down"
           disabled={state.disabled || wholeBusy || saving}
           loading={committing}
           onPress={() => void submit()}
@@ -417,6 +488,16 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
           maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="import-commit"
         />
+        {saving || state.reason ? (
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            style={[styles.reason, { color: palette.textMuted }]}
+            accessibilityLiveRegion={saving ? 'polite' : undefined}
+            testID="import-commit-reason"
+          >
+            {saving ? SAVING_CHANGES : state.reason}
+          </Text>
+        ) : null}
       </View>
 
       <ImportPrintingSheet
@@ -441,13 +522,12 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
         onChoose={setCondition}
         onClose={() => setConditionSheet(false)}
       />
-      <ConfirmDialog
+      <ConfirmSheet
         visible={confirmDiscard}
-        title="Discard this import?"
-        message="The choices you made for it are lost. Nothing was added to your inventory."
-        confirmLabel="Discard"
-        cancelLabel="Keep it"
-        tone="danger"
+        title={IMPORT_COPY.discardTitle}
+        message={IMPORT_COPY.discardBody}
+        confirmLabel={IMPORT_COPY.discardConfirm}
+        cancelLabel={IMPORT_COPY.keepChecking}
         busy={discard.isPending}
         onConfirm={() => void confirmDiscardNow()}
         onCancel={() => setConfirmDiscard(false)}
@@ -457,25 +537,34 @@ export function ImportPreview({ preview, onGone, onDiscarded, onLateEdit }: Impo
   );
 }
 
-function Separator() {
-  return <View style={styles.separator} />;
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  filterBar: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing[4],
-    paddingVertical: spacing[2],
+  trash: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  fixed: { paddingHorizontal: spacing[4], paddingTop: 12, paddingBottom: 4, gap: 10 },
+  what: { fontSize: 13, lineHeight: 18 },
+  whatName: { fontWeight: fontWeight.semibold },
+  amber: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  listContent: { paddingHorizontal: spacing[4], paddingTop: spacing[4], paddingBottom: spacing[4] },
-  listFooter: { gap: spacing[2] },
-  discard: { alignSelf: 'flex-start' },
-  separator: { height: spacing[2] },
-  bar: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing[4],
-    paddingTop: spacing[3],
-    gap: spacing[2],
+  amberText: { flex: 1, minWidth: 160, fontSize: 13, lineHeight: 18 },
+  newest: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  newestText: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.bold },
+  listContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[4] },
+  bar: { borderTopWidth: 1, paddingHorizontal: spacing[4], paddingTop: 12, gap: 6 },
+  reason: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
+  pressed: { opacity: 0.7 },
 });

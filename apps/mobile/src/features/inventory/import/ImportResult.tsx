@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -6,10 +5,14 @@ import { loadedRows, useImportRows, type ImportRowFilter } from '@/src/api/hooks
 import type { InventoryImport } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { SectionCard } from '@/src/components/ui/Layout';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
+import { StatusActions, StatusBody, StatusText } from '@/src/features/account/StatusPage';
+import { GroupTitle, SettingsGroup } from '@/src/features/settings/SettingsList';
 import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+
+import { IMPORT_COPY } from './importCopy';
 
 import { ImportRowCard } from './ImportRowCard';
 import {
@@ -44,26 +47,21 @@ export interface ImportResultProps {
 export function ImportResult({ preview, lateEdits, onInventory, onAnother }: ImportResultProps) {
   const { palette } = useTheme();
   const { summary } = preview;
+  const added = (preview.result?.itemsCreated ?? 0) + (preview.result?.itemsMerged ?? 0);
   return (
     <View style={styles.root} testID="import-result">
-      <View style={styles.head}>
-        <MaterialCommunityIcons
-          name="check-circle-outline"
-          size={28}
-          color={palette.success}
-          accessibilityElementsHidden
-        />
-        <Text
-          accessibilityRole="header"
-          style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}
-        >
-          Import done
-        </Text>
-      </View>
+      <StatusBody
+        icon="check"
+        tone="accent"
+        title={IMPORT_COPY.added(formatCount(added))}
+        paddingTop={28}
+      >
+        <StatusText>{IMPORT_COPY.startPrivate}</StatusText>
+      </StatusBody>
       {lateEdits ? (
         <FormMessage testID="import-result-late">{lateEditText(lateEdits)}</FormMessage>
       ) : null}
-      <SectionCard>
+      <SettingsGroup testID="import-result-lines">
         {resultLines(preview).map((line) => (
           <View
             key={line.key}
@@ -72,38 +70,24 @@ export function ImportResult({ preview, lateEdits, onInventory, onAnother }: Imp
             testID={`import-result-${line.key}`}
             style={styles.line}
           >
-            <Text style={[textStyle('xl', 'heading'), styles.value, { color: palette.ink }]}>
-              {formatCount(line.value)}
-            </Text>
+            <Text style={[styles.value, { color: palette.ink }]}>{formatCount(line.value)}</Text>
             <View style={styles.grow}>
-              <Text style={[textStyle('md'), { color: palette.ink }]}>{line.label}</Text>
+              <Text style={[styles.label, { color: palette.ink }]}>{line.label}</Text>
               {line.detail ? (
-                <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{line.detail}</Text>
+                <Text style={[styles.detail, { color: palette.textMuted }]}>{line.detail}</Text>
               ) : null}
             </View>
           </View>
         ))}
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="import-result-note">
-          {resultSentence(preview.result)}
-        </Text>
-      </SectionCard>
-      <Button
-        label="Go to my inventory"
-        icon="cards-outline"
-        onPress={onInventory}
-        testID="import-result-inventory"
-      />
-      <Button
-        label="Import another file"
-        variant="ghost"
-        onPress={onAnother}
-        testID="import-result-another"
-      />
+      </SettingsGroup>
+      <Text style={[styles.detail, { color: palette.textMuted }]} testID="import-result-note">
+        {resultSentence(preview.result)}
+      </Text>
       {summary.unmatched > 0 ? (
         <LeftOutLines
           preview={preview}
           filter="UNMATCHED"
-          title={`Not recognised (${formatCount(summary.unmatched)})`}
+          title={IMPORT_COPY.notRecognised(formatCount(summary.unmatched))}
           testID="import-result-unmatched"
         />
       ) : null}
@@ -111,10 +95,23 @@ export function ImportResult({ preview, lateEdits, onInventory, onAnother }: Imp
         <LeftOutLines
           preview={preview}
           filter="CHOOSE_PRINTING"
-          title={`Without a printing (${formatCount(summary.toChoose)})`}
+          title={IMPORT_COPY.withoutPrinting(formatCount(summary.toChoose))}
           testID="import-result-unchosen"
         />
       ) : null}
+      <StatusActions>
+        <PillButton
+          label={IMPORT_COPY.toInventory}
+          onPress={onInventory}
+          testID="import-result-inventory"
+        />
+        <PillButton
+          label={IMPORT_COPY.another}
+          variant="outline"
+          onPress={onAnother}
+          testID="import-result-another"
+        />
+      </StatusActions>
     </View>
   );
 }
@@ -135,13 +132,15 @@ function LeftOutLines({
   testID: string;
 }) {
   const { palette } = useTheme();
-  const [open, setOpen] = useState(false);
+  // Shown at once (mockup v50 screen 68): what was not added, and what to do about it.
+  const [open, setOpen] = useState(true);
   const rows = useImportRows(open ? preview.id : null, filter);
   const list = loadedRows(rows.data);
   const noun = lineNoun(preview.source);
 
   return (
-    <SectionCard title={title} testID={testID}>
+    <View style={styles.leftOut} testID={testID}>
+      <GroupTitle>{title}</GroupTitle>
       {!open ? (
         <Button
           label={`Show these ${noun.many}`}
@@ -166,6 +165,7 @@ function LeftOutLines({
                 onEdit={noop}
                 onToggle={noop}
                 disabled
+                readOnly
               />
             ) : (
               <View
@@ -203,20 +203,33 @@ function LeftOutLines({
           ) : null}
         </View>
       )}
-    </SectionCard>
+    </View>
   );
 }
 
 function noop() {}
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  head: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  title: { fontWeight: fontWeight.semibold, flex: 1 },
+  root: { flexGrow: 1, gap: 18 },
   name: { fontWeight: fontWeight.semibold },
-  line: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  value: { fontWeight: fontWeight.bold, minWidth: 48, textAlign: 'right' },
+  line: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[3],
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  value: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: fontWeight.bold,
+    minWidth: 40,
+    textAlign: 'right',
+  },
+  label: { fontSize: 15, lineHeight: 20 },
+  detail: { fontSize: 12, lineHeight: 17 },
   grow: { flex: 1 },
+  leftOut: { gap: 6 },
   list: { gap: spacing[2] },
   unchosen: { borderRadius: radius.md, borderWidth: 1, padding: spacing[3], gap: spacing[1] },
 });

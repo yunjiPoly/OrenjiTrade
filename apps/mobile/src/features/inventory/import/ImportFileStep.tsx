@@ -1,9 +1,11 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   InputAccessoryView,
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -16,12 +18,15 @@ import type { ImportSource, InventoryImport } from '@/src/api/types';
 import { Button } from '@/src/components/ui/Button';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { FormMessage } from '@/src/components/ui/FormControls';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SelectSheet } from '@/src/components/ui/SelectSheet';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
+import { withAlpha } from '@/src/features/account/StatusPage';
 import { gamesFrom } from '@/src/lib/profile';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontFamily, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
+import { IMPORT_COPY } from './importCopy';
 import { discardUpload, importFormData, type ImportUpload } from './importFile';
 import {
   IMPORT_SOURCES,
@@ -41,8 +46,10 @@ export interface ImportFileStepProps {
   source: ImportSource;
   /** An open preview a new upload replaces: asked before it is thrown away. */
   replaces: InventoryImport | null;
-  onUploaded: (preview: InventoryImport) => void;
-  onBack: () => void;
+  /** The preview made, and the name of the file this phone sent (null for a pasted text). */
+  onUploaded: (preview: InventoryImport, fileName: string | null) => void;
+  /** "Collectr CSV export instead" / "Yu-Gi-Oh! deck file instead" (stage R14). */
+  onSwitchSource?: (source: ImportSource) => void;
   /** Whether leaving now would lose something typed here (a pasted text) or cut an upload. */
   onDraft: (hasDraft: boolean) => void;
 }
@@ -58,7 +65,7 @@ export function ImportFileStep({
   source,
   replaces,
   onUploaded,
-  onBack,
+  onSwitchSource,
   onDraft,
 }: ImportFileStepProps) {
   const { palette } = useTheme();
@@ -106,7 +113,7 @@ export function ImportFileStep({
         body: prepared.body,
       });
       setText('');
-      onUploaded(preview);
+      onUploaded(preview, what.kind === 'file' ? what.file.name || null : null);
     } catch (error) {
       setRefusal(importRefusal(error as ApiError, source));
     } finally {
@@ -161,22 +168,29 @@ export function ImportFileStep({
     start({ kind: 'text', text });
   };
 
+  const other: ImportSource = source === 'YDK' ? 'COLLECTR_CSV' : 'YDK';
+  const switchTo = IMPORT_COPY.switchTo[other];
+
   return (
     <View style={styles.root} testID={`import-file-${source}`}>
-      <View style={styles.block}>
-        <Text
-          accessibilityRole="header"
-          style={[textStyle('lg', 'heading'), styles.heading, { color: palette.ink }]}
-        >
-          {info.title}
-        </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{info.description}</Text>
-        {hint ? (
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]} testID="import-limits">
-            {hint}
+      <View style={styles.headRow}>
+        <View style={[styles.sourceTile, { backgroundColor: palette.primaryContainer }]}>
+          <MaterialCommunityIcons
+            name={source === 'YDK' ? 'file-outline' : 'file-delimited-outline'}
+            size={22}
+            color={palette.onPrimaryContainer}
+          />
+        </View>
+        <View style={styles.grow}>
+          <Text accessibilityRole="header" style={[styles.sourceTitle, { color: palette.ink }]}>
+            {info.title}
           </Text>
-        ) : null}
+          <Text style={[styles.sourceLine, { color: palette.textMuted }]}>
+            {IMPORT_COPY.sourceLine[source]}
+          </Text>
+        </View>
       </View>
+      <Text style={[styles.intro, { color: palette.textMuted }]}>{IMPORT_COPY.intro}</Text>
 
       {source === 'COLLECTR_CSV' ? (
         <View style={styles.block}>
@@ -230,13 +244,29 @@ export function ImportFileStep({
         </View>
       ) : null}
 
-      <Button
-        label="Choose a file"
-        icon="file-upload-outline"
-        onPress={() => void choose()}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={IMPORT_COPY.chooseFile}
+        accessibilityHint={hint ?? undefined}
+        aria-disabled={busy}
         disabled={busy}
+        onPress={() => void choose()}
         testID="import-choose-file"
-      />
+        style={({ pressed }) => [
+          styles.drop,
+          { borderColor: palette.primary, backgroundColor: withAlpha(palette.primary, 0.05) },
+          (pressed || busy) && styles.pressed,
+        ]}
+      >
+        <MaterialCommunityIcons name="tray-arrow-up" size={30} color={palette.primary} />
+        <Text style={[styles.dropTitle, { color: palette.primary }]}>{IMPORT_COPY.chooseFile}</Text>
+        {hint ? (
+          <Text style={[styles.dropHint, { color: palette.textMuted }]} testID="import-limits">
+            {hint}
+          </Text>
+        ) : null}
+      </Pressable>
+
       {pasting ? (
         <View style={styles.block}>
           <TextField
@@ -251,11 +281,11 @@ export function ImportFileStep({
             autoCorrect={false}
             spellCheck={false}
             smartInsertDelete={false}
-            hint="Open the file in another app, copy all of it, and paste it here."
+            hint={IMPORT_COPY.pasteHint}
             editable={!busy}
             // A fixed window on the text: a long export scrolls inside it instead of taking the
             // screen (a multiline field otherwise grows with every line).
-            inputStyle={styles.paste}
+            inputStyle={[styles.paste, { fontFamily: fontFamily.mono }]}
             scrollEnabled
             textAlignVertical="top"
             inputAccessoryViewID={Platform.OS === 'ios' ? PASTE_ACCESSORY : undefined}
@@ -281,34 +311,55 @@ export function ImportFileStep({
               </View>
             </InputAccessoryView>
           ) : null}
-          <Button
-            label="Use this text"
-            icon="content-paste"
-            variant="secondary"
+          <PillButton
+            label={IMPORT_COPY.useText}
             onPress={usePasted}
             disabled={busy}
             testID="import-paste-submit"
           />
         </View>
       ) : (
-        <Button
-          label="Paste the text of the file"
-          icon="content-paste"
-          variant="secondary"
-          onPress={() => setPasting(true)}
+        <Pressable
+          accessibilityRole="button"
           disabled={busy}
+          onPress={() => setPasting(true)}
           testID="import-paste"
-        />
+          style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+        >
+          <Text style={[styles.linkText, { color: palette.accent }]}>
+            {IMPORT_COPY.pasteInstead}
+          </Text>
+        </Pressable>
       )}
-      <Button
-        label="Another source"
-        icon="arrow-left"
-        variant="ghost"
-        onPress={onBack}
-        disabled={upload.isPending}
-        style={styles.back}
-        testID="import-file-back"
-      />
+
+      {onSwitchSource ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={switchTo.title}
+          accessibilityHint={switchTo.line}
+          disabled={upload.isPending}
+          onPress={() => onSwitchSource(other)}
+          testID="import-switch-source"
+          style={({ pressed }) => [
+            styles.switchRow,
+            { backgroundColor: palette.surface, borderColor: palette.border },
+            pressed && styles.pressed,
+          ]}
+        >
+          <View style={[styles.switchTile, { backgroundColor: palette.accentContainer }]}>
+            <MaterialCommunityIcons
+              name={other === 'YDK' ? 'file-outline' : 'file-delimited-outline'}
+              size={18}
+              color={palette.onAccentContainer}
+            />
+          </View>
+          <View style={styles.grow}>
+            <Text style={[styles.switchTitle, { color: palette.ink }]}>{switchTo.title}</Text>
+            <Text style={[styles.switchLine, { color: palette.textMuted }]}>{switchTo.line}</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={palette.textDisabled} />
+        </Pressable>
+      ) : null}
 
       <ConfirmDialog
         visible={waiting !== null}
@@ -335,7 +386,17 @@ export function ImportFileStep({
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
   block: { gap: spacing[2] },
-  heading: { fontWeight: fontWeight.semibold },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sourceTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sourceTitle: { fontSize: 17, lineHeight: 22, fontWeight: fontWeight.semibold },
+  sourceLine: { fontSize: 13, lineHeight: 18 },
+  intro: { fontSize: 14, lineHeight: 21 },
   progress: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -344,13 +405,46 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  grow: { flex: 1 },
-  paste: { height: 180 },
+  grow: { flex: 1, minWidth: 0 },
+  drop: {
+    minHeight: 168,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  dropTitle: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.bold, textAlign: 'center' },
+  dropHint: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
+  paste: { height: 140, fontSize: 13 },
   accessory: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: spacing[2],
   },
-  back: { alignSelf: 'flex-start' },
+  link: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  linkText: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold, textAlign: 'center' },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  switchTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  switchTitle: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  switchLine: { fontSize: 12, lineHeight: 16 },
+  pressed: { opacity: 0.75 },
 });

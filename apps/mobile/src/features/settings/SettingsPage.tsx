@@ -87,6 +87,8 @@ export interface SettingsPageProps {
    * and no hairline (Import done).
    */
   onBack?: (() => void) | null;
+  /** The back button's id (`BackButton` by default; a flow's own, such as `import-file-back`). */
+  backTestID?: string;
   /** The bar at the bottom (the page's main button), with a hairline above it. */
   footer?: ReactNode;
   refreshControl?: ReactElement<RefreshControlProps>;
@@ -107,6 +109,7 @@ export function SettingsPage({
   children,
   right,
   onBack,
+  backTestID,
   footer,
   refreshControl,
   scrollRef,
@@ -154,7 +157,7 @@ export function SettingsPage({
       style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
     >
       <Stack.Screen options={{ headerShown: false, title }} />
-      <SettingsTopBar title={title} onBack={back} right={right} />
+      <SettingsTopBar title={title} onBack={back} right={right} backTestID={backTestID} />
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'android' ? 'padding' : undefined}

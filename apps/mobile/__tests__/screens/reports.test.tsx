@@ -5,12 +5,7 @@ import MyReportsScreen from '@/app/settings/reports';
 import { darkPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import {
-  OTHER_ID,
-  REPORT_REASONS,
-  collectorFixture,
-  myReportFixture,
-} from '../support/fixtures';
+import { OTHER_ID, REPORT_REASONS, collectorFixture, myReportFixture } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';

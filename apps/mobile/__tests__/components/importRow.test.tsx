@@ -12,6 +12,7 @@ import {
   unmatchedRow,
 } from '../support/importFixtures';
 import { renderWithProviders } from '../test-utils';
+import { lightPalette } from '@/src/theme';
 
 const WINDOW = Dimensions.get('window');
 
@@ -29,49 +30,54 @@ function renderRow(row = rowFixture(), disabled = false) {
   return handlers;
 }
 
-describe('a line of an import preview', () => {
+describe('a line of an import preview (mockup v50 screen 67)', () => {
   it('has three controls, each named with its card, and reports what was pressed', () => {
     const row = rowFixture();
     const handlers = renderRow(row);
-    const include = screen.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' });
+    const include = screen.getByRole('checkbox', { name: 'Leave out Fixture Lantern Wisp' });
     expect(include).toBeChecked();
     expect(include.props.accessibilityHint).toBe('Leaves this card out');
     fireEvent.press(include);
     expect(handlers.onToggle).toHaveBeenCalledWith(row);
+    // The name and its line open "Which copy".
     fireEvent.press(
       screen.getByRole('button', {
         name: 'Which copy of Fixture Lantern Wisp: YDKF-EN001 · Rare · YDK Fixtures',
       })
     );
     expect(handlers.onChoosePrinting).toHaveBeenCalledWith(row);
-    fireEvent.press(
-      screen.getByRole('button', {
-        name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',
-      })
-    );
+    // The copies ("DMG ×2") open the condition and copies.
+    const copies = screen.getByRole('button', {
+      name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',
+    });
+    expect(copies).toHaveTextContent('DMG ×2');
+    fireEvent.press(copies);
     expect(handlers.onEdit).toHaveBeenCalledWith(row);
+    // One line under the name: the printing's code and rarity.
+    expect(screen.getByTestId('import-row-0-line')).toHaveTextContent('YDKF-EN001 · Rare');
     // The picture is the API's own (decorative here: the name is written next to it).
     expect(screen.getByTestId('card-image-img').props.source[0].uri).toMatch(
       /\/api\/v1\/public\/card-images\/wisp$/
     );
   });
 
-  it('shows “Choose printing” where a printing is still needed', () => {
+  it('says "Which copy? {n} printings" in amber where a printing is still needed', () => {
     renderRow(chooseRow());
     const printing = screen.getByTestId('import-row-1-printing');
     expect(printing.props.accessibilityLabel).toBe(
       'Which copy of Fixture Clockwork Heron: Choose printing'
     );
-    expect(within(printing).getByText('Choose printing')).toBeOnTheScreen();
-    expect(screen.getByText('Main 1 · Side 1')).toBeOnTheScreen();
+    expect(screen.getByTestId('import-row-1-line')).toHaveTextContent('Which copy? 2 printings');
+    expect(screen.getByTestId('import-row-1-line')).toHaveStyle({ color: lightPalette.warning });
   });
 
   it('says when a line does not go in, and how many copies are already owned', () => {
     renderRow(rowFixture({ included: false, willImport: false, ownedQuantity: 2 }));
     expect(screen.getByTestId('import-row-0-state')).toHaveTextContent('Left out');
-    const include = screen.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' });
+    const include = screen.getByRole('checkbox', { name: 'Include Fixture Lantern Wisp' });
     expect(include).not.toBeChecked();
     expect(include.props.accessibilityHint).toBe('Puts this card back');
+    renderRow(rowFixture({ ownedQuantity: 2 }));
     expect(screen.getByTestId('import-row-0-owned')).toHaveTextContent('You have 2: this adds 2.');
   });
 
@@ -84,8 +90,8 @@ describe('a line of an import preview', () => {
 
   it('says on the line that its copy was taken as the plain one, for the collector to check', () => {
     renderRow(rowFixture({ printingChoice: 'MOST_RECENT_ASSUMED' }));
-    expect(screen.getByTestId('import-row-0-assumed')).toHaveTextContent(
-      'Taken as the plain copy (Unlimited, no foil): its most recent set has other versions. Change it if yours is another.'
+    expect(screen.getByTestId('import-row-0-line')).toHaveTextContent(
+      'YDKF-EN001 · Rare · assumed plain copy'
     );
     expect(screen.getByTestId('import-row-0-printing').props.accessibilityLabel).toBe(
       'Which copy of Fixture Lantern Wisp: YDKF-EN001 · Rare · YDK Fixtures (taken as the plain copy: check it)'
@@ -94,35 +100,42 @@ describe('a line of an import preview', () => {
 
   it('says nothing of the kind about a copy the date decided, or the collector chose', () => {
     renderRow(rowFixture({ printingChoice: 'MOST_RECENT' }));
-    expect(screen.queryByTestId('import-row-0-assumed')).toBeNull();
+    expect(screen.getByTestId('import-row-0-line')).not.toHaveTextContent(/assumed/);
   });
 
   it('says nothing of the kind once the assumed copy left the catalog: the line is to choose again', () => {
     renderRow(chooseRow({ printingChoice: 'MOST_RECENT_ASSUMED' }));
-    expect(screen.queryByTestId('import-row-1-assumed')).toBeNull();
+    expect(screen.getByTestId('import-row-1-line')).not.toHaveTextContent(/assumed/);
     expect(screen.getByTestId('import-row-1-printing').props.accessibilityLabel).toBe(
       'Which copy of Fixture Clockwork Heron: Choose printing'
     );
   });
 
-  it('shows what the file said under a recognised line', () => {
-    // Two lines of one card in a deck: the card, and its alternate artwork (another passcode).
+  it('shows what the file said only when another line is the same card', () => {
     renderRow(rowFixture());
+    expect(screen.queryByTestId('import-row-0-source')).toBeNull();
+    const handlers = { onChoosePrinting: jest.fn(), onEdit: jest.fn(), onToggle: jest.fn() };
+    renderWithProviders(<ImportRowCard row={rowFixture()} showSource {...handlers} />);
     expect(screen.getByTestId('import-row-0-source')).toHaveTextContent('Passcode 910000001');
   });
 
   it('shows the set, number and rarity of a CSV line as the file wrote them', () => {
-    renderRow(
-      rowFixture({
-        deck: undefined,
-        source: {
-          passcode: null,
-          name: 'Fixture Lantern Wisp',
-          set: 'YDK Fixtures',
-          number: 'EN001',
-          rarity: 'Rare',
-        },
-      })
+    const handlers = { onChoosePrinting: jest.fn(), onEdit: jest.fn(), onToggle: jest.fn() };
+    renderWithProviders(
+      <ImportRowCard
+        row={rowFixture({
+          deck: undefined,
+          source: {
+            passcode: null,
+            name: 'Fixture Lantern Wisp',
+            set: 'YDK Fixtures',
+            number: 'EN001',
+            rarity: 'Rare',
+          },
+        })}
+        showSource
+        {...handlers}
+      />
     );
     expect(screen.getByTestId('import-row-0-source')).toHaveTextContent(
       'In your file: YDK Fixtures · EN001 · Rare'
@@ -143,8 +156,8 @@ describe('a line of an import preview', () => {
     expect(row.props.accessibilityLabel).toBe(
       'Not recognised: Passcode 919999999, 1 copy, Side 1, No card of the catalog has this passcode (the number printed in the lower left corner of a card)., If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
-    // On screen: the section of the deck that holds it, why, and what can be done next.
-    expect(screen.getByText('Side 1')).toBeOnTheScreen();
+    // On screen: the mockup's red line and what can be done next.
+    expect(screen.getByText('Not recognised. It stays out.')).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-3-next')).toHaveTextContent(
       'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
@@ -154,7 +167,7 @@ describe('a line of an import preview', () => {
 
   it('a line of a game OrenjiTrade does not have says that its copies were no number', () => {
     // The API reports such a line for its game, with the copies its file wrote: 0 when that was
-    // no number of copies. The line showed nothing where its copies stand.
+    // no number of copies.
     renderRow(
       unmatchedRow({
         unmatchedReason: 'UNKNOWN_GAME',
@@ -173,13 +186,12 @@ describe('a line of an import preview', () => {
     expect(
       screen.getByText('Other Game Set · 017 · copies: not a number from 1 to 9,999')
     ).toBeOnTheScreen();
-    expect(screen.getByText('OrenjiTrade does not have this game.')).toBeOnTheScreen();
     expect(row.props.accessibilityLabel).toBe(
       'Not recognised: Star Dragoon, Other Game Set · 017 · copies: not a number from 1 to 9,999, OrenjiTrade does not have this game., Cards of this game cannot be added yet.'
     );
   });
 
-  it('puts its name and controls under the picture, across the width, at large text sizes', () => {
+  it('puts its name and its lines under the picture, across the width, at large text sizes', () => {
     renderRow();
     expect(screen.queryByTestId('import-row-0-below')).toBeNull();
     textSize(3.1);
@@ -188,9 +200,10 @@ describe('a line of an import preview', () => {
       'Fixture Lantern Wisp'
     );
     expect(within(below).getByTestId('import-row-0-printing')).toBeOnTheScreen();
-    expect(within(below).getByTestId('import-row-0-edit')).toBeOnTheScreen();
-    // Still one of each control.
+    // The copies and the tick box stay on top, beside the picture; one of each control.
+    expect(within(below).queryByTestId('import-row-0-edit')).toBeNull();
     expect(screen.getAllByTestId('import-row-0-printing')).toHaveLength(1);
+    expect(screen.getAllByTestId('import-row-0-edit')).toHaveLength(1);
   });
 });
 
@@ -199,7 +212,6 @@ describe('the top of an import preview', () => {
     const handlers = {
       onFilter: jest.fn(),
       onSections: jest.fn(),
-      onMostRecent: jest.fn(),
       onCondition: jest.fn(),
       onLeaveOut: jest.fn(),
     };
@@ -216,26 +228,16 @@ describe('the top of an import preview', () => {
     return handlers;
   }
 
-  it('says each count as one phrase, and offers the bulk actions that apply', () => {
+  it('offers the actions that apply: leave out, the conditions, the deck sections', () => {
     const handlers = renderHeader();
-    expect(screen.getByTestId('import-summary-new').props.accessibilityLabel).toBe('1 new card');
-    expect(screen.getByTestId('import-summary-choose').props.accessibilityLabel).toBe(
-      '2 need a printing'
-    );
-    fireEvent.press(screen.getByTestId('import-bulk-recent'));
-    expect(handlers.onMostRecent).toHaveBeenCalled();
     fireEvent.press(screen.getByTestId('import-bulk-condition'));
     expect(handlers.onCondition).toHaveBeenCalled();
     fireEvent.press(screen.getByTestId('import-leave-out'));
     expect(handlers.onLeaveOut).toHaveBeenCalledWith(true);
     fireEvent.press(screen.getByRole('switch', { name: 'Side deck' }));
     expect(handlers.onSections).toHaveBeenCalledWith({ includeSide: false });
-    // The two counts that ask something of the collector are buttons that show their lines.
-    fireEvent.press(screen.getByRole('button', { name: '1 not recognised' }));
-    expect(handlers.onFilter).toHaveBeenCalledWith('UNMATCHED');
-    fireEvent.press(screen.getByRole('button', { name: '2 need a printing' }));
-    expect(handlers.onFilter).toHaveBeenCalledWith('CHOOSE_PRINTING');
-    expect(screen.queryByRole('button', { name: '1 new card' })).toBeNull();
+    // "Use the newest" is the amber bar's, on screen above the list (ImportPreview).
+    expect(screen.queryByTestId('import-bulk-recent')).toBeNull();
   });
 
   it('counts a deck in copies and different cards, never in “lines”', () => {
@@ -244,7 +246,6 @@ describe('the top of an import preview', () => {
       'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
     );
     expect(screen.getByText('3 copies in your file')).toBeOnTheScreen();
-    expect(screen.getByText('2 cards need a printing')).toBeOnTheScreen();
   });
 
   it('says what the cards without a condition are set to once the collector set one', () => {
@@ -305,7 +306,6 @@ describe('the top of an import preview', () => {
     expect(screen.queryByTestId('import-default-conditions')).toBeNull();
     expect(screen.queryByTestId('import-sections')).toBeNull();
     expect(screen.queryByTestId('import-limit-room')).toBeNull();
-    // A count of zero is no button: there is nothing to show.
-    expect(screen.queryByRole('button', { name: '0 need a printing' })).toBeNull();
+    expect(screen.queryByTestId('import-leave-out')).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ import { Text } from '@/src/components/ui/Text';
 import { PrintingList } from '@/src/features/catalog/PrintingList';
 import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
 
-import { orderedPrintings, plural, rowTitle } from './importLabels';
+import { deckText, matchedSourceText, orderedPrintings, plural, rowTitle } from './importLabels';
 
 export interface ImportPrintingSheetProps {
   /** The row whose copy is chosen; `null` closes the sheet. */
@@ -83,6 +83,16 @@ function Printings({
         >
           {name}
         </Text>
+        {/* What the file said and where (stage R14: the line of "Check the cards" is short; the
+            match is checked here). */}
+        {[matchedSourceText(row), deckText(row.deck)].filter(Boolean).length > 0 ? (
+          <Text
+            style={[textStyle('xs'), { color: palette.textMuted }]}
+            testID="import-printing-source"
+          >
+            {[matchedSourceText(row), deckText(row.deck)].filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
         {card.data ? (
           <>
             <Text style={[textStyle('sm'), { color: palette.textMuted }]}>

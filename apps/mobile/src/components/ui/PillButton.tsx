@@ -33,6 +33,12 @@ export interface PillButtonProps {
   variant?: 'primary' | 'outline' | 'quiet' | 'danger';
   accessibilityHint?: string;
   /**
+   * What a screen reader says instead of the label, when the label is shortened to fit ("Add 3
+   * cards (5 copies)" is read "Add 3 cards (5 copies) to my inventory"). It starts with the words
+   * on screen (WCAG 2.5.3).
+   */
+  accessibilityLabel?: string;
+  /**
    * How far the label follows the system text size: a button that stays on screen (a header, the
    * bar at the bottom of a form) follows it a little only (PINNED_MAX_FONT_SCALE), or it would
    * take the screen at the largest sizes; a long press shows it enlarged (iOS).
@@ -56,6 +62,7 @@ export function PillButton({
   size = 'large',
   variant = 'primary',
   accessibilityHint,
+  accessibilityLabel,
   maxFontSizeMultiplier,
   style,
   testID,
@@ -96,7 +103,7 @@ export function PillButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={text}
+      accessibilityLabel={loading ? text : (accessibilityLabel ?? text)}
       accessibilityHint={accessibilityHint}
       accessibilityShowsLargeContentViewer={maxFontSizeMultiplier !== undefined}
       accessibilityLargeContentTitle={maxFontSizeMultiplier !== undefined ? text : undefined}

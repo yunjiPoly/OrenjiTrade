@@ -9,6 +9,7 @@ import {
   cardsAndCopies,
   commitState,
   conditionSetMessage,
+  conditionShort,
   deckText,
   defaultConditionsText,
   emptyFilterText,
@@ -25,6 +26,7 @@ import {
   linesLeftOut,
   matchedSourceText,
   mostRecentMessage,
+  needPrintingBar,
   needPrintingTitle,
   newItems,
   openImportText,
@@ -36,11 +38,13 @@ import {
   resultSentence,
   rowConditionText,
   rowCopyLabel,
+  rowLine,
   rowSourceText,
   rowStateText,
   rowSummary,
   rowTitle,
   sectionSwitches,
+  sectionsLine,
   summarySentence,
   summaryStats,
   unmatchedNextStep,
@@ -309,9 +313,9 @@ describe('the counts on top of a preview', () => {
 
   it('labels the filter with its counts', () => {
     expect(filterOptions(summaryOf())).toEqual([
-      { value: 'ALL', label: 'All (4)' },
-      { value: 'CHOOSE_PRINTING', label: 'Needs a printing (2)' },
-      { value: 'UNMATCHED', label: 'Not recognised (1)' },
+      { value: 'ALL', label: 'All 4' },
+      { value: 'CHOOSE_PRINTING', label: 'Which copy? 2' },
+      { value: 'UNMATCHED', label: 'Not recognised 1' },
     ]);
     expect(emptyFilterText('CHOOSE_PRINTING').title).toBe('Nothing needs a printing');
     expect(emptyFilterText('UNMATCHED').title).toBe('Everything was recognised');
@@ -327,8 +331,8 @@ describe('the counts on top of a preview', () => {
     const long = summaryOf({ rows: 435, toChoose: 0, unmatched: 15, assumedPrintings: 115 });
     // What asks something of the collector comes before what can only be read.
     expect(filterOptions(long)).toEqual([
-      { value: 'ALL', label: 'All (435)' },
-      { value: 'CHOOSE_PRINTING', label: 'Needs a printing (0)' },
+      { value: 'ALL', label: 'All 435' },
+      { value: 'CHOOSE_PRINTING', label: 'Which copy? 0' },
       // The third chip of a pinned row is cut at the screen's edge: its count leads, so the
       // count is the part in view, and a screen reader hears the words on screen, then what
       // they mean (a deck counts in cards).
@@ -337,7 +341,7 @@ describe('the counts on top of a preview', () => {
         label: '115 assumed',
         accessibilityLabel: '115 assumed: the cards whose plain copy was assumed',
       },
-      { value: 'UNMATCHED', label: 'Not recognised (15)' },
+      { value: 'UNMATCHED', label: 'Not recognised 15' },
     ]);
     expect(
       filterOptions({ ...long, assumedPrintings: 1234 }).find(
@@ -597,14 +601,15 @@ describe('the commit button says what a press does', () => {
       label: 'Add 1 card (2 copies) to my inventory',
       shortLabel: 'Add 1 card (2 copies)',
       disabled: true,
-      reason: '2 cards still need a printing. Choose them, or leave them out.',
+      // Mockup v50 screen 67 (stage R14).
+      reason: 'Choose the copy of the marked cards, or use the newest.',
     });
     expect(commitState(summaryOf({ toChoose: 1 }), false).reason).toBe(
-      '1 card still needs a printing. Choose it, or leave it out.'
+      'Choose the copy of the marked card, or use the newest.'
     );
     // A CSV counts what still needs a printing in lines.
     expect(commitState(summaryOf({ toChoose: 115 }), false, 'COLLECTR_CSV').reason).toBe(
-      '115 lines still need a printing. Choose them, or leave them out.'
+      'Choose the copy of the marked lines, or use the newest.'
     );
   });
 
@@ -903,5 +908,51 @@ describe('the import a collector left open', () => {
     expect(openImportText(importFixture({ source: 'COLLECTR_CSV', status: 'COMMITTING' }))).toBe(
       'CSV export · 4 lines'
     );
+  });
+});
+
+describe('the words of "Check the cards" (stage R14)', () => {
+  it('says what the amber bar asks, for a deck in cards and a CSV in lines', () => {
+    expect(needPrintingBar(2, 'YDK')).toBe(
+      '2 cards need a printing. Pick one on each, or use the newest for all.'
+    );
+    expect(needPrintingBar(1, 'COLLECTR_CSV')).toBe(
+      '1 line needs a printing. Pick one on each, or use the newest for all.'
+    );
+  });
+
+  it('names a deck file by its sections', () => {
+    expect(
+      sectionsLine({
+        includeMain: true,
+        includeExtra: true,
+        includeSide: false,
+        mainCopies: 40,
+        extraCopies: 15,
+        sideCopies: 15,
+      })
+    ).toBe('40 main, 15 extra, 15 side');
+  });
+
+  it('says one line under each row, in its tone', () => {
+    expect(rowLine(rowFixture())).toEqual({ text: 'YDKF-EN001 · Rare', tone: 'muted' });
+    expect(rowLine(rowFixture({ printingChoice: 'MOST_RECENT_ASSUMED' }))).toEqual({
+      text: 'YDKF-EN001 · Rare · assumed plain copy',
+      tone: 'muted',
+    });
+    expect(rowLine(chooseRow())).toEqual({ text: 'Which copy? 2 printings', tone: 'warning' });
+    expect(rowLine(unmatchedRow())).toEqual({
+      text: 'Not recognised. It stays out.',
+      tone: 'danger',
+    });
+  });
+
+  it('shortens the conditions on the copies button', () => {
+    expect(
+      ['MINT', 'NEAR_MINT', 'LIGHTLY_PLAYED', 'MODERATELY_PLAYED', 'HEAVILY_PLAYED', 'DAMAGED'].map(
+        conditionShort
+      )
+    ).toEqual(['M', 'NM', 'LP', 'MP', 'HP', 'DMG']);
+    expect(conditionShort('POOR')).toBe('Poor');
   });
 });

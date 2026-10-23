@@ -1,33 +1,29 @@
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import type { ImportRowFilter } from '@/src/api/hooks/inventoryImport';
 import type { InventoryImport, UpdateImportRequest } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { Checkbox, FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
-import { SectionCard } from '@/src/components/ui/Layout';
+import { Checkbox, FormMessage } from '@/src/components/ui/FormControls';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
+import { fontWeight, useTheme } from '@/src/theme';
 
+import { IMPORT_COPY } from './importCopy';
 import {
   assumedCopies,
   assumedCopiesText,
   clockTime,
   defaultConditionsText,
-  formatCount,
   leaveOutLabel,
-  needPrintingTitle,
   sectionSwitches,
   summarySentence,
-  summaryStats,
-  type SummaryStat,
 } from './importLabels';
 
 export interface ImportPreviewHeaderProps {
   preview: InventoryImport;
-  /** Shows the lines of one kind (a count that is pressed). */
+  /** Shows the lines of one kind ("Show these cards" of the assumed copies). */
   onFilter: (filter: ImportRowFilter) => void;
   onSections: (patch: UpdateImportRequest) => void;
-  onMostRecent: () => void;
   onCondition: () => void;
   leaveOut: boolean;
   onLeaveOut: (value: boolean) => void;
@@ -39,25 +35,18 @@ export interface ImportPreviewHeaderProps {
   limitRoom: string | null;
 }
 
-/** The lines a count stands for: pressing it shows them. */
-const STAT_FILTER: Partial<Record<SummaryStat['key'], ImportRowFilter>> = {
-  choose: 'CHOOSE_PRINTING',
-  unmatched: 'UNMATCHED',
-};
-
 /**
- * What stands above the lines of an import preview: the four counts (new cards, cards added to
- * ones already owned, lines that need a printing, lines not recognised), until when the preview
- * is kept, the sections of a deck as switches with their counts, and what can be done to many
- * lines at once. The filter itself stays on screen above the list (`ImportPreview`); the two
- * counts that ask something of the collector are buttons that set it, and so is the card that
- * counts the lines whose copy was assumed, for as long as there are any.
+ * What stands above the lines of "Check the cards" and scrolls with them (stage R14: the file,
+ * the filter and the amber bar stay on screen above the list): whether the import fits the
+ * inventory limit, "leave out" for the lines that still need a printing, the copies taken as the
+ * plain one, the conditions the file did not say, the deck's sections as switches with their
+ * copies, and what the import adds in one sentence with until when the preview is kept. Each
+ * shows only when it has something to say.
  */
 export function ImportPreviewHeader({
   preview,
   onFilter,
   onSections,
-  onMostRecent,
   onCondition,
   leaveOut,
   onLeaveOut,
@@ -66,10 +55,6 @@ export function ImportPreviewHeader({
   limitRoom,
 }: ImportPreviewHeaderProps) {
   const { palette } = useTheme();
-  // Two counts side by side; one per line once the text is large (a label such as "added to
-  // cards you own" otherwise stands one word per line in half the width).
-  const { fontScale } = useWindowDimensions();
-  const oneCountPerLine = fontScale >= 1.4;
   const { summary, sections } = preview;
   const conditions = defaultConditionsText(summary, lowestGrades);
   const assumed = assumedCopies(summary);
@@ -77,74 +62,53 @@ export function ImportPreviewHeader({
 
   return (
     <View style={styles.root} testID="import-preview-header">
-      <SectionCard title="What this import adds" testID="import-summary">
-        <View style={styles.stats}>
-          {summaryStats(summary).map((stat) => {
-            const shows = stat.value > 0 ? STAT_FILTER[stat.key] : undefined;
-            const body = (
-              <>
-                <Text style={[textStyle('xl', 'heading'), styles.value, { color: palette.ink }]}>
-                  {formatCount(stat.value)}
-                </Text>
-                <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{stat.label}</Text>
-              </>
-            );
-            const box = [
-              styles.stat,
-              oneCountPerLine && styles.statWide,
-              {
-                borderColor: stat.tone === 'attention' ? palette.warning : palette.border,
-                backgroundColor: palette.surfaceVariant,
-              },
-            ];
-            return shows ? (
-              <Pressable
-                key={stat.key}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatCount(stat.value)} ${stat.label}`}
-                accessibilityHint="Shows them"
-                onPress={() => onFilter(shows)}
-                testID={`import-summary-${stat.key}`}
-                style={({ pressed }) => [...box, pressed && styles.pressed]}
-              >
-                {body}
-              </Pressable>
-            ) : (
-              <View
-                key={stat.key}
-                accessible
-                accessibilityLabel={`${formatCount(stat.value)} ${stat.label}`}
-                testID={`import-summary-${stat.key}`}
-                style={box}
-              >
-                {body}
-              </View>
-            );
-          })}
-        </View>
-        <Text style={[textStyle('sm'), { color: palette.ink }]} testID="import-summary-sentence">
-          {summarySentence(preview)}
-        </Text>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]} testID="import-kept-until">
-          Nothing is added until you confirm at the bottom. This preview is kept until{' '}
-          {clockTime(preview.expiresAt)}.
-        </Text>
-      </SectionCard>
-
       {limitRoom ? (
         <FormMessage tone="info" testID="import-limit-room">
           {limitRoom}
         </FormMessage>
       ) : null}
 
+      {summary.toChoose > 0 ? (
+        <Checkbox
+          label={leaveOutLabel(summary.toChoose, preview.source)}
+          checked={leaveOut}
+          onChange={onLeaveOut}
+          disabled={busy}
+          testID="import-leave-out"
+        />
+      ) : null}
+
+      {assumed > 0 ? (
+        <Notice
+          title={assumedText.title}
+          description={assumedText.description}
+          action={assumedText.action}
+          onAction={() => onFilter('MOST_RECENT_ASSUMED')}
+          actionTestID="import-show-assumed"
+          testID="import-assumed"
+        />
+      ) : null}
+
+      {summary.defaultConditions > 0 ? (
+        <Notice
+          title="Check the conditions"
+          description={conditions.description}
+          action={conditions.action}
+          onAction={onCondition}
+          disabled={busy}
+          actionTestID="import-bulk-condition"
+          testID="import-default-conditions"
+        />
+      ) : null}
+
       {sections ? (
-        <SectionCard
-          title="Deck sections"
-          description="Switch off a section to leave its cards out."
+        <SettingsGroup
+          title={IMPORT_COPY.sections}
+          footnote={IMPORT_COPY.sectionsHint}
           testID="import-sections"
         >
           {sectionSwitches(sections).map((section) => (
-            <SwitchRow
+            <SettingsSwitch
               key={section.key}
               label={section.label}
               help={section.help}
@@ -154,81 +118,66 @@ export function ImportPreviewHeader({
               testID={`import-section-${section.key}`}
             />
           ))}
-        </SectionCard>
+        </SettingsGroup>
       ) : null}
 
-      {summary.toChoose > 0 ? (
-        <SectionCard
-          title={needPrintingTitle(summary.toChoose, preview.source)}
-          description="A card exists in several printings: choose the one you own on each line, or let us take the most recent printing by release date. Where that set has several versions of a card, the plain copy (Unlimited, no foil) is taken and marked for you to check."
-          testID="import-unchosen"
-        >
-          <Button
-            label="Use the most recent printing for all unchosen rows"
-            icon="calendar-star"
-            variant="secondary"
-            disabled={busy}
-            onPress={onMostRecent}
-            testID="import-bulk-recent"
-          />
-          <Checkbox
-            label={leaveOutLabel(summary.toChoose, preview.source)}
-            checked={leaveOut}
-            onChange={onLeaveOut}
-            disabled={busy}
-            testID="import-leave-out"
-          />
-        </SectionCard>
-      ) : null}
+      <View style={styles.sentences}>
+        <Text style={[styles.sentence, { color: palette.ink }]} testID="import-summary-sentence">
+          {summarySentence(preview)}
+        </Text>
+        <Text style={[styles.small, { color: palette.textMuted }]} testID="import-kept-until">
+          Nothing is added until you confirm at the bottom. This preview is kept until{' '}
+          {clockTime(preview.expiresAt)}.
+        </Text>
+      </View>
+    </View>
+  );
+}
 
-      {assumed > 0 ? (
-        <SectionCard
-          title={assumedText.title}
-          description={assumedText.description}
-          testID="import-assumed"
-        >
-          <Button
-            label={assumedText.action}
-            icon="filter-variant"
-            variant="secondary"
-            onPress={() => onFilter('MOST_RECENT_ASSUMED')}
-            testID="import-show-assumed"
-          />
-        </SectionCard>
-      ) : null}
-
-      {summary.defaultConditions > 0 ? (
-        <SectionCard
-          title="Check the conditions"
-          description={conditions.description}
-          testID="import-default-conditions"
-        >
-          <Button
-            label={conditions.action}
-            icon="shield-check-outline"
-            variant="secondary"
-            disabled={busy}
-            onPress={onCondition}
-            testID="import-bulk-condition"
-          />
-        </SectionCard>
-      ) : null}
+/** A quiet card that asks something of the collector, with its one button. */
+function Notice({
+  title,
+  description,
+  action,
+  onAction,
+  disabled = false,
+  actionTestID,
+  testID,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onAction: () => void;
+  disabled?: boolean;
+  actionTestID: string;
+  testID: string;
+}) {
+  const { palette } = useTheme();
+  return (
+    <View
+      testID={testID}
+      style={[styles.notice, { backgroundColor: palette.surface, borderColor: palette.border }]}
+    >
+      <Text accessibilityRole="header" style={[styles.noticeTitle, { color: palette.ink }]}>
+        {title}
+      </Text>
+      <Text style={[styles.small, { color: palette.textMuted }]}>{description}</Text>
+      <PillButton
+        label={action}
+        variant="outline"
+        disabled={disabled}
+        onPress={onAction}
+        testID={actionTestID}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[3], marginBottom: spacing[3] },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  stat: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    borderWidth: 1,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[2],
-  },
-  statWide: { flexBasis: '100%' },
-  value: { fontWeight: fontWeight.bold },
-  pressed: { opacity: 0.8 },
+  root: { gap: 12, paddingTop: 10, paddingBottom: 6 },
+  notice: { gap: 6, padding: 14, borderRadius: 16, borderWidth: 1 },
+  noticeTitle: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  sentences: { gap: 4 },
+  sentence: { fontSize: 13, lineHeight: 18 },
+  small: { fontSize: 12, lineHeight: 17 },
 });
