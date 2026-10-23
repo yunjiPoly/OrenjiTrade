@@ -1,0 +1,208 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState, type ReactElement, type ReactNode, type Ref } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type RefreshControlProps,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
+import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+
+import { SETTINGS_COPY } from './settingsCopy';
+
+export interface SettingsTopBarProps {
+  title: string;
+  onBack: () => void;
+  /** What a screen reader says for the back button ("Back"). */
+  backLabel?: string;
+  /** The right end of the bar ("Preview", "All changes saved"). */
+  right?: ReactNode;
+}
+
+/**
+ * The top bar of Settings and its pages (mockup v50 screens 47 to 59): a 44 pt back button, the
+ * title in Sora on the left, an optional action or status on the right, a hairline under it. The
+ * back button keeps the id of the navigation header's (`BackButton`): the flows go back the same
+ * way on every screen.
+ */
+export function SettingsTopBar({
+  title,
+  onBack,
+  backLabel = SETTINGS_COPY.back,
+  right,
+}: SettingsTopBarProps) {
+  const { palette } = useTheme();
+  return (
+    <View style={[styles.top, { borderBottomColor: palette.border }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={backLabel}
+        onPress={onBack}
+        testID="BackButton"
+        style={({ pressed }) => [styles.icon, pressed && styles.pressed]}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
+      </Pressable>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        numberOfLines={1}
+        style={[styles.title, { color: palette.ink }]}
+      >
+        {title}
+      </Text>
+      {right ? <View style={styles.right}>{right}</View> : null}
+    </View>
+  );
+}
+
+export interface SettingsPageProps {
+  title: string;
+  children: ReactNode;
+  /** The right end of the top bar. */
+  right?: ReactNode;
+  /** Where back leads; by default the screen under this one, else Settings. */
+  onBack?: () => void;
+  /** The bar at the bottom (the page's main button), with a hairline above it. */
+  footer?: ReactNode;
+  refreshControl?: ReactElement<RefreshControlProps>;
+  scrollRef?: Ref<ScrollView>;
+  /** The whole screen (`screen-settings-…`); its scroll view is `<testID>-scroll`. */
+  testID: string;
+}
+
+/**
+ * The layout of Settings and its pages: the safe area, the top bar, the content scrolling under
+ * it (16 pt sides, 16 pt between groups) and an optional bottom bar. On iOS the scroll view keeps
+ * the field being typed in above the keyboard (`automaticallyAdjustKeyboardInsets`, stage R12's
+ * lesson); Android keeps the keyboard padding. A toast sits above the bottom bar.
+ */
+export function SettingsPage({
+  title,
+  children,
+  right,
+  onBack,
+  footer,
+  refreshControl,
+  scrollRef,
+  testID,
+}: SettingsPageProps) {
+  const { palette } = useTheme();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const snackbar = useSnackbar();
+  const [footerHeight, setFooterHeight] = useState(0);
+
+  useEffect(() => {
+    if (!footer || footerHeight === 0) {
+      return undefined;
+    }
+    return snackbar.keepClear(footerHeight);
+  }, [footer, footerHeight, snackbar]);
+
+  const back =
+    onBack ??
+    (() => {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/settings');
+      }
+    });
+
+  return (
+    <View
+      testID={testID}
+      style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
+    >
+      <Stack.Screen options={{ headerShown: false, title }} />
+      <SettingsTopBar title={title} onBack={back} right={right} />
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === 'android' ? 'padding' : undefined}
+      >
+        <ScrollView
+          ref={scrollRef}
+          testID={`${testID}-scroll`}
+          style={styles.fill}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: footer ? spacing[6] : insets.bottom + 28 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+          contentInsetAdjustmentBehavior="never"
+          refreshControl={refreshControl}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
+      {footer ? (
+        <View
+          onLayout={(event) => setFooterHeight(Math.round(event.nativeEvent.layout.height))}
+          testID={`${testID}-footer`}
+          style={[
+            styles.footer,
+            {
+              borderTopColor: palette.border,
+              backgroundColor: palette.background,
+              paddingBottom: Math.max(insets.bottom, spacing[3]) + spacing[2],
+            },
+          ]}
+        >
+          {footer}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  top: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    padding: 8,
+    borderBottomWidth: 1,
+  },
+  icon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fontFamily.display,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.2,
+  },
+  right: { flexShrink: 0, maxWidth: '45%', paddingRight: 8 },
+  pressed: { opacity: 0.7 },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing[4],
+    paddingTop: spacing[3],
+    gap: spacing[4],
+  },
+  footer: {
+    borderTopWidth: 1,
+    paddingHorizontal: spacing[4],
+    paddingTop: 10,
+    gap: 6,
+  },
+});

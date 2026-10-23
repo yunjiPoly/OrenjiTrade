@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
@@ -18,6 +19,8 @@ export interface ToggleChipsProps {
   chips: readonly ToggleChip[];
   onToggle: (key: string) => void;
   disabled?: boolean;
+  /** Something after the chips, in the same wrapping row (Edit profile's "Add a tag"). */
+  trailing?: ReactNode;
   testID?: string;
 }
 
@@ -26,7 +29,14 @@ export interface ToggleChipsProps {
  * picked chip is filled in the ink colour, the others are outlined. Each is a checkbox for a
  * screen reader, 36 pt tall with a 44 pt touch area.
  */
-export function ToggleChips({ label, chips, onToggle, disabled, testID }: ToggleChipsProps) {
+export function ToggleChips({
+  label,
+  chips,
+  onToggle,
+  disabled,
+  trailing,
+  testID,
+}: ToggleChipsProps) {
   const { palette } = useTheme();
   return (
     <View role="group" accessibilityLabel={label} style={styles.wrap} testID={testID}>
@@ -61,6 +71,7 @@ export function ToggleChips({ label, chips, onToggle, disabled, testID }: Toggle
           </Pressable>
         );
       })}
+      {trailing}
     </View>
   );
 }

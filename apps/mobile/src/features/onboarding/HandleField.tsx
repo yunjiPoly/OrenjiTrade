@@ -44,6 +44,8 @@ export interface HandleFieldProps {
   onChange: (value: string) => void;
   /** The save's or the form's error (wins over the live check). */
   error?: string | null;
+  /** The rules under the field (Edit profile words them its own way). */
+  hint?: string;
   disabled?: boolean;
 }
 
@@ -51,7 +53,7 @@ export interface HandleFieldProps {
  * The handle of the welcome (mockup v50 screen 40): "@" before it, a teal check when it is free,
  * "That handle is already taken. Try another one." when it is not, the rules under it.
  */
-export function HandleField({ value, onChange, error, disabled }: HandleFieldProps) {
+export function HandleField({ value, onChange, error, hint, disabled }: HandleFieldProps) {
   const { palette, tokens } = useTheme();
   const [focused, setFocused] = useState(false);
   const check = useHandleCheck(value);
@@ -123,7 +125,7 @@ export function HandleField({ value, onChange, error, disabled }: HandleFieldPro
         </Text>
       ) : (
         <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          {WELCOME_COPY.profile.handleHint}
+          {hint ?? WELCOME_COPY.profile.handleHint}
         </Text>
       )}
     </View>
