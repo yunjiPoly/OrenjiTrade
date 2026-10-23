@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
+import { LABEL_MAX_FONT_SCALE } from '@/src/features/settings/SettingsList';
 import { fontWeight, useStackedRows, useTheme } from '@/src/theme';
 
 /** "@fake.cards · Ontario", or the handle alone while the province is unknown or not shown. */
@@ -41,7 +42,8 @@ export function PersonHeader({
   testID = 'person-header',
 }: PersonHeaderProps) {
   const { palette } = useTheme();
-  // At the largest text sizes the picture goes above the words, which take the whole width.
+  // At the largest text sizes the picture goes above the words, which take the whole width and
+  // follow the text size up to 2.5 times, so a handle stays whole (stage R13's rule for rows).
   const stacked = useStackedRows();
   const profile = useCollectorProfile(handle);
   const province = profile.data?.location?.subdivisionName ?? null;
@@ -52,11 +54,19 @@ export function PersonHeader({
     <View style={[styles.row, stacked && styles.stacked]} testID={testID}>
       <Avatar src={profile.data?.avatarUrl ?? avatarUrl} name={displayName} size={48} />
       <View style={[styles.words, stacked && styles.wordsStacked]}>
-        <Text style={[styles.name, { color: palette.ink }]} testID={nameTestID ?? `${testID}-name`}>
+        <Text
+          maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+          style={[styles.name, { color: palette.ink }]}
+          testID={nameTestID ?? `${testID}-name`}
+        >
           {displayName}
         </Text>
         {shown ? (
-          <Text style={[styles.line, { color: palette.textMuted }]} testID={`${testID}-line`}>
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.line, { color: palette.textMuted }]}
+            testID={`${testID}-line`}
+          >
             {shown}
           </Text>
         ) : null}
