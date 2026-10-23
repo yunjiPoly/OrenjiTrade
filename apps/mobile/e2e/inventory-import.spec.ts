@@ -121,11 +121,6 @@ async function openImport(
   return flow;
 }
 
-/** The count of one of the four tiles on top of a preview. */
-function stat(flow: Locator, key: 'new' | 'merged' | 'choose' | 'unmatched'): Locator {
-  return flow.getByTestId(`import-summary-${key}`);
-}
-
 test.describe('mobile inventory import', () => {
   requireStack();
 
@@ -169,11 +164,22 @@ test.describe('mobile inventory import', () => {
     expect(new URL(uploaded.url()).searchParams.get('source')).toBe('YDK');
     const importId = ((await uploaded.json()) as { id: string }).id;
 
-    // The preview: one card is ready, two need a printing, one passcode is unknown.
-    await expect(stat(flow, 'new')).toHaveText('1new card', { timeout: 30_000 });
-    await expect(stat(flow, 'merged')).toHaveText('0added to cards you own');
-    await expect(stat(flow, 'choose')).toHaveText('2need a printing');
-    await expect(stat(flow, 'unmatched')).toHaveText('1not recognised');
+    // "Check the cards" (stage R14, mockup v50 screen 67): the file picked on this phone with its
+    // sections, the chips with their counts, the amber bar. One card is ready, two need a
+    // printing, one passcode is unknown.
+    await expect(flow.getByTestId('import-summary')).toHaveText(
+      'fictional-deck.ydk · 3 main, 1 extra, 2 side',
+      { timeout: 30_000 }
+    );
+    await expect(flow.getByRole('radio', { name: 'All 4' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await expect(flow.getByRole('radio', { name: 'Which copy? 2' })).toBeVisible();
+    await expect(flow.getByRole('radio', { name: 'Not recognised 1' })).toBeVisible();
+    await expect(flow.getByTestId('import-unchosen')).toContainText(
+      '2 cards need a printing. Pick one on each, or use the newest for all.'
+    );
     await expect(flow.getByTestId('import-summary-sentence')).toHaveText(
       'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
     );
@@ -194,30 +200,35 @@ test.describe('mobile inventory import', () => {
     const commit = flow.getByTestId('import-commit');
     await expect(commit).toHaveAttribute('aria-disabled', 'true');
     await expect(flow.getByTestId('import-commit-reason')).toHaveText(
-      '2 cards still need a printing. Choose them, or leave them out.'
+      'Choose the copy of the marked cards, or use the newest.'
     );
 
-    // The card that fits one printing is preselected; the default condition is shown.
+    // The card that fits one printing is preselected; the default condition is shown on its
+    // copies ("DMG ×2"), its whole name for VoiceOver.
     const wisp = flow.getByTestId('import-row-0');
     await expect(wisp).toContainText('Fixture Lantern Wisp');
-    await expect(wisp).toContainText('YDKF-EN001');
-    await expect(wisp).toContainText('Damaged (not in your file) · ×2');
-    await expect(wisp).toContainText('Main 2');
-    // What the file said stands under the line: the match can be checked against the file.
-    await expect(flow.getByTestId('import-row-0-source')).toHaveText('Passcode 910000001');
+    await expect(wisp).toContainText('YDKF-EN001 · Rare');
+    await expect(wisp).toContainText('DMG ×2');
+    await expect(
+      flow.getByRole('button', {
+        name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',
+      })
+    ).toBeVisible();
+    // The Heron stands on two lines (two artworks): each says what the file said.
+    await expect(flow.getByTestId('import-row-1-source')).toHaveText('Passcode 910000002');
 
-    // The filter stays on screen above the list; the count that asks something is a button too.
-    await flow.getByRole('button', { name: '1 not recognised' }).click();
-    await expect(flow.getByRole('radio', { name: 'Not recognised (1)' })).toHaveAttribute(
+    // The filter stays on screen above the list.
+    await flow.getByRole('radio', { name: 'Not recognised 1' }).click();
+    await expect(flow.getByRole('radio', { name: 'Not recognised 1' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
     await expect(flow.getByTestId('import-row-3')).toBeVisible({ timeout: 30_000 });
-    await flow.getByRole('radio', { name: 'All (4)' }).click();
+    await flow.getByRole('radio', { name: 'All 4' }).click();
     await expect(flow.getByTestId('import-row-0')).toBeVisible({ timeout: 30_000 });
 
-    // "Needs a printing": the Heron and its alternate artwork.
-    await flow.getByRole('radio', { name: 'Needs a printing (2)' }).click();
+    // "Which copy?": the Heron and its alternate artwork.
+    await flow.getByRole('radio', { name: 'Which copy? 2' }).click();
     await expect(flow.getByTestId('import-row-1')).toBeVisible({ timeout: 30_000 });
     await expect(flow.getByTestId('import-row-2')).toBeVisible();
     await expect(flow.getByTestId('import-row-0')).toHaveCount(0);
@@ -229,16 +240,17 @@ test.describe('mobile inventory import', () => {
       .click();
     const sheet = page.getByTestId('import-printing-sheet');
     await expect(sheet.getByTestId('import-printing-card')).toHaveText('Fixture Clockwork Heron');
+    // What the file said, to check the match against.
+    await expect(sheet.getByTestId('import-printing-source')).toContainText('Passcode 91000000');
     await expect(sheet).toContainText('2 printings. Pick the one you own.');
     await sheet.getByRole('radio', { name: /^YDKF-EN002/ }).click();
-    await expect(stat(flow, 'choose')).toHaveText('1needs a printing', { timeout: 30_000 });
-    await expect(flow.getByRole('radio', { name: 'Needs a printing (1)' })).toBeVisible();
+    await expect(flow.getByRole('radio', { name: 'Which copy? 1' })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(flow.getByTestId('import-row-1')).toHaveCount(0);
 
     // The other one by the bulk action: the most recent printing by release date.
-    await flow
-      .getByRole('button', { name: 'Use the most recent printing for all unchosen rows' })
-      .click();
+    await flow.getByRole('button', { name: 'Use the newest' }).click();
     await expect(snackbar(page)).toHaveText('1 card got its most recent printing.', {
       timeout: 30_000,
     });
@@ -248,19 +260,21 @@ test.describe('mobile inventory import', () => {
     await expect(flow.getByTestId('import-row-1')).toContainText('YDKF-EN002');
 
     // The passcode nothing fits is reported with what the file said, and has no control.
-    await flow.getByRole('radio', { name: 'Not recognised (1)' }).click();
+    await flow.getByRole('radio', { name: 'Not recognised 1' }).click();
     const unknown = flow.getByTestId('import-row-3');
     await expect(unknown).toContainText('Passcode 919999999', { timeout: 30_000 });
-    // The passcode is said for what it is, with the deck section and what can be done next.
-    await expect(unknown).toContainText(
-      'No card of the catalog has this passcode (the number printed in the lower left corner of a card).'
+    // Said for what it is (mockup v50 screen 67), with the deck section and what can be done
+    // next; why, for VoiceOver.
+    await expect(unknown).toContainText('Not recognised. It stays out.');
+    await expect(unknown).toHaveAccessibleName(
+      /No card of the catalog has this passcode \(the number printed in the lower left corner of a card\)\./
     );
     await expect(unknown).toContainText('Side 1');
     await expect(flow.getByTestId('import-row-3-next')).toHaveText(
       'If you know which card it is, find the card by its name with “Add cards” in your inventory.'
     );
     await expect(unknown.getByRole('button')).toHaveCount(0);
-    await flow.getByRole('radio', { name: 'All (4)' }).click();
+    await flow.getByRole('radio', { name: 'All 4' }).click();
 
     // One condition for the cards whose file names none (a deck file names none).
     await flow.getByRole('button', { name: 'Set one condition for these 3 cards' }).click();
@@ -277,9 +291,7 @@ test.describe('mobile inventory import', () => {
     await expect(
       flow.getByRole('button', { name: 'Change the condition of these 3 cards' })
     ).toBeVisible();
-    await expect(flow.getByTestId('import-row-0')).toContainText(
-      'Near Mint (not in your file) · ×2'
-    );
+    await expect(flow.getByTestId('import-row-0')).toContainText('NM ×2');
 
     // The side deck no longer counts: the Heron keeps its main copy only.
     await flow.getByRole('switch', { name: 'Side deck' }).click();
@@ -300,15 +312,15 @@ test.describe('mobile inventory import', () => {
     await expect(dialog.getByText('At least 1 copy.')).toBeVisible();
     await dialog.getByLabel('Copies').fill('3');
     await dialog.getByRole('button', { name: 'Save' }).click();
-    await expect(flow.getByTestId('import-row-0')).toContainText('Lightly Played · ×3', {
+    await expect(flow.getByTestId('import-row-0')).toContainText('LP ×3', {
       timeout: 30_000,
     });
 
     // A line left out, then put back.
-    await flow.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' }).click();
+    await flow.getByRole('checkbox', { name: 'Leave out Fixture Lantern Wisp' }).click();
     await expect(flow.getByTestId('import-row-0-state')).toHaveText('Left out');
     await expect(commit).toHaveAccessibleName('Add 2 cards to my inventory', { timeout: 30_000 });
-    await flow.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' }).click();
+    await flow.getByRole('checkbox', { name: 'Include Fixture Lantern Wisp' }).click();
     // Three cards, five copies: the copies stand next to the cards.
     await expect(commit).toHaveAccessibleName('Add 3 cards (5 copies) to my inventory', {
       timeout: 30_000,
@@ -321,7 +333,13 @@ test.describe('mobile inventory import', () => {
     // The commit and its result.
     await commit.click();
     const result = flow.getByTestId('import-result');
-    await expect(result.getByText('Import done')).toBeVisible({ timeout: 30_000 });
+    // "Import done" (mockup v50 screen 68): the title in the top bar, the count, "They start
+    // private."
+    await expect(flow.getByText('Import done')).toBeVisible({ timeout: 30_000 });
+    await expect(result.getByText('3 cards added')).toBeVisible();
+    await expect(result).toContainText(
+      'They start private. Make the ones you trade public from Inventory.'
+    );
     await expect(result.getByTestId('import-result-added')).toContainText('3new cards added');
     await expect(result.getByTestId('import-result-merged')).toContainText('0');
     await expect(result.getByTestId('import-result-leftOut')).toContainText(
@@ -334,8 +352,7 @@ test.describe('mobile inventory import', () => {
     );
     // The line that was not added stays readable on the result, with what can be done about it.
     const lost = result.getByTestId('import-result-unmatched');
-    await expect(lost).toContainText('Not recognised (1)');
-    await lost.getByRole('button', { name: 'Show these different cards' }).click();
+    await expect(lost).toContainText('NOT RECOGNISED · 1');
     await expect(lost.getByTestId('import-row-3')).toContainText('Passcode 919999999', {
       timeout: 30_000,
     });
@@ -399,7 +416,7 @@ test.describe('mobile inventory import', () => {
     const flow = await openImport(page, collector, 'collectr');
 
     await expect(flow.getByTestId('import-limits')).toHaveText('Up to 2 MB and 5,000 rows.');
-    await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
+    await flow.getByRole('button', { name: 'Paste the text of the file instead' }).click();
 
     // A file whose card name column cannot be found is refused, and the column is named.
     await flow.getByLabel('Text of the CSV export').fill('Set,Quantity\nAzure Dawn,2\n');
@@ -421,25 +438,29 @@ test.describe('mobile inventory import', () => {
     expect(uploaded.request().headers()['content-type']).toContain('multipart/form-data');
     expect(new URL(uploaded.url()).searchParams.get('source')).toBe('COLLECTR_CSV');
 
-    // The dragon goes into the copies already owned; the knight needs a printing; one row fits nothing.
-    await expect(stat(flow, 'new')).toHaveText('0new cards', { timeout: 30_000 });
-    await expect(stat(flow, 'merged')).toHaveText('1added to a card you own');
-    await expect(stat(flow, 'choose')).toHaveText('1needs a printing');
-    await expect(stat(flow, 'unmatched')).toHaveText('1not recognised');
+    // The dragon goes into the copies already owned; the knight needs a printing; one row fits
+    // nothing. A pasted text has no file name.
+    await expect(flow.getByTestId('import-summary')).toHaveText('Your CSV export · 3 lines', {
+      timeout: 30_000,
+    });
+    await expect(flow.getByRole('radio', { name: 'Which copy? 1' })).toBeVisible();
+    await expect(flow.getByRole('radio', { name: 'Not recognised 1' })).toBeVisible();
     await expect(flow.getByTestId('import-sections')).toHaveCount(0);
     const dragon = flow.getByTestId('import-row-0');
     await expect(dragon).toContainText('Azure-Eyes Sky Dragon');
-    await expect(dragon).toContainText('AZR-EN001');
-    await expect(dragon).toContainText('1st Edition');
-    await expect(dragon).toContainText('Near Mint · ×2');
+    await expect(dragon).toContainText('AZR-EN001 · Ultra Rare');
+    await expect(dragon).toContainText('NM ×2');
     await expect(flow.getByTestId('import-row-0-owned')).toHaveText('You have 2: this adds 2.');
-    // The file's own words under the line it became.
-    await expect(flow.getByTestId('import-row-0-source')).toHaveText(
+    // The file's own words, in the "Which copy" sheet.
+    await dragon.getByRole('button', { name: /^Which copy of Azure-Eyes Sky Dragon/ }).click();
+    await expect(page.getByTestId('import-printing-source')).toHaveText(
       'In your file: Azure Dawn · AZR-EN001 · Ultra Rare'
     );
+    await page.getByTestId('import-printing-sheet-backdrop').click({ position: { x: 10, y: 10 } });
+    await expect(page.getByTestId('import-printing-sheet')).toHaveCount(0, { timeout: 30_000 });
     // The row nothing fits, with what the file said. Never a price.
     const nobody = flow.getByTestId('import-row-2');
-    await expect(nobody).toContainText('Not recognised');
+    await expect(nobody).toContainText('Not recognised. It stays out.');
     await expect(nobody).toContainText('Nobody Knows Me');
     await expect(nobody).toContainText('Some Set · EN404 · Common · 3 copies');
     await expect(flow).not.toContainText('59.26');
@@ -456,8 +477,9 @@ test.describe('mobile inventory import', () => {
       .click();
     const sheet = page.getByTestId('import-printing-sheet');
     await sheet.getByRole('radio').first().click();
-    await expect(stat(flow, 'new')).toHaveText('1new card', { timeout: 30_000 });
-    await expect(stat(flow, 'choose')).toHaveText('0need a printing');
+    await expect(flow.getByRole('radio', { name: 'Which copy? 0' })).toBeVisible({
+      timeout: 30_000,
+    });
     await expect(flow.getByTestId('import-commit-reason')).toHaveText(
       'New cards start private. 1 of them is added to a card you already have.'
     );
@@ -501,7 +523,7 @@ test.describe('mobile inventory import', () => {
     // Two cards named without a set: each has a 1st Edition and an Unlimited copy in its one set
     // (the sample catalog), so the release date decides nothing between them. The dragon's line
     // says its printing and its edition.
-    await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
+    await flow.getByRole('button', { name: 'Paste the text of the file instead' }).click();
     await flow
       .getByLabel('Text of the CSV export')
       .fill(
@@ -514,15 +536,15 @@ test.describe('mobile inventory import', () => {
         ].join('\n')
       );
     await flow.getByRole('button', { name: 'Use this text' }).click();
-    await expect(stat(flow, 'choose')).toHaveText('2need a printing', { timeout: 30_000 });
+    await expect(flow.getByRole('radio', { name: 'Which copy? 2' })).toBeVisible({
+      timeout: 30_000,
+    });
     const bar = flow.getByTestId('import-filter-bar');
     await expect(bar.getByRole('radio')).toHaveCount(3);
     await expect(flow.getByTestId('import-assumed')).toHaveCount(0);
 
     // The bulk action takes the plain copy of both, and says so once, in a snackbar.
-    await flow
-      .getByRole('button', { name: 'Use the most recent printing for all unchosen rows' })
-      .click();
+    await flow.getByRole('button', { name: 'Use the newest' }).click();
     await expect(snackbar(page)).toHaveText(
       '2 lines got their most recent printing. Their most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check them.',
       { timeout: 30_000 }
@@ -603,20 +625,22 @@ test.describe('mobile inventory import', () => {
     test.setTimeout(180_000);
     const collector = await createOnboardedCollector(request, 'resume', 'Mobile Resumer');
     const flow = await openImport(page, collector, 'deck');
-    await flow.getByRole('button', { name: 'Paste the text of the file' }).click();
+    await flow.getByRole('button', { name: 'Paste the text of the file instead' }).click();
     await flow.getByLabel('Text of the deck file').fill(DECK);
     await flow.getByRole('button', { name: 'Use this text' }).click();
-    await expect(stat(flow, 'choose')).toHaveText('2need a printing', { timeout: 30_000 });
+    await expect(flow.getByRole('radio', { name: 'Which copy? 2' })).toBeVisible({
+      timeout: 30_000,
+    });
     // A choice made in the preview: the extra deck (the alternate artwork) does not count.
     await flow.getByRole('switch', { name: 'Extra deck' }).click();
     await expect(flow.getByTestId('import-summary-sentence')).toHaveText(
       'Your file lists 4 different cards. 1 is ready to add: 2 copies. 1 left out.',
       { timeout: 30_000 }
     );
-    await expect(stat(flow, 'choose')).toHaveText('1needs a printing');
+    await expect(flow.getByRole('radio', { name: 'Which copy? 1' })).toBeVisible();
 
     // Leaving asks first: nothing was added, and the preview is kept.
-    const back = page.locator('[aria-label$=", back"]').filter({ visible: true }).first();
+    const back = flow.getByTestId('BackButton');
     await back.click();
     const leave = page.getByTestId('import-leave-dialog');
     await expect(leave).toContainText('Leave this import?');
@@ -643,7 +667,8 @@ test.describe('mobile inventory import', () => {
     await again.getByRole('button', { name: 'Discard this import' }).click();
     const dialog = page.getByTestId('import-discard-dialog');
     await expect(dialog).toContainText('Discard this import?');
-    await dialog.getByRole('button', { name: 'Keep it' }).click();
+    await expect(dialog).toContainText('Nothing was added to your inventory yet.');
+    await dialog.getByRole('button', { name: 'Keep checking' }).click();
     await expect(again.getByTestId('import-summary')).toBeVisible();
     await again.getByRole('button', { name: 'Discard this import' }).click();
     await page

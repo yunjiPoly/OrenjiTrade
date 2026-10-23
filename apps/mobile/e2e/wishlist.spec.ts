@@ -87,10 +87,18 @@ test.describe('mobile wishlist and notifications', () => {
     await expect(wishlist.getByText('Let others see what you want')).toHaveCount(0);
     await wishlist.getByRole('button', { name: 'Add a wish' }).click();
 
-    // The wish: card autocomplete, then the note, Near Mint only, a term and one printing.
+    // The wish (stage R14): "Add a wish" opens Search's card search; the card picked opens the
+    // form, then the note, Near Mint only, a price chip and one printing.
+    const finder = screen(page, 'wish-search');
+    await expect(finder.getByText('Which card are you looking for?', { exact: false })).toBeVisible(
+      {
+        timeout: 30_000,
+      }
+    );
+    await finder.getByTestId('search-input').fill('Emberfang');
+    const wished = await cardOfPrinting(request, wren.idToken, WISHED_PRINTING);
+    await finder.getByTestId(`search-result-${wished.cardId}`).click({ timeout: 30_000 });
     const editor = screen(page, 'wish-new');
-    await editor.getByLabel('Card name or printing code').fill('Emberfang');
-    await editor.getByTestId(`suggestion-CARD-${WISHED_PRINTING}`).click();
     await expect(editor.getByTestId('wish-card')).toContainText(WISHED_CARD, { timeout: 30_000 });
     await expect(editor.getByTestId('wish-copy')).toContainText('Any printing');
     // Nothing of the old form.
@@ -238,10 +246,12 @@ test.describe('mobile wishlist and notifications', () => {
     await wishlist.getByRole('button', { name: 'Add a wish' }).click();
 
     // A code only one printing has preselects that printing (written out in full).
-    const editor = screen(page, 'wish-new');
-    const search = editor.getByLabel('Card name or printing code');
+    const finder = screen(page, 'wish-search');
+    const search = finder.getByTestId('search-input');
     await search.fill(SINGLE_CODE);
-    await editor.getByTestId(`suggestion-PRINTING-${SINGLE_CODE}`).click();
+    const single = await cardOfPrinting(request, wren.idToken, SINGLE_CODE);
+    await finder.getByTestId(`search-result-${single.cardId}`).click({ timeout: 30_000 });
+    const editor = screen(page, 'wish-new');
     await expect(editor.getByTestId('wish-card')).toContainText(SINGLE_CODE_CARD, {
       timeout: 30_000,
     });
@@ -249,14 +259,16 @@ test.describe('mobile wishlist and notifications', () => {
     await expect(editor.getByTestId('wish-copy-hint')).toContainText(
       `Only ${SINGLE_CODE} · Ultra Rare · Azure Dawn · 1st Edition · English`
     );
+    // "Change" goes back to the card search, which kept the text.
     await editor.getByTestId('wish-change-card').click();
+    await expect(search).toHaveValue(SINGLE_CODE, { timeout: 30_000 });
 
-    // A typed code that two printings share: one suggestion for the code, and the wish starts on
+    // A typed code that two printings share: one card for the code, and the wish starts on
     // "Any printing". Neither printing is picked; "Which copy" names both in full.
     await search.fill(SHARED_CODE);
-    const suggestion = editor.getByTestId(`suggestion-PRINTING-${SHARED_CODE}`);
-    await expect(suggestion).toHaveCount(1);
-    await suggestion.click();
+    const found = finder.getByTestId(`search-result-${cardId}`);
+    await expect(found).toHaveCount(1, { timeout: 30_000 });
+    await found.click();
     await expect(editor.getByTestId('wish-card')).toContainText(SHARED_CODE_CARD, {
       timeout: 30_000,
     });

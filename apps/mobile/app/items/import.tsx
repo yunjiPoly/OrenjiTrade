@@ -216,14 +216,16 @@ export default function ImportScreen() {
     body = page(<ImportInterrupted preview={preview} />);
   } else {
     body = (
-      <ImportPreview
-        preview={preview}
-        fileName={fileNames[preview.id] ?? null}
-        onBack={back}
-        onGone={expire}
-        onDiscarded={restart}
-        onLateEdit={lateEdit}
-      />
+      <View style={styles.fill} testID="screen-import">
+        <ImportPreview
+          preview={preview}
+          fileName={fileNames[preview.id] ?? null}
+          onBack={back}
+          onGone={expire}
+          onDiscarded={restart}
+          onLateEdit={lateEdit}
+        />
+      </View>
     );
   }
 
@@ -303,5 +305,6 @@ function ImportInterrupted({ preview }: { preview: InventoryImport }) {
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
+  fill: { flex: 1 },
   interrupted: { paddingHorizontal: 14, paddingVertical: 12 },
 });

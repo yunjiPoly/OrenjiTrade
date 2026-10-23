@@ -154,7 +154,10 @@ test.describe('mobile deals in the chat', () => {
     await chat.getByRole('button', { name: `Rate ${ben.handle}` }).click();
     const rate = screen(page, 'rate');
     await expect(rate.getByTestId('rating-form')).toBeVisible({ timeout: 30_000 });
-    await expect(rate).toContainText('Sale');
+    // Stage R14 (mockup v50 screen 61): the deal under the buyer, as the seller reads it.
+    await expect(rate.getByTestId('rate-person-line')).toContainText(
+      `${cardName} · bought from you`
+    );
   });
 
   test('as the buyer: a deck core pinned from its page, the address from the + sheet, sold to me', async ({
