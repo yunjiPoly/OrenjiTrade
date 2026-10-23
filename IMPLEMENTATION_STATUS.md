@@ -9224,6 +9224,14 @@ the welcome and the three signed-out forms keep the KeyboardAvoidingView's paddi
    one-line field, a drag or a tap beside the fields puts the keyboard away and shows them; the owner may prefer them lifted
    above the keyboard (an input accessory bar), which needs every field of the welcome to carry it.
 
+
+### Review fix 2 (2026-10-22)
+
+The check of fix 1 approved it and left one finding: a new account's first handle was derived
+from its e-mail. Fixed: a new account's first handle is `collector_` and six random
+characters, never a part of the e-mail; the collector chooses their own on "Who are you?". No field
+changed, no migration. The check of fix 2 approved it; the full check list green, the native
+suite 38 / 38. Merged with `main` after #86 (R7, R9 to R11) for the next pull request.
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
