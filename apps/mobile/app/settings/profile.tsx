@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useGames, useMyProfile } from '@/src/api/hooks/profile';
@@ -23,7 +23,7 @@ import { WELCOME_LANGUAGES } from '@/src/features/onboarding/welcomeCopy';
 import { WelcomeTags } from '@/src/features/onboarding/WelcomeTags';
 import { AvatarEditor } from '@/src/features/profile/AvatarEditor';
 import { profileTagChips, type KnownTags } from '@/src/features/profile/profileTags';
-import { useProfileEditor } from '@/src/features/profile/useProfileEditor';
+import { useProfileEditor, type ProfileSaveOutcome } from '@/src/features/profile/useProfileEditor';
 import { EDIT_PROFILE_COPY as COPY, SETTINGS_COPY } from '@/src/features/settings/settingsCopy';
 import { GroupTitle } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
@@ -75,6 +75,20 @@ function EditProfileForm({ profile }: { profile: MyProfileResponse }) {
   const [addingTags, setAddingTags] = useState(false);
   const busy = editor.saving !== null;
   const guard = useLeaveGuard(editor.dirty && !busy);
+  const scrollRef = useRef<ScrollView>(null);
+  // A refused save, once rendered: the page goes where it says why (review fix 1: from "Save
+  // changes" at the bottom, a taken handle at the top of the page was out of sight).
+  const [refused, setRefused] = useState<{ on: Exclude<ProfileSaveOutcome, 'saved'> } | null>(null);
+  useEffect(() => {
+    if (refused?.on === 'fields') {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    } else if (refused?.on === 'form') {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [refused]);
+  const fieldInError = (['handle', 'displayName', 'bio'] as const).find(
+    (field) => editor.errors?.[field]
+  );
 
   const languageChips = [
     ...WELCOME_LANGUAGES,
@@ -126,8 +140,11 @@ function EditProfileForm({ profile }: { profile: MyProfileResponse }) {
   };
 
   const save = async () => {
-    if (await editor.save()) {
+    const outcome = await editor.save();
+    if (outcome === 'saved') {
       snackbar.show(COPY.saved, { icon: 'success' });
+    } else {
+      setRefused({ on: outcome });
     }
   };
 
@@ -157,16 +174,30 @@ function EditProfileForm({ profile }: { profile: MyProfileResponse }) {
       title={COPY.title}
       right={preview}
       testID="screen-settings-profile"
+      scrollRef={scrollRef}
       footer={
-        <PillButton
-          label={editor.dirty ? COPY.save : COPY.noChanges}
-          loading={editor.saving === 'all'}
-          loadingLabel={COPY.saving}
-          disabled={!editor.dirty}
-          onPress={() => void save()}
-          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-          testID="profile-save"
-        />
+        <>
+          {fieldInError && !busy ? (
+            <Text
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.notSaved, { color: palette.danger }]}
+              testID="profile-save-problem"
+            >
+              {COPY.checkAbove(COPY.fieldNames[fieldInError])}
+            </Text>
+          ) : null}
+          <PillButton
+            label={editor.dirty ? COPY.save : COPY.noChanges}
+            loading={editor.saving === 'all'}
+            loadingLabel={COPY.saving}
+            disabled={!editor.dirty}
+            onPress={() => void save()}
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            testID="profile-save"
+          />
+        </>
       }
     >
       <AvatarEditor avatarUrl={profile.avatarUrl} name={profile.displayName} disabled={busy} />
@@ -311,6 +342,7 @@ const styles = StyleSheet.create({
   preview: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   previewText: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
   bio: { minHeight: 88, textAlignVertical: 'top' },
+  notSaved: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.medium, textAlign: 'center' },
   block: { gap: spacing[2] },
   tagsHead: {
     flexDirection: 'row',

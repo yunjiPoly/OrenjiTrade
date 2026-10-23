@@ -43,10 +43,14 @@ export interface ProfileEditor {
   saveTags: () => Promise<boolean>;
   /**
    * Edit profile's one save (stage R13): `PUT /me/profile` with the tags in the same request when
-   * they changed, all saved or nothing. Resolves false when it failed.
+   * they changed, all saved or nothing. Resolves `saved`, or where it was refused: `fields` (a
+   * message beside the handle, the name or the bio) or `form` (`formError`).
    */
-  save: () => Promise<boolean>;
+  save: () => Promise<ProfileSaveOutcome>;
 }
+
+/** How Edit profile's one save ended: saved, refused on a field, or refused as a whole. */
+export type ProfileSaveOutcome = 'saved' | 'fields' | 'form';
 
 /** What is saved, to tell what changed. */
 interface Saved {
@@ -202,17 +206,21 @@ export function useProfileEditor(
   const current = { draft, games, languages, tags, customTags };
   const changes = profileChanges(current, saved);
 
-  const showFailure = (caught: unknown, fields: boolean) => {
+  /** Shows why a save failed; says whether that is beside a field or for the whole form. */
+  const showFailure = (caught: unknown, fields: boolean): 'fields' | 'form' => {
     const mapped = fields && isApiError(caught) ? profileServerErrors(caught) : null;
     if (mapped) {
       setErrors(mapped);
-    } else if (isApiError(caught) && isTagProblem(caught)) {
+      return 'fields';
+    }
+    if (isApiError(caught) && isTagProblem(caught)) {
       setFormError(TAG_REFUSED);
     } else {
       setFormError(
         isApiError(caught) ? friendlyMessage(caught) : 'Something went wrong. Please try again.'
       );
     }
+    return 'form';
   };
 
   const validated = (): boolean => {
@@ -267,17 +275,16 @@ export function useProfileEditor(
     }
   };
 
-  const save = async (): Promise<boolean> => {
+  const save = async (): Promise<ProfileSaveOutcome> => {
     if (!validated()) {
-      return false;
+      return 'fields';
     }
     setSaving('all');
     try {
       adopt(await saveProfile.mutateAsync(saveBody(current, changes.tags)));
-      return true;
+      return 'saved';
     } catch (caught) {
-      showFailure(caught, true);
-      return false;
+      return showFailure(caught, true);
     } finally {
       setSaving(null);
     }

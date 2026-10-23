@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { Dimensions, ScrollView } from 'react-native';
 
 import AccountSettingsScreen from '@/app/settings/account';
 import AppearanceSettingsScreen from '@/app/settings/appearance';
@@ -276,6 +276,54 @@ describe('Edit profile (48)', () => {
         /Too many requests in a short time/
       )
     );
+  });
+
+  it('says above "Save changes" why a save was refused, and shows where (review fix 1)', async () => {
+    mockApi(
+      signedInRoutes({
+        'PUT /api/v1/me/profile': [
+          problem(409, 'HANDLE_TAKEN', 'taken'),
+          problem(400, 'VALIDATION_FAILED', 'Validation failed', {
+            errors: [{ field: 'customLabels[0]', message: 'contains a term that is not allowed' }],
+          }),
+        ],
+      })
+    );
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    const scrollToEnd = jest.spyOn(ScrollView.prototype, 'scrollToEnd');
+    try {
+      renderWithProviders(<ProfileSettingsScreen />, { port: port() });
+      // A field the phone refuses: the page goes up to it, the footer says which.
+      fireEvent.changeText(await screen.findByLabelText('Display name'), '');
+      fireEvent.press(screen.getByTestId('profile-save'));
+      expect(await screen.findByTestId('profile-save-problem')).toHaveTextContent(
+        'Not saved. Check your display name above.'
+      );
+      await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ y: 0, animated: true }));
+      fireEvent.changeText(screen.getByLabelText('Display name'), 'Maïka');
+      expect(screen.queryByTestId('profile-save-problem')).toBeNull();
+
+      // A field the API refuses (a taken handle, at the top of the page).
+      scrollTo.mockClear();
+      fireEvent.changeText(screen.getByLabelText('Handle'), 'collector2');
+      fireEvent.press(screen.getByTestId('profile-save'));
+      expect(await screen.findByTestId('profile-save-problem')).toHaveTextContent(
+        'Not saved. Check your handle above.'
+      );
+      await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith({ y: 0, animated: true }));
+
+      // A refusal for the whole form: its message is at the end of the page, just above the
+      // button; the page goes there.
+      fireEvent.changeText(screen.getByLabelText('Handle'), 'maika_2');
+      expect(screen.queryByTestId('profile-save-problem')).toBeNull();
+      fireEvent.press(screen.getByTestId('profile-save'));
+      expect(await screen.findByTestId('profile-error')).toHaveTextContent(/One of your tags/);
+      await waitFor(() => expect(scrollToEnd).toHaveBeenCalledWith({ animated: true }));
+      expect(screen.queryByTestId('profile-save-problem')).toBeNull();
+    } finally {
+      scrollTo.mockRestore();
+      scrollToEnd.mockRestore();
+    }
   });
 
   it('reads the public profile again after a save, so Preview shows what was saved (review fix 1)', async () => {

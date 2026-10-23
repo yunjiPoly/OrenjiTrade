@@ -77,6 +77,9 @@ export const EDIT_PROFILE_COPY = {
   saving: 'Saving…',
   noChanges: 'No changes yet',
   saved: 'Profile saved.',
+  /** Above "Save changes" when a field refused the save (its message is at the top of the page). */
+  checkAbove: (field: string) => `Not saved. Check your ${field} above.`,
+  fieldNames: { handle: 'handle', displayName: 'display name', bio: 'bio' },
   leaveTitle: 'Leave without saving?',
   leaveBody: 'Your changes to your profile are not saved yet. They are lost when you leave.',
 } as const;
