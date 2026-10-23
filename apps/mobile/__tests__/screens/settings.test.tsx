@@ -9,6 +9,8 @@ import LocationSettingsScreen from '@/app/settings/location';
 import NotificationSettingsScreen from '@/app/settings/notifications';
 import PrivacySettingsScreen from '@/app/settings/privacy';
 import ProfileSettingsScreen from '@/app/settings/profile';
+import { useCollectorProfile } from '@/src/api/hooks/collectors';
+import { Text } from '@/src/components/ui/Text';
 import { useRecentSearchesStore } from '@/src/features/catalog/recentSearchesStore';
 import { TAG_REFUSED } from '@/src/features/profile/useProfileEditor';
 import { savedDetailKey } from '@/src/features/shipping/savedDetails';
@@ -19,6 +21,7 @@ import {
   GAMES,
   TAGS,
   blockedUserFixture,
+  collectorFixture,
   deletionFixture,
   locationFixture,
   meFixture,
@@ -272,6 +275,43 @@ describe('Edit profile (48)', () => {
       expect(screen.getByTestId('profile-error')).toHaveTextContent(
         /Too many requests in a short time/
       )
+    );
+  });
+
+  it('reads the public profile again after a save, so Preview shows what was saved (review fix 1)', async () => {
+    // The server's public profile, as `GET /collectors/{handle}` answers it.
+    let server = collectorFixture({ handle: 'maika', bio: 'Binder collector in Montréal.' });
+    mockApi(
+      signedInRoutes({
+        'PUT /api/v1/me/profile': ({ body }: MockRequest) => {
+          server = { ...server, bio: (body as { bio: string }).bio };
+          return ok({ ...profileFixture(), ...(body as object) });
+        },
+        'GET /api/v1/collectors/maika': () => ok(server),
+      })
+    );
+    // What "Preview" shows (the public profile, kept by the phone's cache).
+    function PublicBio({ handle }: { handle: string }) {
+      const profile = useCollectorProfile(handle);
+      return <Text testID={`public-bio-${handle}`}>{profile.data?.bio ?? ''}</Text>;
+    }
+    renderWithProviders(
+      <>
+        <ProfileSettingsScreen />
+        <PublicBio handle="maika" />
+      </>,
+      { port: port() }
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('public-bio-maika')).toHaveTextContent(
+        'Binder collector in Montréal.'
+      )
+    );
+    fireEvent.changeText(screen.getByLabelText('Bio'), 'Bulk welcome.');
+    fireEvent.press(screen.getByTestId('profile-save'));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Profile saved\.$/);
+    await waitFor(() =>
+      expect(screen.getByTestId('public-bio-maika')).toHaveTextContent('Bulk welcome.')
     );
   });
 
