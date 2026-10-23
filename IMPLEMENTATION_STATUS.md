@@ -9662,6 +9662,201 @@ refused message says the same words for a block and for a collector who cannot r
 the phone already shows "not available" there, so it needs no change, but the paused web's
 blocked-side tooltip and header would change. Until the owner decides, the mockup's sentence stays.
 
+## Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)
+
+Stage R14 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R14. Report, rating, reference, binders, wishes, import and sets (60 to 69)"). Mockup v50
+screens 60 (Report collector), 61 (Rate), 62 (Write a reference), 63 (New binder), 64 (Add a wish),
+65 (Edit a wish), 66 to 68 (Import: the file, Check the cards, Import done) and 69 (a set). Built on
+branch `feature/r7-home` after R13, for the one giant pull request of R7, R9 to R15 and R8 (owner's
+exception of 2026-10-21; nothing merged in between). **No migration** (the next free one stays
+**V135**; V124 and V128 stay unused); no ADR. Two optional, nullable fields on one response, nothing
+else in the API changed; no file of `apps/web-angular` changed. Free for all (ADR 0019): nothing
+paid or sponsored on these screens; deals ship by mail (ADR 0018); **English only** (owner,
+2026-10-20).
+
+**What a collector can now do**
+
+- **Report a collector** (60), from the "⋯" of a profile, a chat or a community post (and a public
+  binder or deck core, as before): the person with their picture and "@handle · {province}" (the
+  public profile's province, never the city; the handle alone when they show no place), **the
+  server's reasons as radio rows with their line**, Details with "{n} / 1000" beside the label, the
+  confidentiality note in its card, and **"Send report"** at the bottom, grey with "Choose a reason
+  first." until a reason is chosen. **Report sent in place**: the teal tick, "Thank you. Our
+  moderators will review your report about {name}. They are not told who reported them.", **Done**
+  and **"Follow it in My reports"**. An open report (409), oneself (422), a collector gone (404) and
+  five a day (429) are said in place as before; after a 409 the reasons stay disabled and "My
+  reports" is offered.
+- **Rate a collector** (61), from the sold note of a chat ("Rate {name}"; the sale notification opens
+  that chat) and from a profile's ratings: the person and **the deal** ("Ash Blossom & Joyous Spring
+  · sold to you Oct 17" for the buyer, "… · bought from you Oct 17" for the seller; "Conversation ·
+  Sep 3" for a qualified conversation); "Which deal are you rating?" as radio rows when there are
+  several; **Overall** in its card with 34 pt amber stars and its word (Poor, Not great, Okay, Good,
+  Excellent); **"Details · optional"** as three rows (Communication "Clear, timely and friendly",
+  Card condition "Matched what was described", Shipping "Well packed and sent on time") whose chosen
+  star pressed again clears the row; the comment with "{n} / 600"; "Your rating appears on
+  {handle}'s profile with your name. You can change it for 14 days."; **"Write a reference
+  instead"** (teal); **"Publish rating"** at the bottom, grey with "Choose an overall score first."
+  until the overall score. Editing one's rating within its 14 days: "Edit your rating", the line
+  "{kind} · you can change it until {date}", "Save changes"; an old meetup score is kept and never
+  asked (ADR 0018).
+- **Write a reference** (62): the person, the line on what a reference is, the field with "{n} /
+  400", **"Publish reference"** at the bottom; the 403, 409 and banned-term refusals as before.
+- **New binder** (63): the Settings top bar ("New binder", back "Back to your binders"), Name, the
+  game tiles (games without cards dimmed, "Cards coming soon"), "A binder holds cards of one game.
+  You can’t change it once it has cards.", Who can see it, Sell as a deck core, and under **Cards
+  inside "Only your {game} cards can go in. Cards in another binder move here."**; "Create binder"
+  at the bottom. Edit binder (18) is unchanged.
+- **Add a wish** (64): **"Add a wish" opens Search's card search** (screen 12: "{game} card name or
+  code", Cancel, the recent searches, the browsed game's cards with the typed part in orange) under
+  "Which card are you looking for? We’ll tell you when a collector of your region lists it." A card
+  picked opens **the form** ("Add to wishlist"): the card in its card (the game in its colour, the
+  name, "{n} printings in the catalog") with **"Change"**, which goes back to the search with the
+  text still typed; **Which copy** (and the copy written out in full under it); **"Near Mint only"**
+  in its card ("Sellers see it; listings in other conditions still show."); **"Price you would pay
+  (optional)" as one-choice chips** ("No price", then the server's % TCG terms, a chosen printing's
+  amount on the chips and the price's source under them); the public note with "{n} / 280" and
+  "Everyone who can see your wishlist sees it."; **"Add to wishlist"** at the bottom; saved, the
+  collector is back on Search › Wishlist (past the search). A printing code typed picks that printing
+  when only one printing of the card has it, and starts on "Any printing" when several share it, as
+  before. From a card page the form opens directly, as before.
+- **Edit a wish** (65): "Edit wish", the wished printing under the card ("EXFO-EN065 · Common"),
+  the same fields, **"Save changes"** and a red **"Remove from wishlist"**, asked in a sheet
+  ("Remove {card}?", "You stop getting alerts for it.", Remove / Keep it).
+- **Import** (66 to 68), opened from Add cards: **the file step** with the source (its tile, "Yu-Gi-Oh!
+  deck file (.ydk)" and "From YGOPRODeck, EDOPro or Dueling Book", or the Collectr CSV export), "We
+  match every card of the file. You see them all and choose what goes in before anything is
+  added.", a large dashed **"Choose a file"** with the limits, **"Paste the text of the file
+  instead"** (the field in mono, "Use this text"), and **the other source one row away** ("Collectr
+  CSV export instead" / "Yu-Gi-Oh! deck file instead"); the CSV's game of rows that name none, the
+  refusals and the upload progress as before. **Check the cards**: the top bar with **a trash
+  button** ("Discard this import?", "Nothing was added to your inventory yet.", Discard / Keep
+  checking); staying on screen above the list, the file ("{file name} · 40 main, 15 extra, 15 side",
+  "Your deck file" or "Your CSV export · {n} lines" for a pasted text or a resumed import), **the
+  chips All {n}, "Which copy? {n}"** (and "{n} assumed" while some are) **and "Not recognised {n}"**,
+  and **the amber bar** "{n} cards need a printing. Pick one on each, or use the newest for all."
+  with **"Use the newest"**; then the compact lines: the picture, the name, one line under it
+  ("ROTA-EN006 · Super Rare", "… · assumed plain copy", **"Which copy? 2 printings"** in amber,
+  **"Not recognised. It stays out."** in red), the copies ("NM ×3", which opens the condition and
+  copies) and **the tick box**; the name opens "Which copy" (which now also says what the file said
+  and the deck sections); a third small line says "Left out", a section switched off or the copies
+  already owned, and two lines of one card say what the file said. Above the lines, what the
+  inventory limit has no room for; after them, "Leave out the {n} cards that still need a
+  printing", the assumed copies with "Show these cards", "Check the conditions", the deck sections
+  as switches, the sentence of what the import adds and until when it is kept. **The add button** ("Add 3 cards (5
+  copies)") stays grey with **"Choose the copy of the marked cards, or use the newest."** while lines
+  need a printing (unless they are left out). **Import done**: no back button, the teal tick, **"{n}
+  cards added"**, "They start private. Make the ones you trade public from Inventory.", the result
+  lines, **"Not recognised · {n}"** with each line, what the file said and what to do, shown at once,
+  and **"Go to my inventory"** and **"Import another file"** (the file step of the same source).
+  Kept: resuming an open import ("Continue your import"), the deck sections, the conditions sheet,
+  the copies dialog, the expired and interrupted states and the leave guard.
+- **A set** (69): the top bar with the set's name, the game in its colour, the name in Sora,
+  "**{CODE}** · Released Nov 1, 2024 · {n} printings", **"Who has cards of this set"** (outlined),
+  which opens Search's card search on the set's cards (a chip "{set} · {CODE}" that widens the search
+  again, every page as the list scrolls), then **a three-column grid of printings** (the picture, the
+  code in mono, the rarity), paged as it scrolls; a printing opens Who has this card at that
+  printing. Not found, an error with "Try again", the skeleton and the empty set as before.
+- Every screen has the Settings top bar (the 44 pt back button, the title in Sora, a hairline), its
+  main button at the bottom, skeletons, empty and error states with "Try again", VoiceOver names on
+  every control, and its words in one place (`reportCopy.ts`, `ratingCopy.ts`, `binderCopy.ts`,
+  `wishCopy.ts`, `importCopy.ts` with `importLabels.ts`, `setCopy.ts`).
+
+**What the API does** (contract [`docs/api/contracts/r14-report-rate-wish-import-sets.md`](docs/api/contracts/r14-report-rate-wish-import-sets.md))
+
+- **`GET /api/v1/ratings/eligibility`**: each `RatingEligibilityInteraction` gains **`dealName`**
+  (a `SALE`'s card or deck core as named at the sale) and **`soldToYou`** (true for the buyer, false
+  for the seller), both nullable and `null` for other kinds. The ratings module reads them through a
+  new extension point it owns, **`SaleDeals`**, which the deals module implements (deals depends on
+  ratings, so ratings never depends on deals); `RatingRules.soldTo` is the pure rule.
+- Nothing else changed: the screens keep every call they made.
+
+**Decisions**
+
+1. **The deal line comes from the API**, not from route parameters: the rating form is opened from a
+   chat, a profile's ratings and (through its chat) the sale notification, and only the eligibility
+   knows which interaction is rated; two nullable fields on an existing response are additive for the
+   paused web.
+2. **The person at the top of 60 to 62 reads the public profile** (`GET /collectors/{handle}`, the
+   same cache as the profile page) for the picture and the province: the entry points pass the name
+   and the handle only, and the profile applies the privacy matrix (the province of a discoverable
+   collector; never the city on these screens, although the profile answer may carry it).
+3. **"Send report", "Publish rating" stay grey and say why** ("Choose a reason first.", "Choose an
+   overall score first.") instead of the old "Confirm" and the error after a press; the server's
+   reasons keep the server's lines (the mockup's own lines are close, the server is the source).
+4. **A details row is cleared by pressing its chosen star again** (the mockup's behaviour); the old
+   "Clear" link is gone; VoiceOver hears "Tap the chosen star again to clear it" on the chosen star.
+   Overall never clears.
+5. **"Add a wish" reuses Search's card search** (`CardTyping` with `onPickCard`): the same field,
+   recent searches and results as screen 12, the collectors left out. The text typed goes with the
+   card, so the stage-S2 rule of a typed printing code holds without the old autocomplete. The
+   search follows the browsed game, or the game a link names when it can be browsed. Saved from
+   that search, the collector lands on Search › Wishlist past it (`dismissTo`); from a card page,
+   back where they came from.
+6. **The price chips show a term's amount** when one printing with a market price is chosen ("85%
+   TCG ≈ 32.30 CAD"), as the old check boxes did, and the price's source under them; "No price" is a
+   chip.
+7. **Check the cards keeps every S5 function where it adds the least clutter**: the file, the chips
+   and the amber bar stay on screen and the lines come right under them (the mockup); what the
+   inventory limit has no room for is said above the lines (before printings are chosen for a
+   long file); "leave them out", the assumed copies, the conditions, the deck sections and the
+   summary sentence follow the lines (the walk: above them, they pushed every line off the
+   screen). The four count tiles are gone (the
+   chips, the amber bar, the button and the sentence say the same). A line's condition is on its
+   copies button ("NM ×3", the whole name for VoiceOver); what the file said is under a line only
+   when two lines are one card, and always in the "Which copy" sheet.
+8. **The file's name** on Check the cards is the one this phone picked, in memory only (the API
+   keeps none, by design); a pasted text or a resumed import says "Your deck file" / "Your CSV
+   export".
+9. **"Import another file"** opens the file step of the same source (the mockup), not the start;
+   the start still shows an import left open first.
+10. **"Who has cards of this set"** opens Search's card search on the set (`GET /cards?set=`, every
+    page, a chip to widen it): the old "Search this set" passed a set Search no longer read since
+    stage R5. A real "holders of a set" list would need an API change and was not asked.
+11. **The colours** are existing tokens: the amber bar is Legal's draft colours, the chips the
+    segmented control's, the stars the warning amber, the game's name its tile colour (its
+    foreground in dark, its background in light). No new design token.
+12. **`PillButton` gains `accessibilityLabel`** (the import's button reads "Add 3 cards (5 copies) to
+    my inventory" while it shows the short label), and the Settings top bar gains a page without a
+    back button (Import done) and its own back id (`edit-binder-back`, `import-file-back`) for the
+    flows.
+
+**The defaults this stage applies** (prompt list): none of the fifteen is new here; the stage keeps
+**3 and 4** (a binder holds one game; New binder says which) and **1** (Add a wish searches the
+browsed game).
+
+**Tests**
+
+- API: `SaleIT.theRatingFormNamesTheDealForEachSide`; `RatingEligibilityIT` (a conversation's
+  interaction carries `dealName` and `soldToYou` as `null`); `RatingRulesTest.aSaleIsSoldToTheCallerOnlyWhenTheCallerBoughtIt`;
+  `GeoPrivacyContractTest.chatSubjectsAndSalesCarryThePlaceOnly` reads the eligibility after a sale
+  for both sides (the deal named, no tracking number, place, city or party id).
+- Jest: `reports.test.tsx` (the report button grey with its reason, the person's province without
+  the city, the self refusal, Report sent); `ratings.test.tsx` (the deal line for the buyer and the
+  seller, the star rows: each word, Overall never clears, each details row clears, "Write a
+  reference instead", Publish rating grey until Overall); `reportsRatings.test.ts` (`dealLine`,
+  `nextScore`, the words); `binders.test.tsx` (New binder's top bar and game line);
+  `wishlist.test.tsx` (the card search of the browsed game and of a linked game, a card picked
+  opening the form with the text, the price chips "No price" and the server's terms, a typed code,
+  Change, the dismiss to Search › Wishlist, Edit wish's printing line and the remove sheet);
+  `inventory-import.test.tsx` (the file step and the switch of source, the summary line, the amber
+  bar, the chips, **the add button grey with its reason**, the discard sheet, Import done, the
+  lines not recognised shown at once); `importRow.test.tsx` (the compact line, its tones, its three
+  controls, the source of two lines of one card, the stacked layout); `inventoryImport.test.ts`
+  (the chips' labels, the reason, the amber bar, the sections line, the row line, the short
+  conditions); `sets.test.tsx` (the meta line, the grid tile, "Who has cards of this set");
+  `search.test.tsx` (the set link: the chip, `set=` without text, the chip widening).
+- Maestro: `report-collector.yaml` (from a profile: Send report grey with its reason, Report sent,
+  Follow it in My reports), `deal-mark-sold.yaml` (rate after Mark as sold: the deal line, Publish
+  rating grey until Overall), `wishlist-alert-notification.yaml` (add a wish from Search's card
+  search), `inventory-import-deck.yaml` (a small .ydk through Check the cards and Import done),
+  `inventory-import-csv.yaml`, `inventory-import-assumed.yaml`.
+- Mobile web E2E (Playwright): `reports.spec.ts`, `ratings.spec.ts`, `deals.spec.ts`,
+  `wishlist.spec.ts`, `inventory-import.spec.ts` and `binders.spec.ts` follow the restyle.
+
+@@CHECKS@@
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
