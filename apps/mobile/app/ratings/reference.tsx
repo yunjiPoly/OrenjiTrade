@@ -1,24 +1,28 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { isApiError } from '@/src/api/ApiError';
 import { useCreateReference } from '@/src/api/hooks/ratings';
-import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { FormMessage } from '@/src/components/ui/FormControls';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
+import { PersonHeader } from '@/src/features/collectors/PersonHeader';
 import { REFERENCE_MAX, ratingProblem } from '@/src/features/collectors/ratingLabels';
+import { RATING_COPY as COPY } from '@/src/features/ratings/ratingCopy';
 import { parseRatingParams } from '@/src/features/ratings/ratingRoutes';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
- * Write a reference (the web's reference dialog): a short public recommendation (≤ 400
- * characters, one per collector) after any interaction with them. Refusals (403
- * RATING_NOT_ELIGIBLE, 409 a second reference, banned terms) are explained in place.
+ * Write a reference (mockup v50 screen 62, stage R14; the web's reference dialog): the collector
+ * with "@handle · {province}", what a reference is, a short public recommendation (≤ 400
+ * characters, one per collector) after any interaction with them, and "Publish reference" at the
+ * bottom. Refusals (403 RATING_NOT_ELIGIBLE, 409 a second reference, banned terms) are explained
+ * in place.
  */
 export default function WriteReferenceScreen() {
   const { palette } = useTheme();
@@ -30,28 +34,29 @@ export default function WriteReferenceScreen() {
   const [body, setBody] = useState('');
   const [touched, setTouched] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (!parsed) {
     return (
-      <Screen testID="screen-reference">
+      <SettingsPage title={COPY.referenceTitle} onBack={close} testID="screen-reference">
         <EmptyState
           testID="reference-invalid"
           icon="comment-off-outline"
-          title="Nothing to write here"
-          description="Open the collector's profile and write the reference from there."
-          actionLabel="Back"
-          onAction={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          title={COPY.referenceInvalidTitle}
+          description={COPY.referenceInvalidBody}
+          actionLabel={COPY.back}
+          onAction={close}
         />
-      </Screen>
+      </SettingsPage>
     );
   }
   const collector = parsed.collector;
   const text = body.trim();
   const error =
     body.length > REFERENCE_MAX
-      ? `Keep it under ${REFERENCE_MAX} characters.`
+      ? COPY.referenceTooLong(REFERENCE_MAX)
       : touched && !text
-        ? 'Write a few words first.'
+        ? COPY.referenceEmpty
         : null;
 
   const submit = async () => {
@@ -65,7 +70,7 @@ export default function WriteReferenceScreen() {
         collector: { id: collector.id, handle: collector.handle },
         body: { body: text },
       });
-      snackbar.show(`Your reference for ${collector.displayName} is published.`);
+      snackbar.show(COPY.referencePublished(collector.displayName));
       if (router.canGoBack()) {
         router.back();
       } else {
@@ -75,44 +80,58 @@ export default function WriteReferenceScreen() {
       setProblem(
         isApiError(failure)
           ? ratingProblem(failure, collector.displayName, 'reference')
-          : 'Your reference could not be published. Please try again.'
+          : COPY.referenceFailed
       );
     }
   };
 
+  const footer = (
+    <PillButton
+      label={COPY.publishReference}
+      loading={create.isPending}
+      loadingLabel={COPY.publishing}
+      onPress={() => void submit()}
+      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+      testID="reference-submit"
+    />
+  );
+
   return (
-    <Screen scroll safeBottom testID="screen-reference">
-      <Stack.Screen options={{ title: 'Write a reference' }} />
-      <View style={styles.form}>
-        <Text style={[textStyle('md'), { color: palette.ink }]}>
-          A reference is a short public recommendation shown on {collector.displayName}&apos;s
-          profile. You can write one per collector.
-        </Text>
-        <TextField
-          label="Reference"
-          value={body}
-          onChangeText={setBody}
-          placeholder="What makes them a great collector to trade with?"
-          multiline
-          maxLength={REFERENCE_MAX + 50}
-          editable={!create.isPending}
-          error={error}
-          hint={`${body.length} / ${REFERENCE_MAX}`}
-          testID="reference-body"
-        />
-        {problem ? <FormMessage testID="reference-error">{problem}</FormMessage> : null}
-        <Button
-          label="Publish reference"
-          loading={create.isPending}
-          loadingLabel="Publishing…"
-          onPress={() => void submit()}
-          testID="reference-submit"
-        />
-      </View>
-    </Screen>
+    <SettingsPage
+      title={COPY.referenceTitle}
+      onBack={close}
+      footer={footer}
+      testID="screen-reference"
+    >
+      <PersonHeader
+        displayName={collector.displayName}
+        handle={collector.handle}
+        avatarUrl={collector.avatarUrl}
+        testID="reference-person"
+      />
+      <Text style={[styles.intro, { color: palette.textMuted }]}>
+        {COPY.referenceIntro(collector.displayName)}
+      </Text>
+      <TextField
+        label={COPY.reference}
+        labelAside={`${body.length} / ${REFERENCE_MAX}`}
+        value={body}
+        onChangeText={setBody}
+        placeholder={COPY.referencePlaceholder}
+        multiline
+        maxLength={REFERENCE_MAX + 50}
+        editable={!create.isPending}
+        error={error}
+        inputStyle={styles.field}
+        textAlignVertical="top"
+        testID="reference-body"
+      />
+      {problem ? <FormMessage testID="reference-error">{problem}</FormMessage> : null}
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  form: { gap: spacing[4] },
+  intro: { fontSize: 14, lineHeight: 21 },
+  field: { height: 120 },
 });

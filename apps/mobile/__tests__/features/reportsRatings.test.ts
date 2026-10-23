@@ -19,6 +19,8 @@ import {
 } from '@/src/features/reports/reportLabels';
 
 import { OTHER_ID, eligibilityFixture, myReportFixture } from '../support/fixtures';
+import { STAR_WORDS, dealLine } from '@/src/features/ratings/ratingCopy';
+import { nextScore } from '@/src/features/ratings/StarRatingInput';
 
 function apiError(
   status: number,
@@ -182,5 +184,44 @@ describe('ratings and references', () => {
       ratingId: 'r1',
     });
     expect(parseRatingParams({ userId: OTHER_ID })).toBeNull();
+  });
+});
+
+describe('the rating form of stage R14', () => {
+  const now = new Date('2026-10-23T12:00:00Z');
+
+  it('names a sale for the buyer and for the seller, and other kinds by their name', () => {
+    const sale = {
+      kind: 'SALE',
+      occurredAt: '2026-10-17T15:00:00Z',
+      dealName: 'Ash Blossom & Joyous Spring',
+    };
+    expect(dealLine({ ...sale, soldToYou: true }, now)).toBe(
+      'Ash Blossom & Joyous Spring · sold to you Oct 17'
+    );
+    expect(dealLine({ ...sale, soldToYou: false }, now)).toBe(
+      'Ash Blossom & Joyous Spring · bought from you Oct 17'
+    );
+    expect(dealLine({ ...sale, soldToYou: null }, now)).toBe(
+      'Ash Blossom & Joyous Spring · Oct 17'
+    );
+    // An older server that names no deal, and a sale of another year.
+    expect(dealLine({ kind: 'SALE', occurredAt: '2025-12-01T15:00:00Z' }, now)).toBe(
+      'Sale · Dec 1, 2025'
+    );
+    expect(
+      dealLine({ kind: 'CONVERSATION_QUALIFIED', occurredAt: '2026-09-03T12:00:00Z' }, now)
+    ).toBe('Conversation · Sep 3');
+  });
+
+  it('clears a details row when its chosen star is pressed again, never Overall', () => {
+    expect(nextScore(null, 4, true)).toBe(4);
+    expect(nextScore(4, 4, true)).toBeNull();
+    expect(nextScore(4, 2, true)).toBe(2);
+    expect(nextScore(4, 4, false)).toBe(4);
+  });
+
+  it('words the scores as the mockup does', () => {
+    expect(Object.values(STAR_WORDS)).toEqual(['Poor', 'Not great', 'Okay', 'Good', 'Excellent']);
   });
 });

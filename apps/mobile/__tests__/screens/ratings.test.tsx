@@ -72,15 +72,25 @@ describe('Rate a collector', () => {
     const api = mockApi(routes());
     renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(screen.getByTestId('rate-loading')).toBeOnTheScreen();
-    expect(await screen.findByTestId('rate-interaction-line')).toHaveTextContent(/Completed trade/);
-    fireEvent.press(screen.getByTestId('rate-submit'));
-    expect(await screen.findByTestId('rate-overall-error')).toHaveTextContent(
-      'Choose an overall score from 1 to 5 stars.'
+    expect(await screen.findByTestId('rate-person-line')).toHaveTextContent(/Completed trade · /);
+    // "Publish rating" waits for the overall score, and says so.
+    expect(screen.getByTestId('rate-submit')).toHaveTextContent('Publish rating');
+    expect(screen.getByTestId('rate-submit')).toBeDisabled();
+    expect(screen.getByTestId('rate-overall-error')).toHaveTextContent(
+      'Choose an overall score first.'
     );
+    fireEvent.press(screen.getByTestId('rate-submit'));
     expect(api.callsTo('POST /api/v1/ratings')).toHaveLength(0);
     fireEvent.press(screen.getByTestId('rate-overall-5'));
     expect(screen.getByTestId('rate-overall-5')).toBeChecked();
     expect(screen.getByTestId('rate-overall-4')).not.toBeChecked();
+    expect(
+      screen.getByTestId('rate-overall-word', { includeHiddenElements: true })
+    ).toHaveTextContent('Excellent');
+    expect(screen.queryByTestId('rate-overall-error')).toBeNull();
+    expect(screen.getByTestId('rate-note')).toHaveTextContent(
+      'Your rating appears on collector2’s profile with your name. You can change it for 14 days.'
+    );
     // Overall, Communication, Card condition and Shipping; never "Meetup reliability" (ADR 0018).
     for (const label of ['Communication', 'Card condition', 'Shipping']) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
@@ -90,7 +100,10 @@ describe('Rate a collector', () => {
     expect(screen.queryByText(/agreed place/)).toBeNull();
     fireEvent.press(screen.getByTestId('rate-communication-4'));
     fireEvent.press(screen.getByTestId('rate-shipping-2'));
-    fireEvent.press(screen.getByTestId('rate-shipping-clear'));
+    expect(screen.getByTestId('rate-shipping-2')).toBeChecked();
+    // A details row clears when its chosen star is pressed again.
+    fireEvent.press(screen.getByTestId('rate-shipping-2'));
+    expect(screen.getByTestId('rate-shipping-2')).not.toBeChecked();
     fireEvent.changeText(screen.getByTestId('rate-comment'), ' Well packed, quick shipping. ');
     fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
@@ -131,7 +144,10 @@ describe('Rate a collector', () => {
     );
     renderWithProviders(<RateCollectorScreen />, { port: port() });
     expect(await screen.findByTestId('rate-interaction')).toBeOnTheScreen();
-    expect(screen.getByText('Which interaction are you rating?')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Which deal are you rating?' })).toBeOnTheScreen();
+    expect(screen.getByTestId('rate-interaction-i-chat')).toHaveTextContent(
+      /^Conversation · Sep 3/
+    );
     fireEvent.press(screen.getByTestId('rate-interaction-i-chat'));
     fireEvent.press(screen.getByTestId('rate-overall-3'));
     fireEvent.press(screen.getByTestId('rate-submit'));
@@ -174,9 +190,11 @@ describe('Rate a collector', () => {
       })
     );
     renderWithProviders(<RateCollectorScreen />, { port: port() });
-    expect(await screen.findByTestId('rate-interaction-line')).toHaveTextContent(
-      /Conversation · editable until/
+    expect(await screen.findByTestId('rate-person-line')).toHaveTextContent(
+      /Conversation · you can change it until/
     );
+    expect(screen.getByTestId('rate-submit')).toHaveTextContent('Save changes');
+    expect(screen.queryByTestId('rate-reference-instead')).toBeNull();
     expect(screen.getByTestId('rate-comment').props.value).toBe('Friendly.');
     fireEvent.press(screen.getByTestId('rate-overall-2'));
     fireEvent.press(screen.getByTestId('rate-submit'));
@@ -190,6 +208,76 @@ describe('Rate a collector', () => {
       comment: 'Friendly.',
     });
     expect(await screen.findByTestId('snackbar')).toHaveTextContent('Your rating is updated.');
+  });
+});
+
+describe('Rate a collector after a sale (stage R14)', () => {
+  const sale = (soldToYou: boolean) =>
+    ok(
+      eligibilityFixture({
+        interactions: [
+          {
+            id: 'i-sale',
+            kind: 'SALE',
+            occurredAt: '2026-10-17T15:00:00Z',
+            alreadyRated: false,
+            dealName: 'Ash Blossom & Joyous Spring',
+            soldToYou,
+          },
+        ],
+      })
+    );
+
+  it('names the deal for the buyer and the seller', async () => {
+    mockParams.current = { ...mockParams.current, kind: 'SALE' };
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': sale(true) }));
+    const view = renderWithProviders(<RateCollectorScreen />, { port: port() });
+    expect(await screen.findByTestId('rate-person-line')).toHaveTextContent(
+      /^Ash Blossom & Joyous Spring · sold to you Oct 17/
+    );
+    expect(screen.getByText('Rate Noé Verdun')).toBeOnTheScreen();
+    view.unmount();
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': sale(false) }));
+    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    expect(await screen.findByTestId('rate-person-line')).toHaveTextContent(
+      /^Ash Blossom & Joyous Spring · bought from you Oct 17/
+    );
+  });
+
+  it('shows the overall stars with their words and the details as clearable rows', async () => {
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': sale(true) }));
+    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    await screen.findByTestId('rating-form');
+    const words = ['Poor', 'Not great', 'Okay', 'Good', 'Excellent'];
+    for (const [index, word] of words.entries()) {
+      fireEvent.press(screen.getByTestId(`rate-overall-${index + 1}`));
+      expect(
+        screen.getByTestId('rate-overall-word', { includeHiddenElements: true })
+      ).toHaveTextContent(word);
+    }
+    // Overall never clears: pressing its chosen star keeps it.
+    fireEvent.press(screen.getByTestId('rate-overall-5'));
+    expect(screen.getByTestId('rate-overall-5')).toBeChecked();
+    for (const key of ['communication', 'conditionAccuracy', 'shipping']) {
+      expect(screen.getByTestId(`rate-row-${key}`)).toBeOnTheScreen();
+      fireEvent.press(screen.getByTestId(`rate-${key}-3`));
+      expect(screen.getByTestId(`rate-${key}-3`)).toBeChecked();
+      fireEvent.press(screen.getByTestId(`rate-${key}-3`));
+      expect(screen.getByTestId(`rate-${key}-3`)).not.toBeChecked();
+    }
+    expect(screen.getByLabelText('Communication: 4 stars, Good')).toBeOnTheScreen();
+    expect(screen.getByText('Clear, timely and friendly')).toBeOnTheScreen();
+    expect(screen.getByText('Matched what was described')).toBeOnTheScreen();
+  });
+
+  it('writes a reference instead', async () => {
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': sale(true) }));
+    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('rate-reference-instead'));
+    expect(mockRouter.replace).toHaveBeenCalledWith({
+      pathname: '/ratings/reference',
+      params: { userId: OTHER_ID, handle: 'collector2', name: 'Noé Verdun' },
+    });
   });
 });
 

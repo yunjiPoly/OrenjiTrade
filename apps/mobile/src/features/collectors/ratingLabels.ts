@@ -26,12 +26,8 @@ export const RATING_CRITERIA: readonly {
   /** Short hint shown under the stars of the rating form. */
   hint: string;
 }[] = [
-  { key: 'communication', label: 'Communication', hint: 'Clear, timely and friendly answers' },
-  {
-    key: 'conditionAccuracy',
-    label: 'Card condition',
-    hint: 'Cards matched the condition described',
-  },
+  { key: 'communication', label: 'Communication', hint: 'Clear, timely and friendly' },
+  { key: 'conditionAccuracy', label: 'Card condition', hint: 'Matched what was described' },
   { key: 'shipping', label: 'Shipping', hint: 'Well packed and sent on time' },
 ];
 
@@ -59,15 +55,6 @@ export const INTERACTION_KIND_ICONS: Record<string, IconName> = {
 export function interactionKindLabel(kind: string | null | undefined): string {
   return kind ? (INTERACTION_KIND_LABELS[kind] ?? kind) : '';
 }
-
-/** Word for a whole-star score ("4 stars, Great"). */
-export const SCORE_WORDS: Record<number, string> = {
-  1: 'Poor',
-  2: 'Fair',
-  3: 'Good',
-  4: 'Great',
-  5: 'Excellent',
-};
 
 /** "4.8", or "—" without ratings. */
 export function formatAverage(value: number | null | undefined): string {
