@@ -50,7 +50,12 @@ tags:
     visible:
       id: 'import-choose-file'
     timeout: 30000
-- assertVisible: 'Up to 100 kB and 500 lines.'
+# The file step (stage R14, mockup v50 screen 66): the source, the large "Choose a file" (its
+# limits are its VoiceOver hint), the paste link, the other source's row.
+- assertVisible: 'From YGOPRODeck, EDOPro or Dueling Book'
+- assertVisible:
+    id: 'import-switch-source'
+- takeScreenshot: import-deck-file
 
 # The text of the deck file, pasted.
 - tapOn:
@@ -67,22 +72,27 @@ tags:
 - tapOn:
     id: 'import-paste-submit'
 
-# The preview: one card ready, two that need a printing, one passcode not recognised.
+# "Check the cards" (stage R14, mockup v50 screen 67): the file and its sections, the chips with
+# their counts and the amber bar stay on screen; one card ready, two that need a printing, one
+# passcode not recognised.
 - extendedWaitUntil:
     visible:
       id: 'import-summary'
     timeout: 60000
-- assertVisible: '1 new card'
-- assertVisible: '0 added to cards you own'
-- assertVisible: '2 need a printing'
-- assertVisible: '1 not recognised'
+- assertVisible:
+    id: 'import-summary'
+    text: 'Your deck file · 3 main, 1 extra, 2 side'
+- assertVisible: 'All 4'
+- assertVisible: 'Which copy\? 2'
+- assertVisible: 'Not recognised 1'
+- assertVisible: '2 cards need a printing\. Pick one on each, or use the newest for all\.'
 - assertVisible: 'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
 - takeScreenshot: import-deck-preview
 # The commit cannot be pressed yet, and says why.
 - assertVisible:
     id: 'import-commit'
     enabled: false
-- assertVisible: '2 cards still need a printing. Choose them, or leave them out.'
+- assertVisible: 'Choose the copy of the marked cards, or use the newest\.'
 # Nothing is in the inventory before the commit.
 - runScript:
     file: scripts/check-import.js
@@ -92,13 +102,16 @@ tags:
       EXPECT_ITEMS: ''
       EXPECT_IMPORT_STATUS: 'PENDING'
 
-# One printing chosen by hand in the "Which copy" sheet.
+# One printing chosen by hand: the line's name opens the "Which copy" sheet.
 - runFlow:
     file: subflows/scroll-down-above.yaml
     env:
       ID: 'import-row-1-printing'
       BAR: 'import-commit-bar'
 - assertVisible: 'Which copy of Fixture Clockwork Heron: Choose printing'
+- assertVisible:
+    id: 'import-row-1-line'
+    text: 'Which copy\? 2 printings'
 - tapOn:
     id: 'import-row-1-printing'
 - extendedWaitUntil:
@@ -111,29 +124,22 @@ tags:
     visible: 'Which copy of Fixture Clockwork Heron: YDKF-EN002 · Rare · YDK Fixtures'
     timeout: 30000
 
-# The other one by the bulk action: the most recent printing by release date.
-- runFlow:
-    file: subflows/scroll-to-top-below.yaml
-    env:
-      ID: 'import-summary'
-      HEAD: 'Import cards'
-- runFlow:
-    file: subflows/scroll-down-above.yaml
-    env:
-      ID: 'import-bulk-recent'
-      BAR: 'import-commit-bar'
-- assertVisible: '1 card needs a printing'
+# The other one by "Use the newest" of the amber bar: the most recent printing by release date.
+- assertVisible: '1 card needs a printing\. Pick one on each, or use the newest for all\.'
 - tapOn:
     id: 'import-bulk-recent'
 - extendedWaitUntil:
     visible: '1 card got its most recent printing.'
     timeout: 30000
-# The filter stays on screen above the list: its count says so wherever the list stands.
+# The chips stay on screen above the list: their counts say so wherever the list stands.
 - extendedWaitUntil:
-    visible: 'Needs a printing \(0\)'
+    visible: 'Which copy\? 0'
     timeout: 30000
+- assertNotVisible:
+    id: 'import-unchosen'
 
-# A deck file names no condition: one for all of its cards.
+# A deck file names no condition: one for all of its cards ("All" brings the list to its top).
+- tapOn: 'All 4'
 - runFlow:
     file: subflows/scroll-down-above.yaml
     env:
@@ -164,7 +170,10 @@ tags:
     visible:
       id: 'import-result'
     timeout: 60000
+# "Import done" (mockup v50 screen 68): the count, "They start private.", the lines.
 - assertVisible: 'Import done'
+- assertVisible: '3 cards added'
+- assertVisible: 'They start private\. Make the ones you trade public from Inventory\.'
 - assertVisible: '3 new cards added'
 - assertVisible: '0 cards you already had got more copies'
 - assertVisible: '1 different card of your file left out: 1 not recognised'

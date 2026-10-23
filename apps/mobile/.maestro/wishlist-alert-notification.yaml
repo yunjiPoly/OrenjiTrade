@@ -1,7 +1,8 @@
 # Wishlist + wishlist alerts (stage S2 of the 2026-10-08 product change, ADR 0017): Wren (fresh,
 # fictional, discoverable, in Montevideo: Americas (South), a region no other flow uses) adds
-# Emberfang Fox to her wishlist through the app with a public note, "Near Mint only" and a price
-# term (no price, trade preference, private note or alert switch any more); Hal, in the same
+# Emberfang Fox to her wishlist through the app ("Add a wish" opens Search's card search, the card
+# picked opens the form, stage R14) with a public note, "Near Mint only" and a price chip (no
+# price, trade preference, private note or alert switch any more); Hal, in the same
 # region, lists a Near Mint copy publicly (host script scripts/wishlist.js). Wren gets one wishlist
 # alert over the realtime channel: the bell's orange dot shows without a reload (stage R9); the
 # alert, under New in Notifications, names Hal's state (never a city, a distance or a position)
@@ -38,33 +39,39 @@ tags:
 - tapOn:
     id: 'wishlist-add'
 
-# The wish: card autocomplete, then the public note, Near Mint only and a price term.
+# "Add a wish" (stage R14, mockup v50 screens 12 and 64): Search's card search, the card picked
+# opens the form; then Near Mint only, a price chip and the public note.
 - extendedWaitUntil:
     visible:
-      id: 'card-picker-input'
+      id: 'search-input'
     timeout: 60000
+- assertVisible:
+    id: 'wish-card-step'
 - tapOn:
-    id: 'card-picker-input'
+    id: 'search-input'
 - inputText: 'emberfang'
 - runFlow: subflows/hide-keyboard.yaml
 - extendedWaitUntil:
     visible:
-      id: 'suggestion-CARD-PFT-002'
+      id: 'search-result-.*'
     timeout: 60000
+- takeScreenshot: wish-search
 - tapOn:
-    id: 'suggestion-CARD-PFT-002'
+    id: 'search-result-.*'
+    index: 0
 - extendedWaitUntil:
     visible:
       id: 'wish-card'
     timeout: 60000
+- assertVisible:
+    id: 'wish-card-line'
+    text: '.*in the catalog'
+- assertVisible:
+    id: 'wish-change-card'
 - assertNotVisible:
     id: 'wish-radius'
 - assertNotVisible:
     id: 'wish-max-price'
-- tapOn:
-    id: 'wish-note'
-- inputText: 'Fictional Maestro wish.'
-- runFlow: subflows/hide-keyboard.yaml
 - tapOn:
     id: 'wish-near-mint'
 - runFlow:
@@ -76,7 +83,12 @@ tags:
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
-      ID: 'wish-save'
+      ID: 'wish-note'
+- tapOn:
+    id: 'wish-note'
+- inputText: 'Fictional Maestro wish.'
+- runFlow: subflows/hide-keyboard.yaml
+- takeScreenshot: wish-form
 - tapOn:
     id: 'wish-save'
 - extendedWaitUntil:

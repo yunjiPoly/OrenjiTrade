@@ -54,7 +54,10 @@ tags:
     visible:
       id: 'import-choose-file'
     timeout: 30000
-- assertVisible: 'Up to 2 MB and 5,000 rows.'
+- assertVisible: 'Collectr CSV export'
+- assertVisible:
+    id: 'import-switch-source'
+    text: 'Yu-Gi-Oh! deck file instead'
 
 # The text of the export, pasted: a row of the card already owned, a row nothing fits.
 - runFlow:
@@ -75,15 +78,19 @@ tags:
 - tapOn:
     id: 'import-paste-submit'
 
-# The preview: the dragon goes into the copies already owned.
+# "Check the cards" (stage R14): the dragon goes into the copies already owned; nothing needs a
+# printing (no amber bar); one row is not recognised.
 - extendedWaitUntil:
     visible:
       id: 'import-summary'
     timeout: 60000
-- assertVisible: '0 new cards'
-- assertVisible: '1 added to a card you own'
-- assertVisible: '0 need a printing'
-- assertVisible: '1 not recognised'
+- assertVisible:
+    id: 'import-summary'
+    text: 'Your CSV export · 2 lines'
+- assertVisible: 'Which copy\? 0'
+- assertVisible: 'Not recognised 1'
+- assertNotVisible:
+    id: 'import-unchosen'
 - takeScreenshot: import-csv-preview
 - assertVisible: 'Add 1 card \(2 copies\) to my inventory'
 - assertVisible: 'Its copies are added to a card you already have.'
@@ -93,8 +100,6 @@ tags:
       ID: 'import-row-0-owned'
       BAR: 'import-commit-bar'
 - assertVisible: 'You have 2: this adds 2.'
-# The file's own words under the line it became.
-- assertVisible: 'In your file: Azure Dawn · AZR-EN001 · Ultra Rare'
 - assertVisible: 'Which copy of Azure-Eyes Sky Dragon: AZR-EN001 · Ultra Rare · Azure Dawn · 1st Edition'
 # The row nothing fits, with what the file said.
 - runFlow:
@@ -112,6 +117,8 @@ tags:
     visible:
       id: 'import-result'
     timeout: 60000
+- assertVisible: 'Import done'
+- assertVisible: '1 card added'
 - assertVisible: '0 new cards added'
 - assertVisible: '1 card you already had got more copies'
 - assertVisible: '1 line of your file left out: 1 not recognised'

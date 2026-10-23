@@ -1,6 +1,8 @@
-# Collector reports (mobile Phase 7): Ada (fresh, fictional) opens the profile of Bo (fresh,
-# fictional; scripts/reports.js) and reports him: the reasons of the API, details, Confirm, the
-# confirmation; My reports shows the open report and the API holds it (status only).
+# Collector reports (mobile Phase 7; restyled in stage R14, mockup v50 screen 60): Ada (fresh,
+# fictional) opens the profile of Bo (fresh, fictional; scripts/reports.js) and reports him from
+# its "⋯": the reasons of the API as radio rows, "Send report" grey with "Choose a reason first."
+# until one is chosen, details, Report sent in place; "Follow it in My reports" shows the open
+# report and the API holds it (status only).
 appId: ${APP_ID}
 name: Report a collector and follow it in My reports
 tags:
@@ -40,7 +42,7 @@ tags:
 - tapOn:
     id: 'collector-report'
 
-# The report: a reason of the API's list, details, Confirm.
+# The report: a reason of the API's list, details, "Send report".
 - extendedWaitUntil:
     visible:
       id: 'report-reason-HARASSMENT'
@@ -48,8 +50,18 @@ tags:
 - assertVisible:
     id: 'report-target'
     text: 'Bo Reported'
+- assertVisible:
+    id: 'report-confirm'
+    text: 'Send report'
+    enabled: false
+- assertVisible:
+    id: 'report-choose-first'
+    text: 'Choose a reason first\.'
+- takeScreenshot: report-empty
 - tapOn:
     id: 'report-reason-HARASSMENT'
+- assertNotVisible:
+    id: 'report-choose-first'
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:
@@ -69,6 +81,11 @@ tags:
     visible:
       id: 'report-sent'
     timeout: 60000
+- assertVisible: 'Report sent'
+- assertVisible: 'Thank you\. Our moderators will review your report about Bo Reported\. They are not told who reported them\.'
+- assertVisible:
+    id: 'report-my-reports'
+    text: 'Follow it in My reports'
 - takeScreenshot: report-sent
 - runScript:
     file: scripts/reports.js

@@ -71,16 +71,12 @@ tags:
     visible:
       id: 'import-summary'
     timeout: 60000
-- assertVisible: '1 new card'
-- assertVisible: '2 need a printing'
+- assertVisible: 'Which copy\? 2'
+- assertVisible: 'Your file has 3 lines\. 1 is ready to add: 1 copy\.'
 - assertNotVisible: '(Plain copy assumed|[0-9]+ assumed).*'
 
-# The bulk action takes the plain copy of both, and says so once.
-- runFlow:
-    file: subflows/scroll-down-above.yaml
-    env:
-      ID: 'import-bulk-recent'
-      BAR: 'import-commit-bar'
+# "Use the newest" of the amber bar (stage R14) takes the plain copy of both, and says so once.
+- assertVisible: '2 lines need a printing\. Pick one on each, or use the newest for all\.'
 - tapOn:
     id: 'import-bulk-recent'
 - extendedWaitUntil:
@@ -171,6 +167,7 @@ tags:
     visible:
       id: 'import-result'
     timeout: 60000
+- assertVisible: '3 cards added'
 - assertVisible: '3 new cards added'
 - runScript:
     file: scripts/check-import.js
