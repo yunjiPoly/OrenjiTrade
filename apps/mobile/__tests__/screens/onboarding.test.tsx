@@ -1,4 +1,5 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { KeyboardAvoidingView, ScrollView } from 'react-native';
 
 import OnboardingScreen from '@/app/onboarding';
 import { usePendingLink } from '@/src/account/pendingLink';
@@ -209,11 +210,25 @@ describe('Welcome (three steps)', () => {
     const optIn = screen.getByRole('switch', { name: 'Show me on the map' });
     expect(optIn).not.toBeChecked();
 
-    // Finish without a state: what is missing is said, nothing is saved.
+    // Finish without a state: what is missing is said under the pickers, which scroll into
+    // view (not under the switches, where the pinned bar hid it; stage R12's review fix 1), and
+    // nothing is saved.
+    const layout = (testID: string, y: number) =>
+      fireEvent(screen.getByTestId(testID), 'layout', {
+        nativeEvent: { layout: { x: 0, y, width: 360, height: 60 } },
+      });
+    layout('onboarding-place-fields', 120);
+    layout('location-pickers', 80);
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
     fireEvent.press(screen.getByRole('button', { name: 'Finish' }));
-    expect(await screen.findByTestId('location-missing')).toHaveTextContent(
-      /Choose your country\./
+    const missing = await screen.findByTestId('location-missing');
+    expect(missing).toHaveTextContent(/Choose your country\./);
+    expect(within(screen.getByTestId('location-pickers')).getByTestId('location-missing')).toBe(
+      missing
     );
+    // 14 (the step's top padding) + 120 + 80, less 12 so the pickers do not touch the header.
+    expect(scrollTo).toHaveBeenLastCalledWith({ y: 202, animated: true });
+    scrollTo.mockRestore();
     expect(api.callsTo('PUT /api/v1/me/location')).toHaveLength(0);
 
     await choose('location-country', 'CA');
@@ -415,5 +430,21 @@ describe('Welcome (three steps)', () => {
     expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
     fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
     await waitFor(() => expect(port.signOut).toHaveBeenCalled());
+  });
+});
+
+describe('Welcome: the keyboard (stage R12, review fix 1)', () => {
+  it('scrolls the field being typed in above the keyboard; the pinned buttons stay at the bottom', async () => {
+    mockApi(onboardingRoutes());
+    renderWithProviders(<OnboardingScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Who are you?')).toBeOnTheScreen();
+    // iOS keeps the step's size and scrolls the focused field (the bio included) above the
+    // keyboard; a KeyboardAvoidingView padding lifted the pinned Continue and Sign out over the
+    // fields, which left the bio typed out of sight behind them.
+    expect(screen.getByTestId('onboarding-scroll').props.automaticallyAdjustKeyboardInsets).toBe(
+      true
+    );
+    expect(screen.UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBeUndefined();
+    expect(screen.getByLabelText('Bio (optional)')).toBeOnTheScreen();
   });
 });

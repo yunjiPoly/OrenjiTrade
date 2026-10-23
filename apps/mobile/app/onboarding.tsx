@@ -1,5 +1,5 @@
 import { Stack, useRouter, type Href } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -130,6 +130,8 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const games = useGames();
   const editor = useProfileEditor(profile, session.user?.displayName ?? '');
   const scroll = useRef<ScrollView>(null);
+  // Where the place step's country and state or province pickers start in the step.
+  const pickersY = useRef(0);
 
   // Where the welcome starts, decided once so a refresh of `/me` never moves the collector.
   const [step, setStepState] = useState<WelcomeStep>(() =>
@@ -189,6 +191,11 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   const finish = async (withLocation: boolean) => {
     if (withLocation && missingField(place)) {
       setPlaceSubmitted(true);
+      // What is missing shows under the pickers: bring them into view (stage R12's review fix 1).
+      scroll.current?.scrollTo({
+        y: Math.max(0, styles.body.paddingTop + pickersY.current - spacing[3]),
+        animated: true,
+      });
       return;
     }
     setFinishing(true);
@@ -219,13 +226,25 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
     }
   };
 
+  // A save that failed says why at the end of the step, above the pinned buttons.
+  useEffect(() => {
+    if (placeError) {
+      scroll.current?.scrollToEnd({ animated: true });
+    }
+  }, [placeError]);
+
   const previous = previousWelcomeStep(step);
   const noGame = step === 'games' && editor.games.length === 0;
 
+  // The keyboard (stage R12's review fix 1): on iOS the step keeps its size and scrolls the field
+  // being typed in above the keyboard (`automaticallyAdjustKeyboardInsets`); the pinned buttons
+  // stay at the bottom, under the keyboard while it is up, as the mockup pins them only while it
+  // is down. Lifted above the keyboard they left the scroll a strip where the bio was typed out
+  // of sight, behind them. Android, edge to edge since SDK 57, still needs the padding.
   return (
     <KeyboardAvoidingView
       style={styles.fill}
-      behavior={Platform.OS === 'web' ? undefined : 'padding'}
+      behavior={Platform.OS === 'android' ? 'padding' : undefined}
     >
       <WelcomeHeader
         current={welcomeStepNumber(step)}
@@ -239,6 +258,7 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
         testID="onboarding-scroll"
       >
         {step === 'profile' ? (
@@ -262,6 +282,9 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
             onDiscoverableChange={setDiscoverable}
             busy={busy}
             error={placeError}
+            onPickersLayout={(y) => {
+              pickersY.current = y;
+            }}
           />
         )}
       </ScrollView>

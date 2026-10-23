@@ -34,6 +34,12 @@ export interface LocationFieldsProps {
    */
   variant?: 'settings' | 'welcome';
   extraSwitch?: ReactNode;
+  /**
+   * `welcome`: where the country and state or province pickers start, from the top of these
+   * fields (what is missing shows right under them), so the welcome can scroll them into view
+   * when Finish finds one empty.
+   */
+  onPickersLayout?: (y: number) => void;
 }
 
 /**
@@ -48,6 +54,7 @@ export function LocationFields({
   disabled,
   variant = 'settings',
   extraSwitch,
+  onPickersLayout,
 }: LocationFieldsProps) {
   const { palette } = useTheme();
   const regions = useRegions();
@@ -148,17 +155,26 @@ export function LocationFields({
     return (
       <View style={styles.welcome} testID="location-fields">
         {regionSelect}
-        {subdivisionSelect && !stacked ? (
-          <View style={styles.pair}>
-            <View style={styles.half}>{countrySelect}</View>
-            <View style={styles.half}>{subdivisionSelect}</View>
-          </View>
-        ) : (
-          <>
-            {countrySelect}
-            {subdivisionSelect}
-          </>
-        )}
+        {/* What is missing shows under the pickers it is about, not under the switches the
+            pinned Finish bar covered (stage R12's review fix 1). */}
+        <View
+          style={styles.welcome}
+          onLayout={(event) => onPickersLayout?.(event.nativeEvent.layout.y)}
+          testID="location-pickers"
+        >
+          {subdivisionSelect && !stacked ? (
+            <View style={styles.pair}>
+              <View style={styles.half}>{countrySelect}</View>
+              <View style={styles.half}>{subdivisionSelect}</View>
+            </View>
+          ) : (
+            <>
+              {countrySelect}
+              {subdivisionSelect}
+            </>
+          )}
+          {missingMessage}
+        </View>
         {cityField}
         <View
           style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
@@ -170,7 +186,6 @@ export function LocationFields({
             </View>
           ) : null}
         </View>
-        {missingMessage}
       </View>
     );
   }

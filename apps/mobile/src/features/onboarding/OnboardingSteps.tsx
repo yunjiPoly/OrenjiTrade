@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useRegions } from '@/src/api/hooks/regions';
@@ -180,6 +181,8 @@ export interface PlaceStepProps {
   onDiscoverableChange: (value: boolean) => void;
   busy: boolean;
   error: string | null;
+  /** Where the country and state or province pickers start, from the top of this step. */
+  onPickersLayout?: (y: number) => void;
 }
 
 /**
@@ -194,8 +197,12 @@ export function PlaceStep({
   onDiscoverableChange,
   busy,
   error,
+  onPickersLayout,
 }: PlaceStepProps) {
   const regions = useRegions();
+  // The pickers' place in the step: the fields' own top plus the pickers' top inside them.
+  const offsets = useRef({ fields: 0, pickers: 0 });
+  const report = () => onPickersLayout?.(offsets.current.fields + offsets.current.pickers);
   const all = regions.data?.regions ?? [];
   const regionName = all.find((region) => region.code === value.regionCode)?.name ?? null;
   const country = countryOf(all, value.countryCode);
@@ -205,23 +212,35 @@ export function PlaceStep({
   return (
     <View style={styles.step} testID="onboarding-location">
       <StepHeading title={WELCOME_COPY.place.title} text={WELCOME_COPY.place.intro} />
-      <LocationFields
-        value={value}
-        onChange={onChange}
-        showErrors={showErrors}
-        disabled={busy}
-        variant="welcome"
-        extraSwitch={
-          <SwitchRow
-            label={WELCOME_COPY.place.discoverable}
-            help={discoverableHelp(regionName, provinceName)}
-            value={discoverable}
-            onChange={onDiscoverableChange}
-            disabled={busy}
-            testID="onboarding-discoverable"
-          />
-        }
-      />
+      <View
+        onLayout={(event) => {
+          offsets.current.fields = event.nativeEvent.layout.y;
+          report();
+        }}
+        testID="onboarding-place-fields"
+      >
+        <LocationFields
+          value={value}
+          onChange={onChange}
+          showErrors={showErrors}
+          disabled={busy}
+          variant="welcome"
+          onPickersLayout={(y) => {
+            offsets.current.pickers = y;
+            report();
+          }}
+          extraSwitch={
+            <SwitchRow
+              label={WELCOME_COPY.place.discoverable}
+              help={discoverableHelp(regionName, provinceName)}
+              value={discoverable}
+              onChange={onDiscoverableChange}
+              disabled={busy}
+              testID="onboarding-discoverable"
+            />
+          }
+        />
+      </View>
       {error ? <FormMessage>{error}</FormMessage> : null}
     </View>
   );
