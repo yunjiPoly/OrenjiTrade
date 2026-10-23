@@ -185,6 +185,20 @@ public class ProfileService {
     }
 
     /**
+     * Saves the profile ({@link #update}) and replaces its tags ({@link #replaceTags}) in one
+     * transaction (stage R13, Edit profile's one "Save changes"): a refused field or tag saves
+     * nothing, the handle change and its audit row included. Returns the profile as saved, tags
+     * included.
+     */
+    @Transactional
+    public MyProfileView updateWithTags(
+            UUID userId, ProfileUpdate update, List<UUID> tagIds, List<String> customLabels) {
+        update(userId, update);
+        replaceTags(userId, tagIds, customLabels);
+        return getMine(userId);
+    }
+
+    /**
      * Replaces the avatar: validates and re-encodes the upload ({@link AvatarImageProcessor})
      * before any transaction starts, stores it under a fresh random key and deletes the previous
      * object after commit.

@@ -88,7 +88,9 @@ public class MyProfileController {
                         + " unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1"
                         + " languages or blocked terms; 409 HANDLE_TAKEN when the handle is used"
                         + " (case-insensitive) or reserved. The first save completes the"
-                        + " `profileComplete` onboarding step.")
+                        + " `profileComplete` onboarding step. Stage R13: an optional `tags` object"
+                        + " replaces the profile tags in the same transaction (the rules of PUT"
+                        + " /me/profile/tags); a refused tag saves nothing.")
     @ApiResponse(responseCode = "200", description = "Saved profile")
     @ApiResponse(
             responseCode = "409",
@@ -100,15 +102,23 @@ public class MyProfileController {
     public MyProfileResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody UpdateProfileRequest body) {
+        ProfileUpdate update =
+                new ProfileUpdate(
+                        body.handle(),
+                        body.displayName(),
+                        body.bio(),
+                        body.games(),
+                        body.languages());
+        UpdateProfileTagsRequest tags = body.tags();
+        if (tags == null) {
+            return MyProfileResponse.from(profileService.update(principal.userId(), update));
+        }
         return MyProfileResponse.from(
-                profileService.update(
+                profileService.updateWithTags(
                         principal.userId(),
-                        new ProfileUpdate(
-                                body.handle(),
-                                body.displayName(),
-                                body.bio(),
-                                body.games(),
-                                body.languages())));
+                        update,
+                        tags.tagIds() == null ? List.of() : tags.tagIds(),
+                        tags.customLabels() == null ? List.of() : tags.customLabels()));
     }
 
     @PostMapping(path = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
