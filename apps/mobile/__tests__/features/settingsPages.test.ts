@@ -53,6 +53,19 @@ describe("Edit profile's one save (stage R13)", () => {
       tags: true,
     });
     expect(profileChanges(current({ customTags: [] }), saved).tags).toBe(true);
+    // The same tags in another order are no change (review fix 1): unpicking a tag and picking it
+    // again leaves "No changes yet".
+    const both = {
+      ...saved,
+      tagIds: [TRACKED.id, BINDER.id],
+      customTags: ['Cube drafter', 'Foils'],
+    };
+    expect(
+      profileChanges(
+        current({ tags: [BINDER, TRACKED], customTags: ['Foils', 'Cube drafter'] }),
+        both
+      )
+    ).toEqual({ details: false, tags: false });
   });
 
   it('sends the tags in the same request only when they changed', () => {
@@ -100,6 +113,15 @@ describe("Edit profile's one save (stage R13)", () => {
       }
     );
     expect(full.find((chip) => chip.label === 'Tracked shipping')?.disabled).toBe(true);
+    // At 11 the 12th can still be picked (review fix 1).
+    const eleven = profileTagChips(
+      { tags: [TRACKED], custom: [] },
+      {
+        tags: [BINDER],
+        customTags: Array.from({ length: 10 }, (_, index) => `Tag ${index}`),
+      }
+    );
+    expect(eleven.every((chip) => !chip.disabled)).toBe(true);
   });
 });
 

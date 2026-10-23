@@ -1,7 +1,8 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import ReportCollectorScreen from '@/app/report';
 import MyReportsScreen from '@/app/settings/reports';
+import { darkPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { OTHER_ID, REPORT_REASONS, myReportFixture } from '../support/fixtures';
@@ -163,6 +164,47 @@ describe('My reports', () => {
       pathname: '/collectors/[id]',
       params: { id: 'collector3' },
     });
+  });
+
+  it('colours each status pill as the spec names it (review fix 1)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/me/reports': ok([
+          myReportFixture({ id: 'open', status: 'OPEN' }),
+          myReportFixture({ id: 'review', status: 'UNDER_REVIEW' }),
+          myReportFixture({ id: 'done', status: 'ACTIONED', resolvedAt: '2026-10-05T12:00:00Z' }),
+          myReportFixture({
+            id: 'closed',
+            status: 'DISMISSED',
+            resolvedAt: '2026-10-05T12:00:00Z',
+          }),
+        ]),
+      })
+    );
+    renderWithProviders(<MyReportsScreen />, { port: port(), scheme: 'dark' });
+    await screen.findByTestId('reports-summary');
+    // Open amber, Under review blue, Action taken teal, Dismissed grey (the dark scheme).
+    const pills = darkPalette.settings;
+    for (const [id, label, background, text] of [
+      ['open', 'Open', pills.pillOpenBackground, pills.pillOpenText],
+      ['review', 'Under review', pills.pillReviewBackground, pills.pillReviewText],
+      ['done', 'Action taken', pills.pillDoneBackground, pills.pillDoneText],
+      ['closed', 'Dismissed', pills.pillClosedBackground, pills.pillClosedText],
+    ] as const) {
+      const pill = screen.getByTestId(`report-status-${id}`);
+      expect(pill).toHaveTextContent(label);
+      expect(pill).toHaveStyle({ backgroundColor: background });
+      expect(within(pill).getByText(label)).toHaveStyle({ color: text });
+    }
+    // Four different colours: no two statuses look alike.
+    expect(
+      new Set([
+        pills.pillOpenBackground,
+        pills.pillReviewBackground,
+        pills.pillDoneBackground,
+        pills.pillClosedBackground,
+      ]).size
+    ).toBe(4);
   });
 
   it('shows the empty state and an error with retry', async () => {
