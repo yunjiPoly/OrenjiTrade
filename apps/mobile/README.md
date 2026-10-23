@@ -129,6 +129,12 @@ signed out reopens after signing in. ML card recognition (Phase 11) is on hold a
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
 development build below and the flag `cardTextScan`).
 
+**Stage R14** restyled the report, the rating, the reference, New binder, Add and Edit a wish, the
+import (the file, "Check the cards", "Import done") and a set's page (mockup v50 screens 60 to 69,
+contract `docs/api/contracts/r14-report-rate-wish-import-sets.md`): the Settings top bar and the
+main button at the bottom; "Add a wish" opens Search's card search; a set's "Who has cards of this
+set" opens it on the set (`/search?set=&setName=`).
+
 Phases 7 and 8 (stage M5) are implemented on the same API as the web: **Report collector**
 (`report`: the API's reasons, details, a confirmation; from profiles, conversations, community
 posts and public binders; the map preview of stage M3 is gone since S1) and **My reports** (`settings/reports`, the
@@ -392,11 +398,14 @@ app/                       expo-router routes
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
   community/[slug].tsx     a public channel (posts, replies, own edits)
   (tabs)/wishlist.tsx      the old Wishlist tab: redirects to Search › Wishlist; wishlist/new
-                           (`?cardId=&printingId=&rarity=`), edit (`?id=`, with Remove)
+                           without a card is "Add a wish": Search's card search (`?game=`); with
+                           `?cardId=` the wish form (`&printingId=`, `&rarity=`, `&code=` the text
+                           typed, `&from=search`); edit (`?id=`, with Remove) (stage R14)
   notifications.tsx        Notifications (stage R9; the bell of every tab opens it)
-  report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
-  ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),
-                           reference (one per collector)
+  report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id;
+                           stage R14: "Send report", Report sent in place)
+  ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit; stage
+                           R14: the deal, "Publish rating"), reference (one per collector)
   settings/reports.tsx     My reports
   +not-found.tsx           unknown links; a link to a screen that left the phone lands on a
                            screen that exists with a note (src/navigation/removedRoutes.ts):
