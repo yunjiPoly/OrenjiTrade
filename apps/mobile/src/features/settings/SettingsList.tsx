@@ -177,6 +177,8 @@ export interface SettingsSwitchProps {
   label: string;
   /** The line under the label; a screen reader says it after the switch's state. */
   help?: string | null;
+  /** The line's own id (tests read what it says). */
+  helpTestID?: string;
   value: boolean;
   onChange: (value: boolean) => void;
   icon?: SettingsIcon;
@@ -192,6 +194,7 @@ export interface SettingsSwitchProps {
 export function SettingsSwitch({
   label,
   help,
+  helpTestID,
   value,
   onChange,
   icon,
@@ -225,7 +228,11 @@ export function SettingsSwitch({
         ) : null}
         <View style={styles.words}>
           <Text style={[styles.label, { color: palette.ink }]}>{label}</Text>
-          {help ? <Text style={[styles.detail, { color: palette.textMuted }]}>{help}</Text> : null}
+          {help ? (
+            <Text testID={helpTestID} style={[styles.detail, { color: palette.textMuted }]}>
+              {help}
+            </Text>
+          ) : null}
         </View>
       </View>
       <View

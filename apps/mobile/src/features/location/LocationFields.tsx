@@ -6,10 +6,9 @@ import { ErrorState } from '@/src/components/ui/ErrorState';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
 import { SelectSheet, type SelectOption } from '@/src/components/ui/SelectSheet';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
-import { Text } from '@/src/components/ui/Text';
 import { TextField } from '@/src/components/ui/TextField';
 import { CITY_MAX_LENGTH } from '@/src/lib/place';
-import { radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
+import { radius, useStackedRows, useTheme } from '@/src/theme';
 
 import {
   countriesOf,
@@ -27,33 +26,31 @@ export interface LocationFieldsProps {
   /** Show what is missing (after a save attempt). */
   showErrors?: boolean;
   disabled?: boolean;
-  /**
-   * `welcome`: the welcome's place step (mockup v50 screen 42): country and state or province side
-   * by side, and the switches in one card with `extraSwitch` ("Show me on the map") under "Show my
-   * city on my profile". `settings` (the default): Settings › Location as before.
-   */
-  variant?: 'settings' | 'welcome';
+  /** The welcome's "Show me on the map", in the card under "Show my city on my profile". */
   extraSwitch?: ReactNode;
+  /** The line under the city (Settings › Location words it its own way). */
+  cityHint?: string;
   /**
-   * `welcome`: where the country and state or province pickers start, from the top of these
-   * fields (what is missing shows right under them), so the welcome can scroll them into view
-   * when Finish finds one empty.
+   * Where the country and state or province pickers start, from the top of these fields (what is
+   * missing shows right under them), so the welcome can scroll them into view when Finish finds
+   * one empty.
    */
   onPickersLayout?: (y: number) => void;
 }
 
 /**
  * "Where are you?" (ADR 0017, the web's `app-location-fields`): platform region → country →
- * state or province pickers fed by `GET /regions`, an optional city (shown on the collector's own
- * profile only) and "show my city on my profile". No map, no GPS, no geocoding.
+ * state or province pickers fed by `GET /regions` (the country and the state or province side by
+ * side, mockup v50 screens 42 and 49), an optional city (shown on the collector's own profile
+ * only) and "show my city on my profile" in a card. No map, no GPS, no geocoding.
  */
 export function LocationFields({
   value,
   onChange,
   showErrors,
   disabled,
-  variant = 'settings',
   extraSwitch,
+  cityHint = 'Only shown on your profile, never used to locate you.',
   onPickersLayout,
 }: LocationFieldsProps) {
   const { palette } = useTheme();
@@ -129,7 +126,7 @@ export function LocationFields({
   const cityField = (
     <TextField
       label="City (optional)"
-      hint="Only shown on your profile, never used to locate you."
+      hint={cityHint}
       value={value.city}
       maxLength={CITY_MAX_LENGTH}
       autoComplete="off"
@@ -151,67 +148,45 @@ export function LocationFields({
     <FormMessage testID="location-missing">{missing}</FormMessage>
   ) : null;
 
-  if (variant === 'welcome') {
-    return (
-      <View style={styles.welcome} testID="location-fields">
-        {regionSelect}
-        {/* What is missing shows under the pickers it is about, not under the switches the
-            pinned Finish bar covered (stage R12's review fix 1). */}
-        <View
-          style={styles.welcome}
-          onLayout={(event) => onPickersLayout?.(event.nativeEvent.layout.y)}
-          testID="location-pickers"
-        >
-          {subdivisionSelect && !stacked ? (
-            <View style={styles.pair}>
-              <View style={styles.half}>{countrySelect}</View>
-              <View style={styles.half}>{subdivisionSelect}</View>
-            </View>
-          ) : (
-            <>
-              {countrySelect}
-              {subdivisionSelect}
-            </>
-          )}
-          {missingMessage}
-        </View>
-        {cityField}
-        <View
-          style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
-        >
-          <View style={styles.cardRow}>{showCitySwitch}</View>
-          {extraSwitch ? (
-            <View style={[styles.cardRow, { borderTopWidth: 1, borderTopColor: palette.border }]}>
-              {extraSwitch}
-            </View>
-          ) : null}
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.root} testID="location-fields">
+    <View style={styles.welcome} testID="location-fields">
       {regionSelect}
-      {countrySelect}
-      {subdivisionSelect}
-      {cityField}
-      {showCitySwitch}
-      <Text
-        style={[textStyle('sm'), { color: palette.textMuted }]}
-        testID="location-show-city-hint"
+      {/* What is missing shows under the pickers it is about, not under the switches the
+          pinned Finish bar covered (stage R12's review fix 1). */}
+      <View
+        style={styles.welcome}
+        onLayout={(event) => onPickersLayout?.(event.nativeEvent.layout.y)}
+        testID="location-pickers"
       >
-        {value.showCity
-          ? 'Your city appears on your profile only. Everywhere else, others see your state or province and your country.'
-          : 'Your city stays private. Others see your state or province and your country.'}
-      </Text>
-      {missingMessage}
+        {subdivisionSelect && !stacked ? (
+          <View style={styles.pair}>
+            <View style={styles.half}>{countrySelect}</View>
+            <View style={styles.half}>{subdivisionSelect}</View>
+          </View>
+        ) : (
+          <>
+            {countrySelect}
+            {subdivisionSelect}
+          </>
+        )}
+        {missingMessage}
+      </View>
+      {cityField}
+      <View
+        style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      >
+        <View style={styles.cardRow}>{showCitySwitch}</View>
+        {extraSwitch ? (
+          <View style={[styles.cardRow, { borderTopWidth: 1, borderTopColor: palette.border }]}>
+            {extraSwitch}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[3] },
   welcome: { gap: 14 },
   pair: { flexDirection: 'row', gap: 10 },
   half: { flex: 1, minWidth: 0 },

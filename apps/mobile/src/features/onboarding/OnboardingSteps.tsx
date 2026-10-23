@@ -224,7 +224,6 @@ export function PlaceStep({
           onChange={onChange}
           showErrors={showErrors}
           disabled={busy}
-          variant="welcome"
           onPickersLayout={(y) => {
             offsets.current.pickers = y;
             report();

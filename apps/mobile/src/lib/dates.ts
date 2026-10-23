@@ -14,6 +14,22 @@ export function formatLongDate(value: string | null | undefined): string {
   }
 }
 
+/** `March 2025` (Settings › Account's "Member since"), or the raw value when unparsable. */
+export function formatMonthYear(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  try {
+    return date.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+  } catch {
+    return date.toISOString().slice(0, 7);
+  }
+}
+
 /** Date and time (the web's `date: 'medium'`). */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) {

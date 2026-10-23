@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, lightPalette, spacing, textStyle, useTheme } from '@/src/theme';
 
 export interface PillButtonProps {
   label: string;
@@ -26,9 +26,11 @@ export interface PillButtonProps {
   /**
    * `primary`: the orange pill; `outline`: the 48 pt outlined pill of a second action ("Continue
    * with Google", "Resend email"); `quiet`: the words alone, 44 pt tall ("Sign out", "Skip for
-   * now"). The outline and quiet ones keep their size whatever `size` says.
+   * now"). The outline and quiet ones keep their size whatever `size` says. `danger`: the red
+   * pill of a destructive main button ("Delete my account"), the same red in both schemes as the
+   * confirmation sheets' (white on it reads at 4.8 : 1); disabled, it is grey like the others.
    */
-  variant?: 'primary' | 'outline' | 'quiet';
+  variant?: 'primary' | 'outline' | 'quiet' | 'danger';
   accessibilityHint?: string;
   /**
    * How far the label follows the system text size: a button that stays on screen (a header, the
@@ -60,13 +62,16 @@ export function PillButton({
 }: PillButtonProps) {
   const { palette } = useTheme();
   const inactive = disabled || loading;
+  const filled = variant === 'primary' || variant === 'danger';
   const color = disabled
     ? palette.availability.notAvailable
-    : variant === 'primary'
-      ? palette.onPrimary
-      : variant === 'outline'
-        ? palette.ink
-        : palette.textMuted;
+    : variant === 'danger'
+      ? '#FFFFFF'
+      : variant === 'primary'
+        ? palette.onPrimary
+        : variant === 'outline'
+          ? palette.ink
+          : palette.textMuted;
   const shape =
     variant === 'outline'
       ? [
@@ -78,10 +83,15 @@ export function PillButton({
         ? [styles.quiet, inactive && styles.busy]
         : [
             size === 'large' ? styles.large : styles.small,
-            { backgroundColor: disabled ? palette.surfaceVariant : palette.primary },
+            {
+              backgroundColor: disabled
+                ? palette.surfaceVariant
+                : variant === 'danger'
+                  ? lightPalette.danger
+                  : palette.primary,
+            },
           ];
-  const fontSize =
-    variant === 'primary' ? (size === 'large' ? 16 : 15) : variant === 'outline' ? 15 : 14;
+  const fontSize = filled ? (size === 'large' ? 16 : 15) : variant === 'outline' ? 15 : 14;
   const text = loading && loadingLabel ? loadingLabel : label;
   return (
     <Pressable
@@ -107,7 +117,7 @@ export function PillButton({
           maxFontSizeMultiplier={maxFontSizeMultiplier}
           style={[
             textStyle(size === 'large' ? 'md' : 'sm'),
-            variant === 'primary' ? styles.label : styles.secondLabel,
+            filled ? styles.label : styles.secondLabel,
             { color, fontSize },
           ]}
           numberOfLines={2}

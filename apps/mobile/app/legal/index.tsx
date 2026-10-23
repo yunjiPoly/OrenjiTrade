@@ -1,18 +1,22 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
 
 import { useLegalDocuments } from '@/src/api/hooks/legal';
-import { Divider, ListRow, ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
 import { LegalDraftBanner } from '@/src/features/legal/LegalDraftBanner';
-import { legalKeyOf } from '@/src/features/legal/legalDocs';
+import {
+  PHONE_LEGAL_KEYS,
+  PHONE_LEGAL_SUMMARIES,
+  legalKeyOf,
+} from '@/src/features/legal/legalDocs';
 import { LegalLanguageSwitch } from '@/src/features/legal/LegalLanguageSwitch';
 import { useLegalTexts } from '@/src/features/legal/legalTexts';
-import { spacing } from '@/src/theme';
+import { SettingsGroup, SettingsRow } from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
 
 /**
- * Legal index (web: `/legal`): every document in the active legal language (EN / FR switch,
- * French by default on a French device), with the current version the API publishes.
+ * Legal (stage R13, mockup v50 screen 58; web: `/legal`): the English | Français switch, the draft
+ * banner and the documents in the active legal language, each with its one line and the version
+ * the API publishes. The phone lists seven documents: the Payment Protection and the Refund and
+ * Dispute policies are the web's (ADR 0018, the phone has no payments).
  */
 export default function LegalIndexScreen() {
   const router = useRouter();
@@ -23,42 +27,32 @@ export default function LegalIndexScreen() {
     legal.data?.find((document) => legalKeyOf(document.url) === key)?.version ?? null;
 
   return (
-    <Screen scroll safeBottom testID="screen-legal">
-      <View style={styles.bar}>
-        <LegalLanguageSwitch />
-      </View>
-      <ScreenHeader title={texts.labels.indexTitle} subtitle={texts.labels.indexSubtitle} />
-      <View style={styles.root}>
-        <LegalDraftBanner />
-        <SectionCard>
-          {texts.documentList.map((document, index) => {
-            const version = versionOf(document.key);
-            return (
-              <View key={document.key}>
-                {index > 0 ? <Divider /> : null}
-                <ListRow
-                  icon="file-document-outline"
-                  label={document.title}
-                  detail={
-                    version
-                      ? `${document.summary} ${texts.labels.currentVersion(version)}`
-                      : document.summary
-                  }
-                  onPress={() =>
-                    router.push({ pathname: '/legal/[key]', params: { key: document.key } })
-                  }
-                  testID={`legal-link-${document.key}`}
-                />
-              </View>
-            );
-          })}
-        </SectionCard>
-      </View>
-    </Screen>
+    <SettingsPage
+      title={texts.labels.indexTitle}
+      testID="screen-legal"
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+    >
+      <LegalLanguageSwitch />
+      <LegalDraftBanner />
+      <SettingsGroup testID="legal-documents">
+        {PHONE_LEGAL_KEYS.map((key) => {
+          const document = texts.documents[key];
+          const summary =
+            texts.language === 'en'
+              ? (PHONE_LEGAL_SUMMARIES[key] ?? document.summary)
+              : document.summary;
+          const version = versionOf(key);
+          return (
+            <SettingsRow
+              key={key}
+              label={document.title}
+              detail={version ? `${summary} ${texts.labels.currentVersion(version)}` : summary}
+              onPress={() => router.push({ pathname: '/legal/[key]', params: { key } })}
+              testID={`legal-link-${key}`}
+            />
+          );
+        })}
+      </SettingsGroup>
+    </SettingsPage>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: spacing[3] },
-  root: { gap: spacing[4] },
-});

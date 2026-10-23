@@ -1,5 +1,6 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
 import { useMyLocation } from '@/src/api/hooks/location';
@@ -8,11 +9,9 @@ import {
   useSaveNotificationSettings,
 } from '@/src/api/hooks/notifications';
 import type { NotificationSettingsResponse } from '@/src/api/types';
-import { Button } from '@/src/components/ui/Button';
-import { Checkbox, FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
-import { Divider, SectionCard } from '@/src/components/ui/Layout';
-import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
+import { ErrorState } from '@/src/components/ui/ErrorState';
+import { FormMessage } from '@/src/components/ui/FormControls';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
@@ -20,28 +19,46 @@ import { TextField } from '@/src/components/ui/TextField';
 import {
   CHANNELS,
   categoriesOf,
+  cellLabel,
   deviceTimeZone,
   quietHoursError,
   type Channel,
   type MasterKey,
 } from '@/src/features/settings/notificationOptions';
+import { NOTIFICATION_SETTINGS_COPY as COPY } from '@/src/features/settings/settingsCopy';
+import { GroupTitle, SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { AlertReadinessNotice, alertReadiness } from '@/src/features/wishlist/WishlistNotices';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, radius, spacing, useTheme } from '@/src/theme';
 
-/** Settings → Notifications (web: `/settings/notifications`): channels, topics, quiet hours. */
+/**
+ * Settings › Notifications (stage R13, mockup v50 screen 51; web: `/settings/notifications`):
+ * the channels (In the app, Push, Email), wishlist alerts (with the line saying they need a place),
+ * "What to notify me about" as a grid of topics by channel, a channel's column dimmed while it is
+ * off, and quiet hours (24-hour times, the time zone); one "Save preferences", "No changes yet"
+ * until something changed. Offers and trades left the phone (ADR 0018): their stored values go
+ * back unchanged.
+ */
 export default function NotificationSettingsScreen() {
   const settings = useNotificationSettings();
+  if (settings.data) {
+    return <NotificationForm initial={settings.data} />;
+  }
   return (
-    <Screen scroll safeBottom testID="screen-settings-notifications">
-      <QueryState
-        query={settings}
-        errorTitle="We could not load your notification preferences"
-        loading={<SkeletonList rows={5} rowHeight={56} />}
-        testID="settings-notifications"
-      >
-        {(data) => <NotificationForm initial={data} />}
-      </QueryState>
-    </Screen>
+    <SettingsPage title={COPY.title} testID="screen-settings-notifications">
+      {settings.error ? (
+        <ErrorState
+          error={settings.error}
+          title={COPY.loadError}
+          onRetry={() => void settings.refetch()}
+          testID="settings-notifications-error"
+        />
+      ) : (
+        <View accessibilityLabel={COPY.loading} aria-busy>
+          <SkeletonList rows={6} rowHeight={56} testID="settings-notifications-loading" />
+        </View>
+      )}
+    </SettingsPage>
   );
 }
 
@@ -51,19 +68,16 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
   const save = useSaveNotificationSettings();
   // Wishlist alerts need a country and state (ADR 0017): without them, say so next to the switch.
   const location = useMyLocation();
+  const [saved, setSaved] = useState(initial);
   const [draft, setDraft] = useState(initial);
-  const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const quietError = quietHoursError(draft);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
 
   const patch = (
     change: (settings: NotificationSettingsResponse) => NotificationSettingsResponse
-  ) => {
-    setDraft((current) => change(current));
-    setDirty(true);
-  };
+  ) => setDraft((current) => change(current));
   const setMaster = (key: MasterKey, value: boolean) => patch((s) => ({ ...s, [key]: value }));
-  const setWishlistAlerts = (value: boolean) => patch((s) => ({ ...s, wishlistAlerts: value }));
   const setCategory = (category: string, channel: Channel, value: boolean) =>
     patch((s) => {
       const current = s.categories[category] ?? { inApp: false, push: false, email: false };
@@ -81,93 +95,80 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
     }
     setError(null);
     try {
-      const saved = await save.mutateAsync(draft);
-      setDraft(saved);
-      setDirty(false);
-      snackbar.show('Notification preferences saved.');
+      const answer = await save.mutateAsync(draft);
+      setSaved(answer);
+      setDraft(answer);
+      snackbar.show(COPY.saved, { icon: 'success' });
     } catch (caught) {
       setError(messageOf(caught));
     }
   };
 
   return (
-    <View style={styles.root}>
-      <SectionCard title="Channels" description="Turn a channel off to silence it everywhere.">
-        {CHANNELS.map((channel, index) => (
-          <View key={channel.key}>
-            {index > 0 ? <Divider /> : null}
-            <SwitchRow
-              label={channel.label}
-              value={draft[channel.master]}
-              onChange={(value) => setMaster(channel.master, value)}
-              testID={`notif-master-${channel.key}`}
-            />
-          </View>
-        ))}
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          Push notifications on this device arrive with a later release; your choice is already
-          saved.
-        </Text>
-      </SectionCard>
-
-      <SectionCard
-        title="Wishlist alerts"
-        description="When a collector of your region lists a card you want, we tell you in the app and by push."
-      >
-        <SwitchRow
-          label="Wishlist alerts"
-          help="One alert per new listing that fits a wish. Turning them off keeps your wishlist as it is."
-          value={draft.wishlistAlerts}
-          onChange={setWishlistAlerts}
-          testID="notif-wishlist-alerts"
+    <SettingsPage
+      title={COPY.title}
+      testID="screen-settings-notifications"
+      footer={
+        <PillButton
+          label={dirty ? COPY.save : COPY.noChanges}
+          loading={save.isPending}
+          loadingLabel={COPY.saving}
+          disabled={!dirty || quietError !== null}
+          onPress={() => void submit()}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          testID="notif-save"
         />
+      }
+    >
+      <SettingsGroup title={COPY.channels} footnote={`${COPY.channelsNote} ${COPY.pushNote}`}>
+        {CHANNELS.map((channel) => (
+          <SettingsSwitch
+            key={channel.key}
+            icon={channel.icon}
+            label={channel.label}
+            value={draft[channel.master]}
+            onChange={(value) => setMaster(channel.master, value)}
+            testID={`notif-master-${channel.key}`}
+          />
+        ))}
+      </SettingsGroup>
+
+      <View style={styles.block}>
+        <SettingsGroup title={COPY.wishlist}>
+          <SettingsSwitch
+            icon="heart-outline"
+            label={COPY.wishlist}
+            help={COPY.wishlistLine}
+            value={draft.wishlistAlerts}
+            onChange={(value) => patch((s) => ({ ...s, wishlistAlerts: value }))}
+            testID="notif-wishlist-alerts"
+          />
+        </SettingsGroup>
         <AlertReadinessNotice readiness={alertReadiness(location.data)} />
-      </SectionCard>
+      </View>
 
-      <SectionCard title="What to notify me about" description="Choose per topic and channel.">
-        {categoriesOf(draft).map((category, index) => (
-          <View key={category.key} style={styles.category}>
-            {index > 0 ? <Divider /> : null}
-            <Text style={[textStyle('md'), styles.categoryLabel, { color: palette.ink }]}>
-              {category.label}
-            </Text>
-            {category.help ? (
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{category.help}</Text>
-            ) : null}
-            <View style={styles.channels}>
-              {CHANNELS.map((channel) => (
-                <View key={channel.key} style={styles.channel}>
-                  <Checkbox
-                    label={`${category.label} by ${channel.label}`}
-                    checked={draft.categories[category.key]?.[channel.key] ?? false}
-                    disabled={!draft[channel.master]}
-                    onChange={(value) => setCategory(category.key, channel.key, value)}
-                    testID={`notif-${category.key}-${channel.key}`}
-                  >
-                    <Text style={[textStyle('sm'), { color: palette.ink }]}>{channel.label}</Text>
-                  </Checkbox>
-                </View>
-              ))}
-            </View>
-          </View>
-        ))}
-      </SectionCard>
+      <TopicGrid
+        settings={draft}
+        onChange={(category, channel, value) => setCategory(category, channel, value)}
+      />
 
-      <SectionCard
-        title="Quiet hours"
-        description="No push notifications during these hours. In-app notifications still arrive."
-      >
-        <SwitchRow
-          label="Pause push notifications at night"
-          value={draft.quietHours.enabled}
-          onChange={(value) => setQuiet('enabled', value)}
-          testID="notif-quiet"
-        />
-        {draft.quietHours.enabled ? (
-          <View style={styles.quiet}>
-            <View style={styles.times}>
+      <View style={styles.block}>
+        <GroupTitle>{COPY.quiet}</GroupTitle>
+        <View
+          style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        >
+          <SettingsSwitch
+            icon="weather-night"
+            label={COPY.quietSwitch}
+            help={COPY.quietLine}
+            value={draft.quietHours.enabled}
+            onChange={(value) => setQuiet('enabled', value)}
+            testID="notif-quiet"
+          />
+          {draft.quietHours.enabled ? (
+            <View style={[styles.times, { borderTopColor: palette.border }]}>
               <TextField
-                label="From"
+                label={COPY.from}
                 value={draft.quietHours.start}
                 onChangeText={(value) => setQuiet('start', value)}
                 placeholder="22:00"
@@ -177,7 +178,7 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
                 testID="notif-quiet-start"
               />
               <TextField
-                label="Until"
+                label={COPY.until}
                 value={draft.quietHours.end}
                 onChangeText={(value) => setQuiet('end', value)}
                 placeholder="08:00"
@@ -187,46 +188,161 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
                 testID="notif-quiet-end"
               />
             </View>
-            <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-              Time zone: {draft.quietHours.timezone}
-            </Text>
-            {draft.quietHours.timezone !== deviceTimeZone() ? (
-              <Button
-                label="Use this device's time zone"
-                variant="ghost"
-                onPress={() => setQuiet('timezone', deviceTimeZone())}
-              />
-            ) : null}
-            {quietError ? <FormMessage testID="notif-quiet-error">{quietError}</FormMessage> : null}
-          </View>
-        ) : null}
-      </SectionCard>
-
-      {error ? (
-        <FormMessage>{error}</FormMessage>
-      ) : dirty ? (
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          You have unsaved changes.
+          ) : null}
+        </View>
+        <Text style={[styles.footnote, { color: palette.textMuted }]} testID="notif-time-zone">
+          {COPY.timeZone(draft.quietHours.timezone)}
         </Text>
-      ) : null}
-      <Button
-        label="Save preferences"
-        loading={save.isPending}
-        disabled={!dirty || quietError !== null}
-        onPress={() => void submit()}
-        testID="notif-save"
-      />
+        {draft.quietHours.enabled && draft.quietHours.timezone !== deviceTimeZone() ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={COPY.useDeviceZone}
+            onPress={() => setQuiet('timezone', deviceTimeZone())}
+            hitSlop={8}
+            testID="notif-device-zone"
+            style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+          >
+            <Text style={[styles.linkText, { color: palette.accent }]}>{COPY.useDeviceZone}</Text>
+          </Pressable>
+        ) : null}
+        {quietError ? <FormMessage testID="notif-quiet-error">{quietError}</FormMessage> : null}
+      </View>
+
+      {error ? <FormMessage testID="notif-error">{error}</FormMessage> : null}
+    </SettingsPage>
+  );
+}
+
+/**
+ * "What to notify me about" (mockup v50 screen 51): a topic per row, a checkbox per channel. While
+ * a channel is off its column is dimmed and its boxes show empty and cannot change; what was
+ * chosen comes back with the channel.
+ */
+function TopicGrid({
+  settings,
+  onChange,
+}: {
+  settings: NotificationSettingsResponse;
+  onChange: (category: string, channel: Channel, value: boolean) => void;
+}) {
+  const { palette } = useTheme();
+  const topics = categoriesOf(settings);
+  return (
+    <View style={styles.block} testID="notif-grid">
+      <GroupTitle>{COPY.topics}</GroupTitle>
+      <View
+        style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+      >
+        <View
+          style={styles.gridRow}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <View style={styles.topic} />
+          {CHANNELS.map((channel) => (
+            <Text
+              key={channel.key}
+              maxFontSizeMultiplier={1.3}
+              numberOfLines={1}
+              style={[
+                styles.column,
+                { color: palette.textMuted },
+                !settings[channel.master] && styles.dimmed,
+              ]}
+            >
+              {channel.column}
+            </Text>
+          ))}
+        </View>
+        {topics.map((topic) => (
+          <View
+            key={topic.key}
+            style={[styles.gridRow, styles.topicRow, { borderTopColor: palette.border }]}
+          >
+            <Text style={[styles.topic, styles.topicText, { color: palette.ink }]}>
+              {topic.label}
+            </Text>
+            {CHANNELS.map((channel) => {
+              const live = settings[channel.master];
+              const checked = (settings.categories[topic.key]?.[channel.key] ?? false) && live;
+              return (
+                <Pressable
+                  key={channel.key}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={cellLabel(topic.label, channel, live)}
+                  aria-checked={checked}
+                  aria-disabled={!live}
+                  disabled={!live}
+                  onPress={() => onChange(topic.key, channel.key, !checked)}
+                  testID={`notif-${topic.key}-${channel.key}`}
+                  style={({ pressed }) => [
+                    styles.cell,
+                    !live && styles.dimmed,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.box,
+                      {
+                        borderColor: checked ? palette.primary : palette.textDisabled,
+                        backgroundColor: checked ? palette.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    {checked ? (
+                      <MaterialCommunityIcons name="check" size={15} color={palette.onPrimary} />
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
+const CELL = 52;
+
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  category: { gap: spacing[1] },
-  categoryLabel: { fontWeight: fontWeight.medium, marginTop: spacing[2] },
-  channels: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
-  channel: { minWidth: 88 },
-  quiet: { gap: spacing[3] },
-  times: { flexDirection: 'row', gap: spacing[3] },
+  block: { gap: 6 },
+  card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
+  gridRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
+  topicRow: { borderTopWidth: 1, minHeight: 52 },
+  topic: { flex: 1, minWidth: 0, paddingVertical: spacing[2] },
+  topicText: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
+  column: {
+    width: CELL,
+    textAlign: 'center',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: fontWeight.semibold,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  cell: { width: CELL, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dimmed: { opacity: 0.35 },
+  times: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    paddingHorizontal: 14,
+    paddingTop: spacing[2],
+    paddingBottom: 14,
+    borderTopWidth: 1,
+  },
   grow: { flex: 1 },
+  footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 2 },
+  link: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },
+  linkText: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
+  pressed: { opacity: 0.7 },
 });

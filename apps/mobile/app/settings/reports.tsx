@@ -1,29 +1,44 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useMyReports } from '@/src/api/hooks/reports';
 import type { MyReport } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { SectionCard } from '@/src/components/ui/Layout';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
 import {
   isOpenReport,
   myReportStatusText,
   reportReasonLabel,
-  reportStatusIcon,
   reportStatusLabel,
 } from '@/src/features/reports/reportLabels';
+import { MY_REPORTS_COPY as COPY } from '@/src/features/settings/settingsCopy';
+import { SettingsGroup, StatusPill, type PillTone } from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { relativeTime } from '@/src/lib/relativeTime';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, spacing, useTheme } from '@/src/theme';
+
+/** The pill of a report's status: Open amber, Under review, Action taken teal, Dismissed grey. */
+function pillTone(status: string): PillTone {
+  switch (status) {
+    case 'OPEN':
+      return 'open';
+    case 'UNDER_REVIEW':
+      return 'review';
+    case 'ACTIONED':
+      return 'done';
+    default:
+      return 'closed';
+  }
+}
 
 /**
- * Settings → My reports (the web's `/settings/reports`, `GET /me/reports`): the collectors the
- * caller reported, with the reason and where each review stands. Decisions stay private: the
- * reporter only learns whether the team took action (REPORT_DECISION notifications open here).
+ * Settings › My reports (stage R13, mockup v50 screen 55; web: `/settings/reports`,
+ * `GET /me/reports`): the collectors the collector reported, newest first, each with its status
+ * pill, the reason, when it was sent and reviewed, and where it stands. Decisions stay private: the
+ * reporter only learns whether the team took action. A row opens the collector's profile.
  */
 export default function MyReportsScreen() {
   const { palette } = useTheme();
@@ -38,12 +53,12 @@ export default function MyReportsScreen() {
         compact
         testID="reports-error"
         error={reports.error}
-        title="Your reports could not load"
+        title={COPY.loadError}
         onRetry={() => void reports.refetch()}
       />
     ) : (
-      <View accessibilityLabel="Loading your reports" aria-busy>
-        <SkeletonList rows={3} rowHeight={72} testID="reports-loading" />
+      <View accessibilityLabel={COPY.loading} aria-busy>
+        <SkeletonList rows={3} rowHeight={84} testID="reports-loading" />
       </View>
     );
   } else if (list.length === 0) {
@@ -51,8 +66,8 @@ export default function MyReportsScreen() {
       <EmptyState
         testID="reports-empty"
         icon="shield-check-outline"
-        title="You have not reported anyone"
-        description="If a collector scams, harasses or misleads you, use Report on their profile, in the conversation menu or on their community post."
+        title={COPY.emptyTitle}
+        description={COPY.emptyText}
       />
     );
   } else {
@@ -61,24 +76,24 @@ export default function MyReportsScreen() {
         <Text
           testID="reports-summary"
           accessibilityLiveRegion="polite"
-          style={[textStyle('sm'), { color: palette.textMuted }]}
+          style={[styles.summary, { color: palette.settings.rowIcon }]}
         >
-          {open} waiting for a decision · {list.length - open} reviewed
+          <Text style={styles.strong}>{COPY.waiting(open)}</Text> ·{' '}
+          {COPY.reviewed(list.length - open)}
         </Text>
-        <View style={styles.list} accessibilityLabel="My reports">
+        <SettingsGroup testID="reports-list">
           {list.map((report) => (
             <ReportRow key={report.id} report={report} />
           ))}
-        </View>
+        </SettingsGroup>
       </>
     );
   }
 
   return (
-    <ScrollView
+    <SettingsPage
+      title={COPY.title}
       testID="screen-my-reports"
-      style={{ backgroundColor: palette.background }}
-      contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl
           refreshing={reports.isRefetching}
@@ -86,94 +101,85 @@ export default function MyReportsScreen() {
         />
       }
     >
-      <SectionCard
-        title="My reports"
-        description="Collectors you reported and where each review stands. Reports are confidential: the reported collector is never told who reported them, and the details of a decision stay with the moderation team."
-      >
-        {content}
-      </SectionCard>
-    </ScrollView>
+      <Text style={[styles.intro, { color: palette.textMuted }]}>{COPY.intro}</Text>
+      {content}
+    </SettingsPage>
   );
 }
 
 function ReportRow({ report }: { report: MyReport }) {
   const { palette } = useTheme();
   const router = useRouter();
-  const openReport = isOpenReport(report.status);
-  const color = openReport ? palette.warning : palette.success;
+  const when = report.resolvedAt
+    ? `${COPY.sent(relativeTime(report.createdAt))} · ${COPY.reviewedOn(relativeTime(report.resolvedAt))}`
+    : COPY.sent(relativeTime(report.createdAt));
   return (
-    <View style={[styles.row, { borderTopColor: palette.border }]} testID={`report-${report.id}`}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={COPY.rowLabel(report.reportedUser.displayName)}
+      accessibilityValue={{
+        text: [
+          reportStatusLabel(report.status),
+          reportReasonLabel(report.reason),
+          when,
+          myReportStatusText(report),
+        ].join(', '),
+      }}
+      onPress={() =>
+        router.push({ pathname: '/collectors/[id]', params: { id: report.reportedUser.handle } })
+      }
+      testID={`report-${report.id}`}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
       <Avatar
         src={report.reportedUser.avatarUrl}
         name={report.reportedUser.displayName}
-        size={36}
+        size={40}
       />
-      <View style={styles.grow}>
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={`${report.reportedUser.displayName}. Opens their profile.`}
-          onPress={() =>
-            router.push({
-              pathname: '/collectors/[id]',
-              params: { id: report.reportedUser.handle },
-            })
-          }
-        >
-          <Text style={[textStyle('md'), styles.strong, { color: palette.ink }]}>
+      <View style={styles.words}>
+        <View style={styles.head}>
+          <Text style={[styles.name, { color: palette.ink }]}>
             {report.reportedUser.displayName}
           </Text>
-        </Pressable>
+          <StatusPill
+            label={reportStatusLabel(report.status)}
+            tone={pillTone(report.status)}
+            testID={`report-status-${report.id}`}
+          />
+        </View>
         <Text
           testID={`report-reason-${report.id}`}
-          style={[textStyle('xs'), { color: palette.textMuted }]}
+          style={[styles.reason, { color: palette.settings.rowIcon }]}
         >
           {reportReasonLabel(report.reason)}
         </Text>
-        <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-          Sent {relativeTime(report.createdAt)}
-          {report.resolvedAt ? ` · reviewed ${relativeTime(report.resolvedAt)}` : ''}
-        </Text>
+        <Text style={[styles.when, { color: palette.textMuted }]}>{when}</Text>
         <Text
           testID={`report-status-text-${report.id}`}
-          style={[textStyle('sm'), { color: palette.ink }]}
+          style={[styles.reason, { color: palette.textMuted }]}
         >
           {myReportStatusText(report)}
         </Text>
       </View>
-      <View
-        testID={`report-status-${report.id}`}
-        accessible
-        accessibilityLabel={`Status: ${reportStatusLabel(report.status)}`}
-        style={[styles.status, { borderColor: color }]}
-      >
-        <MaterialCommunityIcons name={reportStatusIcon(report.status)} size={14} color={color} />
-        <Text style={[textStyle('xs'), styles.strong, { color: palette.ink }]}>
-          {reportStatusLabel(report.status)}
-        </Text>
-      </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: spacing[4], paddingBottom: spacing[10] },
-  list: { gap: 0 },
+  intro: { fontSize: 14, lineHeight: 20 },
+  summary: { fontSize: 13, lineHeight: 18 },
+  strong: { fontWeight: fontWeight.semibold },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing[3],
     paddingVertical: spacing[3],
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
   },
-  grow: { flex: 1, gap: 2 },
-  strong: { fontWeight: fontWeight.semibold },
-  status: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing[2],
-    paddingVertical: 2,
-  },
+  words: { flex: 1, minWidth: 0, gap: 2 },
+  head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2] },
+  name: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold, flexShrink: 1 },
+  reason: { fontSize: 13, lineHeight: 18 },
+  when: { fontSize: 12, lineHeight: 17 },
+  pressed: { opacity: 0.7 },
 });

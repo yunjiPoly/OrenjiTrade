@@ -1,21 +1,22 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { useLegalDocuments } from '@/src/api/hooks/legal';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { ScreenHeader, SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
 import { Text } from '@/src/components/ui/Text';
 import { LegalDraftBanner } from '@/src/features/legal/LegalDraftBanner';
 import { isLegalKey, legalKeyOf } from '@/src/features/legal/legalDocs';
 import { LegalLanguageSwitch } from '@/src/features/legal/LegalLanguageSwitch';
 import { useLegalTexts } from '@/src/features/legal/legalTexts';
-import { fontFamily, fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
- * One legal document, rendered in-app from the synced texts in the active legal language
- * (web: `/legal/:key`): EN / FR switch, the draft banner (and the translation marking in French),
- * the version to accept as the API publishes it.
+ * One legal document (stage R13, mockup v50 screen 59; web: `/legal/:key`), rendered in-app from
+ * the synced texts in the active legal language: the English | Français switch, the draft banner
+ * (and the translation marking in French), the title, the version, the last update and the
+ * effective date, the version to accept as the API publishes it, the definitions, the numbered
+ * sections and the contact.
  */
 export default function LegalDocumentScreen() {
   const { palette } = useTheme();
@@ -25,85 +26,106 @@ export default function LegalDocumentScreen() {
   const texts = useLegalTexts();
   const labels = texts.labels;
   const document = isLegalKey(key) ? texts.documents[key] : null;
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/legal'));
 
   if (!document) {
     return (
-      <Screen testID="screen-legal-document">
+      <SettingsPage title={labels.indexTitle} testID="screen-legal-document" onBack={back}>
         <ErrorState
           title={labels.unknownTitle}
           message={labels.unknownMessage}
           retryLabel={labels.openIndex}
           onRetry={() => router.replace('/legal')}
         />
-      </Screen>
+      </SettingsPage>
     );
   }
 
   const published = legal.data?.find((entry) => legalKeyOf(entry.url) === document.key);
+  const muted = [styles.meta, { color: palette.textMuted }];
+  const clause = [styles.clause, { color: palette.settings.rowIcon }];
+  const number = [styles.number, { color: palette.settings.chevron }];
 
   return (
-    <Screen scroll safeBottom testID="screen-legal-document">
-      <Stack.Screen options={{ title: document.shortTitle }} />
-      <View style={styles.bar}>
-        <LegalLanguageSwitch />
-      </View>
+    <SettingsPage title={document.shortTitle} testID="screen-legal-document" onBack={back}>
+      <LegalLanguageSwitch />
       <LegalDraftBanner />
-      <View style={styles.spacer} />
-      <ScreenHeader title={document.title} subtitle={document.summary} />
-      <View style={styles.meta}>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {labels.effectiveDate} {document.effectiveDate ?? texts.effectiveDatePlaceholder}
+      <View style={styles.head}>
+        <Text
+          accessibilityRole="header"
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[styles.title, { color: palette.ink }]}
+        >
+          {document.title}
         </Text>
-        <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-          {labels.version} <Text style={{ fontFamily: fontFamily.mono }}>{document.version}</Text> ·{' '}
+        <Text style={muted}>{document.summary}</Text>
+        <Text style={muted}>
+          {labels.version} <Text style={styles.mono}>{document.version}</Text> ·{' '}
           {labels.lastUpdated} {document.lastUpdated}
         </Text>
+        <Text style={muted}>
+          {labels.effectiveDate} {document.effectiveDate ?? texts.effectiveDatePlaceholder}
+        </Text>
         {published ? (
-          <Text
-            testID="legal-published-version"
-            style={[textStyle('sm'), { color: palette.textMuted }]}
-          >
-            {labels.versionToAccept}{' '}
-            <Text style={{ fontFamily: fontFamily.mono }}>{published.version}</Text>
+          <Text testID="legal-published-version" style={muted}>
+            {labels.versionToAccept} <Text style={styles.mono}>{published.version}</Text>
           </Text>
         ) : null}
       </View>
 
-      <View style={styles.sections}>
-        {document.definitions.length > 0 ? (
-          <SectionCard title={labels.definitions}>
-            {document.definitions.map((definition) => (
-              <Text key={definition.term} style={[textStyle('sm'), { color: palette.ink }]}>
-                <Text style={styles.term}>{definition.term}: </Text>
-                {definition.definition}
+      {document.definitions.length > 0 ? (
+        <View style={styles.section}>
+          <Text accessibilityRole="header" style={[styles.heading, { color: palette.ink }]}>
+            {labels.definitions}
+          </Text>
+          {document.definitions.map((definition) => (
+            <Text key={definition.term} style={clause}>
+              <Text style={[styles.term, { color: palette.ink }]}>{definition.term}: </Text>
+              {definition.definition}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      {document.sections.map((section, sectionIndex) => (
+        <View key={section.id} style={styles.section}>
+          <Text accessibilityRole="header" style={[styles.heading, { color: palette.ink }]}>
+            {`${sectionIndex + 1}. ${section.heading}`}
+          </Text>
+          {section.clauses.map((text, clauseIndex) => (
+            <Text key={text} style={clause}>
+              <Text style={number}>
+                {sectionIndex + 1}.{clauseIndex + 1}{' '}
               </Text>
-            ))}
-          </SectionCard>
-        ) : null}
-        {document.sections.map((section, sectionIndex) => (
-          <SectionCard key={section.id} title={`${sectionIndex + 1}. ${section.heading}`}>
-            {section.clauses.map((clause, clauseIndex) => (
-              <Text key={clause} style={[textStyle('sm'), { color: palette.ink }]}>
-                <Text style={[styles.term, { color: palette.textMuted }]}>
-                  {sectionIndex + 1}.{clauseIndex + 1}{' '}
-                </Text>
-                {clause}
-              </Text>
-            ))}
-          </SectionCard>
-        ))}
-        <SectionCard title={labels.contact}>
-          <Text style={[textStyle('sm'), { color: palette.ink }]}>{document.contact}</Text>
-        </SectionCard>
+              {text}
+            </Text>
+          ))}
+        </View>
+      ))}
+      <View style={styles.section}>
+        <Text accessibilityRole="header" style={[styles.heading, { color: palette.ink }]}>
+          {labels.contact}
+        </Text>
+        <Text style={clause}>{document.contact}</Text>
       </View>
-    </Screen>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: spacing[3] },
-  spacer: { height: spacing[4] },
-  meta: { gap: spacing[1], marginBottom: spacing[4] },
-  sections: { gap: spacing[3] },
+  head: { gap: 4 },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.3,
+    marginBottom: 2,
+  },
+  meta: { fontSize: 13, lineHeight: 18 },
+  mono: { fontFamily: fontFamily.mono },
+  section: { gap: spacing[2] },
+  heading: { fontSize: 17, lineHeight: 23, fontWeight: fontWeight.bold },
+  clause: { fontSize: 15, lineHeight: 23 },
+  number: { fontSize: 12, lineHeight: 18 },
   term: { fontWeight: fontWeight.semibold },
 });

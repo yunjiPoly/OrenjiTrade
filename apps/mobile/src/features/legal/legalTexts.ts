@@ -41,7 +41,7 @@ export const LEGAL_PAGE_LABELS: Record<LegalLanguage, LegalPageLabels> = {
     version: 'Version',
     lastUpdated: 'Last updated',
     versionToAccept: 'Version to accept:',
-    currentVersion: (version) => `Current version ${version}.`,
+    currentVersion: (version) => `Version ${version}.`,
     definitions: 'Definitions',
     contact: 'Contact',
     indexTitle: 'Legal',

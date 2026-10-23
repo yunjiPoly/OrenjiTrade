@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -6,10 +5,7 @@ import { messageOf } from '@/src/api/errorMessages';
 import { usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
 import { useUid } from '@/src/api/hooks/useUid';
 import type { PrivacySettings } from '@/src/api/types';
-import { Divider, SectionCard } from '@/src/components/ui/Layout';
-import { RadioGroup, SwitchRow } from '@/src/components/ui/FormControls';
-import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen } from '@/src/components/ui/Screen';
+import { ErrorState } from '@/src/components/ui/ErrorState';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
@@ -19,36 +15,50 @@ import {
 } from '@/src/features/catalog/recentSearchesStore';
 import {
   MESSAGING_OPTIONS,
+  PRIVACY_COPY as COPY,
   PRIVACY_TOGGLES,
   PROFILE_VISIBILITY_OPTIONS,
   REMEMBER_SEARCHES,
 } from '@/src/features/settings/privacyOptions';
-import { spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  SettingsGroup,
+  SettingsRadios,
+  SettingsSwitch,
+} from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { fontWeight, useTheme } from '@/src/theme';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
- * Settings → Privacy (web: `/settings/privacy`). Every change is saved at once; the endpoint
- * replaces the whole document, so saves run in order and a failure restores the last saved state.
- * "Let others see what you want" lives here since stage R5 (it left the Wishlist tab), and so does
- * "Remember my searches", a setting of this phone only (the recent searches never leave it).
+ * Settings › Privacy (stage R13, mockup v50 screen 52; web: `/settings/privacy`): Visibility (Show
+ * me on the map, Appear in collector search, Let others see what you want, Show when I was last
+ * active, Show when I am online), who can see your profile, who can message you, and "Remember my
+ * searches" (this phone only). Every change is saved at once, "All changes saved" in the top bar;
+ * the endpoint replaces the whole document, so saves run in order and a failure restores the last
+ * saved state.
  */
 export default function PrivacySettingsScreen() {
   const privacy = usePrivacySettings();
+  if (privacy.data) {
+    return <PrivacyForm initial={privacy.data} />;
+  }
   return (
-    <Screen scroll safeBottom testID="screen-settings-privacy">
-      <QueryState
-        query={privacy}
-        errorTitle="We could not load your privacy settings"
-        loading={<SkeletonList rows={5} rowHeight={56} />}
-        testID="settings-privacy"
-      >
-        {(data) => <PrivacyForm initial={data} />}
-      </QueryState>
-      <View style={styles.after}>
-        <RememberSearches />
-      </View>
-    </Screen>
+    <SettingsPage title={COPY.title} testID="screen-settings-privacy">
+      {privacy.error ? (
+        <ErrorState
+          error={privacy.error}
+          title={COPY.loadError}
+          onRetry={() => void privacy.refetch()}
+          testID="settings-privacy-error"
+        />
+      ) : (
+        <View accessibilityLabel={COPY.loading} aria-busy>
+          <SkeletonList rows={6} rowHeight={56} testID="settings-privacy-loading" />
+        </View>
+      )}
+      <RememberSearches />
+    </SettingsPage>
   );
 }
 
@@ -61,8 +71,8 @@ function RememberSearches() {
   const remembering = useRemembersSearches(uid);
   const setRemembering = useRecentSearchesStore((state) => state.setRemembering);
   return (
-    <SectionCard title={REMEMBER_SEARCHES.title} description={REMEMBER_SEARCHES.description}>
-      <SwitchRow
+    <SettingsGroup title={REMEMBER_SEARCHES.title}>
+      <SettingsSwitch
         label={REMEMBER_SEARCHES.label}
         help={REMEMBER_SEARCHES.help}
         value={remembering}
@@ -74,7 +84,7 @@ function RememberSearches() {
         disabled={!uid}
         testID="privacy-remember-searches"
       />
-    </SectionCard>
+    </SettingsGroup>
   );
 }
 
@@ -111,76 +121,63 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
           setDraft(lastSaved.current);
           setSaveState('error');
         }
-        snackbar.show(messageOf(caught, 'Your change could not be saved.'), { tone: 'error' });
+        snackbar.show(messageOf(caught, COPY.failed), { tone: 'error' });
       }
     });
   };
 
   const status =
-    saveState === 'saving'
-      ? { icon: 'sync' as const, text: 'Saving…' }
-      : saveState === 'saved'
-        ? { icon: 'cloud-check-outline' as const, text: 'All changes saved' }
-        : saveState === 'error'
-          ? { icon: 'alert-circle-outline' as const, text: 'Last change not saved' }
-          : null;
+    saveState === 'saving' ? COPY.saving : saveState === 'error' ? COPY.notSaved : COPY.saved;
+  const statusColor =
+    saveState === 'error'
+      ? palette.danger
+      : saveState === 'saving'
+        ? palette.textMuted
+        : palette.accent;
 
   return (
-    <View style={styles.root}>
-      <SectionCard title="Visibility" description="Changes are saved as soon as you make them.">
-        <View style={styles.status} accessibilityLiveRegion="polite" testID="privacy-status">
-          {status ? (
-            <>
-              <MaterialCommunityIcons name={status.icon} size={16} color={palette.textMuted} />
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{status.text}</Text>
-            </>
-          ) : null}
+    <SettingsPage
+      title={COPY.title}
+      testID="screen-settings-privacy"
+      right={
+        <View accessibilityRole="text" accessibilityLiveRegion="polite" testID="privacy-status">
+          <Text numberOfLines={2} style={[styles.status, { color: statusColor }]}>
+            {status}
+          </Text>
         </View>
-        {PRIVACY_TOGGLES.map((toggle, index) => (
-          <View key={toggle.key}>
-            {index > 0 ? <Divider /> : null}
-            <SwitchRow
-              label={toggle.label}
-              help={toggle.help}
-              value={draft[toggle.key]}
-              onChange={(value) => update({ [toggle.key]: value })}
-              testID={`privacy-toggle-${toggle.key}`}
-            />
-          </View>
+      }
+    >
+      <SettingsGroup title={COPY.visibility}>
+        {PRIVACY_TOGGLES.map((toggle) => (
+          <SettingsSwitch
+            key={toggle.key}
+            label={toggle.label}
+            help={toggle.help}
+            value={draft[toggle.key]}
+            onChange={(value) => update({ [toggle.key]: value })}
+            testID={`privacy-toggle-${toggle.key}`}
+          />
         ))}
-      </SectionCard>
-
-      <SectionCard
-        title="Who can see your profile"
-        description="Private profiles are hidden from everyone except you."
-      >
-        <RadioGroup
-          label="Who can see your profile"
-          options={PROFILE_VISIBILITY_OPTIONS}
-          value={draft.profileVisibility}
-          onChange={(profileVisibility) => update({ profileVisibility })}
-          testID="privacy-visibility"
-        />
-      </SectionCard>
-
-      <SectionCard
-        title="Who can message you"
-        description="Blocked collectors can never message you."
-      >
-        <RadioGroup
-          label="Who can message you"
-          options={MESSAGING_OPTIONS}
-          value={draft.messagingPermission}
-          onChange={(messagingPermission) => update({ messagingPermission })}
-          testID="privacy-messaging"
-        />
-      </SectionCard>
-    </View>
+      </SettingsGroup>
+      <SettingsRadios
+        title={COPY.profile}
+        options={PROFILE_VISIBILITY_OPTIONS}
+        value={draft.profileVisibility}
+        onChange={(profileVisibility) => update({ profileVisibility })}
+        testID="privacy-visibility"
+      />
+      <SettingsRadios
+        title={COPY.messaging}
+        options={MESSAGING_OPTIONS}
+        value={draft.messagingPermission}
+        onChange={(messagingPermission) => update({ messagingPermission })}
+        testID="privacy-messaging"
+      />
+      <RememberSearches />
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  after: { marginTop: spacing[4] },
-  status: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], minHeight: 20 },
+  status: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.medium, textAlign: 'right' },
 });

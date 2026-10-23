@@ -1,42 +1,70 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { messageOf } from '@/src/api/errorMessages';
 import { authErrorMessage } from '@/src/auth/authErrors';
 import { useSession } from '@/src/auth/session';
-import { Button } from '@/src/components/ui/Button';
-import { Divider, SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
+import { PillButton } from '@/src/components/ui/PillButton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { exportMyData } from '@/src/features/account/exportData';
-import { formatLongDate } from '@/src/lib/dates';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { ACCOUNT_COPY as COPY, ROLE_LABELS } from '@/src/features/settings/settingsCopy';
+import {
+  SettingsGroup,
+  SettingsRow,
+  StatusPill,
+  type SettingsIcon,
+} from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { formatMonthYear } from '@/src/lib/dates';
+import { fontWeight, radius, spacing, useStackedRows, useTheme } from '@/src/theme';
 
-const ROLE_LABELS: Record<string, string> = {
-  MODERATOR: 'Moderator',
-  ADMIN: 'Administrator',
-  SUPER_ADMIN: 'Super administrator',
-};
-
-function Row({ label, value, testID }: { label: string; value: string; testID?: string }) {
+/** A row that shows a value over what it is ("sam@example.com" over "Email"). */
+function InfoRow({
+  icon,
+  value,
+  caption,
+  trailing,
+  valueTestID,
+}: {
+  icon: SettingsIcon;
+  value: string;
+  caption: string;
+  trailing?: ReactNode;
+  valueTestID?: string;
+}) {
   const { palette } = useTheme();
+  const stacked = useStackedRows();
   return (
-    <View style={styles.row}>
-      <Text style={[textStyle('md'), styles.rowLabel, { color: palette.ink }]}>{label}</Text>
-      <Text testID={testID} style={[textStyle('sm'), { color: palette.textMuted }]}>
-        {value}
-      </Text>
+    <View
+      accessible
+      accessibilityLabel={`${caption}: ${value}`}
+      style={[styles.info, stacked && styles.infoStacked]}
+    >
+      <View style={styles.lead}>
+        <View style={styles.iconSlot}>
+          <MaterialCommunityIcons name={icon} size={20} color={palette.settings.rowIcon} />
+        </View>
+        <View style={styles.words}>
+          <Text testID={valueTestID} style={[styles.value, { color: palette.ink }]}>
+            {value}
+          </Text>
+          <Text style={[styles.caption, { color: palette.textMuted }]}>{caption}</Text>
+        </View>
+      </View>
+      {trailing}
     </View>
   );
 }
 
 /**
- * Settings → Account (web: `/settings/account`): email, staff roles, data export, deletion, sign
- * out. No plan: OrenjiTrade is free for every collector (stage F1).
+ * Settings › Account (stage R13, mockup v50 screen 56; web: `/settings/account`): the email and
+ * whether it is verified ("Resend link" while it is not), the sign-in method, member since, the
+ * staff roles for staff only, "Download my data", the red Delete account card and Sign out. No
+ * plan: OrenjiTrade is free for every collector (ADR 0019).
  */
 export default function AccountSettingsScreen() {
   const { palette } = useTheme();
@@ -55,7 +83,7 @@ export default function AccountSettingsScreen() {
     setSending(true);
     try {
       await session.sendEmailVerification();
-      snackbar.show('Verification email sent. Check your inbox.');
+      snackbar.show(COPY.resent, { icon: 'success' });
     } catch (caught) {
       snackbar.show(authErrorMessage(caught), { tone: 'error' });
     } finally {
@@ -67,121 +95,169 @@ export default function AccountSettingsScreen() {
     setExporting(true);
     try {
       const name = await exportMyData(account.handle);
-      snackbar.show(`Your data export ${name} is ready.`);
+      snackbar.show(COPY.downloaded(name), { icon: 'success' });
     } catch (caught) {
-      snackbar.show(messageOf(caught, 'The export failed. Please try again.'), { tone: 'error' });
+      snackbar.show(messageOf(caught, COPY.downloadFailed), { tone: 'error' });
     } finally {
       setExporting(false);
     }
   };
 
   return (
-    <Screen scroll safeBottom testID="screen-settings-account">
-      <View style={styles.root}>
-        <SectionCard title="Sign-in" description="How you access OrenjiTrade.">
-          <Row label="Email" value={session.user?.email ?? '—'} testID="account-email" />
-          <View style={styles.badgeRow}>
-            <View
-              style={[
-                styles.badge,
-                { backgroundColor: verified ? palette.accentContainer : palette.surfaceVariant },
-              ]}
-            >
-              <MaterialCommunityIcons
-                name={verified ? 'check-decagram' : 'alert-circle-outline'}
-                size={16}
-                color={verified ? palette.onAccentContainer : palette.warning}
-              />
-              <Text style={[textStyle('sm'), { color: palette.ink }]} testID="account-verified">
-                {verified ? 'Verified' : 'Not verified'}
+    <SettingsPage title={COPY.title} testID="screen-settings-account">
+      <SettingsGroup title={COPY.signIn}>
+        <InfoRow
+          icon="email-outline"
+          value={session.user?.email ?? '—'}
+          caption={COPY.email}
+          valueTestID="account-email"
+          trailing={
+            <StatusPill
+              label={verified ? COPY.verified : COPY.notVerified}
+              tone={verified ? 'done' : 'open'}
+              testID="account-verified"
+            />
+          }
+        />
+        {!verified ? (
+          <SettingsRow
+            kind="button"
+            icon="email-sync-outline"
+            label={sending ? COPY.resending : COPY.resend}
+            detail={COPY.resendLine}
+            onPress={sending ? undefined : () => void resendVerification()}
+            testID="account-resend"
+          />
+        ) : null}
+        <InfoRow
+          icon="key-outline"
+          value={COPY.methods(session.hasPasswordProvider, session.hasGoogleProvider)}
+          caption={COPY.method}
+          valueTestID="account-sign-in-method"
+        />
+        {account.me ? (
+          <InfoRow
+            icon="calendar-outline"
+            value={formatMonthYear(account.me.createdAt)}
+            caption={COPY.memberSince}
+            valueTestID="account-member-since"
+          />
+        ) : null}
+      </SettingsGroup>
+
+      {roles.length > 0 ? (
+        <SettingsGroup title={COPY.staff}>
+          <InfoRow
+            icon="shield-account-outline"
+            value={roles.join(', ')}
+            caption={COPY.staffLine}
+            valueTestID="account-roles"
+          />
+        </SettingsGroup>
+      ) : null}
+
+      <SettingsGroup title={COPY.yourData}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={exporting ? COPY.downloading : COPY.download}
+          accessibilityHint={COPY.downloadLine}
+          aria-busy={exporting}
+          disabled={exporting}
+          onPress={() => void exportData()}
+          testID="account-export"
+          style={({ pressed }) => [styles.info, pressed && styles.pressed]}
+        >
+          <View style={styles.lead}>
+            <View style={styles.iconSlot}>
+              {exporting ? (
+                <ActivityIndicator size="small" color={palette.settings.rowIcon} />
+              ) : (
+                <MaterialCommunityIcons
+                  name="download-outline"
+                  size={20}
+                  color={palette.settings.rowIcon}
+                />
+              )}
+            </View>
+            <View style={styles.words}>
+              <Text style={[styles.label, { color: palette.ink }]}>
+                {exporting ? COPY.downloading : COPY.download}
+              </Text>
+              <Text style={[styles.caption, { color: palette.textMuted }]}>
+                {COPY.downloadLine}
               </Text>
             </View>
-            {!verified ? (
-              <Button
-                label="Resend link"
-                variant="ghost"
-                loading={sending}
-                onPress={() => void resendVerification()}
-              />
-            ) : null}
           </View>
-          <Divider />
-          <Row
-            label="Sign-in method"
-            value={
-              session.hasGoogleProvider
-                ? session.hasPasswordProvider
-                  ? 'Email and password, Google'
-                  : 'Google'
-                : 'Email and password'
-            }
-            testID="account-sign-in-method"
-          />
-          {account.me ? (
-            <>
-              <Divider />
-              <Row label="Member since" value={formatLongDate(account.me.createdAt)} />
-            </>
-          ) : null}
-        </SectionCard>
+        </Pressable>
+      </SettingsGroup>
 
-        {roles.length > 0 ? (
-          <SectionCard title="Staff roles" description="What you can do in the admin console.">
-            <Row label="Roles" value={roles.join(', ')} testID="account-roles" />
-          </SectionCard>
-        ) : null}
-
-        <SectionCard
-          title="Your data"
-          description="Download everything OrenjiTrade stores about you as a JSON file."
+      <View
+        style={[
+          styles.danger,
+          {
+            borderColor: palette.settings.dangerCardBorder,
+            backgroundColor: palette.settings.dangerCardBackground,
+          },
+        ]}
+        testID="account-delete-card"
+      >
+        <Text accessibilityRole="header" style={[styles.dangerTitle, { color: palette.ink }]}>
+          {COPY.deleteTitle}
+        </Text>
+        <Text style={[styles.caption, { color: palette.textMuted }]}>{COPY.deleteText}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={COPY.deleteButton}
+          onPress={() => router.push('/settings/delete-account')}
+          testID="account-delete"
+          style={({ pressed }) => [
+            styles.deleteButton,
+            { borderColor: palette.danger },
+            pressed && styles.pressed,
+          ]}
         >
-          <Button
-            label="Download my data"
-            variant="secondary"
-            icon="download"
-            loading={exporting}
-            onPress={() => void exportData()}
-            testID="account-export"
-          />
-        </SectionCard>
-
-        <SectionCard title="Delete account">
-          <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-            Permanently delete your profile, tags, location and settings after a 7-day grace period.
-            You will be asked to confirm your identity.
-          </Text>
-          <Button
-            label="Delete my account"
-            variant="danger"
-            icon="delete-forever-outline"
-            onPress={() => router.push('/settings/delete-account')}
-            testID="account-delete"
-          />
-        </SectionCard>
-
-        <Button
-          label="Sign out"
-          variant="ghost"
-          icon="logout"
-          onPress={() => void session.signOut()}
-          testID="account-sign-out"
-        />
+          <Text style={[styles.deleteText, { color: palette.danger }]}>{COPY.deleteButton}</Text>
+        </Pressable>
       </View>
-    </Screen>
+
+      <PillButton
+        label={COPY.signOut}
+        variant="outline"
+        icon="logout"
+        onPress={() => void session.signOut()}
+        testID="account-sign-out"
+      />
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  row: { gap: 2, paddingVertical: spacing[1] },
-  rowLabel: { fontWeight: fontWeight.medium },
-  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  badge: {
+  info: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[1],
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
+    gap: spacing[3],
+    minHeight: 54,
+    paddingVertical: spacing[2],
+    paddingHorizontal: 14,
   },
+  infoStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  lead: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  iconSlot: { width: 22, alignItems: 'center' },
+  words: { flex: 1, minWidth: 0, gap: 2 },
+  value: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
+  caption: { fontSize: 13, lineHeight: 18 },
+  danger: { borderWidth: 1, borderRadius: radius.lg, padding: 14, gap: spacing[2] },
+  dangerTitle: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  deleteButton: {
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[4],
+    borderRadius: 20,
+    borderWidth: 1,
+    marginTop: spacing[1],
+  },
+  deleteText: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.bold },
+  pressed: { opacity: 0.7 },
 });
