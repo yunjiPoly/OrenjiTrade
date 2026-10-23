@@ -68,8 +68,6 @@ export function StatusPage({
   iconSize = 72,
   testID,
 }: StatusPageProps) {
-  const { palette } = useTheme();
-  const colors = statusColors(tone, palette);
   return (
     <Screen
       scroll
@@ -78,38 +76,72 @@ export function StatusPage({
       testID={testID}
       contentContainerStyle={styles.page}
     >
-      <View style={styles.body}>
-        <View
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          style={[
-            styles.circle,
-            {
-              width: iconSize,
-              height: iconSize,
-              borderRadius: iconSize / 2,
-              backgroundColor: colors.fill,
-            },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={icon}
-            size={iconSize === 72 ? 34 : 30}
-            color={colors.icon}
-          />
-        </View>
-        <Text
-          accessibilityRole="header"
-          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-          style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
-        >
-          {title}
-        </Text>
+      <StatusBody icon={icon} tone={tone} title={title} iconSize={iconSize}>
         {children}
-      </View>
+      </StatusBody>
       {actions ? <View style={styles.actions}>{actions}</View> : null}
     </Screen>
   );
+}
+
+export interface StatusBodyProps {
+  icon: IconName;
+  tone: StatusTone;
+  title: string;
+  children?: ReactNode;
+  iconSize?: 64 | 72;
+  /** The space above the circle (the account states 40 pt; Report sent 60, Import done 28). */
+  paddingTop?: number;
+  testID?: string;
+}
+
+/**
+ * A status page's round icon, title and lines, centred, without the page around them (stage R14:
+ * "Report sent" and "Import done" sit under their screen's own top bar).
+ */
+export function StatusBody({
+  icon,
+  tone,
+  title,
+  children,
+  iconSize = 72,
+  paddingTop = spacing[10],
+  testID,
+}: StatusBodyProps) {
+  const { palette } = useTheme();
+  const colors = statusColors(tone, palette);
+  return (
+    <View style={[styles.body, { paddingTop }]} testID={testID}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={[
+          styles.circle,
+          {
+            width: iconSize,
+            height: iconSize,
+            borderRadius: iconSize / 2,
+            backgroundColor: colors.fill,
+          },
+        ]}
+      >
+        <MaterialCommunityIcons name={icon} size={iconSize === 72 ? 34 : 30} color={colors.icon} />
+      </View>
+      <Text
+        accessibilityRole="header"
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        style={[textStyle('2xl', 'heading'), styles.title, { color: palette.ink }]}
+      >
+        {title}
+      </Text>
+      {children}
+    </View>
+  );
+}
+
+/** The buttons at the bottom of a status page or body (a pill, an outlined one). */
+export function StatusActions({ children }: { children: ReactNode }) {
+  return <View style={styles.actions}>{children}</View>;
 }
 
 /** A centred line of a status page (muted; `strong` for the date that matters). */
@@ -140,7 +172,7 @@ export function StatusText({
 
 const styles = StyleSheet.create({
   page: { paddingHorizontal: spacing[5] },
-  body: { paddingTop: spacing[10], alignItems: 'center', gap: spacing[3] },
+  body: { alignItems: 'center', gap: spacing[3] },
   circle: { alignItems: 'center', justifyContent: 'center' },
   title: {
     marginTop: 6,

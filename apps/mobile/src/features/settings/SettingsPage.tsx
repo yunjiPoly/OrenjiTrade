@@ -20,7 +20,8 @@ import { SETTINGS_COPY } from './settingsCopy';
 
 export interface SettingsTopBarProps {
   title: string;
-  onBack: () => void;
+  /** `null`: no back button (Import done, mockup v50 screen 68: its buttons lead on). */
+  onBack: (() => void) | null;
   /** What a screen reader says for the back button ("Back"). */
   backLabel?: string;
   /** The right end of the bar ("Preview", "All changes saved"). */
@@ -42,16 +43,24 @@ export function SettingsTopBar({
 }: SettingsTopBarProps) {
   const { palette } = useTheme();
   return (
-    <View style={[styles.top, { borderBottomColor: palette.border }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={backLabel}
-        onPress={onBack}
-        testID="BackButton"
-        style={({ pressed }) => [styles.icon, pressed && styles.pressed]}
-      >
-        <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
-      </Pressable>
+    <View
+      style={[
+        styles.top,
+        onBack ? { borderBottomColor: palette.border } : styles.bare,
+        !onBack && styles.noBack,
+      ]}
+    >
+      {onBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={backLabel}
+          onPress={onBack}
+          testID="BackButton"
+          style={({ pressed }) => [styles.icon, pressed && styles.pressed]}
+        >
+          <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
+        </Pressable>
+      ) : null}
       <Text
         accessibilityRole="header"
         maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
@@ -70,8 +79,11 @@ export interface SettingsPageProps {
   children: ReactNode;
   /** The right end of the top bar. */
   right?: ReactNode;
-  /** Where back leads; by default the screen under this one, else Settings. */
-  onBack?: () => void;
+  /**
+   * Where back leads; by default the screen under this one, else Settings. `null`: no back button
+   * and no hairline (Import done).
+   */
+  onBack?: (() => void) | null;
   /** The bar at the bottom (the page's main button), with a hairline above it. */
   footer?: ReactNode;
   refreshControl?: ReactElement<RefreshControlProps>;
@@ -122,14 +134,16 @@ export function SettingsPage({
   }, [footer, footerHeight, snackbar]);
 
   const back =
-    onBack ??
-    (() => {
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/settings');
-      }
-    });
+    onBack === null
+      ? null
+      : (onBack ??
+        (() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/settings');
+          }
+        }));
 
   return (
     <View
@@ -205,6 +219,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   right: { flexShrink: 0, maxWidth: '45%', paddingRight: 8 },
+  bare: { borderBottomColor: 'transparent' },
+  noBack: { paddingLeft: 16, minHeight: 60 },
   pressed: { opacity: 0.7 },
   content: {
     flexGrow: 1,

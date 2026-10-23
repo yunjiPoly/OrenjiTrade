@@ -48,6 +48,12 @@ export interface ChoiceChipsProps<T extends string> {
   disabled?: boolean;
   error?: string | null;
   hint?: string;
+  /**
+   * `check` (default): the chosen chip filled with a tick; `pill`: mockup v50's one-choice pills
+   * (stage R14: the wish's price, the import's filter), the chosen one filled, the others outlined,
+   * no tick.
+   */
+  variant?: 'check' | 'pill';
   style?: StyleProp<ViewStyle>;
   /** Group id; each option is `<testID>-<value>`. */
   testID?: string;
@@ -69,6 +75,7 @@ export function ChoiceChips<T extends string>({
   disabled = false,
   error,
   hint,
+  variant = 'check',
   style,
   testID,
 }: ChoiceChipsProps<T>) {
@@ -99,8 +106,30 @@ export function ChoiceChips<T extends string>({
     }
   }, [follows, reveal, value]);
 
+  const pill = variant === 'pill';
   const chips = options.map((option) => {
     const selected = option.value === value;
+    const fill = pill
+      ? selected
+        ? palette.settings.segmentSelected
+        : 'transparent'
+      : selected
+        ? palette.ink
+        : palette.surfaceVariant;
+    const edge = pill
+      ? selected
+        ? palette.settings.segmentSelected
+        : palette.borderStrong
+      : selected
+        ? palette.ink
+        : palette.border;
+    const ink = pill
+      ? selected
+        ? palette.settings.segmentSelectedText
+        : palette.settings.segmentText
+      : selected
+        ? palette.background
+        : palette.ink;
     return (
       <Pressable
         key={option.value}
@@ -125,20 +154,18 @@ export function ChoiceChips<T extends string>({
         testID={testID ? `${testID}-${option.value}` : undefined}
         style={({ pressed }) => [
           styles.chip,
-          {
-            backgroundColor: selected ? palette.ink : palette.surfaceVariant,
-            borderColor: selected ? palette.ink : palette.border,
-          },
+          pill && styles.pill,
+          { backgroundColor: fill, borderColor: edge },
           pressed && styles.pressed,
           disabled && styles.disabled,
         ]}
       >
-        {selected ? (
+        {selected && !pill ? (
           <MaterialCommunityIcons name="check" size={14} color={palette.background} />
         ) : null}
         <Text
           maxFontSizeMultiplier={maxFontSizeMultiplier}
-          style={[styles.chipLabel, { color: selected ? palette.background : palette.ink }]}
+          style={[styles.chipLabel, pill && styles.pillLabel, { color: ink }]}
           numberOfLines={1}
         >
           {option.label}
@@ -211,6 +238,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipLabel: { fontSize: 14, lineHeight: 20, fontWeight: fontWeight.medium },
+  pill: { minHeight: 36, paddingHorizontal: 14 },
+  pillLabel: { fontSize: 13, lineHeight: 18, fontWeight: fontWeight.semibold },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.5 },
 });

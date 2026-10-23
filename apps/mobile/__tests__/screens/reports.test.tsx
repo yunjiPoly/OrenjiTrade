@@ -5,7 +5,12 @@ import MyReportsScreen from '@/app/settings/reports';
 import { darkPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
-import { OTHER_ID, REPORT_REASONS, myReportFixture } from '../support/fixtures';
+import {
+  OTHER_ID,
+  REPORT_REASONS,
+  collectorFixture,
+  myReportFixture,
+} from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
 import { signedInRoutes } from '../support/routes';
 import { mockParams, mockRouter, resetRouterMock } from '../support/router';
@@ -38,6 +43,9 @@ function routes(extra: MockRoutes = {}): MockRoutes {
     'GET /api/v1/public/report-reasons': ok(REPORT_REASONS),
     'POST /api/v1/reports/collectors': ok(CONFIRMATION, 201),
     'GET /api/v1/me/reports': ok([myReportFixture()]),
+    'GET /api/v1/collectors/collector2': ok(
+      collectorFixture({ handle: 'collector2', displayName: 'Noé Verdun' })
+    ),
     ...extra,
   });
 }
@@ -58,8 +66,9 @@ describe('Report collector', () => {
     fireEvent.changeText(screen.getByTestId('report-details'), '  Never showed up.  ');
     fireEvent.press(screen.getByTestId('report-confirm'));
     expect(await screen.findByTestId('report-sent')).toHaveTextContent(
-      /Thank you. Our moderation team will review your report about Noé Verdun/
+      /Thank you. Our moderators will review your report about Noé Verdun/
     );
+    expect(screen.getByText('Follow it in My reports')).toBeOnTheScreen();
     const call = api.callsTo('POST /api/v1/reports/collectors')[0];
     expect(call?.body).toEqual({
       reportedUserId: OTHER_ID,
@@ -112,6 +121,43 @@ describe('Report collector', () => {
     fireEvent.press(screen.getByTestId('report-confirm'));
     expect(await screen.findByTestId('report-error')).toHaveTextContent(/several reports today/);
     expect(screen.getByTestId('report-confirm')).not.toBeDisabled();
+  });
+
+  it('shows the collector with their province only, and "Send report" waits for a reason', async () => {
+    mockApi(routes());
+    renderWithProviders(<ReportCollectorScreen />, { port: port() });
+    // The province of the public profile, never its city (ADR 0017).
+    await waitFor(() =>
+      expect(screen.getByTestId('report-person-line')).toHaveTextContent('@collector2 · Quebec')
+    );
+    expect(screen.getByTestId('report-person-line')).not.toHaveTextContent(/Montréal/);
+    await screen.findByText('Scam or fraud');
+    const send = screen.getByTestId('report-confirm');
+    expect(send).toHaveTextContent('Send report');
+    expect(send).toBeDisabled();
+    expect(screen.getByTestId('report-choose-first')).toHaveTextContent('Choose a reason first.');
+    expect(screen.getByText(/never told who reported them/)).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('report-reason-HARASSMENT'));
+    expect(screen.getByTestId('report-confirm')).not.toBeDisabled();
+    expect(screen.queryByTestId('report-choose-first')).toBeNull();
+    expect(screen.getByTestId('report-reason-HARASSMENT')).toBeChecked();
+    // The counter beside the label.
+    fireEvent.changeText(screen.getByTestId('report-details'), 'Rude in the chat.');
+    expect(screen.getByText('17 / 1000')).toBeOnTheScreen();
+  });
+
+  it('says a collector cannot report themselves', async () => {
+    mockApi(
+      routes({
+        'POST /api/v1/reports/collectors': problem(422, 'CANNOT_REPORT_SELF', 'Self'),
+      })
+    );
+    renderWithProviders(<ReportCollectorScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('report-reason-HARASSMENT'));
+    fireEvent.press(screen.getByTestId('report-confirm'));
+    expect(await screen.findByTestId('report-error')).toHaveTextContent(
+      /You cannot report yourself\./
+    );
   });
 
   it('refuses a link without a collector', () => {
