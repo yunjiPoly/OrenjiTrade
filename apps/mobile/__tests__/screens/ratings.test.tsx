@@ -5,6 +5,7 @@ import CollectorReferencesScreen from '@/app/collectors/[id]/references';
 import RateCollectorScreen from '@/app/ratings/rate';
 import WriteReferenceScreen from '@/app/ratings/reference';
 
+import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   OTHER_ID,
@@ -119,6 +120,21 @@ describe('Rate a collector', () => {
     );
   });
 
+  it('keeps the comment to 600 characters: “Publish rating” waits and says why (R14 review fix 1, F3)', async () => {
+    const api = mockApi(routes());
+    renderWithProviders(<RateCollectorScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('rate-overall-4'));
+    fireEvent.changeText(screen.getByTestId('rate-comment'), 'x'.repeat(601));
+    expect(await screen.findByText('Keep the comment under 600 characters.')).toBeOnTheScreen();
+    expect(screen.getByTestId('rate-submit')).toBeDisabled();
+    fireEvent.press(screen.getByTestId('rate-submit'));
+    expect(api.callsTo('POST /api/v1/ratings')).toHaveLength(0);
+    // 600 is allowed.
+    fireEvent.changeText(screen.getByTestId('rate-comment'), 'x'.repeat(600));
+    expect(screen.queryByText('Keep the comment under 600 characters.')).toBeNull();
+    expect(screen.getByTestId('rate-submit')).not.toBeDisabled();
+  });
+
   it('asks which interaction when there are several, and explains refusals', async () => {
     mockApi(
       routes({
@@ -158,6 +174,7 @@ describe('Rate a collector', () => {
     expect(
       within(screen.getByTestId('screen-rate-footer')).getByTestId('rating-error')
     ).toBeOnTheScreen();
+    expectBoundedBarMessage('rating-error', /You already rated this interaction/);
   });
 
   it('only rates the completed trade from a trade, and says why nothing can be rated', async () => {
@@ -201,12 +218,16 @@ describe('Rate a collector', () => {
     expect(screen.queryByTestId('rate-reference-instead')).toBeNull();
     expect(screen.getByTestId('rate-comment').props.value).toBe('Friendly.');
     fireEvent.press(screen.getByTestId('rate-overall-2'));
+    // A details row the rating had is cleared with its chosen star: the edit drops it, never
+    // falling back to the old score (R14 review fix 1, F3).
+    expect(screen.getByTestId('rate-communication-5')).toBeChecked();
+    fireEvent.press(screen.getByTestId('rate-communication-5'));
+    expect(screen.getByTestId('rate-communication-5')).not.toBeChecked();
     fireEvent.press(screen.getByTestId('rate-submit'));
     await waitFor(() => expect(api.callsTo('PUT /api/v1/ratings/{id}')).toHaveLength(1));
     expect(screen.queryByText(/Meetup reliability/)).toBeNull();
     expect(api.callsTo('PUT /api/v1/ratings/{id}')[0]?.body).toEqual({
       overall: 2,
-      communication: 5,
       shipping: 3,
       meetupReliability: 4,
       comment: 'Friendly.',
@@ -337,6 +358,7 @@ describe('Write a reference', () => {
     expect(await screen.findByTestId('reference-error')).toHaveTextContent(
       /Your text breaks the community guidelines\. Please rephrase it\./
     );
+    expectBoundedBarMessage('reference-error', /Your text breaks the community guidelines/);
     fireEvent.changeText(screen.getByTestId('reference-body'), 'Great trader');
     fireEvent.press(screen.getByTestId('reference-submit'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
