@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react-nativ
 
 import ReportCollectorScreen from '@/app/report';
 import MyReportsScreen from '@/app/settings/reports';
-import { darkPalette } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, darkPalette } from '@/src/theme';
 
 import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
@@ -96,6 +96,11 @@ describe('Report collector', () => {
       within(screen.getByTestId('screen-report-footer')).getByTestId('report-error')
     ).toBeOnTheScreen();
     expectBoundedBarMessage('report-error', /You already reported Noé Verdun/);
+    // "My reports" stays in the bar as the button under it does, its words held as theirs.
+    expect(
+      within(screen.getByTestId('report-open-my-reports')).getByText('My reports').props
+        .maxFontSizeMultiplier
+    ).toBe(PINNED_MAX_FONT_SCALE);
     expect(screen.getByTestId('report-confirm')).toBeDisabled();
     fireEvent.press(screen.getByTestId('report-open-my-reports'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/settings/reports');

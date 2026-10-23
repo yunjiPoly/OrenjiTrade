@@ -173,6 +173,7 @@ export default function ReportCollectorScreen() {
           label={COPY.myReports}
           variant="outline"
           onPress={myReports}
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
           testID="report-open-my-reports"
         />
       ) : null}

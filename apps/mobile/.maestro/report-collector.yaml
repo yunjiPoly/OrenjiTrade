@@ -160,7 +160,15 @@ tags:
 - takeScreenshot: report-refused-large-text
 - tapOn:
     id: 'report-open-my-reports'
+# My reports (at this size its confidentiality note fills the first screen).
 - extendedWaitUntil:
     visible:
-      id: 'reports-summary'
+      id: 'screen-my-reports'
     timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'reports-summary'
+- assertVisible:
+    id: 'reports-summary'
+    text: '1 waiting for a decision · 0 reviewed'
