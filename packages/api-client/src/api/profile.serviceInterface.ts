@@ -82,7 +82,7 @@ export interface ProfileServiceInterface {
 
     /**
      * Save the caller\&#39;s profile
-     * Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the &#x60;profileComplete&#x60; onboarding step.
+     * Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the &#x60;profileComplete&#x60; onboarding step. Stage R13: an optional &#x60;tags&#x60; object replaces the profile tags in the same transaction (the rules of PUT /me/profile/tags); a refused tag saves nothing.
      * @endpoint put /api/v1/me/profile
 * @param requestParameters
      */

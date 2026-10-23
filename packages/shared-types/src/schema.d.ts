@@ -110,7 +110,7 @@ export interface paths {
         get: operations["getMyProfile"];
         /**
          * Save the caller's profile
-         * @description Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step.
+         * @description Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step. Stage R13: an optional `tags` object replaces the profile tags in the same transaction (the rules of PUT /me/profile/tags); a refused tag saves nothing.
          */
         put: operations["updateMyProfile"];
         post?: never;
@@ -4788,6 +4788,14 @@ export interface components {
             bio?: string | null;
             games?: string[];
             languages?: string[];
+            /** @description Stage R13, optional: the profile tags, saved together with the other fields (all or nothing; the rules of PUT /me/profile/tags). Left out or null: the tags stay as they are. */
+            tags?: components["schemas"]["UpdateProfileTagsRequest"];
+        };
+        UpdateProfileTagsRequest: {
+            /** @description Ids of existing active tags */
+            tagIds?: string[];
+            /** @description Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug */
+            customLabels?: string[];
         };
         /** @description The caller's own profile */
         MyProfileResponse: {
@@ -4836,12 +4844,6 @@ export interface components {
              * @example 12
              */
             usageCount: number;
-        };
-        UpdateProfileTagsRequest: {
-            /** @description Ids of existing active tags */
-            tagIds?: string[];
-            /** @description Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug */
-            customLabels?: string[];
         };
         UpdateLocationRequest: {
             /**

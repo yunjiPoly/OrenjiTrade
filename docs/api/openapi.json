@@ -886,7 +886,7 @@
           "profile"
         ],
         "summary": "Save the caller's profile",
-        "description": "Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step.",
+        "description": "Full replacement of handle, display name, bio, games and languages. 400 for unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1 languages or blocked terms; 409 HANDLE_TAKEN when the handle is used (case-insensitive) or reserved. The first save completes the `profileComplete` onboarding step. Stage R13: an optional `tags` object replaces the profile tags in the same transaction (the rules of PUT /me/profile/tags); a refused tag saves nothing.",
         "operationId": "updateMyProfile",
         "requestBody": {
           "content": {
@@ -25596,12 +25596,44 @@
             },
             "maxItems": 10,
             "minItems": 0
+          },
+          "tags": {
+            "type": "null",
+            "$ref": "#/components/schemas/UpdateProfileTagsRequest",
+            "description": "Stage R13, optional: the profile tags, saved together with the other fields (all or nothing; the rules of PUT /me/profile/tags). Left out or null: the tags stay as they are."
           }
         },
         "required": [
           "displayName",
           "handle"
         ]
+      },
+      "UpdateProfileTagsRequest": {
+        "type": "object",
+        "properties": {
+          "tagIds": {
+            "type": "array",
+            "description": "Ids of existing active tags",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 12,
+            "minItems": 0
+          },
+          "customLabels": {
+            "type": "array",
+            "description": "Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug",
+            "items": {
+              "type": "string",
+              "example": "Cube drafter",
+              "maxLength": 24,
+              "minLength": 2
+            },
+            "maxItems": 12,
+            "minItems": 0
+          }
+        }
       },
       "MyProfileResponse": {
         "type": "object",
@@ -25719,33 +25751,6 @@
           "slug",
           "usageCount"
         ]
-      },
-      "UpdateProfileTagsRequest": {
-        "type": "object",
-        "properties": {
-          "tagIds": {
-            "type": "array",
-            "description": "Ids of existing active tags",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "maxItems": 12,
-            "minItems": 0
-          },
-          "customLabels": {
-            "type": "array",
-            "description": "Free labels (2-24 characters, banned-term check); created as CUSTOM tags or matched to an existing tag with the same slug",
-            "items": {
-              "type": "string",
-              "example": "Cube drafter",
-              "maxLength": 24,
-              "minLength": 2
-            },
-            "maxItems": 12,
-            "minItems": 0
-          }
-        }
       },
       "UpdateLocationRequest": {
         "type": "object",
