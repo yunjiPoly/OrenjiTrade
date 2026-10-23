@@ -9855,7 +9855,79 @@ browsed game).
 - Mobile web E2E (Playwright): `reports.spec.ts`, `ratings.spec.ts`, `deals.spec.ts`,
   `wishlist.spec.ts`, `inventory-import.spec.ts` and `binders.spec.ts` follow the restyle.
 
-@@CHECKS@@
+**The walk** (the owner's iPhone 18 Pro simulator, iOS 27, Expo Go 57, the isolated stack of the
+native harness, fictional `@mobile-e2e.test` accounts made for it and deleted afterwards; the
+simulator's own appearance and text size were not changed: the app's theme from Settings ›
+Appearance, the largest size by a launch argument): as the buyer of a card Mark as sold in a chat,
+the sold note, **Rate** (the deal "Lantern Fox Spirit · sold to you Oct 23", Overall and the
+details, "Write a reference instead"), **Write a reference**, **Report** from the chat's "⋯" (sent
+in place) and from the seller's profile "⋯" (the 409 "You already reported…"), **New binder**,
+**Add a wish** from the card search (the form, a price chip, Near Mint, saved), **Edit wish** and
+its remove sheet, **a set** and its grid (scrolled) and "Who has cards of this set", **the import**
+of a small `.ydk` (the file step, paste, Check the cards, the discard sheet, "Not recognised",
+"Use the newest", the add, Import done) and of a Collectr CSV (the switch of source, Check the
+cards, left with the leave guard, resumed with "Continue your import", "Use the newest" with its
+assumed copies): in **dark and light at the default size**, then **at the largest text size**
+(Report, Rate, Reference, New binder, the wish, the set, the import's three steps). The report
+from a community post is in the native suite (`community-post.yaml`). It found and fixed: a
+refusal (the 409 of a second report) was said at the end of the page, under the fold, with only a
+grey "Send report" in view: **refusals are said in the bar at the bottom** (report, rating,
+reference, wish); Check the cards' other choices **pushed every line off the screen**: the lines
+now come right under the amber bar (decision 7); a wish saved from a linked game's search landed on
+Search › Wishlist of another game: **it lands on the card's game**; New binder's chosen game tile
+was filled, not tinted as in the mockup; at the largest size the person's handle and a rating's
+"Shipping" broke in mid-word (**the person stacks above their name and line, bounded to 2.5
+times; a details row puts its stars under its words**), the text areas cut their text (**they
+grow**), the wish's card broke its name letter by letter (**it stacks**), a set's codes were cut
+and "Who has cards of this set" ended in "t…" (**two columns at those sizes, the button bounded to
+twice**), a line's copies took a third of the row (**bounded to twice**), and the toast of "Use the
+newest" took the add button's press (**a toast stands above the bar at the bottom**). Compared
+with `/Users/yunji/Dev/.orenji-redesign-v50/project` screen by screen; the screenshots of 60 to 69
+(dark, default size) are kept for the pull request in `.local-dev/r14-notes/pr-shots/`.
+
+**Checks** (retries off; 2026-10-23, this Mac, JDK 21, OrbStack; the API and web checks at the last
+API change, the phone's on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | BUILD SUCCESSFUL: **1,272 tests in 198 classes, 0 failures** (4 min 26 s); `SaleIT` 15 / 15, `RatingEligibilityIT` 5 / 5, `RatingRulesTest` 6 / 6, `GeoPrivacyContractTest` 17 / 17 |
+| `exportOpenApi` then `npm run generate:api` | committed (`RatingEligibilityInteraction.dealName`, `.soldToYou`); run again at the end: git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **123 suites, 1,674 tests** passed (+ typecheck, lint, the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (1,963, 2,089 and 1,584 modules; throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | first run 60 passed, 2 failed (the import spec still expected the start after "Import another file" and R2's assumed line): the spec follows R14; then **62 / 62** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro) | **38 / 39** flows in 60 min 02 s: `inventory-import-deck.yaml` read the summary sentence where it stood before the walk moved it after the lines; the flow follows it, and with the toast fix the three import flows then passed alone (**3 / 3**), so every one of the 39 flows passed |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**Not done, could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- A file picked from the iPhone's Files app: the native flows and the walk paste the file's text
+  (the system picker is outside the app); the web-build spec uploads a real file through the
+  browser's file chooser, and that path names the file on Check the cards.
+- The rating from the sale notification itself: it opens the chat (stage R9), whose sold note opens
+  the rating, as walked.
+
+**Owner follow-ups**
+
+1. The pull request's screenshots of 60 to 69 (dark, default size; 18 files) are in
+   `.local-dev/r14-notes/pr-shots/` of the worktree.
+2. The rating's note says "on {handle}'s profile" as the prompt words it; the mockup's collector has
+   the same name and handle, and the display name may read better ("on Ada Seller's profile").
+3. "Who has cards of this set" opens the card search on the set's cards, each opening Who has this
+   card (decision 10); a list of the collectors who hold any card of a set would need a new API.
+4. Check the cards has no count tiles any more, and "leave them out", the conditions and the deck
+   sections follow the lines (decision 7): on a long CSV export they are at the end of its list.
+5. The report's reasons keep the server's lines (they differ a little from the mockup's).
+6. The price chips grow with a chosen printing's amount ("85% TCG ≈ 32.30 CAD"), as the old check
+   boxes did; the mockup shows the terms alone.
+
 
 ## NEXT TASK
 
