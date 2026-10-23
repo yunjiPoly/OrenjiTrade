@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import CollectorReferencesScreen from '@/app/collectors/[id]/references';
 import RateCollectorScreen from '@/app/ratings/rate';
@@ -271,6 +272,28 @@ describe('Rate a collector after a sale (stage R14)', () => {
     expect(screen.getByLabelText('Communication: 4 stars, Good')).toBeOnTheScreen();
     expect(screen.getByText('Clear, timely and friendly')).toBeOnTheScreen();
     expect(screen.getByText('Matched what was described')).toBeOnTheScreen();
+  });
+
+  it('puts a details row’s stars under its words at the largest text size', async () => {
+    mockApi(routes({ 'GET /api/v1/ratings/eligibility': sale(true) }));
+    const window = Dimensions.get('window');
+    act(() => {
+      Dimensions.set({
+        window: { ...window, fontScale: 3.1 },
+        screen: { ...window, fontScale: 3.1 },
+      });
+    });
+    try {
+      renderWithProviders(<RateCollectorScreen />, { port: port() });
+      expect(await screen.findByTestId('rate-row-shipping')).toHaveStyle({
+        flexDirection: 'column',
+      });
+      expect(screen.getByText('Shipping').props.maxFontSizeMultiplier).toBe(2.5);
+    } finally {
+      act(() => {
+        Dimensions.set({ window, screen: window });
+      });
+    }
   });
 
   it('writes a reference instead', async () => {

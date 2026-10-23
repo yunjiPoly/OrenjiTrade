@@ -35,9 +35,13 @@ import {
   type RatedCollector,
 } from '@/src/features/ratings/ratingRoutes';
 import { StarRatingInput } from '@/src/features/ratings/StarRatingInput';
-import { GroupTitle, SettingsRadios } from '@/src/features/settings/SettingsList';
+import {
+  GroupTitle,
+  LABEL_MAX_FONT_SCALE,
+  SettingsRadios,
+} from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
-import { PINNED_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, useStackedRows, useTheme } from '@/src/theme';
 
 type Scores = Record<RatingCriterion, number | null>;
 
@@ -208,6 +212,9 @@ function RatingForm({
   onBack: () => void;
 }) {
   const { palette } = useTheme();
+  // At the largest text sizes a details row puts its stars under its words, which take the whole
+  // width (the walk: beside the stars "Shipping" broke in the middle of the word).
+  const stacked = useStackedRows();
   const router = useRouter();
   const snackbar = useSnackbar();
   const create = useCreateRating();
@@ -355,15 +362,22 @@ function RatingForm({
                 key={criterion.key}
                 style={[
                   styles.criterion,
+                  stacked && styles.criterionStacked,
                   index > 0 && { borderTopWidth: 1, borderTopColor: palette.border },
                 ]}
                 testID={`rate-row-${criterion.key}`}
               >
-                <View style={styles.words}>
-                  <Text style={[styles.criterionLabel, { color: palette.ink }]}>
+                <View style={stacked ? styles.wordsStacked : styles.words}>
+                  <Text
+                    maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                    style={[styles.criterionLabel, { color: palette.ink }]}
+                  >
                     {criterion.label}
                   </Text>
-                  <Text style={[styles.criterionHint, { color: palette.textMuted }]}>
+                  <Text
+                    maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                    style={[styles.criterionHint, { color: palette.textMuted }]}
+                  >
                     {criterion.hint}
                   </Text>
                 </View>
@@ -444,6 +458,8 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   words: { flex: 1, minWidth: 140, gap: 2 },
+  wordsStacked: { alignSelf: 'stretch', gap: 2, paddingRight: 6 },
+  criterionStacked: { flexDirection: 'column', alignItems: 'flex-start' },
   criterionLabel: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
   criterionHint: { fontSize: 12, lineHeight: 16 },
   comment: { height: 80 },

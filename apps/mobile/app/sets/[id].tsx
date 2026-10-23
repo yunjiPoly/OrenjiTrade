@@ -22,7 +22,7 @@ import { Text } from '@/src/components/ui/Text';
 import { setMeta, SET_COPY as COPY } from '@/src/features/catalog/setCopy';
 import { gameTile } from '@/src/features/games/gameTiles';
 import { SettingsTopBar } from '@/src/features/settings/SettingsPage';
-import { printingCode, printingFacts, printingImageUrl } from '@/src/lib/catalog';
+import { editionLabel, printingCode, printingFacts, printingImageUrl } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { TITLE_MAX_FONT_SCALE, fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
 
@@ -219,10 +219,12 @@ const PrintingTile = memo(function PrintingTile({
   const { palette } = useTheme();
   const code = printingCode(printing);
   const facts = printingFacts(printing);
+  const special =
+    printing.edition && printing.edition !== 'UNLIMITED' ? editionLabel(printing.edition) : null;
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={[code, printing.rarity].filter(Boolean).join(', ')}
+      accessibilityLabel={[code, facts].filter(Boolean).join(', ')}
       accessibilityHint={COPY.tileHint}
       onPress={() => onPress(printing)}
       testID={`set-printing-${printing.id}`}
@@ -249,6 +251,16 @@ const PrintingTile = memo(function PrintingTile({
       >
         {printing.rarity || facts}
       </Text>
+      {special ? (
+        // Two printings of one code differ by their edition (a 1st Edition and an Unlimited one).
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[styles.rarity, { color: palette.textMuted }]}
+        >
+          {special}
+        </Text>
+      ) : null}
     </Pressable>
   );
 });
