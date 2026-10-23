@@ -7,7 +7,7 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -9232,6 +9232,215 @@ from its e-mail. Fixed: a new account's first handle is `collector_` and six ran
 characters, never a part of the e-mail; the collector chooses their own on "Who are you?". No field
 changed, no migration. The check of fix 2 approved it; the full check list green, the native
 suite 38 / 38. Merged with `main` after #86 (R7, R9 to R11) for the next pull request.
+## Phone redesign R13: Settings (47 to 59) (2026-10-23)
+
+Stage R13 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R13. Settings (47 to 59)"). Mockup v50 screens 47 (Settings), 48 (Edit profile), 49
+(Location), 50 (Shipping details), 51 (Notifications), 52 (Privacy), 53 (Appearance), 54 (Blocked
+collectors), 55 (My reports), 56 (Account), 57 (Delete account), 58 (Legal) and 59 (a document).
+Built on branch `feature/r7-home` after R12, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+stays **V135**; V124 and V128 stay unused); no ADR. One optional field on one endpoint, nothing
+else in the API changed; no file of `apps/web-angular` changed. Free for all (ADR 0019): Settings
+has no flagged or paid entry any more; deals ship by mail (ADR 0018); **English only** (owner,
+2026-10-20: nothing French was added; the French legal texts and Legal's language switch stay as
+they were, restyled).
+
+**What a collector can now do**
+
+- **Settings** (47), behind the Profile tab's gear: a **profile card** (picture, name, "@handle ·
+  Edit profile") that opens Edit profile; **"Where you ship from"**: Location and discoverability
+  with "{province}, {country} · On the map" (or "· Not on the map", "Not set yet · Not on the
+  map"), Shipping details ("Address and e-Transfer, on this phone only"); **"App"**:
+  Notifications ("Push, email, quiet hours"), Privacy ("Who sees what about you"), Appearance with
+  its value ("Same as the phone", "Light", "Dark"); **"Safety"**: Blocked collectors with their
+  number, My reports with "{n} waiting"; **"Account"**: Account with the email, Legal ("Terms,
+  privacy, guidelines"); the red **Sign out**; the version line ("OrenjiTrade 0.1.0"). A value
+  still loading shows a short skeleton; one that cannot load is left out (its page says why and
+  offers Try again). VoiceOver reads a row's value after its name ("Blocked collectors, 2").
+- **Edit profile** (48): the picture (72 pt, "Add a picture" or "Change picture", "Remove
+  picture", the line on where it shows; saved at once, as before); Handle with "@" and R12's live
+  check ("Your profile address. Lowercase letters, digits and _."); Display name; Bio with "{n} /
+  500"; **Games** as the welcome's tiles (One Piece and Riftbound "Cards coming soon"); **Languages
+  you trade in** as chips; **Tags** ("Up to 12"): the saved ones filled, one unpicked stays on the
+  page to be picked again, and **"Add a tag"** opens a sheet with the search, the suggestions and
+  "Add “{label}”" for one's own (12 at most). **One "Save changes"** at the bottom, grey **"No
+  changes yet"** while nothing differs from what is saved (changing a value and back is no
+  change); one request saves everything or nothing; the toast "Profile saved."; a taken handle, a
+  refused tag ("One of your tags cannot be used. Remove it or choose another one, then save
+  again.") and other failures said in place. **"Preview"** (teal, in the top bar) opens the public
+  profile. **Leaving with unsaved changes asks first** ("Leave without saving?", Leave / Keep
+  editing; the back button, the back gesture).
+- **Location** (49): **"Show me on the map" first**, saved at once as before, with "Collectors see
+  you in {province}, {country}." or "You are hidden from the map and from searches." (without a
+  saved place the switch waits: "You have not chosen a location yet, so you never appear on the
+  map."); Region; **Country and State or province side by side** (stacked at the largest text
+  sizes); City (optional) with "Only on your profile, and only while the switch below is on. Never
+  used to locate you."; "Show my city on my profile" in its card; the dashed box **"How OrenjiTrade
+  protects where you live"** with its three lines; **"Remove my location"** in red, asked in a sheet
+  ("Remove your location?", "Remove location" / "Keep it"); **"Save location"** at the bottom.
+- **Shipping details** (50): the teal note ("…stay **on this phone only**…"), the address and the
+  e-Transfer email or phone number, each with "Delete from this phone", "Deleting your account also
+  wipes them from this phone.", "Save" / "No changes yet". Still on this phone only.
+- **Notifications** (51): **Channels** (In the app, Push, Email, each with its icon; "Turn a
+  channel off to silence it everywhere." and the push note kept); **Wishlist alerts** ("One alert
+  when a card you wish for is listed in your region.", the no-location warning kept); **"What to
+  notify me about" as a grid** of Messages, Ratings, Binder reminders, Report decisions and News and
+  tips by App, Push and Email: **a channel that is off dims its column**, its boxes read as unticked
+  and cannot change, and what was chosen comes back with the channel (VoiceOver: "Messages by
+  email, channel off"); **Quiet hours** ("Pause push at night", "In-app notifications still
+  arrive.", From and Until side by side in 24-hour time, "Time zone: {zone}", "Use this phone's time
+  zone"); **"Save preferences"**, "No changes yet" while nothing differs.
+- **Privacy** (52): **"All changes saved"** in the top bar ("Saving…", "Last change not saved"
+  after a failure, which restores the last saved state); **Visibility**: Show me on the map ("Your
+  public binders count in your state or province."), Appear in collector search, Let others see
+  what you want ("Your wishlist on your profile, and your wishes on Home."), Show when I was last
+  active, Show when I am online; **Who can see your profile** (Public, Members (recommended),
+  Private) and **Who can message you** (Everyone, Members with a profile (recommended), Nobody) as
+  radio rows; **Search**: Remember my searches ("Kept on this phone only. Turning it off clears
+  them."). Every change is saved at once, as before.
+- **Appearance** (53): **Theme** as radio rows (Same as the phone, Light, Dark; "New installs start
+  in dark. Saved on this phone."); **About**: Version ("0.1.0 (local)"), Server ("Reached {time}",
+  the API's name and version; "Server not reached" with Try again), Card data and images (R10's
+  credits).
+- **Blocked collectors** (54): the line on what a block does, each collector with "@handle ·
+  blocked {when}" and an outlined "Unblock" ("{name} is unblocked."), "You have not blocked anyone",
+  "Block a collector from the ⋯ menu of a chat, a profile or a community post."
+- **My reports** (55): the confidentiality line, "**{n} waiting for a decision** · {n} reviewed",
+  each report a row that opens the collector's profile, with **its status pill** (Open amber, Under
+  review blue, Action taken teal, Dismissed grey), the reason, "Sent {when} · reviewed {when}" and
+  where it stands ("Reviewed: the team took action"); pull to refresh.
+- **Account** (56): **Sign-in**: the email with **"Verified"** (teal) or **"Not verified"**
+  (amber) and then "Resend link", the sign-in method, member since ("March 2025"); **Staff roles**
+  for staff only; **Your data**: "Download my data" ("One file with your profile, cards, binders,
+  wishes and messages."); the **red Delete account card** ("Delete my account"); Sign out (an
+  outlined pill).
+- **Delete account** (57): the three facts (7 days to change one's mind, hidden at once, records
+  kept by law); "Why are you leaving? (optional)" with "{n} / 500"; "Download a copy of my data
+  first"; the password ("For your security, confirm your password.") or "You will confirm with
+  Google."; the acknowledgement in its own box; **"Delete my account" grey until it is ticked**,
+  then red; "Keep my account". Pressed, it asks for the password if it is missing, then **the
+  sheet** ("Delete your account?", Delete my account / Keep my account); **the working steps**
+  (Confirming it is you…, Preparing your data export…, Scheduling the deletion…, each ticked in
+  turn); **the blocked state** ("Your account cannot be deleted yet" and what to resolve).
+- **Legal** (58): **English | Français** as a segmented control as wide as the page, **the amber
+  draft banner** ("**Draft.** Requires review by qualified legal counsel before launch."; the
+  French pages keep their own banner and translation marking), **seven documents** (Terms of
+  Service, Privacy Policy, Community Guidelines, Trading safely, Marketplace Policy, Acceptable Use
+  Policy, Cookie Policy), each with its line and "Version {v}." as the API publishes it. The
+  Payment Protection and the Refund and Dispute policies are left out (ADR 0018); a link to them
+  still opens them.
+- **A document** (59): the switch, the banner, the title in Sora, the summary, "Version {v} · Last
+  updated {date}", the effective date, "Version to accept", the definitions, the numbered sections
+  (the clause numbers small and quiet) and the contact. Trading safely is R1's text for deals by
+  mail, unchanged.
+- Every page has **its own top bar** (the 44 pt back button, the title in Sora on the left; the
+  back button keeps the id `BackButton` of the navigation header for the flows), the rows and groups
+  of the mockup, skeletons while loading, an empty state where a list can be empty and an error with
+  "Try again"; the words of each screen in one place (`src/features/settings/settingsCopy.ts`; the
+  shipping words stay in R4's `chatCopy.ts`, the privacy options in `privacyOptions.ts`); at the
+  largest text sizes a row's value and a switch go under their words.
+
+**What the API does** (contract [`docs/api/contracts/r13-settings.md`](docs/api/contracts/r13-settings.md))
+
+- **`PUT /api/v1/me/profile` takes an optional `tags`** (`UpdateProfileTagsRequest`: `tagIds`,
+  `customLabels`): the profile and its tags are saved **in one transaction**
+  (`ProfileService.updateWithTags`), by the rules of `PUT /me/profile/tags`; a refused field or tag
+  saves nothing, the handle change and its audit row included. Left out, the endpoint answers as
+  before (the paused web, the welcome's first save). The answer is the saved profile, tags
+  included. `PUT /me/profile/tags` stays.
+- Nothing else changed: the pages keep every call they made.
+
+**Decisions**
+
+1. **Edit profile's one save is one request.** Saving the details and then the tags in two calls
+   could leave half a save behind (the details saved, a tag refused); the optional `tags` of
+   `PUT /me/profile` makes the button all or nothing, additively (the web's client only gained an
+   optional field). The phone sends the tags only when they changed.
+2. **"Changed" means "differs from what is saved"**, compared as the API keeps it (the handle
+   trimmed and lower case, the name and bio trimmed, the games and languages in order since the
+   first game opens first, the tags as a set): "No changes yet" comes back when a value is changed
+   back, and the leave guard holds only then.
+3. **"Show me on the map" stays saved at once on Location** (today's behaviour, the same as on
+   Privacy), not with "Save location", and **waits for a saved place** (disabled with the line
+   saying why) instead of failing with the API's 409 `LOCATION_REQUIRED`.
+4. **The R15 half of the line under "Show me on the map"** ("Visitors without an account see your
+   cards, never your name.", in the mockup) is left for R15: it would be untrue before guests exist.
+5. **Every Settings page draws its own top bar** (as R9's Notifications and R11's rooms): the
+   native header is hidden for `settings/*` and `legal/*`; the back button falls back to Settings
+   (a page opened by a link), Legal (a document) or the start (the legal index).
+6. **The tags of Edit profile** are the saved and picked ones as chips; an unpicked one stays on
+   the page until it is left (so a slip is undone with a tap); "Add a tag" opens the welcome's tag
+   search in a sheet (`WelcomeTags`). The old `TagPicker`, `GamePicker`, `LanguagePicker`,
+   `ProfileFields` and `settingsLinks.ts` were no longer used and were removed.
+7. **Settings reads no feature flag any more**: none of its rows depends on one (F1 removed the paid
+   ones; R1 the offers and payouts).
+8. **Legal's English banner and the documents' one-line summaries are the mockup's words, on the
+   phone only** (`LegalDraftBanner`, `PHONE_LEGAL_SUMMARIES`); the legal texts themselves are synced
+   from the paused web and unchanged, so the French pages keep their banner, summaries and
+   "Version en vigueur : {v}." (no new French work).
+9. **Blocked users is "Blocked collectors"** everywhere on the phone (Settings, the page, the block
+   dialogs: "Settings → Blocked collectors"); the legal text "Trading safely" still says "Settings →
+   Blocked users" (synced from the paused web: owner follow-up 2).
+10. **My reports' status words** follow the mockup ("Reviewed: the team took action", "Reviewed: no
+    violation found"; the web keeps its dash).
+11. **The red of "Delete my account"** is the confirmation sheets' red, the same in both schemes
+    (`PillButton` variant `danger`); the other colours of the stage are mobile-only design tokens
+    (`color.<scheme>.settings`: row icons and chevrons, the teal note, the amber draft banner, the
+    red card, the pills, the segmented control).
+
+12. **At the largest accessibility text sizes** a Settings row gives its label the whole width (its
+    icon and chevron are left out, its value and switch go under it) and its label and line follow
+    the text size up to 2.5 times (`LABEL_MAX_FONT_SCALE`): one-word labels such as
+    "discoverability" and "Marketplace" broke in the middle of the word at the full 3.1 times
+    (the walk). The top bar's title takes two lines; "Preview" and "All changes saved" follow the
+    text size a little only (`PINNED_MAX_FONT_SCALE`, with the large content viewer); the profile
+    card and Edit profile's picture stack; the grid names each box by its channel under its topic;
+    From and Until stack.
+
+**The walk** (the owner's iPhone 18 Pro simulator, iOS 27, Expo Go 57, the isolated stack of the
+native harness, fictional `@mobile-e2e.test` accounts made for it and deleted afterwards): the
+gear from Profile to Settings and every page 47 to 59 in the dark theme at the default size (Edit
+profile changed and saved, "Add a tag", the leave guard; Location's switch and the remove sheet
+kept; Shipping saved; Notifications with Email off and on, quiet hours; Privacy switches; Blocked;
+My reports; Account; Delete account ticked, the password, the sheet, kept; Legal and Trading
+safely), then 47, 48, 49, 51, 52, 53, 55, 56 and 58 in the light theme, then every page at the
+largest text size (a launch argument; the simulator's own settings were not changed). It found and
+fixed: a toast hid the last row of a page ("Remove my location" under "Profile saved.": the end of
+a page keeps room for a toast, as Edit card does); a tag suggestion named as a picked tag was
+listed twice; About's rows had icons the mockup has not; a long handle cut "blocked {when}";
+mid-word breaks, a cut title and a cut "All changes saved", the grid and the quiet hours at the
+largest size (decision 12). Compared with `/Users/yunji/Dev/.orenji-redesign-v50/project` screen by
+screen; the screenshots of 47 to 59 (dark, default size) are kept for the pull request.
+
+**The defaults this stage applies** (prompt list): **8. Edit profile has one Save**; **9. the
+phone's Legal list leaves out the payment protection and refund policies**.
+
+**Tests**
+
+- API: `ProfileIT.theProfileAndItsTagsAreSavedTogetherOrNotAtAll`;
+  `GeoPrivacyContractTest.settingsOfStageR13CarryNoPlace` (Edit profile's save with the tags as
+  read, `GET /me/blocks`, `GET /me/reports`: no coordinate, distance or city of another collector).
+- Jest: `__tests__/screens/settings.test.tsx` rewritten (33: Settings' values, links, sign out and
+  the values that wait or fail; Edit profile's one save in one request, a value changed back, the
+  details without tags, the field, handle, tag and rate-limit failures, Preview and the leave
+  guard, loading and Try again; Location's switch first, the place saved, no place, the remove
+  sheet, the failures and states; Notifications' grid with Email off and back, "No changes yet",
+  quiet hours, the no-location warning, the states; Privacy saved at once with the restore, the
+  order, the radios, the states, Remember my searches; Appearance's radios, version, server,
+  credits; Account; Delete account grey until ticked, the password, the wrong password, the working
+  steps, Google, the blocked state); `__tests__/features/settingsPages.test.ts` (7: what changed,
+  the save's body, a refused tag, the tag chips, the grid's names, the lines, member since); the
+  Legal, Blocked, My reports, Shipping and launch-configuration tests follow the restyle.
+- Maestro: **`settings-pages.yaml`** (new: the Profile gear, Settings, Location saved and the map
+  switch, a Privacy switch, Delete account up to the sheet, then Keep; `scripts/check-settings.js`
+  checks the API); `profile-edit.yaml`, `discoverability.yaml` and `legal-french.yaml` follow the
+  pages.
+- Mobile web E2E (Playwright): `profile.spec.ts` (one save with a tag), `account.spec.ts` (grey until
+  ticked; privacy waits for each save), `location.spec.ts` (the switch waits, the remove sheet),
+  `legal-french.spec.ts`, `profiles.spec.ts`, `blocked.spec.ts` follow the restyle.
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -9316,13 +9525,26 @@ suite 38 / 38. Merged with `main` after #86 (R7, R9 to R11) for the next pull re
 > welcome's tags without game and language tags; the first handle from the e-mail as an owner
 > follow-up; phone only, no migration; see "Review fix 1" in the R12 section).
 >
-> **Exact next task: the reviewers' check of R12's review fix 1** (at most one more fix round),
-> **then stage R13** ("Settings (47 to 59)", the same
-> prompt's section R13) on the same branch, then R14, R15 (after R12) and
-> the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test accounts and seed
-> documents, a walk of every mockup screen with a screenshot each, the exact next task), none
-> bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship step is
-> the giant pull request's.
+> **R12's review fix 2 is done** (see "Review fix 2" in the R12 section).
+>
+> **Stage R13 is built** ("Settings (47 to 59)"; section "Phone redesign R13: Settings (47 to 59)
+> (2026-10-23)" above; contract `docs/api/contracts/r13-settings.md`; no migration, the next is
+> still **V135**): Settings with the profile card and its groups and values; Edit profile with one
+> "Save changes" (the optional `tags` of `PUT /me/profile`, one transaction), "Preview" and the
+> leave guard; Location with "Show me on the map" first and the remove sheet; Shipping details;
+> Notifications as a grid of topics by channel; Privacy saved at once; Appearance; Blocked
+> collectors; My reports with pills; Account; Delete account grey until ticked, the sheet, the
+> working steps; Legal with seven documents and a document; every page with its own top bar, and
+> whole words at the largest text size. PR screenshots of 47 to 59 in
+> `.local-dev/r13-notes/pr-shots/` of the worktree.
+>
+> **Exact next task: the reviewers of stage R13** (a functional verifier, product and UX as a
+> collector, and privacy; at most two fix rounds), **then stage R14** ("Report, rating, reference,
+> binders, wishes, import and sets (60 to 69)", the same prompt's section R14) on the same branch,
+> then R15 (after R12) and the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test
+> accounts and seed documents, a walk of every mockup screen with a screenshot each, the exact next
+> task), none bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship
+> step is the giant pull request's.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)
