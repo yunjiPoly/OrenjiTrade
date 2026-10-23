@@ -537,6 +537,32 @@ export function conditionShort(condition: string | null | undefined): string {
   }
 }
 
+/**
+ * Whether a line's condition is only where it started because the file names none: the lowest
+ * grade of its game (`lowestGrades`; while the games are not loaded, any condition the file did
+ * not name). A condition the collector set for all of them ("Set one condition") or the file's
+ * own is not.
+ */
+export function conditionAssumed(
+  row: Pick<ImportRow, 'condition' | 'conditionSource'>,
+  lowestGrades: readonly string[]
+): boolean {
+  return (
+    row.conditionSource === 'DEFAULT' &&
+    (lowestGrades.length === 0 || lowestGrades.includes(row.condition ?? ''))
+  );
+}
+
+/**
+ * What a line's copies button shows: "NM ×3", or the copies alone ("×3", mockup v50 screen 67)
+ * while the condition is only assumed. "DMG ×3" on every line of a deck file read as a claim
+ * about the collector's cards (R14 review fix 1, U6); the button's name still says the condition
+ * and that the file did not.
+ */
+export function copiesText(row: Pick<ImportRow, 'condition' | 'quantity'>, assumed: boolean) {
+  return assumed ? `×${row.quantity}` : `${conditionShort(row.condition)} ×${row.quantity}`;
+}
+
 /** The title of the card over the bulk action: "2 cards need a printing" / "115 lines need …". */
 export function needPrintingTitle(toChoose: number, source: ImportSource): string {
   return `${shortLines(toChoose, source)} ${toChoose === 1 ? 'needs' : 'need'} a printing`;
@@ -799,7 +825,7 @@ export function commitState(
       label: summary.items > 0 ? `Add ${cards} to my inventory` : 'Add to my inventory',
       shortLabel: summary.items > 0 ? adding : 'Add to my inventory',
       disabled: true,
-      // Mockup v50 screen 67 (stage R14); "leave them out" stays above the list.
+      // Mockup v50 screen 67 (stage R14); "leave them out" stands right under the amber bar.
       reason: `Choose the copy of the marked ${
         source === 'YDK'
           ? summary.toChoose === 1

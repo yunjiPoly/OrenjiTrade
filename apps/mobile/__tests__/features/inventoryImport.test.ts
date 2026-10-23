@@ -9,7 +9,9 @@ import {
   cardsAndCopies,
   commitState,
   conditionSetMessage,
+  conditionAssumed,
   conditionShort,
+  copiesText,
   deckText,
   defaultConditionsText,
   emptyFilterText,
@@ -954,5 +956,21 @@ describe('the words of "Check the cards" (stage R14)', () => {
       )
     ).toEqual(['M', 'NM', 'LP', 'MP', 'HP', 'DMG']);
     expect(conditionShort('POOR')).toBe('Poor');
+  });
+
+  it('shows the copies alone while the condition is only the lowest grade the file left it at', () => {
+    const lowest = ['DAMAGED', 'POOR'];
+    // The file names none: the lowest grade is only assumed (R14 review fix 1, U6).
+    const assumed = rowFixture({ condition: 'DAMAGED', conditionSource: 'DEFAULT', quantity: 3 });
+    expect(conditionAssumed(assumed, lowest)).toBe(true);
+    expect(copiesText(assumed, true)).toBe('×3');
+    // While the games are not loaded, any condition the file did not name.
+    expect(conditionAssumed(assumed, [])).toBe(true);
+    // One the collector set for all of them, the file's own and one set on the line are shown.
+    const setForAll = { ...assumed, condition: 'NEAR_MINT' };
+    expect(conditionAssumed(setForAll, lowest)).toBe(false);
+    expect(copiesText(setForAll, false)).toBe('NM ×3');
+    expect(conditionAssumed({ ...assumed, conditionSource: 'FILE' }, lowest)).toBe(false);
+    expect(conditionAssumed({ ...assumed, conditionSource: 'EDITED' }, [])).toBe(false);
   });
 });

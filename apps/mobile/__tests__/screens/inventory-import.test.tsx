@@ -866,6 +866,33 @@ describe('Import cards: the preview', () => {
     expect(screen.queryByTestId('import-condition-DAMAGED')).toBeNull();
   });
 
+  it('shows a line’s copies alone while the file names no condition, and the condition once one is set (R14 review fix 1, U6)', async () => {
+    const fake = fakeImports({
+      open: importFixture(),
+      rows: [
+        // The lowest grade of Yu-Gi-Oh! in the test catalog: where a line of a deck file starts.
+        rowFixture({ condition: 'LIGHTLY_PLAYED' }),
+        rowFixture({
+          id: 'row-9',
+          position: 9,
+          printing: HERON_PRINTINGS[0],
+          condition: 'NEAR_MINT',
+          conditionSource: 'FILE',
+        }),
+      ],
+    });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    expect(await screen.findByTestId('import-row-0-edit')).toHaveTextContent('×2');
+    expect(screen.getByTestId('import-row-0-edit')).not.toHaveTextContent(/LP/);
+    expect(screen.getByTestId('import-row-9-edit')).toHaveTextContent('NM ×2');
+    // One condition set for the lines the file left without one: it is shown.
+    fireEvent.press(screen.getByRole('button', { name: 'Set the condition of this card' }));
+    fireEvent.press(await screen.findByTestId('import-condition-NEAR_MINT'));
+    await waitFor(() => expect(screen.getByTestId('import-row-0-edit')).toHaveTextContent('NM ×2'));
+  });
+
   it('filters the lines that need a printing and those not recognised', async () => {
     const fake = fakeImports({ open: importFixture() });
     const api = mockApi(signedInRoutes(fake.routes));
@@ -1166,11 +1193,22 @@ describe('Import cards: the commit', () => {
     fireEvent.press(commit);
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)).toHaveLength(0);
 
+    // "Leave out" stands right under the amber bar, on screen above the lines (after every line of
+    // a long file it was out of reach; R14 review fix 1, F2).
+    const heron = await screen.findByTestId('import-row-1');
+    expect(
+      within(heron).getByRole('checkbox', { name: 'Leave out Fixture Clockwork Heron' })
+    ).toBeChecked();
     fireEvent.press(
-      screen.getByRole('checkbox', {
+      within(screen.getByTestId('import-filter-bar')).getByRole('checkbox', {
         name: 'Leave out the 2 cards that still need a printing',
       })
     );
+    // The lines it leaves out say so: unticked and "Left out", as a line left out by hand (U5).
+    expect(
+      within(heron).getByRole('checkbox', { name: 'Include Fixture Clockwork Heron' })
+    ).not.toBeChecked();
+    expect(within(heron).getByTestId('import-row-1-state')).toHaveTextContent('Left out');
     expect(commit.props.accessibilityLabel).toBe('Add 1 card, leave 2 out (2 copies added)');
     expect(within(commit).getByText('Add 1 card, leave 2 out')).toBeOnTheScreen();
     expect(commit).not.toBeDisabled();
@@ -1355,12 +1393,13 @@ describe('Import cards: the commit', () => {
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)[0]?.body).toEqual({ skipUnresolved: false });
   });
 
-  it('says how many cards go into cards already owned', async () => {
+  it('says how many cards go into cards already owned, and counts them in the cards added', async () => {
     const fake = fakeImports({
       open: importFixture(),
       rows: [
         rowFixture({ ownedQuantity: 2 }),
         rowFixture({ id: 'row-9', position: 9, printing: HERON_PRINTINGS[0] }),
+        rowFixture({ id: 'row-10', position: 10, printing: HERON_PRINTINGS[1] }),
       ],
     });
     mockApi(signedInRoutes(fake.routes));
@@ -1377,6 +1416,28 @@ describe('Import cards: the commit', () => {
     expect(
       within(result).getByLabelText('1 card you already had got more copies')
     ).toBeOnTheScreen();
+    expect(within(result).getByLabelText('2 new cards added')).toBeOnTheScreen();
+    // "{n} cards added" counts both: 2 new cards and 1 that got more copies (R14 review fix 1, F4).
+    expect(within(result).getByRole('header', { name: '3 cards added' })).toBeOnTheScreen();
+  });
+
+  it('closes the toast of Check the cards when Import done opens (R14 review fix 1, U3)', async () => {
+    const fake = fakeImports({ open: importFixture() });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    fireEvent.press(await screen.findByRole('button', { name: 'Use the newest' }));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      '2 cards got their most recent printing.'
+    );
+    const commit = screen.getByTestId('import-commit');
+    await waitFor(() => expect(commit).not.toBeDisabled());
+    fireEvent.press(commit);
+    await screen.findByTestId('import-result');
+    // Its "Check them." can no longer be acted on, and it covered "Go to my inventory": it goes at
+    // once, long before its own 5 s.
+    await waitFor(() => expect(screen.queryByTestId('snackbar')).toBeNull(), { timeout: 1000 });
+    expect(screen.getByRole('button', { name: 'Go to my inventory' })).toBeOnTheScreen();
   });
 
   it('a commit pressed twice is sent once', async () => {

@@ -203,12 +203,14 @@ test.describe('mobile inventory import', () => {
       'Choose the copy of the marked cards, or use the newest.'
     );
 
-    // The card that fits one printing is preselected; the default condition is shown on its
-    // copies ("DMG ×2"), its whole name for VoiceOver.
+    // The card that fits one printing is preselected; its copies show alone ("×2", mockup v50
+    // screen 67: the file names no condition; R14 review fix 1, U6), the condition the line
+    // starts at is in its name for VoiceOver.
     const wisp = flow.getByTestId('import-row-0');
     await expect(wisp).toContainText('Fixture Lantern Wisp');
     await expect(wisp).toContainText('YDKF-EN001 · Rare');
-    await expect(wisp).toContainText('DMG ×2');
+    await expect(wisp).toContainText('×2');
+    await expect(wisp).not.toContainText('DMG');
     await expect(
       flow.getByRole('button', {
         name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',

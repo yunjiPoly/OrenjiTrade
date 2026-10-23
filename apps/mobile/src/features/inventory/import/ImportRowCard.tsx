@@ -9,7 +9,7 @@ import { TITLE_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
 import { IMPORT_COPY } from './importCopy';
 import {
-  conditionShort,
+  copiesText,
   ownedText,
   plural,
   rowConditionText,
@@ -49,13 +49,25 @@ export interface ImportRowCardProps {
    * apart.
    */
   showSource?: boolean;
+  /**
+   * Its condition is only the lowest grade the file left it at (`conditionAssumed`): the copies
+   * button shows the copies alone ("×3").
+   */
+  conditionAssumed?: boolean;
+  /**
+   * "Leave out the {n} cards that still need a printing" is ticked: a line that still needs one
+   * shows as left out (unticked, dimmed, "Left out"), and its box opens "Which copy", since a
+   * printing chosen is what puts it in (R14 review fix 1, U5).
+   */
+  skipUnchosen?: boolean;
 }
 
 /**
  * One line of "Check the cards" (mockup v50 screen 67, stage R14): the card's picture, its name,
  * one line under it ("ROTA-EN006 · Super Rare", "Which copy? 2 printings" in amber, "Not
  * recognised. It stays out." in red), the copies and the tick box that puts it in or leaves it
- * out. The name and its line open the "Which copy" chooser; the copies ("NM ×3") open the
+ * out. The name and its line open the "Which copy" chooser; the copies ("NM ×3", "×3" while the
+ * file names no condition) open the
  * condition and copies. A third small line says what matters when there is something: left out,
  * its deck section switched off, cards already owned. A line nothing fits shows what the file
  * said and has no control. Each control is named with the card for VoiceOver.
@@ -68,6 +80,8 @@ export const ImportRowCard = memo(function ImportRowCard({
   disabled = false,
   readOnly = false,
   showSource = false,
+  conditionAssumed = false,
+  skipUnchosen = false,
 }: ImportRowCardProps) {
   const { palette } = useTheme();
   const { fontScale } = useWindowDimensions();
@@ -123,10 +137,13 @@ export const ImportRowCard = memo(function ImportRowCard({
     );
   }
 
-  const state = rowStateText(row);
+  // Left out with the lines that still need a printing: shown as any line left out.
+  const skipped = skipUnchosen && row.status === 'CHOOSE_PRINTING' && row.included;
+  const included = row.included && !skipped;
+  const state = rowStateText({ ...row, included });
   const owned = ownedText(row);
   const assumed = row.status === 'CHOOSE_PRINTING' ? null : assumedCopyText(row);
-  const dimmed = !row.included || !row.inScope;
+  const dimmed = !included || !row.inScope;
   const condition = rowConditionText(row);
   const copies = plural(row.quantity, 'copy', 'copies');
   const extra = state ?? owned;
@@ -193,18 +210,24 @@ export const ImportRowCard = memo(function ImportRowCard({
           maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
           style={[styles.copiesText, { color: palette.settings.segmentText }]}
         >
-          {conditionShort(row.condition)} ×{row.quantity}
+          {copiesText(row, conditionAssumed)}
         </Text>
       </Pressable>
       {readOnly ? null : (
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityLabel={`${row.included ? 'Leave out' : 'Include'} ${title}`}
-          accessibilityHint={row.included ? 'Leaves this card out' : 'Puts this card back'}
-          aria-checked={row.included}
+          accessibilityLabel={`${included ? 'Leave out' : 'Include'} ${title}`}
+          accessibilityHint={
+            skipped
+              ? 'Opens its printings: it goes in once one is chosen'
+              : included
+                ? 'Leaves this card out'
+                : 'Puts this card back'
+          }
+          aria-checked={included}
           aria-disabled={disabled}
           disabled={disabled}
-          onPress={() => onToggle(row)}
+          onPress={() => (skipped ? onChoosePrinting(row) : onToggle(row))}
           testID={`import-row-${row.position}-include`}
           style={({ pressed }) => [styles.check, pressed && styles.pressed]}
         >
@@ -212,12 +235,12 @@ export const ImportRowCard = memo(function ImportRowCard({
             style={[
               styles.box,
               {
-                borderColor: row.included ? palette.primary : palette.textDisabled,
-                backgroundColor: row.included ? palette.primary : 'transparent',
+                borderColor: included ? palette.primary : palette.textDisabled,
+                backgroundColor: included ? palette.primary : 'transparent',
               },
             ]}
           >
-            {row.included ? (
+            {included ? (
               <MaterialCommunityIcons name="check" size={15} color={palette.onPrimary} />
             ) : null}
           </View>

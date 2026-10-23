@@ -2,7 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import type { ImportRowFilter } from '@/src/api/hooks/inventoryImport';
 import type { InventoryImport, UpdateImportRequest } from '@/src/api/types';
-import { Checkbox, FormMessage } from '@/src/components/ui/FormControls';
+import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
 import { SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
@@ -14,7 +14,6 @@ import {
   assumedCopiesText,
   clockTime,
   defaultConditionsText,
-  leaveOutLabel,
   sectionSwitches,
   summarySentence,
 } from './importLabels';
@@ -25,8 +24,6 @@ export interface ImportPreviewHeaderProps {
   onFilter: (filter: ImportRowFilter) => void;
   onSections: (patch: UpdateImportRequest) => void;
   onCondition: () => void;
-  leaveOut: boolean;
-  onLeaveOut: (value: boolean) => void;
   /** An edit of the whole preview is being saved. */
   busy: boolean;
   /** The lowest condition of each game: where a line whose file names none starts. */
@@ -36,10 +33,10 @@ export interface ImportPreviewHeaderProps {
 }
 
 /**
- * The choices of "Check the cards" that are not on a line (stage R14: the file, the filter and the
- * amber bar stay on screen above the list, the lines come right under them, and these follow the
- * lines): whether the import fits the inventory limit (the screen says it above the lines),
- * "leave out" for the lines that still need a printing, the copies taken as the plain one, the
+ * The choices of "Check the cards" that are not on a line (stage R14: the file, the filter, the
+ * amber bar and "leave out" for the lines that still need a printing stay on screen above the
+ * list, the lines come right under them, and these follow the lines): whether the import fits the
+ * inventory limit (the screen says it above the lines), the copies taken as the plain one, the
  * conditions the file did not say, the deck's sections as switches with their copies, and what
  * the import adds in one sentence with until when the preview is kept. Each shows only when it
  * has something to say.
@@ -49,8 +46,6 @@ export function ImportPreviewHeader({
   onFilter,
   onSections,
   onCondition,
-  leaveOut,
-  onLeaveOut,
   busy,
   lowestGrades,
   limitRoom,
@@ -67,16 +62,6 @@ export function ImportPreviewHeader({
         <FormMessage tone="info" testID="import-limit-room">
           {limitRoom}
         </FormMessage>
-      ) : null}
-
-      {summary.toChoose > 0 ? (
-        <Checkbox
-          label={leaveOutLabel(summary.toChoose, preview.source)}
-          checked={leaveOut}
-          onChange={onLeaveOut}
-          disabled={busy}
-          testID="import-leave-out"
-        />
       ) : null}
 
       {assumed > 0 ? (

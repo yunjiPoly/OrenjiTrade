@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { loadedRows, useImportRows, type ImportRowFilter } from '@/src/api/hooks/inventoryImport';
@@ -7,6 +7,7 @@ import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
+import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { StatusActions, StatusBody, StatusText } from '@/src/features/account/StatusPage';
 import { GroupTitle, SettingsGroup } from '@/src/features/settings/SettingsList';
@@ -46,6 +47,13 @@ export interface ImportResultProps {
  */
 export function ImportResult({ preview, lateEdits, onInventory, onAnother }: ImportResultProps) {
   const { palette } = useTheme();
+  const snackbar = useSnackbar();
+  // A toast of Check the cards ("Use the newest"'s "… Check them.") can no longer be acted on once
+  // the import is done, and it covered "Go to my inventory": it goes when Import done opens (R14
+  // review fix 1, U3).
+  useEffect(() => {
+    snackbar.hide();
+  }, [snackbar]);
   const { summary } = preview;
   const added = (preview.result?.itemsCreated ?? 0) + (preview.result?.itemsMerged ?? 0);
   return (

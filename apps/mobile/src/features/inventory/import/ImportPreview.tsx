@@ -27,7 +27,7 @@ import { ChoiceChips } from '@/src/components/ui/ChoiceChips';
 import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage } from '@/src/components/ui/FormControls';
+import { Checkbox, FormMessage } from '@/src/components/ui/FormControls';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
@@ -47,9 +47,11 @@ import { ImportRowEditDialog } from './ImportRowEditDialog';
 import {
   SAVING_CHANGES,
   commitState,
+  conditionAssumed,
   conditionSetMessage,
   emptyFilterText,
   filterOptions,
+  leaveOutLabel,
   limitRefusalText,
   lineNoun,
   mostRecentMessage,
@@ -274,9 +276,13 @@ export function ImportPreview({
     games.data?.find((candidate) => candidate.slug === game)?.schema?.conditions;
   const empty = emptyFilterText(filter);
   // The lowest grade of each game: where a line whose file names no condition starts.
-  const lowestGrades = (games.data ?? [])
-    .map((game) => game.schema?.conditions?.slice(-1)[0])
-    .filter((grade): grade is string => !!grade);
+  const lowestGrades = useMemo(
+    () =>
+      (games.data ?? [])
+        .map((game) => game.schema?.conditions?.slice(-1)[0])
+        .filter((grade): grade is string => !!grade),
+    [games.data]
+  );
   const room = limits.data?.limits?.find((limit) => limit.key === 'inventory.items.max');
   const limitRoom = limitRoomText(preview.summary, room?.limit == null ? null : room.remaining);
   const { summary } = preview;
@@ -307,8 +313,6 @@ export function ImportPreview({
       onFilter={chooseFilter}
       onSections={(patch) => updateSections.mutate(patch, { onError: (error) => refused(error) })}
       onCondition={() => setConditionSheet(true)}
-      leaveOut={leaveOut}
-      onLeaveOut={setLeaveOut}
       busy={wholeBusy}
       lowestGrades={lowestGrades}
       limitRoom={null}
@@ -399,6 +403,25 @@ export function ImportPreview({
             </Pressable>
           </View>
         ) : null}
+        {/* Right under the amber bar, in reach while lines need a printing (after every line of
+            a long file it could only be reached by scrolling through all of them; R14 review
+            fix 1, F2). */}
+        {summary.toChoose > 0 ? (
+          <Checkbox
+            label={leaveOutLabel(summary.toChoose, preview.source)}
+            checked={leaveOut}
+            onChange={setLeaveOut}
+            disabled={wholeBusy}
+            testID="import-leave-out"
+          >
+            <Text
+              maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+              style={[styles.leaveOut, { color: palette.ink }]}
+            >
+              {leaveOutLabel(summary.toChoose, preview.source)}
+            </Text>
+          </Checkbox>
+        ) : null}
       </View>
       <FlatList
         ref={listRef}
@@ -413,8 +436,11 @@ export function ImportPreview({
             onToggle={toggle}
             disabled={committing}
             showSource={!!item.card?.id && twins.has(item.card.id)}
+            conditionAssumed={conditionAssumed(item, lowestGrades)}
+            skipUnchosen={leaveOut}
           />
         )}
+        extraData={leaveOut}
         ListHeaderComponent={header}
         ListEmptyComponent={
           !rows.data && rows.error ? (
@@ -586,6 +612,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   newestText: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.bold },
+  leaveOut: { fontSize: 13, lineHeight: 18 },
   listContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[4] },
   limitRoom: { paddingTop: 10, paddingBottom: 4 },
   bar: { borderTopWidth: 1, paddingHorizontal: spacing[4], paddingTop: 12, gap: 6 },

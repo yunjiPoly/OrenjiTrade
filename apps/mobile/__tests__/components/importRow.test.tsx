@@ -111,6 +111,46 @@ describe('a line of an import preview (mockup v50 screen 67)', () => {
     );
   });
 
+  it('shows the copies alone while the condition is only the lowest grade the file left it at (R14 review fix 1, U6)', () => {
+    const handlers = { onChoosePrinting: jest.fn(), onEdit: jest.fn(), onToggle: jest.fn() };
+    renderWithProviders(<ImportRowCard row={rowFixture()} conditionAssumed {...handlers} />);
+    // Mockup v50 screen 67: "×2", not "DMG ×2"; the button's name still says the condition.
+    const copies = screen.getByRole('button', {
+      name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',
+    });
+    expect(copies).toHaveTextContent('×2');
+    expect(copies).not.toHaveTextContent(/DMG/);
+  });
+
+  it('shows a line that still needs a printing as left out while those lines are left out (R14 review fix 1, U5)', () => {
+    const row = chooseRow();
+    const handlers = { onChoosePrinting: jest.fn(), onEdit: jest.fn(), onToggle: jest.fn() };
+    renderWithProviders(<ImportRowCard row={row} skipUnchosen {...handlers} />);
+    // Unticked, dimmed and "Left out", as a line left out by hand.
+    const include = screen.getByRole('checkbox', { name: 'Include Fixture Clockwork Heron' });
+    expect(include).not.toBeChecked();
+    expect(screen.getByTestId('import-row-1-state')).toHaveTextContent('Left out');
+    expect(screen.getByTestId('import-row-1-line')).toHaveTextContent('Which copy? 2 printings');
+    // Its box opens "Which copy": a printing chosen is what puts it in.
+    expect(include.props.accessibilityHint).toBe(
+      'Opens its printings: it goes in once one is chosen'
+    );
+    fireEvent.press(include);
+    expect(handlers.onChoosePrinting).toHaveBeenCalledWith(row);
+    expect(handlers.onToggle).not.toHaveBeenCalled();
+  });
+
+  it('leaves a line that has its printing as it is while those that need one are left out', () => {
+    const row = rowFixture();
+    const handlers = { onChoosePrinting: jest.fn(), onEdit: jest.fn(), onToggle: jest.fn() };
+    renderWithProviders(<ImportRowCard row={row} skipUnchosen {...handlers} />);
+    const include = screen.getByRole('checkbox', { name: 'Leave out Fixture Lantern Wisp' });
+    expect(include).toBeChecked();
+    expect(screen.queryByTestId('import-row-0-state')).toBeNull();
+    fireEvent.press(include);
+    expect(handlers.onToggle).toHaveBeenCalledWith(row);
+  });
+
   it('shows what the file said only when another line is the same card', () => {
     renderRow(rowFixture());
     expect(screen.queryByTestId('import-row-0-source')).toBeNull();
@@ -213,12 +253,10 @@ describe('the top of an import preview', () => {
       onFilter: jest.fn(),
       onSections: jest.fn(),
       onCondition: jest.fn(),
-      onLeaveOut: jest.fn(),
     };
     renderWithProviders(
       <ImportPreviewHeader
         preview={importFixture(overrides)}
-        leaveOut={false}
         busy={false}
         lowestGrades={['DAMAGED']}
         limitRoom={limitRoom}
@@ -228,16 +266,16 @@ describe('the top of an import preview', () => {
     return handlers;
   }
 
-  it('offers the actions that apply: leave out, the conditions, the deck sections', () => {
+  it('offers the actions that apply after the lines: the conditions, the deck sections', () => {
     const handlers = renderHeader();
     fireEvent.press(screen.getByTestId('import-bulk-condition'));
     expect(handlers.onCondition).toHaveBeenCalled();
-    fireEvent.press(screen.getByTestId('import-leave-out'));
-    expect(handlers.onLeaveOut).toHaveBeenCalledWith(true);
     fireEvent.press(screen.getByRole('switch', { name: 'Side deck' }));
     expect(handlers.onSections).toHaveBeenCalledWith({ includeSide: false });
-    // "Use the newest" is the amber bar's, on screen above the list (ImportPreview).
+    // "Use the newest" and "Leave out the … that still need a printing" are the amber bar's, on
+    // screen above the list (ImportPreview; R14 review fix 1, F2).
     expect(screen.queryByTestId('import-bulk-recent')).toBeNull();
+    expect(screen.queryByTestId('import-leave-out')).toBeNull();
   });
 
   it('counts a deck in copies and different cards, never in “lines”', () => {
