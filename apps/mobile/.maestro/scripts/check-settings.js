@@ -4,9 +4,11 @@
 // /api/v1/me/deletion-requests.
 //
 // Asserts: `wishlistVisible` and `discoverable` are WISHLIST and DISCOVERABLE ('true' or 'false'),
-// and no deletion was requested (the flow stopped at the confirmation sheet).
+// `profileVisibility` is PROFILE_VISIBILITY when given, and no deletion was requested (the flow
+// stopped at the confirmation sheet).
 //
-// Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, WISHLIST, DISCOVERABLE.
+// Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, WISHLIST, DISCOVERABLE,
+// PROFILE_VISIBILITY (optional).
 
 var api = typeof API_URL !== 'undefined' ? API_URL : 'http://localhost:8090';
 var emulator =
@@ -46,6 +48,15 @@ if (String(privacy.wishlistVisible) !== WISHLIST) {
 }
 if (String(privacy.discoverable) !== DISCOVERABLE) {
   throw new Error('Expected discoverable ' + DISCOVERABLE + ', got ' + privacy.discoverable + '.');
+}
+if (
+  typeof PROFILE_VISIBILITY !== 'undefined' &&
+  PROFILE_VISIBILITY &&
+  privacy.profileVisibility !== PROFILE_VISIBILITY
+) {
+  throw new Error(
+    'Expected profileVisibility ' + PROFILE_VISIBILITY + ', got ' + privacy.profileVisibility + '.'
+  );
 }
 
 var requests = check(

@@ -1,8 +1,10 @@
 # Settings (stage R13 of the phone redesign, mockup v50 screens 47 to 59): a fresh, fictional
 # collector opens Settings from the Profile tab's gear, saves a place on Location (and turns on
 # "Show me on the map", saved at once), switches "Let others see what you want" on Privacy (saved
-# at once, "All changes saved"), and goes as far as the confirmation sheet of Delete account,
-# then keeps the account. The API holds the place and the switches, and no deletion.
+# at once, "All changes saved"), makes the profile Private (Settings and Location then say the
+# collector is off the map; review fix 1), back to Members, turns "Show me on the map" off on
+# Privacy, and goes as far as the confirmation sheet of Delete account, then keeps the account.
+# The API holds the place and the switches, and no deletion.
 appId: ${APP_ID}
 name: Settings, Location, Privacy and Delete account up to the sheet
 tags:
@@ -121,7 +123,68 @@ tags:
     visible: 'All changes saved'
     timeout: 30000
 - takeScreenshot: r13-privacy
+
+# A Private profile leaves the map whatever the switch says (review fix 1): Settings and Location
+# say so.
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'privacy-visibility-PRIVATE'
+- tapOn:
+    id: 'privacy-visibility-PRIVATE'
+- extendedWaitUntil:
+    visible: 'All changes saved'
+    timeout: 30000
 - runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible: 'Quebec, Canada · Not on the map'
+    timeout: 30000
+- tapOn:
+    id: 'settings-link-location'
+- extendedWaitUntil:
+    visible:
+      id: 'location-visibility'
+      text: 'Your profile is private, so you are hidden from the map and from searches\..*'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+
+# Back to Members, then "Show me on the map" off on Privacy itself.
+- extendedWaitUntil:
+    visible:
+      id: 'settings-link-privacy'
+    timeout: 30000
+- tapOn:
+    id: 'settings-link-privacy'
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'privacy-visibility-MEMBERS'
+- tapOn:
+    id: 'privacy-visibility-MEMBERS'
+- extendedWaitUntil:
+    visible: 'All changes saved'
+    timeout: 30000
+- runFlow:
+    file: subflows/scroll-up-to.yaml
+    env:
+      ID: 'privacy-toggle-discoverable'
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'privacy-toggle-discoverable'
+- tapOn:
+    id: 'privacy-toggle-discoverable'
+- runFlow:
+    file: subflows/assert-unchecked.yaml
+    env:
+      ID: 'privacy-toggle-discoverable'
+- extendedWaitUntil:
+    visible: 'All changes saved'
+    timeout: 30000
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible: 'Quebec, Canada · Not on the map'
+    timeout: 30000
 
 # Account (56), then Delete account (57) up to the sheet.
 - extendedWaitUntil:
@@ -181,4 +244,5 @@ tags:
       EMAIL: ${output.collector.email}
       PASSWORD: ${output.collector.password}
       WISHLIST: 'true'
-      DISCOVERABLE: 'true'
+      DISCOVERABLE: 'false'
+      PROFILE_VISIBILITY: 'MEMBERS'
