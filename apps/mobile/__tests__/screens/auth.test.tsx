@@ -388,6 +388,23 @@ describe('Sign up', () => {
   });
 });
 
+describe('Sign in, Create account and Reset password: the keyboard (stage R12, review fix 1)', () => {
+  it('scroll the field being typed in above the keyboard, at every text size', async () => {
+    mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
+    for (const [Page, testID] of [
+      [SignInScreen, 'screen-sign-in'],
+      [SignUpScreen, 'screen-sign-up'],
+      [ResetPasswordScreen, 'screen-reset-password'],
+    ] as const) {
+      const view = renderWithProviders(<Page />, { port: new FakeAuthPort() });
+      expect((await screen.findByTestId(testID)).props.automaticallyAdjustKeyboardInsets).toBe(
+        true
+      );
+      view.unmount();
+    }
+  });
+});
+
 describe('Reset password', () => {
   it('validates the email, then confirms without revealing whether the account exists', async () => {
     const port = new FakeAuthPort();

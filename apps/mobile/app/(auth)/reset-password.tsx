@@ -129,7 +129,13 @@ export default function ResetPasswordScreen() {
   }
 
   return (
-    <Screen scroll safeBottom testID="screen-reset-password" contentContainerStyle={styles.page}>
+    <Screen
+      scroll
+      safeBottom
+      keyboardFollowsFocus
+      testID="screen-reset-password"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.header}>
         <Text
           accessibilityRole="header"

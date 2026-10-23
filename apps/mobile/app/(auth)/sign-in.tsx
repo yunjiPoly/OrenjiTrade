@@ -80,6 +80,7 @@ export default function SignInScreen() {
       scroll
       safeBottom
       fillHeight="full"
+      keyboardFollowsFocus
       testID="screen-sign-in"
       contentContainerStyle={styles.page}
     >

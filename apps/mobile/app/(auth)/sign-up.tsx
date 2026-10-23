@@ -141,7 +141,13 @@ export default function SignUpScreen() {
   };
 
   return (
-    <Screen scroll safeBottom testID="screen-sign-up" contentContainerStyle={styles.page}>
+    <Screen
+      scroll
+      safeBottom
+      keyboardFollowsFocus
+      testID="screen-sign-up"
+      contentContainerStyle={styles.page}
+    >
       <View style={styles.header}>
         <Text
           accessibilityRole="header"

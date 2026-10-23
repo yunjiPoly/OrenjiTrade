@@ -37,6 +37,14 @@ export interface ScreenProps {
    * navigation header (the bottom inset only); `full`: a screen without one (top and bottom).
    */
   fillHeight?: 'below-header' | 'full';
+  /**
+   * A `scroll` form whose fields may sit low (sign in, create account, reset password): on iOS
+   * the scroll view keeps its size under the keyboard and scrolls the field being typed in above
+   * it (`automaticallyAdjustKeyboardInsets`). The KeyboardAvoidingView's padding shrank the scroll
+   * view without bringing that field into view, so at the largest text sizes it was typed under
+   * the keyboard (stage R12's review fix 1). Android keeps the padding (edge to edge).
+   */
+  keyboardFollowsFocus?: boolean;
   testID?: string;
 }
 
@@ -59,6 +67,18 @@ export function ownSafeBottom(
   return options.insetBottom;
 }
 
+/**
+ * The KeyboardAvoidingView's behaviour of a `scroll` screen: none on the web, none on iOS for a
+ * screen whose scroll view follows the focused field itself (`keyboardFollowsFocus`), else
+ * `padding`.
+ */
+export function keyboardBehavior(platform: string, followsFocus: boolean): 'padding' | undefined {
+  if (platform === 'web' || (followsFocus && platform === 'ios')) {
+    return undefined;
+  }
+  return 'padding';
+}
+
 /** Themed page container: background colour, safe-area aware, optional scrolling. */
 export function Screen({
   children,
@@ -70,6 +90,7 @@ export function Screen({
   scrollRef,
   keyboardDismissMode,
   fillHeight,
+  keyboardFollowsFocus = false,
   testID,
 }: ScreenProps) {
   const { palette } = useTheme();
@@ -94,7 +115,7 @@ export function Screen({
     return (
       <KeyboardAvoidingView
         style={[styles.fill, { backgroundColor: palette.background }]}
-        behavior={Platform.OS === 'web' ? undefined : 'padding'}
+        behavior={keyboardBehavior(Platform.OS, keyboardFollowsFocus)}
       >
         <ScrollView
           ref={scrollRef}
@@ -103,6 +124,7 @@ export function Screen({
           contentContainerStyle={[padding, filling && styles.grow, contentContainerStyle]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={keyboardDismissMode}
+          automaticallyAdjustKeyboardInsets={keyboardFollowsFocus}
           contentInsetAdjustmentBehavior={filling ? 'never' : 'automatic'}
         >
           {children}
