@@ -678,7 +678,10 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
     /**
      * Stage R13: Settings and Edit profile. The one save of Edit profile (`PUT /me/profile` with
      * the tags, sent back as read) answers the caller's own profile without a place; the values of
-     * Settings' rows (blocked collectors, my reports) name people and never where they are.
+     * Settings' rows (blocked collectors, my reports) name people and never where they are. The
+     * lists are read with people in them (review fix 1: collector1 had blocked and reported nobody,
+     * so both were empty): collector1 blocks collector5 (a city shown on their profile) for the
+     * test, and collector4's seeded report is read.
      */
     @Test
     void settingsOfStageR13CarryNoPlace(CapturedOutput output) {
@@ -713,9 +716,26 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertThat(saved.propertyNames())
                 .as("the own profile's answer")
                 .doesNotContain("place", "location", "city", "subdivisionCode", "countryCode");
-        fetch("/api/v1/me/blocks", caller);
-        fetch("/api/v1/me/reports", caller);
-        assertContract(output);
+        UUID blocked = idOf("collector5");
+        callJson(HttpMethod.POST, "/api/v1/users/" + blocked + "/block", caller, null, 200);
+        try {
+            JsonNode blocks = fetch("/api/v1/me/blocks", caller);
+            assertThat(blocks.size()).as("collector1's blocked collectors").isEqualTo(1);
+            assertThat(blocks.get(0).path("handle").asString()).isEqualTo("collector5");
+            assertThat(blocks.get(0).propertyNames())
+                    .as("a blocked collector")
+                    .doesNotContain("place", "location", "city", "subdivisionCode", "countryCode");
+            JsonNode reports =
+                    fetch("/api/v1/me/reports", "seed-collector4:collector4@orenjitrade.test");
+            assertThat(reports.size()).as("collector4's reports").isGreaterThan(0);
+            for (JsonNode report : reports) {
+                assertThat(report.path("reportedUser").path("handle").asString()).isNotBlank();
+            }
+            fetch("/api/v1/me/reports", caller);
+            assertContract(output);
+        } finally {
+            callJson(HttpMethod.DELETE, "/api/v1/users/" + blocked + "/block", caller, null, 204);
+        }
     }
 
     @Test
