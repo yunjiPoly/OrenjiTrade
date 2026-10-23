@@ -274,8 +274,10 @@ function RatingForm({
       ? dealLine(interaction)
       : null;
 
+  // A refusal is said in the bar, where the button was pressed.
   const footer = (
     <>
+      {problem ? <FormMessage testID="rating-error">{problem}</FormMessage> : null}
       <PillButton
         label={editing ? COPY.save : COPY.publish}
         loading={saving}
@@ -414,8 +416,6 @@ function RatingForm({
             </Text>
           </Pressable>
         ) : null}
-
-        {problem ? <FormMessage testID="rating-error">{problem}</FormMessage> : null}
       </View>
     </SettingsPage>
   );

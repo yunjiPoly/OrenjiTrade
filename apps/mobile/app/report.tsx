@@ -160,8 +160,23 @@ export default function ReportCollectorScreen() {
     );
   }
 
+  // A refusal is said in the bar, where "Send report" was pressed (the walk: at the end of the
+  // page it was under the fold, and the grey button said nothing).
   const footer = (
     <>
+      {problem ? (
+        <FormMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
+          {problem.message}
+        </FormMessage>
+      ) : null}
+      {blocked ? (
+        <PillButton
+          label={COPY.myReports}
+          variant="outline"
+          onPress={myReports}
+          testID="report-open-my-reports"
+        />
+      ) : null}
       <PillButton
         label={COPY.send}
         loading={report.isPending}
@@ -223,20 +238,6 @@ export default function ReportCollectorScreen() {
           {COPY.confidential}
         </Text>
       </View>
-
-      {problem ? (
-        <FormMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
-          {problem.message}
-        </FormMessage>
-      ) : null}
-      {blocked ? (
-        <PillButton
-          label={COPY.myReports}
-          variant="outline"
-          onPress={myReports}
-          testID="report-open-my-reports"
-        />
-      ) : null}
     </SettingsPage>
   );
 }

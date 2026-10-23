@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import CollectorReferencesScreen from '@/app/collectors/[id]/references';
 import RateCollectorScreen from '@/app/ratings/rate';
@@ -154,6 +154,9 @@ describe('Rate a collector', () => {
     expect(await screen.findByTestId('rating-error')).toHaveTextContent(
       /You already rated this interaction/
     );
+    expect(
+      within(screen.getByTestId('screen-rate-footer')).getByTestId('rating-error')
+    ).toBeOnTheScreen();
   });
 
   it('only rates the completed trade from a trade, and says why nothing can be rated', async () => {

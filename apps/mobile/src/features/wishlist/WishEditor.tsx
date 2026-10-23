@@ -249,8 +249,10 @@ function WishForm(
   const eyebrow =
     tile === null ? palette.primary : palette.scheme === 'dark' ? tile.foreground : tile.background;
 
+  // A refusal is said in the bar, where the button was pressed.
   const footer = (
     <>
+      {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
       <PillButton
         label={editItem ? COPY.save : COPY.add}
         loading={saving}
@@ -323,8 +325,6 @@ function WishForm(
         onRetryTerms={() => void terms.refetch()}
         disabled={saving}
       />
-
-      {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
 
       {editItem ? (
         <ConfirmSheet

@@ -90,6 +90,10 @@ describe('Report collector', () => {
     expect(await screen.findByTestId('report-error')).toHaveTextContent(
       /You already reported Noé Verdun/
     );
+    // Said in the bar at the bottom, where "Send report" was pressed (the R14 walk).
+    expect(
+      within(screen.getByTestId('screen-report-footer')).getByTestId('report-error')
+    ).toBeOnTheScreen();
     expect(screen.getByTestId('report-confirm')).toBeDisabled();
     fireEvent.press(screen.getByTestId('report-open-my-reports'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/settings/reports');

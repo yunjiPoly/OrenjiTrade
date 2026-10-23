@@ -85,15 +85,19 @@ export default function WriteReferenceScreen() {
     }
   };
 
+  // A refusal is said in the bar, where the button was pressed.
   const footer = (
-    <PillButton
-      label={COPY.publishReference}
-      loading={create.isPending}
-      loadingLabel={COPY.publishing}
-      onPress={() => void submit()}
-      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
-      testID="reference-submit"
-    />
+    <>
+      {problem ? <FormMessage testID="reference-error">{problem}</FormMessage> : null}
+      <PillButton
+        label={COPY.publishReference}
+        loading={create.isPending}
+        loadingLabel={COPY.publishing}
+        onPress={() => void submit()}
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        testID="reference-submit"
+      />
+    </>
   );
 
   return (
@@ -126,7 +130,6 @@ export default function WriteReferenceScreen() {
         textAlignVertical="top"
         testID="reference-body"
       />
-      {problem ? <FormMessage testID="reference-error">{problem}</FormMessage> : null}
     </SettingsPage>
   );
 }
