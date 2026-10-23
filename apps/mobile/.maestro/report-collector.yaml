@@ -2,12 +2,16 @@
 # fictional) opens the profile of Bo (fresh, fictional; scripts/reports.js) and reports him from
 # its "⋯": the reasons of the API as radio rows, "Send report" grey with "Choose a reason first."
 # until one is chosen, details, Report sent in place; "Follow it in My reports" shows the open
-# report and the API holds it (status only).
+# report and the API holds it (status only). Then, at the largest text size, a second report is
+# refused (409) in the bar at the bottom while the form and the bar's buttons stay in reach (R14
+# review fix 1, U1: the refusal grew over the whole page and pushed "My reports" and "Send report"
+# off the screen).
 appId: ${APP_ID}
 name: Report a collector and follow it in My reports
 tags:
   - mobile-m5
   - reports
+  - large-text
 ---
 - runScript:
     file: scripts/reports.js
@@ -108,3 +112,55 @@ tags:
 # stands as its value).
 - assertVisible: 'Bo Reported\. Opens their profile\.'
 - takeScreenshot: my-reports
+
+# The largest text size (subflows/relaunch-large-text.yaml; Android keeps the device's own size):
+# Bo again, the report already open, so "Send report" is refused in the bar at the bottom.
+- runFlow: subflows/relaunch-large-text.yaml
+- openLink: ${APP_URL}/--/collectors/${output.bo.handle}
+- runFlow: subflows/dismiss-dev-menu.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'collector-name'
+      text: 'Bo Reported'
+    timeout: 60000
+- tapOn:
+    id: 'collector-menu'
+- extendedWaitUntil:
+    visible:
+      id: 'collector-report'
+    timeout: 15000
+- tapOn:
+    id: 'collector-report'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-report'
+    timeout: 60000
+- runFlow:
+    file: subflows/scroll-down-to.yaml
+    env:
+      ID: 'report-reason-HARASSMENT'
+- tapOn:
+    id: 'report-reason-HARASSMENT'
+- tapOn:
+    id: 'report-confirm'
+- extendedWaitUntil:
+    visible:
+      id: 'report-error'
+      text: '.*You already reported Bo Reported.*'
+    timeout: 60000
+# The refusal keeps to its part of the bar: the page above it still scrolls, and "My reports" and
+# the grey "Send report" stay on the screen.
+- assertVisible:
+    id: 'screen-report-scroll'
+- assertVisible:
+    id: 'report-open-my-reports'
+- assertVisible:
+    id: 'report-confirm'
+    enabled: false
+- takeScreenshot: report-refused-large-text
+- tapOn:
+    id: 'report-open-my-reports'
+- extendedWaitUntil:
+    visible:
+      id: 'reports-summary'
+    timeout: 60000
