@@ -506,9 +506,10 @@ test.describe('mobile inventory import', () => {
       visibility: 'PRIVATE',
     });
 
-    // "Import another file" starts over with nothing left open.
+    // "Import another file" opens the file step of the same source (mockup v50 screen 68), with
+    // nothing left open.
     await result.getByRole('button', { name: 'Import another file' }).click();
-    await expect(flow.getByText('Where do your cards come from?')).toBeVisible({ timeout: 30_000 });
+    await expect(flow.getByTestId('import-file-COLLECTR_CSV')).toBeVisible({ timeout: 30_000 });
     await expect(flow.getByTestId('import-open')).toHaveCount(0);
   });
 
@@ -571,11 +572,11 @@ test.describe('mobile inventory import', () => {
       'aria-checked',
       'true'
     );
-    await expect(flow.getByTestId('import-row-0-assumed')).toContainText(
-      'Taken as the plain copy (Unlimited, no foil)',
-      { timeout: 30_000 }
-    );
-    await expect(flow.getByTestId('import-row-2-assumed')).toBeVisible();
+    // The line says so under its name (stage R14).
+    await expect(flow.getByTestId('import-row-0-line')).toContainText('· assumed plain copy', {
+      timeout: 30_000,
+    });
+    await expect(flow.getByTestId('import-row-2-line')).toContainText('· assumed plain copy');
     await expect(flow.getByTestId('import-row-1')).toHaveCount(0);
 
     // The knight's plain copy is right: picked again it is the collector's choice, the line
