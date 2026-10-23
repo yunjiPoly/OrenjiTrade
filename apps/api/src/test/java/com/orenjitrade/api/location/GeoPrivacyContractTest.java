@@ -675,6 +675,49 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         assertContract(output);
     }
 
+    /**
+     * Stage R13: Settings and Edit profile. The one save of Edit profile (`PUT /me/profile` with
+     * the tags, sent back as read) answers the caller's own profile without a place; the values of
+     * Settings' rows (blocked collectors, my reports) name people and never where they are.
+     */
+    @Test
+    void settingsOfStageR13CarryNoPlace(CapturedOutput output) {
+        String caller = "seed-collector1:collector1@orenjitrade.test";
+        JsonNode profile = fetch("/api/v1/me/profile", caller);
+        List<String> tagIds = new ArrayList<>();
+        List<String> customLabels = new ArrayList<>();
+        for (JsonNode tag : profile.path("tags")) {
+            if ("CUSTOM".equals(tag.path("category").asString())) {
+                customLabels.add(tag.path("label").asString());
+            } else {
+                tagIds.add(tag.path("id").asString());
+            }
+        }
+        List<String> games = new ArrayList<>();
+        profile.path("games").forEach(game -> games.add(game.asString()));
+        List<String> languages = new ArrayList<>();
+        profile.path("languages").forEach(language -> languages.add(language.asString()));
+        Map<String, Object> tags = new LinkedHashMap<>();
+        tags.put("tagIds", tagIds);
+        tags.put("customLabels", customLabels);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("handle", profile.path("handle").asString());
+        body.put("displayName", profile.path("displayName").asString());
+        body.put("bio", profile.path("bio").asString());
+        body.put("games", games);
+        body.put("languages", languages);
+        body.put("tags", tags);
+        JsonNode saved = callJson(HttpMethod.PUT, "/api/v1/me/profile", caller, body, 200);
+        fetched.add(new Fetched("/api/v1/me/profile (PUT with tags)", caller, saved));
+        assertThat(saved.path("tags").size()).isEqualTo(profile.path("tags").size());
+        assertThat(saved.propertyNames())
+                .as("the own profile's answer")
+                .doesNotContain("place", "location", "city", "subdivisionCode", "countryCode");
+        fetch("/api/v1/me/blocks", caller);
+        fetch("/api/v1/me/reports", caller);
+        assertContract(output);
+    }
+
     @Test
     void homeFeedCarriesPlacesOnly(CapturedOutput output) {
         Set<String> kindsSeen = new java.util.HashSet<>();
