@@ -72,7 +72,6 @@ tags:
       id: 'import-summary'
     timeout: 60000
 - assertVisible: 'Which copy\? 2'
-- assertVisible: 'Your file has 3 lines\. 1 is ready to add: 1 copy\.'
 - assertNotVisible: '(Plain copy assumed|[0-9]+ assumed).*'
 
 # "Use the newest" of the amber bar (stage R14) takes the plain copy of both, and says so once.

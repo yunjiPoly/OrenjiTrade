@@ -86,7 +86,6 @@ tags:
 - assertVisible: 'Which copy\? 2'
 - assertVisible: 'Not recognised 1'
 - assertVisible: '2 cards need a printing\. Pick one on each, or use the newest for all\.'
-- assertVisible: 'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
 - takeScreenshot: import-deck-preview
 # The commit cannot be pressed yet, and says why.
 - assertVisible:
@@ -156,6 +155,13 @@ tags:
 - extendedWaitUntil:
     visible: '3 cards set to Near Mint.'
     timeout: 30000
+# What the import adds, in one sentence after the lines (stage R14).
+- runFlow:
+    file: subflows/scroll-down-above.yaml
+    env:
+      ID: 'import-summary-sentence'
+      BAR: 'import-commit-bar'
+- assertVisible: 'Your file lists 4 different cards\. 3 are ready to add: 5 copies\.'
 
 # The commit says what it does, and does it.
 # Three cards, five copies: the copies stand next to the cards.
