@@ -785,3 +785,39 @@ Built as stage R12 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R12: Sign-in, si
 `GET /api/v1/me/profile/handle-availability`, the welcome's live check). The close button of Sign in
 and the line "Visitors without an account never see your name" under "Show me on the map" belong to
 stage R15 (browsing without an account).
+
+## Changed by the owner on 2026-10-19: Settings
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R13, saved word for word; mockup version 50, screens 47 to 59) restyles Settings and its
+pages, which existed since the mobile stages M1 to M8 and R6's gear. The prompt above is kept as it
+was (its section 12 placed Shipping details and "Remember my searches" in Settings); these points
+add to it:
+
+1. **Settings** (47): a profile card (picture, name, "@handle · Edit profile") that opens Edit
+   profile; "Where you ship from" (Location and discoverability with "{province}, {country} · On the
+   map" or "Not on the map"; Shipping details), "App" (Notifications; Privacy; Appearance with the
+   theme), "Safety" (Blocked collectors with their number; My reports with "{n} waiting"), "Account"
+   (Account with the email; Legal); a red "Sign out"; the version.
+2. **Edit profile** (48): **one "Save changes"** for the handle, the display name, the bio, the games
+   (the welcome's tiles), the languages and the tags ("Add a tag", 12 at most), "No changes yet"
+   while nothing changed; the picture still saves at once; "Preview" opens the public profile;
+   leaving with unsaved changes asks first.
+3. **Location** (49): "Show me on the map" first (saved at once; it needs a saved place), with
+   "Collectors see you in {province}, {country}." or "You are hidden from the map and from
+   searches."; the region, the country and the state or province side by side, the city, "Show my
+   city on my profile", the box "How OrenjiTrade protects where you live", "Remove my location" (a
+   sheet) and "Save location".
+4. **Notifications** (51): the channels, wishlist alerts, **a grid of topics by channel**, a
+   channel's column dimmed while it is off, quiet hours in 24-hour time; "Save preferences".
+5. **Privacy** (52) saves at once ("All changes saved" in the top bar); **Appearance** (53) is
+   "Same as the phone", Light or Dark, and About; **Blocked collectors** (54); **My reports** (55)
+   with pills (Open amber, Under review, Action taken teal, Dismissed grey); **Account** (56);
+   **Delete account** (57), "Delete my account" grey until the confirmation is ticked, then a sheet.
+6. **Legal** (58) lists seven documents on the phone: the Payment Protection and the Refund and
+   Dispute policies are the web's (ADR 0018). A document (59) is as before.
+
+Built as stage R13 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R13: Settings (47 to 59)"; API
+contract [`docs/api/contracts/r13-settings.md`](../../api/contracts/r13-settings.md): the optional
+`tags` of `PUT /me/profile`, Edit profile's one save). The line "Visitors without an account see your
+cards, never your name" under "Show me on the map" belongs to stage R15.
