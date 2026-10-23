@@ -24,14 +24,25 @@ import { gameTile } from '@/src/features/games/gameTiles';
 import { SettingsTopBar } from '@/src/features/settings/SettingsPage';
 import { editionLabel, printingCode, printingFacts, printingImageUrl } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
-import { TITLE_MAX_FONT_SCALE, fontFamily, fontWeight, spacing, useTheme } from '@/src/theme';
+import {
+  TITLE_MAX_FONT_SCALE,
+  fontFamily,
+  fontWeight,
+  spacing,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 const COLUMNS = 3;
+/** At the largest text sizes the grid has two columns: a printing's code stays whole. */
+const COLUMNS_LARGE = 2;
 const GAP = 10;
+/** How far a tile's code and rarity follow the text size (a grid has little room). */
+const TILE_MAX_FONT_SCALE = 1.6;
 
-/** The width of a grid tile: three columns in the page's 16 pt margins, 10 pt apart. */
-function tileWidth(windowWidth: number): number {
-  return Math.floor((windowWidth - spacing[4] * 2 - GAP * (COLUMNS - 1)) / COLUMNS);
+/** The width of a grid tile: the columns in the page's 16 pt margins, 10 pt apart. */
+function tileWidth(windowWidth: number, columns: number): number {
+  return Math.floor((windowWidth - spacing[4] * 2 - GAP * (columns - 1)) / columns);
 }
 
 /**
@@ -47,7 +58,8 @@ export default function SetScreen() {
   const insets = useSafeAreaInsets();
   const { palette } = useTheme();
   const { width } = useWindowDimensions();
-  const tile = tileWidth(width);
+  const columns = useStackedRows() ? COLUMNS_LARGE : COLUMNS;
+  const tile = tileWidth(width, columns);
   const detail = useSetDetail(id);
   const set = detail.data?.pages[0]?.set;
   const printings = useMemo(
@@ -108,9 +120,10 @@ export default function SetScreen() {
     const colours = set?.game ? gameTile(set.game) : null;
     body = (
       <FlatList
+        key={`columns-${columns}`}
         testID="set-printings"
         data={printings}
-        numColumns={COLUMNS}
+        numColumns={columns}
         keyExtractor={(printing, index) => printing.id ?? String(index)}
         renderItem={({ item }) => (
           <PrintingTile printing={item} game={set?.game} width={tile} onPress={open} />
@@ -155,6 +168,7 @@ export default function SetScreen() {
                 icon="magnify"
                 variant="outline"
                 onPress={whoHas}
+                maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
                 testID="set-search"
               />
             ) : null}
@@ -239,14 +253,14 @@ const PrintingTile = memo(function PrintingTile({
       />
       <Text
         numberOfLines={1}
-        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        maxFontSizeMultiplier={TILE_MAX_FONT_SCALE}
         style={[styles.code, { color: palette.settings.segmentText }]}
       >
         {code}
       </Text>
       <Text
         numberOfLines={1}
-        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        maxFontSizeMultiplier={TILE_MAX_FONT_SCALE}
         style={[styles.rarity, { color: palette.textMuted }]}
       >
         {printing.rarity || facts}
@@ -255,7 +269,7 @@ const PrintingTile = memo(function PrintingTile({
         // Two printings of one code differ by their edition (a 1st Edition and an Unlimited one).
         <Text
           numberOfLines={1}
-          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          maxFontSizeMultiplier={TILE_MAX_FONT_SCALE}
           style={[styles.rarity, { color: palette.textMuted }]}
         >
           {special}

@@ -20,10 +20,11 @@ import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { gameTile } from '@/src/features/games/gameTiles';
+import { LABEL_MAX_FONT_SCALE } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { printingCode, printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
-import { PINNED_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, fontWeight, useStackedRows, useTheme } from '@/src/theme';
 
 import { WISH_COPY as COPY } from './wishCopy';
 import { WishFields } from './WishFields';
@@ -144,6 +145,7 @@ function WishForm(
   }
 ) {
   const { palette } = useTheme();
+  const stacked = useStackedRows();
   const router = useRouter();
   const snackbar = useSnackbar();
   const { card, title, fromSearch, onBack } = props;
@@ -249,6 +251,23 @@ function WishForm(
     }
   };
 
+  const changeButton = editItem ? null : (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={COPY.changeLabel(name)}
+      onPress={change}
+      testID="wish-change-card"
+      style={({ pressed }) => [styles.change, pressed && styles.pressed]}
+    >
+      <Text
+        maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+        style={[styles.changeLabel, { color: palette.accent }]}
+      >
+        {COPY.change}
+      </Text>
+    </Pressable>
+  );
+
   const tile = card.game ? gameTile(card.game) : null;
   const eyebrow =
     tile === null ? palette.primary : palette.scheme === 'dark' ? tile.foreground : tile.background;
@@ -288,31 +307,46 @@ function WishForm(
     <SettingsPage title={title} onBack={onBack} footer={footer} testID={screenId(props)}>
       <View
         testID="wish-card"
-        style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        style={[
+          styles.card,
+          stacked && styles.cardStacked,
+          { backgroundColor: palette.surface, borderColor: palette.border },
+        ]}
       >
-        <CardImage src={card.primaryImageUrl} alt={name} game={card.game} size="sm" />
-        <View style={styles.cardWords}>
+        {/* At the largest text sizes the picture and "Change" stand above the words, which take
+            the whole width (the walk: beside the picture the card's name broke in mid-word). */}
+        {stacked ? (
+          <View style={styles.cardTop}>
+            <CardImage src={card.primaryImageUrl} alt={name} game={card.game} size="sm" />
+            {changeButton}
+          </View>
+        ) : (
+          <CardImage src={card.primaryImageUrl} alt={name} game={card.game} size="sm" />
+        )}
+        <View style={stacked ? styles.cardWordsStacked : styles.cardWords}>
           {card.game ? (
-            <Text style={[styles.eyebrow, { color: eyebrow }]}>
+            <Text
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              style={[styles.eyebrow, { color: eyebrow }]}
+            >
               {gameLabel(card.game).toUpperCase()}
             </Text>
           ) : null}
-          <Text style={[styles.cardName, { color: palette.ink }]}>{name}</Text>
-          <Text style={[styles.cardLine, { color: palette.textMuted }]} testID="wish-card-line">
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.cardName, { color: palette.ink }]}
+          >
+            {name}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.cardLine, { color: palette.textMuted }]}
+            testID="wish-card-line"
+          >
             {wishCardLine(wished, printings.length)}
           </Text>
         </View>
-        {editItem ? null : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={COPY.changeLabel(name)}
-            onPress={change}
-            testID="wish-change-card"
-            style={({ pressed }) => [styles.change, pressed && styles.pressed]}
-          >
-            <Text style={[styles.changeLabel, { color: palette.accent }]}>{COPY.change}</Text>
-          </Pressable>
-        )}
+        {stacked ? null : changeButton}
       </View>
 
       <WishFields
@@ -357,6 +391,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardWords: { flex: 1, minWidth: 0, gap: 3 },
+  cardStacked: { flexDirection: 'column', alignItems: 'stretch' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cardWordsStacked: { gap: 3 },
   eyebrow: { fontSize: 11, lineHeight: 14, fontWeight: fontWeight.bold, letterSpacing: 0.6 },
   cardName: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.semibold },
   cardLine: { fontSize: 12, lineHeight: 16 },
