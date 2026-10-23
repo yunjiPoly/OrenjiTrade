@@ -29,7 +29,8 @@ export interface SettingsTopBarProps {
 
 /**
  * The top bar of Settings and its pages (mockup v50 screens 47 to 59): a 44 pt back button, the
- * title in Sora on the left, an optional action or status on the right, a hairline under it. The
+ * title in Sora on the left (on two lines at the largest text sizes, never cut), an optional action
+ * or status on the right (which follows the text size a little only), a hairline under it. The
  * back button keeps the id of the navigation header's (`BackButton`): the flows go back the same
  * way on every screen.
  */
@@ -54,7 +55,7 @@ export function SettingsTopBar({
       <Text
         accessibilityRole="header"
         maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
-        numberOfLines={1}
+        numberOfLines={2}
         style={[styles.title, { color: palette.ink }]}
       >
         {title}

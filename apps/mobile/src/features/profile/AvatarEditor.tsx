@@ -10,7 +10,7 @@ import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { EDIT_PROFILE_COPY as COPY } from '@/src/features/settings/settingsCopy';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
-import { fontWeight, spacing, useTheme } from '@/src/theme';
+import { fontWeight, spacing, useStackedRows, useTheme } from '@/src/theme';
 
 export interface AvatarEditorProps {
   avatarUrl: string | null | undefined;
@@ -25,6 +25,7 @@ export interface AvatarEditorProps {
  */
 export function AvatarEditor({ avatarUrl, name, disabled = false }: AvatarEditorProps) {
   const { palette } = useTheme();
+  const stacked = useStackedRows();
   const upload = useUploadAvatar();
   const remove = useDeleteAvatar();
   const snackbar = useSnackbar();
@@ -74,7 +75,7 @@ export function AvatarEditor({ avatarUrl, name, disabled = false }: AvatarEditor
   const chooseLabel = avatarUrl ? COPY.changePicture : COPY.addPicture;
   return (
     <View style={styles.root}>
-      <View style={styles.row}>
+      <View style={[styles.row, stacked && styles.rowStacked]}>
         <Avatar src={avatarUrl} name={name} size={72} decorative={false} />
         <View style={styles.words}>
           <View style={styles.actions}>
@@ -122,7 +123,9 @@ export function AvatarEditor({ avatarUrl, name, disabled = false }: AvatarEditor
 const styles = StyleSheet.create({
   root: { gap: spacing[3] },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  words: { flex: 1, minWidth: 0, gap: 4 },
+  // The largest text sizes: the picture above its buttons and line, which keep the page's width.
+  rowStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  words: { flex: 1, minWidth: 0, gap: 4, alignSelf: 'stretch' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing[4] },
   action: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
   choose: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.bold },

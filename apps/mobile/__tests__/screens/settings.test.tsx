@@ -1,4 +1,5 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import AccountSettingsScreen from '@/app/settings/account';
 import AppearanceSettingsScreen from '@/app/settings/appearance';
@@ -555,6 +556,40 @@ describe('Notifications (51)', () => {
     expect(screen.getByTestId('settings-notifications-loading')).toBeOnTheScreen();
     fireEvent.press(await screen.findByRole('button', { name: 'Try again' }));
     expect(await screen.findByTestId('notif-grid')).toBeOnTheScreen();
+  });
+});
+
+describe('the largest text sizes (stage R13 walk)', () => {
+  const window = Dimensions.get('window');
+  const textSize = (fontScale: number) =>
+    act(() => {
+      Dimensions.set({ window: { ...window, fontScale }, screen: { ...window, fontScale } });
+    });
+  afterEach(() => textSize(window.fontScale));
+
+  it('names each box of the grid under its topic, and gives the words the whole row', async () => {
+    mockApi(signedInRoutes());
+    textSize(3.1);
+    renderWithProviders(<NotificationSettingsScreen />, { port: port() });
+    const grid = await screen.findByTestId('notif-grid');
+    // No column heads: each box says its channel (one topic in the fixture, one "Email").
+    expect(within(grid).getAllByText('Email')).toHaveLength(1);
+    expect(
+      within(grid).getByRole('checkbox', { name: 'Messages by email' })
+    ).toBeOnTheScreen();
+    expect(within(grid).getByText('Messages')).toHaveProp('maxFontSizeMultiplier', 2.5);
+  });
+
+  it('puts the picture above the name in Settings, without icons or chevrons beside the rows', async () => {
+    mockApi(signedInRoutes({ 'GET /api/v1/me/blocks': ok([]), 'GET /api/v1/me/reports': ok([]) }));
+    textSize(3.1);
+    renderWithProviders(<SettingsScreen />, { port: port() });
+    const card = await screen.findByTestId('settings-link-profile');
+    expect(card).toHaveStyle({ flexDirection: 'column' });
+    expect(screen.getByText('Location and discoverability')).toHaveProp(
+      'maxFontSizeMultiplier',
+      2.5
+    );
   });
 });
 

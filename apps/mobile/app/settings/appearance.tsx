@@ -58,15 +58,7 @@ function CardDataCredits() {
 function ServerRow() {
   const meta = useMeta();
   if (meta.isPending) {
-    return (
-      <SettingsRow
-        kind="info"
-        icon="server-outline"
-        label={COPY.server}
-        valueLoading
-        testID="api-status-loading"
-      />
-    );
+    return <SettingsRow kind="info" label={COPY.server} valueLoading testID="api-status-loading" />;
   }
   if (meta.isError) {
     return (
@@ -82,7 +74,6 @@ function ServerRow() {
   return (
     <SettingsRow
       kind="info"
-      icon="server-outline"
       label={COPY.server}
       detail={COPY.serverApi(meta.data.name, meta.data.version)}
       value={COPY.serverReached(relativeTime(meta.dataUpdatedAt))}
@@ -113,7 +104,6 @@ export default function AppearanceSettingsScreen() {
       <SettingsGroup title={COPY.about}>
         <SettingsRow
           kind="info"
-          icon="information-outline"
           label={COPY.version}
           value={COPY.versionValue(appVersion(), meta.data?.environment ?? null)}
           testID="app-version"

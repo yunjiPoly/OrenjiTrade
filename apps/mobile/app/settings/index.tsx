@@ -15,7 +15,7 @@ import { SETTINGS_HOME_COPY as COPY, THEME_NAMES } from '@/src/features/settings
 import { SettingsGroup, SettingsRow } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { useAppStore } from '@/src/store/useAppStore';
-import { fontWeight, radius, useTheme } from '@/src/theme';
+import { fontWeight, radius, useStackedRows, useTheme } from '@/src/theme';
 
 /**
  * Settings (stage R13, mockup v50 screen 47), behind the Profile tab's gear: the profile card that
@@ -34,6 +34,8 @@ export default function SettingsScreen() {
   const blocks = useMyBlocks();
   const reports = useMyReports();
   const theme = useAppStore((state) => state.themeOverride);
+  // At the largest text sizes the picture goes above the name, which then has the card's width.
+  const stacked = useStackedRows();
 
   const place = location.data?.location?.label ?? null;
   const waiting = reports.data?.filter((report) => isOpenReport(report.status)).length ?? 0;
@@ -48,6 +50,7 @@ export default function SettingsScreen() {
         testID="settings-link-profile"
         style={({ pressed }) => [
           styles.card,
+          stacked && styles.cardStacked,
           { backgroundColor: palette.surface, borderColor: palette.border },
           pressed && styles.pressed,
         ]}
@@ -61,7 +64,9 @@ export default function SettingsScreen() {
             {COPY.profileCardLine(account.handle)}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={18} color={palette.settings.chevron} />
+        {stacked ? null : (
+          <MaterialCommunityIcons name="chevron-right" size={18} color={palette.settings.chevron} />
+        )}
       </Pressable>
 
       <SettingsGroup title={COPY.shipFrom}>
@@ -169,7 +174,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
   },
-  words: { flex: 1, minWidth: 0, gap: 2 },
+  cardStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  words: { flex: 1, minWidth: 0, gap: 2, alignSelf: 'stretch' },
   name: { fontSize: 16, lineHeight: 21, fontWeight: fontWeight.semibold },
   line: { fontSize: 13, lineHeight: 18 },
   version: { fontSize: 12, lineHeight: 16, textAlign: 'center' },

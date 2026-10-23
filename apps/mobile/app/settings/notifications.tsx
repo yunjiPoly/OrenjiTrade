@@ -26,10 +26,22 @@ import {
   type MasterKey,
 } from '@/src/features/settings/notificationOptions';
 import { NOTIFICATION_SETTINGS_COPY as COPY } from '@/src/features/settings/settingsCopy';
-import { GroupTitle, SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
+import {
+  GroupTitle,
+  LABEL_MAX_FONT_SCALE,
+  SettingsGroup,
+  SettingsSwitch,
+} from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { AlertReadinessNotice, alertReadiness } from '@/src/features/wishlist/WishlistNotices';
-import { fontWeight, PINNED_MAX_FONT_SCALE, radius, spacing, useTheme } from '@/src/theme';
+import {
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  radius,
+  spacing,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 /**
  * Settings › Notifications (stage R13, mockup v50 screen 51; web: `/settings/notifications`):
@@ -64,6 +76,7 @@ export default function NotificationSettingsScreen() {
 
 function NotificationForm({ initial }: { initial: NotificationSettingsResponse }) {
   const { palette } = useTheme();
+  const stacked = useStackedRows();
   const snackbar = useSnackbar();
   const save = useSaveNotificationSettings();
   // Wishlist alerts need a country and state (ADR 0017): without them, say so next to the switch.
@@ -166,7 +179,13 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
             testID="notif-quiet"
           />
           {draft.quietHours.enabled ? (
-            <View style={[styles.times, { borderTopColor: palette.border }]}>
+            <View
+              style={[
+                styles.times,
+                stacked && styles.timesStacked,
+                { borderTopColor: palette.border },
+              ]}
+            >
               <TextField
                 label={COPY.from}
                 value={draft.quietHours.start}
@@ -174,7 +193,7 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
                 placeholder="22:00"
                 keyboardType="numbers-and-punctuation"
                 maxLength={5}
-                containerStyle={styles.grow}
+                containerStyle={stacked ? undefined : styles.grow}
                 testID="notif-quiet-start"
               />
               <TextField
@@ -184,7 +203,7 @@ function NotificationForm({ initial }: { initial: NotificationSettingsResponse }
                 placeholder="08:00"
                 keyboardType="numbers-and-punctuation"
                 maxLength={5}
-                containerStyle={styles.grow}
+                containerStyle={stacked ? undefined : styles.grow}
                 testID="notif-quiet-end"
               />
             </View>
@@ -226,6 +245,9 @@ function TopicGrid({
   onChange: (category: string, channel: Channel, value: boolean) => void;
 }) {
   const { palette } = useTheme();
+  // At the largest text sizes a topic takes the card's width, its three boxes under it, each named
+  // by its channel (the column heads would not fit beside the words).
+  const stacked = useStackedRows();
   const topics = categoriesOf(settings);
   return (
     <View style={styles.block} testID="notif-grid">
@@ -233,70 +255,95 @@ function TopicGrid({
       <View
         style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
       >
-        <View
-          style={styles.gridRow}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-        >
-          <View style={styles.topic} />
-          {CHANNELS.map((channel) => (
-            <Text
-              key={channel.key}
-              maxFontSizeMultiplier={1.3}
-              numberOfLines={1}
-              style={[
-                styles.column,
-                { color: palette.textMuted },
-                !settings[channel.master] && styles.dimmed,
-              ]}
-            >
-              {channel.column}
-            </Text>
-          ))}
-        </View>
+        {stacked ? null : (
+          <View
+            style={styles.gridRow}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <View style={styles.topic} />
+            {CHANNELS.map((channel) => (
+              <Text
+                key={channel.key}
+                maxFontSizeMultiplier={1.3}
+                numberOfLines={1}
+                style={[
+                  styles.column,
+                  { color: palette.textMuted },
+                  !settings[channel.master] && styles.dimmed,
+                ]}
+              >
+                {channel.column}
+              </Text>
+            ))}
+          </View>
+        )}
         {topics.map((topic) => (
           <View
             key={topic.key}
-            style={[styles.gridRow, styles.topicRow, { borderTopColor: palette.border }]}
+            style={[
+              styles.gridRow,
+              styles.topicRow,
+              stacked && styles.topicRowStacked,
+              { borderTopColor: palette.border },
+            ]}
           >
-            <Text style={[styles.topic, styles.topicText, { color: palette.ink }]}>
+            <Text
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              style={[
+                styles.topic,
+                stacked && styles.topicStacked,
+                styles.topicText,
+                { color: palette.ink },
+              ]}
+            >
               {topic.label}
             </Text>
-            {CHANNELS.map((channel) => {
-              const live = settings[channel.master];
-              const checked = (settings.categories[topic.key]?.[channel.key] ?? false) && live;
-              return (
-                <Pressable
-                  key={channel.key}
-                  accessibilityRole="checkbox"
-                  accessibilityLabel={cellLabel(topic.label, channel, live)}
-                  aria-checked={checked}
-                  aria-disabled={!live}
-                  disabled={!live}
-                  onPress={() => onChange(topic.key, channel.key, !checked)}
-                  testID={`notif-${topic.key}-${channel.key}`}
-                  style={({ pressed }) => [
-                    styles.cell,
-                    !live && styles.dimmed,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.box,
-                      {
-                        borderColor: checked ? palette.primary : palette.textDisabled,
-                        backgroundColor: checked ? palette.primary : 'transparent',
-                      },
+            <View style={styles.cells}>
+              {CHANNELS.map((channel) => {
+                const live = settings[channel.master];
+                const checked = (settings.categories[topic.key]?.[channel.key] ?? false) && live;
+                return (
+                  <Pressable
+                    key={channel.key}
+                    accessibilityRole="checkbox"
+                    accessibilityLabel={cellLabel(topic.label, channel, live)}
+                    aria-checked={checked}
+                    aria-disabled={!live}
+                    disabled={!live}
+                    onPress={() => onChange(topic.key, channel.key, !checked)}
+                    testID={`notif-${topic.key}-${channel.key}`}
+                    style={({ pressed }) => [
+                      styles.cell,
+                      !live && styles.dimmed,
+                      pressed && styles.pressed,
                     ]}
                   >
-                    {checked ? (
-                      <MaterialCommunityIcons name="check" size={15} color={palette.onPrimary} />
+                    <View
+                      style={[
+                        styles.box,
+                        {
+                          borderColor: checked ? palette.primary : palette.textDisabled,
+                          backgroundColor: checked ? palette.primary : 'transparent',
+                        },
+                      ]}
+                    >
+                      {checked ? (
+                        <MaterialCommunityIcons name="check" size={15} color={palette.onPrimary} />
+                      ) : null}
+                    </View>
+                    {stacked ? (
+                      <Text
+                        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+                        style={[styles.cellName, { color: palette.textMuted }]}
+                      >
+                        {channel.column}
+                      </Text>
                     ) : null}
-                  </View>
-                </Pressable>
-              );
-            })}
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         ))}
       </View>
@@ -311,6 +358,10 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, borderWidth: 1, overflow: 'hidden' },
   gridRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
   topicRow: { borderTopWidth: 1, minHeight: 52 },
+  topicRowStacked: { flexDirection: 'column', alignItems: 'flex-start', paddingBottom: spacing[2] },
+  topicStacked: { flex: 0, alignSelf: 'stretch' },
+  cells: { flexDirection: 'row', flexWrap: 'wrap' },
+  cellName: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.semibold },
   topic: { flex: 1, minWidth: 0, paddingVertical: spacing[2] },
   topicText: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
   column: {
@@ -322,7 +373,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 4,
   },
-  cell: { width: CELL, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  cell: { minWidth: CELL, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 2 },
   box: {
     width: 22,
     height: 22,
@@ -340,6 +391,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     borderTopWidth: 1,
   },
+  timesStacked: { flexDirection: 'column' },
   grow: { flex: 1 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 2 },
   link: { alignSelf: 'flex-start', minHeight: 36, justifyContent: 'center' },

@@ -112,7 +112,8 @@ function BlockedRow({
           <Text style={[styles.name, { color: palette.ink }]} numberOfLines={stacked ? 0 : 1}>
             {user.displayName}
           </Text>
-          <Text style={[styles.line, { color: palette.textMuted }]} numberOfLines={stacked ? 0 : 1}>
+          {/* Two lines beside Unblock: a long handle keeps "blocked {when}" in view. */}
+          <Text style={[styles.line, { color: palette.textMuted }]} numberOfLines={stacked ? 0 : 2}>
             {COPY.line(user.handle, relativeTime(user.blockedAt))}
           </Text>
         </View>

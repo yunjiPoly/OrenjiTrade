@@ -9,6 +9,14 @@ import { fontWeight, radius, spacing, useStackedRows, useTheme } from '@/src/the
 
 export type SettingsIcon = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
+/**
+ * How far the label of a Settings row follows the system text size. At the largest accessibility
+ * sizes a one-word label ("discoverability", "Marketplace") no longer fits a row and broke in the
+ * middle of the word (stage R13's walk); at 2.5 times it fits the row's whole width, which the
+ * row gives it at those sizes (its icon and chevron are left out, its value and switch go under).
+ */
+export const LABEL_MAX_FONT_SCALE = 2.5;
+
 export interface SettingsGroupProps {
   /** The small uppercase heading above the card ("Where you ship from"). */
   title?: string;
@@ -114,7 +122,7 @@ export function SettingsRow({
   const spoken = [detail, value].filter((part): part is string => !!part).join(', ');
   const body = (
     <>
-      {icon ? (
+      {icon && !stacked ? (
         <View style={styles.iconSlot}>
           <MaterialCommunityIcons
             name={icon}
@@ -124,7 +132,10 @@ export function SettingsRow({
         </View>
       ) : null}
       <View style={styles.words}>
-        <Text style={[styles.label, { color: danger ? palette.danger : palette.ink }]}>
+        <Text
+          maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+          style={[styles.label, { color: danger ? palette.danger : palette.ink }]}
+        >
           {label}
         </Text>
         {detail ? (
@@ -141,7 +152,7 @@ export function SettingsRow({
       ) : null}
       {valueLoading && !value ? <Skeleton width={36} height={14} /> : null}
       {trailing}
-      {kind === 'link' ? (
+      {kind === 'link' && !stacked ? (
         <MaterialCommunityIcons name="chevron-right" size={18} color={palette.settings.chevron} />
       ) : null}
     </>
@@ -221,13 +232,18 @@ export function SettingsSwitch({
       ]}
     >
       <View style={[styles.lead, !stacked && styles.grow]}>
-        {icon ? (
+        {icon && !stacked ? (
           <View style={styles.iconSlot}>
             <MaterialCommunityIcons name={icon} size={20} color={palette.settings.rowIcon} />
           </View>
         ) : null}
         <View style={styles.words}>
-          <Text style={[styles.label, { color: palette.ink }]}>{label}</Text>
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.label, { color: palette.ink }]}
+          >
+            {label}
+          </Text>
           {help ? (
             <Text testID={helpTestID} style={[styles.detail, { color: palette.textMuted }]}>
               {help}
@@ -299,7 +315,12 @@ export function SettingsRadios<T extends string>({
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <View style={styles.words}>
-              <Text style={[styles.label, { color: palette.ink }]}>{option.label}</Text>
+              <Text
+                maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                style={[styles.label, { color: palette.ink }]}
+              >
+                {option.label}
+              </Text>
               {option.help ? (
                 <Text style={[styles.detail, { color: palette.textMuted }]}>{option.help}</Text>
               ) : null}

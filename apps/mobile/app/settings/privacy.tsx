@@ -26,7 +26,7 @@ import {
   SettingsSwitch,
 } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
-import { fontWeight, useTheme } from '@/src/theme';
+import { fontWeight, PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -141,7 +141,11 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
       testID="screen-settings-privacy"
       right={
         <View accessibilityRole="text" accessibilityLiveRegion="polite" testID="privacy-status">
-          <Text numberOfLines={2} style={[styles.status, { color: statusColor }]}>
+          <Text
+            maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+            numberOfLines={2}
+            style={[styles.status, { color: statusColor }]}
+          >
             {status}
           </Text>
         </View>

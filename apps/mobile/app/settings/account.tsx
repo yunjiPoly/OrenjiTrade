@@ -45,9 +45,11 @@ function InfoRow({
       style={[styles.info, stacked && styles.infoStacked]}
     >
       <View style={styles.lead}>
-        <View style={styles.iconSlot}>
-          <MaterialCommunityIcons name={icon} size={20} color={palette.settings.rowIcon} />
-        </View>
+        {stacked ? null : (
+          <View style={styles.iconSlot}>
+            <MaterialCommunityIcons name={icon} size={20} color={palette.settings.rowIcon} />
+          </View>
+        )}
         <View style={styles.words}>
           <Text testID={valueTestID} style={[styles.value, { color: palette.ink }]}>
             {value}

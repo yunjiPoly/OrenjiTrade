@@ -137,10 +137,16 @@ function EditProfileForm({ profile }: { profile: MyProfileResponse }) {
       accessibilityLabel={COPY.previewLabel}
       onPress={() => router.push({ pathname: '/collectors/[id]', params: { id: profile.handle } })}
       hitSlop={8}
+      accessibilityShowsLargeContentViewer
+      accessibilityLargeContentTitle={COPY.preview}
       testID="profile-preview"
       style={({ pressed }) => [styles.preview, pressed && styles.pressed]}
     >
-      <Text numberOfLines={1} style={[styles.previewText, { color: palette.accent }]}>
+      <Text
+        maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+        numberOfLines={1}
+        style={[styles.previewText, { color: palette.accent }]}
+      >
         {COPY.preview}
       </Text>
     </Pressable>
