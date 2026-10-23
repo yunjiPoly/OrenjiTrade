@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ImportRow } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, useTheme } from '@/src/theme';
+import { TITLE_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
 import { IMPORT_COPY } from './importCopy';
 import {
@@ -189,7 +189,10 @@ export const ImportRowCard = memo(function ImportRowCard({
         testID={`import-row-${row.position}-edit`}
         style={({ pressed }) => [styles.copies, pressed && styles.pressed]}
       >
-        <Text style={[styles.copiesText, { color: palette.settings.segmentText }]}>
+        <Text
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[styles.copiesText, { color: palette.settings.segmentText }]}
+        >
           {conditionShort(row.condition)} ×{row.quantity}
         </Text>
       </Pressable>
