@@ -26,6 +26,8 @@ export interface SettingsTopBarProps {
   backLabel?: string;
   /** The right end of the bar ("Preview", "All changes saved"). */
   right?: ReactNode;
+  /** The back button's id (`BackButton`, the navigation header's, by default). */
+  backTestID?: string;
 }
 
 /**
@@ -40,6 +42,7 @@ export function SettingsTopBar({
   onBack,
   backLabel = SETTINGS_COPY.back,
   right,
+  backTestID = 'BackButton',
 }: SettingsTopBarProps) {
   const { palette } = useTheme();
   return (
@@ -55,7 +58,7 @@ export function SettingsTopBar({
           accessibilityRole="button"
           accessibilityLabel={backLabel}
           onPress={onBack}
-          testID="BackButton"
+          testID={backTestID}
           style={({ pressed }) => [styles.icon, pressed && styles.pressed]}
         >
           <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />

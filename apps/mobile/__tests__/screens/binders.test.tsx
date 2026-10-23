@@ -679,11 +679,18 @@ describe('New binder', () => {
     expect(create).toHaveTextContent('Create binder');
     expect(create).toBeDisabled();
     expect(screen.queryByTestId('edit-binder-delete')).toBeNull();
-    expect(screen.getByTestId('binder-cards-hint')).toHaveTextContent(
-      'No cards in this binder yet.'
-    );
     // The browsed game (the profile's Pokémon) once the games answered.
     expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
+    // Stage R14 (mockup v50 screen 63): the Settings top bar, and the game's line under "Cards
+    // inside".
+    expect(screen.getByRole('header', { name: 'New binder' })).toBeOnTheScreen();
+    expect(screen.getByTestId('edit-binder-back')).toHaveProp(
+      'accessibilityLabel',
+      'Back to your binders'
+    );
+    expect(screen.getByTestId('binder-cards-hint')).toHaveTextContent(
+      'Only your Pokémon cards can go in. Cards in another binder move here.'
+    );
     fireEvent.changeText(screen.getByTestId('binder-name'), '  Holos ');
     fireEvent.press(screen.getByTestId('edit-binder-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());

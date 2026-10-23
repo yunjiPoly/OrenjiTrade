@@ -32,6 +32,12 @@ export interface BinderCardsSectionProps {
   onAdd: () => void;
   onTakeOut: (item: InventoryItemResponse) => void;
   onDropAdded: (item: InventoryItemResponse) => void;
+  /**
+   * The line under "Cards inside" of a binder that is not a deck core, whatever it holds (New
+   * binder, stage R14: "Only your {game} cards can go in. Cards in another binder move here.");
+   * without it, "No cards in this binder yet." while it holds none.
+   */
+  cardsHint?: string | null;
 }
 
 /**
@@ -55,14 +61,17 @@ export function BinderCardsSection({
   onAdd,
   onTakeOut,
   onDropAdded,
+  cardsHint = null,
 }: BinderCardsSectionProps) {
   const { palette } = useTheme();
   const empty = saved.length === 0 && added.length === 0;
   const hint = deckCore
     ? EDIT_BINDER_COPY.keyCardsHint
-    : empty && !loading && !error
-      ? EDIT_BINDER_COPY.noCardsHint
-      : null;
+    : cardsHint
+      ? cardsHint
+      : empty && !loading && !error
+        ? EDIT_BINDER_COPY.noCardsHint
+        : null;
   return (
     <View
       testID="binder-cards-section"
