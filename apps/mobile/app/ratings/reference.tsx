@@ -136,5 +136,5 @@ export default function WriteReferenceScreen() {
 
 const styles = StyleSheet.create({
   intro: { fontSize: 14, lineHeight: 21 },
-  field: { height: 120 },
+  field: { minHeight: 120 },
 });

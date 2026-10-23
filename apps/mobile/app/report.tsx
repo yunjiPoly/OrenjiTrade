@@ -244,7 +244,7 @@ export default function ReportCollectorScreen() {
 
 const styles = StyleSheet.create({
   sent: { flexGrow: 1 },
-  details: { height: 88 },
+  details: { minHeight: 88 },
   note: {
     flexDirection: 'row',
     alignItems: 'flex-start',

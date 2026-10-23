@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   words: { flex: 1, gap: 2 },
   checkLabel: { fontSize: 14, lineHeight: 20, fontWeight: fontWeight.medium },
-  note: { height: 72 },
+  note: { minHeight: 72 },
   termsError: { gap: 8, alignItems: 'flex-start' },
   pressed: { opacity: 0.8 },
 });

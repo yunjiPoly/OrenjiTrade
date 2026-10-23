@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   criterionStacked: { flexDirection: 'column', alignItems: 'flex-start' },
   criterionLabel: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
   criterionHint: { fontSize: 12, lineHeight: 16 },
-  comment: { height: 80 },
+  comment: { minHeight: 80 },
   note: { fontSize: 12, lineHeight: 17 },
   link: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center' },
   linkText: { fontSize: 14, fontWeight: fontWeight.semibold },
