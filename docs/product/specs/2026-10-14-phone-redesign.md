@@ -821,3 +821,43 @@ Built as stage R13 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R13: Settings (4
 contract [`docs/api/contracts/r13-settings.md`](../../api/contracts/r13-settings.md): the optional
 `tags` of `PUT /me/profile`, Edit profile's one save). The line "Visitors without an account see your
 cards, never your name" under "Show me on the map" belongs to stage R15.
+
+## Changed by the owner on 2026-10-19: report, rating, reference, binders, wishes, import and sets
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R14, saved word for word; mockup version 50, screens 60 to 69) restyles ten screens that
+existed since the stages M5, S2, S5, R3 and G, with the top bar of Settings (the 44 pt back button,
+the title in Sora, a hairline) and the main button at the bottom. The prompt above is kept as it
+was; these points add to it:
+
+1. **Report a collector** (60), from the "⋯" of a profile, a chat or a community post: the person
+   ("@handle · {province}", never the city), the server's reasons as radio rows with their line,
+   Details (1000), the confidentiality note, **"Send report"** grey with "Choose a reason first."
+   until a reason is chosen; "Report sent" in place with "Done" and "Follow it in My reports".
+2. **Rate a collector** (61), from the sold note of a chat (the sale notification opens that chat):
+   the person and **the deal** ("{card} · sold to you {date}", "… · bought from you {date}" for the
+   seller), Overall with 34 pt stars and its word (Poor, Not great, Okay, Good, Excellent), the
+   details as rows whose chosen star clears them, the comment (600), where it appears, "Write a
+   reference instead" and "Publish rating".
+3. **Write a reference** (62) and **New binder** (63) as before, restyled; New binder says under
+   "Cards inside": "Only your {game} cards can go in. Cards in another binder move here."
+4. **Add a wish** (64): "Add a wish" opens Search's card search; the card picked opens the form,
+   whose "Change" goes back to the search. Which copy, "Near Mint only", **the price as one-choice
+   chips** ("No price", then the server's % TCG terms), the public note (280), "Add to wishlist".
+   **Edit a wish** (65): "Save changes" and a red "Remove from wishlist" with its sheet.
+5. **Import** (66 to 68): the file step with a large dashed "Choose a file", "Paste the text of the
+   file instead" and the other source one row away; **"Check the cards"** with the trash and its
+   sheet, the chips All, "Which copy? {n}" and "Not recognised {n}", an amber bar with "Use the
+   newest", compact lines with a tick box, the add button grey with its reason; **"Import done"**
+   with the count, "They start private." and the lines not recognised. Resuming an open import, the
+   deck sections, the conditions sheet, the copies dialog, "leave them out", the expired and
+   interrupted states and the leave guard stay.
+6. **A set** (69): the game, the name, "{CODE} · Released {date} · {n} printings", **"Who has cards
+   of this set"** (Search's card search with the set's cards; it was "Search this set", whose set
+   was no longer read since stage R5), a three-column grid of printings, paged, each opening Who has
+   this card at that printing.
+
+Built as stage R14 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R14: Report, rating, reference,
+binders, wishes, import and sets (60 to 69)"; API contract
+[`docs/api/contracts/r14-report-rate-wish-import-sets.md`](../../api/contracts/r14-report-rate-wish-import-sets.md):
+`dealName` and `soldToYou` on a sale's eligibility, the rating form's deal line).
