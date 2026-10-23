@@ -98,6 +98,12 @@ export const TYPING_COPY = {
   loading: 'Loading cards',
   error: 'Cards could not load',
   searchAgain: (text: string) => `Search again for ${text}`,
+  /** The cards of one set (a set page's "Who has cards of this set", stage R14). */
+  setChip: (name: string, code: string) => (name ? `${name} · ${code}` : code),
+  clearSet: (code: string) => `Show every card, not only ${code}`,
+  setEmpty: (code: string) => `No card of ${code} matches`,
+  /** A card picked for a wish (Add a wish, stage R14) opens the wish form. */
+  pickHint: 'Opens the wish form',
 } as const;
 
 /** Who has this card, the one card page (screen 13). */
