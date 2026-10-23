@@ -130,8 +130,9 @@ tags:
 - tapOn:
     id: 'verify-check'
 
-# Welcome, step 1 of 3: "Who are you?", prefilled with the display name and the handle the API
-# derived, which the live check finds the collector's own (a teal check).
+# Welcome, step 1 of 3: "Who are you?", prefilled with the display name and the random first handle
+# the API gave the account (collector_ and six characters, never a part of the email: stage R12,
+# review fix 2), which the live check finds the collector's own (a teal check).
 - extendedWaitUntil:
     visible:
       id: 'onboarding-profile'
@@ -256,9 +257,11 @@ tags:
 - assertVisible:
     id: 'profile-name'
     text: 'Maestro Newbie'
+# The handle kept from the welcome is the random first one: nothing of the email
+# (m-<RUN_ID>-maestro-signup-...@mobile-e2e.test) shows on the page others see.
 - assertVisible:
     id: 'profile-handle-label'
-    text: '@.+'
+    text: '@collector_[bcdfghjkmnpqrstvwxz2-9]{6}'
 # Not discoverable yet (the default): the Profile tab, the page others see (stage R6), has no
 # public place; its line says so and links to Location.
 - assertVisible:

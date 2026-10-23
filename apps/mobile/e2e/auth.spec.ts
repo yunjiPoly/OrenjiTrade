@@ -102,6 +102,11 @@ test.describe('mobile accounts', () => {
     });
     await expect(onboarding.getByLabel('Step 1 of 3')).toBeVisible();
     await expect(onboarding.getByLabel('Display name')).toHaveValue('Mobile Newbie');
+    // The account's first handle is random, never a part of the email (stage R12, review fix 2).
+    await expect(onboarding.getByLabel('Handle')).toHaveValue(
+      /^collector_[bcdfghjkmnpqrstvwxz2-9]{6}$/
+    );
+    await expect(onboarding.getByLabel('Available')).toBeVisible();
     await onboarding.getByLabel('Handle').fill('collector1');
     await expect(
       onboarding.getByText('That handle is already taken. Try another one.')
