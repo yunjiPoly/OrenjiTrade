@@ -9,7 +9,6 @@ import { useReportCollector, useReportReasons } from '@/src/api/hooks/reports';
 import type { ReportConfirmation, ReportReason } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
@@ -24,7 +23,7 @@ import {
   type ReportProblem,
 } from '@/src/features/reports/reportLabels';
 import { SettingsRadios } from '@/src/features/settings/SettingsList';
-import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { BarMessage, SettingsPage } from '@/src/features/settings/SettingsPage';
 import { PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
@@ -165,9 +164,9 @@ export default function ReportCollectorScreen() {
   const footer = (
     <>
       {problem ? (
-        <FormMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
+        <BarMessage tone={problem.alreadyOpen ? 'info' : 'error'} testID="report-error">
           {problem.message}
-        </FormMessage>
+        </BarMessage>
       ) : null}
       {blocked ? (
         <PillButton

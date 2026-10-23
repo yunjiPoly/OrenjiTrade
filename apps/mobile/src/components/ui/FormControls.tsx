@@ -236,6 +236,11 @@ export interface FormMessageProps {
   detailTestID?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /**
+   * How far its words follow the system text size (no limit by default): a message in the bar at
+   * the bottom of a page follows it as little as the button beside it (`PINNED_MAX_FONT_SCALE`).
+   */
+  maxFontSizeMultiplier?: number;
 }
 
 /** Inline alert above or below a form (role alert for errors, status otherwise). */
@@ -246,6 +251,7 @@ export function FormMessage({
   detailTestID,
   style,
   testID,
+  maxFontSizeMultiplier,
 }: FormMessageProps) {
   const { palette } = useTheme();
   const color =
@@ -279,9 +285,18 @@ export function FormMessage({
       {/* Decorative: iOS builds the alert's spoken name from its children, glyph included. */}
       <MaterialCommunityIcons name={icon} size={20} color={color} accessibilityElementsHidden />
       <View style={styles.grow}>
-        <Text style={[textStyle('sm'), { color: palette.ink }]}>{children}</Text>
+        <Text
+          maxFontSizeMultiplier={maxFontSizeMultiplier}
+          style={[textStyle('sm'), { color: palette.ink }]}
+        >
+          {children}
+        </Text>
         {detail ? (
-          <Text testID={detailTestID} style={[textStyle('xs'), { color: palette.textMuted }]}>
+          <Text
+            maxFontSizeMultiplier={maxFontSizeMultiplier}
+            testID={detailTestID}
+            style={[textStyle('xs'), { color: palette.textMuted }]}
+          >
             {detail}
           </Text>
         ) : null}

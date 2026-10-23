@@ -14,14 +14,13 @@ import type { CardDetail, PrintingSummary, WishlistItemResponse } from '@/src/ap
 import { CardImage } from '@/src/components/ui/CardImage';
 import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
 import { gameTile } from '@/src/features/games/gameTiles';
 import { LABEL_MAX_FONT_SCALE } from '@/src/features/settings/SettingsList';
-import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { BarMessage, SettingsPage } from '@/src/features/settings/SettingsPage';
 import { printingCode, printingsWithCode } from '@/src/lib/catalog';
 import { gameLabel } from '@/src/lib/profile';
 import { PINNED_MAX_FONT_SCALE, fontWeight, useStackedRows, useTheme } from '@/src/theme';
@@ -275,7 +274,7 @@ function WishForm(
   // A refusal is said in the bar, where the button was pressed.
   const footer = (
     <>
-      {message ? <FormMessage testID="wish-error">{message}</FormMessage> : null}
+      {message ? <BarMessage testID="wish-error">{message}</BarMessage> : null}
       <PillButton
         label={editItem ? COPY.save : COPY.add}
         loading={saving}

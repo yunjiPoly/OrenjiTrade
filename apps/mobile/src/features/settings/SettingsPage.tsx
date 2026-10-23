@@ -7,14 +7,23 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
   type RefreshControlProps,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FormMessage, type FormMessageTone } from '@/src/components/ui/FormControls';
 import { useSnackbar, useSnackbarCover } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useTheme,
+} from '@/src/theme';
 
 import { SETTINGS_COPY } from './settingsCopy';
 
@@ -74,6 +83,39 @@ export function SettingsTopBar({
       </Text>
       {right ? <View style={styles.right}>{right}</View> : null}
     </View>
+  );
+}
+
+/** The share of the window a message in the bottom bar may take before it scrolls within. */
+export const BAR_MESSAGE_MAX_SHARE = 0.25;
+
+export interface BarMessageProps {
+  tone?: FormMessageTone;
+  children: ReactNode;
+  /** The message's id (`report-error`); its scroll view is `<testID>-scroll`. */
+  testID: string;
+}
+
+/**
+ * A refusal said in the bar at the bottom of a page, where its button was pressed (stage R14:
+ * Report, Rate, Write a reference, the wish form). Its words follow the text size as little as
+ * the button under it, and a long one scrolls within a quarter of the window: at the largest text
+ * sizes it otherwise grew over the whole page, and the form and the bar's own buttons ("My
+ * reports", "Send report") were pushed off the screen (R14 review fix 1, U1).
+ */
+export function BarMessage({ tone, children, testID }: BarMessageProps) {
+  const { height } = useWindowDimensions();
+  return (
+    <ScrollView
+      testID={`${testID}-scroll`}
+      style={[styles.barMessage, { maxHeight: Math.round(height * BAR_MESSAGE_MAX_SHARE) }]}
+      alwaysBounceVertical={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      <FormMessage tone={tone} maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE} testID={testID}>
+        {children}
+      </FormMessage>
+    </ScrollView>
   );
 }
 
@@ -234,6 +276,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     gap: spacing[4],
   },
+  barMessage: { flexGrow: 0 },
   footer: {
     borderTopWidth: 1,
     paddingHorizontal: spacing[4],

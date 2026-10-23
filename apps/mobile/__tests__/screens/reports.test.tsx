@@ -4,6 +4,7 @@ import ReportCollectorScreen from '@/app/report';
 import MyReportsScreen from '@/app/settings/reports';
 import { darkPalette } from '@/src/theme';
 
+import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import { OTHER_ID, REPORT_REASONS, collectorFixture, myReportFixture } from '../support/fixtures';
 import { mockApi, ok, problem, type MockRoutes } from '../support/mockApi';
@@ -94,6 +95,7 @@ describe('Report collector', () => {
     expect(
       within(screen.getByTestId('screen-report-footer')).getByTestId('report-error')
     ).toBeOnTheScreen();
+    expectBoundedBarMessage('report-error', /You already reported Noé Verdun/);
     expect(screen.getByTestId('report-confirm')).toBeDisabled();
     fireEvent.press(screen.getByTestId('report-open-my-reports'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/settings/reports');

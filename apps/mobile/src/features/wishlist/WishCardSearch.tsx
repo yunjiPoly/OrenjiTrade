@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/src/components/ui/Text';
 import { CardTyping } from '@/src/features/search/CardTyping';
 import { SettingsTopBar } from '@/src/features/settings/SettingsPage';
-import { spacing, useTheme } from '@/src/theme';
+import { PINNED_MAX_FONT_SCALE, spacing, useTheme } from '@/src/theme';
 
 import { WISH_COPY as COPY } from './wishCopy';
 
@@ -36,7 +36,14 @@ export function WishCardSearch({ game = null }: { game?: string | null }) {
       <Stack.Screen options={{ headerShown: false, title: COPY.searchTitle }} />
       <SettingsTopBar title={COPY.searchTitle} onBack={leave} backLabel={COPY.back} />
       <View style={[styles.body, { paddingBottom: insets.bottom }]}>
-        <Text style={[styles.intro, { color: palette.textMuted }]} testID="wish-card-step">
+        {/* It stays above the field and follows the text size as little as the field's own
+            controls: at the largest sizes it took 500 pt, and the field opened under the keyboard
+            with one result in view (R14 review fix 1, U2). */}
+        <Text
+          maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+          style={[styles.intro, { color: palette.textMuted }]}
+          testID="wish-card-step"
+        >
           {COPY.searchIntro}
         </Text>
         <CardTyping

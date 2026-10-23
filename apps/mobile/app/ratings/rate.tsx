@@ -12,7 +12,6 @@ import type {
 } from '@/src/api/types';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
@@ -40,7 +39,7 @@ import {
   LABEL_MAX_FONT_SCALE,
   SettingsRadios,
 } from '@/src/features/settings/SettingsList';
-import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { BarMessage, SettingsPage } from '@/src/features/settings/SettingsPage';
 import { PINNED_MAX_FONT_SCALE, fontWeight, useStackedRows, useTheme } from '@/src/theme';
 
 type Scores = Record<RatingCriterion, number | null>;
@@ -284,7 +283,7 @@ function RatingForm({
   // A refusal is said in the bar, where the button was pressed.
   const footer = (
     <>
-      {problem ? <FormMessage testID="rating-error">{problem}</FormMessage> : null}
+      {problem ? <BarMessage testID="rating-error">{problem}</BarMessage> : null}
       <PillButton
         label={editing ? COPY.save : COPY.publish}
         loading={saving}

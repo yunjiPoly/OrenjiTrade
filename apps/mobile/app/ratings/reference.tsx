@@ -5,7 +5,6 @@ import { StyleSheet } from 'react-native';
 import { isApiError } from '@/src/api/ApiError';
 import { useCreateReference } from '@/src/api/hooks/ratings';
 import { EmptyState } from '@/src/components/ui/EmptyState';
-import { FormMessage } from '@/src/components/ui/FormControls';
 import { PillButton } from '@/src/components/ui/PillButton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
@@ -14,7 +13,7 @@ import { PersonHeader } from '@/src/features/collectors/PersonHeader';
 import { REFERENCE_MAX, ratingProblem } from '@/src/features/collectors/ratingLabels';
 import { RATING_COPY as COPY } from '@/src/features/ratings/ratingCopy';
 import { parseRatingParams } from '@/src/features/ratings/ratingRoutes';
-import { SettingsPage } from '@/src/features/settings/SettingsPage';
+import { BarMessage, SettingsPage } from '@/src/features/settings/SettingsPage';
 import { PINNED_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
 /**
@@ -88,7 +87,7 @@ export default function WriteReferenceScreen() {
   // A refusal is said in the bar, where the button was pressed.
   const footer = (
     <>
-      {problem ? <FormMessage testID="reference-error">{problem}</FormMessage> : null}
+      {problem ? <BarMessage testID="reference-error">{problem}</BarMessage> : null}
       <PillButton
         label={COPY.publishReference}
         loading={create.isPending}
