@@ -8,6 +8,7 @@ import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.common.RequestIdFilter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,9 @@ import tools.jackson.databind.JsonNode;
 
 /** Bearer token verification, first-login provisioning and account-state enforcement. */
 class AuthenticationIT extends AbstractIntegrationTest {
+
+    /** {@code collector_} and six characters of {@code HandleGenerator.ALPHABET}. */
+    private static final String RANDOM_FIRST_HANDLE = "^collector_[bcdfghjkmnpqrstvwxz2-9]{6}$";
 
     @Test
     void protectedRouteWithoutTokenIsUnauthenticatedProblem() {
@@ -88,15 +92,18 @@ class AuthenticationIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void firstCallProvisionsAccountWithUserRoleAndDerivedHandle() {
+    void firstCallProvisionsAccountWithUserRoleAndRandomHandle() {
         String uid = uniqueUid("Alice.Wonder");
         Instant before = Instant.now().minusSeconds(5);
 
         JsonNode body = me(uid);
 
         UUID id = UUID.fromString(body.path("id").asString());
-        assertThat(body.path("handle").asString()).startsWith("alice_wonder_");
-        assertThat(body.path("handle").asString()).matches("^[a-z0-9_]{3,24}$");
+        // A random first handle that reveals no part of the address (stage R12, review fix 2).
+        assertThat(body.path("handle").asString())
+                .matches(RANDOM_FIRST_HANDLE)
+                .doesNotContain("alice")
+                .doesNotContain("wonder");
         assertThat(body.path("email").asString())
                 .isEqualTo(uid.toLowerCase() + "@orenjitrade.test");
         assertThat(body.path("emailVerified").asBoolean()).isTrue();
@@ -135,7 +142,7 @@ class AuthenticationIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void handleCollisionsGetNumericSuffix() {
+    void accountsWithTheSameLocalPartGetUnrelatedRandomHandles() {
         String first = uniqueUid("dup");
         JsonNode a = me(first + ":shared.handle." + first + "@example.test");
         JsonNode b = me(uniqueUid("dup") + ":shared.handle." + first + "@example.test");
@@ -143,8 +150,13 @@ class AuthenticationIT extends AbstractIntegrationTest {
         String handleA = a.path("handle").asString();
         String handleB = b.path("handle").asString();
         assertThat(handleA).isNotEqualTo(handleB);
-        assertThat(handleB).matches("^[a-z0-9_]{3,24}$");
-        assertThat(handleB).endsWith("_2");
+        assertThat(List.of(handleA, handleB))
+                .allSatisfy(
+                        handle ->
+                                assertThat(handle)
+                                        .matches(RANDOM_FIRST_HANDLE)
+                                        .doesNotContain("shared")
+                                        .doesNotContain("dup"));
     }
 
     @Test

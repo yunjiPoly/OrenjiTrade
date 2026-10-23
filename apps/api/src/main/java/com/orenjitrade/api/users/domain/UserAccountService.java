@@ -16,6 +16,7 @@ import com.orenjitrade.api.users.infra.LastActiveThrottle;
 import com.orenjitrade.api.users.infra.UserAccountProvisioner;
 import com.orenjitrade.api.users.infra.UserAccountRepository;
 import com.orenjitrade.api.users.infra.UserAccountSpecifications;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,9 +48,12 @@ public class UserAccountService {
     public static final String ACTION_HANDLE_CHANGE = "user.handle.change";
 
     static final int MAX_PROVISION_ATTEMPTS = 5;
-    static final int MAX_SEQUENTIAL_SUFFIXES = 25;
+    static final int MAX_HANDLE_DRAWS = 20;
 
     private static final Logger log = LoggerFactory.getLogger(UserAccountService.class);
+
+    /** Draws the random first handles: never derived from the e-mail (stage R12, review fix 2). */
+    private static final SecureRandom HANDLE_RANDOM = new SecureRandom();
 
     private final UserAccountRepository repository;
     private final UserAccountProvisioner provisioner;
@@ -83,9 +86,10 @@ public class UserAccountService {
 
     /**
      * Loads the account of a verified identity, provisioning it on the first call (role {@link
-     * Role#USER}, status {@link AccountStatus#ACTIVE}, handle derived from the email). Safe under
-     * concurrent first requests: the insert is {@code ON CONFLICT DO NOTHING} and the row is
-     * reloaded afterwards. Expired temporary suspensions are lifted here.
+     * Role#USER}, status {@link AccountStatus#ACTIVE}, a random first handle {@code collector_…}
+     * that reveals nothing of the email, see {@link HandleGenerator}). Safe under concurrent first
+     * requests: the insert is {@code ON CONFLICT DO NOTHING} and the row is reloaded afterwards.
+     * Expired temporary suspensions are lifted here.
      */
     public UserAccountSnapshot resolve(IdentityClaims claims) {
         Optional<UserAccountSnapshot> existing = loadAndRefresh(claims);
@@ -141,9 +145,8 @@ public class UserAccountService {
     }
 
     private void provision(IdentityClaims claims) {
-        String base = HandleGenerator.baseFrom(claims.email());
         for (int attempt = 1; attempt <= MAX_PROVISION_ATTEMPTS; attempt++) {
-            String handle = pickFreeHandle(base, attempt);
+            String handle = pickFreeHandle();
             try {
                 Boolean inserted =
                         transaction.execute(
@@ -182,29 +185,18 @@ public class UserAccountService {
     }
 
     /**
-     * The first free candidate: the base itself, then {@code base_2}, {@code base_3}, ...; after
-     * {@link #MAX_SEQUENTIAL_SUFFIXES} tries (or on retries after a race) a random numeric suffix.
+     * A random first handle no account holds ({@link HandleGenerator#random}); after {@link
+     * #MAX_HANDLE_DRAWS} taken draws, one more unchecked draw (the insert's unique index decides
+     * and {@link #provision} draws again on a collision).
      */
-    private String pickFreeHandle(String base, int attempt) {
-        if (attempt == 1 && isFree(base)) {
-            return base;
-        }
-        if (attempt == 1) {
-            for (int n = 2; n <= MAX_SEQUENTIAL_SUFFIXES; n++) {
-                String candidate = HandleGenerator.withSuffix(base, n);
-                if (isFree(candidate)) {
-                    return candidate;
-                }
-            }
-        }
-        for (int tries = 0; tries < 20; tries++) {
-            int random = ThreadLocalRandom.current().nextInt(1000, 1_000_000);
-            String candidate = HandleGenerator.withSuffix(base, random);
+    private String pickFreeHandle() {
+        for (int draw = 0; draw < MAX_HANDLE_DRAWS; draw++) {
+            String candidate = HandleGenerator.random(HANDLE_RANDOM);
             if (isFree(candidate)) {
                 return candidate;
             }
         }
-        return HandleGenerator.withSuffix(base, ThreadLocalRandom.current().nextInt(1_000_000));
+        return HandleGenerator.random(HANDLE_RANDOM);
     }
 
     private boolean isFree(String handle) {
