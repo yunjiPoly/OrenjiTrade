@@ -120,7 +120,7 @@ test.describe('mobile Google sign-in', () => {
       timeout: 30_000,
     });
     await expect(onboarding.getByLabel('Display name')).toHaveValue('Google Newbie');
-    await onboarding.getByLabel('Handle').fill(handle);
+    await onboarding.getByLabel('Handle', { exact: true }).fill(handle);
     await onboarding.getByRole('button', { name: 'Continue' }).click();
     await expect(onboarding.getByRole('heading', { name: 'What do you collect?' })).toBeVisible();
     await onboarding.getByRole('checkbox', { name: /^Pokémon/ }).click();
