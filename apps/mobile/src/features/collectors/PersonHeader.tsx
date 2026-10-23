@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, useTheme } from '@/src/theme';
+import { fontWeight, useStackedRows, useTheme } from '@/src/theme';
 
 /** "@fake.cards · Ontario", or the handle alone while the province is unknown or not shown. */
 export function personLine(handle: string | null, province: string | null | undefined): string {
@@ -41,15 +41,17 @@ export function PersonHeader({
   testID = 'person-header',
 }: PersonHeaderProps) {
   const { palette } = useTheme();
+  // At the largest text sizes the picture goes above the words, which take the whole width.
+  const stacked = useStackedRows();
   const profile = useCollectorProfile(handle);
   const province = profile.data?.location?.subdivisionName ?? null;
   const shown = line ?? personLine(handle, province);
   return (
     // The name and the line stay two elements for VoiceOver (and the flows read the name by its
     // id): a grouped row would hide them.
-    <View style={styles.row} testID={testID}>
+    <View style={[styles.row, stacked && styles.stacked]} testID={testID}>
       <Avatar src={profile.data?.avatarUrl ?? avatarUrl} name={displayName} size={48} />
-      <View style={styles.words}>
+      <View style={[styles.words, stacked && styles.wordsStacked]}>
         <Text style={[styles.name, { color: palette.ink }]} testID={nameTestID ?? `${testID}-name`}>
           {displayName}
         </Text>
@@ -65,7 +67,9 @@ export function PersonHeader({
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stacked: { flexDirection: 'column', alignItems: 'flex-start' },
   words: { flex: 1, minWidth: 0, gap: 2 },
+  wordsStacked: { flex: 0, alignSelf: 'stretch' },
   name: { fontSize: 17, lineHeight: 22, fontWeight: fontWeight.semibold },
   line: { fontSize: 13, lineHeight: 18 },
 });
