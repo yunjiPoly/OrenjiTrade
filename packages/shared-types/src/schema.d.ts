@@ -8891,6 +8891,13 @@ export interface components {
             /** Format: date-time */
             occurredAt: string;
             alreadyRated: boolean;
+            /**
+             * @description A sale's card or deck core as named when it was marked sold (stage R14: the rating form names the deal); null for other kinds
+             * @example Ash Blossom & Joyous Spring
+             */
+            dealName?: string | null;
+            /** @description A sale: true when the caller bought it ("sold to you"), false when the caller sold it; null for other kinds */
+            soldToYou?: boolean | null;
         };
         ReportReasonOption: {
             /** @enum {string} */
