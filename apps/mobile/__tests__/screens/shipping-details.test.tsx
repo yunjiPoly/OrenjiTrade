@@ -45,10 +45,15 @@ describe('Settings › Shipping details', () => {
     );
     expect(screen.getByTestId('shipping-etransfer').props.value).toBe('old@example.com');
     expect(screen.getByTestId('shipping-save')).toBeDisabled();
+    expect(
+      screen.getByText('Deleting your account also wipes them from this phone.')
+    ).toBeOnTheScreen();
     fireEvent.changeText(screen.getByTestId('shipping-address'), 'Sam Tremblay\n123 Rue Exemple');
     fireEvent.changeText(screen.getByTestId('shipping-etransfer'), ' sam@example.com ');
     fireEvent.press(screen.getByTestId('shipping-save'));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Saved on this phone.');
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Saved on this phone\.$/);
+    // Saved: the bottom button says so again (mockup v50 screen 50).
+    expect(screen.getByTestId('shipping-save')).toHaveTextContent('No changes yet');
     expect(store().get(savedDetailKey('address', 'uid-maika'))).toBe(
       'Sam Tremblay\n123 Rue Exemple'
     );

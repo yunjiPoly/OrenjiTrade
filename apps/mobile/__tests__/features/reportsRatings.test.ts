@@ -37,10 +37,10 @@ describe('collector reports', () => {
     expect(isOpenReport('DISMISSED')).toBe(false);
     expect(myReportStatusText(myReportFixture())).toBe('Waiting for a moderator');
     expect(myReportStatusText(myReportFixture({ status: 'ACTIONED' }))).toBe(
-      'Reviewed — the team took action'
+      'Reviewed: the team took action'
     );
     expect(myReportStatusText(myReportFixture({ status: 'DISMISSED' }))).toBe(
-      'Reviewed — no violation found'
+      'Reviewed: no violation found'
     );
   });
 

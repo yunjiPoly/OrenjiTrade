@@ -47,7 +47,7 @@ describe('Settings → Blocked users', () => {
     expect(row).toHaveTextContent(/Noé Verdun/);
     expect(row).toHaveTextContent(/@collector2 · blocked/);
     fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Noé Verdun is unblocked\.$/);
     expect(api.callsTo('DELETE /api/v1/users/{id}/block')[0]?.path).toBe(
       `/api/v1/users/${OTHER_ID}/block`
     );
@@ -80,7 +80,7 @@ describe('Settings → Blocked users', () => {
   it('is linked from Settings; a blocked collector profile offers Unblock', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/me/blocks': ok([]) }));
     renderWithProviders(<SettingsScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('link', { name: 'Blocked users' }));
+    fireEvent.press(await screen.findByRole('link', { name: 'Blocked collectors' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/blocked');
 
     mockParams.current = { id: 'collector2' };

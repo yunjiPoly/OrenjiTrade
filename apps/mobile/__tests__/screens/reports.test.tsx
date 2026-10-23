@@ -149,9 +149,15 @@ describe('My reports', () => {
       'Waiting for a moderator'
     );
     expect(screen.getByTestId('report-status-text-rep-2')).toHaveTextContent(
-      'Reviewed — the team took action'
+      'Reviewed: the team took action'
     );
-    expect(screen.getByLabelText('Status: Action taken')).toBeOnTheScreen();
+    // The status pills (stage R13): Open amber, Action taken teal.
+    expect(screen.getByTestId(`report-status-${first.id}`)).toHaveTextContent('Open');
+    expect(screen.getByTestId('report-status-rep-2')).toHaveTextContent('Action taken');
+    expect(screen.getByTestId('report-rep-2')).toHaveProp(
+      'accessibilityValue',
+      expect.objectContaining({ text: expect.stringContaining('Action taken, Harassment') })
+    );
     fireEvent.press(screen.getByText('Ana Rosemont'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/collectors/[id]',

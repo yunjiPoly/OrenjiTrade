@@ -6,6 +6,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 
 import LegalDocumentScreen from '@/app/legal/[key]';
 import LegalIndexScreen from '@/app/legal/index';
+import { PHONE_LEGAL_KEYS, PHONE_LEGAL_SUMMARIES } from '@/src/features/legal/legalDocs';
 import { LEGAL_LANGUAGE_STORAGE_KEY } from '@/src/features/legal/legalLanguage';
 import { LEGAL_DOCUMENT_LIST, type LegalDocument } from '@/src/legal/legalContent';
 import { LEGAL_DOCUMENT_LIST_FR, LEGAL_TRANSLATION_NOTICE_FR } from '@/src/legal/legalContent.fr';
@@ -25,17 +26,33 @@ beforeEach(() => {
 });
 
 describe('Legal pages', () => {
-  it('lists every document (the "Trading safely" page included) with the version the API publishes', async () => {
+  it("lists the phone's seven documents (Trading safely included) with the version the API publishes", async () => {
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
     renderWithProviders(<LegalIndexScreen />);
-    expect(screen.getByTestId('legal-draft-banner')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Legal' })).toBeOnTheScreen();
+    // The amber banner of mockup v50 (stage R13).
+    expect(screen.getByTestId('legal-draft-banner')).toHaveTextContent(
+      /Draft\. Requires review by qualified legal counsel before launch\.$/
+    );
     expect(screen.queryByTestId('legal-translation-notice')).toBeNull();
+    expect(PHONE_LEGAL_KEYS).toHaveLength(7);
     for (const document of LEGAL_DOCUMENT_LIST) {
-      expect(screen.getByRole('link', { name: document.title })).toBeOnTheScreen();
+      if (PHONE_LEGAL_KEYS.includes(document.key)) {
+        expect(screen.getByRole('link', { name: document.title })).toBeOnTheScreen();
+      } else {
+        // The payment protection and refund policies are the web's (ADR 0018).
+        expect(screen.queryByRole('link', { name: document.title })).toBeNull();
+      }
     }
-    expect(screen.getByTestId('legal-link-trading-safely')).toBeOnTheScreen();
+    expect(screen.queryByTestId('legal-link-payment-protection')).toBeNull();
+    expect(screen.queryByTestId('legal-link-refund-dispute')).toBeNull();
+    // In the mockup's order, each with its one line.
+    expect(screen.getAllByRole('link').map((link) => link.props.testID as string)).toEqual(
+      PHONE_LEGAL_KEYS.map((key) => `legal-link-${key}`)
+    );
+    expect(screen.getByText(PHONE_LEGAL_SUMMARIES['trading-safely'] as string)).toBeOnTheScreen();
     // Terms, privacy and cookies are published in the fixture.
-    expect(await screen.findAllByText(/Current version 2026-09-01\./)).toHaveLength(3);
+    expect(await screen.findAllByText(/ Version 2026-09-01\.$/)).toHaveLength(3);
     fireEvent.press(screen.getByRole('link', { name: 'Terms of Service' }));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/legal/[key]',
@@ -48,6 +65,8 @@ describe('Legal pages', () => {
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
     const { unmount } = renderWithProviders(<LegalDocumentScreen />);
     expect(screen.getByRole('header', { name: 'Terms of Service' })).toBeOnTheScreen();
+    // The top bar names the document shortly.
+    expect(screen.getByRole('header', { name: 'Terms' })).toBeOnTheScreen();
     expect(await screen.findByTestId('legal-published-version')).toHaveTextContent(
       /Version to accept: 2026-09-01/
     );
@@ -79,7 +98,9 @@ describe('Legal pages', () => {
     expect(screen.getByTestId('legal-translation-notice')).toHaveTextContent(
       LEGAL_TRANSLATION_NOTICE_FR
     );
-    for (const document of LEGAL_DOCUMENT_LIST_FR) {
+    for (const document of LEGAL_DOCUMENT_LIST_FR.filter((doc) =>
+      PHONE_LEGAL_KEYS.includes(doc.key)
+    )) {
       expect(screen.getByRole('link', { name: document.title })).toBeOnTheScreen();
     }
     expect(screen.getByRole('link', { name: 'Échanger en toute sécurité' })).toBeOnTheScreen();
@@ -93,13 +114,15 @@ describe('Legal pages', () => {
     mockParams.current = { key: 'trading-safely' };
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
     const { unmount } = renderWithProviders(<LegalDocumentScreen />);
-    expect(screen.getByRole('header', { name: 'Échanger en toute sécurité' })).toBeOnTheScreen();
+    expect(
+      screen.getAllByRole('header', { name: 'Échanger en toute sécurité' }).length
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/Date d’entrée en vigueur/)).toBeOnTheScreen();
     expect(screen.getByText('Nous joindre')).toBeOnTheScreen();
 
     fireEvent.press(screen.getByRole('radio', { name: 'English' }));
-    expect(screen.getByRole('header', { name: 'Trading safely' })).toBeOnTheScreen();
-    expect(screen.getByTestId('legal-draft-banner')).toHaveTextContent(/Draft — requires review/);
+    expect(screen.getAllByRole('header', { name: 'Trading safely' }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('legal-draft-banner')).toHaveTextContent(/Draft\. Requires review/);
     expect(screen.queryByTestId('legal-translation-notice')).toBeNull();
     expect(screen.getByText(/Effective date:/)).toBeOnTheScreen();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -121,7 +144,7 @@ describe('Legal pages', () => {
     mockParams.current = { key: 'trading-safely' };
     mockApi({ 'GET /api/v1/public/legal/documents': ok(LEGAL_DOCUMENTS) });
     renderWithProviders(<LegalDocumentScreen />);
-    expect(screen.getByRole('header', { name: 'Trading safely' })).toBeOnTheScreen();
+    expect(screen.getAllByRole('header', { name: 'Trading safely' }).length).toBeGreaterThan(0);
     expect(screen.getByTestId('legal-draft-banner')).toBeOnTheScreen();
     for (const heading of ['How deals work', 'Before you pay', 'Shipping', 'Warning signs']) {
       expect(screen.getAllByText(new RegExp(heading)).length).toBeGreaterThan(0);
@@ -130,7 +153,9 @@ describe('Legal pages', () => {
     expect(screen.queryByText(/Before you meet|public place|safe exchange zones/)).toBeNull();
 
     fireEvent.press(screen.getByRole('radio', { name: 'Français' }));
-    expect(screen.getByRole('header', { name: 'Échanger en toute sécurité' })).toBeOnTheScreen();
+    expect(
+      screen.getAllByRole('header', { name: 'Échanger en toute sécurité' }).length
+    ).toBeGreaterThan(0);
     expect(screen.getByTestId('legal-translation-notice')).toBeOnTheScreen();
     for (const heading of [
       'Comment se concluent les transactions',
