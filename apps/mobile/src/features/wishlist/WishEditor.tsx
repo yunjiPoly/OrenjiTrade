@@ -182,10 +182,14 @@ function WishForm(
       null)
     : null;
 
-  // After a save or a removal: Search › Wishlist, past the card search that led here.
+  // After a save or a removal: Search › Wishlist, past the card search that led here, on the
+  // card's game (the wishlist shows the browsed game's wishes, stage G: the wish is in view).
   const done = () => {
     if (fromSearch) {
-      router.dismissTo({ pathname: '/search', params: { segment: 'wishlist' } });
+      router.dismissTo({
+        pathname: '/search',
+        params: card.game ? { segment: 'wishlist', game: card.game } : { segment: 'wishlist' },
+      });
     } else {
       onBack();
     }

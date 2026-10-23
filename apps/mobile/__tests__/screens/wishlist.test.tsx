@@ -515,7 +515,7 @@ describe('Add and edit a wish', () => {
     await waitFor(() =>
       expect(mockRouter.dismissTo).toHaveBeenCalledWith({
         pathname: '/search',
-        params: { segment: 'wishlist' },
+        params: { segment: 'wishlist', game: 'pokemon' },
       })
     );
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
