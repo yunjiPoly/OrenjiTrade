@@ -40,7 +40,9 @@ var headers = { headers: { Authorization: 'Bearer ' + session.idToken } };
 
 var privacy = check(http.get(api + '/api/v1/me/settings/privacy', headers), 'GET privacy');
 if (String(privacy.wishlistVisible) !== WISHLIST) {
-  throw new Error('Expected wishlistVisible ' + WISHLIST + ', got ' + privacy.wishlistVisible + '.');
+  throw new Error(
+    'Expected wishlistVisible ' + WISHLIST + ', got ' + privacy.wishlistVisible + '.'
+  );
 }
 if (String(privacy.discoverable) !== DISCOVERABLE) {
   throw new Error('Expected discoverable ' + DISCOVERABLE + ', got ' + privacy.discoverable + '.');
