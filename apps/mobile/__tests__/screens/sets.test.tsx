@@ -26,7 +26,15 @@ describe('Set page', () => {
     expect(screen.getByTestId('set-loading')).toBeOnTheScreen();
     expect(await screen.findByTestId('set-name')).toHaveTextContent('Scarlet Expanse');
     expect(screen.getByTestId('set-meta')).toHaveTextContent(
-      'SVX · Released 2026-03-01 · 2 printings'
+      'SVX · Released Mar 1, 2026 · 2 printings'
+    );
+    // Mockup v50 screen 69: the top bar names the set, the game above its name.
+    expect(screen.getAllByRole('header', { name: 'Scarlet Expanse' })).toHaveLength(2);
+    expect(screen.getByText('POKÉMON')).toBeOnTheScreen();
+    // A grid tile: the code and the rarity under the picture, named for VoiceOver.
+    expect(screen.getByTestId(`set-printing-${PRINTING_A}`)).toHaveProp(
+      'accessibilityHint',
+      'Opens who has this card, at this printing'
     );
     expect(api.callsTo('GET /api/v1/sets/{id}')[0]?.query.get('size')).toBe('40');
     fireEvent.press(screen.getByTestId(`set-printing-${PRINTING_A}`));
@@ -34,10 +42,11 @@ describe('Set page', () => {
       pathname: '/cards/[id]',
       params: { id: CARD_ID, printing: PRINTING_A },
     });
+    expect(screen.getByTestId('set-search')).toHaveTextContent(/Who has cards of this set$/);
     fireEvent.press(screen.getByTestId('set-search'));
     expect(mockRouter.navigate).toHaveBeenCalledWith({
       pathname: '/search',
-      params: { game: 'pokemon', set: 'SVX', q: '', tab: 'cards' },
+      params: { game: 'pokemon', set: 'SVX', setName: 'Scarlet Expanse', typing: '1' },
     });
   });
 

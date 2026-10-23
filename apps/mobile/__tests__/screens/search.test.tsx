@@ -404,6 +404,29 @@ describe('Search: typing a card (screen 12)', () => {
     });
   });
 
+  it('shows the cards of a set a set page links to, page by page, until the set is cleared (stage R14)', async () => {
+    const api = mockApi(typingRoutes());
+    mockParams.current = {
+      game: 'yugioh',
+      set: 'LOB',
+      setName: 'Legend of Blue Eyes',
+      typing: '1',
+    };
+    render();
+    expect(await screen.findByTestId('search-set-chip')).toHaveTextContent(
+      /Legend of Blue Eyes · LOB/
+    );
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('set')).toBe('LOB')
+    );
+    // No text needed: the set's cards, of the browsed game.
+    expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('query')).toBeNull();
+    expect(await screen.findByTestId(`search-result-${ASH.id}`)).toBeOnTheScreen();
+    // The chip widens the search to every card again.
+    fireEvent.press(screen.getByRole('button', { name: 'Show every card, not only LOB' }));
+    expect(screen.queryByTestId('search-set-chip')).toBeNull();
+  });
+
   it('says when no card matches, with the hint', async () => {
     mockApi(typingRoutes());
     render();
