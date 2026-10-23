@@ -14,6 +14,7 @@ export type SettingsIcon = ComponentProps<typeof MaterialCommunityIcons>['name']
  * sizes a one-word label ("discoverability", "Marketplace") no longer fits a row and broke in the
  * middle of the word (stage R13's walk); at 2.5 times it fits the row's whole width, which the
  * row gives it at those sizes (its icon and chevron are left out, its value and switch go under).
+ * The line under a label follows the same bound, so it never reads larger than its label.
  */
 export const LABEL_MAX_FONT_SCALE = 2.5;
 
@@ -139,10 +140,20 @@ export function SettingsRow({
           {label}
         </Text>
         {detail ? (
-          <Text style={[styles.detail, { color: palette.textMuted }]}>{detail}</Text>
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.detail, { color: palette.textMuted }]}
+          >
+            {detail}
+          </Text>
         ) : null}
         {stacked && value ? (
-          <Text style={[styles.detail, { color: palette.textMuted }]}>{value}</Text>
+          <Text
+            maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+            style={[styles.detail, { color: palette.textMuted }]}
+          >
+            {value}
+          </Text>
         ) : null}
       </View>
       {!stacked && value ? (
@@ -245,7 +256,11 @@ export function SettingsSwitch({
             {label}
           </Text>
           {help ? (
-            <Text testID={helpTestID} style={[styles.detail, { color: palette.textMuted }]}>
+            <Text
+              testID={helpTestID}
+              maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+              style={[styles.detail, { color: palette.textMuted }]}
+            >
               {help}
             </Text>
           ) : null}
@@ -322,7 +337,12 @@ export function SettingsRadios<T extends string>({
                 {option.label}
               </Text>
               {option.help ? (
-                <Text style={[styles.detail, { color: palette.textMuted }]}>{option.help}</Text>
+                <Text
+                  maxFontSizeMultiplier={LABEL_MAX_FONT_SCALE}
+                  style={[styles.detail, { color: palette.textMuted }]}
+                >
+                  {option.help}
+                </Text>
               ) : null}
             </View>
             <View
