@@ -28,8 +28,10 @@ import com.orenjitrade.api.ratings.domain.InteractionKind;
 import com.orenjitrade.api.ratings.domain.InteractionService;
 import com.orenjitrade.api.ratings.domain.InteractionService.Removal;
 import com.orenjitrade.api.ratings.domain.InteractionSubjectType;
+import com.orenjitrade.api.ratings.domain.SaleDeals;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -381,6 +383,19 @@ public class SaleService {
      * Export section {@code deals}: the account's sales, sold and bought (their own data: the other
      * collector appears by id only).
      */
+    /**
+     * The sales of these ids as the rating form names them (the ratings module's {@code SaleDeals},
+     * stage R14): the card or deck core as named at the sale, its seller and buyer.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, SaleDeals.Deal> deals(Collection<UUID> saleIds) {
+        Map<UUID, SaleDeals.Deal> found = new LinkedHashMap<>();
+        for (SaleRow row : sales.findAll(saleIds)) {
+            found.put(row.id(), new SaleDeals.Deal(row.name(), row.sellerId(), row.buyerId()));
+        }
+        return found;
+    }
+
     @Transactional(readOnly = true)
     public List<Map<String, @Nullable Object>> export(UUID userId) {
         List<Map<String, @Nullable Object>> result = new java.util.ArrayList<>();

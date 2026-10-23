@@ -125,6 +125,17 @@ public class SaleRepository {
                 .list();
     }
 
+    /** The sales of these ids that still exist (the rating form's deal line, stage R14). */
+    public List<SaleRow> findAll(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("SELECT " + COLUMNS + " FROM sale WHERE id IN (:ids)")
+                .param("ids", ids)
+                .query(SaleRepository::map)
+                .list();
+    }
+
     /** Sales where the account sold or bought, newest first (export). */
     public List<SaleRow> of(UUID userId) {
         return jdbc.sql(

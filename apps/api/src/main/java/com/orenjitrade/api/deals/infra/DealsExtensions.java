@@ -2,6 +2,7 @@ package com.orenjitrade.api.deals.infra;
 
 import com.orenjitrade.api.deals.domain.SaleService;
 import com.orenjitrade.api.messaging.domain.ChatSaleStatus;
+import com.orenjitrade.api.ratings.domain.SaleDeals;
 import com.orenjitrade.api.users.domain.DeletionParticipant;
 import com.orenjitrade.api.users.domain.ExportContributor;
 import java.util.Collection;
@@ -16,8 +17,9 @@ import org.springframework.core.annotation.Order;
 
 /**
  * The deals module's implementations of other modules' extension points: the messaging module's
- * {@link ChatSaleStatus} (the pinned bar's "Sold"), the export section {@code deals} and the
- * deletion participant (the account's sales go with it).
+ * {@link ChatSaleStatus} (the pinned bar's "Sold"), the ratings module's {@link SaleDeals} (the
+ * rating form's deal line, stage R14), the export section {@code deals} and the deletion
+ * participant (the account's sales go with it).
  */
 @Configuration(proxyBeanMethods = false)
 public class DealsExtensions {
@@ -30,6 +32,11 @@ public class DealsExtensions {
                 return saleService.soldSubjects(subjects);
             }
         };
+    }
+
+    @Bean
+    SaleDeals dealsSaleDeals(SaleService saleService) {
+        return saleService::deals;
     }
 
     @Bean

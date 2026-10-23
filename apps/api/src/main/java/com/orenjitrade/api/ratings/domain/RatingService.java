@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,6 +76,7 @@ public class RatingService {
     private final AuditService auditService;
     private final ApplicationEventPublisher events;
     private final TimeProvider timeProvider;
+    private final ObjectProvider<SaleDeals> saleDeals;
 
     public RatingService(
             InteractionService interactions,
@@ -86,7 +88,8 @@ public class RatingService {
             NotificationService notifications,
             AuditService auditService,
             ApplicationEventPublisher events,
-            TimeProvider timeProvider) {
+            TimeProvider timeProvider,
+            ObjectProvider<SaleDeals> saleDeals) {
         this.interactions = interactions;
         this.ratings = ratings;
         this.accounts = accounts;
@@ -97,6 +100,7 @@ public class RatingService {
         this.auditService = auditService;
         this.events = events;
         this.timeProvider = timeProvider;
+        this.saleDeals = saleDeals;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -117,19 +121,40 @@ public class RatingService {
         List<InteractionView> found = interactions.between(me, otherId);
         Set<UUID> rated =
                 ratings.ratedInteractions(me, found.stream().map(InteractionView::id).toList());
+        Map<UUID, SaleDeals.Deal> deals = dealsOf(found);
         List<EligibleInteraction> result = new ArrayList<>();
         boolean eligible = false;
         for (InteractionView interaction : found) {
             boolean alreadyRated = rated.contains(interaction.id());
             eligible |= !alreadyRated;
+            SaleDeals.Deal deal =
+                    interaction.subjectType() == InteractionSubjectType.SALE
+                            ? deals.get(interaction.subjectId())
+                            : null;
             result.add(
                     new EligibleInteraction(
                             interaction.id(),
                             interaction.kind(),
                             interaction.occurredAt(),
-                            alreadyRated));
+                            alreadyRated,
+                            deal == null ? null : deal.name(),
+                            RatingRules.soldTo(deal == null ? null : deal.buyerId(), me)));
         }
         return new Eligibility(eligible && isRateable(otherId), result);
+    }
+
+    /**
+     * The sales the {@code SALE} interactions stand for (stage R14: the rating form names the
+     * deal); empty without the deals module.
+     */
+    private Map<UUID, SaleDeals.Deal> dealsOf(List<InteractionView> found) {
+        List<UUID> saleIds =
+                found.stream()
+                        .filter(i -> i.subjectType() == InteractionSubjectType.SALE)
+                        .map(InteractionView::subjectId)
+                        .toList();
+        SaleDeals source = saleDeals.getIfAvailable();
+        return saleIds.isEmpty() || source == null ? Map.of() : source.deals(saleIds);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -495,9 +520,20 @@ public class RatingService {
     /** A page of a collector's ratings with their summary. */
     public record CollectorRatings(CursorPage<RatingView> page, RatingSummaryView summary) {}
 
-    /** One interaction of the eligibility answer. */
+    /**
+     * One interaction of the eligibility answer.
+     *
+     * @param dealName a sale's card or deck core (stage R14), {@code null} for other kinds
+     * @param soldToYou a sale: {@code true} when the caller bought, {@code false} when the caller
+     *     sold; {@code null} for other kinds
+     */
     public record EligibleInteraction(
-            UUID id, InteractionKind kind, Instant occurredAt, boolean alreadyRated) {}
+            UUID id,
+            InteractionKind kind,
+            Instant occurredAt,
+            boolean alreadyRated,
+            @Nullable String dealName,
+            @Nullable Boolean soldToYou) {}
 
     /** The eligibility answer. */
     public record Eligibility(boolean eligible, List<EligibleInteraction> interactions) {}

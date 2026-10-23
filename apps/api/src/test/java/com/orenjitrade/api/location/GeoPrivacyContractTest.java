@@ -1015,6 +1015,22 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                 assertThat(messages.toString()).contains("LX123456789CA");
                 fetch("/api/v1/conversations", caller);
                 fetch("/api/v1/notifications", caller);
+                // Stage R14: the rating form names the deal, and nothing else about the sale.
+                String otherId = idOf(other).toString();
+                JsonNode eligibility =
+                        fetch("/api/v1/ratings/eligibility?userId=" + otherId, caller);
+                JsonNode deal = null;
+                for (JsonNode interaction : eligibility.path("interactions")) {
+                    if ("SALE".equals(interaction.path("kind").asString())) {
+                        deal = interaction;
+                    }
+                }
+                assertThat(deal).as("the sale's interaction for %s", caller).isNotNull();
+                assertThat(deal.path("dealName").asString()).isNotBlank();
+                assertThat(deal.propertyNames())
+                        .as("a sale's interaction")
+                        .doesNotContain("trackingNumber", "place", "city", "sellerId", "buyerId");
+                assertThat(eligibility.toString()).doesNotContain("LX123456789CA");
             }
             // A seeded deck core as the subject, with its photo or card picture.
             JsonNode core =
