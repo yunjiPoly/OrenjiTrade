@@ -282,7 +282,17 @@ export function ImportPreview({
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
   };
 
-  const header = (
+  // Mockup v50 screen 67: the lines come right under the amber bar. What the limit has no room
+  // for is said first (before printings are chosen for a long file); the other choices follow
+  // the lines.
+  const header = limitRoom ? (
+    <View style={styles.limitRoom}>
+      <FormMessage tone="info" testID="import-limit-room">
+        {limitRoom}
+      </FormMessage>
+    </View>
+  ) : null;
+  const more = (
     <ImportPreviewHeader
       preview={preview}
       onFilter={chooseFilter}
@@ -292,7 +302,7 @@ export function ImportPreview({
       onLeaveOut={setLeaveOut}
       busy={wholeBusy}
       lowestGrades={lowestGrades}
-      limitRoom={limitRoom}
+      limitRoom={null}
     />
   );
 
@@ -422,12 +432,15 @@ export function ImportPreview({
           )
         }
         ListFooterComponent={
-          <ListFooter
-            loading={rows.isFetchingNextPage}
-            failed={!!rows.error && !!rows.data && rows.hasNextPage}
-            onRetry={() => void rows.fetchNextPage()}
-            testID="import-rows-footer"
-          />
+          <>
+            <ListFooter
+              loading={rows.isFetchingNextPage}
+              failed={!!rows.error && !!rows.data && rows.hasNextPage}
+              onRetry={() => void rows.fetchNextPage()}
+              testID="import-rows-footer"
+            />
+            {more}
+          </>
         }
         onEndReached={() => {
           if (rows.hasNextPage && !rows.isFetchingNextPage && !rows.error) {
@@ -564,6 +577,7 @@ const styles = StyleSheet.create({
   },
   newestText: { fontSize: 12, lineHeight: 16, fontWeight: fontWeight.bold },
   listContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[4] },
+  limitRoom: { paddingTop: 10, paddingBottom: 4 },
   bar: { borderTopWidth: 1, paddingHorizontal: spacing[4], paddingTop: 12, gap: 6 },
   reason: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
   pressed: { opacity: 0.7 },

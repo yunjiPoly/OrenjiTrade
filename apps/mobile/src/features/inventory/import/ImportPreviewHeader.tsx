@@ -36,12 +36,13 @@ export interface ImportPreviewHeaderProps {
 }
 
 /**
- * What stands above the lines of "Check the cards" and scrolls with them (stage R14: the file,
- * the filter and the amber bar stay on screen above the list): whether the import fits the
- * inventory limit, "leave out" for the lines that still need a printing, the copies taken as the
- * plain one, the conditions the file did not say, the deck's sections as switches with their
- * copies, and what the import adds in one sentence with until when the preview is kept. Each
- * shows only when it has something to say.
+ * The choices of "Check the cards" that are not on a line (stage R14: the file, the filter and the
+ * amber bar stay on screen above the list, the lines come right under them, and these follow the
+ * lines): whether the import fits the inventory limit (the screen says it above the lines),
+ * "leave out" for the lines that still need a printing, the copies taken as the plain one, the
+ * conditions the file did not say, the deck's sections as switches with their copies, and what
+ * the import adds in one sentence with until when the preview is kept. Each shows only when it
+ * has something to say.
  */
 export function ImportPreviewHeader({
   preview,
@@ -174,7 +175,7 @@ function Notice({
 }
 
 const styles = StyleSheet.create({
-  root: { gap: 12, paddingTop: 10, paddingBottom: 6 },
+  root: { gap: 12, paddingTop: 16, paddingBottom: 6 },
   notice: { gap: 6, padding: 14, borderRadius: 16, borderWidth: 1 },
   noticeTitle: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
   sentences: { gap: 4 },

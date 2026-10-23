@@ -104,6 +104,7 @@ tags:
       id: 'reports-summary'
       text: '1 waiting for a decision · 0 reviewed'
     timeout: 60000
-- assertVisible: 'Bo Reported'
-- assertVisible: 'Waiting for a moderator'
+# The row opens Bo's profile (stage R13: its name, then its status, reason and where the review
+# stands as its value).
+- assertVisible: 'Bo Reported\. Opens their profile\.'
 - takeScreenshot: my-reports
