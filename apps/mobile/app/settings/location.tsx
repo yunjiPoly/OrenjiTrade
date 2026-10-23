@@ -26,18 +26,28 @@ import {
   missingField,
   type LocationDraft,
 } from '@/src/features/location/locationDraft';
+import { mapStatus } from '@/src/features/settings/mapStatus';
 import { LOCATION_COPY as COPY } from '@/src/features/settings/settingsCopy';
 import { SettingsGroup, SettingsSwitch } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { fontWeight, PINNED_MAX_FONT_SCALE, radius, spacing, useTheme } from '@/src/theme';
 
-/** What "Show me on the map" says under it: where collectors see you, or why they do not. */
-function mapLine(location: MyLocationResponse, discoverable: boolean): string {
+/**
+ * What "Show me on the map" says under it: where collectors see you, or why they do not (no place
+ * yet, the switch off, or a PRIVATE profile, which leaves the map whatever the switch says).
+ */
+function mapLine(location: MyLocationResponse, privacy: PrivacySettings): string {
   const place = location.location?.label;
-  if (!place) {
-    return COPY.noPlace;
+  switch (mapStatus(!!place, privacy)) {
+    case 'no-place':
+      return COPY.noPlace;
+    case 'private':
+      return COPY.privateHidden;
+    case 'hidden':
+      return COPY.hidden;
+    default:
+      return COPY.seenIn(place ?? '');
   }
-  return discoverable ? COPY.seenIn(place) : COPY.hidden;
 }
 
 /**
@@ -152,7 +162,7 @@ function LocationForm({
       <SettingsGroup>
         <SettingsSwitch
           label={COPY.onMap}
-          help={mapLine(location, privacy.discoverable)}
+          help={mapLine(location, privacy)}
           helpTestID="location-visibility"
           value={privacy.discoverable}
           onChange={(value) => void setDiscoverable(value)}

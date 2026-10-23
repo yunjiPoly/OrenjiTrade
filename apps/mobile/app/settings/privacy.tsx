@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
-import { usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
+import { useMyLocation, usePrivacySettings, useSavePrivacy } from '@/src/api/hooks/location';
 import { useUid } from '@/src/api/hooks/useUid';
 import type { PrivacySettings } from '@/src/api/types';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -20,6 +20,8 @@ import {
   PROFILE_VISIBILITY_OPTIONS,
   REMEMBER_SEARCHES,
 } from '@/src/features/settings/privacyOptions';
+import { LOCATION_COPY } from '@/src/features/settings/settingsCopy';
+import { mapStatus } from '@/src/features/settings/mapStatus';
 import {
   SettingsGroup,
   SettingsRadios,
@@ -92,6 +94,9 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
   const { palette } = useTheme();
   const snackbar = useSnackbar();
   const save = useSavePrivacy();
+  // "Show me on the map" needs a saved place, as on Location (review fix 1): without one it waits,
+  // instead of failing with the API's 409 LOCATION_REQUIRED. While the place loads it stays free.
+  const location = useMyLocation();
   const [draft, setDraft] = useState(initial);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const lastSaved = useRef(initial);
@@ -126,6 +131,21 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
     });
   };
 
+  /**
+   * The map switch's line and whether it waits: without a saved place it says so (and waits while
+   * off); with a PRIVATE profile it says the profile keeps the collector off the map.
+   */
+  const mapHelp = (help: string | undefined) => {
+    if (!location.data) {
+      return { help, waits: false };
+    }
+    const status = mapStatus(!!location.data.location, draft);
+    if (status === 'no-place') {
+      return { help: LOCATION_COPY.noPlace, waits: !draft.discoverable };
+    }
+    return { help: status === 'private' ? LOCATION_COPY.privateHidden : help, waits: false };
+  };
+
   const status =
     saveState === 'saving' ? COPY.saving : saveState === 'error' ? COPY.notSaved : COPY.saved;
   const statusColor =
@@ -152,16 +172,20 @@ function PrivacyForm({ initial }: { initial: PrivacySettings }) {
       }
     >
       <SettingsGroup title={COPY.visibility}>
-        {PRIVACY_TOGGLES.map((toggle) => (
-          <SettingsSwitch
-            key={toggle.key}
-            label={toggle.label}
-            help={toggle.help}
-            value={draft[toggle.key]}
-            onChange={(value) => update({ [toggle.key]: value })}
-            testID={`privacy-toggle-${toggle.key}`}
-          />
-        ))}
+        {PRIVACY_TOGGLES.map((toggle) => {
+          const map = toggle.key === 'discoverable' ? mapHelp(toggle.help) : null;
+          return (
+            <SettingsSwitch
+              key={toggle.key}
+              label={toggle.label}
+              help={map ? map.help : toggle.help}
+              value={draft[toggle.key]}
+              onChange={(value) => update({ [toggle.key]: value })}
+              disabled={map?.waits}
+              testID={`privacy-toggle-${toggle.key}`}
+            />
+          );
+        })}
       </SettingsGroup>
       <SettingsRadios
         title={COPY.profile}

@@ -144,6 +144,22 @@ describe('Settings (47)', () => {
     // Nothing waits for a decision: no value.
     expect(screen.queryByText(/waiting/)).toBeNull();
   });
+
+  it('says "Not on the map" while the profile is private, whatever the switch (review fix 1)', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })),
+        'GET /api/v1/me/settings/privacy': ok(
+          privacyFixture({ discoverable: true, profileVisibility: 'PRIVATE' })
+        ),
+        'GET /api/v1/me/blocks': ok([]),
+        'GET /api/v1/me/reports': ok([]),
+      })
+    );
+    renderWithProviders(<SettingsScreen />, { port: port() });
+    expect(await screen.findByText('Quebec, Canada · Not on the map')).toBeOnTheScreen();
+    expect(screen.queryByText(/On the map/)).toBeNull();
+  });
 });
 
 describe('Edit profile (48)', () => {
@@ -358,6 +374,23 @@ describe('Location (49)', () => {
     expect(screen.getByTestId('location-visibility')).toHaveTextContent(
       'Collectors see you in Quebec, Canada.'
     );
+  });
+
+  it('says a private profile keeps the collector off the map, the switch on (review fix 1)', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me/location': ok(locationFixture({ discoverable: true })),
+        'GET /api/v1/me/settings/privacy': ok(
+          privacyFixture({ discoverable: true, profileVisibility: 'PRIVATE' })
+        ),
+      })
+    );
+    renderWithProviders(<LocationSettingsScreen />, { port: port() });
+    expect(await screen.findByRole('switch', { name: 'Show me on the map' })).toBeChecked();
+    expect(screen.getByTestId('location-visibility')).toHaveTextContent(
+      'Your profile is private, so you are hidden from the map and from searches. Change it in Privacy.'
+    );
+    expect(screen.queryByText(/Collectors see you in/)).toBeNull();
   });
 
   it('without a saved place, the map switch waits and nothing can be removed', async () => {
@@ -633,6 +666,96 @@ describe('Privacy (52)', () => {
     );
     expect(screen.getByRole('radio', { name: 'Members (recommended)' })).toBeChecked();
     expect(screen.getByTestId('snackbar')).toHaveTextContent(/Please try again in a moment\./);
+  });
+
+  it('binds each Visibility switch to its own setting, each save keeping the last (review fix 1)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
+      })
+    );
+    renderWithProviders(<PrivacySettingsScreen />, { port: port() });
+    await screen.findByRole('switch', { name: 'Show me on the map' });
+    const bindings = [
+      ['Show me on the map', 'discoverable'],
+      ['Appear in collector search', 'searchDiscoverable'],
+      ['Let others see what you want', 'wishlistVisible'],
+      ['Show when I was last active', 'showLastActive'],
+      ['Show when I am online', 'showOnlineStatus'],
+    ] as const;
+    let expected = privacyFixture();
+    for (const [index, [label, key]] of bindings.entries()) {
+      const before = expected[key];
+      expect(screen.getByRole('switch', { name: label }).props.accessibilityState).toEqual(
+        expect.objectContaining({ checked: before })
+      );
+      fireEvent.press(screen.getByRole('switch', { name: label }));
+      // Only this switch's own field changes; every earlier change is still in the body.
+      expected = { ...expected, [key]: !before };
+      await waitFor(() =>
+        expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(index + 1)
+      );
+      expect(api.callsTo('PUT /api/v1/me/settings/privacy')[index]?.body).toEqual(expected);
+      await waitFor(() =>
+        expect(screen.getByTestId('privacy-status')).toHaveTextContent('All changes saved')
+      );
+    }
+  });
+
+  it('saves two quick changes in order, the second carrying the first (review fix 1)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
+      })
+    );
+    renderWithProviders(<PrivacySettingsScreen />, { port: port() });
+    fireEvent.press(await screen.findByRole('switch', { name: 'Appear in collector search' }));
+    fireEvent.press(screen.getByRole('switch', { name: 'Show when I am online' }));
+    await waitFor(() => expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(2));
+    const [first, second] = api.callsTo('PUT /api/v1/me/settings/privacy');
+    expect(first?.body).toEqual({ ...privacyFixture(), searchDiscoverable: false });
+    expect(second?.body).toEqual({
+      ...privacyFixture(),
+      searchDiscoverable: false,
+      showOnlineStatus: true,
+    });
+  });
+
+  it('keeps "Show me on the map" waiting without a saved place, as Location does (review fix 1)', async () => {
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/me/location': ok({ discoverable: false }),
+        'PUT /api/v1/me/settings/privacy': ({ body }: MockRequest) => ok(body),
+      })
+    );
+    renderWithProviders(<PrivacySettingsScreen />, { port: port() });
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Show me on the map' })).toBeDisabled()
+    );
+    expect(
+      screen.getByText('You have not chosen a location yet, so you never appear on the map.')
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('switch', { name: 'Show me on the map' }));
+    expect(api.callsTo('PUT /api/v1/me/settings/privacy')).toHaveLength(0);
+    // The other switches do not need a place.
+    expect(screen.getByRole('switch', { name: 'Appear in collector search' })).not.toBeDisabled();
+  });
+
+  it('says a private profile keeps the collector off the map under the map switch (review fix 1)', async () => {
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me/settings/privacy': ok(
+          privacyFixture({ discoverable: true, profileVisibility: 'PRIVATE' })
+        ),
+      })
+    );
+    renderWithProviders(<PrivacySettingsScreen />, { port: port() });
+    expect(
+      await screen.findByText(
+        'Your profile is private, so you are hidden from the map and from searches. Change it in Privacy.'
+      )
+    ).toBeOnTheScreen();
+    expect(screen.queryByText('Your public binders count in your state or province.')).toBeNull();
   });
 
   it('names who can see the profile and who can message', async () => {

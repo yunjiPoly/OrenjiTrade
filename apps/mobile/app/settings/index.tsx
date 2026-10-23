@@ -4,13 +4,14 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useMyBlocks } from '@/src/api/hooks/blocks';
-import { useMyLocation } from '@/src/api/hooks/location';
+import { useMyLocation, usePrivacySettings } from '@/src/api/hooks/location';
 import { useMyReports } from '@/src/api/hooks/reports';
 import { useSession } from '@/src/auth/session';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
 import { isOpenReport } from '@/src/features/reports/reportLabels';
 import { appVersion } from '@/src/features/settings/appVersion';
+import { mapStatus } from '@/src/features/settings/mapStatus';
 import { SETTINGS_HOME_COPY as COPY, THEME_NAMES } from '@/src/features/settings/settingsCopy';
 import { SettingsGroup, SettingsRow } from '@/src/features/settings/SettingsList';
 import { SettingsPage } from '@/src/features/settings/SettingsPage';
@@ -31,6 +32,8 @@ export default function SettingsScreen() {
   const session = useSession();
   const account = useAccount();
   const location = useMyLocation();
+  // A PRIVATE profile is off the map whatever the switch says (review fix 1).
+  const privacy = usePrivacySettings();
   const blocks = useMyBlocks();
   const reports = useMyReports();
   const theme = useAppStore((state) => state.themeOverride);
@@ -38,6 +41,16 @@ export default function SettingsScreen() {
   const stacked = useStackedRows();
 
   const place = location.data?.location?.label ?? null;
+  const placeLine =
+    location.data && privacy.data
+      ? COPY.locationLine(
+          place,
+          mapStatus(!!place, {
+            discoverable: location.data.discoverable,
+            profileVisibility: privacy.data.profileVisibility,
+          }) === 'on-map'
+        )
+      : null;
   const waiting = reports.data?.filter((report) => isOpenReport(report.status)).length ?? 0;
   const open = (href: Href) => () => router.push(href);
 
@@ -73,8 +86,8 @@ export default function SettingsScreen() {
         <SettingsRow
           icon="map-marker-outline"
           label={COPY.location}
-          detail={location.data ? COPY.locationLine(place, location.data.discoverable) : null}
-          valueLoading={location.isPending}
+          detail={placeLine}
+          valueLoading={location.isPending || privacy.isPending}
           onPress={open('/settings/location')}
           testID="settings-link-location"
         />

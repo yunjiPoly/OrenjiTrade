@@ -89,6 +89,8 @@ export const LOCATION_COPY = {
   onMap: 'Show me on the map',
   seenIn: (place: string) => `Collectors see you in ${place}.`,
   hidden: 'You are hidden from the map and from searches.',
+  privateHidden:
+    'Your profile is private, so you are hidden from the map and from searches. Change it in Privacy.',
   noPlace: 'You have not chosen a location yet, so you never appear on the map.',
   cityHint:
     'Only on your profile, and only while the switch below is on. Never used to locate you.',
