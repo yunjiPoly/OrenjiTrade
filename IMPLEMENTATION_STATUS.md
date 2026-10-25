@@ -10355,7 +10355,10 @@ stage R15 (16 findings: 2 blockers, 5 major, 9 minor, some found by two reviewer
   `useIsAuthenticated` and `useCanBrowse` false and Home's feed not asked while sign-up holds the
   lock, true after; mutation B17 caught), `lib/cardImages.test.ts` (the two photo routes).
 - Mobile web (Playwright): `guest.spec.ts` messages a plain public binder as a guest and signs in
-  (fails with the old action); `item-photos.spec.ts` reads the opaque URL without the owner's id.
+  (fails with the old action), and signs in from Search › Wishlist through Review our terms back to
+  Wishlist (the reviewer's walk of U2; on this stack the tabs stayed mounted, so that step passes
+  without the fix too, and the Jest test pins the remembered link); `item-photos.spec.ts` reads the
+  opaque URL without the owner's id.
 
 **Checks** (retries off; 2026-10-25, this Mac, JDK 21, OrbStack; on the final code)
 
@@ -10371,8 +10374,8 @@ stage R15 (16 findings: 2 blockers, 5 major, 9 minor, some found by two reviewer
 | `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
 | `npm run test:mobile` | **126 suites, 1,727 tests** passed (+ the harness guard tests 28 / 28) |
 | `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
-| `npm run test:mobile:e2e -- --retries=0` | **64 passed, 1 failed**: the new guest binder step's own last assertion (`not.toContainText` on a snackbar that was not on screen, after the chat had opened); the assertion fixed, `guest.spec.ts` alone **3 / 3**; with the old action it fails |
-| `npm run test:mobile:maestro -- --platform ios` | **not run**: the owner's iPhone 18 Pro simulator was not booted (waited with the one plain command from 16:03 to 17:03 EDT; never booted by an agent) |
+| `npm run test:mobile:e2e -- --retries=0` | **64 passed, 1 failed**: the new guest binder step's own last assertion (`not.toContainText` on a snackbar that was not on screen, after the chat had opened); the assertion fixed, `guest.spec.ts` alone **3 / 3**, then **4 / 4** with the Wishlist step; with the old action the binder step fails |
+| `npm run test:mobile:maestro -- --platform ios` | **not run**: the owner's iPhone 18 Pro simulator was not booted (waited with the one plain command from 16:01 to 17:01 EDT; never booted by an agent) |
 | `npm run test:scripts` | **147 / 147** |
 | `npm run audit:gate` | OK (the two allow-listed advisories, expiring 2026-11-30) |
 
