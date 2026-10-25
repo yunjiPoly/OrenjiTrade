@@ -4,7 +4,7 @@ import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys } from '../queryKeys';
 import type { RegionBinderCounts } from '../types';
-import { useIsAuthenticated, useUid } from './useUid';
+import { useCanBrowse, useUid } from './useUid';
 
 /**
  * `GET /api/v1/regions/{region}/binder-counts` (the web's `/map`): how many public binders each
@@ -14,7 +14,8 @@ import { useIsAuthenticated, useUid } from './useUid';
  */
 export function useRegionBinderCounts(region: string, enabled = true, game?: string) {
   const uid = useUid();
-  const authenticated = useIsAuthenticated();
+  // Guests browse the map too (stage R15).
+  const browse = useCanBrowse();
   return useQuery<RegionBinderCounts, ApiError>({
     queryKey: meKeys.regionBinderCounts(uid, region, game),
     queryFn: async () =>
@@ -25,7 +26,7 @@ export function useRegionBinderCounts(region: string, enabled = true, game?: str
           })
         ).data
       ),
-    enabled: authenticated && enabled,
+    enabled: browse && enabled,
     staleTime: 60_000,
   });
 }

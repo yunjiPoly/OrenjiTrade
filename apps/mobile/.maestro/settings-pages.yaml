@@ -94,7 +94,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: 'location-visibility'
-      text: 'Collectors see you in Quebec, Canada\.'
+      text: 'Collectors see you in Quebec, Canada\. Visitors without an account see your cards, never your name\.'
     timeout: 30000
 - takeScreenshot: r13-location
 - runFlow: subflows/go-back.yaml

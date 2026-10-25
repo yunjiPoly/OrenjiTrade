@@ -1,7 +1,10 @@
-import { Link } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useGuestAction } from '@/src/account/guestAction';
+import { usePendingLink } from '@/src/account/pendingLink';
 import { validateEmail } from '@/src/account/registration';
 import { authErrorMessage } from '@/src/auth/authErrors';
 import { SESSION_ENDED_MESSAGE, useSessionNotice } from '@/src/auth/sessionNotice';
@@ -15,6 +18,7 @@ import { SIGN_IN_COPY } from '@/src/features/auth/authCopy';
 import { GoogleButton, OrDivider } from '@/src/features/auth/GoogleButton';
 import { SimulatedGoogleAccountDialog } from '@/src/features/auth/SimulatedGoogleAccountDialog';
 import { googleErrorMessage, useGoogleSignIn } from '@/src/features/auth/useGoogleSignIn';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { useAppStore } from '@/src/store/useAppStore';
 import {
   fontFamily,
@@ -26,8 +30,9 @@ import {
 } from '@/src/theme';
 
 /**
- * 36 Sign in (stage R12, mockup v50): the wordmark and its line, email, password with show and
- * hide, "Forgot your password?", Sign in, Google, "Create an account" and the legal pages. Email
+ * 36 Sign in (stage R12, mockup v50): the close button ("Not now, keep browsing", stage R15: back
+ * to where the guest was), the wordmark and its line, email, password with show and hide, "Forgot
+ * your password?", Sign in, Google, "Create an account" and the legal pages. Email
  * and password or Google (Firebase; the Auth emulator locally, where Google is a simulated
  * account). On success the auth gate takes over: Review our terms, account status, the welcome
  * or the tabs (web: `/auth/sign-in`).
@@ -45,6 +50,7 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const google = useGoogleSignIn('sign-in');
+  const router = useRouter();
 
   const emailError = submitted ? validateEmail(email) : null;
   const passwordError = submitted && !password ? SIGN_IN_COPY.passwordMissing : null;
@@ -66,6 +72,20 @@ export default function SignInScreen() {
     }
   };
 
+  /**
+   * "Not now, keep browsing" (stage R15): back to where the guest was, Home when Sign in is all
+   * there is; the screen and the action kept for after signing in are forgotten.
+   */
+  const close = () => {
+    usePendingLink.getState().clear();
+    useGuestAction.getState().dismiss();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/');
+    }
+  };
+
   const onGoogle = async () => {
     setError(null);
     try {
@@ -84,6 +104,16 @@ export default function SignInScreen() {
       testID="screen-sign-in"
       contentContainerStyle={styles.page}
     >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={GUEST_COPY.closeSignIn}
+        onPress={close}
+        hitSlop={4}
+        testID="sign-in-close"
+        style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+      >
+        <MaterialCommunityIcons name="close" size={22} color={palette.ink} />
+      </Pressable>
       <View style={styles.header}>
         <Text
           accessibilityRole="header"
@@ -188,7 +218,19 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   page: { paddingHorizontal: spacing[5] },
-  header: { gap: 10, marginTop: spacing[12], marginBottom: spacing[6] },
+  // Mockup v50 (36): the close button top left, its cross on the margin of the words.
+  close: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    marginLeft: -12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: { opacity: 0.7 },
+  header: { gap: 10, marginTop: spacing[2], marginBottom: spacing[6] },
   wordmark: {
     fontFamily: fontFamily.display,
     fontSize: 32,

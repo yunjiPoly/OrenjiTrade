@@ -83,3 +83,29 @@ export function resumableHref(
   const search = query.toString();
   return search ? `${pathname}?${search}` : pathname;
 }
+
+/**
+ * The href of the screen a guest is on (stage R15), for Sign in or Create account opened from it:
+ * once signed in, the phone goes back there. Unlike `resumableHref`, the tabs' home counts (Home,
+ * Search, Inventory as they are): it is where the guest was. Null on auth and account screens.
+ */
+export function guestReturnHref(
+  segments: readonly string[],
+  pathname: string,
+  params: Readonly<Record<string, string | string[] | undefined>>
+): string | null {
+  const root = segments[0] ?? '(tabs)';
+  if (NOT_RESUMED.has(root) || !pathname.startsWith('/')) {
+    return null;
+  }
+  const pathParts = new Set(pathname.split('/').filter(Boolean).map(decodeURIComponent));
+  const query = new URLSearchParams();
+  for (const [key, raw] of Object.entries(params)) {
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    if (value && !pathParts.has(value)) {
+      query.set(key, value);
+    }
+  }
+  const search = query.toString();
+  return search ? `${pathname}?${search}` : pathname;
+}

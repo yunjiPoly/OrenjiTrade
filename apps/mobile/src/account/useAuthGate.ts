@@ -13,7 +13,8 @@ import { useSessionNotice } from '@/src/auth/sessionNotice';
 
 import { useAccount } from './AccountProvider';
 import { useFlowLock } from './flowLock';
-import { GATE_HOME, gateFor, redirectFor, type Gate } from './gate';
+import { GATE_HOME, SIGN_IN_HREF, gateFor, redirectFor, type Gate } from './gate';
+import { useGuestAction } from './guestAction';
 import { resumableHref, usePendingLink } from './pendingLink';
 
 /** The gates of a signed-in collector: leaving one for `guest` is a sign-out. */
@@ -27,15 +28,22 @@ const SIGNED_IN_GATES: ReadonlySet<Gate> = new Set([
 
 /**
  * The expo-router auth gate: computes the gate from the session + `/me` and replaces the current
- * route whenever it is not allowed (signed out → sign-in, consent required → consent, suspended
- * or deletion pending → account status, unfinished profile → onboarding, otherwise the tabs).
+ * route whenever it is not allowed (consent required → consent, suspended or deletion pending →
+ * account status, unfinished profile → onboarding, otherwise the tabs).
  *
- * A link opened while signed out (or a screen whose session ended) is remembered and reopened on
- * top of the tabs once the account is ready; an explicit sign-out remembers nothing, not even the
- * link kept while Review our terms or the welcome was asked (stage R12's review fix 1). A link
- * kept for a signed-in collector reopens for that collector only (`PendingLinkStore.owner`). The
- * welcome takes the link itself when it ends: the gate never pushes it on top of the welcome
- * (its second step completes the account while the third is still to come).
+ * Signed out, the app is browsed as a guest (stage R15, "Browse without an account"): Home, Search
+ * and the public pages stay; a member-only screen (a deep link to a chat, a profile, a
+ * notification) opens Sign in and is remembered, to open once the account is ready. Sign in and
+ * Create account opened from a guest screen remember that screen too (`rememberGuestReturn`):
+ * once signed in, the phone goes back to it (`router.dismissTo`, which pops back to it when it is
+ * still in the stack) and `PendingActionRunner` finishes what the guest tried to do.
+ *
+ * An explicit sign-out remembers nothing, not even the link kept while Review our terms or the
+ * welcome was asked (stage R12's review fix 1), and lands on Home as a guest. A session that ended
+ * on its own opens Sign in, and the screen it ended on is kept for that collector only
+ * (`PendingLinkStore.owner`). The welcome takes the link itself when it ends: the gate never
+ * pushes it on top of the welcome (its second step completes the account while the third is
+ * still to come).
  */
 export function useAuthGate(): Gate {
   const account = useAccount();
@@ -65,18 +73,40 @@ export function useAuthGate(): Gate {
       return;
     }
     const current = path ? path.split('/') : [];
-    const target = redirectFor(gate, current, flowLocked);
-    if (target === GATE_HOME.guest) {
-      const sessionEnded = useSessionNotice.getState().ended;
-      if (SIGNED_IN_GATES.has(previousGate.current) && !sessionEnded) {
+    const signedOut = gate === 'guest' && SIGNED_IN_GATES.has(previousGate.current);
+    if (gate !== 'boot') {
+      previousGate.current = gate;
+    }
+    // Nothing moves while a multi-step auth flow holds the lock (sign-up creates the Firebase
+    // user before it records the consents).
+    if (flowLocked) {
+      return;
+    }
+    if (signedOut) {
+      if (!useSessionNotice.getState().ended) {
         // Signed out (Sign out on any screen, Review our terms and the welcome included): the
-        // next account on this phone must never open the previous collector's screen.
+        // next account on this phone must never open the previous collector's screen or finish
+        // their action; the phone shows Home as a guest (stage R15).
         usePendingLink.getState().clear();
-      } else {
-        const href = resumableHref(current, latest.current.pathname, latest.current.params);
-        if (href) {
-          usePendingLink.getState().set(href, sessionEnded ? lastUid.current : null);
-        }
+        useGuestAction.getState().clear();
+        router.dismissTo(GATE_HOME.guest);
+        return;
+      }
+      // The session ended on its own: Sign in, and the screen it ended on for that collector.
+      const href = resumableHref(current, latest.current.pathname, latest.current.params);
+      if (href) {
+        usePendingLink.getState().set(href, lastUid.current);
+      }
+      router.dismissTo(SIGN_IN_HREF);
+      return;
+    }
+    const target = redirectFor(gate, current, flowLocked);
+    if (target === SIGN_IN_HREF) {
+      // A guest on a member-only screen (a deep link, a notification): Sign in first, then the
+      // screen (stage R15).
+      const href = resumableHref(current, latest.current.pathname, latest.current.params);
+      if (href) {
+        usePendingLink.getState().set(href, null);
       }
     } else if (target === GATE_HOME.onboarding || target === GATE_HOME.consent) {
       // An existing collector sent to Review our terms or to the welcome from a screen (the 18+
@@ -88,17 +118,22 @@ export function useAuthGate(): Gate {
         usePendingLink.getState().set(href, uid);
       }
     }
-    if (gate !== 'boot') {
-      previousGate.current = gate;
+    // Not on top of the welcome: it takes the link when it ends (Finish or Skip for now).
+    const onWelcome = current[0] === 'onboarding';
+    const resume = gate === 'app' && !flowLocked && !onWelcome && !!usePendingLink.getState().href;
+    if (target === GATE_HOME.app && resume) {
+      // Signed in from Sign in (or done with Review our terms): straight back to the screen kept
+      // for them, the guest's own screen when it is still in the stack (stage R15).
+      const pending = usePendingLink.getState().take(uid);
+      router.dismissTo((pending ?? GATE_HOME.app) as Href);
+      return;
     }
     if (target) {
       // Back to the target when it is already in the stack (e.g. the tabs a deep link opened
       // under the sign-in screen), otherwise in place of the current screen: never a second copy.
       router.dismissTo(target);
     }
-    // Not on top of the welcome: it takes the link when it ends (Finish or Skip for now).
-    const onWelcome = current[0] === 'onboarding';
-    if (gate === 'app' && usePendingLink.getState().href && !flowLocked && !onWelcome) {
+    if (!target && resume) {
       const pending = usePendingLink.getState().take(uid);
       if (pending) {
         router.push(pending as Href);

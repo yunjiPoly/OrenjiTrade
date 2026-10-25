@@ -157,16 +157,14 @@ function OnboardingFlow({ profile, location, discoverable: savedDiscoverable }: 
   /**
    * Leaves the welcome: for the tabs, or for the link the gate remembered when it sent the
    * collector here (a deep link, a notification), which replaces this screen so that back leads
-   * to the tabs. The link is taken before `/me` reloads: the gate would otherwise push it the
-   * moment the account is ready, on top of this screen.
+   * to the tabs; or back to the screen a guest created their account from (stage R15), which is
+   * still under the welcome (`dismissTo` pops back to it). The link is taken before `/me`
+   * reloads: the gate would otherwise push it the moment the account is ready, on top of this
+   * screen.
    */
   const takePendingLink = (): string | null => usePendingLink.getState().take(uid);
   const navigateAway = (pending: string | null) => {
-    if (pending) {
-      router.replace(pending as Href);
-    } else {
-      router.dismissTo('/');
-    }
+    router.dismissTo((pending ?? '/') as Href);
   };
   const continueProfile = async () => {
     if (await editor.saveDetails()) {

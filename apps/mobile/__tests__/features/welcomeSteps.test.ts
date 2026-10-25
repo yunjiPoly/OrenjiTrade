@@ -129,10 +129,10 @@ describe('the live handle check', () => {
 describe('the place step', () => {
   it('names the region and the province in the line of "Show me on the map"', () => {
     expect(discoverableHelp('Americas (North)', 'Quebec')).toBe(
-      'Collectors of Americas (North) can find your public binders in Quebec. Off until you turn it on.'
+      'Collectors of Americas (North) can find your public binders in Quebec. Visitors without an account never see your name. Off until you turn it on.'
     );
     expect(discoverableHelp('Americas (North)', null)).toBe(
-      'Collectors of Americas (North) can find your public binders in your state or province. Off until you turn it on.'
+      'Collectors of Americas (North) can find your public binders in your state or province. Visitors without an account never see your name. Off until you turn it on.'
     );
   });
 });

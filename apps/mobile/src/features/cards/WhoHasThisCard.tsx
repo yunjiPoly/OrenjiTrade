@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react';
 import { Linking, Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useGuestAction } from '@/src/account/guestAction';
 import type { ApiError } from '@/src/api/ApiError';
 import { friendlyMessage } from '@/src/api/errorMessages';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useDeckCoresWithCard, useWhoHasThisCard } from '@/src/api/hooks/search';
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { useCreateWish, useDeleteWish, useWishlist } from '@/src/api/hooks/wishlist';
 import type { CardDetail, CardHolderResult, PublicBinderSummary } from '@/src/api/types';
 import { BottomSheet } from '@/src/components/ui/BottomSheet';
@@ -18,6 +20,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
 import { printingImageUrl } from '@/src/lib/catalog';
@@ -121,8 +124,15 @@ export function WhoHasThisCard({
     router.canGoBack() ? router.back() : router.replace({ pathname: '/search', params: {} });
   const openCore = (core: PublicBinderSummary) =>
     router.push({ pathname: '/binders/[id]', params: { id: core.id, view: 'public' } });
-  const messageHolder = (result: CardHolderResult) =>
-    void message(result.collector.id, { itemId: result.item.id });
+  const messageHolder = (result: CardHolderResult) => {
+    const collectorId = result.collector.id;
+    if (!collectorId) {
+      // A guest: the sheet, then the chat with this card pinned once signed in (stage R15).
+      useGuestAction.getState().open({ kind: 'message', listing: { itemId: result.item.id } });
+      return;
+    }
+    void message(collectorId, { itemId: result.item.id });
+  };
 
   const header = (
     <View style={styles.header}>
@@ -216,7 +226,7 @@ export function WhoHasThisCard({
               ? CARD_PAGE_COPY.emptyRarity(where, rarity)
               : CARD_PAGE_COPY.empty(where)}
         </Text>
-        <WishlistToggle card={card} testID="holders-empty-wishlist" />
+        <WishlistToggle card={card} printingId={printing} testID="holders-empty-wishlist" />
       </View>
     );
   }
@@ -235,7 +245,7 @@ export function WhoHasThisCard({
         >
           <MaterialCommunityIcons name="chevron-left" size={28} color={palette.ink} />
         </Pressable>
-        <WishlistToggle card={card} testID="card-wishlist" />
+        <WishlistToggle card={card} printingId={printing} testID="card-wishlist" />
       </View>
       <SectionList<CardHolderResult, HolderGroup & { data: CardHolderResult[] }>
         testID="holders-list"
@@ -377,7 +387,8 @@ function DeckCoreBanner({
         {list.map((core) => {
           const line = CARD_PAGE_COPY.deckCoreLine(
             core.name,
-            core.owner?.handle ?? '',
+            // A guest never sees who sells it (stage R15): "A collector", the place stays.
+            core.owner ? (core.owner.handle ?? GUEST_COPY.aCollector) : '',
             core.owner?.place?.subdivisionName ?? null,
             core.askingPriceText
           );
@@ -407,9 +418,19 @@ function DeckCoreBanner({
  * terms (the collector refines it in Search › Wishlist); "On your wishlist" (teal) asks before it
  * removes the card's wishes.
  */
-function WishlistToggle({ card, testID }: { card: CardDetail; testID: string }) {
+function WishlistToggle({
+  card,
+  printingId = null,
+  testID,
+}: {
+  card: CardDetail;
+  /** The printing on screen: a guest's wish form opens on it after signing in (stage R15). */
+  printingId?: string | null;
+  testID: string;
+}) {
   const { palette } = useTheme();
   const snackbar = useSnackbar();
+  const guest = useIsGuest();
   const wishlist = useWishlist();
   const create = useCreateWish();
   const remove = useDeleteWish();
@@ -417,10 +438,15 @@ function WishlistToggle({ card, testID }: { card: CardDetail; testID: string }) 
   const name = card.name ?? 'This card';
   const wishes = (wishlist.data ?? []).filter((wish) => wish.card?.id === card.id);
   const on = wishes.length > 0;
-  const busy = create.isPending || remove.isPending || !wishlist.data;
+  const busy = !guest && (create.isPending || remove.isPending || !wishlist.data);
 
   const add = async () => {
     if (!card.id) {
+      return;
+    }
+    if (guest) {
+      // Saving a wish needs an account: the sheet, then the wish form of this card (stage R15).
+      useGuestAction.getState().open({ kind: 'wish', cardId: card.id, printingId });
       return;
     }
     try {

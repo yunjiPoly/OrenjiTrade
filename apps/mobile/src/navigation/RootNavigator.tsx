@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFlowLock } from '@/src/account/flowLock';
 import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
+import { PendingActionRunner } from '@/src/features/guest/PendingActionRunner';
+import { SignInSheet } from '@/src/features/guest/SignInSheet';
 import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
@@ -34,7 +36,8 @@ function ownBar(title: string) {
 }
 
 /**
- * The root stack with the auth gate (signed out → sign-in, account states, onboarding, tabs).
+ * The root stack with the auth gate (signed out → Home as a guest and Sign in for member screens,
+ * account states, onboarding, tabs).
  * While the gate boots, the native splash stays up and the web build shows `BootScreen`.
  */
 export function RootNavigator() {
@@ -123,6 +126,10 @@ export function RootNavigator() {
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}
+      {/* Browsing without an account (stage R15): the sheet of an action that needs one, and
+          that action finished once the guest has signed in. */}
+      <SignInSheet />
+      <PendingActionRunner gate={gate} />
     </View>
   );
 }

@@ -3,11 +3,14 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { useWishlist } from '@/src/api/hooks/wishlist';
 import { Text } from '@/src/components/ui/Text';
 import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { GamePill } from '@/src/features/games/GamePill';
+import { GuestPage } from '@/src/features/guest/GuestParts';
+import { PersonButton } from '@/src/features/guest/PersonButton';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { placeCodeFrom } from '@/src/features/map/places';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
@@ -118,6 +121,8 @@ export default function SearchScreen() {
   const { select, knows, ready } = useBrowsingRegion();
   const browsing = useBrowsingGame();
   const wishlist = useWishlist();
+  // Signed out (stage R15): the person button for the bell, Wishlist asks to sign in in place.
+  const guest = useIsGuest();
   const [segment, setSegment] = useState<SearchSegment>(() => segmentOfLink(params) ?? 'cards');
   const [typing, setTyping] = useState<{ text: string } | null>(() =>
     params.q || params.typing === '1' || setOfLink(params) ? { text: params.q ?? '' } : null
@@ -206,7 +211,8 @@ export default function SearchScreen() {
       />
     );
   } else if (segment === 'wishlist') {
-    body = <WishlistSegment />;
+    // A guest's Wishlist asks to sign in in place (stage R15, mockup v50 screen 72).
+    body = guest ? <GuestPage kind="wishlist" testID="guest-wishlist" /> : <WishlistSegment />;
   } else if (typing) {
     body = (
       <CardTyping
@@ -251,7 +257,11 @@ export default function SearchScreen() {
             </Text>
             <GamePill testID="search-game" />
           </View>
-          <NotificationBell testID="notification-bell-search" variant="round" />
+          {guest ? (
+            <PersonButton testID="person-button-search" />
+          ) : (
+            <NotificationBell testID="notification-bell-search" variant="round" />
+          )}
         </View>
         <UnderlineTabs<SearchSegment>
           label={SEARCH_COPY.segmentsLabel}

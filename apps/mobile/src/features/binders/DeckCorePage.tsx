@@ -18,6 +18,8 @@ import {
   TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
+import { useGuestAction } from '@/src/account/guestAction';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 
 import { DECK_CORE_COPY } from './binderCopy';
 import { DeckCoreTag } from './BinderRows';
@@ -46,7 +48,8 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
   const selfId = useAccount().me?.id ?? null;
   const { message, startingId } = useMessageCollector();
   const owner = binder.owner;
-  const own = owner.id === selfId;
+  // Never "own" for a guest: they read no owner id (stage R15).
+  const own = selfId !== null && owner.id === selfId;
   const photos = (binder.photos ?? []).map((photo) => photo.url);
   const pictures = photos.length > 0 ? photos : (binder.previewImages ?? []);
   const game = binder.games[0] ? gameLabel(binder.games[0]).toUpperCase() : null;
@@ -129,6 +132,7 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
 
           <SellerRow
             owner={owner}
+            binderId={binder.id}
             publicBinders={binder.ownerPublicBinderCount ?? 1}
             testID="deck-core-seller"
           />
@@ -180,13 +184,23 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
           {own ? null : (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={DECK_CORE_COPY.reportLabel(owner.displayName || owner.handle)}
-              onPress={() =>
+              accessibilityLabel={DECK_CORE_COPY.reportLabel(
+                owner.displayName || owner.handle || GUEST_COPY.aCollector
+              )}
+              onPress={() => {
+                const ownerId = owner.id;
+                if (!ownerId) {
+                  useGuestAction.getState().open({ kind: 'report', binderId: binder.id });
+                  return;
+                }
                 router.push({
                   pathname: '/report',
-                  params: reportParams(owner, { source: 'BINDER', binderId: binder.id }),
-                })
-              }
+                  params: reportParams(
+                    { id: ownerId, displayName: owner.displayName ?? '', handle: owner.handle },
+                    { source: 'BINDER', binderId: binder.id }
+                  ),
+                });
+              }}
               testID="deck-core-report"
               style={({ pressed }) => [styles.report, pressed && styles.pressed]}
             >
@@ -219,11 +233,22 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
           />
         ) : (
           <PillButton
-            label={DECK_CORE_COPY.message(owner.handle)}
+            label={owner.handle ? DECK_CORE_COPY.message(owner.handle) : GUEST_COPY.messageButton}
+            accessibilityHint={owner.id ? undefined : GUEST_COPY.needsAccount}
             icon="message-outline"
-            loading={startingId === owner.id}
-            // The chat opens about this deck core (stage R4: the pinned bar and the buying tip).
-            onPress={() => void message(owner.id, { binderId: binder.id })}
+            loading={!!owner.id && startingId === owner.id}
+            // The chat opens about this deck core (stage R4: the pinned bar and the buying tip). A
+            // guest is asked to sign in first, and the chat opens after (stage R15).
+            onPress={() => {
+              const ownerId = owner.id;
+              if (!ownerId) {
+                useGuestAction
+                  .getState()
+                  .open({ kind: 'message', listing: { binderId: binder.id } });
+                return;
+              }
+              void message(ownerId, { binderId: binder.id });
+            }}
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             testID="deck-core-message"
           />

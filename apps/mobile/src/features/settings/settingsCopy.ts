@@ -91,7 +91,9 @@ export const LOCATION_COPY = {
   loadError: 'We could not load your location',
   loading: 'Loading your location',
   onMap: 'Show me on the map',
-  seenIn: (place: string) => `Collectors see you in ${place}.`,
+  // Stage R15: a visitor without an account sees the cards, never who you are.
+  seenIn: (place: string) =>
+    `Collectors see you in ${place}. Visitors without an account see your cards, never your name.`,
   hidden: 'You are hidden from the map and from searches.',
   privateHidden:
     'Your profile is private, so you are hidden from the map and from searches. Change it in Privacy.',

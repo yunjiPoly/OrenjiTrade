@@ -209,3 +209,6 @@ export type FeedNewCards = Schemas['FeedNewCards'];
 export type FeedCardPreview = Schemas['FeedCardPreview'];
 export type FeedWish = Schemas['FeedWish'];
 export type FeedDeckCore = Schemas['FeedDeckCore'];
+
+/** Stage R15: who owns a public card, binder or wish (`GET /listings/owner`, members only). */
+export type PublicListingOwner = Schemas['PublicListingOwner'];

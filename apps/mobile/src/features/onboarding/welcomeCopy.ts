@@ -57,7 +57,7 @@ export const WELCOME_COPY = {
       'Collectors find binders by state or province. We never use GPS and never ask for your address.',
     discoverable: 'Show me on the map',
     discoverableHelp: (region: string, province: string) =>
-      `Collectors of ${region} can find your public binders in ${province}. Off until you turn it on.`,
+      `Collectors of ${region} can find your public binders in ${province}. Visitors without an account never see your name. Off until you turn it on.`,
     yourRegion: 'your region',
     yourProvince: 'your state or province',
     finish: 'Finish',

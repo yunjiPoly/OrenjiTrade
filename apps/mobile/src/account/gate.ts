@@ -3,7 +3,10 @@ import type { AccountStatus } from './accountStatus';
 /**
  * Which part of the app the collector may see (expo-router auth gate):
  * - `boot`: Firebase or `/me` has not answered yet (splash / boot screen, no redirect);
- * - `guest`: signed out, the `(auth)` group (sign in, create account, reset password);
+ * - `guest`: signed out (stage R15, "Browse without an account"): Home, Search's Cards and
+ *   Binders, card pages, sets, the binders of a state, a public binder or deck core, legal and
+ *   Settings › Appearance, and the `(auth)` group (sign in, create account, reset password). The
+ *   member-only tabs show a page that asks to sign in in place; any other screen opens Sign in;
  * - `consent`, `suspended`, `error`: the matching `(account)` screen only;
  * - `onboarding`: signed in with an unfinished profile;
  * - `app`: the tabs and everything behind them.
@@ -33,7 +36,8 @@ export function gateFor(status: AccountStatus, needsOnboarding: boolean): Gate {
 
 /** Route paths the gate redirects to (groups do not appear in URLs). */
 export const GATE_HOME = {
-  guest: '/sign-in',
+  // The app opens on Home for a signed-out visitor (stage R15), not on Sign in.
+  guest: '/',
   consent: '/consent',
   suspended: '/suspended',
   error: '/unavailable',
@@ -44,6 +48,34 @@ export const GATE_HOME = {
 export type GateHome = (typeof GATE_HOME)[keyof typeof GATE_HOME];
 
 const ALWAYS_ALLOWED = new Set(['legal', '+not-found', '_sitemap']);
+
+/** Where a guest goes from a member-only screen (a deep link, a chat, a notification). */
+export const SIGN_IN_HREF = '/sign-in';
+
+/** Where the gate may send someone: a gate's home, or Sign in for a guest on a member screen. */
+export type GateTarget = GateHome | typeof SIGN_IN_HREF;
+
+/**
+ * The roots a guest may open (stage R15): the tabs (Home and Search browse; Inventory, Messages,
+ * Profile and Search › Wishlist ask to sign in in place), the card pages and their holders, sets,
+ * the binders of a state (old links into Search), the auth screens. Legal is open to every gate.
+ */
+const GUEST_ROOTS = new Set(['(auth)', '(tabs)', 'cards', 'holders', 'sets', 'regions']);
+
+/** Screens of a member root a guest may open: a public binder or deck core, Appearance. */
+const GUEST_SCREENS: Readonly<Record<string, readonly string[]>> = {
+  binders: ['[id]'],
+  settings: ['appearance'],
+};
+
+/** Whether a guest may open `root`/`screen` (`segments[0]` and `segments[1]`). */
+export function guestMayOpen(root: string, screen: string | undefined): boolean {
+  if (GUEST_ROOTS.has(root) || ALWAYS_ALLOWED.has(root)) {
+    return true;
+  }
+  return screen !== undefined && (GUEST_SCREENS[root]?.includes(screen) ?? false);
+}
+
 const APP_ROOTS = new Set([
   '(tabs)',
   'settings',
@@ -72,7 +104,7 @@ const APP_ROOTS = new Set([
 function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | undefined): boolean {
   switch (gate) {
     case 'guest':
-      return root === '(auth)';
+      return guestMayOpen(root, screen);
     case 'consent':
       return root === '(account)' && screen === 'consent';
     case 'suspended':
@@ -96,13 +128,14 @@ function allowed(gate: Exclude<Gate, 'boot'>, root: string, screen: string | und
 /**
  * Where the gate sends a collector who is on `segments` (expo-router `useSegments()`), or null to
  * stay. Nothing moves while booting or while a multi-step auth flow holds the lock (sign-up
- * creates the Firebase user before it records the consents).
+ * creates the Firebase user before it records the consents). A guest on a member-only screen goes
+ * to Sign in (and on to the screen after, `useAuthGate`).
  */
 export function redirectFor(
   gate: Gate,
   segments: readonly string[],
   flowLocked = false
-): GateHome | null {
+): GateTarget | null {
   if (gate === 'boot' || flowLocked) {
     return null;
   }
@@ -110,7 +143,10 @@ export function redirectFor(
   if (ALWAYS_ALLOWED.has(root)) {
     return null;
   }
-  return allowed(gate, root, segments[1]) ? null : GATE_HOME[gate];
+  if (allowed(gate, root, segments[1])) {
+    return null;
+  }
+  return gate === 'guest' ? SIGN_IN_HREF : GATE_HOME[gate];
 }
 
 /** Where a collector in this state belongs (used after flows that end a gate step). */

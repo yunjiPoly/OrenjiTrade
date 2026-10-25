@@ -21,7 +21,7 @@ import {
   useInventorySummary,
 } from '@/src/api/hooks/inventory';
 import { useGames } from '@/src/api/hooks/profile';
-import { useUid } from '@/src/api/hooks/useUid';
+import { useIsGuest, useUid } from '@/src/api/hooks/useUid';
 import type { InventoryItemResponse } from '@/src/api/types';
 import { ConfirmSheet } from '@/src/components/ui/ConfirmSheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -68,6 +68,8 @@ import {
   TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
+import { GuestTab } from '@/src/features/guest/GuestTab';
+import { tabTitle } from '@/src/navigation/tabs';
 
 type View_ = 'cards' | 'binders';
 
@@ -80,7 +82,19 @@ type View_ = 'cards' | 'binders';
  * Delete. The listings-paused banner and the freshness notice stay. The Binders side is Inventory ›
  * Binders (section 7, screen 17, stage R3).
  */
-export default function InventoryScreen() {
+/**
+ * The Inventory tab: for a guest (signed out, stage R15) a page in place that asks to create an
+ * account or sign in (mockup v50 screen 73); for a member, InventoryScreen.
+ */
+export default function InventoryTab() {
+  return useIsGuest() ? (
+    <GuestTab kind="inventory" title={tabTitle('inventory')} />
+  ) : (
+    <InventoryScreen />
+  );
+}
+
+function InventoryScreen() {
   const router = useRouter();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();

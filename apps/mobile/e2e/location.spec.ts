@@ -94,7 +94,7 @@ test.describe('mobile location and discoverability', () => {
     await expect(snackbar(page)).toContainText('You now appear on the map.', { timeout: 30_000 });
     await expect(discoverable).toHaveAttribute('aria-checked', 'true');
     await expect(settings.getByTestId('location-visibility')).toHaveText(
-      'Collectors see you in Ontario, Canada.'
+      'Collectors see you in Ontario, Canada. Visitors without an account see your cards, never your name.'
     );
 
     // The API agrees: codes, names and the city only, never a coordinate.

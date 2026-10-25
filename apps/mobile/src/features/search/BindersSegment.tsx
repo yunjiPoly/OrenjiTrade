@@ -11,6 +11,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { CardFan, CoreThumb } from '@/src/features/binders/BinderRows';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { SwitchGameButton } from '@/src/features/games/SwitchGameButton';
@@ -232,7 +233,8 @@ export const BinderSearchRow = memo(function BinderSearchRow({
   // the price the name broke in the middle of a word).
   const stacked = useStackedRows();
   const core = binder.sellsAsCore ?? false;
-  const handle = binder.owner?.handle ?? '';
+  // A guest never sees who owns it (stage R15): "A collector", the place stays.
+  const handle = binder.owner ? (binder.owner.handle ?? GUEST_COPY.aCollector) : '';
   const province = wholeRegion
     ? (binder.owner?.place?.subdivisionName ?? binder.owner?.place?.label ?? null)
     : null;

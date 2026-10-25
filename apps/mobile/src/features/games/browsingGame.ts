@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { create } from 'zustand';
 
 import { useGames, useMyProfile } from '@/src/api/hooks/profile';
-import { useIsAuthenticated, useUid } from '@/src/api/hooks/useUid';
+import { useIsAuthenticated, useIsGuest, useUid } from '@/src/api/hooks/useUid';
 import type { GameResponse } from '@/src/api/types';
 import { gameLabel } from '@/src/lib/profile';
 
@@ -23,8 +23,17 @@ import { gameLabel } from '@/src/lib/profile';
  * Only a game that can be browsed is ever chosen: an ACTIVE game of `GET /games` whose catalogue
  * holds a card (`hasCards`). A remembered game an admin hid since, or one that has no cards, is
  * passed over (and kept on the phone: it comes back once it can be browsed again).
+ *
+ * A guest (signed out, stage R15) browses one game too, kept under the guest's own key (the slug
+ * alone, Yu-Gi-Oh! by default); once signed in, the account's remembered game wins.
  */
 export const BROWSING_GAME_STORAGE_PREFIX = 'orenjitrade.browsing-game.v1.';
+
+/**
+ * The key a guest's game is kept under, in place of an account uid (`orenjitrade.browsing-game.v1.
+ * guest`). A Firebase uid is 28 letters and digits: never this word.
+ */
+export const GUEST_GAME_KEY = 'guest';
 
 /** The game of a collector without a choice and without a profile game that has cards. */
 export const DEFAULT_GAME = 'yugioh';
@@ -176,7 +185,10 @@ export interface BrowsingGame {
 const EMPTY_GAMES: readonly string[] = [];
 
 export function useBrowsingGame(): BrowsingGame {
-  const uid = useUid();
+  const signedInUid = useUid();
+  const guest = useIsGuest();
+  // The account the game is remembered for: a guest's own key while signed out (stage R15).
+  const uid = signedInUid ?? (guest ? GUEST_GAME_KEY : null);
   const authenticated = useIsAuthenticated();
   const gamesQuery = useGames();
   const profile = useMyProfile();
@@ -193,7 +205,7 @@ export function useBrowsingGame(): BrowsingGame {
     () => (gamesQuery.data ? gameOptions(gamesQuery.data) : null),
     [gamesQuery.data]
   );
-  const profileGames = profile.data?.games ?? EMPTY_GAMES;
+  const profileGames = (authenticated ? profile.data?.games : undefined) ?? EMPTY_GAMES;
   const game = resolveBrowsingGame({
     picked,
     stored: stored ?? null,

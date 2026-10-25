@@ -482,7 +482,7 @@ describe('Location (49)', () => {
       expect(screen.getByRole('switch', { name: 'Show me on the map' })).toBeChecked()
     );
     expect(screen.getByTestId('location-visibility')).toHaveTextContent(
-      'Collectors see you in Quebec, Canada.'
+      'Collectors see you in Quebec, Canada. Visitors without an account see your cards, never your name.'
     );
   });
 

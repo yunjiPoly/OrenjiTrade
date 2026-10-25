@@ -108,5 +108,5 @@ tags:
       ID: 'location-discoverable'
 - assertVisible:
     id: 'location-visibility'
-    text: 'Collectors see you in Ontario, Canada\.'
+    text: 'Collectors see you in Ontario, Canada\. Visitors without an account see your cards, never your name\.'
 - takeScreenshot: discoverability-on

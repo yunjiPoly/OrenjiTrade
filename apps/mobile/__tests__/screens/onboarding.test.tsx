@@ -236,7 +236,7 @@ describe('Welcome (three steps)', () => {
     // The switch's line names the region and the province once chosen.
     expect(
       screen.getByText(
-        'Collectors of Americas (North) can find your public binders in Quebec. Off until you turn it on.'
+        'Collectors of Americas (North) can find your public binders in Quebec. Visitors without an account never see your name. Off until you turn it on.'
       )
     ).toBeOnTheScreen();
     fireEvent.changeText(screen.getByLabelText('City (optional)'), ' Laval ');

@@ -433,7 +433,7 @@ describe('Edit binder (screen 18)', () => {
     mockParams.current = { id: CORE_ID, view: 'public' };
     mockApi(
       editRoutes(deckCoreFixture(), {
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
         ...savedBinder(deckCoreFixture()),
       })
     );
@@ -918,7 +918,7 @@ describe('Deck core page (screen 16)', () => {
   it('the owner sees “Edit binder” instead of Message and Report', async () => {
     mockApi(
       coreRoutes({
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
       })
     );
     renderWithProviders(<BinderScreen />, { port: port() });
@@ -935,7 +935,7 @@ describe('Deck core page (screen 16)', () => {
     mockParams.current = { id: 'core-1', view: 'public', from: 'edit' };
     mockApi(
       coreRoutes({
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
       })
     );
     renderWithProviders(<BinderScreen />, { port: port() });

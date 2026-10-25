@@ -15,7 +15,7 @@ import type {
   WishlistAvailability,
 } from '../types';
 import { nextPage } from './catalog';
-import { useIsAuthenticated, useUid } from './useUid';
+import { useCanBrowse, useIsAuthenticated, useUid } from './useUid';
 
 /**
  * The region Search and the card page browse (ADR 0017): the one the region switcher shows (the
@@ -102,7 +102,8 @@ export function useWhoHasThisCard(
   rarity: string | null = null
 ) {
   const uid = useUid();
-  const authenticated = useIsAuthenticated();
+  // Guests read who has a card too, without who they are (stage R15).
+  const browse = useCanBrowse();
   const { region, ready } = useSearchRegion();
   const base = printingId
     ? { printingId, region, sort: 'province' as const, excludeDeckCoreItems: true }
@@ -129,7 +130,7 @@ export function useWhoHasThisCard(
         ).data
       ),
     getNextPageParam: (last) => nextPage(last),
-    enabled: authenticated && ready && base !== null,
+    enabled: browse && ready && base !== null,
     placeholderData: previousOfSameRegion(region),
     staleTime: 60_000,
   });
@@ -144,14 +145,14 @@ export const DECK_CORES_ON_CARD_PAGE = 3;
  */
 export function useDeckCoresWithCard(cardId: string | null) {
   const uid = useUid();
-  const authenticated = useIsAuthenticated();
+  const browse = useCanBrowse();
   const { region, ready } = useSearchRegion();
   const params = { cardId: cardId ?? '', region, limit: DECK_CORES_ON_CARD_PAGE };
   return useQuery<PublicBinderSummary[], ApiError>({
     queryKey: meKeys.search(uid, { deckCores: true, ...params }),
     queryFn: async () =>
       required((await api.GET('/api/v1/search/deck-cores', { params: { query: params } })).data),
-    enabled: authenticated && ready && !!cardId,
+    enabled: browse && ready && !!cardId,
     placeholderData: previousOfSameRegion<PublicBinderSummary[]>(region),
     staleTime: 60_000,
   });
@@ -178,7 +179,7 @@ export interface BinderSearch {
  */
 export function useBinderSearch(search: BinderSearch) {
   const uid = useUid();
-  const authenticated = useIsAuthenticated();
+  const browse = useCanBrowse();
   const { region, ready } = useSearchRegion();
   const browsing = useBrowsingGame();
   const game = browsing.game;
@@ -210,7 +211,7 @@ export function useBinderSearch(search: BinderSearch) {
       );
     },
     getNextPageParam: (last) => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
-    enabled: authenticated && ready && browsing.ready,
+    enabled: browse && ready && browsing.ready,
     placeholderData: previousOfSameRegionAndGame(region, game),
     staleTime: 60_000,
   });
