@@ -15,10 +15,8 @@ tags:
       EMAIL: ${SEED_EMAIL}
       PASSWORD: ${SEED_PASSWORD}
 - runFlow: subflows/launch-fresh.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+# Since stage R15 the app opens on Home as a guest; the person button opens Sign in.
+- runFlow: subflows/open-sign-in.yaml
 
 # Client validation, then the friendly Firebase error.
 - tapOn:

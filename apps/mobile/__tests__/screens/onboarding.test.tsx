@@ -369,8 +369,12 @@ describe('Welcome (three steps)', () => {
     expect(await screen.findByText('Where do you ship from?')).toBeOnTheScreen();
     usePendingLink.getState().set('/collectors/collector5');
     fireEvent.press(screen.getByRole('button', { name: 'Skip for now' }));
-    await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledWith('/collectors/collector5'));
-    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    // `dismissTo`: back to the screen when it is still under the welcome (a guest who created
+    // their account from it, stage R15), else in place of the welcome (a deep link).
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith('/collectors/collector5')
+    );
+    expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(usePendingLink.getState().href).toBeNull();
   });
 

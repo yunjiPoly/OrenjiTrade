@@ -2,6 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { useDeletingBinder, useMyBinders } from '@/src/api/hooks/binders';
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { BinderEditorScreen } from '@/src/features/binders/BinderEditor';
 import { PublicBinderView } from '@/src/features/binders/PublicBinderView';
@@ -21,10 +22,12 @@ export default function BinderScreen() {
   const { palette } = useTheme();
   const mine = useMyBinders();
   const deleting = useDeletingBinder(id);
+  // A guest has no binders of their own: the public view (stage R15).
+  const guest = useIsGuest();
   const own = deleting || (mine.data?.some((binder) => binder.id === id) ?? false);
 
   let content;
-  if (view === 'public' || (mine.data && !own) || (!mine.data && mine.error)) {
+  if (guest || view === 'public' || (mine.data && !own) || (!mine.data && mine.error)) {
     // Not one of the collector's binders (or the list cannot tell): the public view answers.
     content = <PublicBinderView id={id} />;
   } else if (mine.data) {

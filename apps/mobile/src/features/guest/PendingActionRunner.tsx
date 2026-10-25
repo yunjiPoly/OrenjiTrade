@@ -39,7 +39,8 @@ export function PendingActionRunner({ gate }: { gate: Gate }) {
   const running = useRef(false);
 
   const root = segments[0] ?? '(tabs)';
-  const here = gate === 'app' && !flowLocked && !NOT_HERE.has(root);
+  // The account is ready (`/me` read: whose listing it is), and the phone is on a screen.
+  const here = gate === 'app' && !!me && !flowLocked && !NOT_HERE.has(root);
   // The latest flows, without re-running the effect when their identity changes.
   const flows = useRef({ message, haveIt, router, snackbar, myId: me?.id ?? null });
   useEffect(() => {

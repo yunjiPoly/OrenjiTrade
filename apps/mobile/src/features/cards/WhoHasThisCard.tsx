@@ -270,7 +270,7 @@ export function WhoHasThisCard({
           <HolderRow
             result={item}
             onMessage={messageHolder}
-            starting={startingId === item.collector.id}
+            starting={!!item.collector.id && startingId === item.collector.id}
           />
         )}
         ListHeaderComponent={header}

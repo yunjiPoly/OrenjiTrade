@@ -40,12 +40,41 @@ describe('auth gate (RootNavigator)', () => {
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   });
 
-  it('sends signed-out visitors to sign in', async () => {
+  it('opens on Home for a signed-out visitor, and on Sign in for a member-only screen (stage R15)', async () => {
     mockSegments.current = ['(tabs)'];
+    mockApi({});
+    const home = renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    home.unmount();
+
+    // The public pages stay open to a guest.
+    for (const [segments, pathname] of [
+      [['cards', '[id]'], '/cards/c1'],
+      [['binders', '[id]'], '/binders/b1'],
+      [['settings', 'appearance'], '/settings/appearance'],
+      [['(tabs)', 'inventory'], '/inventory'],
+    ] as const) {
+      resetRouterMock();
+      mockSegments.current = [...segments];
+      mockPathname.current = pathname;
+      mockApi({});
+      const view = renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
+      await waitFor(() => expect(screen.queryByTestId('boot-screen')).toBeNull());
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+      view.unmount();
+    }
+
+    // A deep link to a notification, a chat or a profile: Sign in, the link kept for after.
+    resetRouterMock();
+    mockSegments.current = ['notifications'];
+    mockPathname.current = '/notifications';
     mockApi({});
     renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
-    expect(screen.queryByTestId('boot-screen')).toBeNull();
+    expect(usePendingLink.getState()).toMatchObject({ href: '/notifications', owner: null });
   });
 
   it('routes the account states: consent, suspended, deletion pending, error, onboarding', async () => {
@@ -120,8 +149,12 @@ describe('auth gate (RootNavigator)', () => {
     await act(async () => {
       await port.signIn('maika@example.test', 'correct-password');
     });
-    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith('/collectors/collector5'));
-    expect(mockRouter.dismissTo).toHaveBeenCalledWith('/');
+    // Straight to the link, in place of Sign in (stage R15: `dismissTo` pops back to it when it
+    // is still in the stack).
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith('/collectors/collector5')
+    );
+    expect(mockRouter.push).not.toHaveBeenCalled();
     expect(usePendingLink.getState().href).toBeNull();
   });
 
@@ -135,7 +168,9 @@ describe('auth gate (RootNavigator)', () => {
     await act(async () => {
       await port.signOut();
     });
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    // Stage R15: an explicit sign-out lands on Home as a guest.
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalledWith('/sign-in');
     expect(usePendingLink.getState().href).toBeNull();
     first.unmount();
 
@@ -274,7 +309,8 @@ describe('auth gate: a remembered link belongs to its collector (stage R12, revi
     await act(async () => {
       await port.signOut();
     });
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    // Home as a guest (stage R15).
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
     expect(usePendingLink.getState().href).toBeNull();
 
     // Collector B creates an account on the same phone: the tabs, never A's search.
@@ -312,7 +348,8 @@ describe('auth gate: a remembered link belongs to its collector (stage R12, revi
     await act(async () => {
       await port.signOut();
     });
-    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    // Home as a guest (stage R15).
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
     expect(usePendingLink.getState().href).toBeNull();
 
     mockSegments.current = ['(auth)', 'sign-in'];
@@ -365,7 +402,7 @@ describe('auth gate: a remembered link belongs to its collector (stage R12, revi
     await act(async () => {
       await second.port.signIn('maika@example.test', 'correct-password');
     });
-    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith('/cards/c1?printing=p2'));
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/cards/c1?printing=p2'));
   });
 
   it('never pushes a remembered link on top of the welcome; the welcome takes it when it ends', async () => {

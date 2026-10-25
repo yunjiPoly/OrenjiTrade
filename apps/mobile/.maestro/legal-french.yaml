@@ -9,10 +9,8 @@ tags:
   - legal
 ---
 - runFlow: subflows/launch-fresh.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+# Since stage R15 the app opens on Home as a guest; the person button opens Sign in.
+- runFlow: subflows/open-sign-in.yaml
 - runFlow:
     file: subflows/scroll-down-to-text.yaml
     env:
@@ -85,10 +83,7 @@ tags:
 
 # The explicit choice (EN) survives a relaunch; FR again from the index.
 - runFlow: subflows/relaunch.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+- runFlow: subflows/open-sign-in.yaml
 - runFlow:
     file: subflows/scroll-down-to-text.yaml
     env:

@@ -61,9 +61,8 @@ function GradientFill({
 export function GuestAvatar({ size = 36, testID }: { size?: number; testID?: string }) {
   const { palette } = useTheme();
   return (
+    // Read by no screen reader on its own: the row or header around it says "A collector".
     <View
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
       testID={testID}
       style={[
         styles.avatar,

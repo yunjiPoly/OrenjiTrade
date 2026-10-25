@@ -16,10 +16,8 @@ tags:
 ---
 - runScript: scripts/new-identity.js
 - runFlow: subflows/launch-fresh.yaml
-- extendedWaitUntil:
-    visible:
-      id: 'screen-sign-in'
-    timeout: 60000
+# Since stage R15 the app opens on Home as a guest; the person button opens Sign in.
+- runFlow: subflows/open-sign-in.yaml
 - assertVisible: 'Find collectors in your region who own, trade or want the cards you care about\.'
 - tapOn: 'Create an account'
 - extendedWaitUntil:

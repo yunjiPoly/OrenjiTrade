@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AccountProvider } from '@/src/account/AccountProvider';
 import { useFlowLock } from '@/src/account/flowLock';
+import { useGuestAction } from '@/src/account/guestAction';
 import { usePendingLink } from '@/src/account/pendingLink';
 import { useActiveConversation } from '@/src/features/messages/activeConversation';
 import { usePendingDrafts } from '@/src/features/messages/pendingDraft';
@@ -15,6 +16,7 @@ import { resetRoomVisits } from '@/src/features/community/roomVisits';
 import { resetBrowsingGame } from '@/src/features/games/browsingGame';
 import {
   BROWSING_REGION_STORAGE_KEY,
+  GUEST_BROWSING_REGION_STORAGE_KEY,
   resetBrowsingRegion,
 } from '@/src/features/regions/browsingRegion';
 import { useSessionNotice } from '@/src/auth/sessionNotice';
@@ -116,11 +118,13 @@ export function resetAppState(): void {
   clearAccountSignal();
   useFlowLock.getState().unlock();
   usePendingLink.getState().clear();
+  useGuestAction.getState().clear();
   useSessionNotice.getState().clear();
   useActiveConversation.getState().set(null);
   usePendingDrafts.setState({ drafts: {} });
   resetBrowsingRegion();
   void AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
+  void AsyncStorage.removeItem(GUEST_BROWSING_REGION_STORAGE_KEY);
   resetBrowsingGame();
   resetRoomVisits();
   resetGetStarted();
