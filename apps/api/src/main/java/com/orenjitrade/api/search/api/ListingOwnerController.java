@@ -84,7 +84,7 @@ public class ListingOwnerController {
     }
 
     /** The owner of a public listing, as members see them (never a place, a city or a point). */
-    @Schema(name = "ListingOwner", description = "The collector who owns a public listing")
+    @Schema(name = "PublicListingOwner", description = "The collector who owns a public listing")
     public record ListingOwnerResponse(
             @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,

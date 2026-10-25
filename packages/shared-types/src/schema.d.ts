@@ -9236,6 +9236,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description The collector who owns a public listing */
+        PublicListingOwner: {
+            /** Format: uuid */
+            id: string;
+            /** @example maika */
+            handle: string;
+            /** @example Maïka Tremblay */
+            displayName: string;
+            /** Format: uri */
+            avatarUrl?: string | null;
+        };
         /** @description Totals of the caller's inventory */
         InventorySummaryResponse: {
             /** Format: int64 */
@@ -25180,7 +25191,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListingOwner"];
+                    "application/json": components["schemas"]["PublicListingOwner"];
                 };
             };
             /** @description VALIDATION_FAILED: not exactly one of itemId, binderId, wishId */

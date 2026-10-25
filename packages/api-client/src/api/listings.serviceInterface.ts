@@ -11,8 +11,8 @@ import { HttpHeaders }                                       from '@angular/comm
 
 import { Observable }                                        from 'rxjs';
 
-import { ListingOwner } from '../model/models';
 import { ProblemDetail } from '../model/models';
+import { PublicListingOwner } from '../model/models';
 
 
 import { Configuration }                                     from '../configuration';
@@ -35,6 +35,6 @@ export interface ListingsServiceInterface {
      * @endpoint get /api/v1/listings/owner
 * @param requestParameters
      */
-    getListingOwner(requestParameters: GetListingOwnerRequestParams, extraHttpRequestParams?: any): Observable<ListingOwner>;
+    getListingOwner(requestParameters: GetListingOwnerRequestParams, extraHttpRequestParams?: any): Observable<PublicListingOwner>;
 
 }

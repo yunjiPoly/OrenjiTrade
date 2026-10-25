@@ -17,9 +17,9 @@ import { Observable }                                        from 'rxjs';
 import { OpenApiHttpParams, QueryParamStyle } from '../query.params';
 
 // @ts-ignore
-import { ListingOwner } from '../model/listingOwner';
-// @ts-ignore
 import { ProblemDetail } from '../model/problemDetail';
+// @ts-ignore
+import { PublicListingOwner } from '../model/publicListingOwner';
 
 // @ts-ignore
 import { BASE_PATH, COLLECTION_FORMATS }                     from '../variables';
@@ -50,9 +50,9 @@ export class ListingsService extends BaseService implements ListingsServiceInter
      * @param reportProgress flag to report request and response progress.
      * @param options additional options
      */
-    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<ListingOwner>;
-    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<ListingOwner>>;
-    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<ListingOwner>>;
+    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'body', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<PublicListingOwner>;
+    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'response', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpResponse<PublicListingOwner>>;
+    public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe?: 'events', reportProgress?: boolean, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<HttpEvent<PublicListingOwner>>;
     public getListingOwner(requestParameters?: GetListingOwnerRequestParams, observe: any = 'body', reportProgress: boolean = false, options?: {httpHeaderAccept?: 'application/json' | 'application/problem+json', context?: HttpContext, transferCache?: boolean}): Observable<any> {
         const itemId = requestParameters?.itemId;
         const binderId = requestParameters?.binderId;
@@ -118,7 +118,7 @@ export class ListingsService extends BaseService implements ListingsServiceInter
 
         let localVarPath = `/api/v1/listings/owner`;
         const { basePath, withCredentials } = this.configuration;
-        return this.httpClient.request<ListingOwner>('get', `${basePath}${localVarPath}`,
+        return this.httpClient.request<PublicListingOwner>('get', `${basePath}${localVarPath}`,
             {
                 context: localVarHttpContext,
                 params: localVarQueryParameters.toHttpParams(),

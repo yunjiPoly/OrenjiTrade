@@ -19253,7 +19253,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ListingOwner"
+                  "$ref": "#/components/schemas/PublicListingOwner"
                 }
               }
             }
@@ -37339,6 +37339,36 @@
             "additionalProperties": {}
           }
         }
+      },
+      "PublicListingOwner": {
+        "type": "object",
+        "description": "The collector who owns a public listing",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handle": {
+            "type": "string",
+            "example": "maika"
+          },
+          "displayName": {
+            "type": "string",
+            "example": "Maïka Tremblay"
+          },
+          "avatarUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          }
+        },
+        "required": [
+          "displayName",
+          "handle",
+          "id"
+        ]
       },
       "InventorySummaryResponse": {
         "type": "object",

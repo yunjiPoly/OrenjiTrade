@@ -252,6 +252,7 @@ export * from './publicBinderOwner';
 export * from './publicBinderResponse';
 export * from './publicBinderSummary';
 export * from './publicInventoryItem';
+export * from './publicListingOwner';
 export * from './publishBinderRequest';
 export * from './pushTokenRequest';
 export * from './quietHours';

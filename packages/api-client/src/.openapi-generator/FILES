@@ -374,6 +374,7 @@ model/publicBinderOwner.ts
 model/publicBinderResponse.ts
 model/publicBinderSummary.ts
 model/publicInventoryItem.ts
+model/publicListingOwner.ts
 model/publishBinderRequest.ts
 model/pushTokenRequest.ts
 model/quietHours.ts
