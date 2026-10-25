@@ -1,5 +1,18 @@
 import { expect, test } from './support/fixtures';
-import { API_URL, SEED_PASSWORD, openTab, requireStack, screen } from './support/stack';
+import {
+  API_URL,
+  PLACES,
+  SEED_PASSWORD,
+  apiListItem,
+  apiPublicBinder,
+  cardOfPrinting,
+  createOnboardedCollector,
+  openInApp,
+  openTab,
+  requireStack,
+  screen,
+  snackbar,
+} from './support/stack';
 
 /**
  * Browsing without an account (stage R15) against the real, isolated stack: the app opens on Home
@@ -55,6 +68,45 @@ test.describe('browsing without an account', () => {
     await page.getByRole('button', { name: 'Not now, keep browsing' }).click();
     await expect(screen(page, 'sign-in')).toHaveCount(0, { timeout: 30_000 });
     await expect(screen(page, 'profile-guest').getByText('Your collector profile')).toBeVisible();
+  });
+
+  test('Message on a plain public binder asks to sign in, then opens the chat (review fix 1)', async ({
+    page,
+    request,
+  }) => {
+    // Only a deck core can be a chat's subject: the binder only names its owner, and the chat
+    // opens with nothing pinned, as a member's Message there does (findings P2, U1, F2).
+    test.setTimeout(150_000);
+    const seller = await createOnboardedCollector(request, 'gbseller', 'Mobile Guest Seller', {
+      location: PLACES.quebec,
+      discoverable: true,
+    });
+    const buyer = await createOnboardedCollector(request, 'gbbuyer', 'Mobile Guest Buyer', {
+      location: PLACES.ontario,
+    });
+    const { printingId } = await cardOfPrinting(request, seller.idToken, 'PFT-002');
+    const binderId = await apiPublicBinder(request, seller, 'Guest plain binder');
+    await apiListItem(request, seller, binderId, printingId, { askingPriceText: '$12' });
+
+    await page.goto('/');
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
+    await openInApp(page, `/binders/${binderId}`);
+    await page
+      .getByTestId('public-binder-message')
+      .filter({ visible: true })
+      .click({ timeout: 30_000 });
+    const sheet = page.getByTestId('sign-in-sheet').filter({ visible: true });
+    await expect(sheet.getByTestId('sign-in-sheet-title')).toHaveText(
+      'Sign in to message this collector'
+    );
+    await sheet.getByTestId('sign-in-sheet-sign-in').click();
+    const form = screen(page, 'sign-in');
+    await expect(form).toBeVisible({ timeout: 30_000 });
+    await form.getByLabel('Email').fill(buyer.email);
+    await form.getByLabel('Password', { exact: true }).fill(buyer.password);
+    await form.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(screen(page, 'conversation')).toBeVisible({ timeout: 30_000 });
+    await expect(snackbar(page)).not.toContainText('Check the highlighted fields');
   });
 
   test('a link to a member screen opens Sign in, then the screen', async ({ page }) => {
