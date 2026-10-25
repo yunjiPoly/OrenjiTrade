@@ -861,3 +861,51 @@ Built as stage R14 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R14: Report, rat
 binders, wishes, import and sets (60 to 69)"; API contract
 [`docs/api/contracts/r14-report-rate-wish-import-sets.md`](../../api/contracts/r14-report-rate-wish-import-sets.md):
 `dealName` and `soldToYou` on a sale's eligibility, the rating form's deal line).
+
+## Changed by the owner on 2026-10-19: browsing without an account
+
+The owner's prompt of 2026-10-19/20
+([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md), section R15; owner on
+2026-10-20: "without log in. The user can still see home page and search? Can't see wishlist,
+invenstoryh and message and profile.. It might be good to require log in when they click tabs that
+needs to log in"; mockup v50 screens 70 to 75) lets a visitor look before they sign up: until
+then a signed-out visitor saw Sign in only. Looking is free, doing needs an account; section 13's
+privacy rules hold, with one more (point 3).
+
+1. **The app opens on Home for a signed-out visitor** (a guest), not on Sign in. A guest browses
+   Home and Search (Cards and Binders), card pages and their holders, sets, a state's binders, a
+   public binder or deck core, Legal and Settings › Appearance.
+2. **Home (70)**: a person button in place of the bell, spoken "Sign in"; a card above the chips,
+   "You’re browsing as a guest", "Create a free account to message collectors, save wishes and list
+   your own cards.", Create account and Sign in; no Get started and no Messages badge. **Search**
+   has the same person button.
+3. **A guest never sees who a collector is**: posts and rows say "A collector" with a plain person
+   avatar, then "{time} · {province}" as usual; the place stays. The API leaves out the id, handle,
+   name, avatar, rating, last activity and presence for a signed-out caller, and collector name
+   search finds nobody for them.
+4. **Inventory (73), Messages (74), Profile (75) and Search › Wishlist (72)** stay in the tab bar,
+   each with a page in place: an illustration, a heading, a line, Create account and Sign in;
+   Profile also lists Appearance, Trading safely and Legal.
+5. **Actions that need an account open one sheet (71)**: its title says what the guest tried ("Sign
+   in to message this collector", "… to tell them you have it", "… to see collector profiles", "…
+   to save your wishes"; Report says "Sign in to report this collector"), then "It’s free. When
+   you’re done, you come right back here.", Create account, Sign in and Not now.
+6. **After signing in** (or creating the account and the welcome), the phone goes back to where the
+   guest was and finishes the action: the chat with the card pinned, the chat of "I have it", the
+   profile, the wish form, Report. The action is kept in memory only, by its item, binder, wish or
+   printing, never by a collector.
+7. **Sign in (36) has a close button** at the top left, spoken "Not now, keep browsing", back to
+   where the guest was. **Signing out lands on Home as a guest.** A deep link to a member screen
+   (a chat, a profile, a notification) opens Sign in and continues to the link after.
+8. **The guest's region and game** stay on the phone under a guest key (the two slugs only,
+   Americas (North) and Yu-Gi-Oh! by default); once signed in, the account's own choice wins.
+9. The discoverability lines: the welcome's (42) "… Visitors without an account never see your
+   name. Off until you turn it on.", Location's (49) "Collectors see you in {province}, {country}.
+   Visitors without an account see your cards, never your name."; the phone's draft Privacy Policy
+   says the same (its draft banner kept for the lawyer).
+
+Built as stage R15 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R15: Browse without an account (70
+to 75)"; API contract
+[`docs/api/contracts/r15-browse-without-account.md`](../../api/contracts/r15-browse-without-account.md):
+`PrivacyPolicyService.canSeeWho`, the feed open to guests, `GET /listings/owner`, the
+`guest-discovery` rate limit).
