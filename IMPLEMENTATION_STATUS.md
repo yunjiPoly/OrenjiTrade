@@ -10019,6 +10019,197 @@ the screenshots are `fix1-60-report-refused-largest.png` and `fix1-64-wish-searc
 conditions and the deck sections only ("leave them out" is under the amber bar).
 
 
+## Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)
+
+Stage R15 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R15. Browse without an account (70 to 75)"; the owner on 2026-10-20: "without log in. The
+user can still see home page and search? Can't see wishlist, invenstoryh and message and
+profile.."). Mockup v50 screens 70 (Home as a guest), 71 (the sign-in sheet), 72 (Search ›
+Wishlist), 73 (Inventory), 74 (Messages) and 75 (Profile), and Sign in's close button (36). Built
+on branch `feature/r7-home` after R14, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+stays **V135**; V124 and V128 stay unused); no ADR (one more rule of the privacy matrix, ADR 0017's
+places unchanged). No file of `apps/web-angular` changed. Free for all (ADR 0019): an account costs
+nothing and nothing here offers anything to buy; deals ship by mail (ADR 0018); **English only**
+(owner, 2026-10-20). API contract
+[`docs/api/contracts/r15-browse-without-account.md`](docs/api/contracts/r15-browse-without-account.md).
+
+**What a visitor can now do**
+
+- **Open the app without an account**: it opens on **Home** (not on Sign in) with the region and
+  game pills, the search field and the feed; **a person button in place of the bell** (spoken
+  "Sign in", it opens Sign in); **"You’re browsing as a guest"** above the chips ("Create a free
+  account to message collectors, save wishes and list your own cards.", Create account, Sign in)
+  in place of Get started; no Messages badge.
+- **Read every post and row with its place, never who it is**: posts, holders of a card, binder
+  and deck core rows, a public binder's or deck core's seller say **"A collector"** with a plain
+  person avatar, then "{time} · {province}" as usual; VoiceOver says "A collector listed 12 cards,
+  5 min, Quebec. Sign in to see who". The API sends none of it: no id, handle, name, avatar,
+  rating, last activity or presence for a signed-out caller, and collector name search finds
+  nobody.
+- **Browse Search** (the same person button; Cards with the map and the card search, Binders),
+  **card pages and Who has this card, sets, the binders of a state, public binders and deck
+  cores, Legal and Settings › Appearance**, in the region and game they pick (kept on the phone
+  under a guest key: the two slugs only, Americas (North) and Yu-Gi-Oh! by default).
+- **See the member-only tabs in place**: **Inventory** ("Your cards, in one place"), **Messages**
+  ("Talk to collectors"), **Profile** ("Your collector profile", then Appearance, Trading safely
+  and Legal) and **Search › Wishlist** ("Get told when it’s listed") each show an illustration, a
+  heading, a line, Create account and Sign in.
+- **Tap anything that needs an account and get one sheet** (71) whose title says what they tried:
+  "Sign in to message this collector" (Message on a post, a holder, a binder or a deck core), "Sign
+  in to tell them you have it" (I have it), "Sign in to see collector profiles" (a post's header,
+  "+n", a holder's row, a seller row), "Sign in to save your wishes" (Add to wishlist), "Sign in to
+  report this collector" (Report on a binder or deck core); "It’s free. When you’re done, you come
+  right back here.", Create account, Sign in, Not now.
+- **Sign in or create an account and come right back**: the phone returns to the screen they were
+  on (popped back to, not opened again) and **finishes the action**: the chat opens with the card
+  or deck core pinned, the chat of "I have it" with its text in the box, the collector's profile or
+  cards, the wish form of the card (and printing), Report collector about the binder. A new account
+  goes through the welcome first. A listing gone in between, or one of their own, is said in a
+  snackbar.
+- **Close Sign in** with the cross at the top left ("Not now, keep browsing"): back to where they
+  were, the action forgotten.
+- **Open a link to a member screen** (a chat, a profile, a notification): Sign in opens, and the
+  screen once signed in.
+- **Sign out and land on Home as a guest**, never on the collector's last screen.
+- **Read what changed in the privacy texts**: the welcome's line (42) "… Visitors without an account
+  never see your name. Off until you turn it on.", Location's (49) "Collectors see you in
+  {province}, {country}. Visitors without an account see your cards, never your name.", and two
+  clauses in the phone's draft Privacy Policy (its draft banner kept).
+
+**The API** (contract `docs/api/contracts/r15-browse-without-account.md`)
+
+- **One rule of the privacy matrix**: `PrivacyPolicyService.canSeeWho(viewer)`, members only; with
+  it `canSeeLastActive`, `canSeeOnlineStatus` and `canAppearInNameSearch` are false for a
+  signed-out viewer whatever the switches say (`ViewerContext.of`).
+- **Who a collector is, left out for a signed-out caller**: `FeedCollector` (every field),
+  `CollectorMarker` (`id`, `handle`, `displayName`, `avatarUrl`, `rating`; `lastActiveBucket` and
+  `onlineStatus` `HIDDEN`), `PublicBinderOwner` (`id`, `handle`, `displayName`, `avatarUrl`); the
+  `place` kept. The response factories take `showWho` from the controllers
+  (`SearchController.showWho`). `id`, `handle` and `displayName` of the three are nullable in the
+  contract.
+- **Name search finds nobody for a guest**: `GET /search/collectors` `[]`, `GET /search` without a
+  resolved card no `collectors`, `GET /search/suggest` no `COLLECTOR`, and binder search (unified,
+  region and state lists with `q`) does not match the owner's handle (`DiscoverySql.binderText(alias,
+  byHandle)`).
+- **Home's feed open** to signed-out callers (`PUBLIC_GET_PATTERNS`, GET only): the "not the
+  caller, no block" clauses of `FeedRepository` only for a signed-in caller (`Scope.signedIn`).
+- **`GET /api/v1/listings/owner`** (new, members only): exactly one of `itemId`, `binderId`,
+  `wishId`; the owner (`PublicListingOwner { id, handle, displayName, avatarUrl }`, no place) when
+  the listing is public and the owner visible (no PRIVATE profile, no block, the wishlist shown);
+  400, 401, 404. With `PublicBinderService.visibleOwner` and `WishlistService.visibleOwnerOf`.
+- **A short rate limit window for guests**: policy `guest-discovery`, GET of the feed, search, the
+  region and state binder lists and the public binders, signed out only, by address, 20 per 10
+  seconds (`RATE_LIMIT_GUEST_DISCOVERY_PER_10S`); the address is only part of a Redis key that
+  expires with its window. The E2E stacks raise it (one address for every worker).
+- **The paused web**: its Angular client keeps the three identity fields typed as before
+  (`WEB_CLIENT_NOT_NULL` in `packages/api-client/tools/web-omits.mjs`, with a test in
+  `scripts/lib/web-client-omits.test.mjs`); it builds and passes its checks unchanged.
+
+**The phone**
+
+- **The gate** (`src/account/gate.ts`): `GATE_HOME.guest` is `/`; a guest may open `(auth)`, the
+  tabs, `cards`, `holders`, `sets`, `regions`, `binders/[id]`, `settings/appearance` and `legal`
+  (`guestMayOpen`); any other screen sends them to `SIGN_IN_HREF` with the link kept.
+  `useAuthGate`: an explicit sign-out clears the kept link and action and lands on Home; a session
+  that ended opens Sign in (the screen kept for that collector); signed in with a kept link, one
+  `router.dismissTo(link)` pops back to the guest's screen when it is still in the stack (else
+  opens it in place of Sign in). The welcome ends with `router.dismissTo(link)` too.
+- **The guest's action** (`src/account/guestAction.ts`): in memory only, by listing (`itemId`,
+  `binderId`, `wishId`, a card and printing), never a collector; **`SignInSheet`** (one sheet for
+  the app, at the root) and **`PendingActionRunner`** (it waits for the account, off the auth,
+  account and welcome screens, then `GET /listings/owner` and the existing flows:
+  `useMessageCollector`, `useIHaveIt`, the wish form, the profile, Report). `useGuestEntry`
+  remembers the guest's screen before Sign in or Create account (opened over Sign in); only the
+  sheet keeps its action.
+- **Guest parts** (`src/features/guest`): `PersonButton`, `GuestCard`, `GuestAvatar`, `GuestPage`
+  (72 to 75, its illustration drawn with `react-native-svg` gradients), `GuestTab` (Inventory,
+  Messages, Profile with Appearance, Trading safely and Legal), `guestCopy.ts` (every text in one
+  place); the mobile-only colours `guest.*` in `packages/design-tokens/tokens.json` (dark and
+  light).
+- **The open reads run for guests** (`useCanBrowse`: Home's feed, the map's counts, card holders,
+  deck cores, binder search); the member reads stay on `useIsAuthenticated`. **While sign-up
+  creates the account, no read goes out** (both are false while the `sign-up` flow lock is held):
+  the first call with the new token provisions the account, and Home under Sign up asked before
+  sign-up had put the chosen display name in the token (found by the mobile web suite).
+- **Guest region and game**: `orenjitrade.browsing-region.v1.guest` and
+  `orenjitrade.browsing-game.v1.guest`, the slug alone; ready without an account; once signed in,
+  the account's home region and remembered game win.
+- **Fixed on the way**: a guest's public binder page no longer waits for "my binders" (the route
+  shows the public view); "own" binders and deck cores need a signed-in id (a guest's null owner
+  id no longer equalled a null self id: the edit button); a holder row's Message is never
+  "busy" for a guest (null equalled null); the game sheet shows no "None of your cards yet" to a
+  guest.
+- **The phone's Privacy Policy**: the legal texts are generated from the paused web's files and a
+  test keeps them identical; the two R15 clauses are the phone's own English additions
+  (`src/features/legal/phoneLegalAdditions.ts`, last updated 2026-10-25), French left as it is.
+
+**Decisions**
+
+1. **`GET /listings/owner`** instead of a collector id in the pending action: the prompt keeps the
+   action "by item, binder, wish or printing id" and a guest never gets a collector id, so the
+   phone asks the owner of the listing once signed in. It reveals nothing a member does not read in
+   card holders, a public binder or the feed.
+2. **`rating` null, last activity and presence `HIDDEN`** for a guest: the enum's own "not shown"
+   value keeps those two fields' types; `rating` uses the project's nullable-object form
+   (`{"type":"null","$ref":…}`), which generators read as present: the phone reads ratings only for
+   members.
+3. **The paused web's client keeps the identity fields non-null** (`WEB_CLIENT_NOT_NULL`), as
+   `WEB_CLIENT_OMITS` did for R9: the web builds unchanged; a signed-out web visitor now reads
+   `null` there (owner follow-up 2).
+4. **Binder search does not match the owner's handle for a guest** (the prompt's "collector name
+   search returns nothing"): typing a handle would otherwise list that collector's binders.
+5. **Report on a binder or deck core asks too** ("Sign in to report this collector", not in the
+   mockup): the prompt's "any other write a guest can reach".
+6. **The person button and the guest pages forget an action left** (a Sign in closed with a
+   swipe): only the sheet keeps its action.
+7. **A session that ended opens Sign in** wherever it ended (Home included), as before; an explicit
+   sign-out lands on Home.
+8. **The guest-discovery window**: 20 per 10 seconds by address for signed-out callers (a guest
+   typing in Search makes a suggest call per pause); members keep 120 a minute by account. An
+   environment variable sets it.
+9. **The rows of a guest keep the binder's picture** (binder and deck core rows show no avatar);
+   only the posts, holders and sellers get the plain person avatar.
+
+**Defaults the stage applies** (the prompt's list, for the owner to change)
+
+13. Guests see Home and Search with places but never a collector's name or picture; Inventory,
+    Messages, Profile, Search › Wishlist and every action ask them to sign in.
+14. After signing in, the guest's action continues where it started.
+15. The app opens on Home for guests, and Sign in has a close button.
+
+**Tests**
+
+- API: `GuestBrowsingIT` (6: the feed with places and without who, `region=`, `game=`, the
+  default region; holders and the unified search; name, handle and suggestion search finding
+  nobody; binder lists and a public binder; writes and member reads 401; `GET /listings/owner`),
+  `GuestRateLimitIT`, `ShippedRateLimitPoliciesTest` (the guest policy), `PrivacyPolicyServiceTest`
+  (`canSeeWho`), `GeoPrivacyContractTest.signedOutVisitorsReadPlacesAndNeverWhoACollectorIs`,
+  `AnalyticsIT.guestReadsEmitEventsWithoutAnActorOrADevice`; the older ITs that read names signed
+  out read them as members and assert the guest's nulls (`CardHoldersIT`, `CollectorsByNameIT`,
+  `DeckCoreSearchIT`, `RegionMapIT`, `SearchIT`, `PublicBinderIT`, `FeedIT`, `DeletionIT`).
+- Jest: `screens/guest.test.tsx` (16: Home as a guest, "A collector" posts and labels, the sheet's
+  title per action and the listing kept, Sign in and Create account remembering the screen, the
+  person button on Search, Search › Wishlist, the three tabs, Profile's rows, holders, Add to
+  wishlist, a deck core's seller, Message and Report, Sign in's close button, the guest's game key
+  and the account's game winning after sign-in); `features/pendingActionRunner.test.tsx` (10: each
+  action, a listing gone, one's own, waiting through Sign in and the welcome, back to the card page
+  and the chat opening, a sign-out forgetting); `account/gate.test.ts` (the guest's allowed and
+  member-only routes); `app/auth-gate.test.tsx` (Home for a guest, Sign in for a member screen,
+  the link resumed with `dismissTo`, sign-out to Home); `features/browsingRegion.test.tsx` (the
+  guest's region key); `features/legalLanguage.test.ts` (the Privacy Policy's clauses);
+  onboarding, settings and welcome lines.
+- Mobile web (Playwright): `guest.spec.ts` (2), `auth.spec.ts`, `session.spec.ts`,
+  `age-confirmation.spec.ts` and `location.spec.ts` follow R15.
+- Native (Maestro): `guest-message-holder.yaml` (signed out: Home and Search as a guest, a card,
+  Who has it, Message, the sheet, sign in, the chat with the card pinned), `guest-browse.yaml`
+  (Inventory, Messages, Profile and Search › Wishlist as a guest, Sign in's close button, a link to
+  Notifications through Sign in); `subflows/open-sign-in.yaml` (the person button), used by the
+  sign-in subflow and the flows that start signed out; `sign-out.yaml` lands on Home as a guest.
+
+R15_WALK_AND_CHECKS_PLACEHOLDER
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
