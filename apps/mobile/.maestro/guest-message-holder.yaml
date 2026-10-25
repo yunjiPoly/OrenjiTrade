@@ -1,0 +1,105 @@
+# Stage R15 ("Browse without an account", owner prompt of 2026-10-20, Tests): the app opens signed
+# out on Home as a guest (the person button for the bell, the guest's card); the guest searches a
+# card, opens Who has this card, finds Ben's copies as "A collector" under Wyoming (his state,
+# never his name), taps Message and gets the sheet "Sign in to message this collector"; they sign
+# in as Ada (fresh, fictional) and the chat opens with Ben's card pinned, right where they were.
+appId: ${APP_ID}
+name: A guest messages a holder, signs in, and the chat opens with the card pinned
+tags:
+  - mobile-r15
+  - guest
+---
+- runScript:
+    file: scripts/parity.js
+    env:
+      ACTION: holders
+- runFlow: subflows/launch-fresh.yaml
+
+# Home as a guest (screen 70).
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+- assertVisible:
+    id: 'home-guest-card'
+- assertVisible: 'You’re browsing as a guest'
+- assertNotVisible:
+    id: 'notification-bell-home'
+- takeScreenshot: r15-home-guest
+
+# Search: the same person button; the card search.
+- runFlow: subflows/open-search-tab.yaml
+- assertVisible:
+    id: 'person-button-search'
+- tapOn:
+    id: 'search-field'
+- extendedWaitUntil:
+    visible:
+      id: 'search-input'
+    timeout: 30000
+- inputText: ${output.card.name}
+- runFlow: subflows/hide-keyboard.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'search-result-${output.card.id}'
+    timeout: 60000
+- tapOn:
+    id: 'search-result-${output.card.id}'
+
+# Who has this card: Ben's copy as "A collector" under Wyoming.
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 60000
+- runFlow:
+    file: subflows/list-scroll-to.yaml
+    env:
+      ID: 'holder-${output.items.offers}-message'
+- assertVisible:
+    id: 'holders-group-US-WY'
+    text: 'Wyoming'
+- assertVisible:
+    id: 'holder-${output.items.offers}-guest-avatar'
+- assertNotVisible: '${output.ben.handle}'
+- takeScreenshot: r15-holders-guest
+- tapOn:
+    id: 'holder-${output.items.offers}-message'
+
+# The sheet (71): its title says what the guest tried.
+- extendedWaitUntil:
+    visible:
+      id: 'sign-in-sheet-title'
+      text: 'Sign in to message this collector'
+    timeout: 30000
+- assertVisible: 'It’s free\. When you’re done, you come right back here\.'
+- assertVisible:
+    id: 'sign-in-sheet-create'
+- assertVisible:
+    id: 'sign-in-sheet-not-now'
+- takeScreenshot: r15-sheet-message
+- tapOn:
+    id: 'sign-in-sheet-sign-in'
+
+# Sign in as Ada: the chat opens with Ben's card pinned.
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.ada.email}
+      PASSWORD: ${output.ada.password}
+- extendedWaitUntil:
+    visible:
+      id: 'pinned-bar'
+      text: '${output.card.name}.*'
+    timeout: 60000
+- assertVisible:
+    id: 'chat-safety-tip'
+- takeScreenshot: r15-chat-after-sign-in
+
+# Back: the card page the guest was on, now with who holds it.
+- runFlow: subflows/go-back.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'card-name'
+      text: ${output.card.name}
+    timeout: 30000
