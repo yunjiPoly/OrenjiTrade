@@ -34,7 +34,7 @@ const SIGNED_IN_GATES: ReadonlySet<Gate> = new Set([
  * Signed out, the app is browsed as a guest (stage R15, "Browse without an account"): Home, Search
  * and the public pages stay; a member-only screen (a deep link to a chat, a profile, a
  * notification) opens Sign in and is remembered, to open once the account is ready. Sign in and
- * Create account opened from a guest screen remember that screen too (`rememberGuestReturn`):
+ * Create account opened from a guest screen remember that screen too (`useGuestEntry`):
  * once signed in, the phone goes back to it (`router.dismissTo`, which pops back to it when it is
  * still in the stack) and `PendingActionRunner` finishes what the guest tried to do.
  *

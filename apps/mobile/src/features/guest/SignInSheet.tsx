@@ -30,7 +30,7 @@ import { useGuestEntry } from './useGuestEntry';
 export function SignInSheet() {
   const { palette } = useTheme();
   const ask = useGuestAction((state) => state.ask);
-  const { signIn, createAccount } = useGuestEntry();
+  const { signIn, createAccount } = useGuestEntry({ keepAction: true });
   const title = ask ? GUEST_COPY.sheet.titles[ask] : '';
 
   const go = (next: () => Promise<void>) => {

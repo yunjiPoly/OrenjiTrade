@@ -247,6 +247,9 @@ describe('Home as a guest (screen 70)', () => {
     fireEvent.press(screen.getByTestId('home-guest-card-create'));
     await waitFor(() => expect(mockRouter.push).toHaveBeenNthCalledWith(2, '/sign-up'));
     expect(mockRouter.push).toHaveBeenNthCalledWith(1, '/sign-in');
+    // Home's card signs in for nothing in particular: an action left (Sign in closed with a
+    // swipe) is forgotten, never finished later by surprise.
+    expect(useGuestAction.getState().pending).toBeNull();
   });
 
   it('the person button opens Sign in and comes back to Search after', async () => {
