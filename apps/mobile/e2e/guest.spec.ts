@@ -106,7 +106,8 @@ test.describe('browsing without an account', () => {
     await form.getByLabel('Password', { exact: true }).fill(buyer.password);
     await form.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(screen(page, 'conversation')).toBeVisible({ timeout: 30_000 });
-    await expect(snackbar(page)).not.toContainText('Check the highlighted fields');
+    // Before the fix: 400 "Only a deck core can be what a chat is about" and this snackbar.
+    await expect(snackbar(page).filter({ hasText: 'Check the highlighted fields' })).toHaveCount(0);
   });
 
   test('a link to a member screen opens Sign in, then the screen', async ({ page }) => {
