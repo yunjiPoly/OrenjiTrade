@@ -407,7 +407,9 @@ orenji:
         # scrolling Home and Search (the feed, card holders, binder and deck core lists, binder
         # search, a public binder) are counted by address in a short window. The address is only
         # part of a Redis key that expires with its window: never stored, logged or turned into a
-        # place (ADR 0017).
+        # place (ADR 0017). These reads count here instead of default-anonymous (the first policy
+        # that matches wins), so 10 per 10 seconds keeps them within the 60 a minute an address
+        # had for them before the stage (review fix 1, F5), in a shorter window.
         path-patterns:
           - "/api/v1/feed"
           - "/api/v1/search"
@@ -416,7 +418,7 @@ orenji:
           - "/api/v1/regions/*/subdivisions/*/binders"
           - "/api/v1/public/binders/**"
         methods: [GET]
-        limit: ${RATE_LIMIT_GUEST_DISCOVERY_PER_10S:20}
+        limit: ${RATE_LIMIT_GUEST_DISCOVERY_PER_10S:10}
         window-seconds: 10
         key-by: IP
         applies-to: ANONYMOUS

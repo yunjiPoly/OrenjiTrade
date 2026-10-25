@@ -74,7 +74,10 @@ public final class SearchResponses {
                             description = "Null for a signed-out caller (stage R15)")
                     @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable CollectorRating rating,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"trader\"]")
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            example = "[\"trader\"]",
+                            description = "The profile's tags; empty for a signed-out caller")
                     List<String> tags,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"yugioh\",\"pokemon\"]")
                     List<String> games,
@@ -103,9 +106,10 @@ public final class SearchResponses {
 
         /**
          * Response form of a marker for a caller who may see who the collector is ({@code
-         * showWho}), or not: a signed-out visitor gets the place, the tags, the games and the
-         * counts, never the id, handle, name, avatar, rating, last activity or presence ({@code
-         * PrivacyPolicyService#canSeeWho}, stage R15).
+         * showWho}), or not: a signed-out visitor gets the place, the games and the counts, never
+         * the id, handle, name, avatar, rating, last activity or presence ({@code
+         * PrivacyPolicyService#canSeeWho}, stage R15), nor the profile tags (empty: a custom tag
+         * can name a person; review fix 1, P3).
          */
         public static CollectorMarkerResponse from(CollectorMarker marker, boolean showWho) {
             return new CollectorMarkerResponse(
@@ -115,7 +119,7 @@ public final class SearchResponses {
                     showWho ? marker.avatarUrl() : null,
                     PlaceResponse.from(marker.place()),
                     showWho ? ratingOf(marker.rating()) : null,
-                    marker.tags(),
+                    showWho ? marker.tags() : List.of(),
                     marker.games(),
                     showWho ? marker.lastActiveBucket() : LastActiveBucket.HIDDEN,
                     showWho ? marker.onlineStatus() : OnlineStatus.HIDDEN,

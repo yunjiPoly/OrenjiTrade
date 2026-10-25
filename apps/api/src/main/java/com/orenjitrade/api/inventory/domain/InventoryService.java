@@ -18,6 +18,8 @@ import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.storage.ObjectKeys;
 import com.orenjitrade.api.common.storage.ObjectStorage;
+import com.orenjitrade.api.common.storage.PhotoUrls;
+import com.orenjitrade.api.common.storage.StoredObject;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
@@ -913,6 +915,16 @@ public class InventoryService {
     // ---------------------------------------------------------------------------------------
 
     /**
+     * {@code GET /public/item-images/{imageId}}: a stored photo by its own id, the URL every
+     * response gives ({@link PhotoUrls#itemImage}); its storage key, which names the owner, stays
+     * here (stage R15, review fix 1). Like the public media route, a photo id is unguessable and
+     * answered whoever asks.
+     */
+    public Optional<StoredObject> photo(UUID imageId) {
+        return images.keyOf(imageId).flatMap(storage::get);
+    }
+
+    /**
      * {@code POST /inventory/items/{id}/images}: at most {@value #MAX_IMAGES} photos per item
      * ({@code 409} beyond), re-encoded without metadata; {@code 413} above 8 MB, {@code 415} for
      * other types, {@code 400} for unreadable images.
@@ -945,11 +957,12 @@ public class InventoryService {
                                             "An item can have at most " + MAX_IMAGES + " images");
                                 }
                                 Instant now = timeProvider.now();
+                                UUID imageId = UUID.randomUUID();
                                 images.insert(
-                                        UUID.randomUUID(),
+                                        imageId,
                                         itemId,
                                         key,
-                                        storage.publicUrl(key),
+                                        PhotoUrls.itemImage(imageId),
                                         processed.width(),
                                         processed.height(),
                                         images.nextSortOrder(itemId),
@@ -1290,7 +1303,7 @@ public class InventoryService {
                     .add(
                             new ItemImage(
                                     image.id(),
-                                    storage.publicUrl(image.storageKey()),
+                                    PhotoUrls.itemImage(image.id()),
                                     image.width(),
                                     image.height(),
                                     image.sortOrder()));
@@ -1659,8 +1672,8 @@ public class InventoryService {
         Map<UUID, String> result = new HashMap<>();
         Set<UUID> printingIds = new HashSet<>();
         for (CoverRow row : rows) {
-            if (row.imageKey() != null) {
-                result.put(row.binderId(), storage.publicUrl(row.imageKey()));
+            if (row.imageId() != null) {
+                result.put(row.binderId(), PhotoUrls.itemImage(row.imageId()));
             } else {
                 printingIds.add(row.printingId());
             }
@@ -1676,7 +1689,7 @@ public class InventoryService {
             }
         }
         for (CoverRow row : rows) {
-            if (row.imageKey() == null && printingImages.containsKey(row.printingId())) {
+            if (row.imageId() == null && printingImages.containsKey(row.printingId())) {
                 result.put(row.binderId(), printingImages.get(row.printingId()));
             }
         }

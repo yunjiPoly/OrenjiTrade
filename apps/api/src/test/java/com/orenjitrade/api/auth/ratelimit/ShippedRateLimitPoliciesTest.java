@@ -71,7 +71,7 @@ class ShippedRateLimitPoliciesTest {
             assertThat(guest.name()).as(path).isEqualTo("guest-discovery");
             assertThat(guest.keyBy()).as(path).isEqualTo(KeyBy.IP);
             assertThat(guest.windowSeconds()).as(path).isLessThanOrEqualTo(10);
-            assertThat(guest.limit()).as(path).isEqualTo(20);
+            assertThat(guest.limit()).as(path).isEqualTo(10);
             // Members keep their own default; card pictures keep theirs.
             assertThat(matcher.match("GET", path, true).orElseThrow().name())
                     .as(path)
@@ -84,5 +84,21 @@ class ShippedRateLimitPoliciesTest {
                 .isEqualTo("card-images");
         assertThat(matcher.match("GET", "/api/v1/regions", false).orElseThrow().name())
                 .isEqualTo("default-anonymous");
+    }
+
+    @Test
+    void aGuestsDiscoveryReadsKeepTheAnonymousMinuteBudget() throws IOException {
+        // Review fix 1 (F5): the guest's reads count against guest-discovery instead of
+        // default-anonymous (first match wins), so its short window never allows more a minute
+        // than the anonymous budget they had before stage R15.
+        RateLimitPolicyMatcher matcher = new RateLimitPolicyMatcher(shipped().policies());
+        RateLimitPolicy guest = matcher.match("GET", "/api/v1/feed", false).orElseThrow();
+        RateLimitPolicy anonymous = matcher.match("GET", "/api/v1/regions", false).orElseThrow();
+        assertThat(anonymous.name()).isEqualTo("default-anonymous");
+        assertThat(anonymous.windowSeconds()).isEqualTo(60);
+        long guestPerMinute = (long) guest.limit() * (60 / guest.windowSeconds());
+        assertThat(60 % guest.windowSeconds()).isZero();
+        assertThat(guestPerMinute).isLessThanOrEqualTo(anonymous.limit());
+        assertThat(guestPerMinute).isEqualTo(60);
     }
 }

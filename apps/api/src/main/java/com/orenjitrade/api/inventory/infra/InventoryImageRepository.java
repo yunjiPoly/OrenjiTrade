@@ -44,6 +44,14 @@ public class InventoryImageRepository {
                 .list();
     }
 
+    /** The storage key of one photo, by its id (the public photo route, stage R15 review fix 1). */
+    public Optional<String> keyOf(UUID imageId) {
+        return jdbc.sql("SELECT storage_key FROM inventory_item_image WHERE id = :id")
+                .param("id", imageId)
+                .query(String.class)
+                .optional();
+    }
+
     public long countByItem(UUID itemId) {
         return jdbc.sql("SELECT count(*) FROM inventory_item_image WHERE item_id = :itemId")
                 .param("itemId", itemId)

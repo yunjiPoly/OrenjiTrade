@@ -806,6 +806,52 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
      */
     @Test
     void signedOutVisitorsReadPlacesAndNeverWhoACollectorIs(CapturedOutput output) {
+        // Review fix 1 (P1, F1, F4): a photo on a seeded public card and on a seeded public deck
+        // core, and the card owner's avatar, so the reads below carry photos and an avatar.
+        Map<String, Object> card =
+                testUsers
+                        .query(
+                                "SELECT i.id, u.handle FROM inventory_item i JOIN user_account u"
+                                        + " ON u.id = i.owner_id WHERE i.visibility = 'PUBLIC'"
+                                        + " AND i.deleted_at IS NULL AND i.binder_id IS NOT NULL"
+                                        + " ORDER BY u.handle, i.id LIMIT 1")
+                        .get(0);
+        Map<String, Object> core =
+                testUsers
+                        .query(
+                                "SELECT b.id, u.handle FROM binder b JOIN user_account u ON u.id"
+                                        + " = b.owner_id WHERE b.sells_as_core AND b.visibility ="
+                                        + " 'PUBLIC' ORDER BY u.handle, b.id LIMIT 1")
+                        .get(0);
+        String cardOwner = seedUid((String) card.get("handle"));
+        String coreOwner = seedUid((String) core.get("handle"));
+        String cardPhotos = "/api/v1/inventory/items/" + card.get("id") + "/images";
+        String corePhotos = "/api/v1/binders/" + core.get("id") + "/images";
+        JsonNode withPhoto = uploadPng(cardOwner, cardPhotos, 201);
+        String cardPhoto =
+                withPhoto
+                        .path("images")
+                        .get(withPhoto.path("images").size() - 1)
+                        .path("id")
+                        .asString();
+        JsonNode coreWithPhoto = uploadPng(coreOwner, corePhotos, 201);
+        String corePhoto =
+                coreWithPhoto
+                        .path("photos")
+                        .get(coreWithPhoto.path("photos").size() - 1)
+                        .path("id")
+                        .asString();
+        uploadPng(cardOwner, "/api/v1/me/profile/avatar", 200);
+        try {
+            readSignedOut(output);
+        } finally {
+            callJson(HttpMethod.DELETE, cardPhotos + "/" + cardPhoto, cardOwner, null, 204);
+            callJson(HttpMethod.DELETE, corePhotos + "/" + corePhoto, coreOwner, null, 204);
+            callJson(HttpMethod.DELETE, "/api/v1/me/profile/avatar", cardOwner, null, 204);
+        }
+    }
+
+    private void readSignedOut(CapturedOutput output) {
         Map<String, String> userIds = new LinkedHashMap<>();
         List<String> names = new ArrayList<>();
         for (String handle : PLACES.keySet()) {
@@ -922,10 +968,20 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
         }
         assertThat(places).as("places read by a guest").isPositive();
 
+        boolean itemPhotos = false;
+        boolean binderPhotos = false;
         for (Fetched document : fetched) {
             String context = document.path() + " signed out";
             assertNobody(document.body(), context, Set.copyOf(userIds.values()));
             String text = document.body().toString();
+            // Not even inside a value: a photo or an avatar URL never names an account.
+            for (Map.Entry<String, String> account : userIds.entrySet()) {
+                assertThat(text)
+                        .as("the account id of %s inside %s", account.getKey(), context)
+                        .doesNotContain(account.getValue());
+            }
+            itemPhotos |= text.contains("/api/v1/public/item-images/");
+            binderPhotos |= text.contains("/api/v1/public/binder-images/");
             for (String name : names) {
                 assertThat(text)
                         .as("the name %s in %s", name, context)
@@ -933,6 +989,8 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             }
             assertNoPrivateNotes(document.body(), document.path());
         }
+        assertThat(itemPhotos).as("a card's photo read by a guest").isTrue();
+        assertThat(binderPhotos).as("a deck core's photo read by a guest").isTrue();
         assertContract(output);
     }
 

@@ -184,11 +184,14 @@ class GuestBrowsingIT extends AbstractSearchIT {
         assertThat(collector.path("onlineStatus").asString()).isEqualTo("HIDDEN");
         assertQuebec(collector.path("place"), "a holder");
         assertThat(collector.path("games").toString()).contains("yugioh");
+        // Profile tags (custom ones can name a person) are left out for a guest (review fix 1, P3).
+        assertThat(collector.path("tags")).as("a guest's tags of a holder").isEmpty();
         assertThat(guest.toString()).doesNotContain(holder.handle()).doesNotContain("Guestless");
 
         JsonNode signedIn = get(member.uid(), 200, query);
         JsonNode marker = signedIn.path("items").get(0).path("collector");
         assertThat(marker.path("handle").asString()).isEqualTo(holder.handle());
+        assertThat(marker.path("tags").toString()).contains("trader");
         assertThat(marker.path("rating").isObject()).isTrue();
         assertThat(marker.path("lastActiveBucket").asString()).isNotEqualTo("HIDDEN");
 
@@ -324,6 +327,121 @@ class GuestBrowsingIT extends AbstractSearchIT {
         // A read by a handle the caller already has stays as it is.
         assertThat(get(null, 200, "/api/v1/collectors/" + owner.handle() + "/binders").toString())
                 .contains(binderId);
+    }
+
+    /**
+     * Review fix 1 (findings P1, F1 and F4): a collector with an avatar, a photo on a public card
+     * and a photo on a public deck core. A guest reads every listing with its photos, each by an
+     * opaque URL that never holds the owner's account id, and no avatar; a member reads the same
+     * photo URLs and the avatar, on the feed, the holders, a public binder and the binder lists.
+     */
+    @Test
+    void photosNeverNameTheCollectorAndAGuestGetsNoAvatar() {
+        Collector owner = collector("guest-photos");
+        Collector member = collector("guest-photos-member");
+        IsolatedCard card = isolatedPrinting("ygo-p006a");
+        String folder = publicBinder(owner, token() + " folder", null);
+        String itemId = fileCard(owner, folder, card.printingId());
+        String core = publicBinder(owner, token() + " core", "$30");
+        fileCard(owner, core, card.printingId());
+        uploadPng(owner.uid(), "/api/v1/inventory/items/" + itemId + "/images", 201);
+        uploadPng(owner.uid(), "/api/v1/binders/" + core + "/images", 201);
+        String avatar =
+                uploadPng(owner.uid(), "/api/v1/me/profile/avatar", 200)
+                        .path("avatarUrl")
+                        .asString();
+        assertThat(avatar).as("the owner's avatar").contains(owner.id().toString());
+
+        String holders =
+                "/api/v1/search/card-holders?region="
+                        + REGION
+                        + "&game=yugioh&cardId="
+                        + card.cardId();
+        String state = "/api/v1/regions/" + REGION + "/subdivisions/CA-QC/binders?limit=50";
+        String region = "/api/v1/regions/" + REGION + "/binders?limit=50";
+        String cores = "/api/v1/search/deck-cores?region=" + REGION + "&cardId=" + card.cardId();
+        List<String> reads =
+                List.of(
+                        holders,
+                        state,
+                        region,
+                        cores,
+                        "/api/v1/public/binders/" + folder,
+                        "/api/v1/public/binders/" + folder + "/items",
+                        "/api/v1/public/binders/" + core,
+                        "/api/v1/public/binders/" + core + "/items");
+        String ownerId = owner.id().toString();
+        for (String read : reads) {
+            JsonNode guest = get(null, 200, read);
+            assertThat(guest.toString())
+                    .as("the owner's id in %s signed out", read)
+                    .doesNotContain(ownerId);
+            assertThat(guest.toString())
+                    .as("an avatar in %s signed out", read)
+                    .doesNotContain("/avatars/");
+        }
+        List<JsonNode> guestFeed = feed(null, "region=" + REGION + "&game=yugioh");
+        JsonNode corePost = postAbout(guestFeed, core);
+        assertThat(corePost).as("the deck core's post").isNotNull();
+        assertThat(guestFeed.toString()).doesNotContain(ownerId).doesNotContain("/avatars/");
+
+        // Each photo reaches the guest by an opaque URL that answers signed out.
+        String itemPhoto = "";
+        for (JsonNode row : get(null, 200, holders).path("items")) {
+            if (row.path("item").path("id").asString().equals(itemId)) {
+                itemPhoto = row.path("item").path("images").path(0).path("url").asString();
+            }
+        }
+        assertThat(itemPhoto).contains("/api/v1/public/item-images/");
+        String corePhoto = corePost.path("deckCore").path("photoUrl").asString();
+        assertThat(corePhoto).contains("/api/v1/public/binder-images/");
+        assertThat(get(null, 200, "/api/v1/public/binders/" + core).toString()).contains(corePhoto);
+        assertThat(
+                        get(null, 200, "/api/v1/public/binders/" + folder)
+                                .path("coverImageUrl")
+                                .asString())
+                .isEqualTo(itemPhoto);
+        for (String url : List.of(itemPhoto, corePhoto)) {
+            var served =
+                    http.get()
+                            .uri(java.net.URI.create(url).getPath())
+                            .exchange()
+                            .expectBody()
+                            .returnResult();
+            assertThat(served.getStatus().value()).as(url).isEqualTo(200);
+            assertThat(served.getResponseHeaders().getContentType())
+                    .isEqualTo(org.springframework.http.MediaType.IMAGE_JPEG);
+        }
+        get(null, 404, "/api/v1/public/item-images/" + UUID.randomUUID());
+        get(null, 404, "/api/v1/public/binder-images/not-a-photo");
+
+        // A member reads the same photos and the avatar.
+        for (JsonNode row : get(member.uid(), 200, holders).path("items")) {
+            assertThat(row.path("collector").path("avatarUrl").asString()).isEqualTo(avatar);
+        }
+        assertThat(get(member.uid(), 200, holders).toString()).contains(itemPhoto);
+        JsonNode memberPost =
+                postAbout(feed(member.uid(), "region=" + REGION + "&game=yugioh"), core);
+        assertThat(memberPost).isNotNull();
+        assertThat(memberPost.path("collector").path("avatarUrl").asString()).isEqualTo(avatar);
+        assertThat(memberPost.path("deckCore").path("photoUrl").asString()).isEqualTo(corePhoto);
+        assertThat(
+                        get(member.uid(), 200, "/api/v1/public/binders/" + core)
+                                .path("owner")
+                                .path("avatarUrl")
+                                .asString())
+                .isEqualTo(avatar);
+        for (String list : List.of(state, region)) {
+            JsonNode found = null;
+            for (JsonNode binder : get(member.uid(), 200, list).path("items")) {
+                if (binder.path("id").asString().equals(folder)) {
+                    found = binder;
+                }
+            }
+            assertThat(found).as("the folder in %s", list).isNotNull();
+            assertThat(found.path("owner").path("avatarUrl").asString()).as(list).isEqualTo(avatar);
+            assertThat(found.path("coverImageUrl").asString()).as(list).isEqualTo(itemPhoto);
+        }
     }
 
     @Test

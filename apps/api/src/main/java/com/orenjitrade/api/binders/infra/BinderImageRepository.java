@@ -47,6 +47,14 @@ public class BinderImageRepository {
                 .list();
     }
 
+    /** The storage key of one photo, by its id (the public photo route, stage R15 review fix 1). */
+    public Optional<String> keyOf(UUID imageId) {
+        return jdbc.sql("SELECT storage_key FROM binder_image WHERE id = :id")
+                .param("id", imageId)
+                .query(String.class)
+                .optional();
+    }
+
     public long countByBinder(UUID binderId) {
         return jdbc.sql("SELECT count(*) FROM binder_image WHERE binder_id = :binderId")
                 .param("binderId", binderId)
