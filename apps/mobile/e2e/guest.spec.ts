@@ -30,14 +30,21 @@ test.describe('browsing without an account', () => {
       items: { collector: Record<string, unknown>; place: { label: string } }[];
     };
     for (const post of body.items) {
-      expect(post.collector).toEqual({ id: null, handle: null, displayName: null, avatarUrl: null });
+      expect(post.collector).toEqual({
+        id: null,
+        handle: null,
+        displayName: null,
+        avatarUrl: null,
+      });
       expect(post.place.label).not.toBe('');
     }
 
     await openTab(page, 'Inventory');
-    await expect(screen(page, 'inventory-guest').getByText('Your cards, in one place')).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(screen(page, 'inventory-guest').getByText('Your cards, in one place')).toBeVisible(
+      {
+        timeout: 30_000,
+      }
+    );
     await openTab(page, 'Messages');
     await expect(screen(page, 'messages-guest').getByText('Talk to collectors')).toBeVisible();
     await openTab(page, 'Profile');
