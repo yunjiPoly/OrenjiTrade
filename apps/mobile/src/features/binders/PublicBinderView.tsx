@@ -265,10 +265,12 @@ function PlainBinder({
             onPress={() => {
               const ownerId = binder.owner.id;
               if (!ownerId) {
-                // A guest is asked to sign in; the chat opens after, about this binder (R15).
+                // A guest is asked to sign in; the chat with its owner opens after, found by
+                // this binder and, as for a member, about nothing: only a deck core can be a
+                // chat's subject (R15, review fix 1).
                 useGuestAction
                   .getState()
-                  .open({ kind: 'message', listing: { binderId: binder.id } });
+                  .open({ kind: 'message', listing: { binderId: binder.id }, pin: false });
                 return;
               }
               void message(ownerId);

@@ -122,7 +122,8 @@ export async function finish(action: GuestAction, flows: Flows): Promise<void> {
         flows.snackbar.show(GUEST_COPY.resume.own);
         return;
       }
-      await flows.message(owner.id, action.listing);
+      // A plain public binder only names its owner: nothing is pinned (review fix 1, P2).
+      await flows.message(owner.id, action.pin === false ? undefined : action.listing);
       return;
     case 'report':
       if (own) {

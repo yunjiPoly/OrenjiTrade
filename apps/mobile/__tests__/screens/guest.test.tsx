@@ -31,6 +31,7 @@ import {
   feedPostFixture,
   markerFixture,
   printingFixture,
+  publicBinderFixture,
   publicDeckCoreFixture,
   publicItemFixture,
   regionsFixture,
@@ -373,6 +374,40 @@ describe('the card page and binders as a guest', () => {
       printingId: null,
     });
     expect(api.callsTo('POST /api/v1/wishlist')).toHaveLength(0);
+  });
+
+  it('a public binder shows "A collector"; Message asks to sign in and keeps the binder, nothing to pin', async () => {
+    const binder = publicBinderFixture({
+      id: 'pub-guest',
+      owner: { ...NOBODY, place: QUEBEC },
+    });
+    mockParams.current = { id: binder.id };
+    const api = mockApi(
+      guestRoutes({
+        'GET /api/v1/public/binders/{id}': ok(binder),
+        'GET /api/v1/public/binders/{id}/items': ok({
+          items: [publicItemFixture()],
+          page: 0,
+          size: 24,
+          totalItems: 1,
+          totalPages: 1,
+        }),
+      })
+    );
+    renderAsGuest(<BinderScreen />);
+    const seller = await screen.findByTestId('public-binder-owner');
+    expect(within(seller).getByText('A collector')).toBeOnTheScreen();
+    const message = screen.getByTestId('public-binder-message');
+    expect(message).toHaveTextContent(/Message this collector/);
+    fireEvent.press(message);
+    await expectSheet('Sign in to message this collector');
+    // Only a deck core can be a chat's subject: the binder only names its owner (review fix 1).
+    expect(useGuestAction.getState().pending).toEqual({
+      kind: 'message',
+      listing: { binderId: binder.id },
+      pin: false,
+    });
+    expect(api.callsTo('POST /api/v1/conversations')).toHaveLength(0);
   });
 
   it('a deck core shows "A collector" and its place; Message and Report ask to sign in', async () => {

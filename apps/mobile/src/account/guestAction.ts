@@ -25,8 +25,13 @@ export interface WishedCard {
 }
 
 export type GuestAction =
-  /** "Message" on a card or a deck core: the chat with its owner, the card or core pinned. */
-  | { kind: 'message'; listing: { itemId: string } | { binderId: string } }
+  /**
+   * "Message" on a card or a deck core: the chat with its owner, the card or core pinned. `pin:
+   * false` (a public binder that is not a deck core): the listing only names its owner and the
+   * chat opens with nothing pinned, as a member's Message there (a chat is about a card or a deck
+   * core only).
+   */
+  | { kind: 'message'; listing: { itemId: string } | { binderId: string }; pin?: false }
   /** "I have it" on a wish: the chat with its owner, the text in the box. */
   | { kind: 'have'; wishId: string; card: WishedCard }
   /** A post's header or a holder's row: the owner's profile, or their cards ("+n"). */

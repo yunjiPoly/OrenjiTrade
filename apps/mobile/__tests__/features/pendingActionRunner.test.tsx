@@ -103,6 +103,21 @@ describe('the pending action of a guest (stage R15)', () => {
     });
   });
 
+  it('opens the chat with the owner of a plain public binder, nothing pinned (review fix 1)', async () => {
+    // Only a deck core can be a chat's subject: the binder names its owner, nothing more.
+    keep({ kind: 'message', listing: { binderId: 'binder-1' }, pin: false });
+    const api = mockApi(routes());
+    renderRunner('app');
+    await waitFor(() =>
+      expect(mockRouter.push).toHaveBeenCalledWith({
+        pathname: '/messages/[id]',
+        params: { id: CONVERSATION_ID },
+      })
+    );
+    expect(api.callsTo('GET /api/v1/listings/owner')[0]!.query.get('binderId')).toBe('binder-1');
+    expect(api.callsTo('POST /api/v1/conversations')[0]!.body).toEqual({ recipientId: OTHER_ID });
+  });
+
   it('"I have it" opens the chat with the wish’s owner, found by the wish', async () => {
     keep({
       kind: 'have',

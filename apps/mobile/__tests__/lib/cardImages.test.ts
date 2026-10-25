@@ -12,6 +12,16 @@ describe('card pictures (ADR 0015)', () => {
     );
     expect(safeCardImageUrl('/api/v1/public/placeholder-images/pokemon.png', API)).not.toBeNull();
     expect(safeCardImageUrl('/api/v1/public/media/avatars/x.jpg', API)).not.toBeNull();
+    // Listing photos by their own id (stage R15, review fix 1): the URL never names the owner.
+    expect(
+      safeCardImageUrl('/api/v1/public/item-images/00000000-0000-4000-8d00-000000000001', API)
+    ).toBe(`${API}/api/v1/public/item-images/00000000-0000-4000-8d00-000000000001`);
+    expect(
+      safeCardImageUrl(
+        `${API}/api/v1/public/binder-images/00000000-0000-4000-8d00-000000000002`,
+        API
+      )
+    ).toBe(`${API}/api/v1/public/binder-images/00000000-0000-4000-8d00-000000000002`);
   });
 
   it('never hotlinks a provider or another origin', () => {

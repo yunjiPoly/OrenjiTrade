@@ -3,14 +3,17 @@ import { absoluteApiUrl, API_BASE_URL } from '@/src/api/client';
 /**
  * Card pictures (ADR 0015, ADR 0021): the app only ever displays pictures the API serves under
  * `/api/v1/public/` (`card-images/{id}`: the capped local cache or a placeholder;
- * `placeholder-images/**`; `media/**`). Provider URLs (YGOPRODeck, Scryfall, TCGdex) stay
- * server-side and are never hotlinked: any other URL is refused and the placeholder art is shown
- * instead.
+ * `placeholder-images/**`; `media/**`; the listing photos by their own id, `item-images/{id}` and
+ * `binder-images/{id}`, stage R15's review fix 1). Provider URLs (YGOPRODeck, Scryfall, TCGdex)
+ * stay server-side and are never hotlinked: any other URL is refused and the placeholder art is
+ * shown instead.
  */
 const ALLOWED_PREFIXES = [
   '/api/v1/public/card-images/',
   '/api/v1/public/placeholder-images/',
   '/api/v1/public/media/',
+  '/api/v1/public/item-images/',
+  '/api/v1/public/binder-images/',
 ];
 
 function originOf(url: string): string | null {
