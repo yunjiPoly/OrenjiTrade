@@ -83,9 +83,18 @@ export function GuestAvatar({ size = 36, testID }: { size?: number; testID?: str
   );
 }
 
+/**
+ * The link parameters that bring a guest page back after a remount: Search › Wishlist is a
+ * segment of Search, held in its state, so `/search` alone would reopen on Cards when Review our
+ * terms or the welcome replaced the tabs in between (review fix 1, U2).
+ */
+const RETURN_PARAMS: Partial<Record<GuestPageKind, Readonly<Record<string, string>>>> = {
+  wishlist: { segment: 'wishlist' },
+};
+
 /** Create account and Sign in, as the guest pages offer them. */
-function GuestButtons({ testID }: { testID: string }) {
-  const { signIn, createAccount } = useGuestEntry();
+function GuestButtons({ testID, kind }: { testID: string; kind: GuestPageKind }) {
+  const { signIn, createAccount } = useGuestEntry({ returnParams: RETURN_PARAMS[kind] });
   return (
     <View style={styles.buttons}>
       <PillButton
@@ -271,7 +280,7 @@ export function GuestPage({
         <Text style={[textStyle('md'), styles.pageText, { color: palette.textMuted }]}>
           {copy.text}
         </Text>
-        <GuestButtons testID={testID} />
+        <GuestButtons testID={testID} kind={kind} />
       </View>
       {after}
     </ScrollView>

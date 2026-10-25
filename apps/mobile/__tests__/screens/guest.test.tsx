@@ -283,6 +283,44 @@ describe('Search › Wishlist, Inventory, Messages and Profile as a guest (72 to
     expect(api.callsTo('GET /api/v1/wishlist')).toHaveLength(0);
   });
 
+  it('Sign in from the Wishlist page comes back to Wishlist, not Cards, after a remount (review fix 1)', async () => {
+    // The segment lives in Search's state: the link remembered says it, so Review our terms or
+    // the welcome replacing the tabs in between does not land the guest on Cards.
+    mockSegments.current = ['(tabs)', 'search'];
+    mockPathname.current = '/search';
+    mockApi(guestRoutes());
+    renderAsGuest(<SearchScreen />);
+    fireEvent.press(await screen.findByTestId('search-segment-wishlist'));
+    fireEvent.press(await screen.findByTestId('guest-wishlist-sign-in'));
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState().href).toBe('/search?segment=wishlist');
+    expect(usePendingLink.getState().owner).toBeNull();
+  });
+
+  it('Search › Binders never invites a guest to search collectors by name (review fix 1)', async () => {
+    mockParams.current = { segment: 'binders' };
+    const api = mockApi(
+      guestRoutes({
+        'GET /api/v1/regions/{region}/binders': ok({ items: [], nextCursor: null }),
+      })
+    );
+    renderAsGuest(<SearchScreen />);
+    const input = await screen.findByTestId('binders-input');
+    expect(input).toHaveProp('placeholder', 'Deck or binder, like Yubel');
+    expect(await screen.findByTestId('binders-empty')).toHaveTextContent(
+      'No public Yu-Gi-Oh! binders here yet.'
+    );
+    fireEvent.changeText(input, 'collector1');
+    await waitFor(() =>
+      expect(screen.getByTestId('binders-empty')).toHaveTextContent(
+        'Nothing matches. Try a deck or card name. Sign in to find collectors by name.'
+      )
+    );
+    expect(api.callsTo('GET /api/v1/regions/{region}/binders').at(-1)?.query.get('q')).toBe(
+      'collector1'
+    );
+  });
+
   it.each([
     [InventoryTab, 'inventory', 'Inventory', 'Your cards, in one place', 'Add cards in seconds'],
     [MessagesTab, 'messages', 'Messages', 'Talk to collectors', 'Message a collector about a card'],

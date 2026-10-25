@@ -16,7 +16,14 @@ import { afterModals } from '@/src/components/ui/modalTurns';
  * back to the guest's screen. Both wait for a sheet on screen to be gone first (iOS dismisses a
  * modal's view controller for a moment after it has slid away).
  */
-export function useGuestEntry({ keepAction = false }: { keepAction?: boolean } = {}) {
+export function useGuestEntry({
+  keepAction = false,
+  returnParams,
+}: {
+  keepAction?: boolean;
+  /** Link parameters added to the screen remembered (a segment kept in a screen's state). */
+  returnParams?: Readonly<Record<string, string>>;
+} = {}) {
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
@@ -29,11 +36,11 @@ export function useGuestEntry({ keepAction = false }: { keepAction?: boolean } =
     if (!keepAction) {
       useGuestAction.getState().dismiss();
     }
-    const href = guestReturnHref(segments, pathname, params);
+    const href = guestReturnHref(segments, pathname, { ...params, ...returnParams });
     if (href) {
       usePendingLink.getState().set(href, null);
     }
-  }, [keepAction, params, pathname, segments]);
+  }, [keepAction, params, pathname, returnParams, segments]);
 
   const signIn = useCallback(async () => {
     remember();
