@@ -10,6 +10,8 @@ import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.location.domain.CountryView;
 import com.orenjitrade.api.location.domain.RegionCatalog;
 import com.orenjitrade.api.location.domain.RegionView;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
+import com.orenjitrade.api.profiles.domain.ViewerContext;
 import com.orenjitrade.api.search.events.SearchPerformed;
 import com.orenjitrade.api.search.infra.DiscoveryCache;
 import com.orenjitrade.api.search.infra.RegionBinderRepository;
@@ -43,6 +45,7 @@ public class RegionMapService {
     private final PublicBinderService publicBinderService;
     private final DiscoveryCache cache;
     private final CollectorDiscoveryService discovery;
+    private final PrivacyPolicyService privacyPolicy;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
 
@@ -52,6 +55,7 @@ public class RegionMapService {
             PublicBinderService publicBinderService,
             DiscoveryCache cache,
             CollectorDiscoveryService discovery,
+            PrivacyPolicyService privacyPolicy,
             TimeProvider timeProvider,
             ApplicationEventPublisher events) {
         this.regions = regions;
@@ -59,6 +63,7 @@ public class RegionMapService {
         this.publicBinderService = publicBinderService;
         this.cache = cache;
         this.discovery = discovery;
+        this.privacyPolicy = privacyPolicy;
         this.timeProvider = timeProvider;
         this.events = events;
     }
@@ -165,6 +170,7 @@ public class RegionMapService {
                         viewerId,
                         deckCore,
                         query,
+                        privacyPolicy.canSeeWho(ViewerContext.of(viewerId)),
                         game,
                         after,
                         size + 1,

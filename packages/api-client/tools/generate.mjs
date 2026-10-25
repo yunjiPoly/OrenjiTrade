@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Runs openapi-generator-cli (typescript-angular) against docs/api/openapi.json (less the
- * parameters of WEB_CLIENT_OMITS below) and writes the generated sources to ../src.
+ * parameters of WEB_CLIENT_OMITS and the nulls of WEB_CLIENT_NOT_NULL, web-omits.mjs) and writes
+ * the generated sources to ../src.
  *
  * Why a wrapper instead of calling the CLI straight from package.json: the CLI resolves its
  * `openapitools.json` (pinned generator version) against `$PWD` / `INIT_CWD` before `cwd`, so when
@@ -18,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { withoutWebOmits } from './web-omits.mjs';
+import { withoutWebNulls, withoutWebOmits } from './web-omits.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const cli = join(here, 'node_modules', '@openapitools', 'openapi-generator-cli', 'main.js');
@@ -26,7 +27,10 @@ const spec = resolve(here, '../../../docs/api/openapi.json');
 
 const work = mkdtempSync(join(tmpdir(), 'orenji-api-client-'));
 const input = join(work, 'openapi.json');
-writeFileSync(input, JSON.stringify(withoutWebOmits(JSON.parse(readFileSync(spec, 'utf8'))), null, 2));
+writeFileSync(
+  input,
+  JSON.stringify(withoutWebNulls(withoutWebOmits(JSON.parse(readFileSync(spec, 'utf8')))), null, 2)
+);
 
 const args = [
   cli,

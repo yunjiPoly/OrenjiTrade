@@ -1,6 +1,7 @@
 package com.orenjitrade.api.search.api;
 
 import com.orenjitrade.api.auth.domain.AuthenticatedUser;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.search.api.FeedResponses.FeedPageResponse;
 import com.orenjitrade.api.search.domain.FeedRules;
 import com.orenjitrade.api.search.domain.FeedService;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,21 +26,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * {@code GET /api/v1/feed}: Home's feed (stage R7 of the phone redesign; owner prompt of
- * 2026-10-19, docs/product/specs/2026-10-19-home-full-design.md, section 5). Signed-in collectors
- * only; guests get Home in stage R15.
+ * 2026-10-19, docs/product/specs/2026-10-19-home-full-design.md, section 5). Open to signed-out
+ * visitors since stage R15 ("Browse without an account", GET only): they read the same posts with
+ * their places, never who posted them ({@link PrivacyPolicyService#canSeeWho}).
  */
 @RestController
 @Validated
-@Tag(name = "feed", description = "Home's feed: what became public in a region (signed in)")
+@Tag(name = "feed", description = "Home's feed: what became public in a region (auth optional)")
 public class FeedController {
 
     private final FeedService feedService;
+    private final PrivacyPolicyService privacyPolicy;
 
-    public FeedController(FeedService feedService) {
+    public FeedController(FeedService feedService, PrivacyPolicyService privacyPolicy) {
         this.feedService = feedService;
+        this.privacyPolicy = privacyPolicy;
     }
 
     @GetMapping(path = "/api/v1/feed", produces = MediaType.APPLICATION_JSON_VALUE)
+    @SecurityRequirements
     @Operation(
             operationId = "getFeed",
             summary = "What became public in a region for a game (Home)",
@@ -54,8 +60,10 @@ public class FeedController {
                         + " Never the caller's own posts, never a collector in a block with the"
                         + " caller in either direction (left out before the limit), never a city or"
                         + " a coordinate: places are a state or province and a country. Card"
-                        + " pictures come through /api/v1/public/card-images; nothing is"
-                        + " sponsored.")
+                        + " pictures come through /api/v1/public/card-images; nothing is sponsored."
+                        + " Auth optional (stage R15): a signed-out caller reads the posts of"
+                        + " americas-north unless `region` says otherwise, each with its place and"
+                        + " every field of `collector` null (never who posted it).")
     @ApiResponse(responseCode = "200", description = "One page of the feed")
     @ApiResponse(
             responseCode = "400",
@@ -67,14 +75,14 @@ public class FeedController {
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = SearchController.PROBLEM_REF)))
     @ApiResponse(
-            responseCode = "401",
-            description = "Not signed in",
+            responseCode = "429",
+            description = "RATE_LIMITED (signed-out callers: by address, a short window)",
             content =
                     @Content(
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(ref = SearchController.PROBLEM_REF)))
     public FeedPageResponse feed(
-            @AuthenticationPrincipal AuthenticatedUser principal,
+            @AuthenticationPrincipal @Nullable AuthenticatedUser principal,
             @Parameter(
                             description =
                                     "Platform region code (GET /regions); default: the caller's"
@@ -113,6 +121,8 @@ public class FeedController {
                     @Nullable Integer limit) {
         return FeedPageResponse.from(
                 feedService.page(
-                        principal.userId(), new FeedQuery(region, game, kind, cursor, limit)));
+                        SearchController.viewer(principal),
+                        new FeedQuery(region, game, kind, cursor, limit)),
+                SearchController.showWho(privacyPolicy, principal));
     }
 }

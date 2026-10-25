@@ -431,7 +431,12 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
                     fetch(
                             "/api/v1/search/collectors?q=collector&limit=10&region=americas-north",
                             caller);
-            assertThat(north.size()).isPositive();
+            // A signed-out visitor never finds a collector by name (stage R15).
+            if (caller == null) {
+                assertThat(north.size()).isZero();
+            } else {
+                assertThat(north.size()).isPositive();
+            }
             JsonNode grouped =
                     fetch(
                             "/api/v1/search/card-holders?region=americas-north&sort=province"
@@ -787,6 +792,178 @@ class GeoPrivacyContractTest extends AbstractIntegrationTest {
             }
             assertThat(post.path("collector").has("city")).isFalse();
             assertThat(place.has("city")).isFalse();
+        }
+    }
+
+    /**
+     * Stage R15, "Browse without an account": a signed-out pass over every open discovery read, in
+     * every region and game (Home's feed and its kinds, the map's counts, the binders of each
+     * region and state, the holders and deck cores of every seeded public card, unified search,
+     * binder search and the suggestions, by every seed handle and name, collector name search, each
+     * public binder and its cards). No coordinate, distance or city, as for members; and nobody: no
+     * handle, display name or avatar with a value, no account id of a collector anywhere, while the
+     * places stay; collector name search finds nobody.
+     */
+    @Test
+    void signedOutVisitorsReadPlacesAndNeverWhoACollectorIs(CapturedOutput output) {
+        Map<String, String> userIds = new LinkedHashMap<>();
+        List<String> names = new ArrayList<>();
+        for (String handle : PLACES.keySet()) {
+            userIds.put(handle, idOf(handle).toString());
+            for (Map<String, Object> row :
+                    testUsers.query(
+                            "SELECT ua.display_name AS account_name, p.display_name AS"
+                                    + " profile_name FROM user_account ua LEFT JOIN profile p ON"
+                                    + " p.user_id = ua.id WHERE ua.handle = ?",
+                            handle)) {
+                for (Object name :
+                        List.of(
+                                row.getOrDefault("account_name", ""),
+                                row.getOrDefault("profile_name", ""))) {
+                    if (name instanceof String text && text.length() >= 4) {
+                        names.add(text);
+                    }
+                }
+            }
+        }
+        List<String> cardIds = new ArrayList<>();
+        for (Map<String, Object> row :
+                testUsers.query(
+                        "SELECT DISTINCT p.card_id FROM inventory_item i JOIN card_printing p ON"
+                                + " p.id = i.printing_id WHERE i.visibility = 'PUBLIC'")) {
+            cardIds.add(row.get("card_id").toString());
+        }
+        assertThat(cardIds).as("seeded public cards").isNotEmpty();
+
+        java.util.Set<String> binderIds = new java.util.LinkedHashSet<>();
+        int places = 0;
+        for (String region : List.of("americas-north", "americas-south", "europe")) {
+            for (String game : List.of("yugioh", "pokemon", "mtg", "onepiece", "riftbound")) {
+                JsonNode feed =
+                        fetch("/api/v1/feed?limit=50&region=" + region + "&game=" + game, null);
+                for (JsonNode post : feed.path("items")) {
+                    assertThat(post.path("place").path("label").asString()).isNotBlank();
+                    places++;
+                }
+                fetch("/api/v1/regions/" + region + "/binders?limit=50&game=" + game, null);
+                fetch("/api/v1/regions/" + region + "/binder-counts?game=" + game, null);
+            }
+            for (String kind : List.of("NEW_CARDS", "WANTED", "DECK_CORES")) {
+                fetch("/api/v1/feed?limit=50&game=yugioh&region=" + region + "&kind=" + kind, null);
+            }
+            JsonNode counts = fetch("/api/v1/regions/" + region + "/binder-counts", null);
+            for (JsonNode subdivision : counts.path("subdivisions")) {
+                JsonNode binders =
+                        fetch(
+                                "/api/v1/regions/"
+                                        + region
+                                        + "/subdivisions/"
+                                        + subdivision.path("code").asString()
+                                        + "/binders?limit=50",
+                                null);
+                binders.path("items")
+                        .forEach(binder -> binderIds.add(binder.path("id").asString()));
+            }
+            JsonNode all = fetch("/api/v1/regions/" + region + "/binders?limit=50", null);
+            all.path("items").forEach(binder -> binderIds.add(binder.path("id").asString()));
+            for (String cardId : cardIds) {
+                JsonNode holders =
+                        fetch(
+                                "/api/v1/search/card-holders?size=50&region="
+                                        + region
+                                        + "&cardId="
+                                        + cardId,
+                                null);
+                for (JsonNode row : holders.path("items")) {
+                    assertThat(row.path("collector").path("place").path("label").asString())
+                            .isNotBlank();
+                    places++;
+                }
+                fetch(
+                        "/api/v1/search/deck-cores?limit=10&region=" + region + "&cardId=" + cardId,
+                        null);
+            }
+            for (String handle : PLACES.keySet()) {
+                JsonNode byName =
+                        fetch(
+                                "/api/v1/search/collectors?region="
+                                        + region
+                                        + "&game=yugioh&q="
+                                        + handle,
+                                null);
+                assertThat(byName).as("name search for %s in %s", handle, region).isEmpty();
+                JsonNode unified = fetch("/api/v1/search?q=" + handle + "&region=" + region, null);
+                assertThat(unified.path("collectors")).as("collectors named %s", handle).isEmpty();
+                JsonNode suggest =
+                        fetch("/api/v1/search/suggest?q=" + handle + "&region=" + region, null);
+                assertThat(suggest)
+                        .noneMatch(entry -> "COLLECTOR".equals(entry.path("type").asString()));
+            }
+            for (String text : List.of("binder", "core", "collector")) {
+                JsonNode binders =
+                        fetch("/api/v1/search?q=" + text + "&types=binders&region=" + region, null);
+                binders.path("binders")
+                        .forEach(binder -> binderIds.add(binder.path("id").asString()));
+            }
+        }
+        for (String name : names) {
+            fetch(
+                    "/api/v1/search/collectors?region=americas-north&game=yugioh&q="
+                            + java.net.URLEncoder.encode(
+                                    name, java.nio.charset.StandardCharsets.UTF_8),
+                    null);
+        }
+        assertThat(binderIds).as("public binders read by a guest").isNotEmpty();
+        for (String binderId : binderIds) {
+            JsonNode binder = fetch("/api/v1/public/binders/" + binderId, null);
+            assertThat(binder.path("owner").path("place").path("label").asString()).isNotBlank();
+            places++;
+            fetch("/api/v1/public/binders/" + binderId + "/items?size=100", null);
+        }
+        assertThat(places).as("places read by a guest").isPositive();
+
+        for (Fetched document : fetched) {
+            String context = document.path() + " signed out";
+            assertNobody(document.body(), context, Set.copyOf(userIds.values()));
+            String text = document.body().toString();
+            for (String name : names) {
+                assertThat(text)
+                        .as("the name %s in %s", name, context)
+                        .doesNotContain("\"displayName\":\"" + name + "\"");
+            }
+            assertNoPrivateNotes(document.body(), document.path());
+        }
+        assertContract(output);
+    }
+
+    /** Who a collector is never shows to a signed-out visitor: identity keys null, no user id. */
+    private static void assertNobody(JsonNode node, String context, Set<String> userIds) {
+        if (node.isString()) {
+            assertThat(userIds)
+                    .as("a collector's id in %s", context)
+                    .doesNotContain(node.asString());
+            return;
+        }
+        if (node.isObject()) {
+            for (Map.Entry<String, JsonNode> entry : node.properties()) {
+                String key = entry.getKey();
+                if (Set.of("handle", "displayName", "avatarUrl").contains(key)) {
+                    assertThat(entry.getValue().isNull()).as("%s in %s", key, context).isTrue();
+                }
+                if (Set.of("collector", "owner").contains(key) && entry.getValue().isObject()) {
+                    assertThat(entry.getValue().path("id").isNull())
+                            .as("the %s's id in %s", key, context)
+                            .isTrue();
+                    assertThat(
+                                    entry.getValue().path("rating").isMissingNode()
+                                            || entry.getValue().path("rating").isNull())
+                            .as("the %s's rating in %s", key, context)
+                            .isTrue();
+                }
+            }
+        }
+        for (JsonNode child : node) {
+            assertNobody(child, context, userIds);
         }
     }
 

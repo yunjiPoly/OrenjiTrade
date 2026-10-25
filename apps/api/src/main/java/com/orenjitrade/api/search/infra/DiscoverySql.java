@@ -108,13 +108,22 @@ final class DiscoverySql {
      * cards of a binder whose switch is off). {@link #binderTextParams} fills the parameters.
      */
     static String binderText(String alias) {
+        return binderText(alias, true);
+    }
+
+    /**
+     * {@link #binderText}, with the owner's handle when {@code byHandle}: never for a signed-out
+     * visitor, who never finds who a collector is (stage R15, {@code
+     * PrivacyPolicyService#canSeeWho}): typing a handle must not list that collector's binders.
+     */
+    static String binderText(String alias, boolean byHandle) {
         return "("
                 + alias
                 + ".search_vector @@ websearch_to_tsquery('simple', unaccent_immutable(:q))"
                 + " OR lower(unaccent_immutable("
                 + alias
                 + ".name)) LIKE :contains ESCAPE '\\'"
-                + " OR u.handle LIKE :handle ESCAPE '\\'"
+                + (byHandle ? " OR u.handle LIKE :handle ESCAPE '\\'" : "")
                 + " OR ("
                 + alias
                 + ".sells_as_core AND EXISTS (SELECT 1"
@@ -128,11 +137,20 @@ final class DiscoverySql {
 
     /** The parameters of {@link #binderText}: {@code q}, {@code contains}, {@code handle}. */
     static void binderTextParams(String text, java.util.Map<String, Object> params) {
+        binderTextParams(text, params, true);
+    }
+
+    /** The parameters of {@link #binderText(String, boolean)}. */
+    static void binderTextParams(
+            String text, java.util.Map<String, Object> params, boolean byHandle) {
         String trimmed = text.trim();
         String escaped = CatalogText.escapeLike(CatalogText.normalise(trimmed));
         String handle = trimmed.startsWith("@") ? trimmed.substring(1) : trimmed;
         params.put("q", trimmed);
         params.put("contains", "%" + escaped + "%");
+        if (!byHandle) {
+            return;
+        }
         params.put(
                 "handle",
                 "%"

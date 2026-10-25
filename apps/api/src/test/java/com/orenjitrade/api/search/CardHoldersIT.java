@@ -110,7 +110,18 @@ class CardHoldersIT extends AbstractSearchIT {
         assertThat(byFreshness.path("totalItems").asLong()).isEqualTo(3);
         JsonNode nearRow = byFreshness.path("items").get(1);
         JsonNode holder = nearRow.path("collector");
-        assertThat(holder.path("handle").asString()).isEqualTo(near.handle());
+        // Signed out: who the holder is stays hidden (stage R15); a member reads the handle.
+        assertThat(holder.path("handle").isNull()).isTrue();
+        String member = uniqueUid("hold-member");
+        provisionCompliant(member);
+        assertThat(
+                        holders(member, "printingId=" + printingId)
+                                .path("items")
+                                .get(1)
+                                .path("collector")
+                                .path("handle")
+                                .asString())
+                .isEqualTo(near.handle());
         assertThat(holder.path("place").path("subdivisionCode").asString()).isEqualTo("CA-QC");
         assertThat(holder.path("place").path("label").asString()).isEqualTo("Quebec, Canada");
         assertThat(holder.path("place").path("regionCode").asString()).isEqualTo("americas-north");
@@ -234,7 +245,9 @@ class CardHoldersIT extends AbstractSearchIT {
                 .containsExactlyInAnyOrder(nearItem, frenchItem, middleItem, agingItem);
         assertThat(itemIds(holders(null, "cardId=" + cardId + "&language=fr")))
                 .containsExactly(frenchItem);
-        assertThat(handles(holders(null, "cardId=" + cardId + "&language=fr")))
+        String member = uniqueUid("hold-member-fr");
+        provisionCompliant(member);
+        assertThat(handles(holders(member, "cardId=" + cardId + "&language=fr")))
                 .containsExactly(french.handle());
     }
 

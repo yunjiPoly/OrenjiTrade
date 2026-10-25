@@ -59,12 +59,16 @@ class CollectorsByNameIT extends AbstractSearchIT {
                 noNameSearch,
                 200);
 
-        JsonNode hits = byName(null, "region=americas-north&q=" + word + "&limit=10");
+        // A member reads them (stage R15: a signed-out visitor finds nobody by name).
+        String member = uniqueUid("name-member");
+        provisionCompliant(member);
+        assertThat(byName(null, "region=americas-north&q=" + word + "&limit=10")).isEmpty();
+        JsonNode hits = byName(member, "region=americas-north&q=" + word + "&limit=10");
         assertThat(names(hits))
                 .containsExactlyInAnyOrder(
                         one.handle(), two.handle(), three.handle(), four.handle());
-        assertThat(byName(null, "region=americas-north&q=" + word)).hasSize(3);
-        assertThat(names(byName(null, "region=europe&q=" + word)))
+        assertThat(byName(member, "region=americas-north&q=" + word)).hasSize(3);
+        assertThat(names(byName(member, "region=europe&q=" + word)))
                 .containsExactly(european.handle());
 
         JsonNode mexican = null;
@@ -81,7 +85,7 @@ class CollectorsByNameIT extends AbstractSearchIT {
         assertThat(mexican.path("place").path("subdivisionCode").asString()).isEqualTo("MX-JAL");
 
         // By handle, with or without "@"; a handle that starts with the text first.
-        assertThat(names(byName(null, "region=americas-north&q=@" + one.handle())))
+        assertThat(names(byName(member, "region=americas-north&q=@" + one.handle())))
                 .startsWith(one.handle());
     }
 
@@ -132,8 +136,11 @@ class CollectorsByNameIT extends AbstractSearchIT {
         unified.path("collectors").forEach(m -> section.add(m.path("handle").asString()));
         assertThat(section).hasSize(2).doesNotContain(first.handle(), second.handle());
 
-        // Signed out, everybody is there.
-        assertThat(byName(null, query + "&limit=10")).hasSize(5);
+        // For another member everybody is there; signed out, nobody (stage R15: a guest never
+        // finds who a collector is).
+        Collector stranger = collector("name-stranger", "CA", "CA-QC");
+        assertThat(byName(stranger.uid(), query + "&limit=10")).hasSize(5);
+        assertThat(byName(null, query + "&limit=10")).isEmpty();
     }
 
     @Test

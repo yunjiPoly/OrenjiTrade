@@ -38,6 +38,8 @@ public class BinderSearchRepository {
      *
      * @param deckCore {@code true} deck cores only, {@code false} other binders only, {@code null}
      *     both
+     * @param byHandle whether the text also matches the owner's handle: never for a signed-out
+     *     visitor (stage R15)
      */
     public List<UUID> search(
             String query,
@@ -45,11 +47,12 @@ public class BinderSearchRepository {
             String region,
             @Nullable UUID viewerId,
             @Nullable Boolean deckCore,
+            boolean byHandle,
             int limit,
             Instant now) {
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("now", Timestamp.from(now));
-        DiscoverySql.binderTextParams(query, params);
+        DiscoverySql.binderTextParams(query, params, byHandle);
         String escaped = CatalogText.escapeLike(CatalogText.normalise(query));
         params.put("prefix", escaped + "%");
         params.put("limit", limit);
@@ -65,7 +68,7 @@ public class BinderSearchRepository {
                 .append(" AND ")
                 .append(PublicVisibilityRules.binderEffectivelyPublic("bn"))
                 .append(" AND ")
-                .append(DiscoverySql.binderText("bn"));
+                .append(DiscoverySql.binderText("bn", byHandle));
         if (game != null) {
             sql.append(" AND EXISTS (SELECT 1")
                     .append(DiscoverySql.ITEM_JOINS)

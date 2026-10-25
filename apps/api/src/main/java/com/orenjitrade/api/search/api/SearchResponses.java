@@ -45,14 +45,35 @@ public final class SearchResponses {
                     "A discoverable collector with their state/province and country (never a city,"
                             + " a coordinate or a distance)")
     public record CollectorMarkerResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Maïka Tremblay")
-                    String displayName,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            description = "Null for a signed-out caller (stage R15)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable UUID id,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            example = "maika",
+                            description = "Null for a signed-out caller (stage R15)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String handle,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            example = "Maïka Tremblay",
+                            description = "Null for a signed-out caller (stage R15)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String avatarUrl,
             @Schema(requiredMode = RequiredMode.REQUIRED) PlaceResponse place,
-            @Schema(requiredMode = RequiredMode.REQUIRED) CollectorRating rating,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            description = "Null for a signed-out caller (stage R15)")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable CollectorRating rating,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"trader\"]")
                     List<String> tags,
             @Schema(requiredMode = RequiredMode.REQUIRED, example = "[\"yugioh\",\"pokemon\"]")
@@ -77,17 +98,27 @@ public final class SearchResponses {
 
         /** Response form of a marker. */
         public static CollectorMarkerResponse from(CollectorMarker marker) {
+            return from(marker, true);
+        }
+
+        /**
+         * Response form of a marker for a caller who may see who the collector is ({@code
+         * showWho}), or not: a signed-out visitor gets the place, the tags, the games and the
+         * counts, never the id, handle, name, avatar, rating, last activity or presence ({@code
+         * PrivacyPolicyService#canSeeWho}, stage R15).
+         */
+        public static CollectorMarkerResponse from(CollectorMarker marker, boolean showWho) {
             return new CollectorMarkerResponse(
-                    marker.id(),
-                    marker.handle(),
-                    marker.displayName(),
-                    marker.avatarUrl(),
+                    showWho ? marker.id() : null,
+                    showWho ? marker.handle() : null,
+                    showWho ? marker.displayName() : null,
+                    showWho ? marker.avatarUrl() : null,
                     PlaceResponse.from(marker.place()),
-                    ratingOf(marker.rating()),
+                    showWho ? ratingOf(marker.rating()) : null,
                     marker.tags(),
                     marker.games(),
-                    marker.lastActiveBucket(),
-                    marker.onlineStatus(),
+                    showWho ? marker.lastActiveBucket() : LastActiveBucket.HIDDEN,
+                    showWho ? marker.onlineStatus() : OnlineStatus.HIDDEN,
                     marker.binderFreshness(),
                     marker.publicBinderCount(),
                     marker.publicItemCount(),
@@ -178,16 +209,18 @@ public final class SearchResponses {
                     List<PublicBinderSummaryResponse> binders,
             @Schema(requiredMode = RequiredMode.REQUIRED) SearchResolutionResponse resolved) {
 
-        static UnifiedSearchResponse from(UnifiedSearch search, Instant now) {
+        static UnifiedSearchResponse from(UnifiedSearch search, Instant now, boolean showWho) {
             return new UnifiedSearchResponse(
                     search.query(),
                     search.cards(),
                     search.printings(),
                     search.sets(),
                     search.region(),
-                    search.collectors().stream().map(CollectorMarkerResponse::from).toList(),
+                    search.collectors().stream()
+                            .map(marker -> CollectorMarkerResponse.from(marker, showWho))
+                            .toList(),
                     search.binders().stream()
-                            .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                            .map(hit -> PublicBinderSummaryResponse.from(hit, now, showWho))
                             .toList(),
                     SearchResolutionResponse.from(search.resolved()));
         }
@@ -199,9 +232,9 @@ public final class SearchResponses {
             @Schema(requiredMode = RequiredMode.REQUIRED) CollectorMarkerResponse collector,
             @Schema(requiredMode = RequiredMode.REQUIRED) PublicInventoryItemResponse item) {
 
-        static CardHolderResultResponse from(CardHolder holder, Instant now) {
+        static CardHolderResultResponse from(CardHolder holder, Instant now, boolean showWho) {
             return new CardHolderResultResponse(
-                    CollectorMarkerResponse.from(holder.collector()),
+                    CollectorMarkerResponse.from(holder.collector(), showWho),
                     PublicInventoryItemResponse.from(holder.item(), now));
         }
     }

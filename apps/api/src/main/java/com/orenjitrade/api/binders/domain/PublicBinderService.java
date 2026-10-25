@@ -105,6 +105,31 @@ public class PublicBinderService {
     }
 
     /**
+     * The collector {@code accountId} as the owner of a public listing the viewer found (stage R15:
+     * a guest's action resumed after signing in names the item, binder or wish, never the
+     * collector): empty, as {@link #requireOwner} answers 404, when the account is hidden, the
+     * profile PRIVATE or a block exists; the owner always passes.
+     */
+    @Transactional(readOnly = true)
+    public Optional<PublicOwner> visibleOwner(@Nullable UUID viewerId, UUID accountId) {
+        Instant now = timeProvider.now();
+        Optional<UserAccountSnapshot> account =
+                userAccountService
+                        .findSnapshot(accountId)
+                        .filter(candidate -> isPubliclyVisible(candidate, now));
+        if (account.isEmpty()) {
+            return Optional.empty();
+        }
+        PrivacySettingsView privacy = privacySettingsService.settingsOf(accountId);
+        if (!accountId.equals(viewerId)
+                && (privacy.profileVisibility() == ProfileVisibility.PRIVATE
+                        || isBlocked(viewerId, accountId))) {
+            return Optional.empty();
+        }
+        return Optional.of(ownerOf(account.get(), privacy, viewerId));
+    }
+
+    /**
      * The owner block of a collector the viewer already deals with (Phase 8 offer and trade
      * parties): handle, display name, avatar and, while the collector is discoverable, their
      * state/province and country. Unlike {@link #requireOwner} it does not hide PRIVATE profiles or

@@ -345,6 +345,39 @@ public class WishlistService {
     // ---------------------------------------------------------------------------------------
 
     /**
+     * The collector who made the wish {@code wishId}, when the viewer may see it (stage R15: "I
+     * have it" of a guest, resumed after signing in, names the wish, never the collector): the
+     * owner always; others while the owner shows their wishlist, the profile is visible to them and
+     * no block exists ({@link PrivacyPolicyService#canSeeWishlist}). Empty otherwise, and for an
+     * unknown wish or an account that is suspended, pending deletion or deleted.
+     */
+    @Transactional(readOnly = true)
+    public Optional<UUID> visibleOwnerOf(@Nullable UUID viewerId, UUID wishId) {
+        Instant now = timeProvider.now();
+        Optional<WishlistItemRow> row = repository.findByIds(List.of(wishId)).stream().findFirst();
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        UUID targetId = row.get().ownerId();
+        Optional<UserAccountSnapshot> account =
+                accounts.findSnapshot(targetId)
+                        .filter(candidate -> isPubliclyVisible(candidate, now));
+        if (account.isEmpty()) {
+            return Optional.empty();
+        }
+        boolean blocked = false;
+        if (viewerId != null && !viewerId.equals(targetId)) {
+            @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
+            blocked = provider != null && provider.isBlocked(viewerId, targetId);
+        }
+        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
+        return privacyPolicy.canSeeWishlist(
+                        new ViewerContext(viewerId, false, blocked), targetId, privacy)
+                ? Optional.of(targetId)
+                : Optional.empty();
+    }
+
+    /**
      * {@code GET /collectors/{handle}/wishlist}: every wish (which copy, public note, Near Mint
      * only, price term) when the collector shows their wishlist; 404 otherwise (unknown, suspended,
      * pending deletion, hidden wishlist, profile not visible, block).

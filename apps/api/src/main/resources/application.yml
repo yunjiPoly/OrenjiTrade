@@ -402,6 +402,24 @@ orenji:
         limit: ${RATE_LIMIT_CARD_IMAGES_PER_MINUTE:600}
         window-seconds: 60
         key-by: IP
+      - name: guest-discovery
+        # Browsing without an account (stage R15): the reads a signed-out visitor makes while
+        # scrolling Home and Search (the feed, card holders, binder and deck core lists, binder
+        # search, a public binder) are counted by address in a short window. The address is only
+        # part of a Redis key that expires with its window: never stored, logged or turned into a
+        # place (ADR 0017).
+        path-patterns:
+          - "/api/v1/feed"
+          - "/api/v1/search"
+          - "/api/v1/search/**"
+          - "/api/v1/regions/*/binders"
+          - "/api/v1/regions/*/subdivisions/*/binders"
+          - "/api/v1/public/binders/**"
+        methods: [GET]
+        limit: ${RATE_LIMIT_GUEST_DISCOVERY_PER_10S:20}
+        window-seconds: 10
+        key-by: IP
+        applies-to: ANONYMOUS
       - name: default-authenticated
         path-patterns: ["/api/**"]
         limit: ${RATE_LIMIT_DEFAULT_PER_MINUTE:120}

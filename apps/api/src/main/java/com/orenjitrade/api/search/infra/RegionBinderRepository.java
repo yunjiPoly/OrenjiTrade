@@ -108,6 +108,8 @@ public class RegionBinderRepository {
      * @param text matches the binder's name and description, its owner's handle and a deck core's
      *     card names ({@link DiscoverySql#binderText}); {@code null} for every binder
      * @param game the binders of this game only (a slug, stage G); {@code null} for every game
+     * @param byHandle whether {@code text} also matches the owner's handle: never for a signed-out
+     *     visitor (stage R15)
      */
     public List<BinderRef> binders(
             String region,
@@ -115,6 +117,7 @@ public class RegionBinderRepository {
             @Nullable UUID viewerId,
             @Nullable Boolean deckCore,
             @Nullable String text,
+            boolean byHandle,
             @Nullable String game,
             @Nullable TimeCursor after,
             int limit,
@@ -139,8 +142,8 @@ public class RegionBinderRepository {
             params.put("game", game);
         }
         if (text != null) {
-            sql.append(" AND ").append(DiscoverySql.binderText("bn"));
-            DiscoverySql.binderTextParams(text, params);
+            sql.append(" AND ").append(DiscoverySql.binderText("bn", byHandle));
+            DiscoverySql.binderTextParams(text, params, byHandle);
         }
         if (viewerId != null) {
             sql.append(NOT_BLOCKED);

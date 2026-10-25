@@ -74,6 +74,8 @@ api/limits.service.ts
 api/limits.serviceInterface.ts
 api/listingHealth.service.ts
 api/listingHealth.serviceInterface.ts
+api/listings.service.ts
+api/listings.serviceInterface.ts
 api/location.service.ts
 api/location.serviceInterface.ts
 api/map.service.ts

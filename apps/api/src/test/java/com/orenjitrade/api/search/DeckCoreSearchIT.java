@@ -245,15 +245,27 @@ class DeckCoreSearchIT extends AbstractSearchIT {
         JsonNode found = byCard.path("binders").get(0);
         assertThat(found.path("keyCards").get(0).path("quantity").asInt()).isEqualTo(2);
         assertThat(found.path("askingPriceText").asString()).isEqualTo("$120");
-        // The owner's handle finds their binders (an "@" is allowed).
+        // The owner's handle finds their binders for a member (an "@" is allowed); never for a
+        // signed-out visitor, who never finds who a collector is (stage R15).
+        String member = uniqueUid("core-handle-member");
+        provisionCompliant(member);
         JsonNode byHandle =
+                get(
+                        member,
+                        200,
+                        "/api/v1/search?types=binders&limit=50&region={r}&q={q}",
+                        REGION,
+                        "@" + owner.handle());
+        assertThat(ids(byHandle.path("binders"))).contains(emptyCore, core, plain, plainWithCard);
+        JsonNode guestByHandle =
                 get(
                         null,
                         200,
                         "/api/v1/search?types=binders&limit=50&region={r}&q={q}",
                         REGION,
                         "@" + owner.handle());
-        assertThat(ids(byHandle.path("binders"))).contains(emptyCore, core, plain, plainWithCard);
+        assertThat(ids(guestByHandle.path("binders")))
+                .doesNotContain(emptyCore, core, plain, plainWithCard);
 
         // The card names of a deck core are those of its key cards: every live card filed in the
         // public core, a private one too (buyers see it on the core's page, never listed alone).
@@ -456,12 +468,17 @@ class DeckCoreSearchIT extends AbstractSearchIT {
                                         owner.handle())))
                 .containsExactly(emptyCore, core);
         JsonNode region =
-                get(null, 200, "/api/v1/regions/{r}/binders?q={q}&limit=1", REGION, owner.handle());
+                get(
+                        viewer,
+                        200,
+                        "/api/v1/regions/{r}/binders?q={q}&limit=1",
+                        REGION,
+                        owner.handle());
         assertThat(ids(region)).containsExactly(plain);
         assertThat(region.path("hasMore").asBoolean()).isTrue();
         JsonNode next =
                 get(
-                        null,
+                        viewer,
                         200,
                         "/api/v1/regions/{r}/binders?q={q}&limit=5&cursor={c}",
                         REGION,

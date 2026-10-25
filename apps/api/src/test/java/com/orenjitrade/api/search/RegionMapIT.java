@@ -148,7 +148,8 @@ class RegionMapIT extends AbstractSearchIT {
         assertThat(row.path("itemCount").asLong()).isEqualTo(1);
         assertThat(row.path("freshness").path("updatedAt").asString()).isNotBlank();
         JsonNode owner = row.path("owner");
-        assertThat(owner.path("handle").asString()).isEqualTo(first.handle());
+        // Signed out: the owner's place, never who they are (stage R15).
+        assertThat(owner.path("handle").isNull()).isTrue();
         assertThat(owner.path("place").path("label").asString()).isEqualTo("Nunavut, Canada");
         assertThat(owner.path("place").has("city")).isFalse();
         assertThat(page.toString()).doesNotContain("Iqaluit").doesNotContain(notListed);

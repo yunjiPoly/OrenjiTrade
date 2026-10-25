@@ -6,7 +6,12 @@ import { dirname, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { WEB_CLIENT_OMITS, withoutWebOmits } from '../../packages/api-client/tools/web-omits.mjs';
+import {
+  WEB_CLIENT_NOT_NULL,
+  WEB_CLIENT_OMITS,
+  withoutWebNulls,
+  withoutWebOmits,
+} from '../../packages/api-client/tools/web-omits.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -49,4 +54,39 @@ test('every omission names a parameter the OpenAPI document has (none is stale)'
   // The unread count is called without parameters by the paused web: none left after the filter.
   withoutWebOmits(document);
   assert.equal(operations.get('getUnreadNotificationCount').parameters, undefined);
+});
+
+test('the web keeps a collector\'s identity typed as before; others stay nullable', () => {
+  const document = {
+    components: {
+      schemas: {
+        Person: {
+          properties: {
+            handle: { type: ['string', 'null'] },
+            avatarUrl: { type: ['string', 'null'], format: 'uri' },
+          },
+        },
+      },
+    },
+  };
+  withoutWebNulls(document, { Person: ['handle', 'missing'] });
+  assert.equal(document.components.schemas.Person.properties.handle.type, 'string');
+  assert.deepEqual(document.components.schemas.Person.properties.avatarUrl.type, ['string', 'null']);
+});
+
+test('every field kept not null is nullable in the OpenAPI document (none is stale)', () => {
+  // Stage R15: a signed-out caller never reads who a collector is; the phone's types keep the null.
+  const document = JSON.parse(readFileSync(resolve(root, 'docs/api/openapi.json'), 'utf8'));
+  for (const [schema, keys] of Object.entries(WEB_CLIENT_NOT_NULL)) {
+    for (const key of keys) {
+      const property = document.components.schemas[schema]?.properties?.[key];
+      assert.ok(property, `${schema}.${key} is in docs/api/openapi.json`);
+      assert.ok(
+        Array.isArray(property.type) && property.type.includes('null'),
+        `${schema}.${key} is nullable`
+      );
+    }
+  }
+  withoutWebNulls(document);
+  assert.equal(document.components.schemas.CollectorMarker.properties.handle.type, 'string');
 });

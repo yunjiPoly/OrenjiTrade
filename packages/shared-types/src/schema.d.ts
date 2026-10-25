@@ -3133,7 +3133,7 @@ export interface paths {
         };
         /**
          * A public binder (auth optional)
-         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the usage limit, the same for every collector).
+         * @description 404 unless the binder is public right now (visibility, expiry, freshness, the owner's account state and privacy settings). The owner block carries their state/province and country while they are discoverable; never a city or coordinates. A signed-out caller (stage R15) gets the owner block without id, handle, displayName or avatarUrl (null). Signed-in callers other than the owner consume `binder.views.per_day` once per binder and UTC day (429 LIMIT_REACHED beyond the usage limit, the same for every collector).
          */
         get: operations["getPublicBinder"];
         put?: never;
@@ -3455,6 +3455,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who owns a public card, binder or wish (signed in)
+         * @description Exactly one of `itemId` (a public inventory item), `binderId` (a public binder or deck core) and `wishId` (a wish its owner shows). The collector as members see them in card holders, a public binder or Home's feed: id, handle, display name and avatar; no place. 404 when the listing is not public right now, its owner is hidden (suspended, pending deletion, PRIVATE profile) or a block exists either way. The caller's own listing names the caller. For stage R15: a guest's action, kept by its listing, finishes once the guest has signed in.
+         */
+        get: operations["getListingOwner"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/summary": {
         parameters: {
             query?: never;
@@ -3564,7 +3584,7 @@ export interface paths {
         };
         /**
          * What became public in a region for a game (Home)
-         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored.
+         * @description Posts of discoverable collectors of `region` (default: the caller's home region, else americas-north) for the game `game`, newest first with a cursor, never older than `windowDays` (a server setting, 30 by default; `nextCursor` is null at the end): NEW_CARDS (one collector's public, fresh cards of `game` that became public within the same hour: their number and the newest 4; cards filed in a deck core are left out, the deck core's post covers them), WANTED (a wish of a collector who shows their wishlist) and DECK_CORE (a public, unsold deck core of `game`). Never the caller's own posts, never a collector in a block with the caller in either direction (left out before the limit), never a city or a coordinate: places are a state or province and a country. Card pictures come through /api/v1/public/card-images; nothing is sponsored. Auth optional (stage R15): a signed-out caller reads the posts of americas-north unless `region` says otherwise, each with its place and every field of `collector` null (never who posted it).
          */
         get: operations["getFeed"];
         put?: never;
@@ -8608,15 +8628,25 @@ export interface components {
         };
         /** @description A discoverable collector with their state/province and country (never a city, a coordinate or a distance) */
         CollectorMarker: {
-            /** Format: uuid */
-            id: string;
-            /** @example maika */
-            handle: string;
-            /** @example Maïka Tremblay */
-            displayName: string;
+            /**
+             * Format: uuid
+             * @description Null for a signed-out caller (stage R15)
+             */
+            id: string | null;
+            /**
+             * @description Null for a signed-out caller (stage R15)
+             * @example maika
+             */
+            handle: string | null;
+            /**
+             * @description Null for a signed-out caller (stage R15)
+             * @example Maïka Tremblay
+             */
+            displayName: string | null;
             /** Format: uri */
             avatarUrl?: string | null;
             place: components["schemas"]["Place"];
+            /** @description Null for a signed-out caller (stage R15) */
             rating: components["schemas"]["CollectorRating"];
             /**
              * @example [
@@ -8680,13 +8710,20 @@ export interface components {
              */
             freshness: "ACTIVE" | "AGING" | "STALE" | "HIDDEN";
         };
-        /** @description Owner of a public binder */
+        /** @description Owner of a public binder. For a signed-out caller (stage R15) id, handle, displayName and avatarUrl are null: the place only */
         PublicBinderOwner: {
-            /** Format: uuid */
-            id: string;
-            /** @example collector1 */
-            handle: string;
-            displayName: string;
+            /**
+             * Format: uuid
+             * @description Null for a signed-out caller
+             */
+            id: string | null;
+            /**
+             * @description Null for a signed-out caller
+             * @example collector1
+             */
+            handle: string | null;
+            /** @description Null for a signed-out caller */
+            displayName: string | null;
             /** Format: uri */
             avatarUrl?: string | null;
             /** @description State/province and country; null unless the collector is discoverable with a location */
@@ -9355,14 +9392,23 @@ export interface components {
             /** @example CAD */
             currency: string;
         };
-        /** @description The collector of a post */
+        /** @description The collector of a post. For a signed-out caller (stage R15) every field is null: guests see the post and its place, never who posted it */
         FeedCollector: {
-            /** Format: uuid */
-            id: string;
-            /** @example maika */
-            handle: string;
-            /** @example Maïka Tremblay */
-            displayName: string;
+            /**
+             * Format: uuid
+             * @description Null for a signed-out caller
+             */
+            id: string | null;
+            /**
+             * @description Null for a signed-out caller
+             * @example maika
+             */
+            handle: string | null;
+            /**
+             * @description Null for a signed-out caller
+             * @example Maïka Tremblay
+             */
+            displayName: string | null;
             /** Format: uri */
             avatarUrl?: string | null;
         };
@@ -25112,6 +25158,96 @@ export interface operations {
             };
         };
     };
+    getListingOwner: {
+        parameters: {
+            query?: {
+                /** @description A public inventory item */
+                itemId?: string;
+                /** @description A public binder or deck core */
+                binderId?: string;
+                /** @description A wish its owner shows */
+                wishId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The owner */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingOwner"];
+                };
+            };
+            /** @description VALIDATION_FAILED: not exactly one of itemId, binderId, wishId */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Forbidden (role, MFA or account state) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description NOT_FOUND: not public, hidden owner or a block */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Terms acceptance required (extension `requiredConsents[]`) */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getInventorySummary: {
         parameters: {
             query?: never;
@@ -25448,34 +25584,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Not signed in */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Forbidden (role, MFA or account state) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Terms acceptance required (extension `requiredConsents[]`) */
-            428: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ProblemDetail"];
-                };
-            };
-            /** @description Rate limited (`Retry-After` header) */
+            /** @description RATE_LIMITED (signed-out callers: by address, a short window) */
             429: {
                 headers: {
                     [name: string]: unknown;
