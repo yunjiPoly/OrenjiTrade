@@ -842,8 +842,8 @@ The photos of a binder, a deck core's (stage R3); `POST` / `DELETE /binders/{id}
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `binder_id` | `uuid` | FK → `binder.id` (cascade); at most 4 per binder (API, 409 beyond) |
-| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg` |
-| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/binder-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
 | `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side; EXIF and GPS stripped: the item photo processor) |
 | `sort_order` | `integer` | position |
 | `created_at` | `timestamptz` | |
@@ -1095,8 +1095,8 @@ workers.
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `item_id` | `uuid` | FK → `inventory_item.id` (cascade); at most 4 per item (API) |
-| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg` |
-| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/item-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
 | `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side) |
 | `sort_order` | `integer` | position |
 | `created_at` | `timestamptz` | |

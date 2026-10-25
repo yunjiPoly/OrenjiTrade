@@ -26,9 +26,19 @@ collector is; the state or province and the country stay (`place`), never a city
 | Response | Fields `null` for a guest | Kept |
 | --- | --- | --- |
 | `FeedCollector` (each post of `GET /feed`) | `id`, `handle`, `displayName`, `avatarUrl` | the post's `place`, its cards, wish or deck core |
-| `CollectorMarker` (`GET /search/card-holders`, `GET /search`'s `collectors`) | `id`, `handle`, `displayName`, `avatarUrl`, `rating`; `lastActiveBucket` and `onlineStatus` are `HIDDEN` | `place`, `tags`, `games`, the counts, `matchingItems`, the item |
+| `CollectorMarker` (`GET /search/card-holders`, `GET /search`'s `collectors`) | `id`, `handle`, `displayName`, `avatarUrl`, `rating`; `lastActiveBucket` and `onlineStatus` are `HIDDEN`; `tags` is `[]` (review fix 1: a custom tag can name a person) | `place`, `games`, the counts, `matchingItems`, the item |
 | `PublicBinderOwner` (`owner` of `GET /public/binders/{id}`, `GET /regions/{region}/binders`, `GET /regions/{region}/subdivisions/{code}/binders`, `GET /search/deck-cores`, `GET /search`'s `binders`) | `id`, `handle`, `displayName`, `avatarUrl` | `place` |
 
+- **Photos never name the owner** (review fix 1, findings P1 and F1): an item's photos
+  (`images[].url`, a binder's `coverImageUrl` from its first card's photo) and a binder's or deck
+  core's photos (`photos[].url`, `previewImages`, the feed's `deckCore.photoUrl`) are served by
+  their own id, `GET /api/v1/public/item-images/{imageId}` and `GET
+  /api/v1/public/binder-images/{imageId}` (public, immutable for a year, a plain 404 for anything
+  else), for members and guests alike. Their storage keys (`inventory/<owner id>/<random>.jpg`,
+  `binders/<owner id>/<random>.jpg`) stay on the server; before the fix the URLs were
+  `/api/v1/public/media/<key>` and so carried the owner's account id to a guest. No migration:
+  the keys and the objects are unchanged, and `/api/v1/public/media/{key}` keeps serving avatars,
+  chat and community uploads (members only reach them).
 - `id`, `handle` and `displayName` of these three schemas are nullable in the contract (required,
   `["string","null"]`); `rating` keeps the project's `{"type":"null","$ref":…}` form of a nullable
   object, so a generated type may say it is always there: the phone reads it only for members.
@@ -85,10 +95,13 @@ GET /api/v1/listings/owner?itemId=…   (or binderId=…, or wishId=…)
 
 A policy `guest-discovery` (application.yml): GET `/api/v1/feed`, `/api/v1/search`,
 `/api/v1/search/**`, `/api/v1/regions/*/binders`, `/api/v1/regions/*/subdivisions/*/binders` and
-`/api/v1/public/binders/**`, signed-out callers only, keyed by address, **20 requests per 10
-seconds** (`RATE_LIMIT_GUEST_DISCOVERY_PER_10S`). Members keep `default-authenticated` (120 a
-minute, by account); card pictures keep `card-images`; the other open reads keep
-`default-anonymous` (60 a minute). Beyond it: 429 `RATE_LIMITED` with `Retry-After`.
+`/api/v1/public/binders/**`, signed-out callers only, keyed by address, **10 requests per 10
+seconds** (`RATE_LIMIT_GUEST_DISCOVERY_PER_10S`). The first policy that matches is the only one
+counted, so these reads count here instead of `default-anonymous`: 10 per 10 seconds keeps them
+within the 60 a minute an address had for them before the stage, in a shorter window (review fix
+1, F5; the builder's 20 per 10 seconds allowed 120 a minute). Members keep `default-authenticated`
+(120 a minute, by account); card pictures keep `card-images`; the other open reads (listing photos
+included) keep `default-anonymous` (60 a minute). Beyond it: 429 `RATE_LIMITED` with `Retry-After`.
 
 - The address is only part of the Redis key `rl:guest-discovery:IP:<address>:<window start>`,
   which expires with its window (the limiter's one script sets the expiry on the first hit): never
@@ -116,11 +129,16 @@ finding nobody for a guest; the binder lists, a public binder and its items with
 only; writes and member reads 401; `GET /listings/owner` by item, binder and wish, 400, 404 for a
 private item, a hidden wishlist, a block); `GuestRateLimitIT` (a tiny policy: the fourth guest read
 429, a member counted apart, the one key expiring with its window); `ShippedRateLimitPoliciesTest`
-(the shipped policy for each open read, signed out only, 10 seconds at most); `PrivacyPolicyServiceTest`
+(the shipped policy for each open read, signed out only, 10 seconds at most, at most the anonymous
+60 a minute); `PrivacyPolicyServiceTest`
 (`canSeeWho`, last activity, presence and name search for a guest); `GeoPrivacyContractTest`'s
 signed-out pass (every open read in every region and game, the holders and deck cores of every
 seeded public card, by every seed handle and name: no coordinate, distance or city, no handle,
-display name or avatar with a value, no collector id anywhere, the places present). The older
+display name or avatar with a value, no collector id anywhere, the places present; since review
+fix 1 a seeded card and deck core carry a photo and the card's owner an avatar, and no account id
+may appear even inside a value, such as a URL). `GuestBrowsingIT.photosNeverNameTheCollectorAndAGuestGetsNoAvatar`
+(the photo URLs opaque and served signed out, no avatar for a guest, the avatar for a member on
+the feed, the holders, a public binder and the binder lists). The older
 tests that read names signed out (`CardHoldersIT`, `CollectorsByNameIT`, `DeckCoreSearchIT`,
 `RegionMapIT`, `SearchIT`, `PublicBinderIT`, `FeedIT`) now read them as members and assert the
 guest's nulls.
