@@ -74,11 +74,19 @@ export default function SignInScreen() {
 
   /**
    * "Not now, keep browsing" (stage R15): back to where the guest was, Home when Sign in is all
-   * there is; the screen and the action kept for after signing in are forgotten.
+   * there is; the screen and the action kept for after signing in are forgotten. After a session
+   * that ended on its own, the screens under Sign in are that collector's: the phone lands on Home
+   * as a guest, as a sign-out does, and the notice goes (review fix 1, P4).
    */
   const close = () => {
+    const ended = useSessionNotice.getState().ended || usePendingLink.getState().owner !== null;
     usePendingLink.getState().clear();
     useGuestAction.getState().dismiss();
+    if (ended) {
+      useSessionNotice.getState().clear();
+      router.dismissTo('/');
+      return;
+    }
     if (router.canGoBack()) {
       router.back();
     } else {

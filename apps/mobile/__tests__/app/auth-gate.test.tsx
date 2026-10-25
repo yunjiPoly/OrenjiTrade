@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react-native';
 
 import { useFlowLock } from '@/src/account/flowLock';
+import { useGuestAction } from '@/src/account/guestAction';
 import { resumableHref, usePendingLink } from '@/src/account/pendingLink';
 import { reportAccountSignal } from '@/src/api/accountSignal';
 import { ApiError } from '@/src/api/ApiError';
@@ -403,6 +404,58 @@ describe('auth gate: a remembered link belongs to its collector (stage R12, revi
       await second.port.signIn('maika@example.test', 'correct-password');
     });
     await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/cards/c1?printing=p2'));
+  });
+
+  it('keeps a member screen left under Sign in by an ended session for its collector only (R15 review fix 1)', async () => {
+    // Collector A's session ends on a chat.
+    mockSegments.current = ['messages', '[id]'];
+    mockPathname.current = '/messages/conv-1';
+    mockParams.current = { id: 'conv-1' };
+    const port = new FakeAuthPort(testUser());
+    mockApi({ 'GET /api/v1/me': ok(meFixture()) });
+    const view = renderWithProviders(<RootNavigator />, { port });
+    await waitFor(() => expect(screen.queryByTestId('boot-screen')).not.toBeOnTheScreen());
+    act(() => useSessionNotice.getState().reportEnded());
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+
+    // Sign in left with a swipe: the profile under it, a member screen, sends them back to Sign
+    // in, and that screen stays A's.
+    mockRouter.dismissTo.mockClear();
+    mockSegments.current = ['collectors', '[id]'];
+    mockPathname.current = '/collectors/collector2';
+    mockParams.current = { id: 'collector2' };
+    view.rerender(<RootNavigator />);
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState()).toMatchObject({
+      href: '/collectors/collector2',
+      owner: 'uid-maika',
+    });
+
+    // Collector B creates an account on the same phone: the tabs, never A's screen.
+    mockSegments.current = ['(auth)', 'sign-in'];
+    mockPathname.current = '/sign-in';
+    mockParams.current = {};
+    act(() => useSessionNotice.getState().clear());
+    await act(async () => {
+      await port.signUp('bee@example.test', 'bee-password-1');
+    });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/'));
+    expect(mockRouter.dismissTo).not.toHaveBeenCalledWith('/collectors/collector2');
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('forgets an action a guest left behind when a member link sends them to Sign in (R15 review fix 1)', async () => {
+    // The sheet's Sign in, then a swipe back: the action is left. A link to Notifications
+    // later opens Sign in for that screen only.
+    useGuestAction.getState().open({ kind: 'message', listing: { itemId: 'item-1' } });
+    useGuestAction.getState().hide();
+    mockSegments.current = ['notifications'];
+    mockPathname.current = '/notifications';
+    mockApi({});
+    renderWithProviders(<RootNavigator />, { port: new FakeAuthPort(null) });
+    await waitFor(() => expect(mockRouter.dismissTo).toHaveBeenCalledWith('/sign-in'));
+    expect(usePendingLink.getState()).toMatchObject({ href: '/notifications', owner: null });
+    expect(useGuestAction.getState().pending).toBeNull();
   });
 
   it('never pushes a remembered link on top of the welcome; the welcome takes it when it ends', async () => {

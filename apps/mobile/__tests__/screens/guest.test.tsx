@@ -11,6 +11,7 @@ import SearchScreen from '@/app/(tabs)/search';
 import SignInScreen from '@/app/(auth)/sign-in';
 import { useGuestAction } from '@/src/account/guestAction';
 import { usePendingLink } from '@/src/account/pendingLink';
+import { useSessionNotice } from '@/src/auth/sessionNotice';
 import type { CardHolderResult, FeedPost } from '@/src/api/types';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { GuestTab } from '@/src/features/guest/GuestTab';
@@ -496,6 +497,20 @@ describe('Sign in (36): the close button', () => {
     fireEvent.press(screen.getByTestId('sign-in-close'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/');
     mockRouter.canGoBack.mockReturnValue(true);
+  });
+
+  it('after a session that ended on its own, lands on Home, never on the collector’s screen (review fix 1)', async () => {
+    // The screen the session ended on is kept for that collector; the screens under Sign in
+    // are theirs: closing goes to Home as a guest, as a sign-out does.
+    useSessionNotice.getState().reportEnded();
+    usePendingLink.getState().set('/messages/conv-1', 'uid-maika');
+    mockApi(guestRoutes());
+    renderWithProviders(<SignInScreen />, { port: new FakeAuthPort(null) });
+    fireEvent.press(await screen.findByTestId('sign-in-close'));
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith('/');
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(usePendingLink.getState().href).toBeNull();
+    expect(useSessionNotice.getState().ended).toBe(false);
   });
 });
 

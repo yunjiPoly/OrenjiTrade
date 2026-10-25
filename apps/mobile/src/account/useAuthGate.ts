@@ -103,10 +103,15 @@ export function useAuthGate(): Gate {
     const target = redirectFor(gate, current, flowLocked);
     if (target === SIGN_IN_HREF) {
       // A guest on a member-only screen (a deep link, a notification): Sign in first, then the
-      // screen (stage R15).
+      // screen (stage R15). An action a guest left behind (a Sign in left with a swipe) is
+      // forgotten: this sign-in is for the screen, never for that action (review fix 1, F6). A
+      // member screen still in the stack after a session ended on its own (Sign in left with a
+      // swipe) is that collector's: kept for them only, never for the next account (P4).
+      useGuestAction.getState().dismiss();
       const href = resumableHref(current, latest.current.pathname, latest.current.params);
       if (href) {
-        usePendingLink.getState().set(href, null);
+        const owner = useSessionNotice.getState().ended ? lastUid.current : null;
+        usePendingLink.getState().set(href, owner);
       }
     } else if (target === GATE_HOME.onboarding || target === GATE_HOME.consent) {
       // An existing collector sent to Review our terms or to the welcome from a screen (the 18+
