@@ -1,0 +1,71 @@
+# Stage R15, review fix 2 (findings U2 and F3 of the reviews): a guest on Search › Wishlist taps
+# Sign in and signs in to an account (fresh, fictional) that has not confirmed its age yet; Review
+# our terms replaces the tabs in between, so on iOS Search mounts again once the age is confirmed:
+# the remembered link (`/search?segment=wishlist`) brings the guest back to their Wishlist, not to
+# Search's Cards.
+appId: ${APP_ID}
+name: A guest signs in from Search › Wishlist through Review our terms and lands on Wishlist
+tags:
+  - mobile-r15
+  - guest
+---
+- runScript:
+    file: scripts/create-collector.js
+    env:
+      PREFIX: gwish
+      DISPLAY_NAME: Maestro Guest Wisher
+      CONFIRM_AGE: 'false'
+- runFlow: subflows/launch-fresh.yaml
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+
+# Search › Wishlist as a guest: its page in place, then Sign in.
+- runFlow: subflows/open-search-tab.yaml
+- tapOn:
+    id: 'search-segment-wishlist'
+- extendedWaitUntil:
+    visible:
+      id: 'guest-wishlist-sign-in'
+    timeout: 30000
+- tapOn:
+    id: 'guest-wishlist-sign-in'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 30000
+- runFlow:
+    file: subflows/sign-in.yaml
+    env:
+      EMAIL: ${output.collector.email}
+      PASSWORD: ${output.collector.password}
+
+# Review our terms with the age line, ticked and accepted.
+- extendedWaitUntil:
+    visible:
+      id: 'age-confirmation'
+    timeout: 60000
+- assertVisible:
+    id: 'screen-consent'
+- tapOn:
+    id: 'age-confirmation'
+- runFlow:
+    file: subflows/assert-checked.yaml
+    env:
+      ID: 'age-confirmation'
+- tapOn:
+    id: 'consent-accept'
+
+# Back on Search › Wishlist, now the collector's own.
+- extendedWaitUntil:
+    visible:
+      id: 'search-wishlist'
+    timeout: 60000
+- assertVisible:
+    id: 'screen-search'
+- assertNotVisible:
+    id: 'guest-wishlist-title'
+- assertNotVisible:
+    id: 'screen-consent'
+- takeScreenshot: r15-wishlist-after-review-terms

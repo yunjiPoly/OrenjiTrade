@@ -14,7 +14,8 @@
 //   binder with two PFT-002 copies: Near Mint for trade or sale at 45 CAD accepting offers, and
 //   Lightly Played for sale at 20 CAD not accepting offers).
 //   Outputs: output.ada.{email, password, displayName}, output.ben.{handle, displayName},
-//            output.card.{id, name}, output.items.{offers, cheap}
+//            output.card.{id, name}, output.items.{offers, cheap}, output.binder.id (Ben's
+//            public binder, not a deck core)
 // ACTION=profiles (stage R6, native flow 6) creates Vic (the app user, in Ontario, holding a
 //   public PFT-002 copy at "$12.50") and Dana (in Quebec, city "Laval" shown on her profile,
 //   wishes shown: a public binder with a PFT-002 copy at "85% TCG", a deck core "Maestro profile
@@ -282,6 +283,7 @@ if (action === 'looking-for') {
   output.ada = { email: ada.email, password: ada.password, displayName: ada.displayName };
   output.ben = { handle: ben.handle, displayName: ben.displayName };
   output.card = { id: listed.cardId, name: listed.cardName };
+  output.binder = { id: binder.id };
   output.items = {
     offers: listCopy('NEAR_MINT', 'TRADE_OR_SALE', 45, true),
     cheap: listCopy('LIGHTLY_PLAYED', 'SALE', 20, false),

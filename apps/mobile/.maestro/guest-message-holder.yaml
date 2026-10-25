@@ -80,6 +80,10 @@ tags:
 - takeScreenshot: r15-sheet-message
 - tapOn:
     id: 'sign-in-sheet-sign-in'
+- extendedWaitUntil:
+    visible:
+      id: 'screen-sign-in'
+    timeout: 30000
 
 # Sign in as Ada: the chat opens with Ben's card pinned.
 - runFlow:
