@@ -7,7 +7,8 @@
 > [s1-regions-location.md](s1-regions-location.md). The rest of this page is kept for history.
 
 All under `/api/v1`. Discovery reads work for anonymous users with reduced detail
-(anonymous: no distance buckets, no messaging CTA). Every response obeys ADR 0004: only
+(anonymous: no distance buckets, no messaging CTA; since stage R15 never who a collector is:
+[r15-browse-without-account.md](r15-browse-without-account.md)). Every response obeys ADR 0004: only
 `publicPoint` (≤3 decimals) and `distanceBucket`.
 
 ## Collectors nearby (map markers)

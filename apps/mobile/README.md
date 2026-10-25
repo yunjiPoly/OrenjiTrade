@@ -123,11 +123,25 @@ every tab with an orange dot while anything is unread, chats left out; New with 
 read", Earlier by pages; each kind's icon, colours, sentence and target; freshness reminders
 answered in place). Device push is not wired (it needs an EAS project and a real FCM sender):
 notifications arrive in the app; a tapped push would open its row's target, a chat's push the chat
-(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
-signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
+(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link to a member screen
+opened while signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
 `mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
 development build below and the flag `cardTextScan`).
+
+**Stage R15** ("Browse without an account", mockup v50 screens 70 to 75, contract
+`docs/api/contracts/r15-browse-without-account.md`): the app opens on Home for a signed-out visitor.
+A guest browses Home and Search (the person button in place of the bell, the guest's card in place
+of Get started, "A collector" with a plain avatar on every post and row, the places kept), card
+pages, sets, public binders and deck cores, Legal and Settings › Appearance; Inventory, Messages,
+Profile and Search › Wishlist show a page in place (`src/features/guest`). Every action that needs
+an account opens one sheet (`SignInSheet`, its title per action) and is kept in memory by its
+listing (`src/account/guestAction.ts`, never a collector id); after signing in (and the welcome for
+a new account) the phone goes back to the guest's screen and finishes it (`PendingActionRunner`,
+`GET /listings/owner`). Sign in has a close button ("Not now, keep browsing"); signing out lands on
+Home as a guest; a deep link to a member screen opens Sign in and continues to it. The guest's
+region and game are kept under their own keys (`orenjitrade.browsing-region.v1.guest`,
+`orenjitrade.browsing-game.v1.guest`).
 
 **Stage R14** restyled the report, the rating, the reference, New binder, Add and Edit a wish, the
 import (the file, "Check the cards", "Import done") and a set's page (mockup v50 screens 60 to 69,
@@ -363,9 +377,12 @@ without the React Native persistence keeps the session in memory (never browser 
 app/                       expo-router routes
   _layout.tsx              providers (safe area, query client, session, account, theme, snackbar),
                            the offline banner and src/navigation/RootNavigator.tsx, which applies
-                           the auth gate (src/account/useAuthGate.ts: guest, consent, account
-                           state, onboarding, tabs)
-  (auth)/                  sign-in, sign-up, reset-password (guests only)
+                           the auth gate (src/account/useAuthGate.ts: guest (Home, Search and the
+                           public pages; Sign in for a member screen, stage R15), consent, account
+                           state, onboarding, tabs), the sign-in sheet and the guest's pending
+                           action (stage R15)
+  (auth)/                  sign-in (with its close button, stage R15), sign-up, reset-password
+                           (guests only)
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
   onboarding.tsx           the welcome in three steps (stage R12): "Who are you?" (live handle
                            check) -> "What do you collect?" (games, "Opens first") -> "Where do

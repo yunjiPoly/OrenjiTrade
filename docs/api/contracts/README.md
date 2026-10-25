@@ -33,6 +33,7 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R12 | [Sign-in, sign-up and welcome: `GET /me/profile/handle-availability` (the welcome's live handle check, 60 per 10 minutes); the age asked at sign-up or on Review our terms, three welcome steps, no other API change (extends 1)](r12-sign-in-welcome.md) |
 | R13 | [Settings (47 to 59): an optional `tags` on `PUT /me/profile` (Edit profile's one save, one transaction); no migration, no other API change (extends 1)](r13-settings.md) |
 | R14 | [Report, rating, reference, binders, wishes, import and sets (60 to 69): `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction` (the rating form's deal line); no migration, no other API change (extends 7 and R4)](r14-report-rate-wish-import-sets.md) |
+| R15 | [Browse without an account (70 to 75): a signed-out caller never sees who a collector is (`PrivacyPolicyService.canSeeWho`: no id, handle, name, avatar, rating, activity or presence in the feed, card holders, binder lists, deck cores, a public binder; name search finds nobody), Home's feed open (GET), `GET /listings/owner` (members), the `guest-discovery` rate limit; no migration (extends 4, S1, R3, R5 and R7)](r15-browse-without-account.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
