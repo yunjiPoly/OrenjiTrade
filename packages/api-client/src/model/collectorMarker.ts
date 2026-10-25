@@ -34,6 +34,9 @@ export interface CollectorMarker {
      * Null for a signed-out caller (stage R15)
      */
     rating: CollectorRating;
+    /**
+     * The profile\'s tags; empty for a signed-out caller
+     */
     tags: Array<string>;
     games: Array<string>;
     lastActiveBucket: CollectorMarkerLastActiveBucketEnum;

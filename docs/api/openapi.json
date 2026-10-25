@@ -17651,6 +17651,72 @@
         "security": []
       }
     },
+    "/api/v1/public/item-images/{imageId}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "A photo of an inventory item",
+        "description": "Serves an item photo by its id (`images[].id` of an item; the URL every response gives). The URL never names the owner. Immutable: cache for a year.",
+        "operationId": "getPublicItemImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "The photo's id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo (a JPEG without metadata)",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such photo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
     "/api/v1/public/feature-flags": {
       "get": {
         "tags": [
@@ -17953,6 +18019,72 @@
               "application/problem+json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (`Retry-After` header)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (RFC 9457 problem details)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/v1/public/binder-images/{imageId}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "A photo of a binder or deck core",
+        "description": "Serves a binder photo by its id (`photos[].id` of a binder; the URL every response gives). The URL never names the owner. Immutable: cache for a year.",
+        "operationId": "getPublicBinderImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "The photo's id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The photo (a JPEG without metadata)",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such photo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }
@@ -35788,6 +35920,7 @@
           },
           "tags": {
             "type": "array",
+            "description": "The profile's tags; empty for a signed-out caller",
             "example": [
               "trader"
             ],

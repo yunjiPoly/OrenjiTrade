@@ -3084,6 +3084,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/item-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A photo of an inventory item
+         * @description Serves an item photo by its id (`images[].id` of an item; the URL every response gives). The URL never names the owner. Immutable: cache for a year.
+         */
+        get: operations["getPublicItemImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/feature-flags": {
         parameters: {
             query?: never;
@@ -3156,6 +3176,26 @@ export interface paths {
          * @description 404 unless the binder is public right now. Only items that are public right now, by card name. Never private notes or coordinates.
          */
         get: operations["listPublicBinderItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/binder-images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A photo of a binder or deck core
+         * @description Serves a binder photo by its id (`photos[].id` of a binder; the URL every response gives). The URL never names the owner. Immutable: cache for a year.
+         */
+        get: operations["getPublicBinderImage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8649,6 +8689,7 @@ export interface components {
             /** @description Null for a signed-out caller (stage R15) */
             rating: components["schemas"]["CollectorRating"];
             /**
+             * @description The profile's tags; empty for a signed-out caller
              * @example [
              *       "trader"
              *     ]
@@ -23972,6 +24013,56 @@ export interface operations {
             };
         };
     };
+    getPublicItemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The photo's id */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo (a JPEG without metadata) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            /** @description No such photo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     getFeatureFlags: {
         parameters: {
             query?: never;
@@ -24158,6 +24249,56 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited (`Retry-After` header) */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Error (RFC 9457 problem details) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getPublicBinderImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The photo's id */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo (a JPEG without metadata) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            /** @description No such photo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
                 };
             };
             /** @description Rate limited (`Retry-After` header) */
