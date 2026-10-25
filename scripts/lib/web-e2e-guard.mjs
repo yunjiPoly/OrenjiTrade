@@ -338,6 +338,9 @@ export function e2eApiEnv(base, { apiPort, webPort, workDir }) {
     // alone exceed the anonymous budget of 60 a minute, and the 429 then fails an unrelated spec.
     // The limits themselves are proven by the API's integration tests, not by this suite.
     RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
+    // The same for the short window of signed-out discovery reads (stage R15): every signed-out
+    // spec searches, opens card holders and binders from the one address.
+    RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
   };
 }
 

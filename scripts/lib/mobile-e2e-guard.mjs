@@ -119,6 +119,9 @@ export function mobileE2eApiEnv(base, { workDir, webPort = MOBILE_E2E_WEB_PORT }
     // dialog, right after the region specs). Same setting as the web suite (web-e2e-guard.mjs);
     // the limits themselves are proven by the API's integration tests, not by these suites.
     RATE_LIMIT_ANONYMOUS_PER_MINUTE: '600',
+    // The same for the short window of a guest browsing Home and Search (stage R15): the specs
+    // and flows that browse signed out share the one address.
+    RATE_LIMIT_GUEST_DISCOVERY_PER_10S: '1000',
   };
 }
 

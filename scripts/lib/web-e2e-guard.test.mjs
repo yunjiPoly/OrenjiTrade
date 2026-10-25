@@ -232,6 +232,9 @@ describe('E2E API database, Redis, ports and providers', () => {
     assert.equal(env.DATABASE_URL, 'jdbc:postgresql://localhost:5432/orenjitrade_e2e');
     assert.equal(env.REDIS_URL, 'redis://localhost:6379/2');
     assert.equal(env.CORS_ALLOWED_ORIGINS, 'http://localhost:4300');
+    // One address for every worker: the anonymous budgets of a single visitor are not enough.
+    assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
+    assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
   });
 });
 

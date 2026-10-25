@@ -30,8 +30,12 @@ test.describe('mobile accounts', () => {
     const email = uniqueEmail('signup');
     const handle = uniqueHandle('mnew');
 
-    // Signed out: the gate shows the sign-in screen.
+    // Signed out: Home as a guest (stage R15); the person button opens Sign in.
     await page.goto('/');
+    await expect(screen(page, 'home').getByTestId('home-guest-card')).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByTestId('person-button-home').click();
     await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
     await screen(page, 'sign-in').getByRole('link', { name: 'Create an account' }).click();
     const signUp = screen(page, 'sign-up');
@@ -173,11 +177,12 @@ test.describe('mobile accounts', () => {
     // Sign out is in Settings, behind the gear.
     await profile.getByTestId('profile-settings').click();
     await screen(page, 'settings').getByRole('button', { name: 'Sign out' }).click();
-    await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
+    // Stage R15: signing out lands on Home as a guest.
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
 
-    // The session is gone: a reload stays signed out.
+    // The session is gone: a reload stays signed out, on Home as a guest.
     await page.reload();
-    await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
   });
 
   test('a seed collector signs in, the session survives a reload, and signs out from Settings', async ({
@@ -200,7 +205,7 @@ test.describe('mobile accounts', () => {
 
     await screen(page, 'profile').getByTestId('profile-settings').click();
     await screen(page, 'settings').getByTestId('settings-sign-out').click();
-    await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
   });
 
   test('wrong credentials and a malformed email show friendly errors', async ({ page }) => {

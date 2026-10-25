@@ -106,7 +106,8 @@ test.describe('mobile age confirmation', () => {
       timeout: 30_000,
     });
     await consent.getByRole('button', { name: 'Sign out' }).click();
-    await expect(screen(page, 'sign-in')).toBeVisible({ timeout: 30_000 });
+    // Stage R15: signed out, the app shows Home as a guest.
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
     expect(await apiAgeConfirmed(request, collector.idToken)).toBe(false);
   });
 });
