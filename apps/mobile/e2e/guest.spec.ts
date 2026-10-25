@@ -110,6 +110,45 @@ test.describe('browsing without an account', () => {
     await expect(snackbar(page).filter({ hasText: 'Check the highlighted fields' })).toHaveCount(0);
   });
 
+  test('Sign in from Search › Wishlist comes back to Wishlist through Review our terms (review fix 1)', async ({
+    page,
+    request,
+  }) => {
+    // The reviewer's walk (finding U2): through Review our terms back to Wishlist. On this stack
+    // the tabs stayed mounted, so this passes without the fix too; when they remount (the
+    // reviewer's run), only the link remembered, `/search?segment=wishlist`, brings the segment
+    // back: guest.test.tsx pins it.
+    test.setTimeout(150_000);
+    const collector = await createOnboardedCollector(request, 'gwish', 'Mobile Guest Wisher', {
+      confirmAge: false,
+    });
+    await page.goto('/');
+    await expect(page.getByTestId('person-button-home')).toBeVisible({ timeout: 30_000 });
+    await openTab(page, 'Search');
+    const search = screen(page, 'search');
+    await search.getByRole('tab', { name: 'Wishlist' }).click({ timeout: 30_000 });
+    await search.getByTestId('guest-wishlist-sign-in').click({ timeout: 30_000 });
+    const form = screen(page, 'sign-in');
+    await expect(form).toBeVisible({ timeout: 30_000 });
+    await form.getByLabel('Email').fill(collector.email);
+    await form.getByLabel('Password', { exact: true }).fill(collector.password);
+    await form.getByRole('button', { name: 'Sign in', exact: true }).click();
+    const consent = screen(page, 'consent');
+    await expect(page.getByRole('heading', { name: 'Review our terms' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await consent
+      .getByRole('checkbox', { name: 'I confirm I am 18 years of age or older' })
+      .click();
+    await consent.getByRole('button', { name: 'Accept and continue' }).click();
+    const back = screen(page, 'search');
+    await expect(back.getByTestId('wishlist-add')).toBeVisible({ timeout: 30_000 });
+    await expect(back.getByRole('tab', { name: 'Wishlist' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
+
   test('a link to a member screen opens Sign in, then the screen', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/');
