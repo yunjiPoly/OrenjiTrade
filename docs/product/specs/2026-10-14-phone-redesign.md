@@ -909,3 +909,25 @@ to 75)"; API contract
 [`docs/api/contracts/r15-browse-without-account.md`](../../api/contracts/r15-browse-without-account.md):
 `PrivacyPolicyService.canSeeWho`, the feed open to guests, `GET /listings/owner`, the
 `guest-discovery` rate limit).
+
+## Stage R8, the wrap-up, built last (2026-10-26)
+
+By the owner's exception of 2026-10-21 (one giant pull request for R7, R9 to R15 and R8), section
+15's "R8. Wrap-up" came after R15 instead of after R7. Nothing of the prompt above changes; R8 did
+what section 15 lists, for the whole redesign and the owner's prompt of 2026-10-19/20:
+
+1. **The documents**: `CLAUDE.md` (the five tabs, Messages › Community, Settings behind the gear,
+   the guest's Home, one game at a time, the modules, the guest rule of the privacy section), the
+   product overview, the API contracts (every endpoint added since stage S6 is in one), the test
+   accounts (the guest) and the seed data (One Piece without cards), the READMEs and the handoff.
+2. **A walk of every mockup screen** (version 50, screens 1 to 75 with 10b and 10c) on the
+   owner's iPhone 18 Pro simulator, signed in and as a guest, dark and light, at the default and
+   the largest text size, with a screenshot of each for the pull request. The card scan's screens
+   26 to 30 need the development build of ADR 0020 (Expo Go has no text reader), so the walk shows
+   Add cards as Expo Go draws it; the scan was walked by its own session.
+3. **Fixes the walk proved needed**, each with a test: the guest card's tint (70) drawn opaque and
+   short of the card's edges on iOS; two native flows of R15 that had never run on the iPhone.
+4. **The exact next task** in `IMPLEMENTATION_STATUS.md`.
+
+Built as stage R8 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R8: Wrap-up of the phone redesign
+(spec section 15, R8), done last in the giant pull request"); no endpoint, no migration.

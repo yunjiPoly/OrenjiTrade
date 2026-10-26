@@ -10466,6 +10466,30 @@ ADR, nothing under `apps/web-angular` changed.
     and 36 and the PR screenshots can run: agents never boot it, and it stayed Shutdown through
     four waits of an hour each on 2026-10-25.
 
+### F3 closed by stage R8 (2026-10-26)
+
+The owner booted the iPhone 18 Pro (56DC865C) on 2026-10-26 and the wrap-up R8 ran what R15 could
+not (details in the R8 section below):
+
+- **The native suite**, every flow, on that simulator: **43 flows, 41 passed, 2 failed** (68 min).
+  Both failures were R15's, in code that had never run on the iPhone: `large-text.yaml` searched
+  the collector `null` (`scripts/region-map.js` read a state's binders signed out, and since R15 a
+  signed-out caller gets no handle: the script now reads them signed out, checking that the handle
+  and the name are null and the place kept, and signed in as the seed collector), and
+  `guest-message-holder.yaml` typed Ben's Pokémon card while a guest browses Yu-Gi-Oh! (the flow
+  now picks Pokémon with the game pill first). Re-run alone: **2 / 2**; `map-region-binders.yaml`
+  and `region-switch.yaml`, which read the same script, passed in that run after it was fixed. The
+  two flows R15's review fix 2 prepared, `guest-message-binder.yaml` and
+  `guest-wishlist-review-terms.yaml`, passed on their first run.
+- **The walk of 70 to 75 and 36** on the iPhone, dark and light, at the default and the largest
+  text size, found one defect: **the guest card of Home (70) was an opaque orange and teal box**,
+  its sentence unreadable, 14 pt short of the card's right and bottom edges (react-native-svg drew
+  the `rgba` stops opaque on iOS, and the drawing's own `width="100%"` took the card's content box).
+  Fixed in `src/features/guest/GradientFill.tsx` with a test (R8, decision 3); the guest flows
+  re-run with the fix: `guest-browse.yaml` and `guest-message-holder.yaml` **2 / 2**.
+- **The PR screenshots** of 70 to 75 and 36: in `.local-dev/r8-notes/pr-shots/` of the worktree
+  (R8 keeps one per mockup screen, guest screens included).
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
