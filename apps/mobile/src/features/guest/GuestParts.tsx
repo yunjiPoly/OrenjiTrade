@@ -8,7 +8,6 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { PillButton } from '@/src/components/ui/PillButton';
 import { Text } from '@/src/components/ui/Text';
@@ -22,37 +21,9 @@ import {
   useTheme,
 } from '@/src/theme';
 
+import { GradientFill } from './GradientFill';
 import { GUEST_COPY } from './guestCopy';
 import { useGuestEntry } from './useGuestEntry';
-
-/** A gradient behind a box (the mockup's `linear-gradient`), drawn with react-native-svg. */
-function GradientFill({
-  from,
-  to,
-  angle,
-  id,
-  radius = 0,
-}: {
-  from: string;
-  to: string;
-  /** `diagonal`: 135° as the guest card; `down`: 160° as the illustrated cards. */
-  angle: 'diagonal' | 'down';
-  id: string;
-  radius?: number;
-}) {
-  const end = angle === 'diagonal' ? { x2: '1', y2: '1' } : { x2: '0.35', y2: '1' };
-  return (
-    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" {...end}>
-          <Stop offset="0" stopColor={from} />
-          <Stop offset="1" stopColor={to} />
-        </LinearGradient>
-      </Defs>
-      <Rect width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
-    </Svg>
-  );
-}
 
 /**
  * The plain person avatar of a collector a guest does not see (stage R15): "A collector", never a
@@ -129,6 +100,7 @@ export function GuestCard({ testID = 'home-guest-card' }: { testID?: string }) {
         angle="diagonal"
         id="guest-card"
         radius={16}
+        testID={`${testID}-gradient`}
       />
       <View style={styles.cardWords}>
         <Text
