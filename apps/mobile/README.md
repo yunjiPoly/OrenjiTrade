@@ -1,11 +1,13 @@
 # OrenjiTrade mobile (`apps/mobile`)
 
-React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Four tabs since
-stage R5, as decided in `CLAUDE.md`: **Search | Inventory | Messages | Profile** (the Map tab is
-Search's default view, the Wishlist tab its Wishlist segment). The phone redesign the owner
-approved on 2026-10-14 (stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`) adds
-Home as the first of five with stage R7, and took offers, trades, payment protection and disputes
-off the phone. **Stage
+React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Five tabs since
+stage R7, as decided in `CLAUDE.md`: **Home | Search | Inventory | Messages | Profile** (Home is the
+first screen, for a signed-out guest too since stage R15; the Map tab of before R5 is Search's
+default view, the Wishlist tab its Wishlist segment). The phone redesign the owner approved on
+2026-10-14 (stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`) and finished with
+the prompt of 2026-10-19/20 (stages G and R9 to R15,
+`docs/product/specs/2026-10-20-finish-the-phone-ui.md`; mockup v50) is built, and took offers,
+trades, payment protection and disputes off the phone. **Stage
 R1 is built** ("Offers out, shipping wording, look"; ADR 0018 "Deals happen in the chat"): the
 offer, trade, protected-payment, payout and dispute screens are gone (the API keeps them for the
 paused web), every chat opens with a shipping safety tip, ratings no longer ask about meetups, the
@@ -49,9 +51,12 @@ first profile game with cards, else Yu-Gi-Oh!), the game pill right of Search's 
 "Choose a game" (games without cards dimmed, "Cards coming soon"), the restyled "Choose a region";
 every Search segment shows the browsed game (the card search has no game chips any more: "{game}
 card name or code"); Inventory › Binders grouped by game; New binder's Game picker and Edit
-binder's locked game; binder pickers by the card's game. Stages R7 and R8 are not built: the rest
-of this README describes the app as it is (the route list below is R5's; some older prose still
-names the Map and Wishlist tabs of before).
+binder's locked game; binder pickers by the card's game. Stages R7 (Home and its feed), R9
+(Notifications and the bell), R10 (card data for Magic and Pokémon), R11 (Messages › Community),
+R12 (sign-in, sign-up and the welcome), R13 (Settings), R14 (report, rating, reference, binders,
+wishes, import and sets) and R15 (browsing without an account) are described in the sections below
+and in `IMPLEMENTATION_STATUS.md`; the wrap-up R8 walked every screen of mockup v50 on the iPhone.
+Some older prose below still names the Map and Wishlist tabs of before R5.
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
@@ -400,8 +405,9 @@ app/                       expo-router routes
   (tabs)/search.tsx        Search (stage R5): Cards (the region map, then the card search while
                            typing), Binders, Wishlist; `?segment=`, `?q=`, `?typing=1`, `?region=`,
                            `?subdivision=`, `?state=`
-  (tabs)/index.tsx         the old Map tab: redirects to Search (`/?region=&subdivision=` on that
-                           region and state; ADR 0017)
+  (tabs)/index.tsx         Home (stage R7; a guest's Home since R15); an old Map tab link
+                           (`/?region=&subdivision=`) still opens Search's map on that region and
+                           state, once (ADR 0017)
   cards/[id].tsx           Who has this card, the one card page (`?printing=<id>|any`, `?rarity=`)
   holders.tsx              the old card holders list: redirects to the card page
   regions/[region]/[code]  the old public binders of a state: redirects to Search › Binders
