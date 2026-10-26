@@ -10,7 +10,7 @@ staging/production environment. Passwords below are development-only values.
 | collector2 | collector2@orenjitrade.test | LocalDev!2026 | USER | Toronto, Ontario, Canada (Americas North) | Magic binder, wishlist (public notes, Near Mint only, price terms) alerted by collector1's listing |
 | collector3 | collector3@orenjitrade.test | LocalDev!2026 | USER | Buenos Aires City, Argentina, city hidden (Americas South) | stale inventory (tests auto-delist), private binders only |
 | collector4 | collector4@orenjitrade.test | LocalDev!2026 | USER | Madrid, Community of Madrid, Spain (Europe) | Riftbound player, temporarily public binder |
-| collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Los Angeles, California, United States (Americas North) | Pokémon, Magic, accepts offers |
+| collector5 | collector5@orenjitrade.test | LocalDev!2026 | USER | Los Angeles, California, United States (Americas North) | Pokémon, Magic, accepts offers (web only); Home's feed of Americas (North) (`seed-data.md`) |
 | collector6 | collector6@orenjitrade.test | LocalDev!2026 | USER | Santiago, Santiago Metropolitan Region, Chile (Americas South) | trader, binder hidden until confirmed (50 days) |
 | collector7 | collector7@orenjitrade.test | LocalDev!2026 | USER | Brooklyn, New York, United States (Americas North) | player, private only, not discoverable |
 | collector8 | collector8@orenjitrade.test | LocalDev!2026 | USER | Paris, Île-de-France, France (Europe) | Riftbound, Pokémon |
@@ -18,6 +18,13 @@ staging/production environment. Passwords below are development-only values.
 | moderator | moderator@orenjitrade.test | LocalDev!2026 | USER, MODERATOR | Berlin, Germany (Europe) | Reviews collector reports |
 | admin | admin@orenjitrade.test | LocalDev!2026 | USER, ADMIN | England, United Kingdom, no city (Europe) | Full admin console |
 | superadmin | superadmin@orenjitrade.test | LocalDev!2026 | USER, SUPER_ADMIN | Québec, Quebec, Canada (Americas North) | Feature flags, usage limits, destructive admin actions |
+
+**No account: the guest (stage R15, 2026-10-25).** The phone opens on Home for a signed-out
+visitor, so the first thing to check needs no account at all: a fresh install (or Sign out, which
+lands on Home as a guest) browses Home and Search of Americas (North) and Yu-Gi-Oh! by default,
+with the seed's posts and binders shown as "A collector" and their state or province, never a
+handle. Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; Message on a
+card or binder opens the sheet, and signing in to a seed account above finishes it.
 
 Seeding: `SeedDataRunner` in `apps/api` (profiles `local` and `dev`, idempotent) creates the
 database accounts (stable ids `00000000-0000-4000-8000-0000000000NN`, provider uid

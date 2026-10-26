@@ -40,4 +40,7 @@ community posts) of the owner's change of 2026-10-08 have no contract: the owner
 2026-10-13 and nothing of them is built (`docs/product/2026-10-08-change-delivery-report.md`). The
 phone redesign of 2026-10-14 (`docs/product/specs/2026-10-14-phone-redesign.md`) adds its own
 contracts for its new endpoints, one per stage (R2 to R7 above); the owner's prompt of 2026-10-19/20
-(`docs/product/specs/2026-10-20-finish-the-phone-ui.md`) adds G and R9 to R15.
+(`docs/product/specs/2026-10-20-finish-the-phone-ui.md`) adds G and R9 to R15. Stages R1 (offers
+off the phone, V115 and V116) and R8 (the wrap-up) add no endpoint and have no contract; every
+endpoint added since stage S6 (18 operations, checked against `../openapi.json` in R8) is in one of
+the contracts above.

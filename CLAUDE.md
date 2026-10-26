@@ -87,13 +87,19 @@ call for geography (boundaries are bundled static assets).
   radius key, any number with more than 3 decimals, "km away" wording, or a city outside its
   owner's profile. Add to it whenever you add an endpoint that returns places.
 - Default is "not discoverable"; becoming discoverable needs a location.
+- A signed-out visitor (a *guest*, stage R15) sees places, never who: every collector block a
+  guest can read keeps its place and sends `null` for the id, handle, name, avatar and rating
+  (`PrivacyPolicyService.canSeeWho`, members only); name search finds nobody for a guest, photos
+  are served by their own id (`/public/item-images/{id}`, `/public/binder-images/{id}`), and every
+  write stays members only. Contract: `docs/api/contracts/r15-browse-without-account.md`.
 
 ## Backend conventions (`apps/api`)
 
 - Root package `com.orenjitrade.api`. One package per module:
   `auth users profiles location games cards inventory binders search wishlist messaging
   community notifications ratings reports offers trades payments deals limits moderation admin
-  audit analytics featureflags delisting jobs common config`.
+  audit analytics featureflags delisting jobs meta common config`.
+  `search` also owns Home's feed (`GET /feed`, stage R7) and `GET /listings/owner` (stage R15).
   `deals` (stage R4, ADR 0018) records Mark as sold and its undo through the other modules'
   services (`InventorySales`, `ConversationService`, `InteractionService`, notifications).
   `auth` is the lowest business module (owns `Role`, `AccountStatus`, `AuthenticatedUser`, the
@@ -139,11 +145,17 @@ call for geography (boundaries are bundled static assets).
   keyboard navigation are required for every screen. No giant components.
 - Mobile: expo-router tabs `Home | Search | Inventory | Messages | Profile` since stage R7 (Home is
   the `index` route, the app's first screen, with the feed `GET /feed`; since R5 the Map tab is
-  Search's default view, the Wishlist tab its Wishlist segment; old routes redirect; phone redesign
-  approved on 2026-10-14, stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`; until
-  a stage lands, describe the phone as it is). Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
+  Search's default view, the Wishlist tab its Wishlist segment; Messages holds Chats | Community
+  since R11; Settings sits behind Profile's gear since R6; old routes redirect). The phone redesign
+  (`docs/product/specs/2026-10-14-phone-redesign.md`, stages R1 to R8, and the owner's prompt of
+  2026-10-19/20, stages G and R9 to R15) is built; mockup v50 is the reference for looks and
+  wording. Since R15 the app opens on Home for a signed-out visitor (a guest): Home and Search
+  browse without an account, Inventory, Messages, Profile and Search › Wishlist ask to sign in in
+  place, and an action that needs an account opens one sheet and finishes after the sign-in.
+  Bottom sheets for pickers and filters, offline-tolerant queries (`@tanstack/react-query`), typed
   API via `packages/shared-types` + `openapi-fetch`; region-scoped calls send the browsed region (the region
-  switcher; the collector's home region by default).
+  switcher; the collector's home region by default) and, since stage G, the browsed game (the game
+  pill; one game at a time). English cards only (owner, 2026-10-20).
 - Never put secrets in frontend bundles. Only public keys (Firebase web config) may appear.
 
 ## Working rules for Claude Code
