@@ -31,6 +31,21 @@ tags:
 - runFlow: subflows/open-search-tab.yaml
 - assertVisible:
     id: 'person-button-search'
+# Ben's card is a Pokémon card and a guest browses Yu-Gi-Oh! by default (stage G): the guest picks
+# Pokémon with the game pill first (kept on the phone under the guest's key).
+- tapOn:
+    id: 'search-game'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game-sheet-option-pokemon'
+    timeout: 30000
+- tapOn:
+    id: 'search-game-sheet-option-pokemon'
+- extendedWaitUntil:
+    visible:
+      id: 'search-game'
+      text: 'Game: Pokémon\. Change game'
+    timeout: 30000
 - tapOn:
     id: 'search-field'
 - extendedWaitUntil:
