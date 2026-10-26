@@ -3,7 +3,14 @@ import type { ComponentProps, ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  TITLE_MAX_FONT_SCALE,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 import { Button } from './Button';
 
@@ -21,7 +28,12 @@ export interface EmptyStateProps {
   testID?: string;
 }
 
-/** Centred illustration + copy for screens with nothing to show yet. */
+/**
+ * Centred illustration + copy for screens with nothing to show yet. The title follows the system
+ * text size up to twice its size, as a screen's title does (`TITLE_MAX_FONT_SCALE`): at the
+ * largest accessibility size it otherwise cut a word of an empty Inventory in two ("Your
+ * inventor / y is empty", stage R8's walk).
+ */
 export function EmptyState({
   title,
   description,
@@ -39,7 +51,10 @@ export function EmptyState({
       <View style={[styles.iconWrap, { backgroundColor: palette.primaryContainer }]}>
         <MaterialCommunityIcons name={icon} size={32} color={palette.onPrimaryContainer} />
       </View>
-      <Text style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}>
+      <Text
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}
+      >
         {title}
       </Text>
       {description ? (

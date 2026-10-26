@@ -1,6 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { renderWithProviders } from '../test-utils';
 
@@ -29,5 +30,17 @@ describe('EmptyState', () => {
   it('renders in dark mode without a light-mode background', () => {
     renderWithProviders(<EmptyState title="Dark" testID="dark-empty" />, { scheme: 'dark' });
     expect(screen.getByTestId('dark-empty')).toBeOnTheScreen();
+  });
+
+  it('keeps the title to twice its size at the largest text sizes, so a word is never cut in two', () => {
+    renderWithProviders(
+      <EmptyState title="Your inventory is empty" description="Add the cards you own." />
+    );
+    expect(screen.getByText('Your inventory is empty')).toHaveProp(
+      'maxFontSizeMultiplier',
+      TITLE_MAX_FONT_SCALE
+    );
+    // The description is body text and follows the system size.
+    expect(screen.getByText('Add the cards you own.')).not.toHaveProp('maxFontSizeMultiplier');
   });
 });
