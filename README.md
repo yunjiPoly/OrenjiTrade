@@ -18,9 +18,11 @@ catalog model.
 > Status: MVP under active construction, nothing deployed. See
 > [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for the phase checklist and the exact next
 > task, and [CLAUDE.md](CLAUDE.md) for engineering rules. Since 2026-10-12 the phone app is the
-> client of new work and the web app is paused (owner order); the work in progress is the phone
-> redesign of 2026-10-14 ([spec](docs/product/specs/2026-10-14-phone-redesign.md), stages R1 to
-> R8: R1 is done, R2 is next). What
+> client of new work and the web app is paused (owner order); the phone redesign of 2026-10-14
+> ([spec](docs/product/specs/2026-10-14-phone-redesign.md), stages R1 to R8) and the owner's prompt
+> of 2026-10-19/20 ([spec](docs/product/specs/2026-10-20-finish-the-phone-ui.md), stages G and R9 to
+> R15) are built: five tabs (Home, Search, Inventory, Messages, Profile) and browsing without an
+> account. What
 > the owner's change of 2026-10-08 delivered, and what it did not:
 > [delivery report](docs/product/2026-10-08-change-delivery-report.md).
 
