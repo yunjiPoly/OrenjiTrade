@@ -1,0 +1,8 @@
+# Trivy exceptions for the "Trivy gate" of .github/workflows/ci.yml. Same policy as
+# security/npm-audit-allowlist.json (docs/security/README.md): only when no usable patched
+# release exists, each with its reason and an expiry date (Trivy fails again after it).
+
+# zod 3.25.76 nested under @expo/cli (the npm allowlist's GHSA-mrhx-c7xc-m3w5). The workspace's
+# own zod is 4.6.6; @expo/cli 57 requires zod ^3.25.76, no patched zod 3 exists, and zod 4 would
+# break the Expo CLI's v3 imports. Build and dev-server tooling only, in no bundle.
+CVE-2023-54404 exp:2026-11-30
