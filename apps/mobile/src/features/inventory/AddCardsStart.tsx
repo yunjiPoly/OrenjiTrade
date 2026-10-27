@@ -3,7 +3,15 @@ import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import {
+  fontFamily,
+  fontWeight,
+  PINNED_MAX_FONT_SCALE,
+  spacing,
+  TITLE_MAX_FONT_SCALE,
+  useStackedRows,
+  useTheme,
+} from '@/src/theme';
 
 import { ADD_CARDS_COPY } from './inventoryCopy';
 
@@ -38,6 +46,22 @@ export function AddCardsStart({
   scan = null,
 }: AddCardsStartProps) {
   const { palette } = useTheme();
+  // At large text sizes "Coming later" goes under the row's words: beside them it took the row's
+  // width and left "Scan with camera" none at the largest size (R8's review U2).
+  const stacked = useStackedRows();
+  const comingLater = (
+    <Text
+      maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
+      testID="add-cards-scan-tag"
+      style={[
+        styles.tag,
+        stacked && styles.tagStacked,
+        { backgroundColor: palette.surfaceVariant, color: palette.ink },
+      ]}
+    >
+      {ADD_CARDS_COPY.comingLater}
+    </Text>
+  );
   return (
     <View style={styles.root} testID="add-cards-start">
       <Text
@@ -127,19 +151,16 @@ export function AddCardsStart({
             <View style={[styles.icon, { backgroundColor: palette.surfaceVariant }]}>
               <MaterialCommunityIcons name="camera-outline" size={22} color={palette.textMuted} />
             </View>
-            <View style={styles.texts}>
+            <View style={styles.texts} testID="add-cards-scan-texts">
               <Text style={[styles.optionTitle, { color: palette.ink }]}>
                 {ADD_CARDS_COPY.scanTitle}
               </Text>
               <Text style={[styles.optionBody, { color: palette.textMuted }]}>
                 {ADD_CARDS_COPY.scanBody}
               </Text>
+              {stacked ? comingLater : null}
             </View>
-            <Text
-              style={[styles.tag, { backgroundColor: palette.surfaceVariant, color: palette.ink }]}
-            >
-              {ADD_CARDS_COPY.comingLater}
-            </Text>
+            {stacked ? null : comingLater}
           </View>
         )}
       </View>
@@ -282,6 +303,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
   },
+  tagStacked: { alignSelf: 'flex-start', marginTop: 4 },
   grow: { flexGrow: 1, minHeight: spacing[6] },
   footer: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   pressed: { opacity: 0.8 },

@@ -1,13 +1,14 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet } from 'react-native';
 
 import EditCardScreen from '@/app/items/[id]';
 import AddCardsScreen from '@/app/items/new';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { useInventoryUiStore } from '@/src/features/inventory/inventoryUiStore';
 import { useAppStore } from '@/src/store';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -170,6 +171,39 @@ describe('Add cards (screens 3 and 4)', () => {
     });
     fireEvent.press(screen.getByRole('button', { name: 'Back to Inventory' }));
     expect(mockRouter.back).toHaveBeenCalled();
+  });
+
+  it('keeps "Scan with camera" readable at the largest text size: "Coming later" goes under it (R8 review U2)', () => {
+    mockApi(signedInRoutes());
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    try {
+      textSize(1);
+      const first = renderWithProviders(<AddCardsScreen />, { port: port() });
+      // The default size: the tag beside the words, as in the mockup.
+      const texts = screen.getByTestId('add-cards-scan-texts');
+      expect(within(texts).queryByTestId('add-cards-scan-tag')).toBeNull();
+      expect(
+        within(screen.getByTestId('add-cards-scan')).getByTestId('add-cards-scan-tag')
+      ).toHaveProp('maxFontSizeMultiplier', PINNED_MAX_FONT_SCALE);
+      first.unmount();
+      // The largest size: beside the words, the tag left "Scan with camera" a width of 0.
+      textSize(3.1);
+      renderWithProviders(<AddCardsScreen />, { port: port() });
+      const stackedTexts = screen.getByTestId('add-cards-scan-texts');
+      expect(stackedTexts).toHaveTextContent(/Scan with camera.*Coming later/);
+      const tag = within(stackedTexts).getByTestId('add-cards-scan-tag');
+      expect(tag).toHaveProp('maxFontSizeMultiplier', PINNED_MAX_FONT_SCALE);
+      expect(tag).toHaveStyle({ alignSelf: 'flex-start' });
+    } finally {
+      textSize(window.fontScale);
+    }
   });
 
   it('names Home on Back when Home opened it (R7 review U5)', () => {
