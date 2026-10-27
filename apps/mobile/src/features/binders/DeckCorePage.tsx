@@ -1,6 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
@@ -23,7 +32,7 @@ import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 
 import { DECK_CORE_COPY } from './binderCopy';
 import { DeckCoreTag } from './BinderRows';
-import { PhotoPager } from './PhotoPager';
+import { PHOTO_PAGER_HEIGHT, PhotoPager } from './PhotoPager';
 import { SellerRow } from './SellerRow';
 
 export interface DeckCorePageProps {
@@ -39,7 +48,9 @@ export interface DeckCorePageProps {
  * binders", opens the profile); the note; "Key cards" as chips "{card} ×{n}" (a chip opens the card
  * page; "Who has this card" comes with stage R5); and the fixed button "Message {handle}", which
  * opens the chat with the seller about this deck core (its pinned bar, stage R4). The owner sees
- * "Edit binder" instead.
+ * "Edit binder" instead. The back button stays put while the page scrolls, and once the photos
+ * have gone under the status bar a band of the page's colour keeps the text from running under the
+ * clock (R8's review U3: at the largest text size the back button scrolled away with the photos).
  */
 export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProps) {
   const { palette } = useTheme();
@@ -56,6 +67,13 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
   const price = binder.askingPriceText?.trim() || null;
   const keyCards = binder.keyCards ?? [];
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const [underStatusBar, setUnderStatusBar] = useState(false);
+  const onScroll = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const past = nativeEvent.contentOffset.y > PHOTO_PAGER_HEIGHT - insets.top;
+    if (past !== underStatusBar) {
+      setUnderStatusBar(past);
+    }
+  };
   // Opened from Edit binder (its eye button): "Edit binder" goes back to it rather than opening a
   // second one over it, which would leave the first one with old values.
   const { from } = useLocalSearchParams<{ from?: string }>();
@@ -73,28 +91,15 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onScroll={onScroll}
+        scrollEventThrottle={32}
+        testID="deck-core-scroll"
       >
-        <View>
-          <PhotoPager
-            urls={pictures}
-            fit={photos.length > 0 ? 'cover' : 'contain'}
-            topInset={insets.top}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={DECK_CORE_COPY.backLabel}
-            onPress={back}
-            // The id of the navigation header's back button: the flows go back the same way.
-            testID="BackButton"
-            style={({ pressed }) => [
-              styles.back,
-              { top: insets.top + 10 },
-              pressed && styles.pressed,
-            ]}
-          >
-            <MaterialCommunityIcons name="chevron-left" size={26} color="#F5F5F4" />
-          </Pressable>
-        </View>
+        <PhotoPager
+          urls={pictures}
+          fit={photos.length > 0 ? 'cover' : 'contain'}
+          topInset={insets.top}
+        />
 
         <View style={styles.body}>
           <View style={styles.titleBlock}>
@@ -213,6 +218,31 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
         </View>
       </ScrollView>
 
+      {underStatusBar ? (
+        <View
+          pointerEvents="none"
+          testID="deck-core-status-band"
+          style={[
+            styles.statusBand,
+            {
+              height: insets.top,
+              backgroundColor: palette.background,
+              borderBottomColor: palette.border,
+            },
+          ]}
+        />
+      ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={DECK_CORE_COPY.backLabel}
+        onPress={back}
+        // The id of the navigation header's back button: the flows go back the same way.
+        testID="BackButton"
+        style={({ pressed }) => [styles.back, { top: insets.top + 10 }, pressed && styles.pressed]}
+      >
+        <MaterialCommunityIcons name="chevron-left" size={26} color="#F5F5F4" />
+      </Pressable>
+
       <View
         style={[
           styles.bar,
@@ -261,6 +291,13 @@ export function DeckCorePage({ binder, refreshing, onRefresh }: DeckCorePageProp
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   scroll: { paddingBottom: spacing[6] },
+  statusBand: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   back: {
     position: 'absolute',
     left: 12,

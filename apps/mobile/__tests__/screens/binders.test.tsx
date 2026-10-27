@@ -944,6 +944,36 @@ describe('Deck core page (screen 16)', () => {
     expect(mockRouter.push).not.toHaveBeenCalled();
   });
 
+  it('keeps the back button on screen while the page scrolls, with a band under the clock (R8 review U3)', async () => {
+    mockApi(coreRoutes());
+    renderWithProviders(<BinderScreen />, { port: port() });
+    await screen.findByTestId('deck-core-name');
+    const scroll = screen.getByTestId('deck-core-scroll');
+    // The back button is not part of what scrolls: at the largest text size it scrolled away.
+    expect(within(scroll).queryByTestId('BackButton')).toBeNull();
+    expect(screen.getByTestId('BackButton')).toHaveStyle({ position: 'absolute' });
+    // The photos at the top: no band, the photo under the clock as in the mockup.
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
+    const scrollTo = (y: number) =>
+      fireEvent.scroll(scroll, {
+        nativeEvent: {
+          contentOffset: { x: 0, y },
+          contentSize: { width: 390, height: 1600 },
+          layoutMeasurement: { width: 390, height: 800 },
+        },
+      });
+    scrollTo(120);
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
+    // The photos gone under the status bar: the page's colour behind the clock.
+    scrollTo(500);
+    expect(screen.getByTestId('deck-core-status-band')).toBeOnTheScreen();
+    expect(screen.getByTestId('BackButton')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('BackButton'));
+    expect(mockRouter.back).toHaveBeenCalled();
+    scrollTo(0);
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
+  });
+
   it('without photos shows its card pictures, or says there are none', async () => {
     mockApi(
       coreRoutes({
