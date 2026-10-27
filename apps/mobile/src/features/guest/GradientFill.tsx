@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 /** A gradient stop as react-native-svg draws it on every platform: a colour and its own opacity. */
@@ -22,10 +22,13 @@ export function gradientStop(color: string): GradientStop {
 }
 
 /**
- * A gradient behind a box (the mockup's `linear-gradient`), drawn with react-native-svg. The
- * drawing takes the box's whole frame from its style alone (`absoluteFill`): a `width="100%"` on
- * the `<Svg>` as well made iOS size it to the box's content, 14 pt short on each side of the
- * guest card (stage R8's walk).
+ * A gradient behind a box (the mockup's `linear-gradient`), drawn with react-native-svg. A frame
+ * with no padding of its own (`absoluteFill`, inside the box's border) holds the drawing, and the
+ * `<Svg>` takes 100 % of that frame on every platform:
+ * - on iOS a `width="100%"` straight on an `absoluteFill` `<Svg>` sized it to the box's content,
+ *   14 pt short of each edge of the guest card (stage R8's walk);
+ * - on the web an `<Svg>` without a width and height falls back to the browser's 300 by 150, so the
+ *   tint stopped about 42 px short of the card's right edge (stage R15's walk, R8's review F1).
  */
 export function GradientFill({
   from,
@@ -47,14 +50,16 @@ export function GradientFill({
   const start = gradientStop(from);
   const stop = gradientStop(to);
   return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none" testID={testID}>
-      <Defs>
-        <LinearGradient id={id} x1="0" y1="0" {...end}>
-          <Stop offset="0" stopColor={start.color} stopOpacity={start.opacity} />
-          <Stop offset="1" stopColor={stop.color} stopOpacity={stop.opacity} />
-        </LinearGradient>
-      </Defs>
-      <Rect width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
-    </Svg>
+    <View style={StyleSheet.absoluteFill} pointerEvents="none" testID={testID && `${testID}-frame`}>
+      <Svg width="100%" height="100%" testID={testID}>
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" {...end}>
+            <Stop offset="0" stopColor={start.color} stopOpacity={start.opacity} />
+            <Stop offset="1" stopColor={stop.color} stopOpacity={stop.opacity} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" rx={radius} ry={radius} fill={`url(#${id})`} />
+      </Svg>
+    </View>
   );
 }
