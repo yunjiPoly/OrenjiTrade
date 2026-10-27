@@ -920,13 +920,21 @@ what section 15 lists, for the whole redesign and the owner's prompt of 2026-10-
    the guest's Home, one game at a time, the modules, the guest rule of the privacy section), the
    product overview, the API contracts (every endpoint added since stage S6 is in one), the test
    accounts (the guest) and the seed data (One Piece without cards), the READMEs and the handoff.
-2. **A walk of every mockup screen** (version 50, screens 1 to 75 with 10b and 10c) on the
-   owner's iPhone 18 Pro simulator, signed in and as a guest, dark and light, at the default and
-   the largest text size, with a screenshot of each for the pull request. The card scan's screens
-   26 to 30 need the development build of ADR 0020 (Expo Go has no text reader), so the walk shows
-   Add cards as Expo Go draws it; the scan was walked by its own session.
+2. **A walk of the mockup's screens** (version 50, screens 1 to 75 with 10b and 10c) on the
+   owner's iPhone 18 Pro simulator, signed in and as a guest, dark and light: every screen at the
+   default size (73 of 77), and at the largest text size the screens listed in R8's table of
+   `IMPLEMENTATION_STATUS.md` (60 of 77 signed in, in dark); a screenshot of each for the pull
+   request. The card scan's screens 26 to 30 need the development build of ADR 0020 (Expo Go has
+   no text reader), so the walk shows Add cards as Expo Go draws it; the scan was walked by its
+   own session.
 3. **Fixes the walk proved needed**, each with a test: the guest card's tint (70) drawn opaque and
-   short of the card's edges on iOS; two native flows of R15 that had never run on the iPhone.
+   short of the card's edges on iOS; an empty state's title cut in the middle of a word at the
+   largest text size; two native flows of R15 that had never run on the iPhone. R8's review then
+   found, and review fix 1 fixed: the guest card's tint short of the card on the web build (R8's
+   iOS fix had undone R15's), an empty state's description larger than its title at the largest
+   size, and three screens at the largest size that R8 had walked only as a guest or not at all
+   (Who has this card's name, Add cards' "Scan with camera" row, the deck core page's back button
+   once scrolled).
 4. **The exact next task** in `IMPLEMENTATION_STATUS.md`.
 
 Built as stage R8 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R8: Wrap-up of the phone redesign
