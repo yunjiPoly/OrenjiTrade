@@ -65,11 +65,13 @@ describe('launch configuration: every money flag off', () => {
   });
 
   it('lists no Payouts or Offers section in Settings', async () => {
-    const api = mockApi(routes());
+    mockApi(routes());
     renderWithProviders(<SettingsScreen />, { port: port() });
     expect(await screen.findByTestId('settings-sign-out')).toBeOnTheScreen();
-    expect(api.callsTo('GET /api/v1/public/feature-flags').length).toBeGreaterThan(0);
+    // Stage R13: Settings has no entry behind a feature flag any more (mockup v50 screen 47), so
+    // no flag can bring a money section back.
     expect(screen.queryByTestId('settings-link-payouts')).toBeNull();
+    expect(screen.queryByText(MONEY_WORDS)).toBeNull();
     expect(screen.queryByText(/payout/i)).toBeNull();
     expect(screen.queryByTestId('settings-link-offers')).toBeNull();
   });

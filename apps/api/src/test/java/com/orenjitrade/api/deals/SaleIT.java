@@ -120,6 +120,39 @@ class SaleIT extends AbstractDealsIT {
         assertThat(notifications(seller, "SALE_RECORDED")).isEmpty();
     }
 
+    @Test
+    void theRatingFormNamesTheDealForEachSide() {
+        Collector seller = collector("r14-deal-seller");
+        Collector buyer = collector("r14-deal-buyer");
+        String itemId = card(seller, 2, "PUBLIC", "$12");
+        String chatId = chatAbout(buyer, seller, itemId);
+        sendText(buyer, chatId, "Sent the e-Transfer.");
+        markSold(seller, chatId, 1, null, 201);
+        String name = payloadName(seller, chatId);
+
+        // Stage R14: "{card} · sold to you {date}" for the buyer, the same card for the seller.
+        JsonNode bought = saleInteraction(buyer, seller);
+        assertThat(bought.path("dealName").asString()).isEqualTo(name);
+        assertThat(bought.path("soldToYou").asBoolean()).isTrue();
+        JsonNode sold = saleInteraction(seller, buyer);
+        assertThat(sold.path("dealName").asString()).isEqualTo(name);
+        assertThat(sold.path("soldToYou").isBoolean()).isTrue();
+        assertThat(sold.path("soldToYou").asBoolean()).isFalse();
+        // Nothing else about the sale: no tracking number, no place.
+        assertThat(eligibility(buyer, seller).toString())
+                .doesNotContain("tracking")
+                .doesNotContain("latitude");
+    }
+
+    private JsonNode saleInteraction(Collector rater, Collector other) {
+        for (JsonNode interaction : eligibility(rater, other).path("interactions")) {
+            if ("SALE".equals(interaction.path("kind").asString())) {
+                return interaction;
+            }
+        }
+        throw new AssertionError("no SALE interaction");
+    }
+
     private String payloadName(Collector member, String chatId) {
         return saleMessages(member, chatId)
                 .get(0)

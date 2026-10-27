@@ -2,28 +2,23 @@ import { StyleSheet, View } from 'react-native';
 
 import { useMeta } from '@/src/api/hooks/meta';
 import { useGames } from '@/src/api/hooks/profile';
-import { Chip } from '@/src/components/ui/Chip';
 import { ErrorState } from '@/src/components/ui/ErrorState';
-import { SectionCard } from '@/src/components/ui/Layout';
-import { Screen } from '@/src/components/ui/Screen';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
+import { appVersion } from '@/src/features/settings/appVersion';
+import { APPEARANCE_COPY as COPY, THEME_NAMES } from '@/src/features/settings/settingsCopy';
+import { SettingsGroup, SettingsRadios, SettingsRow } from '@/src/features/settings/SettingsList';
+import { SettingsPage } from '@/src/features/settings/SettingsPage';
 import { creditedGames } from '@/src/lib/cardImages';
 import { relativeTime } from '@/src/lib/relativeTime';
 import { useAppStore, type ThemeOverride } from '@/src/store/useAppStore';
-import { fontFamily, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, spacing, useTheme } from '@/src/theme';
 
 const THEME_OPTIONS: { value: ThemeOverride; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: THEME_NAMES.system },
+  { value: 'light', label: THEME_NAMES.light },
+  { value: 'dark', label: THEME_NAMES.dark },
 ];
-
-/** Copy of the About card's credits row (mockup v50, screen 53). */
-const CREDITS_COPY = {
-  title: 'Card data and images',
-  notEndorsed: 'Not affiliated with or endorsed by the game publishers.',
-} as const;
 
 /**
  * "Card data and images": the catalogue sources of the games that hold cards (Yu-Gi-Oh! from
@@ -35,7 +30,7 @@ function CardDataCredits() {
   const games = useGames();
   if (games.isPending) {
     return (
-      <View testID="card-data-credits-loading" style={styles.status}>
+      <View testID="card-data-credits-loading" style={styles.credits}>
         <Skeleton width="45%" height={18} />
         <Skeleton width="85%" height={14} />
       </View>
@@ -45,93 +40,83 @@ function CardDataCredits() {
   if (credits.length === 0) {
     return null;
   }
-  const text = [...credits.map((credit) => credit.aboutLine), CREDITS_COPY.notEndorsed].join(' ');
+  const text = [...credits.map((credit) => credit.aboutLine), COPY.notEndorsed].join(' ');
   return (
     <View
       testID="card-data-credits"
       accessible
-      accessibilityLabel={`${CREDITS_COPY.title}. ${text}`}
-      style={[styles.status, styles.credits, { borderTopColor: palette.border }]}
+      accessibilityLabel={`${COPY.credits}. ${text}`}
+      style={styles.credits}
     >
-      <Text style={[textStyle('md'), { color: palette.ink }]}>{CREDITS_COPY.title}</Text>
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{text}</Text>
+      <Text style={[styles.label, { color: palette.ink }]}>{COPY.credits}</Text>
+      <Text style={[styles.detail, { color: palette.textMuted }]}>{text}</Text>
     </View>
   );
 }
 
-function ApiStatus() {
-  const { palette } = useTheme();
+/** "Server": reached when `GET /meta` answered (with the API's name and version), or Try again. */
+function ServerRow() {
   const meta = useMeta();
   if (meta.isPending) {
-    return (
-      <View testID="api-status-loading" style={styles.status}>
-        <Skeleton width="55%" height={18} />
-        <Skeleton width="35%" height={14} />
-      </View>
-    );
+    return <SettingsRow kind="info" label={COPY.server} valueLoading testID="api-status-loading" />;
   }
   if (meta.isError) {
     return (
       <ErrorState
         compact
         error={meta.error}
-        title="API unreachable"
+        title={COPY.serverError}
         onRetry={() => void meta.refetch()}
         testID="api-status-error"
       />
     );
   }
   return (
-    <View testID="api-status-ready" style={styles.status}>
-      <Text style={[textStyle('md'), { color: palette.ink }]}>{meta.data.name}</Text>
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-        Version{' '}
-        <Text style={{ fontFamily: fontFamily.mono, color: palette.ink }} testID="api-version">
-          {meta.data.version}
-        </Text>{' '}
-        · {meta.data.environment} · server time {relativeTime(meta.data.serverTime)}
-      </Text>
-    </View>
+    <SettingsRow
+      kind="info"
+      label={COPY.server}
+      detail={COPY.serverApi(meta.data.name, meta.data.version)}
+      value={COPY.serverReached(relativeTime(meta.dataUpdatedAt))}
+      testID="api-status-ready"
+    />
   );
 }
 
-/** Settings → Appearance: theme override (stored on the device) and app information. */
+/**
+ * Settings › Appearance (stage R13, mockup v50 screen 53): the theme (Same as the phone, Light,
+ * Dark; kept on this phone, a new install starts in dark) and About: the app's version, whether
+ * the server answered, and the card data credits.
+ */
 export default function AppearanceSettingsScreen() {
   const themeOverride = useAppStore((state) => state.themeOverride);
   const setThemeOverride = useAppStore((state) => state.setThemeOverride);
+  const meta = useMeta();
   return (
-    <Screen scroll safeBottom testID="screen-settings-appearance">
-      <View style={styles.root}>
-        <SectionCard title="Theme">
-          <View style={styles.chips} accessibilityRole="radiogroup" accessibilityLabel="Theme">
-            {THEME_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={themeOverride === option.value}
-                onPress={() => setThemeOverride(option.value)}
-                testID={`theme-${option.value}`}
-              />
-            ))}
-          </View>
-        </SectionCard>
-        <SectionCard title="About">
-          <ApiStatus />
-          <CardDataCredits />
-        </SectionCard>
-      </View>
-    </Screen>
+    <SettingsPage title={COPY.title} testID="screen-settings-appearance">
+      <SettingsRadios
+        title={COPY.theme}
+        options={THEME_OPTIONS}
+        value={themeOverride}
+        onChange={setThemeOverride}
+        footnote={COPY.themeNote}
+        testID="theme"
+      />
+      <SettingsGroup title={COPY.about}>
+        <SettingsRow
+          kind="info"
+          label={COPY.version}
+          value={COPY.versionValue(appVersion(), meta.data?.environment ?? null)}
+          testID="app-version"
+        />
+        <ServerRow />
+        <CardDataCredits />
+      </SettingsGroup>
+    </SettingsPage>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { gap: spacing[4] },
-  // The chips wrap: at the largest text size "Dark" was pushed off the screen (found by R5).
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  status: { gap: spacing[1] },
-  credits: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: spacing[3],
-    marginTop: spacing[2],
-  },
+  credits: { gap: 2, paddingVertical: spacing[3], paddingHorizontal: 14 },
+  label: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.medium },
+  detail: { fontSize: 13, lineHeight: 18 },
 });

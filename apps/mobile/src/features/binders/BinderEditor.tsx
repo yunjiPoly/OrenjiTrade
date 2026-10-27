@@ -38,6 +38,7 @@ import { photoRefusal } from '@/src/features/inventory/itemPhotoRules';
 import { ASKING_PRICE_MAX } from '@/src/features/inventory/itemPrice';
 import { useCardFindability } from '@/src/features/inventory/useCardFindability';
 import { publicCardHint } from '@/src/features/inventory/visibilityStatus';
+import { SettingsTopBar } from '@/src/features/settings/SettingsPage';
 import { LimitReachedNotice } from '@/src/features/limits/LimitReachedNotice';
 import { needsConfirmation } from '@/src/lib/inventory';
 import { isLimitReached } from '@/src/lib/limits';
@@ -109,19 +110,22 @@ export function BinderEditorScreen({ id, game = null, from = null }: BinderEdito
   const leaveDeleted = () =>
     router.dismissTo({ pathname: '/inventory', params: { view: 'binders' } });
   const title = id === null ? EDIT_BINDER_COPY.titleNew : EDIT_BINDER_COPY.titleEdit;
+  const backLabel =
+    from === 'notifications' ? EDIT_BINDER_COPY.backToNotifications : EDIT_BINDER_COPY.backLabel;
+  // New binder (mockup v50 screen 63, stage R14) has the Settings pages' top bar: the 44 pt back
+  // button, the title in Sora and a hairline; Edit binder keeps R3's row.
+  const newBar = (
+    <SettingsTopBar
+      title={title}
+      onBack={leave}
+      backLabel={backLabel}
+      backTestID="edit-binder-back"
+    />
+  );
   const header = (action?: ReactNode) => (
     <View style={styles.headerRow}>
       <View style={styles.grow}>
-        <BackBar
-          label={title}
-          backLabel={
-            from === 'notifications'
-              ? EDIT_BINDER_COPY.backToNotifications
-              : EDIT_BINDER_COPY.backLabel
-          }
-          onBack={leave}
-          testID="edit-binder-back"
-        />
+        <BackBar label={title} backLabel={backLabel} onBack={leave} testID="edit-binder-back" />
       </View>
       {action}
     </View>
@@ -135,7 +139,7 @@ export function BinderEditorScreen({ id, game = null, from = null }: BinderEdito
           key={binder.data?.id ?? 'new'}
           binder={binder.data ?? null}
           startGame={game}
-          header={header}
+          header={id === null ? () => newBar : header}
           onLeave={leave}
           onDeleted={leaveDeleted}
         />
@@ -614,6 +618,7 @@ function BinderEditor({
   return (
     <InventoryFormScreen
       header={header(publicPage)}
+      headerBare={!binder}
       footer={footer}
       startAtEnd={initialFailed.length > 0}
       showEnd={showEnd}
@@ -878,6 +883,7 @@ function BinderEditor({
             return next;
           })
         }
+        cardsHint={binder ? null : EDIT_BINDER_COPY.pickerGameHint(gameName)}
       />
 
       {failure && isLimitReached(failure) ? (

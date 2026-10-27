@@ -18,6 +18,7 @@ import com.orenjitrade.api.inventory.domain.InventoryItemView;
 import com.orenjitrade.api.inventory.domain.PublicInventoryService;
 import com.orenjitrade.api.location.domain.PublicPlace;
 import com.orenjitrade.api.location.domain.RegionView;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.profiles.domain.TagService;
 import com.orenjitrade.api.profiles.domain.TagView;
 import com.orenjitrade.api.profiles.domain.ViewerContext;
@@ -76,6 +77,7 @@ public class SearchService {
     private final PublicInventoryService publicInventoryService;
     private final TagService tagService;
     private final MarkerAssembler assembler;
+    private final PrivacyPolicyService privacyPolicy;
     private final ObjectStorage storage;
     private final TimeProvider timeProvider;
     private final ApplicationEventPublisher events;
@@ -91,6 +93,7 @@ public class SearchService {
             PublicInventoryService publicInventoryService,
             TagService tagService,
             MarkerAssembler assembler,
+            PrivacyPolicyService privacyPolicy,
             ObjectStorage storage,
             TimeProvider timeProvider,
             ApplicationEventPublisher events) {
@@ -104,6 +107,7 @@ public class SearchService {
         this.publicInventoryService = publicInventoryService;
         this.tagService = tagService;
         this.assembler = assembler;
+        this.privacyPolicy = privacyPolicy;
         this.storage = storage;
         this.timeProvider = timeProvider;
         this.events = events;
@@ -185,7 +189,10 @@ public class SearchService {
                         ? catalogService.sets(game, q, 0, limit).items()
                         : List.of();
         List<CollectorMarker> found = List.of();
-        if (types.contains(SearchType.COLLECTORS)) {
+        // The holders of a resolved card for everyone; collectors matching the text by name for
+        // members only: a signed-out visitor never finds who a collector is (stage R15).
+        boolean byName = resolved == null;
+        if (types.contains(SearchType.COLLECTORS) && (!byName || seesWho(viewerId))) {
             DiscoveryCriteria criteria =
                     resolved != null
                             ? new DiscoveryCriteria(
@@ -221,6 +228,7 @@ public class SearchService {
                                     region.code(),
                                     viewerId,
                                     query.deckCore(),
+                                    seesWho(viewerId),
                                     limit,
                                     now));
         }
@@ -515,6 +523,10 @@ public class SearchService {
             int limit) {
         RegionView region = discovery.scope(viewerId, regionCode);
         @Nullable String game = requireGame(gameSlug);
+        if (!seesWho(viewerId)) {
+            // A signed-out visitor never finds who a collector is (stage R15).
+            return List.of();
+        }
         int size = Math.max(1, Math.min(limit, COLLECTORS_BY_NAME_MAX));
         return collectors
                 .byName(q, region.code(), game, viewerId, size, timeProvider.now())
@@ -575,7 +587,12 @@ public class SearchService {
         }
         sources.add(catalog);
         Deque<Suggestion> people = new ArrayDeque<>();
-        for (CollectorHit hit : collectors.suggest(text, region.code(), viewerId, limit, now)) {
+        // No collector for a signed-out visitor: they never see who a collector is (stage R15).
+        List<CollectorHit> peopleHits =
+                seesWho(viewerId)
+                        ? collectors.suggest(text, region.code(), viewerId, limit, now)
+                        : List.of();
+        for (CollectorHit hit : peopleHits) {
             people.add(
                     new Suggestion(
                             SuggestionType.COLLECTOR,
@@ -631,6 +648,11 @@ public class SearchService {
         }
         sources.add(tags);
         return interleave(sources, limit);
+    }
+
+    /** Whether the caller may see who a collector is: members only (the privacy matrix, R15). */
+    private boolean seesWho(@Nullable UUID viewerId) {
+        return privacyPolicy.canSeeWho(ViewerContext.of(viewerId));
     }
 
     /** One entry per source in turn until {@code limit} entries or every source is exhausted. */

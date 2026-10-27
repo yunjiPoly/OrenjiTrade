@@ -28,6 +28,14 @@ export interface GetPlaceholderImageRequestParams {
     ifNoneMatch?: string;
 }
 
+export interface GetPublicBinderImageRequestParams {
+    imageId: string;
+}
+
+export interface GetPublicItemImageRequestParams {
+    imageId: string;
+}
+
 export interface GetPublicMediaRequestParams {
     key: string;
 }
@@ -52,6 +60,22 @@ export interface PublicServiceInterface {
 * @param requestParameters
      */
     getPlaceholderImage(requestParameters: GetPlaceholderImageRequestParams, extraHttpRequestParams?: any): Observable<Blob>;
+
+    /**
+     * A photo of a binder or deck core
+     * Serves a binder photo by its id (&#x60;photos[].id&#x60; of a binder; the URL every response gives). The URL never names the owner. Immutable: cache for a year.
+     * @endpoint get /api/v1/public/binder-images/{imageId}
+* @param requestParameters
+     */
+    getPublicBinderImage(requestParameters: GetPublicBinderImageRequestParams, extraHttpRequestParams?: any): Observable<Blob>;
+
+    /**
+     * A photo of an inventory item
+     * Serves an item photo by its id (&#x60;images[].id&#x60; of an item; the URL every response gives). The URL never names the owner. Immutable: cache for a year.
+     * @endpoint get /api/v1/public/item-images/{imageId}
+* @param requestParameters
+     */
+    getPublicItemImage(requestParameters: GetPublicItemImageRequestParams, extraHttpRequestParams?: any): Observable<Blob>;
 
     /**
      * Stored media (avatars)

@@ -309,6 +309,30 @@ describe('Import cards: the source and the file', () => {
     expect(mockRouter.back).toHaveBeenCalled();
   });
 
+  it('shows the file step of mockup v50 screen 66, and switches to the other source in place', async () => {
+    mockParams.current = { source: 'YDK' };
+    const fake = fakeImports();
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    expect(await screen.findByTestId('import-file-YDK')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Import cards' })).toBeOnTheScreen();
+    expect(screen.getByText('From YGOPRODeck, EDOPro or Dueling Book')).toBeOnTheScreen();
+    // The large dashed "Choose a file" with the limits, then the paste link.
+    const choose = screen.getByRole('button', { name: 'Choose a file' });
+    expect(await within(choose).findByTestId('import-limits')).toHaveTextContent(
+      'Up to 100 kB and 500 lines.'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Paste the text of the file instead' })
+    ).toBeOnTheScreen();
+    fireEvent.press(screen.getByRole('button', { name: 'Collectr CSV export instead' }));
+    expect(await screen.findByTestId('import-file-COLLECTR_CSV')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Yu-Gi-Oh! deck file instead' })).toBeOnTheScreen();
+    // Back from the file step still leaves for Add cards.
+    fireEvent.press(screen.getByTestId('import-file-back'));
+    expect(mockRouter.back).toHaveBeenCalled();
+  });
+
   it('shows an import left open first, even when a source was chosen', async () => {
     mockParams.current = { source: 'YDK' };
     const fake = fakeImports({ open: importFixture() });
@@ -357,7 +381,7 @@ describe('Import cards: the source and the file', () => {
     expect(await screen.findByTestId('import-limits')).toHaveTextContent(
       'Up to 100 kB and 500 lines.'
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Paste the text of the file' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Paste the text of the file instead' }));
     // Nothing typed: said, not sent.
     fireEvent.press(screen.getByRole('button', { name: 'Use this text' }));
     expect(screen.getByTestId('import-refusal')).toHaveTextContent(/Nothing to import yet/);
@@ -586,10 +610,16 @@ describe('Import cards: the preview', () => {
     render();
     await pasteDeck();
 
-    expect(screen.getByLabelText('1 new card')).toBeOnTheScreen();
-    expect(screen.getByLabelText('0 added to cards you own')).toBeOnTheScreen();
-    expect(screen.getByLabelText('2 need a printing')).toBeOnTheScreen();
-    expect(screen.getByLabelText('1 not recognised')).toBeOnTheScreen();
+    // Mockup v50 screen 67: the top bar, the file with its sections, the chips, the amber bar.
+    expect(screen.getByRole('header', { name: 'Check the cards' })).toBeOnTheScreen();
+    expect(screen.getByTestId('import-summary')).toHaveTextContent(
+      'Your deck file · 3 main, 1 extra, 2 side'
+    );
+    expect(screen.getByTestId('import-unchosen')).toHaveTextContent(
+      /^2 cards need a printing\. Pick one on each, or use the newest for all\.Use the newest$/
+    );
+    expect(screen.getByRole('button', { name: 'Use the newest' })).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Discard this import' })).toBeOnTheScreen();
     expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(
       'Your file lists 4 different cards. 1 is ready to add: 2 copies.'
     );
@@ -606,7 +636,7 @@ describe('Import cards: the preview', () => {
     // A recognised line: in or out, which copy, condition and copies.
     const wisp = await screen.findByTestId('import-row-0');
     expect(
-      within(wisp).getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' })
+      within(wisp).getByRole('checkbox', { name: 'Leave out Fixture Lantern Wisp' })
     ).toBeChecked();
     expect(
       within(wisp).getByRole('button', {
@@ -618,7 +648,7 @@ describe('Import cards: the preview', () => {
         name: 'Condition and copies of Fixture Lantern Wisp: Damaged (not in your file), 2 copies',
       })
     ).toBeOnTheScreen();
-    expect(wisp).toHaveTextContent(/Main 2/);
+    expect(wisp).toHaveTextContent(/YDKF-EN001 · Rare/);
     // A line to choose says so.
     expect(
       within(screen.getByTestId('import-row-1')).getByRole('button', {
@@ -638,7 +668,7 @@ describe('Import cards: the preview', () => {
     expect(commit).toBeDisabled();
     expect(commit.props.accessibilityLabel).toBe('Add 1 card (2 copies) to my inventory');
     expect(commit.props.accessibilityHint).toBe(
-      '2 cards still need a printing. Choose them, or leave them out.'
+      'Choose the copy of the marked cards, or use the newest.'
     );
     // It stays on screen under the list: its text follows the system size only a little, and
     // what it shows is the label that fits one line (the whole sentence is its name, above).
@@ -648,13 +678,13 @@ describe('Import cards: the preview', () => {
     expect(within(commit).queryByText('Add 1 card (2 copies) to my inventory')).toBeNull();
     // So does the filter, which stays on screen above the list (not at the end of a long top).
     const bar = screen.getByTestId('import-filter-bar');
-    expect(within(bar).getByRole('radio', { name: 'All (4)' })).toBeChecked();
-    expect(within(bar).getByText('Needs a printing (2)').props.maxFontSizeMultiplier).toBe(
+    expect(within(bar).getByRole('radio', { name: 'All 4' })).toBeChecked();
+    expect(within(bar).getByText('Which copy? 2').props.maxFontSizeMultiplier).toBe(
       PINNED_MAX_FONT_SCALE
     );
     expect(within(screen.getByTestId('import-preview-header')).queryByRole('radio')).toBeNull();
     expect(screen.getByTestId('import-commit-reason')).toHaveTextContent(
-      '2 cards still need a printing. Choose them, or leave them out.'
+      'Choose the copy of the marked cards, or use the newest.'
     );
     // An open preview holds the screen: leaving asks first.
     expect(mockLeave.held).toBe(true);
@@ -704,7 +734,7 @@ describe('Import cards: the preview', () => {
     const patch = api.callsTo(`PATCH ${IMPORTS}/{id}/rows/{rowId}`)[0];
     expect(patch?.path).toBe(`${IMPORTS}/${IMPORT_ID}/rows/row-1`);
     expect(patch?.body).toEqual({ printingId: HERON_FIRST });
-    expect(screen.getByLabelText('1 needs a printing')).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Which copy? 1' })).toBeOnTheScreen();
   });
 
   it('lists the printings that fit a CSV row first, and can put a row back to “Choose printing”', async () => {
@@ -782,7 +812,7 @@ describe('Import cards: the preview', () => {
     );
     render();
     await continueOpen();
-    const box = await screen.findByRole('checkbox', { name: 'Import Fixture Lantern Wisp' });
+    const box = await screen.findByRole('checkbox', { name: 'Leave out Fixture Lantern Wisp' });
     fireEvent.press(box);
     expect(await screen.findByTestId('import-row-0-state')).toHaveTextContent('Left out');
     await waitFor(() =>
@@ -790,14 +820,18 @@ describe('Import cards: the preview', () => {
         included: false,
       })
     );
-    await waitFor(() => expect(screen.getByLabelText('0 new cards')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByTestId('import-summary-sentence')).toHaveTextContent(/1 left out\./)
+    );
 
     // Put back, refused: the box shows what the API still holds, and the refusal is said.
-    fireEvent.press(screen.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' }));
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Include Fixture Lantern Wisp' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       'Please try again in a moment.'
     );
-    expect(screen.getByRole('checkbox', { name: 'Import Fixture Lantern Wisp' })).not.toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: 'Include Fixture Lantern Wisp' })
+    ).not.toBeChecked();
   });
 
   it('uses the most recent printing for all unchosen rows, and sets one condition for all', async () => {
@@ -805,11 +839,7 @@ describe('Import cards: the preview', () => {
     const api = mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Use the most recent printing for all unchosen rows',
-      })
-    );
+    fireEvent.press(await screen.findByRole('button', { name: 'Use the newest' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       '2 cards got their most recent printing.'
     );
@@ -817,7 +847,7 @@ describe('Import cards: the preview', () => {
       action: 'USE_MOST_RECENT_PRINTING',
     });
     await waitFor(() => expect(screen.queryByTestId('import-unchosen')).toBeNull());
-    expect(screen.getByLabelText('0 need a printing')).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Which copy? 0' })).toBeOnTheScreen();
 
     // A deck file names no condition: one for all of them.
     expect(screen.getByTestId('import-default-conditions')).toHaveTextContent(
@@ -836,21 +866,48 @@ describe('Import cards: the preview', () => {
     expect(screen.queryByTestId('import-condition-DAMAGED')).toBeNull();
   });
 
+  it('shows a line’s copies alone while the file names no condition, and the condition once one is set (R14 review fix 1, U6)', async () => {
+    const fake = fakeImports({
+      open: importFixture(),
+      rows: [
+        // The lowest grade of Yu-Gi-Oh! in the test catalog: where a line of a deck file starts.
+        rowFixture({ condition: 'LIGHTLY_PLAYED' }),
+        rowFixture({
+          id: 'row-9',
+          position: 9,
+          printing: HERON_PRINTINGS[0],
+          condition: 'NEAR_MINT',
+          conditionSource: 'FILE',
+        }),
+      ],
+    });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    expect(await screen.findByTestId('import-row-0-edit')).toHaveTextContent('×2');
+    expect(screen.getByTestId('import-row-0-edit')).not.toHaveTextContent(/LP/);
+    expect(screen.getByTestId('import-row-9-edit')).toHaveTextContent('NM ×2');
+    // One condition set for the lines the file left without one: it is shown.
+    fireEvent.press(screen.getByRole('button', { name: 'Set the condition of this card' }));
+    fireEvent.press(await screen.findByTestId('import-condition-NEAR_MINT'));
+    await waitFor(() => expect(screen.getByTestId('import-row-0-edit')).toHaveTextContent('NM ×2'));
+  });
+
   it('filters the lines that need a printing and those not recognised', async () => {
     const fake = fakeImports({ open: importFixture() });
     const api = mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
     await screen.findByTestId('import-row-0');
-    fireEvent.press(screen.getByRole('radio', { name: 'Needs a printing (2)' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Which copy? 2' }));
     await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
     expect(await screen.findByTestId('import-row-1')).toBeOnTheScreen();
     expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe(
       'CHOOSE_PRINTING'
     );
-    fireEvent.press(screen.getByRole('radio', { name: 'Not recognised (1)' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Not recognised 1' }));
     const unknown = await screen.findByTestId('import-row-3');
-    expect(unknown).toHaveTextContent(/Not recognised.*Passcode 919999999/);
+    expect(unknown).toHaveTextContent(/Passcode 919999999.*Not recognised\. It stays out\./);
     expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
   });
 
@@ -887,17 +944,13 @@ describe('Import cards: the preview', () => {
     );
     render();
     await continueOpen();
-    fireEvent.press(
-      await screen.findByRole('button', {
-        name: 'Use the most recent printing for all unchosen rows',
-      })
-    );
+    fireEvent.press(await screen.findByRole('button', { name: 'Use the newest' }));
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(
       '1 card got its most recent printing. Its most recent set has several versions: the plain copy (Unlimited, no foil) was taken. Check it. 1 card has several printings in its most recent set: choose it.'
     );
     // The line keeps saying that its copy was assumed, and stays editable.
-    expect(await screen.findByTestId('import-row-1-assumed')).toHaveTextContent(
-      /Taken as the plain copy \(Unlimited, no foil\)/
+    expect(await screen.findByTestId('import-row-1-line')).toHaveTextContent(
+      /· assumed plain copy$/
     );
     // So does the top of the preview, which is still there once the snackbar is gone.
     expect(
@@ -910,7 +963,9 @@ describe('Import cards: the preview', () => {
     ).toBeOnTheScreen();
     expect(screen.getByTestId('import-row-1-printing')).not.toBeDisabled();
     // The card nothing could decide still asks: nothing was taken for the collector.
-    await waitFor(() => expect(screen.getByLabelText('1 needs a printing')).toBeOnTheScreen());
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: 'Which copy? 1' })).toBeOnTheScreen()
+    );
     expect(
       screen.getByRole('button', { name: 'Which copy of Fixture Clockwork Heron: Choose printing' })
     ).toBeOnTheScreen();
@@ -1025,19 +1080,19 @@ describe('Import cards: the preview', () => {
     expect(within(bar).getAllByRole('radio')).toHaveLength(3);
   });
 
-  it('shows the lines a count stands for when the count is pressed', async () => {
+  it('shows the lines a chip counts when the chip is pressed', async () => {
     const fake = fakeImports({ open: importFixture() });
     const api = mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
     await screen.findByTestId('import-row-0');
-    fireEvent.press(screen.getByRole('button', { name: '1 not recognised' }));
+    fireEvent.press(screen.getByRole('radio', { name: 'Not recognised 1' }));
     await waitFor(() => expect(screen.queryByTestId('import-row-0')).toBeNull());
     expect(await screen.findByTestId('import-row-3')).toBeOnTheScreen();
     expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
     expect(
       within(screen.getByTestId('import-filter-bar')).getByRole('radio', {
-        name: 'Not recognised (1)',
+        name: 'Not recognised 1',
       })
     ).toBeChecked();
   });
@@ -1089,7 +1144,7 @@ describe('Import cards: the preview', () => {
     mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
-    fireEvent.press(await screen.findByRole('radio', { name: 'Not recognised (0)' }));
+    fireEvent.press(await screen.findByRole('radio', { name: 'Not recognised 0' }));
     expect(await screen.findByText('Everything was recognised')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Show all different cards' })).toBeOnTheScreen();
     fireEvent.press(screen.getByTestId('import-rows-empty-action'));
@@ -1138,11 +1193,22 @@ describe('Import cards: the commit', () => {
     fireEvent.press(commit);
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)).toHaveLength(0);
 
+    // "Leave out" stands right under the amber bar, on screen above the lines (after every line of
+    // a long file it was out of reach; R14 review fix 1, F2).
+    const heron = await screen.findByTestId('import-row-1');
+    expect(
+      within(heron).getByRole('checkbox', { name: 'Leave out Fixture Clockwork Heron' })
+    ).toBeChecked();
     fireEvent.press(
-      screen.getByRole('checkbox', {
+      within(screen.getByTestId('import-filter-bar')).getByRole('checkbox', {
         name: 'Leave out the 2 cards that still need a printing',
       })
     );
+    // The lines it leaves out say so: unticked and "Left out", as a line left out by hand (U5).
+    expect(
+      within(heron).getByRole('checkbox', { name: 'Include Fixture Clockwork Heron' })
+    ).not.toBeChecked();
+    expect(within(heron).getByTestId('import-row-1-state')).toHaveTextContent('Left out');
     expect(commit.props.accessibilityLabel).toBe('Add 1 card, leave 2 out (2 copies added)');
     expect(within(commit).getByText('Add 1 card, leave 2 out')).toBeOnTheScreen();
     expect(commit).not.toBeDisabled();
@@ -1150,7 +1216,13 @@ describe('Import cards: the commit', () => {
 
     const result = await screen.findByTestId('import-result');
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)[0]?.body).toEqual({ skipUnresolved: true });
-    expect(within(result).getByText('Import done')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Import done' })).toBeOnTheScreen();
+    // Mockup v50 screen 68: no back button, the count, "They start private."
+    expect(screen.queryByTestId('BackButton')).toBeNull();
+    expect(within(result).getByRole('header', { name: '1 card added' })).toBeOnTheScreen();
+    expect(
+      within(result).getByText('They start private. Make the ones you trade public from Inventory.')
+    ).toBeOnTheScreen();
     expect(within(result).getByLabelText('1 new card added')).toBeOnTheScreen();
     expect(
       within(result).getByLabelText('0 cards you already had got more copies')
@@ -1274,18 +1346,19 @@ describe('Import cards: the commit', () => {
 
     // Not recognised: the passcode, where it stood in the deck, why, and what can be done.
     const unknown = within(result).getByTestId('import-result-unmatched');
-    expect(unknown).toHaveTextContent(/Not recognised \(1\)/);
-    fireEvent.press(within(unknown).getByRole('button', { name: 'Show these different cards' }));
+    expect(unknown).toHaveTextContent(/NOT RECOGNISED · 1/);
+    // Shown at once (mockup v50 screen 68).
     const line = await within(unknown).findByTestId('import-row-3');
     expect(line).toHaveTextContent(/Passcode 919999999/);
     expect(line).toHaveTextContent(/Side 1/);
     expect(line).toHaveTextContent(/find the card by its name with “Add cards” in your inventory/);
-    expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).at(-1)?.query.get('status')).toBe('UNMATCHED');
+    expect(api.callsTo(`GET ${IMPORTS}/{id}/rows`).map((call) => call.query.get('status'))).toEqual(
+      expect.arrayContaining(['UNMATCHED', 'CHOOSE_PRINTING'])
+    );
 
     // Without a printing: which cards, so they can be added by hand.
     const unchosen = within(result).getByTestId('import-result-unchosen');
-    expect(unchosen).toHaveTextContent(/Without a printing \(2\)/);
-    fireEvent.press(within(unchosen).getByRole('button', { name: 'Show these different cards' }));
+    expect(unchosen).toHaveTextContent(/WITHOUT A PRINTING · 2/);
     const heron = await within(unchosen).findByTestId('import-row-1');
     expect(heron).toHaveTextContent(/Fixture Clockwork Heron/);
     expect(heron).toHaveTextContent(/Passcode 910000002/);
@@ -1320,18 +1393,18 @@ describe('Import cards: the commit', () => {
     expect(api.callsTo(`POST ${IMPORTS}/{id}/commit`)[0]?.body).toEqual({ skipUnresolved: false });
   });
 
-  it('says how many cards go into cards already owned', async () => {
+  it('says how many cards go into cards already owned, and counts them in the cards added', async () => {
     const fake = fakeImports({
       open: importFixture(),
       rows: [
         rowFixture({ ownedQuantity: 2 }),
         rowFixture({ id: 'row-9', position: 9, printing: HERON_PRINTINGS[0] }),
+        rowFixture({ id: 'row-10', position: 10, printing: HERON_PRINTINGS[1] }),
       ],
     });
     mockApi(signedInRoutes(fake.routes));
     render();
     await continueOpen();
-    expect(screen.getByLabelText('1 added to a card you own')).toBeOnTheScreen();
     expect(await screen.findByTestId('import-row-0-owned')).toHaveTextContent(
       'You have 2: this adds 2.'
     );
@@ -1343,6 +1416,28 @@ describe('Import cards: the commit', () => {
     expect(
       within(result).getByLabelText('1 card you already had got more copies')
     ).toBeOnTheScreen();
+    expect(within(result).getByLabelText('2 new cards added')).toBeOnTheScreen();
+    // "{n} cards added" counts both: 2 new cards and 1 that got more copies (R14 review fix 1, F4).
+    expect(within(result).getByRole('header', { name: '3 cards added' })).toBeOnTheScreen();
+  });
+
+  it('closes the toast of Check the cards when Import done opens (R14 review fix 1, U3)', async () => {
+    const fake = fakeImports({ open: importFixture() });
+    mockApi(signedInRoutes(fake.routes));
+    render();
+    await continueOpen();
+    fireEvent.press(await screen.findByRole('button', { name: 'Use the newest' }));
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(
+      '2 cards got their most recent printing.'
+    );
+    const commit = screen.getByTestId('import-commit');
+    await waitFor(() => expect(commit).not.toBeDisabled());
+    fireEvent.press(commit);
+    await screen.findByTestId('import-result');
+    // Its "Check them." can no longer be acted on, and it covered "Go to my inventory": it goes at
+    // once, long before its own 5 s.
+    await waitFor(() => expect(screen.queryByTestId('snackbar')).toBeNull(), { timeout: 1000 });
+    expect(screen.getByRole('button', { name: 'Go to my inventory' })).toBeOnTheScreen();
   });
 
   it('a commit pressed twice is sent once', async () => {
@@ -1561,8 +1656,9 @@ describe('Import cards: expiry, resuming, leaving', () => {
     await continueOpen();
     fireEvent.press(await screen.findByRole('button', { name: 'Discard this import' }));
     const dialog = await screen.findByTestId('import-discard-dialog');
-    expect(dialog).toHaveTextContent(/The choices you made for it are lost/);
-    fireEvent.press(within(dialog).getByRole('button', { name: 'Keep it' }));
+    // Mockup v50 screen 67: a sheet.
+    expect(dialog).toHaveTextContent(/Nothing was added to your inventory yet\./);
+    fireEvent.press(within(dialog).getByRole('button', { name: 'Keep checking' }));
     await waitFor(() => expect(screen.queryByTestId('import-discard-dialog')).toBeNull());
     expect(api.callsTo(`DELETE ${IMPORTS}/{id}`)).toHaveLength(0);
 
@@ -1636,7 +1732,9 @@ describe('Import cards: expiry, resuming, leaving', () => {
     // A new import starts without that notice.
     fake.state.preview = null;
     fireEvent.press(within(result).getByRole('button', { name: 'Import another file' }));
-    expect(await screen.findByTestId('import-source-YDK')).toBeOnTheScreen();
+    // Mockup v50 screen 68: the file step of the same source.
+    expect(await screen.findByTestId('import-file-YDK')).toBeOnTheScreen();
+    expect(screen.queryByTestId('import-result-late')).toBeNull();
   });
 
   it('lets the pages that end the flow scroll: at the largest text sizes their button stays in reach', async () => {
@@ -1653,14 +1751,14 @@ describe('Import cards: expiry, resuming, leaving', () => {
     fireEvent.press(await screen.findByTestId('import-open-continue'));
     expect(await screen.findByTestId('import-error')).toBeOnTheScreen();
     const failed = screen.UNSAFE_getByType(ScrollView);
-    expect(failed.props.testID).toBe('screen-import');
+    expect(failed.props.testID).toBe('screen-import-scroll');
     expect(within(failed).getByTestId('import-error-retry')).toBeOnTheScreen();
 
     api.use({ [`GET ${IMPORTS}/{id}`]: problem(410, 'IMPORT_EXPIRED', 'expired') });
     fireEvent.press(screen.getByTestId('import-error-retry'));
     expect(await screen.findByTestId('import-expired')).toBeOnTheScreen();
     const expired = screen.UNSAFE_getByType(ScrollView);
-    expect(expired.props.testID).toBe('screen-import');
+    expect(expired.props.testID).toBe('screen-import-scroll');
     expect(within(expired).getByTestId('import-expired-action')).toBeOnTheScreen();
   });
 });

@@ -152,6 +152,40 @@ describe('Who has this card (screen 13)', () => {
     }
   });
 
+  it('puts the picture above the card name at large text sizes, so its longest word fits (R8 review U1)', async () => {
+    mockApi(
+      routes({
+        'GET /api/v1/cards/{id}': ok(
+          cardDetailFixture({ ...ASH, name: 'Shadowvale Revenant King' })
+        ),
+      })
+    );
+    const window = Dimensions.get('window');
+    const textSize = (fontScale: number) =>
+      act(() => {
+        Dimensions.set({
+          window: { ...window, fontScale },
+          screen: { ...window, fontScale },
+        });
+      });
+    try {
+      textSize(1);
+      const first = render();
+      expect(await screen.findByTestId('card-name')).toHaveTextContent('Shadowvale Revenant King');
+      // The default size: the picture beside the name, as in the mockup.
+      expect(screen.getByTestId('card-hero')).toHaveStyle({ flexDirection: 'row' });
+      first.unmount();
+      // The largest size: beside the 56 pt picture, "Shadowvale" at twice 24 pt broke in two.
+      textSize(3.1);
+      render();
+      expect(await screen.findByTestId('card-name')).toHaveTextContent('Shadowvale Revenant King');
+      expect(screen.getByTestId('card-hero')).toHaveStyle({ flexDirection: 'column' });
+      expect(screen.getByTestId('card-name')).toHaveProp('maxFontSizeMultiplier', 2);
+    } finally {
+      textSize(window.fontScale);
+    }
+  });
+
   it('Message opens or reuses the chat with that card pinned', async () => {
     const api = mockApi(
       routes({ 'POST /api/v1/conversations': ok(conversationFixture({ id: 'chat-1' }), 201) })

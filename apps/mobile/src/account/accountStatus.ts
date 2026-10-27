@@ -8,7 +8,9 @@ import type { SessionStatus } from '@/src/auth/sessionReducer';
  * - `anonymous`: nobody is signed in;
  * - `loading`: Firebase or `GET /me` has not answered yet;
  * - `ready`: active account, every current legal document accepted;
- * - `consent-required`: `requiredConsents` is not empty (428 on every other route);
+ * - `consent-required`: `requiredConsents` is not empty (428 on every other route), or the account
+ *   never confirmed being 18 or older (`onboarding.ageConfirmed === false`; stage R12: Review our
+ *   terms asks it, alone when no document is due);
  * - `suspended`: 403 `ACCOUNT_SUSPENDED` (temporary, or without an end date: banned), or deleted;
  * - `deletion-pending`: the owner asked for deletion; only /me, export and cancel work;
  * - `error`: `/me` failed (offline, server error, session expired); retryable.
@@ -114,7 +116,11 @@ export function deriveAccountStatus(input: DeriveAccountInput): AccountSnapshot 
       : signal?.kind === 'consent-required'
         ? signal.requiredConsents
         : [];
-  if (requiredConsents.length > 0 || signal?.kind === 'consent-required') {
+  if (
+    requiredConsents.length > 0 ||
+    signal?.kind === 'consent-required' ||
+    needsAgeConfirmation(me)
+  ) {
     return snapshot('consent-required', { requiredConsents });
   }
   return snapshot('ready');
@@ -123,7 +129,9 @@ export function deriveAccountStatus(input: DeriveAccountInput): AccountSnapshot 
 /**
  * Profile saved at least once, at least one game or tag chosen, and the 18+ confirmation recorded
  * (web: `needsOnboarding`). Only an API that reports `ageConfirmed === false` asks for the
- * confirmation; an older API without the flag never does.
+ * confirmation; an older API without the flag never does. Since stage R12 the welcome itself
+ * never asks it: sign-up does, and an account without it is on Review our terms first
+ * (`deriveAccountStatus`), so it only reaches the welcome once confirmed.
  */
 export function needsOnboarding(me: MeResponse | undefined): boolean {
   const onboarding = me?.onboarding;

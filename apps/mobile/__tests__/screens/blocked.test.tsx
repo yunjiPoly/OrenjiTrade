@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import CollectorScreen from '@/app/collectors/[id]';
 import BlockedUsersScreen from '@/app/settings/blocked';
@@ -27,8 +28,27 @@ beforeEach(() => {
 
 const port = () => new FakeAuthPort(testUser());
 
-describe('Settings → Blocked users', () => {
+/** Sets the system text size (Jest's React Native starts at 2); undone after the test. */
+let restoreAfter: (() => void) | null = null;
+function setFontScale(fontScale: number): () => void {
+  const window = Dimensions.get('window');
+  const screenSize = Dimensions.get('screen');
+  act(() => {
+    Dimensions.set({ window: { ...window, fontScale }, screen: { ...screenSize, fontScale } });
+  });
+  return () => Dimensions.set({ window, screen: screenSize });
+}
+afterEach(() => {
+  if (restoreAfter) {
+    act(restoreAfter);
+    restoreAfter = null;
+  }
+});
+
+describe('Settings › Blocked collectors', () => {
   it('lists the blocked collectors and unblocks one', async () => {
+    // The mockup's size (Jest's React Native starts at 2): "@handle · blocked {when}" on one line.
+    restoreAfter = setFontScale(1);
     const api = mockApi(
       signedInRoutes({
         'GET /api/v1/me/blocks': [
@@ -47,12 +67,32 @@ describe('Settings → Blocked users', () => {
     expect(row).toHaveTextContent(/Noé Verdun/);
     expect(row).toHaveTextContent(/@collector2 · blocked/);
     fireEvent.press(screen.getByRole('button', { name: 'Unblock Noé Verdun' }));
-    expect(await screen.findByTestId('snackbar')).toHaveTextContent('Noé Verdun is unblocked.');
+    expect(await screen.findByTestId('snackbar')).toHaveTextContent(/Noé Verdun is unblocked\.$/);
     expect(api.callsTo('DELETE /api/v1/users/{id}/block')[0]?.path).toBe(
       `/api/v1/users/${OTHER_ID}/block`
     );
     await waitFor(() => expect(screen.queryByTestId('blocked-collector2')).toBeNull());
     expect(screen.getByTestId('blocked-collector9')).toBeOnTheScreen();
+  });
+
+  it('gives the handle a line of its own at the largest text size (review fix 1)', async () => {
+    restoreAfter = setFontScale(3.1);
+    mockApi(
+      signedInRoutes({
+        'GET /api/v1/me/blocks': ok([
+          blockedUserFixture({ handle: 'uxcy_mvklemg2tx_abcdefgh', displayName: 'Cy Spambot' }),
+        ]),
+      })
+    );
+    renderWithProviders(<BlockedUsersScreen />, { port: port() });
+    const handle = await screen.findByTestId('blocked-handle-uxcy_mvklemg2tx_abcdefgh');
+    // One line, made smaller to fit rather than broken in the middle of the handle.
+    expect(handle).toHaveTextContent('@uxcy_mvklemg2tx_abcdefgh');
+    expect(handle).toHaveProp('numberOfLines', 1);
+    expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+    const row = screen.getByTestId('blocked-uxcy_mvklemg2tx_abcdefgh');
+    expect(within(row).getByText(/^Blocked /)).toBeOnTheScreen();
+    expect(screen.queryByText(/ · blocked /)).toBeNull();
   });
 
   it('explains an empty list, a failure with retry and a refused unblock', async () => {
@@ -80,7 +120,7 @@ describe('Settings → Blocked users', () => {
   it('is linked from Settings; a blocked collector profile offers Unblock', async () => {
     mockApi(signedInRoutes({ 'GET /api/v1/me/blocks': ok([]) }));
     renderWithProviders(<SettingsScreen />, { port: port() });
-    fireEvent.press(await screen.findByRole('link', { name: 'Blocked users' }));
+    fireEvent.press(await screen.findByRole('link', { name: 'Blocked collectors' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/settings/blocked');
 
     mockParams.current = { id: 'collector2' };

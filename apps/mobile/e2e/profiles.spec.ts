@@ -155,13 +155,14 @@ test.describe('mobile profiles (stage R6)', () => {
     // The gear: Settings, with everything the Profile tab reached before.
     await profile.getByRole('button', { name: 'Settings' }).click();
     const settings = screen(page, 'settings');
+    // Stage R13: the profile card opens Edit profile; the groups of mockup v50 screen 47.
+    await expect(settings.getByTestId('settings-link-profile')).toBeVisible({ timeout: 30_000 });
     for (const name of [
-      'Profile',
       'Location and discoverability',
       'Privacy',
       'Shipping details',
       'Notifications',
-      'Blocked users',
+      'Blocked collectors',
       'My reports',
       'Account',
       'Appearance',

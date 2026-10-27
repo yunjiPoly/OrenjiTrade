@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import {
+  Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -24,7 +25,7 @@ import {
   SwitchRow,
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
-import { Screen, ownSafeBottom } from '@/src/components/ui/Screen';
+import { Screen, keyboardBehavior, ownSafeBottom } from '@/src/components/ui/Screen';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Stepper } from '@/src/components/ui/Stepper';
@@ -117,6 +118,24 @@ describe('Screen', () => {
     const scroll = within(avoiding).UNSAFE_getByType(ScrollView);
     expect(scroll.props.testID).toBe('screen-form');
     expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(false);
+  });
+
+  it('lets a form whose fields sit low scroll the field being typed in above the keyboard on iOS', () => {
+    // Sign in, Create account and Reset password (stage R12's review fix 1): at the largest text
+    // sizes the KeyboardAvoidingView's padding left the focused field under the keyboard.
+    renderWithProviders(
+      <Screen scroll keyboardFollowsFocus testID="screen-form">
+        <Text>Form</Text>
+      </Screen>
+    );
+    expect(screen.UNSAFE_getByType(KeyboardAvoidingView).props.behavior).toBeUndefined();
+    expect(screen.getByTestId('screen-form').props.automaticallyAdjustKeyboardInsets).toBe(true);
+    expect(keyboardBehavior('ios', true)).toBeUndefined();
+    expect(keyboardBehavior('ios', false)).toBe('padding');
+    // Android is edge to edge (SDK 57): the window does not resize, the padding stays.
+    expect(keyboardBehavior('android', true)).toBe('padding');
+    expect(keyboardBehavior('web', false)).toBeUndefined();
   });
 
   it('adds the home-indicator inset once: iOS already makes it for a scrolling screen', () => {
@@ -269,6 +288,35 @@ describe('form controls', () => {
     expect(contrast(native.props.thumbColor, darkPalette.borderStrong)).toBeGreaterThan(3);
     expect(contrast(native.props.thumbColor, darkPalette.surface)).toBeGreaterThan(3);
   });
+
+  it.each([
+    [1, 'row' as const],
+    [3.1, 'column' as const],
+  ])(
+    'puts a switch beside its words, under them at large text sizes (text size %s)',
+    (fontScale, direction) => {
+      const window = Dimensions.get('window');
+      act(() => {
+        Dimensions.set({ window: { ...window, fontScale }, screen: { ...window, fontScale } });
+      });
+      try {
+        renderWithProviders(
+          <SwitchRow
+            label="Show me on the map"
+            help="Collectors of Americas (North) can find your public binders in Quebec."
+            value={false}
+            onChange={jest.fn()}
+            testID="switch-row"
+          />
+        );
+        expect(screen.getByTestId('switch-row')).toHaveStyle({ flexDirection: direction });
+      } finally {
+        act(() => {
+          Dimensions.set({ window, screen: window });
+        });
+      }
+    }
+  );
 
   it('selects a radio option', () => {
     const onChange = jest.fn();

@@ -115,6 +115,10 @@ class RatingEligibilityIT extends AbstractPhase7IT {
         assertThat(interaction.path("id").asString()).isEqualTo(interactionId.toString());
         assertThat(interaction.path("kind").asString()).isEqualTo("CONVERSATION_QUALIFIED");
         assertThat(interaction.path("alreadyRated").asBoolean()).isFalse();
+        // Stage R14: only a sale names a deal; the fields are there, and null.
+        assertThat(interaction.has("dealName")).isTrue();
+        assertThat(interaction.path("dealName").isNull()).isTrue();
+        assertThat(interaction.path("soldToYou").isNull()).isTrue();
 
         // More messages never record a second interaction.
         texts(alice, conversationId, 1);

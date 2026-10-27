@@ -1,11 +1,13 @@
 # OrenjiTrade mobile (`apps/mobile`)
 
-React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Four tabs since
-stage R5, as decided in `CLAUDE.md`: **Search | Inventory | Messages | Profile** (the Map tab is
-Search's default view, the Wishlist tab its Wishlist segment). The phone redesign the owner
-approved on 2026-10-14 (stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`) adds
-Home as the first of five with stage R7, and took offers, trades, payment protection and disputes
-off the phone. **Stage
+React Native app built with **Expo SDK 57**, **expo-router** and strict TypeScript. Five tabs since
+stage R7, as decided in `CLAUDE.md`: **Home | Search | Inventory | Messages | Profile** (Home is the
+first screen, for a signed-out guest too since stage R15; the Map tab of before R5 is Search's
+default view, the Wishlist tab its Wishlist segment). The phone redesign the owner approved on
+2026-10-14 (stages R1 to R8, `docs/product/specs/2026-10-14-phone-redesign.md`) and finished with
+the prompt of 2026-10-19/20 (stages G and R9 to R15,
+`docs/product/specs/2026-10-20-finish-the-phone-ui.md`; mockup v50) is built, and took offers,
+trades, payment protection and disputes off the phone. **Stage
 R1 is built** ("Offers out, shipping wording, look"; ADR 0018 "Deals happen in the chat"): the
 offer, trade, protected-payment, payout and dispute screens are gone (the API keeps them for the
 paused web), every chat opens with a shipping safety tip, ratings no longer ask about meetups, the
@@ -49,9 +51,12 @@ first profile game with cards, else Yu-Gi-Oh!), the game pill right of Search's 
 "Choose a game" (games without cards dimmed, "Cards coming soon"), the restyled "Choose a region";
 every Search segment shows the browsed game (the card search has no game chips any more: "{game}
 card name or code"); Inventory › Binders grouped by game; New binder's Game picker and Edit
-binder's locked game; binder pickers by the card's game. Stages R7 and R8 are not built: the rest
-of this README describes the app as it is (the route list below is R5's; some older prose still
-names the Map and Wishlist tabs of before).
+binder's locked game; binder pickers by the card's game. Stages R7 (Home and its feed), R9
+(Notifications and the bell), R10 (card data for Magic and Pokémon), R11 (Messages › Community),
+R12 (sign-in, sign-up and the welcome), R13 (Settings), R14 (report, rating, reference, binders,
+wishes, import and sets) and R15 (browsing without an account) are described in the sections below
+and in `IMPLEMENTATION_STATUS.md`; the wrap-up R8 walked every screen of mockup v50 on the iPhone.
+Some older prose below still names the Map and Wishlist tabs of before R5.
 
 Since the owner's order of 2026-10-12 the phone is the client of new work and the web app is
 paused. Of the owner's change of 2026-10-08, stages S3 (the printing picker with holder counts on
@@ -73,8 +78,10 @@ simulator, the same Maestro flows): sign-up with the versioned legal documents, 
 verification, sign-in, password reset, session restore, sign-out, consent and account-state
 screens (suspended, deletion pending with cancel and export), the three-step onboarding, the
 Profile tab (since stage R6: your page as others see it, with Edit profile, Share profile and a
-gear that opens Settings), and Settings (profile, location and discoverability, privacy,
-notifications, account with data export and deletion, appearance, legal).
+gear that opens Settings), and Settings (since stage R13, mockup v50 screens 47 to 59: the profile
+card, Edit profile with one "Save changes", location and discoverability, shipping details,
+notifications with the grid of topics by channel, privacy saved at once, appearance, blocked
+collectors, my reports, account with data export and deletion, legal).
 
 Phases 2 and 3 (stage M2) are implemented on the same API as the web: the **Search** tab (card
 catalog across games, live typo-tolerant search, game / set / rarity / language / edition filters,
@@ -121,11 +128,31 @@ every tab with an orange dot while anything is unread, chats left out; New with 
 read", Earlier by pages; each kind's icon, colours, sentence and target; freshness reminders
 answered in place). Device push is not wired (it needs an EAS project and a real FCM sender):
 notifications arrive in the app; a tapped push would open its row's target, a chat's push the chat
-(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link opened while
-signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
+(`pushOpener.ts`, off in Expo Go). An ended session leads to the sign-in screen with an explanation, and a link to a member screen
+opened while signed out reopens after signing in. ML card recognition (Phase 11) is on hold and the
 `mlScanning` flag stays off; the one exception is the camera card scan of ADR 0020 (Add cards ›
 "Scan with camera" and "Choose from photos", Yu-Gi-Oh!, read on the phone; it needs the scan's
 development build below and the flag `cardTextScan`).
+
+**Stage R15** ("Browse without an account", mockup v50 screens 70 to 75, contract
+`docs/api/contracts/r15-browse-without-account.md`): the app opens on Home for a signed-out visitor.
+A guest browses Home and Search (the person button in place of the bell, the guest's card in place
+of Get started, "A collector" with a plain avatar on every post and row, the places kept), card
+pages, sets, public binders and deck cores, Legal and Settings › Appearance; Inventory, Messages,
+Profile and Search › Wishlist show a page in place (`src/features/guest`). Every action that needs
+an account opens one sheet (`SignInSheet`, its title per action) and is kept in memory by its
+listing (`src/account/guestAction.ts`, never a collector id); after signing in (and the welcome for
+a new account) the phone goes back to the guest's screen and finishes it (`PendingActionRunner`,
+`GET /listings/owner`). Sign in has a close button ("Not now, keep browsing"); signing out lands on
+Home as a guest; a deep link to a member screen opens Sign in and continues to it. The guest's
+region and game are kept under their own keys (`orenjitrade.browsing-region.v1.guest`,
+`orenjitrade.browsing-game.v1.guest`).
+
+**Stage R14** restyled the report, the rating, the reference, New binder, Add and Edit a wish, the
+import (the file, "Check the cards", "Import done") and a set's page (mockup v50 screens 60 to 69,
+contract `docs/api/contracts/r14-report-rate-wish-import-sets.md`): the Settings top bar and the
+main button at the bottom; "Add a wish" opens Search's card search; a set's "Who has cards of this
+set" opens it on the set (`/search?set=&setName=`).
 
 Phases 7 and 8 (stage M5) are implemented on the same API as the web: **Report collector**
 (`report`: the API's reasons, details, a confirmation; from profiles, conversations, community
@@ -162,7 +189,7 @@ public binders by name with their owner, recent searches per segment), the **car
 (`holders`: "Who has this in my region" from a card as a list with sort (freshness or price),
 availability, condition, price range, freshness, edition, language and accepts-offers filters,
 paged), **"Looking for"** on a collector's profile (the public wishlist of a collector
-who enabled "Let others see what you want"), **Settings → Blocked users** (list and unblock;
+who enabled "Let others see what you want"), **Settings → Blocked collectors** (list and unblock;
 linked from Settings, from a blocked profile's Message reason, from the block dialog and from the
 settings deep links), inventory **owner photos** on a card (view, add from the library, remove;
 the web's upload rules, no camera) and **multi-select bulk actions** (visibility including
@@ -177,7 +204,9 @@ recorded as the `AGE_CONFIRMATION` consent; the same checkbox on the consent scr
 that never gave it, e.g. a Google sign-up; a first, non-editable onboarding "Age" step for
 existing accounts, which return to where they came from once confirmed; `needsOnboarding` while
 `/me` reports `ageConfirmed: false`; a friendly message for `403 AGE_CONFIRMATION_REQUIRED`, which
-also reloads `/me` so the gate shows the step; Sign out on the step so nobody is stuck), the
+also reloads `/me` so the gate shows the step; Sign out on the step so nobody is stuck; since
+stage R12 of the phone redesign the checkbox is English only and has no welcome step: an account
+without the confirmation is on Review our terms, with the age line alone when no document is due), the
 **consent language** (every `POST /me/consents` carries `language`: `fr` when the device's
 primary language is French through `expo-localization`, an explicit EN / FR choice wins), the
 **French legal pages** (`npm run sync:legal` copies both web files, an EN / FR switch on the legal
@@ -291,8 +320,8 @@ xcrun simctl launch <udid> com.orenjitrade.app.scan
 - `RCT_METRO_PORT=8084` makes the debug build load its JavaScript from that Metro; the Auth
   emulator stays the default `localhost:9099`. Sign in with a seed account
   (`docs/development/test-accounts.md`). On a fresh database the seed accounts have not confirmed
-  being 18+ yet (they predate the rule): the first sign-in stops at the onboarding "Age" step;
-  tick the box and continue, once per account and database.
+  being 18+ yet (they predate the rule): the first sign-in stops at Review our terms with the age
+  line (stage R12); tick the box and continue, once per account and database.
 - iOS 27 stops an app built with Xcode 27 at launch unless it adopts the scene life cycle; Expo SDK
   57's native template does not, so the variant applies `plugins/withIosSceneLifecycle.js` (Expo's
   `ExpoAppSceneDelegate`, as SDK 58's template does). Builds without the variant are unchanged.
@@ -353,22 +382,32 @@ without the React Native persistence keeps the session in memory (never browser 
 app/                       expo-router routes
   _layout.tsx              providers (safe area, query client, session, account, theme, snackbar),
                            the offline banner and src/navigation/RootNavigator.tsx, which applies
-                           the auth gate (src/account/useAuthGate.ts: guest, consent, account
-                           state, onboarding, tabs)
-  (auth)/                  sign-in, sign-up, reset-password (guests only)
+                           the auth gate (src/account/useAuthGate.ts: guest (Home, Search and the
+                           public pages; Sign in for a member screen, stage R15), consent, account
+                           state, onboarding, tabs), the sign-in sheet and the guest's pending
+                           action (stage R15)
+  (auth)/                  sign-in (with its close button, stage R15), sign-up, reset-password
+                           (guests only)
   (account)/               verify-email, consent, suspended / deletion pending, unavailable
-  onboarding.tsx           (age, for an account that never confirmed being 18+) -> profile ->
-                           interests -> "Where are you?" (+ map opt-in, off by default)
+  onboarding.tsx           the welcome in three steps (stage R12): "Who are you?" (live handle
+                           check) -> "What do you collect?" (games, "Opens first") -> "Where do
+                           you ship from?" (+ map opt-in, off by default); the 18+ confirmation
+                           is asked at sign-up or on Review our terms
   (tabs)/                  Search | Inventory | Messages | Profile (+ hidden index and wishlist,
                            which redirect into Search)
-  settings/                profile, location, privacy, notifications, account, delete-account,
-                           appearance (screens of the root stack, no nested stack)
-  legal/                   index + [key] (versioned documents read in-app, EN / FR switch)
+  settings/                Settings and its pages (stage R13): profile (Edit profile), location,
+                           shipping, notifications, privacy, appearance, blocked, reports,
+                           account, delete-account; screens of the root stack (no nested stack),
+                           each with its own top bar (src/features/settings/SettingsPage.tsx) and
+                           the groups and rows of SettingsList.tsx; their words in settingsCopy.ts
+  legal/                   index + [key] (versioned documents read in-app, English | Français
+                           switch; the phone lists seven documents, PHONE_LEGAL_KEYS)
   (tabs)/search.tsx        Search (stage R5): Cards (the region map, then the card search while
                            typing), Binders, Wishlist; `?segment=`, `?q=`, `?typing=1`, `?region=`,
                            `?subdivision=`, `?state=`
-  (tabs)/index.tsx         the old Map tab: redirects to Search (`/?region=&subdivision=` on that
-                           region and state; ADR 0017)
+  (tabs)/index.tsx         Home (stage R7; a guest's Home since R15); an old Map tab link
+                           (`/?region=&subdivision=`) still opens Search's map on that region and
+                           state, once (ADR 0017)
   cards/[id].tsx           Who has this card, the one card page (`?printing=<id>|any`, `?rarity=`)
   holders.tsx              the old card holders list: redirects to the card page
   regions/[region]/[code]  the old public binders of a state: redirects to Search › Binders
@@ -382,11 +421,14 @@ app/                       expo-router routes
   messages/[id].tsx        a conversation (thread, links, photos, receipts, mute / archive / block)
   community/[slug].tsx     a public channel (posts, replies, own edits)
   (tabs)/wishlist.tsx      the old Wishlist tab: redirects to Search › Wishlist; wishlist/new
-                           (`?cardId=&printingId=&rarity=`), edit (`?id=`, with Remove)
+                           without a card is "Add a wish": Search's card search (`?game=`); with
+                           `?cardId=` the wish form (`&printingId=`, `&rarity=`, `&code=` the text
+                           typed, `&from=search`); edit (`?id=`, with Remove) (stage R14)
   notifications.tsx        Notifications (stage R9; the bell of every tab opens it)
-  report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id)
-  ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit),
-                           reference (one per collector)
+  report.tsx               "Report collector" (`?userId=&name=&handle=&source=` + context id;
+                           stage R14: "Send report", Report sent in place)
+  ratings/                 rate (`?userId=&handle=&name=`, `&kind=`, `&rating=` to edit; stage
+                           R14: the deal, "Publish rating"), reference (one per collector)
   settings/reports.tsx     My reports
   +not-found.tsx           unknown links; a link to a screen that left the phone lands on a
                            screen that exists with a note (src/navigation/removedRoutes.ts):
@@ -425,8 +467,8 @@ src/
                            (AppState / NetInfo), RealtimeCacheSync (pushes -> query caches)
   lib/                     pure helpers (places and region names, card picture URLs, dates, ...)
   theme/                   tokens.ts (generated from packages/design-tokens), palette, ThemeProvider
-                           (a new install starts in dark; Settings → Appearance: System / Light /
-                           Dark; on iOS the keyboard, alerts and pickers follow the chosen theme,
+                           (a new install starts in dark; Settings → Appearance: Same as the
+                           phone / Light / Dark; on iOS the keyboard, alerts and pickers follow the chosen theme,
                            and the splash is dark), fonts.ts + useAppFonts.ts (Sora, Inter,
                            JetBrains Mono, loaded before the first screen;
                            components/ui/Text.tsx maps family + weight to the loaded face, so
@@ -548,7 +590,7 @@ Conventions later stages reuse:
 - **Places (ADR 0017)**: the app handles no coordinates, distances or GPS. Collectors declare a
   region, country, state or province and an optional city (`src/features/location/`:
   `LocationFields` with SelectSheet pickers fed by `GET /regions` through `useRegions`,
-  `locationDraft.ts` for the draft rules), in onboarding ("Where are you?") and Settings →
+  `locationDraft.ts` for the draft rules), in the welcome ("Where do you ship from?") and Settings →
   Location (`PUT` / `DELETE /me/location`). Others see a collector's state or province
   (`src/lib/place.ts`); a profile adds the city only when the API sends it (its owner shows it).
   `expo-location` is not installed and no location permission is requested; there is no map SDK
@@ -670,7 +712,10 @@ Conventions later stages reuse:
 - **Sessions**: a 401 on a request that carried a token while signed in means the session ended:
   `src/api/client.ts` reports it, the session signs out and the gate shows the sign-in screen with
   "Your session has ended". A link opened while signed out is kept (`src/account/pendingLink.ts`)
-  and reopened after signing in.
+  and reopened after signing in. A screen kept for a signed-in collector (sent to Review our terms
+  or to the welcome, or whose session ended) belongs to that collector's uid and never opens for
+  another account; Sign out forgets it, and the gate never pushes it on top of the welcome, which
+  takes it when it ends (stage R12's review fix 1).
 - **Testing hooks**: screens carry `testID="screen-<name>"`, tab buttons `tab-<route>`. Keep
   controls off the top-right corner just below the header: Expo Go on Android floats its tools
   button there and a Maestro tap would open the developer menu instead. (On iOS, Expo Go floats

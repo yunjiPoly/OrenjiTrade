@@ -433,7 +433,7 @@ describe('Edit binder (screen 18)', () => {
     mockParams.current = { id: CORE_ID, view: 'public' };
     mockApi(
       editRoutes(deckCoreFixture(), {
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
         ...savedBinder(deckCoreFixture()),
       })
     );
@@ -679,11 +679,18 @@ describe('New binder', () => {
     expect(create).toHaveTextContent('Create binder');
     expect(create).toBeDisabled();
     expect(screen.queryByTestId('edit-binder-delete')).toBeNull();
-    expect(screen.getByTestId('binder-cards-hint')).toHaveTextContent(
-      'No cards in this binder yet.'
-    );
     // The browsed game (the profile's Pokémon) once the games answered.
     expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
+    // Stage R14 (mockup v50 screen 63): the Settings top bar, and the game's line under "Cards
+    // inside".
+    expect(screen.getByRole('header', { name: 'New binder' })).toBeOnTheScreen();
+    expect(screen.getByTestId('edit-binder-back')).toHaveProp(
+      'accessibilityLabel',
+      'Back to your binders'
+    );
+    expect(screen.getByTestId('binder-cards-hint')).toHaveTextContent(
+      'Only your Pokémon cards can go in. Cards in another binder move here.'
+    );
     fireEvent.changeText(screen.getByTestId('binder-name'), '  Holos ');
     fireEvent.press(screen.getByTestId('edit-binder-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
@@ -694,6 +701,38 @@ describe('New binder', () => {
       gameId: 'g1',
     });
     expect(await screen.findByText('Saved')).toBeOnTheScreen();
+  });
+
+  it('says when the collector has no card of the binder’s game yet (R14 review fix 1, U4)', async () => {
+    // Yu-Gi-Oh! cards only: a Pokémon binder has none to offer.
+    const api = mockApi(
+      signedInRoutes({
+        'GET /api/v1/inventory/items': (request) =>
+          ok(inventoryPage(request.query.get('game') === 'pokemon' ? [] : [FILED])),
+      })
+    );
+    renderWithProviders(<NewBinderScreen />, { port: port() });
+    expect(await screen.findByTestId('binder-game-pokemon')).toBeChecked();
+    fireEvent.press(screen.getByTestId('binder-add-cards'));
+    const sheet = await screen.findByTestId('card-picker-sheet');
+    expect(await within(sheet).findByTestId('card-picker-empty')).toHaveTextContent(
+      'You have no Pokémon cards yet. Add them to your inventory first.'
+    );
+    expect(within(sheet).getByTestId('card-picker-submit')).toBeDisabled();
+    expect(api.callsTo('GET /api/v1/inventory/items').at(-1)?.query.get('game')).toBe('pokemon');
+  });
+
+  it('says so when every card of the binder’s game is already in it', async () => {
+    mockParams.current = { id: BINDER_ID };
+    mockApi(
+      editRoutes(binderFixture(), { 'GET /api/v1/inventory/items': ok(inventoryPage([FILED])) })
+    );
+    renderWithProviders(<EditBinderScreen />, { port: port() });
+    fireEvent.press(await screen.findByTestId('binder-add-cards'));
+    const sheet = await screen.findByTestId('card-picker-sheet');
+    expect(await within(sheet).findByTestId('card-picker-empty')).toHaveTextContent(
+      'All your cards are already in this binder.'
+    );
   });
 
   it('creates a deck core with its photo; a photo that fails opens Edit binder on it', async () => {
@@ -879,7 +918,7 @@ describe('Deck core page (screen 16)', () => {
   it('the owner sees “Edit binder” instead of Message and Report', async () => {
     mockApi(
       coreRoutes({
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
       })
     );
     renderWithProviders(<BinderScreen />, { port: port() });
@@ -896,13 +935,43 @@ describe('Deck core page (screen 16)', () => {
     mockParams.current = { id: 'core-1', view: 'public', from: 'edit' };
     mockApi(
       coreRoutes({
-        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id })),
+        'GET /api/v1/me': ok(meFixture({ id: publicDeckCoreFixture().owner.id ?? undefined })),
       })
     );
     renderWithProviders(<BinderScreen />, { port: port() });
     fireEvent.press(await screen.findByTestId('deck-core-edit'));
     expect(mockRouter.back).toHaveBeenCalled();
     expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it('keeps the back button on screen while the page scrolls, with a band under the clock (R8 review U3)', async () => {
+    mockApi(coreRoutes());
+    renderWithProviders(<BinderScreen />, { port: port() });
+    await screen.findByTestId('deck-core-name');
+    const scroll = screen.getByTestId('deck-core-scroll');
+    // The back button is not part of what scrolls: at the largest text size it scrolled away.
+    expect(within(scroll).queryByTestId('BackButton')).toBeNull();
+    expect(screen.getByTestId('BackButton')).toHaveStyle({ position: 'absolute' });
+    // The photos at the top: no band, the photo under the clock as in the mockup.
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
+    const scrollTo = (y: number) =>
+      fireEvent.scroll(scroll, {
+        nativeEvent: {
+          contentOffset: { x: 0, y },
+          contentSize: { width: 390, height: 1600 },
+          layoutMeasurement: { width: 390, height: 800 },
+        },
+      });
+    scrollTo(120);
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
+    // The photos gone under the status bar: the page's colour behind the clock.
+    scrollTo(500);
+    expect(screen.getByTestId('deck-core-status-band')).toBeOnTheScreen();
+    expect(screen.getByTestId('BackButton')).toBeOnTheScreen();
+    fireEvent.press(screen.getByTestId('BackButton'));
+    expect(mockRouter.back).toHaveBeenCalled();
+    scrollTo(0);
+    expect(screen.queryByTestId('deck-core-status-band')).toBeNull();
   });
 
   it('without photos shows its card pictures, or says there are none', async () => {

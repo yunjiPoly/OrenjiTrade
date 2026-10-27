@@ -1,4 +1,5 @@
 import { useInventorySummary } from '@/src/api/hooks/inventory';
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { RadioSheet } from '@/src/components/ui/RadioSheet';
 
 import { useBrowsingGame } from './browsingGame';
@@ -22,6 +23,8 @@ export interface GameSheetProps {
 export function GameSheet({ visible, onClose, testID = 'game-sheet' }: GameSheetProps) {
   const { game, options, select, gamesLoading, gamesError, retryGames } = useBrowsingGame();
   const byGame = useInventorySummary().data?.byGame ?? {};
+  // A guest has no cards of their own: no count under the games (stage R15).
+  const guest = useIsGuest();
   return (
     <RadioSheet
       visible={visible}
@@ -41,7 +44,9 @@ export function GameSheet({ visible, onClose, testID = 'game-sheet' }: GameSheet
         value: option.slug,
         label: option.name,
         detail: option.browsable
-          ? GAME_COPY.yourCards(Number(byGame[option.slug] ?? 0))
+          ? guest
+            ? undefined
+            : GAME_COPY.yourCards(Number(byGame[option.slug] ?? 0))
           : GAME_COPY.comingSoon,
         disabled: !option.browsable,
         leading: <GameTile slug={option.slug} name={option.name} size={38} />,

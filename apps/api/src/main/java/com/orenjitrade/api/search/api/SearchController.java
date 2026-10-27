@@ -7,6 +7,8 @@ import com.orenjitrade.api.common.PageResponse;
 import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.delisting.domain.FreshnessState;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
+import com.orenjitrade.api.profiles.domain.ViewerContext;
 import com.orenjitrade.api.search.api.SearchResponses.CardHolderResultResponse;
 import com.orenjitrade.api.search.api.SearchResponses.CollectorByNameResponse;
 import com.orenjitrade.api.search.api.SearchResponses.SuggestionResponse;
@@ -59,10 +61,15 @@ public class SearchController {
     static final String PROBLEM_REF = "#/components/schemas/ProblemDetail";
 
     private final SearchService searchService;
+    private final PrivacyPolicyService privacyPolicy;
     private final TimeProvider timeProvider;
 
-    public SearchController(SearchService searchService, TimeProvider timeProvider) {
+    public SearchController(
+            SearchService searchService,
+            PrivacyPolicyService privacyPolicy,
+            TimeProvider timeProvider) {
         this.searchService = searchService;
+        this.privacyPolicy = privacyPolicy;
         this.timeProvider = timeProvider;
     }
 
@@ -141,7 +148,8 @@ public class SearchController {
                                 region,
                                 limit,
                                 deckCore)),
-                timeProvider.now());
+                timeProvider.now(),
+                showWho(privacyPolicy, principal));
     }
 
     @GetMapping(path = "/api/v1/search/card-holders", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -271,9 +279,10 @@ public class SearchController {
                                 rarity,
                                 game));
         Instant now = timeProvider.now();
+        boolean showWho = showWho(privacyPolicy, principal);
         return new PageResponse<>(
                 holders.items().stream()
-                        .map(holder -> CardHolderResultResponse.from(holder, now))
+                        .map(holder -> CardHolderResultResponse.from(holder, now, showWho))
                         .toList(),
                 holders.page(),
                 holders.size(),
@@ -325,10 +334,11 @@ public class SearchController {
                     @Size(max = 32)
                     @Nullable String game) {
         Instant now = timeProvider.now();
+        boolean showWho = showWho(privacyPolicy, principal);
         return searchService
                 .deckCoresWithCard(viewer(principal), cardId, region, game, limit)
                 .stream()
-                .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                .map(hit -> PublicBinderSummaryResponse.from(hit, now, showWho))
                 .toList();
     }
 
@@ -422,5 +432,15 @@ public class SearchController {
 
     static @Nullable UUID viewer(@Nullable AuthenticatedUser principal) {
         return principal == null ? null : principal.userId();
+    }
+
+    /**
+     * Whether the caller may see who the collectors of a discovery response are: members only
+     * ({@link PrivacyPolicyService#canSeeWho}, stage R15). A signed-out visitor gets places, never
+     * an id, a handle, a name, an avatar, a rating, a last activity or a presence.
+     */
+    static boolean showWho(
+            PrivacyPolicyService privacyPolicy, @Nullable AuthenticatedUser principal) {
+        return privacyPolicy.canSeeWho(ViewerContext.of(viewer(principal)));
     }
 }

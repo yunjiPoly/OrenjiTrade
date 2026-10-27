@@ -14,6 +14,11 @@ public record ViewerContext(@Nullable UUID userId, boolean hasCompletedProfile, 
 
     public static final ViewerContext ANONYMOUS = new ViewerContext(null, false, false);
 
+    /** The viewer {@code userId} (signed out when {@code null}) for the rules about everyone. */
+    public static ViewerContext of(@Nullable UUID userId) {
+        return userId == null ? ANONYMOUS : new ViewerContext(userId, false, false);
+    }
+
     public boolean isMember() {
         return userId != null;
     }

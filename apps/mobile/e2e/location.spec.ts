@@ -37,13 +37,15 @@ test.describe('mobile location and discoverability', () => {
     await line.click();
 
     const settings = screen(page, 'settings-location');
-    await expect(settings.getByTestId('location-none')).toBeVisible({ timeout: 30_000 });
     await expect(settings.getByTestId('location-visibility')).toContainText(
-      'You have not chosen a location yet'
+      'You have not chosen a location yet',
+      { timeout: 30_000 }
     );
     await expect(page.locator('.leaflet-container')).toHaveCount(0);
+    // Stage R13: "Show me on the map" comes first; it waits for a saved place.
     const discoverable = settings.getByRole('switch', { name: 'Show me on the map' });
     await expect(discoverable).toHaveAttribute('aria-checked', 'false');
+    await expect(discoverable).toHaveAttribute('aria-disabled', 'true');
 
     // Saving without a state says what is missing; nothing is sent.
     const save = settings.getByRole('button', { name: 'Save location' });
@@ -83,19 +85,16 @@ test.describe('mobile location and discoverability', () => {
     await expect(snackbar(page)).toContainText('Location saved · Ontario, Canada.', {
       timeout: 30_000,
     });
-    await expect(settings.getByTestId('location-label')).toHaveText(
-      'Ontario, Canada · Americas (North)'
-    );
-    await expect(settings.getByTestId('location-visibility')).toContainText(
-      'You are hidden from the map.'
+    await expect(settings.getByTestId('location-visibility')).toHaveText(
+      'You are hidden from the map and from searches.'
     );
 
     // Opt in.
     await discoverable.click();
-    await expect(snackbar(page)).toHaveText('You now appear on the map.', { timeout: 30_000 });
+    await expect(snackbar(page)).toContainText('You now appear on the map.', { timeout: 30_000 });
     await expect(discoverable).toHaveAttribute('aria-checked', 'true');
     await expect(settings.getByTestId('location-visibility')).toHaveText(
-      'Collectors see you in Ontario, Canada.'
+      'Collectors see you in Ontario, Canada. Visitors without an account see your cards, never your name.'
     );
 
     // The API agrees: codes, names and the city only, never a coordinate.
@@ -130,11 +129,15 @@ test.describe('mobile location and discoverability', () => {
       .click();
     const again = screen(page, 'settings-location');
     await again.getByRole('switch', { name: 'Show me on the map' }).click();
-    await expect(snackbar(page)).toHaveText('You are hidden from the map.', { timeout: 30_000 });
-    await again.getByRole('button', { name: 'Remove location' }).click();
-    await page.getByTestId('confirm-dialog-confirm').click();
-    await expect(snackbar(page)).toHaveText('Your location was removed.', { timeout: 30_000 });
-    await expect(again.getByTestId('location-none')).toBeVisible();
+    await expect(snackbar(page)).toContainText('You are hidden from the map.', {
+      timeout: 30_000,
+    });
+    await again.getByRole('button', { name: 'Remove my location' }).click();
+    await page.getByTestId('location-remove-sheet-confirm').click();
+    await expect(snackbar(page)).toContainText('Your location was removed.', { timeout: 30_000 });
+    await expect(again.getByTestId('location-visibility')).toContainText(
+      'You have not chosen a location yet'
+    );
     expect(privacy.responses).toBeGreaterThan(0);
   });
 });

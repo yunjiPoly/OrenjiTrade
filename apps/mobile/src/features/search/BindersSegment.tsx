@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { useRegions } from '@/src/api/hooks/regions';
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { useBinderSearch } from '@/src/api/hooks/search';
 import type { PublicBinderSummary } from '@/src/api/types';
 import { ErrorState } from '@/src/components/ui/ErrorState';
@@ -11,6 +12,7 @@ import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Segmented } from '@/src/components/ui/Segmented';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { CardFan, CoreThumb } from '@/src/features/binders/BinderRows';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { SwitchGameButton } from '@/src/features/games/SwitchGameButton';
@@ -52,7 +54,9 @@ export interface BindersSegmentProps {
  * | Deck cores". Deck core rows: the 56 pt photo, the name, the handle (and the state or province
  * when the whole region is listed) and the price; binder rows: a fan of 3 cards, the name, the
  * handle and the number of cards. Empty: "No public binders here yet.", "No deck cores for sale
- * here yet.", or "Nothing matches. Try a deck name, a card name or a collector." with a text.
+ * here yet.", or "Nothing matches. Try a deck name, a card name or a collector." with a text. A
+ * guest's field is "Deck or binder, like Yubel" and its empty text "… Sign in to find collectors
+ * by name.": without an account, a handle finds nobody (stage R15, review fix 1).
  */
 export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegmentProps) {
   const { palette } = useTheme();
@@ -62,6 +66,8 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
   const [text, setText] = useState('');
   const [query, setQuery] = useState('');
   const [kind, setKind] = useState<Kind>('binders');
+  // A guest's search never matches a collector (stage R15): the field and its empty text say so.
+  const guest = useIsGuest();
 
   useEffect(() => {
     const q = boundedQuery(text);
@@ -88,8 +94,12 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
       <SearchInput
         value={text}
         onChangeText={setText}
-        label={BINDERS_COPY.fieldLabel}
-        placeholder={BINDERS_COPY.placeholder(browsing.game)}
+        label={guest ? BINDERS_COPY.guestFieldLabel : BINDERS_COPY.fieldLabel}
+        placeholder={
+          guest
+            ? BINDERS_COPY.guestPlaceholder(browsing.game)
+            : BINDERS_COPY.placeholder(browsing.game)
+        }
         testID="binders-input"
       />
       <View style={styles.filters}>
@@ -157,7 +167,9 @@ export function BindersSegment({ state, onClearState, onPickOnMap }: BindersSegm
     empty = <SkeletonList rows={5} rowHeight={72} testID="binders-loading" />;
   } else {
     const message = query
-      ? BINDERS_COPY.noMatch
+      ? guest
+        ? BINDERS_COPY.guestNoMatch
+        : BINDERS_COPY.noMatch
       : kind === 'cores'
         ? BINDERS_COPY.noDeckCores(gameName)
         : BINDERS_COPY.noBinders(gameName);
@@ -232,7 +244,8 @@ export const BinderSearchRow = memo(function BinderSearchRow({
   // the price the name broke in the middle of a word).
   const stacked = useStackedRows();
   const core = binder.sellsAsCore ?? false;
-  const handle = binder.owner?.handle ?? '';
+  // A guest never sees who owns it (stage R15): "A collector", the place stays.
+  const handle = binder.owner ? (binder.owner.handle ?? GUEST_COPY.aCollector) : '';
   const province = wholeRegion
     ? (binder.owner?.place?.subdivisionName ?? binder.owner?.place?.label ?? null)
     : null;

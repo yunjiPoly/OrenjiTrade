@@ -76,3 +76,8 @@ export const TABS: readonly TabDefinition[] = [
  * links still open Search's map.)
  */
 export const HIDDEN_TAB_ROUTES: readonly string[] = ['wishlist'];
+
+/** The title of a tab by its route name ("Inventory"); the name itself for an unknown one. */
+export function tabTitle(name: string): string {
+  return TABS.find((tab) => tab.name === name)?.title ?? name;
+}

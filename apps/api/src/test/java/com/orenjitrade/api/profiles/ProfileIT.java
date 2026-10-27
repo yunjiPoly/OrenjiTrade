@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import javax.imageio.ImageIO;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpHeaders;
@@ -102,6 +103,78 @@ class ProfileIT extends AbstractIntegrationTest {
                 profileBody(handle.toLowerCase(), "Maïka Test", "", List.of(), List.of()),
                 200);
         assertThat(me(uid).path("onboarding").path("interestsSet").asBoolean()).isFalse();
+    }
+
+    @Test
+    void theProfileAndItsTagsAreSavedTogetherOrNotAtAll() {
+        String uid = uniqueUid("profile-tags");
+        UUID id = provisionCompliant(uid);
+        String handle = shortHandle("T_").toLowerCase();
+        UUID trader =
+                (UUID)
+                        testUsers
+                                .query("SELECT id FROM tag WHERE slug = ?", "trader")
+                                .get(0)
+                                .get("id");
+
+        // One save: the fields and the tags (stage R13, Edit profile's "Save changes").
+        Map<String, Object> body =
+                profileBody(handle, "Tag Saver", "Ships tracked", List.of("yugioh"), List.of("en"));
+        body.put("tags", tagsBody(List.of(trader), List.of("Cube drafter")));
+        JsonNode saved = callJson(HttpMethod.PUT, "/api/v1/me/profile", uid, body, 200);
+        assertThat(saved.path("displayName").asString()).isEqualTo("Tag Saver");
+        assertThat(saved.path("tags").findValuesAsString("label"))
+                .containsExactlyInAnyOrder("Trader", "Cube drafter");
+        assertThat(
+                        callJson(HttpMethod.GET, "/api/v1/me/profile", uid, null, 200)
+                                .path("tags")
+                                .size())
+                .isEqualTo(2);
+
+        // A refused tag saves nothing: neither the new name and handle nor the tags.
+        String other = shortHandle("U_").toLowerCase();
+        Map<String, Object> refused =
+                profileBody(other, "Renamed Saver", "", List.of("pokemon"), List.of("fr"));
+        refused.put("tags", tagsBody(List.of(), List.of("A")));
+        JsonNode problem = callJson(HttpMethod.PUT, "/api/v1/me/profile", uid, refused, 400);
+        assertThat(problem.path("errorCode").asString()).isEqualTo("VALIDATION_FAILED");
+        assertThat(problem.path("errors").toString()).contains("customLabels[0]");
+        JsonNode after = callJson(HttpMethod.GET, "/api/v1/me/profile", uid, null, 200);
+        assertThat(after.path("handle").asString()).isEqualTo(handle);
+        assertThat(after.path("displayName").asString()).isEqualTo("Tag Saver");
+        assertThat(after.path("games").toString()).isEqualTo("[\"yugioh\"]");
+        assertThat(after.path("tags").size()).isEqualTo(2);
+        assertThat(me(uid).path("handle").asString()).isEqualTo(handle);
+        assertThat(testUsers.auditRowsFor(id))
+                .noneSatisfy(row -> assertThat(String.valueOf(row.get("details"))).contains(other));
+
+        // Without `tags`, a save leaves them as they are (the web and the welcome's first save).
+        JsonNode kept =
+                callJson(
+                        HttpMethod.PUT,
+                        "/api/v1/me/profile",
+                        uid,
+                        profileBody(handle, "Tag Keeper", "", List.of("yugioh"), List.of()),
+                        200);
+        assertThat(kept.path("tags").size()).isEqualTo(2);
+
+        // Empty tags clear them, in the same save.
+        Map<String, Object> cleared =
+                profileBody(handle, "Tag Keeper", "", List.of("yugioh"), List.of());
+        cleared.put("tags", tagsBody(null, null));
+        assertThat(
+                        callJson(HttpMethod.PUT, "/api/v1/me/profile", uid, cleared, 200)
+                                .path("tags")
+                                .size())
+                .isZero();
+    }
+
+    private static Map<String, Object> tagsBody(
+            @Nullable List<UUID> ids, @Nullable List<String> labels) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("tagIds", ids);
+        body.put("customLabels", labels);
+        return body;
     }
 
     @Test
@@ -290,6 +363,88 @@ class ProfileIT extends AbstractIntegrationTest {
                 .expectStatus()
                 .isNotFound();
         http.get().uri("/api/v1/public/media/").exchange().expectStatus().isNotFound();
+    }
+
+    /**
+     * Stage R12: the welcome step's live check answers as the save would (taken, reserved,
+     * malformed, one's own, free), saves nothing and is for members only.
+     */
+    @Test
+    void handleAvailabilityAnswersAsTheSaveWould() {
+        String owner = uniqueUid("avail-owner");
+        provisionCompliant(owner);
+        String taken = shortHandle("held_");
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile",
+                owner,
+                profileBody(taken, "Owner", "", List.of(), List.of()),
+                200);
+
+        String caller = uniqueUid("avail-caller");
+        UUID callerId = provisionCompliant(caller);
+        String own = me(caller).path("handle").asString();
+
+        // Held by another account, whatever the case: TAKEN, and the handle as it would be saved.
+        JsonNode held = availability(caller, taken.toUpperCase());
+        assertThat(held.path("handle").asString()).isEqualTo(taken.toLowerCase());
+        assertThat(held.path("status").asString()).isEqualTo("TAKEN");
+        assertThat(held.path("available").asBoolean()).isFalse();
+
+        // A reserved word reads TAKEN too, as the save's 409 says.
+        assertThat(availability(caller, "admin").path("status").asString()).isEqualTo("TAKEN");
+        assertThat(availability(caller, "deleted_abc").path("status").asString())
+                .isEqualTo("TAKEN");
+
+        // Malformed: INVALID (the save's 400), never looked up.
+        for (String bad : List.of("ab", "bad-handle", "way_too_long_handle_for_rules", "émile")) {
+            JsonNode invalid = availability(caller, bad);
+            assertThat(invalid.path("status").asString()).as(bad).isEqualTo("INVALID");
+            assertThat(invalid.path("available").asBoolean()).as(bad).isFalse();
+        }
+
+        // One's own handle, in any case: CURRENT, which saves.
+        JsonNode current = availability(caller, own.toUpperCase());
+        assertThat(current.path("status").asString()).isEqualTo("CURRENT");
+        assertThat(current.path("available").asBoolean()).isTrue();
+
+        // Free: AVAILABLE, and the save agrees.
+        String free = shortHandle("Free_");
+        JsonNode open = availability(caller, free);
+        assertThat(open.path("handle").asString()).isEqualTo(free.toLowerCase());
+        assertThat(open.path("status").asString()).isEqualTo("AVAILABLE");
+        assertThat(open.path("available").asBoolean()).isTrue();
+
+        // Nothing was saved or audited by the checks.
+        assertThat(me(caller).path("handle").asString()).isEqualTo(own);
+        assertThat(testUsers.auditRowsFor(callerId))
+                .noneSatisfy(row -> assertThat(row.get("action")).isEqualTo("user.handle.change"));
+
+        callJson(
+                HttpMethod.PUT,
+                "/api/v1/me/profile",
+                caller,
+                profileBody(free, "Caller", "", List.of(), List.of()),
+                200);
+        assertThat(availability(caller, free).path("status").asString()).isEqualTo("CURRENT");
+        assertThat(availability(owner, free).path("status").asString()).isEqualTo("TAKEN");
+
+        // The handle is required; members only.
+        callJson(HttpMethod.GET, "/api/v1/me/profile/handle-availability", caller, null, 400);
+        http.get()
+                .uri("/api/v1/me/profile/handle-availability?handle=" + free)
+                .exchange()
+                .expectStatus()
+                .isUnauthorized();
+    }
+
+    private JsonNode availability(String uid, String handle) {
+        return callJson(
+                HttpMethod.GET,
+                "/api/v1/me/profile/handle-availability?handle=" + handle,
+                uid,
+                null,
+                200);
     }
 
     @Test

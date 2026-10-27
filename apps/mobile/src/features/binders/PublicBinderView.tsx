@@ -30,6 +30,8 @@ import {
   TITLE_MAX_FONT_SCALE,
   useTheme,
 } from '@/src/theme';
+import { useGuestAction } from '@/src/account/guestAction';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 
 import { DECK_CORE_COPY, PUBLIC_BINDER_COPY } from './binderCopy';
 import { DeckCorePage } from './DeckCorePage';
@@ -150,7 +152,8 @@ function PlainBinder({
   const items = usePublicBinderItems(binder.id, { q, availability: null, game: null });
   const selfId = useAccount().me?.id ?? null;
   const { message, startingId } = useMessageCollector();
-  const own = binder.owner.id === selfId;
+  // Never "own" for a guest: they read no owner id (stage R15).
+  const own = selfId !== null && binder.owner.id === selfId;
 
   useEffect(() => {
     const timer = setTimeout(() => setQ(boundedQuery(text)), SEARCH_DEBOUNCE_MS);
@@ -251,10 +254,27 @@ function PlainBinder({
           ]}
         >
           <PillButton
-            label={DECK_CORE_COPY.message(binder.owner.handle)}
+            label={
+              binder.owner.handle
+                ? DECK_CORE_COPY.message(binder.owner.handle)
+                : GUEST_COPY.messageButton
+            }
+            accessibilityHint={binder.owner.id ? undefined : GUEST_COPY.needsAccount}
             icon="message-outline"
-            loading={startingId === binder.owner.id}
-            onPress={() => void message(binder.owner.id)}
+            loading={!!binder.owner.id && startingId === binder.owner.id}
+            onPress={() => {
+              const ownerId = binder.owner.id;
+              if (!ownerId) {
+                // A guest is asked to sign in; the chat with its owner opens after, found by
+                // this binder and, as for a member, about nothing: only a deck core can be a
+                // chat's subject (R15, review fix 1).
+                useGuestAction
+                  .getState()
+                  .open({ kind: 'message', listing: { binderId: binder.id }, pin: false });
+                return;
+              }
+              void message(ownerId);
+            }}
             maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
             testID="public-binder-message"
           />
@@ -297,6 +317,7 @@ function PlainHeader({
       </View>
       <SellerRow
         owner={binder.owner}
+        binderId={binder.id}
         publicBinders={binder.ownerPublicBinderCount ?? 1}
         testID="public-binder-owner"
       />
@@ -342,13 +363,23 @@ function ReportLink({ binder }: { binder: PublicBinderResponse }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={DECK_CORE_COPY.reportLabel(owner.displayName || owner.handle)}
-      onPress={() =>
+      accessibilityLabel={DECK_CORE_COPY.reportLabel(
+        owner.displayName || owner.handle || GUEST_COPY.aCollector
+      )}
+      onPress={() => {
+        const ownerId = owner.id;
+        if (!ownerId) {
+          useGuestAction.getState().open({ kind: 'report', binderId: binder.id });
+          return;
+        }
         router.push({
           pathname: '/report',
-          params: reportParams(owner, { source: 'BINDER', binderId: binder.id }),
-        })
-      }
+          params: reportParams(
+            { id: ownerId, displayName: owner.displayName ?? '', handle: owner.handle },
+            { source: 'BINDER', binderId: binder.id }
+          ),
+        });
+      }}
       testID="public-binder-report"
       style={({ pressed }) => [styles.report, pressed && styles.pressed]}
     >

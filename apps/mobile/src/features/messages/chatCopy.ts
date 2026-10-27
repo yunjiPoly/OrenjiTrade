@@ -74,7 +74,7 @@ export const CHAT_COPY = {
   unblockAction: 'Unblock',
   blockTitle: (handle: string) => `Block ${handle}?`,
   blockBody:
-    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this chat or from Settings → Blocked users.',
+    'You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from this chat or from Settings → Blocked collectors.',
   blockConfirm: 'Block',
   blockedToast: (handle: string) => `${handle} is blocked.`,
   unblockedToast: (handle: string) => `${handle} is unblocked.`,
@@ -186,7 +186,10 @@ export const SALE_MESSAGE_COPY = {
 export const SHIPPING_DETAILS_COPY = {
   title: 'Shipping details',
   intro:
-    'Your address and your e-Transfer email or phone number stay on this phone only. In a chat, the + button puts them into the message box; nothing is sent until you tap send.',
+    'Your address and e-Transfer details stay on this phone only. In a chat, the + button puts them in the message box; nothing is sent until you tap send.',
+  /** The part of the intro said in the ink colour (mockup v50 screen 50). */
+  introStrong: 'on this phone only',
+  wipedWithAccount: 'Deleting your account also wipes them from this phone.',
   address: 'Shipping address',
   addressHint: 'For “Send my address” when you buy.',
   etransfer: 'e-Transfer email or phone number',

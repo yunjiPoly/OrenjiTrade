@@ -214,17 +214,26 @@ tags:
     timeout: 20000
 - takeScreenshot: r4-sold-message
 
-# "Rate {Ben}" opens the rating of the sale.
+# "Rate {Ben}" opens the rating of the sale (stage R14, mockup v50 screen 61): Ben and the deal
+# under him as the seller reads it, "Publish rating" grey until the overall score.
 - tapOn:
     id: 'sale-message-rate'
 - extendedWaitUntil:
     visible:
       id: 'rate-overall-5'
     timeout: 60000
+- assertVisible:
+    id: 'rate-person-line'
+    text: '${output.card.name} · bought from you .*'
 - assertVisible: 'Shipping'
 - assertNotVisible: 'Meetup reliability'
+- assertVisible:
+    id: 'rate-submit'
+    text: 'Publish rating'
+    enabled: false
 - tapOn:
     id: 'rate-overall-5'
+- takeScreenshot: r14-rate-sale
 - runFlow:
     file: subflows/scroll-down-to.yaml
     env:

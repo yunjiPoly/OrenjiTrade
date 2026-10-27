@@ -227,7 +227,7 @@ One row per identity-provider user, created on the first authenticated request
 | `provider_uid` | `text` | Firebase uid, `UNIQUE` (`uq_user_account_provider_uid`); never shown to other users |
 | `email` | `text` | PII: owner and admins only |
 | `email_verified` | `boolean` | synced from the ID token on every login |
-| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; derived from the email local part with a numeric suffix on collision |
+| `handle` | `text` | `[a-z0-9_]{3,24}` (`ck_user_account_handle`), unique case-insensitively via `uq_user_account_handle_lower` on `lower(handle)`; a random first handle at provisioning, `collector_` and six characters of `bcdfghjkmnpqrstvwxz23456789` (never a part of the email; stage R12, review fix 2), drawn again when taken; the collector picks their own in the welcome |
 | `display_name` | `text` | initial value: provider name or the handle |
 | `status` | `text` | `ACTIVE` (default), `SUSPENDED`, `DELETION_REQUESTED`, `DELETED` |
 | `suspended_until` | `timestamptz` | null = indefinite; expired suspensions are lifted lazily on the next request |
@@ -842,8 +842,8 @@ The photos of a binder, a deck core's (stage R3); `POST` / `DELETE /binders/{id}
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `binder_id` | `uuid` | FK → `binder.id` (cascade); at most 4 per binder (API, 409 beyond) |
-| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg` |
-| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `binders/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/binder-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
 | `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side; EXIF and GPS stripped: the item photo processor) |
 | `sort_order` | `integer` | position |
 | `created_at` | `timestamptz` | |
@@ -1095,8 +1095,8 @@ workers.
 | --- | --- | --- |
 | `id` | `uuid` | PK |
 | `item_id` | `uuid` | FK → `inventory_item.id` (cascade); at most 4 per item (API) |
-| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg` |
-| `url` | `text` | URL at upload time (informational); responses derive the current URL from `storage_key` |
+| `storage_key` | `text` | `UNIQUE`; `ObjectStorage` key `inventory/<owner id>/<random>.jpg`; never sent to clients |
+| `url` | `text` | URL at upload time (informational); responses give `/api/v1/public/item-images/{id}` (stage R15 review fix 1: a URL never names the owner) |
 | `width`, `height` | `integer` | pixels of the stored rendition (≤ 1600 on the long side) |
 | `sort_order` | `integer` | position |
 | `created_at` | `timestamptz` | |

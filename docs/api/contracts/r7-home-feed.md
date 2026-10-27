@@ -13,7 +13,7 @@
 All under `/api/v1`. Places are a state or province and a country, never a city or a coordinate
 (ADR 0017); nothing is sponsored (ADR 0019).
 
-## `GET /feed` (signed in)
+## `GET /feed` (signed in; signed out too since stage R15)
 
 | Parameter | Rule |
 | --- | --- |
@@ -23,7 +23,8 @@ All under `/api/v1`. Places are a state or province and a country, never a city 
 | `cursor` | the `nextCursor` of the previous page (opaque; a malformed one is 400, field `cursor`) |
 | `limit` | 1 to 50, 20 by default (out of range: 400) |
 
-Anonymous: 401. The guests' Home is stage R15.
+Anonymous: 401 until stage R15; since R15 open to signed-out callers (GET only), every field of
+`collector` `null` and the place kept ([r15-browse-without-account.md](r15-browse-without-account.md)).
 
 **Order and paging.** Newest first by `at`, then `id` (both descending); a keyset cursor over the
 two (`FeedIT` pages the whole region with 3 per page and with 50 and finds the same list). A

@@ -62,7 +62,7 @@ test.describe('mobile trading safety', () => {
     // The guide, in-app.
     await tip.click();
     const guide = screen(page, 'legal-document');
-    await expect(guide.getByRole('heading', { name: 'Trading safely' })).toBeVisible({
+    await expect(guide.getByTestId('legal-document-title')).toHaveText('Trading safely', {
       timeout: 30_000,
     });
     await expect(guide.getByTestId('legal-draft-banner')).toBeVisible();

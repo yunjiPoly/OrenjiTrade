@@ -35,6 +35,23 @@ export interface CardTypingProps {
   initialText?: string;
   /** "Cancel": back to the map. */
   onCancel: () => void;
+  /**
+   * A card picked here goes to the caller instead of opening Who has this card ("Add a wish",
+   * stage R14: the wish form), with the text typed (a printing code typed picks that printing);
+   * the collectors are left out.
+   */
+  onPickCard?: (card: CardSummary, typed: string) => void;
+  /**
+   * Only the cards of this set, every page of them, with or without a text (a set page's "Who has
+   * cards of this set", stage R14); `onClearSet` widens the search to every card again.
+   */
+  set?: { code: string; name: string } | null;
+  onClearSet?: () => void;
+  /**
+   * This game's cards instead of the browsed game's, when it can be browsed (a link to "Add a
+   * wish" that names its game).
+   */
+  game?: string | null;
 }
 
 /**
@@ -47,14 +64,24 @@ export interface CardTypingProps {
  * "Collectors" section under the cards (at most 3: avatar, handle, state or province) opens their
  * profile. No match: "No {game} card matches “{text}”" and the hint.
  */
-export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
+export function CardTyping({
+  initialText = '',
+  onCancel,
+  onPickCard,
+  set = null,
+  onClearSet,
+  game: asked = null,
+}: CardTypingProps) {
   const { palette } = useTheme();
   const router = useRouter();
   const uid = useUid();
   const remember = useRecentSearchesStore((state) => state.remember);
   const browsing = useBrowsingGame();
-  const game = browsing.game;
-  const gameName = browsing.current.name;
+  const linked = asked
+    ? browsing.options.find((option) => option.slug === asked && option.browsable)
+    : undefined;
+  const game = linked?.slug ?? browsing.game;
+  const gameName = linked?.name ?? browsing.current.name;
   const [text, setText] = useState(initialText);
   const [query, setQuery] = useState(boundedQuery(initialText));
 
@@ -75,12 +102,26 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
     list.current?.scrollToOffset({ offset: 0, animated: false });
   }, [query, game]);
 
-  const typed = query.length > 0;
-  const cards = useCardSearch({ ...EMPTY_CARD_SEARCH, q: query, game }, typed && browsing.ready);
-  // The first page only: typing narrows the results, and the collectors stay under the cards.
-  const results = useMemo(() => (typed ? (cards.data?.pages[0]?.items ?? []) : []), [cards, typed]);
-  const collectors = useCollectorsByName(query);
-  const people = query.length >= COLLECTORS_MIN_CHARS ? (collectors.data ?? []) : [];
+  const setCode = set?.code ?? null;
+  const typed = query.length > 0 || setCode !== null;
+  const cards = useCardSearch(
+    { ...EMPTY_CARD_SEARCH, q: query, game, set: setCode },
+    typed && browsing.ready
+  );
+  // The first page only: typing narrows the results, and the collectors stay under the cards. A
+  // set's cards are browsed page by page.
+  const results = useMemo(
+    () =>
+      !typed
+        ? []
+        : setCode
+          ? (cards.data?.pages.flatMap((page) => page.items ?? []) ?? [])
+          : (cards.data?.pages[0]?.items ?? []),
+    [cards, typed, setCode]
+  );
+  const withPeople = !onPickCard && setCode === null;
+  const collectors = useCollectorsByName(withPeople ? query : '');
+  const people = withPeople && query.length >= COLLECTORS_MIN_CHARS ? (collectors.data ?? []) : [];
 
   // What the field holds, not the debounced query: the Search key pressed right after typing
   // kept nothing, or a word cut where the collector paused (stage R5 review, U2).
@@ -94,8 +135,10 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
   // The Search key also searches at once.
   const submit = () => setQuery(keep());
   const openCard = (card: CardSummary) => {
-    keep();
-    if (card.id) {
+    const kept = keep();
+    if (onPickCard) {
+      onPickCard(card, kept);
+    } else if (card.id) {
       router.push({ pathname: '/cards/[id]', params: { id: card.id } });
     }
   };
@@ -121,6 +164,29 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
       testID="search-input"
     />
   );
+
+  const setChip = set ? (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={TYPING_COPY.clearSet(set.code)}
+      onPress={onClearSet}
+      disabled={!onClearSet}
+      testID="search-set-chip"
+      style={({ pressed }) => [
+        styles.setChip,
+        { borderColor: palette.borderStrong, backgroundColor: palette.surface },
+        pressed && styles.pressed,
+      ]}
+    >
+      <MaterialCommunityIcons name="cards-outline" size={16} color={palette.textMuted} />
+      <Text numberOfLines={1} style={[textStyle('sm'), styles.setChipText, { color: palette.ink }]}>
+        {TYPING_COPY.setChip(set.name, set.code)}
+      </Text>
+      {onClearSet ? (
+        <MaterialCommunityIcons name="close" size={16} color={palette.textMuted} />
+      ) : null}
+    </Pressable>
+  ) : null;
 
   if (!typed && text.trim().length === 0) {
     return (
@@ -156,7 +222,7 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
     empty = (
       <View style={styles.noMatch} testID="search-no-match">
         <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
-          {TYPING_COPY.noMatch(gameName, query)}
+          {set && !query ? TYPING_COPY.setEmpty(set.code) : TYPING_COPY.noMatch(gameName, query)}
         </Text>
         <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
           {TYPING_COPY.noMatchHint(game)}
@@ -167,14 +233,30 @@ export function CardTyping({ initialText = '', onCancel }: CardTypingProps) {
 
   return (
     <View style={styles.fill} testID="search-typing">
-      <View style={styles.head}>{field}</View>
+      <View style={styles.head}>
+        {field}
+        {setChip}
+      </View>
       <FlatList
         ref={list}
         testID="search-results"
         style={styles.fill}
         data={results}
         keyExtractor={(card, index) => card.id ?? String(index)}
-        renderItem={({ item }) => <CardResult card={item} query={query} onPress={openCard} />}
+        renderItem={({ item }) => (
+          <CardResult
+            card={item}
+            query={query}
+            onPress={openCard}
+            hint={onPickCard ? TYPING_COPY.pickHint : undefined}
+          />
+        )}
+        onEndReached={() => {
+          if (setCode && cards.hasNextPage && !cards.isFetchingNextPage && !cards.error) {
+            void cards.fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.6}
         ListEmptyComponent={empty}
         ListFooterComponent={
           people.length > 0 ? (
@@ -204,10 +286,12 @@ const CardResult = memo(function CardResult({
   card,
   query,
   onPress,
+  hint = 'Opens who has this card',
 }: {
   card: CardSummary;
   query: string;
   onPress: (card: CardSummary) => void;
+  hint?: string;
 }) {
   const { palette } = useTheme();
   const name = card.name ?? '';
@@ -216,7 +300,7 @@ const CardResult = memo(function CardResult({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={name}
-      accessibilityHint="Opens who has this card"
+      accessibilityHint={hint}
       onPress={() => onPress(card)}
       testID={`search-result-${card.id}`}
       style={({ pressed }) => [
@@ -316,6 +400,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   collectors: { marginTop: spacing[4], gap: spacing[1] },
+  setChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  setChipText: { flexShrink: 1, fontWeight: fontWeight.semibold },
   noMatch: { gap: spacing[2], paddingVertical: spacing[6] },
   skeleton: { gap: spacing[3], paddingTop: spacing[2] },
   skeletonRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },

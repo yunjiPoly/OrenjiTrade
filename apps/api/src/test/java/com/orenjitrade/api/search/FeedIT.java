@@ -835,7 +835,9 @@ class FeedIT extends AbstractSearchIT {
         get(viewer.uid(), 400, "/api/v1/feed?region=atlantis&game=yugioh");
         get(viewer.uid(), 400, "/api/v1/feed?region=" + REGION + "&game=yugioh&limit=0");
         get(viewer.uid(), 400, "/api/v1/feed?region=" + REGION + "&game=yugioh&limit=51");
-        get(null, 401, "/api/v1/feed?region=" + REGION + "&game=yugioh");
+        // Open to signed-out visitors since stage R15 (GuestBrowsingIT: without who posted).
+        get(null, 200, "/api/v1/feed?region=" + REGION + "&game=yugioh");
+        get(null, 400, "/api/v1/feed?region=" + REGION);
         // Without a region: the caller's home region.
         JsonNode home = get(viewer.uid(), 200, "/api/v1/feed?game=yugioh&kind=deck_cores");
         assertThat(home.path("region").asString()).isEqualTo(REGION);

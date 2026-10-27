@@ -14,6 +14,7 @@ import com.orenjitrade.api.profiles.domain.AvatarImageProcessor.AvatarRejectedEx
 import com.orenjitrade.api.profiles.infra.ProfileRepository;
 import com.orenjitrade.api.profiles.infra.TagRepository;
 import com.orenjitrade.api.profiles.infra.TagSearchRepository;
+import com.orenjitrade.api.users.domain.HandleAvailability;
 import com.orenjitrade.api.users.domain.UserAccountService;
 import com.orenjitrade.api.users.domain.UserAccountSnapshot;
 import java.time.Instant;
@@ -149,6 +150,14 @@ public class ProfileService {
     // ---------------------------------------------------------------------------------------
 
     /**
+     * Whether the caller could save {@code rawHandle} as their handle (stage R12, the live check of
+     * the welcome step): the save's own rules, nothing saved, nothing audited.
+     */
+    public HandleAvailability handleAvailability(UUID userId, String rawHandle) {
+        return userAccountService.handleAvailability(userId, rawHandle);
+    }
+
+    /**
      * Saves handle, display name, bio, games and languages. {@code 400} for unknown games, non ISO
      * 639-1 languages or blocked terms; {@code 409 HANDLE_TAKEN} for a taken/reserved handle.
      */
@@ -173,6 +182,20 @@ public class ProfileService {
         profile.update(displayName, bio, games, languages, timeProvider.now());
         profiles.flush();
         return toView(account, profile);
+    }
+
+    /**
+     * Saves the profile ({@link #update}) and replaces its tags ({@link #replaceTags}) in one
+     * transaction (stage R13, Edit profile's one "Save changes"): a refused field or tag saves
+     * nothing, the handle change and its audit row included. Returns the profile as saved, tags
+     * included.
+     */
+    @Transactional
+    public MyProfileView updateWithTags(
+            UUID userId, ProfileUpdate update, List<UUID> tagIds, List<String> customLabels) {
+        update(userId, update);
+        replaceTags(userId, tagIds, customLabels);
+        return getMine(userId);
     }
 
     /**

@@ -492,12 +492,15 @@ class DeletionIT extends AbstractIntegrationTest {
     }
 
     /** Whether region search by handle lists the collector (discoverable and listed). */
+    /** Whether a member finds the handle (a signed-out visitor finds nobody by name, R15). */
     private boolean searchable(String handle) {
+        String member = uniqueUid("del-searcher");
+        provisionCompliant(member);
         JsonNode result =
                 callJson(
                         HttpMethod.GET,
                         "/api/v1/search?q=" + handle + "&types=collectors&region=americas-north",
-                        null,
+                        member,
                         null,
                         200);
         for (JsonNode collector : result.path("collectors")) {

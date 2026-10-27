@@ -8,7 +8,7 @@ import type { ApiError } from '../ApiError';
 import { api, required } from '../client';
 import { meKeys } from '../queryKeys';
 import type { FeedPage } from '../types';
-import { useIsAuthenticated, useUid } from './useUid';
+import { useCanBrowse, useIsAuthenticated, useUid } from './useUid';
 
 /** Posts per page of `GET /feed`. */
 export const FEED_PAGE = 20;
@@ -28,7 +28,8 @@ export const FEED_STALE_MS = 5 * 60_000;
  */
 export function useHomeFeed(kind: FeedFilter) {
   const uid = useUid();
-  const authenticated = useIsAuthenticated();
+  // Guests read Home too (stage R15): the API answers without who posted.
+  const browse = useCanBrowse();
   const { region, ready } = useBrowsingRegion();
   const browsing = useBrowsingGame();
   const game = browsing.game;
@@ -52,7 +53,7 @@ export function useHomeFeed(kind: FeedFilter) {
         ).data
       ),
     getNextPageParam: (last) => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
-    enabled: authenticated && ready && browsing.ready,
+    enabled: browse && ready && browsing.ready,
     staleTime: FEED_STALE_MS,
   });
 }

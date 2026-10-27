@@ -69,7 +69,7 @@ for (var i = 0; i < me.requiredConsents.length; i++) {
 }
 
 // The 18+ confirmation (launch readiness), like the app's sign-up; CONFIRM_AGE=false creates an
-// account from before the rule, which the app sends to the onboarding age step.
+// account from before the rule, which the app sends to the age line of Review our terms.
 if (confirmAge) {
   var documents = check(
     http.get(api + '/api/v1/public/legal/documents', { headers: auth }),

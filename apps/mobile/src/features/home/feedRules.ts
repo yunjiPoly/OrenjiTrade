@@ -1,3 +1,4 @@
+import type { ListingRef } from '@/src/account/guestAction';
 import type {
   FeedCardPreview,
   FeedNewCards,
@@ -6,6 +7,7 @@ import type {
   FeedWish,
 } from '@/src/api/types';
 import { itemPriceText } from '@/src/features/inventory/itemPrice';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { wishTerms } from '@/src/features/wishlist/wishlistLabels';
 
 import { HOME_COPY } from './homeCopy';
@@ -149,14 +151,49 @@ export function postProvince(post: Pick<FeedPost, 'place'>): string {
   return post.place.subdivisionName || post.place.countryName;
 }
 
-/** What a screen reader says for a post's header: "maya_k listed 12 cards, 5 min, Quebec". */
+/**
+ * Whether the reader may not see who posted (a guest, stage R15): the API sends no handle, the
+ * post says "A collector" with a plain avatar and keeps its place.
+ */
+export function isUnnamed(post: Pick<FeedPost, 'collector'>): boolean {
+  return !post.collector.handle;
+}
+
+/**
+ * The listing a post is about, for a guest's action kept until they sign in (stage R15): its
+ * newest card, its wish or its deck core; never the collector.
+ */
+export function postListing(post: FeedPost): ListingRef | null {
+  const first = post.newCards?.previews?.[0];
+  if (post.kind === 'NEW_CARDS' && first) {
+    return { itemId: first.itemId };
+  }
+  if (post.kind === 'WANTED' && post.wanted) {
+    return { wishId: post.wanted.wishId };
+  }
+  if (post.kind === 'DECK_CORE' && post.deckCore) {
+    return { binderId: post.deckCore.binderId };
+  }
+  return null;
+}
+
+/** Who posted, as the header writes it: the handle, or "A collector" for a guest (stage R15). */
+export function postWho(post: Pick<FeedPost, 'collector'>): string {
+  return post.collector.handle || GUEST_COPY.aCollector;
+}
+
+/**
+ * What a screen reader says for a post's header: "maya_k listed 12 cards, 5 min, Quebec"; for a
+ * guest "A collector listed 12 cards, 5 min, Quebec. Sign in to see who" (mockup v50, 70).
+ */
 export function postHeaderLabel(post: FeedPost, now: Date = new Date()): string {
-  return HOME_COPY.headerLabel(
-    post.collector.handle,
+  const summary = HOME_COPY.headerLabel(
+    postWho(post),
     postVerb(post).verb,
     feedTime(post.at, now),
     postProvince(post)
   );
+  return isUnnamed(post) ? GUEST_COPY.postHeaderLabel(summary) : summary;
 }
 
 /** A card's asking price as typed ("$11.50", "90% TCG"), or null without one. */

@@ -5,30 +5,30 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { ImportRow } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { TITLE_MAX_FONT_SCALE, fontWeight, useTheme } from '@/src/theme';
 
+import { IMPORT_COPY } from './importCopy';
 import {
-  CHOOSE_PRINTING,
-  assumedCopyText,
-  deckText,
-  matchedSourceText,
+  copiesText,
   ownedText,
   plural,
   rowConditionText,
   rowCopyLabel,
+  rowLine,
   rowSourceText,
   rowStateText,
   rowSummary,
   rowTitle,
   unmatchedNextStep,
-  unmatchedReasonText,
+  assumedCopyText,
+  deckText,
+  matchedSourceText,
 } from './importLabels';
 
 /**
- * From this text size on a line is laid out in two storeys: the tick box and the picture on top,
- * the name and the controls under them across the whole width. Next to the picture a text is half
- * the screen wide, and at the accessibility sizes "Clockwork" and "Damaged" broke in the middle of
- * the word.
+ * From this text size on a line is laid out in two storeys: the picture, the copies and the tick
+ * box on top, the name and its lines under them across the whole width (next to the picture a
+ * text is half the screen wide, and at the accessibility sizes "Clockwork" broke in mid-word).
  */
 export const STACKED_ROW_FONT_SCALE = 1.4;
 
@@ -41,19 +41,36 @@ export interface ImportRowCardProps {
   /** Leaves the row out, or puts it back. */
   onToggle: (row: ImportRow) => void;
   disabled?: boolean;
+  /** A line of a finished import (Import done): read only, nothing to press. */
+  readOnly?: boolean;
+  /**
+   * Another line of the list is the same card (two artworks of one card in a deck, one card in
+   * two conditions in a CSV): what the file said is written under it, so the two can be told
+   * apart.
+   */
+  showSource?: boolean;
+  /**
+   * Its condition is only the lowest grade the file left it at (`conditionAssumed`): the copies
+   * button shows the copies alone ("×3").
+   */
+  conditionAssumed?: boolean;
+  /**
+   * "Leave out the {n} cards that still need a printing" is ticked: a line that still needs one
+   * shows as left out (unticked, dimmed, "Left out"), and its box opens "Which copy", since a
+   * printing chosen is what puts it in (R14 review fix 1, U5).
+   */
+  skipUnchosen?: boolean;
 }
 
 /**
- * One line of an import preview.
- *
- * A recognised line: the card with its picture (the API's own picture), the copy chosen or
- * "Choose printing", its condition, its copies, and whether it goes in. Three controls, each named
- * with the card for a screen reader: in or out, which copy, condition and copies. Under them, in
- * small print, what the file said (a passcode, or the set, number and rarity as written), so the
- * match can be checked and two lines of one card can be told apart.
- *
- * A line nothing fits: what the file said, as written (for a deck, with its sections), why it was
- * not recognised and what the collector can do about it. It is never imported and has no control.
+ * One line of "Check the cards" (mockup v50 screen 67, stage R14): the card's picture, its name,
+ * one line under it ("ROTA-EN006 · Super Rare", "Which copy? 2 printings" in amber, "Not
+ * recognised. It stays out." in red), the copies and the tick box that puts it in or leaves it
+ * out. The name and its line open the "Which copy" chooser; the copies ("NM ×3", "×3" while the
+ * file names no condition) open the
+ * condition and copies. A third small line says what matters when there is something: left out,
+ * its deck section switched off, cards already owned. A line nothing fits shows what the file
+ * said and has no control. Each control is named with the card for VoiceOver.
  */
 export const ImportRowCard = memo(function ImportRowCard({
   row,
@@ -61,236 +78,257 @@ export const ImportRowCard = memo(function ImportRowCard({
   onEdit,
   onToggle,
   disabled = false,
+  readOnly = false,
+  showSource = false,
+  conditionAssumed = false,
+  skipUnchosen = false,
 }: ImportRowCardProps) {
   const { palette } = useTheme();
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale >= STACKED_ROW_FONT_SCALE;
   const title = rowTitle(row);
+  const line = rowLine(row);
+  const lineColor =
+    line.tone === 'danger'
+      ? palette.danger
+      : line.tone === 'warning'
+        ? palette.warning
+        : palette.textMuted;
 
   if (row.status === 'UNMATCHED') {
     const said = rowSourceText(row);
-    const sections = deckText(row.deck);
+    // What the file said (when the name is not already it) and where it stood in the deck.
+    const fileSaid = [said && said !== title ? said : null, deckText(row.deck)]
+      .filter(Boolean)
+      .join(' · ');
     return (
       <View
         accessible
         accessibilityLabel={rowSummary(row)}
         testID={`import-row-${row.position}`}
-        style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border }]}
+        style={[styles.row, { borderBottomColor: palette.border }]}
       >
-        <View style={styles.main}>
-          <View style={[styles.unknown, { backgroundColor: palette.surfaceVariant }]}>
-            <MaterialCommunityIcons name="help" size={20} color={palette.textMuted} />
-          </View>
-          <View style={styles.text}>
-            <Text style={[textStyle('xs'), styles.strong, { color: palette.danger }]}>
-              Not recognised
-            </Text>
-            <Text style={[textStyle('md'), styles.name, { color: palette.ink }]}>{title}</Text>
-            {said ? (
-              <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{said}</Text>
-            ) : null}
-            {sections ? (
-              <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{sections}</Text>
-            ) : null}
-            <Text style={[textStyle('xs'), { color: palette.textMuted }]}>
-              {unmatchedReasonText(row.unmatchedReason)}
-            </Text>
-            <Text
-              style={[textStyle('xs'), { color: palette.ink }]}
-              testID={`import-row-${row.position}-next`}
-            >
-              {unmatchedNextStep(row.unmatchedReason)}
-            </Text>
-          </View>
+        <View
+          style={[styles.unknown, { borderColor: palette.borderStrong }]}
+          accessibilityElementsHidden
+        >
+          <MaterialCommunityIcons name="help" size={18} color={palette.textMuted} />
+        </View>
+        <View style={styles.words}>
+          <Text
+            numberOfLines={stacked ? undefined : 1}
+            style={[styles.name, { color: palette.ink }]}
+            testID={`import-row-${row.position}-name`}
+          >
+            {title}
+          </Text>
+          <Text style={[styles.line, { color: lineColor }]}>{line.text}</Text>
+          {fileSaid ? (
+            <Text style={[styles.extra, { color: palette.textMuted }]}>{fileSaid}</Text>
+          ) : null}
+          <Text
+            style={[styles.extra, { color: palette.textMuted }]}
+            testID={`import-row-${row.position}-next`}
+          >
+            {unmatchedNextStep(row.unmatchedReason)}
+          </Text>
         </View>
       </View>
     );
   }
 
-  const needsPrinting = row.status === 'CHOOSE_PRINTING';
-  const state = rowStateText(row);
-  const deck = deckText(row.deck);
+  // Left out with the lines that still need a printing: shown as any line left out.
+  const skipped = skipUnchosen && row.status === 'CHOOSE_PRINTING' && row.included;
+  const included = row.included && !skipped;
+  const state = rowStateText({ ...row, included });
   const owned = ownedText(row);
-  const copy = rowCopyLabel(row);
+  const assumed = row.status === 'CHOOSE_PRINTING' ? null : assumedCopyText(row);
+  const dimmed = !included || !row.inScope;
   const condition = rowConditionText(row);
-  const fromFile = matchedSourceText(row);
-  // A copy that left the catalog leaves the line to choose again: nothing is assumed any more.
-  const assumed = needsPrinting ? null : assumedCopyText(row);
-  const dimmed = !row.included || !row.inScope;
+  const copies = plural(row.quantity, 'copy', 'copies');
+  const extra = state ?? owned;
+  const fromFile = showSource ? matchedSourceText(row) : null;
 
-  const heading = (
-    <>
+  const words = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Which copy of ${title}: ${rowCopyLabel(row)}${assumed ? ' (taken as the plain copy: check it)' : ''}`}
+      accessibilityHint="Opens the printings of this card"
+      aria-disabled={disabled || readOnly}
+      disabled={disabled || readOnly}
+      onPress={() => onChoosePrinting(row)}
+      testID={`import-row-${row.position}-printing`}
+      style={({ pressed }) => [styles.words, pressed && styles.pressed]}
+    >
       <Text
-        style={[textStyle('md'), styles.name, { color: dimmed ? palette.textMuted : palette.ink }]}
+        numberOfLines={stacked ? undefined : 1}
+        style={[styles.name, { color: palette.ink }]}
         testID={`import-row-${row.position}-name`}
       >
         {title}
       </Text>
-      {state ? (
+      <Text
+        numberOfLines={stacked ? undefined : 1}
+        style={[styles.line, { color: lineColor }]}
+        testID={`import-row-${row.position}-line`}
+      >
+        {line.text}
+      </Text>
+      {extra ? (
         <Text
-          style={[textStyle('xs'), styles.strong, { color: palette.textMuted }]}
-          testID={`import-row-${row.position}-state`}
+          style={[styles.extra, { color: palette.textMuted }]}
+          testID={`import-row-${row.position}-${state ? 'state' : 'owned'}`}
         >
-          {state}
+          {extra}
         </Text>
       ) : null}
-    </>
+      {fromFile ? (
+        <Text
+          style={[styles.extra, { color: palette.textMuted }]}
+          testID={`import-row-${row.position}-source`}
+        >
+          {fromFile}
+        </Text>
+      ) : null}
+    </Pressable>
   );
 
   const controls = (
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Which copy of ${title}: ${copy}${assumed ? ' (taken as the plain copy: check it)' : ''}`}
-        accessibilityHint="Opens the printings of this card"
-        aria-disabled={disabled}
-        disabled={disabled}
-        onPress={() => onChoosePrinting(row)}
-        testID={`import-row-${row.position}-printing`}
-        style={({ pressed }) => [
-          styles.control,
-          {
-            borderColor: needsPrinting ? palette.warning : palette.borderStrong,
-            backgroundColor: needsPrinting ? palette.surfaceVariant : palette.surface,
-          },
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[
-            textStyle('sm'),
-            styles.controlText,
-            needsPrinting && styles.strong,
-            { color: palette.ink },
-          ]}
-        >
-          {needsPrinting ? CHOOSE_PRINTING : copy}
-        </Text>
-        <MaterialCommunityIcons name="chevron-down" size={18} color={palette.textMuted} />
-      </Pressable>
-      {assumed ? (
-        <Text
-          style={[textStyle('xs'), { color: palette.ink }]}
-          testID={`import-row-${row.position}-assumed`}
-        >
-          {assumed}
-        </Text>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Condition and copies of ${title}: ${condition}, ${plural(row.quantity, 'copy', 'copies')}`}
+        accessibilityLabel={IMPORT_COPY.copiesLabel(title, condition, copies)}
         accessibilityHint="Opens the condition and the number of copies"
-        aria-disabled={disabled}
-        disabled={disabled}
+        aria-disabled={disabled || readOnly}
+        disabled={disabled || readOnly}
         onPress={() => onEdit(row)}
+        hitSlop={6}
         testID={`import-row-${row.position}-edit`}
-        style={({ pressed }) => [
-          styles.control,
-          { borderColor: palette.borderStrong, backgroundColor: palette.surface },
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.copies, pressed && styles.pressed]}
       >
-        <Text style={[textStyle('sm'), styles.controlText, { color: palette.ink }]}>
-          {condition} · ×{row.quantity}
+        <Text
+          maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+          style={[styles.copiesText, { color: palette.settings.segmentText }]}
+        >
+          {copiesText(row, conditionAssumed)}
         </Text>
-        <MaterialCommunityIcons name="pencil-outline" size={16} color={palette.textMuted} />
       </Pressable>
-      {owned ? (
-        <Text
-          style={[textStyle('xs'), { color: palette.textMuted }]}
-          testID={`import-row-${row.position}-owned`}
+      {readOnly ? null : (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityLabel={`${included ? 'Leave out' : 'Include'} ${title}`}
+          accessibilityHint={
+            skipped
+              ? 'Opens its printings: it goes in once one is chosen'
+              : included
+                ? 'Leaves this card out'
+                : 'Puts this card back'
+          }
+          aria-checked={included}
+          aria-disabled={disabled}
+          disabled={disabled}
+          onPress={() => (skipped ? onChoosePrinting(row) : onToggle(row))}
+          testID={`import-row-${row.position}-include`}
+          style={({ pressed }) => [styles.check, pressed && styles.pressed]}
         >
-          {owned}
-        </Text>
-      ) : null}
-      {deck ? <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{deck}</Text> : null}
-      {fromFile ? (
-        <Text
-          style={[textStyle('xs'), { color: palette.textMuted }]}
-          testID={`import-row-${row.position}-source`}
-        >
-          {fromFile}
-        </Text>
-      ) : null}
+          <View
+            style={[
+              styles.box,
+              {
+                borderColor: included ? palette.primary : palette.textDisabled,
+                backgroundColor: included ? palette.primary : 'transparent',
+              },
+            ]}
+          >
+            {included ? (
+              <MaterialCommunityIcons name="check" size={15} color={palette.onPrimary} />
+            ) : null}
+          </View>
+        </Pressable>
+      )}
     </>
+  );
+
+  const picture = (
+    <View style={dimmed ? styles.dimmed : undefined}>
+      <CardImage
+        src={row.card?.imageUrl}
+        alt=""
+        game={row.card?.game}
+        size="xs"
+        style={styles.picture}
+      />
+    </View>
   );
 
   return (
     <View
       testID={`import-row-${row.position}`}
-      style={[
-        styles.card,
-        {
-          backgroundColor: palette.surface,
-          borderColor: needsPrinting && !dimmed ? palette.warning : palette.border,
-        },
-      ]}
+      style={[styles.row, stacked && styles.rowStacked, { borderBottomColor: palette.border }]}
     >
-      <View style={styles.main}>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityLabel={`Import ${title}`}
-          accessibilityHint={row.included ? 'Leaves this card out' : 'Puts this card back'}
-          aria-checked={row.included}
-          aria-disabled={disabled}
-          disabled={disabled}
-          onPress={() => onToggle(row)}
-          hitSlop={8}
-          testID={`import-row-${row.position}-include`}
-          style={({ pressed }) => [styles.check, pressed && styles.pressed]}
-        >
-          <MaterialCommunityIcons
-            name={row.included ? 'checkbox-marked' : 'checkbox-blank-outline'}
-            size={26}
-            color={row.included ? palette.primary : palette.textMuted}
-          />
-        </Pressable>
-        <View style={dimmed ? styles.dimmed : undefined}>
-          <CardImage src={row.card?.imageUrl} alt="" game={row.card?.game} size="sm" />
-        </View>
-        {stacked ? null : (
-          <View style={styles.text}>
-            {heading}
+      {stacked ? (
+        <>
+          <View style={styles.top}>
+            {picture}
+            <View style={styles.grow} />
             {controls}
           </View>
-        )}
-      </View>
-      {stacked ? (
-        <View style={styles.below} testID={`import-row-${row.position}-below`}>
-          {heading}
+          <View
+            style={dimmed ? styles.dimmedWords : undefined}
+            testID={`import-row-${row.position}-below`}
+          >
+            {words}
+          </View>
+        </>
+      ) : (
+        <>
+          {picture}
+          <View style={[styles.grow, dimmed && styles.dimmedWords]}>{words}</View>
           {controls}
-        </View>
-      ) : null}
+        </>
+      )}
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.md, borderWidth: 1 },
-  main: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[3], padding: spacing[2] },
-  check: { minWidth: 32, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 72,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+  },
+  rowStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  grow: { flex: 1, minWidth: 0 },
+  words: { flex: 1, minWidth: 0, gap: 3, paddingVertical: 4 },
+  picture: { width: 40, height: 58, borderRadius: 5 },
   unknown: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.md,
+    width: 40,
+    height: 58,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  text: { flex: 1, gap: spacing[1] },
-  below: { gap: spacing[1], paddingHorizontal: spacing[2], paddingBottom: spacing[2] },
-  name: { fontWeight: fontWeight.semibold },
-  strong: { fontWeight: fontWeight.semibold },
-  control: {
-    flexDirection: 'row',
+  name: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.semibold },
+  line: { fontSize: 12, lineHeight: 16 },
+  extra: { fontSize: 12, lineHeight: 16 },
+  copies: { minHeight: 44, justifyContent: 'center' },
+  copiesText: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  check: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
     alignItems: 'center',
-    gap: spacing[2],
-    minHeight: 40,
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[1],
-    borderRadius: radius.md,
-    borderWidth: 1,
+    justifyContent: 'center',
   },
-  controlText: { flex: 1 },
   dimmed: { opacity: 0.5 },
-  pressed: { opacity: 0.8 },
+  dimmedWords: { opacity: 0.6 },
+  pressed: { opacity: 0.7 },
 });

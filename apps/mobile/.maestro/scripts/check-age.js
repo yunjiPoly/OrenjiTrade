@@ -1,6 +1,6 @@
 // Maestro runScript (runs on the host): checks on the isolated mobile E2E API (:8090) whether
 // the account EMAIL / PASSWORD recorded the 18+ confirmation (`GET /me` →
-// `onboarding.ageConfirmed`), after the app's onboarding age step. Only run accounts
+// `onboarding.ageConfirmed`), after the age line of Review our terms. Only run accounts
 // (@mobile-e2e.test) are checked.
 //
 // Inputs (env): API_URL, AUTH_EMULATOR_URL, EMAIL, PASSWORD, EXPECT ('true' | 'false').

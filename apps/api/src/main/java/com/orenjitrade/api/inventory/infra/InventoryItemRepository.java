@@ -507,9 +507,9 @@ public class InventoryItemRepository {
         }
         return jdbc.sql(
                         "SELECT DISTINCT ON (i.binder_id) i.binder_id, i.printing_id,"
-                                + " (SELECT im.storage_key FROM inventory_item_image im"
+                                + " (SELECT im.id FROM inventory_item_image im"
                                 + " WHERE im.item_id = i.id ORDER BY im.sort_order, im.created_at"
-                                + " LIMIT 1) AS image_key"
+                                + " LIMIT 1) AS image_id"
                                 + FROM
                                 + " WHERE i.binder_id IN (:ids) AND i.deleted_at IS NULL"
                                 + (publicOnly ? " AND " + LISTED : "")
@@ -521,7 +521,7 @@ public class InventoryItemRepository {
                                 new CoverRow(
                                         rs.getObject("binder_id", UUID.class),
                                         rs.getObject("printing_id", UUID.class),
-                                        rs.getString("image_key")))
+                                        rs.getObject("image_id", UUID.class)))
                 .list();
     }
 
@@ -1632,8 +1632,8 @@ public class InventoryItemRepository {
             List<String> games,
             List<String> publicGames) {}
 
-    /** First item of a binder. */
-    public record CoverRow(UUID binderId, UUID printingId, @Nullable String imageKey) {}
+    /** First item of a binder, with the id of its first photo (null without one). */
+    public record CoverRow(UUID binderId, UUID printingId, @Nullable UUID imageId) {}
 
     /** A printing among the first items of a binder (its preview pictures). */
     public record PreviewRow(UUID binderId, UUID printingId) {}

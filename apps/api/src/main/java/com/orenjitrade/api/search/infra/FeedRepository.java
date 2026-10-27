@@ -68,7 +68,7 @@ public class FeedRepository {
      * DiscoverySql#ITEM_JOINS}); the game when {@code withGame}; only the cards listed until {@code
      * :asOf} when {@code asOf} (the pages after the first).
      */
-    private static String cardsFrom(boolean withGame, boolean asOf) {
+    private static String cardsFrom(boolean withGame, boolean asOf, boolean signedIn) {
         return DiscoverySql.ITEM_JOINS
                 + PublicVisibilityRules.ownerJoins("i.owner_id")
                 + DiscoverySql.locationJoins("i.owner_id")
@@ -84,12 +84,11 @@ public class FeedRepository {
                 + (asOf ? " AND i.listing_changed_at <= :asOf" : "")
                 + " AND (i.binder_id IS NULL OR NOT b.sells_as_core)"
                 + (withGame ? " AND g.slug = :game" : "")
-                + " AND i.owner_id <> :viewer"
-                + DiscoverySql.notBlocked("i.owner_id");
+                + notViewer("i.owner_id", signedIn);
     }
 
     /** The FROM and WHERE of the public wishes. */
-    private static String wishesFrom(boolean withGame) {
+    private static String wishesFrom(boolean withGame, boolean signedIn) {
         return " FROM wishlist_item w"
                 + " JOIN card wc ON wc.id = w.card_id"
                 + " JOIN game wg ON wg.id = wc.game_id"
@@ -101,8 +100,7 @@ public class FeedRepository {
                 + DiscoverySql.IN_REGION
                 + " AND w.created_at > :since"
                 + (withGame ? " AND wg.slug = :game" : "")
-                + " AND w.owner_id <> :viewer"
-                + DiscoverySql.notBlocked("w.owner_id");
+                + notViewer("w.owner_id", signedIn);
     }
 
     /**
@@ -110,7 +108,7 @@ public class FeedRepository {
      * Search lists them (a binder that also holds another game's card, or whose cover is one, is no
      * deck core of the game: {@link RegionBinderRepository#OF_GAME}).
      */
-    private static String coresFrom(boolean withGame) {
+    private static String coresFrom(boolean withGame, boolean signedIn) {
         return " FROM binder bn"
                 + PublicVisibilityRules.ownerJoins("bn.owner_id")
                 + DiscoverySql.locationJoins("bn.owner_id")
@@ -124,8 +122,18 @@ public class FeedRepository {
                 + CORE_AT
                 + " > :since"
                 + (withGame ? RegionBinderRepository.OF_GAME : "")
-                + " AND bn.owner_id <> :viewer"
-                + DiscoverySql.notBlocked("bn.owner_id");
+                + notViewer("bn.owner_id", signedIn);
+    }
+
+    /**
+     * " AND not the viewer, and no block in either direction with them" for a signed-in viewer
+     * ({@code :viewer}); nothing for a signed-out visitor (stage R15: guests read Home), who has
+     * neither posts of their own nor blocks.
+     */
+    private static String notViewer(String ownerColumn, boolean signedIn) {
+        return signedIn
+                ? " AND " + ownerColumn + " <> :viewer" + DiscoverySql.notBlocked(ownerColumn)
+                : "";
     }
 
     /**
@@ -142,7 +150,7 @@ public class FeedRepository {
             sql.append("WITH card_groups AS (SELECT i.owner_id, ")
                     .append(HOUR)
                     .append(" AS hour, max(i.listing_changed_at) AS at")
-                    .append(cardsFrom(true, scope.asOf() != null))
+                    .append(cardsFrom(true, scope.asOf() != null, scope.signedIn()))
                     .append(" GROUP BY i.owner_id, ")
                     .append(HOUR)
                     .append(") ");
@@ -154,14 +162,14 @@ public class FeedRepository {
             branches.add(
                     "SELECT 'WANTED' AS kind, w.id, w.created_at AS at, w.owner_id,"
                             + " NULL::bigint AS hour"
-                            + wishesFrom(true));
+                            + wishesFrom(true, scope.signedIn()));
         }
         if (kinds.contains(FeedPostKind.DECK_CORE)) {
             branches.add(
                     "SELECT 'DECK_CORE' AS kind, bn.id, "
                             + CORE_AT
                             + " AS at, bn.owner_id, NULL::bigint AS hour"
-                            + coresFrom(true));
+                            + coresFrom(true, scope.signedIn()));
         }
         if (branches.isEmpty()) {
             return List.of();
@@ -197,11 +205,11 @@ public class FeedRepository {
         boolean withGame = !anyGame;
         String sql =
                 "SELECT EXISTS (SELECT 1"
-                        + cardsFrom(withGame, false)
+                        + cardsFrom(withGame, false, scope.signedIn())
                         + ") OR EXISTS (SELECT 1"
-                        + wishesFrom(withGame)
+                        + wishesFrom(withGame, scope.signedIn())
                         + ") OR EXISTS (SELECT 1"
-                        + coresFrom(withGame)
+                        + coresFrom(withGame, scope.signedIn())
                         + ")";
         Map<String, Object> params = scope.params();
         if (anyGame) {
@@ -241,7 +249,7 @@ public class FeedRepository {
                         + ") AS total, row_number() OVER (PARTITION BY i.owner_id, "
                         + HOUR
                         + " ORDER BY i.listing_changed_at DESC, i.id DESC) AS rn"
-                        + cardsFrom(true, scope.asOf() != null)
+                        + cardsFrom(true, scope.asOf() != null, scope.signedIn())
                         + " AND i.owner_id IN (:owners) AND "
                         + HOUR
                         + " IN (:hours)) grouped"
@@ -278,7 +286,8 @@ public class FeedRepository {
      *
      * @param region platform region code
      * @param game game slug
-     * @param viewerId the signed-in viewer (left out, and so is everyone in a block with them)
+     * @param viewerId the signed-in viewer (left out, and so is everyone in a block with them);
+     *     {@code null} for a signed-out visitor (stage R15)
      * @param since the start of the window (exclusive)
      * @param now the time of the public rules
      * @param asOf on the pages after the first, the time the first page was read ({@link
@@ -288,7 +297,7 @@ public class FeedRepository {
     public record Scope(
             String region,
             String game,
-            UUID viewerId,
+            @Nullable UUID viewerId,
             Instant since,
             Instant now,
             @Nullable Instant asOf) {
@@ -302,8 +311,15 @@ public class FeedRepository {
             params.put("since", Timestamp.from(since));
             params.put("region", region);
             params.put("game", game);
-            params.put("viewer", viewerId);
+            if (viewerId != null) {
+                params.put("viewer", viewerId);
+            }
             return params;
+        }
+
+        /** Whether a member reads the feed (a signed-out visitor has no posts and no blocks). */
+        boolean signedIn() {
+            return viewerId != null;
         }
     }
 

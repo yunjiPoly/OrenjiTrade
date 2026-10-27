@@ -7,7 +7,9 @@ import com.orenjitrade.api.profiles.domain.AvatarImageProcessor;
 import com.orenjitrade.api.profiles.domain.MyProfileView;
 import com.orenjitrade.api.profiles.domain.ProfileService;
 import com.orenjitrade.api.profiles.domain.ProfileUpdate;
+import com.orenjitrade.api.users.domain.HandleRules;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,6 +58,27 @@ public class MyProfileController {
         return MyProfileResponse.from(profileService.getMine(principal.userId()));
     }
 
+    @GetMapping("/handle-availability")
+    @Operation(
+            operationId = "getHandleAvailability",
+            summary = "Whether the caller could save a handle",
+            description =
+                    "Stage R12: the welcome step checks the handle while the collector types. The"
+                        + " save's own rules (trimmed and lower-cased, 3-24 characters [a-z0-9_],"
+                        + " unique case-insensitively, reserved words refused), nothing saved. A"
+                        + " reserved handle reads TAKEN, as the save says. The caller's own handle"
+                        + " is CURRENT. Members only; rate-limited (60 per 10 minutes). The save"
+                        + " (PUT /me/profile) still decides.")
+    public HandleAvailabilityResponse handleAvailability(
+            @AuthenticationPrincipal AuthenticatedUser principal,
+            @Parameter(description = "The handle to check, as typed", example = "sam_trades")
+                    @RequestParam
+                    String handle) {
+        String normalised = HandleRules.normalise(handle);
+        return HandleAvailabilityResponse.of(
+                normalised, profileService.handleAvailability(principal.userId(), handle));
+    }
+
     @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             operationId = "updateMyProfile",
@@ -64,7 +88,9 @@ public class MyProfileController {
                         + " unknown games (yugioh, pokemon, mtg, riftbound), non ISO 639-1"
                         + " languages or blocked terms; 409 HANDLE_TAKEN when the handle is used"
                         + " (case-insensitive) or reserved. The first save completes the"
-                        + " `profileComplete` onboarding step.")
+                        + " `profileComplete` onboarding step. Stage R13: an optional `tags` object"
+                        + " replaces the profile tags in the same transaction (the rules of PUT"
+                        + " /me/profile/tags); a refused tag saves nothing.")
     @ApiResponse(responseCode = "200", description = "Saved profile")
     @ApiResponse(
             responseCode = "409",
@@ -76,15 +102,23 @@ public class MyProfileController {
     public MyProfileResponse update(
             @AuthenticationPrincipal AuthenticatedUser principal,
             @Valid @RequestBody UpdateProfileRequest body) {
+        ProfileUpdate update =
+                new ProfileUpdate(
+                        body.handle(),
+                        body.displayName(),
+                        body.bio(),
+                        body.games(),
+                        body.languages());
+        UpdateProfileTagsRequest tags = body.tags();
+        if (tags == null) {
+            return MyProfileResponse.from(profileService.update(principal.userId(), update));
+        }
         return MyProfileResponse.from(
-                profileService.update(
+                profileService.updateWithTags(
                         principal.userId(),
-                        new ProfileUpdate(
-                                body.handle(),
-                                body.displayName(),
-                                body.bio(),
-                                body.games(),
-                                body.languages())));
+                        update,
+                        tags.tagIds() == null ? List.of() : tags.tagIds(),
+                        tags.customLabels() == null ? List.of() : tags.customLabels()));
     }
 
     @PostMapping(path = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

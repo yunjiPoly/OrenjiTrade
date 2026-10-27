@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 /** Pure rules of ratings and references (Phase 7 contract). */
@@ -23,6 +24,15 @@ public final class RatingRules {
     /** Until when a rating created at {@code createdAt} can be edited. */
     public static Instant editableUntil(Instant createdAt) {
         return createdAt.plus(EDIT_WINDOW);
+    }
+
+    /**
+     * Whether a sale was sold to {@code me} (stage R14, the rating form's deal line): {@code true}
+     * when {@code me} bought it, {@code false} when {@code me} sold it; {@code null} without a sale
+     * (another kind of interaction, or a sale no longer found).
+     */
+    public static @Nullable Boolean soldTo(@Nullable UUID buyerId, UUID me) {
+        return buyerId == null ? null : buyerId.equals(me);
     }
 
     /** Whether a rating created at {@code createdAt} can still be edited at {@code now}. */

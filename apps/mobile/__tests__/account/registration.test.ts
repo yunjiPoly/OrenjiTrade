@@ -1,9 +1,11 @@
 import {
   AGE_CONFIRMATION_REQUIRED_MESSAGE,
+  SIGN_UP_BLOCKER_LINES,
   consentsFor,
   hasErrors,
   register,
   requiredAtRegistration,
+  signUpBlocker,
   validateEmail,
   validateSignUp,
 } from '@/src/account/registration';
@@ -116,6 +118,43 @@ function form() {
     acceptedDocumentTypes: ['TERMS', 'PRIVACY'],
   };
 }
+
+describe('signUpBlocker (stage R12)', () => {
+  const documents = [{ documentType: 'TERMS' }, { documentType: 'PRIVACY' }] as const;
+  const blocker = (accepted: string[], ageConfirmed: boolean, ageNeeded = true) =>
+    signUpBlocker({
+      requiredDocuments: documents,
+      acceptedDocumentTypes: accepted,
+      ageNeeded,
+      ageConfirmed,
+    });
+
+  it('says what is missing until every box is ticked', () => {
+    expect(blocker([], false)).toBe('documents-and-age');
+    expect(SIGN_UP_BLOCKER_LINES['documents-and-age']).toBe(
+      'Accept the documents and confirm your age to continue.'
+    );
+    expect(blocker(['TERMS'], false)).toBe('documents-and-age');
+    expect(blocker(['TERMS', 'PRIVACY'], false)).toBe('age');
+    expect(SIGN_UP_BLOCKER_LINES.age).toBe('Confirm that you are 18 or older to continue.');
+    expect(blocker(['TERMS'], true)).toBe('documents');
+    expect(SIGN_UP_BLOCKER_LINES.documents).toBe('Accept every document to continue.');
+    expect(blocker(['PRIVACY', 'TERMS'], true)).toBeNull();
+  });
+
+  it('never needs the age an older API does not publish, and never passes without documents', () => {
+    expect(blocker(['TERMS', 'PRIVACY'], false, false)).toBeNull();
+    expect(blocker([], false, false)).toBe('documents');
+    expect(
+      signUpBlocker({
+        requiredDocuments: [],
+        acceptedDocumentTypes: [],
+        ageNeeded: true,
+        ageConfirmed: true,
+      })
+    ).toBe('documents');
+  });
+});
 
 describe('register', () => {
   function deps(currentEmail: string | null = null) {

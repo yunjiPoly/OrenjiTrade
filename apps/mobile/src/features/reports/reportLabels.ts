@@ -46,9 +46,9 @@ export function myReportStatusText(report: Pick<MyReport, 'status'>): string {
     case 'UNDER_REVIEW':
       return 'A moderator is reviewing it';
     case 'ACTIONED':
-      return 'Reviewed — the team took action';
+      return 'Reviewed: the team took action';
     case 'DISMISSED':
-      return 'Reviewed — no violation found';
+      return 'Reviewed: no violation found';
     default:
       return reportStatusLabel(report.status);
   }

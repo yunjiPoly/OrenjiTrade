@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { ACCOUNT_SCREEN_TITLES } from '@/src/navigation/backTitles';
+import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
 /**
@@ -15,6 +16,8 @@ export default function AccountLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: palette.surface },
         headerTintColor: palette.ink,
+        // Screen titles in Sora, as everywhere else (stage R12; RootNavigator).
+        headerTitleStyle: headerTitleFont(),
         headerShadowVisible: false,
         headerTitleAlign: 'center',
         headerBackVisible: false,

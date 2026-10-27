@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ErrorState } from '@/src/components/ui/ErrorState';
+import { withAlpha } from '@/src/features/account/StatusPage';
 import { RadioSheet } from '@/src/components/ui/RadioSheet';
 import { Skeleton } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
@@ -104,8 +105,10 @@ export function BinderGameGrid({
                 stacked && styles.choiceFull,
                 {
                   borderColor: on ? palette.primary : palette.border,
+                  // Mockup v50 screen 63 (stage R14): the chosen tile is tinted orange, as the
+                  // welcome's game tiles.
                   backgroundColor: on
-                    ? palette.primaryContainer
+                    ? withAlpha(palette.primary, 0.08)
                     : option.browsable
                       ? palette.surface
                       : 'transparent',

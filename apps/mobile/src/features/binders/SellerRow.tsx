@@ -2,9 +2,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useGuestAction } from '@/src/account/guestAction';
 import type { PublicBinderOwner } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
+import { GuestAvatar } from '@/src/features/guest/GuestParts';
 import { GENERIC_PLACE_LABEL } from '@/src/lib/place';
 import { fontWeight, useTheme } from '@/src/theme';
 
@@ -20,14 +23,19 @@ export function ownerProvince(owner: Pick<PublicBinderOwner, 'place'>): string {
 
 /**
  * The seller row of a deck core page and of a public binder (mockup screen 16): the avatar, the
- * handle and "{province} · {n} public binders"; it opens the owner's profile.
+ * handle and "{province} · {n} public binders"; it opens the owner's profile. A guest never sees
+ * who it is (stage R15): "A collector" with a plain avatar and the place, and a tap asks them to
+ * sign in (the profile opens after, found by the binder).
  */
 export function SellerRow({
   owner,
+  binderId,
   publicBinders,
   testID = 'binder-seller',
 }: {
   owner: PublicBinderOwner;
+  /** The binder on screen: a guest's tap is kept by it, never by the collector. */
+  binderId: string;
   publicBinders: number;
   testID?: string;
 }) {
@@ -35,11 +43,20 @@ export function SellerRow({
   const router = useRouter();
   const province = ownerProvince(owner);
   const line = DECK_CORE_COPY.sellerLine(province, publicBinders);
+  const handle = owner.handle;
   return (
     <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={DECK_CORE_COPY.sellerLabel(owner.handle, line)}
-      onPress={() => router.push({ pathname: '/collectors/[id]', params: { id: owner.handle } })}
+      accessibilityRole={handle ? 'link' : 'button'}
+      accessibilityLabel={
+        handle ? DECK_CORE_COPY.sellerLabel(handle, line) : GUEST_COPY.ownerLabel(line)
+      }
+      onPress={() =>
+        handle
+          ? router.push({ pathname: '/collectors/[id]', params: { id: handle } })
+          : useGuestAction
+              .getState()
+              .open({ kind: 'profile', listing: { binderId }, page: 'profile' })
+      }
       testID={testID}
       style={({ pressed }) => [
         styles.row,
@@ -47,10 +64,14 @@ export function SellerRow({
         pressed && styles.pressed,
       ]}
     >
-      <Avatar src={owner.avatarUrl} name={owner.displayName || owner.handle} size={40} />
+      {handle ? (
+        <Avatar src={owner.avatarUrl} name={owner.displayName || handle} size={40} />
+      ) : (
+        <GuestAvatar size={40} testID={`${testID}-guest-avatar`} />
+      )}
       <View style={styles.text}>
         <Text numberOfLines={2} style={[styles.handle, { color: palette.ink }]}>
-          {owner.handle}
+          {handle ?? GUEST_COPY.aCollector}
         </Text>
         <Text testID={`${testID}-line`} style={[styles.line, { color: palette.textMuted }]}>
           {line}

@@ -30,10 +30,17 @@ documents for field-level truth. Update a contract if implementation deliberatel
 | R9 | [Notifications and the bell: `excludeTypes` on the notification list and unread count, the rows' new `data` keys (extends 6, S2 and R4)](r9-notifications.md) |
 | R10 | [Card data for Magic and Pokémon: the providers `scryfall` (mtg) and `tcgdex` (pokemon) for the existing imports, `hasCards` after a first import, printings on their own artwork; no endpoint, field or migration (extends 2 and G)](r10-card-sources.md) |
 | R11 | [Messages › Community, one simple room per game: the 15 rooms (V134, the other channels archived), `lastPost` on the channels, posts with photos (`photoUploadIds`, `COMMUNITY` uploads of 3 MB), the author's place and a shared deck core's details (extends 5)](r11-community-rooms.md) |
+| R12 | [Sign-in, sign-up and welcome: `GET /me/profile/handle-availability` (the welcome's live handle check, 60 per 10 minutes); the age asked at sign-up or on Review our terms, three welcome steps, no other API change (extends 1)](r12-sign-in-welcome.md) |
+| R13 | [Settings (47 to 59): an optional `tags` on `PUT /me/profile` (Edit profile's one save, one transaction); no migration, no other API change (extends 1)](r13-settings.md) |
+| R14 | [Report, rating, reference, binders, wishes, import and sets (60 to 69): `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction` (the rating form's deal line); no migration, no other API change (extends 7 and R4)](r14-report-rate-wish-import-sets.md) |
+| R15 | [Browse without an account (70 to 75): a signed-out caller never sees who a collector is (`PrivacyPolicyService.canSeeWho`: no id, handle, name, avatar, rating, activity or presence in the feed, card holders, binder lists, deck cores, a public binder; name search finds nobody), Home's feed open (GET), `GET /listings/owner` (members), the `guest-discovery` rate limit; no migration (extends 4, S1, R3, R5 and R7)](r15-browse-without-account.md) |
 
 Stages S3 (printing-aware search, "Who wants it", "Wanted by N", search history) and S4 (photos in
 community posts) of the owner's change of 2026-10-08 have no contract: the owner skipped them on
 2026-10-13 and nothing of them is built (`docs/product/2026-10-08-change-delivery-report.md`). The
 phone redesign of 2026-10-14 (`docs/product/specs/2026-10-14-phone-redesign.md`) adds its own
 contracts for its new endpoints, one per stage (R2 to R7 above); the owner's prompt of 2026-10-19/20
-(`docs/product/specs/2026-10-20-finish-the-phone-ui.md`) adds G and R9 to R15.
+(`docs/product/specs/2026-10-20-finish-the-phone-ui.md`) adds G and R9 to R15. Stages R1 (offers
+off the phone, V115 and V116) and R8 (the wrap-up) add no endpoint and have no contract; every
+endpoint added since stage S6 (18 operations, checked against `../openapi.json` in R8) is in one of
+the contracts above.

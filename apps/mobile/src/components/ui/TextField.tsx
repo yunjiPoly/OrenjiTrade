@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,24 +9,37 @@ import {
 } from 'react-native';
 
 import { Text, TextInput } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import { fontWeight, radius, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style'> {
   label: string;
+  /**
+   * A note at the end of the label's row ("49 / 500" beside "Bio (optional)"); under the label at
+   * the largest text sizes, where beside it the label broke "(optional" from its ")" (stage R13's
+   * review fix 1).
+   */
+  labelAside?: string;
   error?: string | null;
   hint?: string;
   containerStyle?: StyleProp<ViewStyle>;
   /** Extra style of the input itself (the height of a large multiline field). */
   inputStyle?: StyleProp<TextStyle>;
+  /**
+   * A control inside the field's right end (the password's show / hide), centred on the input
+   * whatever the size of the label above it.
+   */
+  trailing?: ReactNode;
 }
 
 /** Labelled input with visible focus ring (2px accent) and inline error, per the design system. */
 export function TextField({
   label,
+  labelAside,
   error,
   hint,
   containerStyle,
   inputStyle,
+  trailing,
   onFocus,
   onBlur,
   testID,
@@ -34,37 +47,56 @@ export function TextField({
 }: TextFieldProps) {
   const { palette, tokens } = useTheme();
   const [focused, setFocused] = useState(false);
+  const stacked = useStackedRows();
 
   const borderColor = error ? palette.danger : focused ? palette.focusRing : palette.borderStrong;
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>{label}</Text>
-      <TextInput
-        {...inputProps}
-        testID={testID}
-        accessibilityLabel={label}
-        placeholderTextColor={palette.textDisabled}
-        onFocus={(event) => {
-          setFocused(true);
-          onFocus?.(event);
-        }}
-        onBlur={(event) => {
-          setFocused(false);
-          onBlur?.(event);
-        }}
-        style={[
-          textStyle('md'),
-          styles.input,
-          {
-            color: palette.ink,
-            backgroundColor: palette.surface,
-            borderColor,
-            borderWidth: focused || error ? tokens.focus.width : 1,
-          },
-          inputStyle,
-        ]}
-      />
+      {labelAside ? (
+        <View
+          style={[styles.labelRow, stacked && styles.labelRowStacked]}
+          testID={testID ? `${testID}-label-row` : undefined}
+        >
+          <Text
+            style={[textStyle('sm'), styles.label, !stacked && styles.grow, { color: palette.ink }]}
+          >
+            {label}
+          </Text>
+          <Text style={[textStyle('xs'), { color: palette.textMuted }]}>{labelAside}</Text>
+        </View>
+      ) : (
+        <Text style={[textStyle('sm'), styles.label, { color: palette.ink }]}>{label}</Text>
+      )}
+      <View>
+        <TextInput
+          {...inputProps}
+          testID={testID}
+          accessibilityLabel={label}
+          placeholderTextColor={palette.textDisabled}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+          style={[
+            textStyle('md'),
+            styles.input,
+            {
+              color: palette.ink,
+              backgroundColor: palette.surface,
+              borderColor,
+              borderWidth: focused || error ? tokens.focus.width : 1,
+            },
+            trailing ? styles.inputWithTrailing : null,
+            inputStyle,
+          ]}
+        />
+        {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
+      </View>
       {error ? (
         <Text accessibilityRole="alert" style={[textStyle('xs'), { color: palette.danger }]}>
           {error}
@@ -79,10 +111,21 @@ export function TextField({
 const styles = StyleSheet.create({
   container: { gap: spacing[1] },
   label: { fontWeight: fontWeight.medium },
+  labelRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing[2] },
+  labelRowStacked: { flexDirection: 'column', alignItems: 'flex-start', gap: 0 },
+  grow: { flex: 1 },
   input: {
     minHeight: 48,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
     borderRadius: radius.md,
+  },
+  inputWithTrailing: { paddingRight: 48 },
+  trailing: {
+    position: 'absolute',
+    right: spacing[1],
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
 });

@@ -7,10 +7,12 @@ import { RegionBar } from '@/src/features/regions/RegionBar';
 import { useAccount } from '@/src/account/AccountProvider';
 import {
   BROWSING_REGION_STORAGE_KEY,
+  GUEST_BROWSING_REGION_STORAGE_KEY,
   browsingScope,
   forgetUnknownRegions,
   hydrateBrowsingRegion,
   pickBrowsingRegion,
+  resetBrowsingRegion,
   resolveBrowsingRegion,
   useBrowsingRegion,
   useBrowsingRegionStore,
@@ -460,5 +462,55 @@ describe('a device storage that fails', () => {
     await pickBrowsingRegion('europe', '|');
     await reading;
     expect(useBrowsingRegionStore.getState()).toMatchObject({ stored: 'europe', hydrated: true });
+  });
+});
+
+describe("a guest's region (stage R15)", () => {
+  const guest = () => new FakeAuthPort(null);
+
+  it('starts on Americas (North), is ready without an account, and keeps a pick under the guest key', async () => {
+    mockApi({ 'GET /api/v1/regions': ok(regionsFixture()) });
+    renderWithProviders(<Probe />, { port: guest() });
+    await waitFor(() => expect(probe()).toHaveTextContent('americas-north|none|home|ready'));
+    pick('europe');
+    await waitFor(() => expect(probe()).toHaveTextContent('europe|none|home|ready'));
+    await waitFor(async () =>
+      expect(await AsyncStorage.getItem(GUEST_BROWSING_REGION_STORAGE_KEY)).toBe('europe')
+    );
+    // Never written where a collector's region is kept, and only the code.
+    expect(await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY)).toBeNull();
+  });
+
+  it('comes back for the next guest visit; a collector who signs in browses their own region', async () => {
+    await AsyncStorage.setItem(GUEST_BROWSING_REGION_STORAGE_KEY, 'americas-south');
+    mockApi({ 'GET /api/v1/regions': ok(regionsFixture()) });
+    const first = renderWithProviders(<Probe />, { port: guest() });
+    await waitFor(() => expect(probe()).toHaveTextContent('americas-south|none|home|ready'));
+    first.unmount();
+
+    // A new run of the app (the session's state goes, the phone's storage stays).
+    resetBrowsingRegion();
+    mockApi(signedInRoutes({ 'GET /api/v1/me': ok(meFixture({ homeRegion: 'europe' })) }));
+    renderWithProviders(<Probe />, { port: signedIn() });
+    await waitFor(() => expect(probe()).toHaveTextContent('europe|europe|home|ready'));
+    // The guest's region stays for the next guest visit, untouched.
+    expect(await AsyncStorage.getItem(GUEST_BROWSING_REGION_STORAGE_KEY)).toBe('americas-south');
+  });
+
+  it('pickBrowsingRegion keeps the scopes apart', async () => {
+    await pickBrowsingRegion('europe', 'guest');
+    expect(useBrowsingRegionStore.getState()).toMatchObject({
+      guestStored: 'europe',
+      stored: null,
+    });
+    await pickBrowsingRegion('americas-south', browsingScope('uid-1', null));
+    expect(useBrowsingRegionStore.getState()).toMatchObject({
+      guestStored: 'europe',
+      stored: 'americas-south',
+    });
+    await forgetUnknownRegions(new Set(['americas-south']));
+    expect(useBrowsingRegionStore.getState().guestStored).toBeNull();
+    expect(await AsyncStorage.getItem(GUEST_BROWSING_REGION_STORAGE_KEY)).toBeNull();
+    await hydrateBrowsingRegion();
   });
 });

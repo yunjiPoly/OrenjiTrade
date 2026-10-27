@@ -307,7 +307,10 @@ test.describe('mobile binders and deck cores', () => {
     ).toBeVisible();
     await form.getByRole('radio', { name: 'Yu-Gi-Oh!' }).click();
     await expect(form.getByText('Only you see it until you make it public.')).toBeVisible();
-    await expect(form.getByText('No cards in this binder yet.')).toBeVisible();
+    // Stage R14 (mockup v50 screen 63): the binder's game under "Cards inside".
+    await expect(
+      form.getByText('Only your Yu-Gi-Oh! cards can go in. Cards in another binder move here.')
+    ).toBeVisible();
     await form.getByRole('button', { name: 'Add cards' }).click();
     const sheet = page.getByTestId('card-picker-sheet');
     await sheet.getByRole('checkbox', { name: /^Lantern Fox Spirit/ }).click();

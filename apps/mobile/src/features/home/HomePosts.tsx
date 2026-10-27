@@ -6,6 +6,8 @@ import type { FeedPost } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
+import { GuestAvatar } from '@/src/features/guest/GuestParts';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import {
   PINNED_MAX_FONT_SCALE,
@@ -22,9 +24,11 @@ import {
   feedWishTerms,
   gridTiles,
   isGrid,
+  isUnnamed,
   postHeaderLabel,
   postProvince,
   postVerb,
+  postWho,
   previewPrice,
   type CardTile,
   type FeedTone,
@@ -90,6 +94,8 @@ export function FeedPostCard({
   // At the largest text sizes the avatar goes above the words, and the rows' buttons under them.
   const stacked = useStackedRows();
   const testID = `home-post-${post.id}`;
+  // A guest never sees who posted (stage R15): "A collector", a plain avatar, the place.
+  const unnamed = isUnnamed(post);
   return (
     <View
       testID={testID}
@@ -98,7 +104,7 @@ export function FeedPostCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={postHeaderLabel(post, now)}
-        accessibilityHint={HOME_COPY.headerHint}
+        accessibilityHint={unnamed ? undefined : HOME_COPY.headerHint}
         onPress={() => actions.onCollector(post)}
         testID={`${testID}-header`}
         style={({ pressed }) => [
@@ -107,10 +113,18 @@ export function FeedPostCard({
           pressed && styles.pressed,
         ]}
       >
-        <Avatar src={post.collector.avatarUrl} name={post.collector.displayName} size={36} />
+        {unnamed ? (
+          <GuestAvatar size={36} testID={`${testID}-guest-avatar`} />
+        ) : (
+          <Avatar
+            src={post.collector.avatarUrl}
+            name={post.collector.displayName ?? postWho(post)}
+            size={36}
+          />
+        )}
         <View style={[styles.headerText, stacked && styles.fullWidth]}>
           <Text numberOfLines={stacked ? 4 : 2} style={[styles.headline, { color: palette.ink }]}>
-            <Text style={styles.handle}>{post.collector.handle}</Text>{' '}
+            <Text style={styles.handle}>{postWho(post)}</Text>{' '}
             <Text style={{ color: toneColor(tone) }}>{verb}</Text>
           </Text>
           <Text numberOfLines={stacked ? 2 : 1} style={[styles.meta, { color: palette.textMuted }]}>
@@ -273,7 +287,11 @@ function SingleCard({
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={HOME_COPY.messageAbout(post.collector.handle, preview.name)}
+        accessibilityLabel={
+          isUnnamed(post)
+            ? GUEST_COPY.messageLabel(preview.name)
+            : HOME_COPY.messageAbout(postWho(post), preview.name)
+        }
         accessibilityState={{ busy }}
         disabled={busy}
         onPress={() => actions.onMessage(post, preview.itemId)}
@@ -329,7 +347,11 @@ function WantedBody({
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={HOME_COPY.haveItLabel(wish.name, post.collector.handle)}
+        accessibilityLabel={
+          isUnnamed(post)
+            ? GUEST_COPY.haveLabel(wish.name)
+            : HOME_COPY.haveItLabel(wish.name, postWho(post))
+        }
         accessibilityState={{ busy }}
         disabled={busy}
         onPress={() => actions.onHaveIt(post)}

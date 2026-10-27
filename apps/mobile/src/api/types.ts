@@ -8,6 +8,7 @@ type Schemas = components['schemas'];
 
 export type MeResponse = Schemas['MeResponse'];
 export type OnboardingStatus = Schemas['OnboardingStatus'];
+export type HandleAvailabilityResponse = Schemas['HandleAvailabilityResponse'];
 export type RequiredConsent = Schemas['RequiredConsent'];
 export type ConsentRequest = Schemas['ConsentRequest'];
 export type LegalDocument = Schemas['LegalDocument'];
@@ -208,3 +209,6 @@ export type FeedNewCards = Schemas['FeedNewCards'];
 export type FeedCardPreview = Schemas['FeedCardPreview'];
 export type FeedWish = Schemas['FeedWish'];
 export type FeedDeckCore = Schemas['FeedDeckCore'];
+
+/** Stage R15: who owns a public card, binder or wish (`GET /listings/owner`, members only). */
+export type PublicListingOwner = Schemas['PublicListingOwner'];

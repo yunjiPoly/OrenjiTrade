@@ -8,7 +8,7 @@
 
 Tables: `interaction(id, kind TRADE|OFFER_ACCEPTED|CONVERSATION_QUALIFIED, user_a, user_b, subject_type, subject_id, occurred_at, unique(kind, subject_id))` — an eligible interaction exists when: a trade completed, an offer was accepted, or a conversation has ≥ 3 messages from each side (qualified). `rating(id, interaction_id, rater_id, ratee_id, overall 1–5, communication 1–5 null, condition_accuracy null, shipping null, meetup_reliability null, comment ≤ 600, created_at, updated_at, moderation_state OK|HIDDEN, unique(interaction_id, rater_id))`. `reference(id, author_id, subject_id, body ≤ 400, created_at, moderation_state, unique(author_id, subject_id))` (requires ≥1 interaction). `rating_summary(user_id, average, count, communication_avg, …)` maintained.
 
-- `GET /ratings/eligibility?userId=` → `{ eligible: bool, interactions: [ { id, kind, occurredAt, alreadyRated } ] }`
+- `GET /ratings/eligibility?userId=` → `{ eligible: bool, interactions: [ { id, kind, occurredAt, alreadyRated, dealName, soldToYou } ] }` (`dealName` and `soldToYou`: a `SALE`'s card or deck core and the caller's side, `null` for other kinds; stage R14, [r14-report-rate-wish-import-sets.md](r14-report-rate-wish-import-sets.md))
 - `POST /ratings` `{ interactionId, overall, communication?, conditionAccuracy?, shipping?, meetupReliability?, comment? }` → 201 (`403 RATING_NOT_ELIGIBLE` when no interaction; `409 ALREADY_RATED`); editable for 14 days.
 - `GET /collectors/{handle}/ratings?cursor=` → `CursorPage<RatingResponse>` `{ id, rater: {handle, displayName, avatarUrl}, overall, breakdown, comment, createdAt, interactionKind }` + `summary`
 - `POST /references` `{ subjectId, body }`, `GET /collectors/{handle}/references`

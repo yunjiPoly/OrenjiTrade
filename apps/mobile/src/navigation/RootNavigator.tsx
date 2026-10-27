@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFlowLock } from '@/src/account/flowLock';
 import { useAuthGate } from '@/src/account/useAuthGate';
 import { BootScreen } from '@/src/components/BootScreen';
+import { PendingActionRunner } from '@/src/features/guest/PendingActionRunner';
+import { SignInSheet } from '@/src/features/guest/SignInSheet';
 import { headerTitleFont } from '@/src/theme/fonts';
 import { useTheme } from '@/src/theme/useTheme';
 
@@ -28,8 +30,14 @@ function groupOptions(group: RouteGroup, extra: { animation?: 'fade' } = {}) {
   });
 }
 
+/** A screen that draws its own top bar (mockup v50); the title names it for the stack. */
+function ownBar(title: string) {
+  return { headerShown: false, title };
+}
+
 /**
- * The root stack with the auth gate (signed out → sign-in, account states, onboarding, tabs).
+ * The root stack with the auth gate (signed out → Home as a guest and Sign in for member screens,
+ * account states, onboarding, tabs).
  * While the gate boots, the native splash stays up and the web build shows `BootScreen`.
  */
 export function RootNavigator() {
@@ -62,20 +70,20 @@ export function RootNavigator() {
         <Stack.Screen name="(auth)" options={groupOptions('(auth)', { animation: 'fade' })} />
         <Stack.Screen name="(account)" options={groupOptions('(account)', { animation: 'fade' })} />
         <Stack.Screen name="onboarding" options={{ title: 'Welcome', animation: 'fade' }} />
-        {/* Settings (web: /settings/*). */}
-        <Stack.Screen name="settings/index" options={{ title: 'Settings' }} />
-        <Stack.Screen name="settings/profile" options={{ title: 'Edit profile' }} />
-        <Stack.Screen name="settings/location" options={{ title: 'Location' }} />
-        <Stack.Screen name="settings/privacy" options={{ title: 'Privacy' }} />
-        <Stack.Screen name="settings/shipping" options={{ title: 'Shipping details' }} />
-        <Stack.Screen name="settings/notifications" options={{ title: 'Notifications' }} />
-        <Stack.Screen name="settings/account" options={{ title: 'Account' }} />
-        <Stack.Screen name="settings/blocked" options={{ title: 'Blocked users' }} />
-        <Stack.Screen name="settings/delete-account" options={{ title: 'Delete account' }} />
-        <Stack.Screen name="settings/appearance" options={{ title: 'Appearance' }} />
+        {/* Settings (web: /settings/*); each page draws its own top bar (stage R13). */}
+        <Stack.Screen name="settings/index" options={ownBar('Settings')} />
+        <Stack.Screen name="settings/profile" options={ownBar('Edit profile')} />
+        <Stack.Screen name="settings/location" options={ownBar('Location')} />
+        <Stack.Screen name="settings/privacy" options={ownBar('Privacy')} />
+        <Stack.Screen name="settings/shipping" options={ownBar('Shipping details')} />
+        <Stack.Screen name="settings/notifications" options={ownBar('Notifications')} />
+        <Stack.Screen name="settings/account" options={ownBar('Account')} />
+        <Stack.Screen name="settings/blocked" options={ownBar('Blocked collectors')} />
+        <Stack.Screen name="settings/delete-account" options={ownBar('Delete account')} />
+        <Stack.Screen name="settings/appearance" options={ownBar('Appearance')} />
         {/* Legal pages: readable from every gate (signed out, consent, suspended, app). */}
-        <Stack.Screen name="legal/index" options={{ title: 'Legal' }} />
-        <Stack.Screen name="legal/[key]" options={{ title: 'Legal' }} />
+        <Stack.Screen name="legal/index" options={ownBar('Legal')} />
+        <Stack.Screen name="legal/[key]" options={ownBar('Legal')} />
         <Stack.Screen name="collectors/[id]/index" options={{ title: 'Collector' }} />
         {/* A profile's "See all" (stage R6): cards, binders, wishes, ratings and references. */}
         <Stack.Screen name="collectors/[id]/cards" options={{ title: 'Cards' }} />
@@ -114,10 +122,14 @@ export function RootNavigator() {
         <Stack.Screen name="report" options={{ title: 'Report collector' }} />
         <Stack.Screen name="ratings/rate" options={{ title: 'Rate' }} />
         <Stack.Screen name="ratings/reference" options={{ title: 'Write a reference' }} />
-        <Stack.Screen name="settings/reports" options={{ title: 'My reports' }} />
+        <Stack.Screen name="settings/reports" options={ownBar('My reports')} />
       </Stack>
       {/* A multi-step flow (sign-up) keeps its own progress on screen while `/me` waits. */}
       {gate === 'boot' && !flowLocked ? <BootScreen /> : null}
+      {/* Browsing without an account (stage R15): the sheet of an action that needs one, and
+          that action finished once the guest has signed in. */}
+      <SignInSheet />
+      <PendingActionRunner gate={gate} />
     </View>
   );
 }

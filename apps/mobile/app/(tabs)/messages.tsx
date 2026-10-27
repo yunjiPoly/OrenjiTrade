@@ -15,6 +15,9 @@ import { totalUnread } from '@/src/features/messages/messageText';
 import { RealtimeStatus } from '@/src/features/messages/RealtimeStatus';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import { useIsGuest } from '@/src/api/hooks/useUid';
+import { GuestTab } from '@/src/features/guest/GuestTab';
+import { tabTitle } from '@/src/navigation/tabs';
 
 type MessagesView = 'inbox' | 'community';
 
@@ -33,7 +36,19 @@ function viewOf(param: string | undefined): MessagesView | null {
  * chats alone). Chats carries an orange dot while a chat is unread ("Chats, {n} unread"); the tab
  * bar's badge counts chats only. `?view=community` opens the rooms, `?view=chats` the chats.
  */
-export default function MessagesScreen() {
+/**
+ * The Messages tab: for a guest (signed out, stage R15) a page in place that asks to create an
+ * account or sign in (mockup v50 screen 74); for a member, MessagesScreen.
+ */
+export default function MessagesTab() {
+  return useIsGuest() ? (
+    <GuestTab kind="messages" title={tabTitle('messages')} />
+  ) : (
+    <MessagesScreen />
+  );
+}
+
+function MessagesScreen() {
   const router = useRouter();
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();

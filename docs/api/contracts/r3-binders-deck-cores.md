@@ -37,7 +37,9 @@ All under `/api/v1`.
 
 `binder_image` (like `inventory_item_image`): `id`, `binder_id` (cascade), `storage_key`
 (`binders/<owner id>/<random>.jpg`, unique), `url`, `width`, `height`, `sort_order`,
-`created_at`; at most 4 per binder (API).
+`created_at`; at most 4 per binder (API). Since stage R15's review fix 1 a photo's URL is
+`/api/v1/public/binder-images/{id}` (by its id; the key, which names the owner, stays on the
+server; [r15-browse-without-account.md](r15-browse-without-account.md)).
 
 ## The owner's binders
 

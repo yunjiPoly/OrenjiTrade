@@ -74,6 +74,8 @@ api/limits.service.ts
 api/limits.serviceInterface.ts
 api/listingHealth.service.ts
 api/listingHealth.serviceInterface.ts
+api/listings.service.ts
+api/listings.serviceInterface.ts
 api/location.service.ts
 api/location.serviceInterface.ts
 api/map.service.ts
@@ -254,6 +256,7 @@ model/gameMetadataField.ts
 model/gameRequest.ts
 model/gameResponse.ts
 model/gameSchema.ts
+model/handleAvailabilityResponse.ts
 model/hideListingRequest.ts
 model/hideRatingRequest.ts
 model/historyFlag.ts
@@ -371,6 +374,7 @@ model/publicBinderOwner.ts
 model/publicBinderResponse.ts
 model/publicBinderSummary.ts
 model/publicInventoryItem.ts
+model/publicListingOwner.ts
 model/publishBinderRequest.ts
 model/pushTokenRequest.ts
 model/quietHours.ts

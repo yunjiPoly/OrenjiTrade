@@ -30,7 +30,9 @@ class WishlistAlertsIT extends AbstractWishlistIT {
     void aListingInTheRegionAlertsTheWishOwnerWithTheCardPageLink() {
         Place place = americasNorth();
         Collector wisher = collector("wa-wisher", place);
-        Collector seller = collector("wa-seller", place);
+        // A handle holding "km": the distance check below reads the alert's fixed words, never the
+        // random handle, card name or code (review fix 2 of R15, R1-1).
+        Collector seller = withHandle(collector("wa-seller", place), "km_");
         UUID azure = printing(AZURE);
         Map<String, Object> body = wish(azure, true);
         body.put("note", "Public wisher note");
@@ -46,15 +48,24 @@ class WishlistAlertsIT extends AbstractWishlistIT {
         JsonNode alert = alerts.get(0);
         String name = cardNameOf(azure);
         assertThat(alert.path("title").asString()).isEqualTo("Wishlist alert: " + name);
-        assertThat(alert.path("body").asString())
+        String alertBody = alert.path("body").asString();
+        assertThat(alertBody)
                 .isEqualTo(
                         name
                                 + " "
                                 + codeOf(azure)
                                 + " Ultra Rare was just listed by @"
                                 + seller.handle()
-                                + " in Quebec, Canada.")
-                .doesNotContain("km");
+                                + " in Quebec, Canada.");
+        // No distance wording ("12 km away") in the words the server writes; the generated
+        // handle, card name and code are random letters and may hold "km".
+        assertThat(
+                        alertBody
+                                .replace(seller.handle(), "")
+                                .replace(name, "")
+                                .replace(codeOf(azure), ""))
+                .doesNotContainIgnoringCase("km")
+                .doesNotContainIgnoringCase("away");
         JsonNode data = alert.path("data");
         assertThat(data.path("wishlistItemId").asString()).isEqualTo(wishId);
         assertThat(data.path("inventoryItemId").asString()).isEqualTo(itemId);
@@ -313,5 +324,22 @@ class WishlistAlertsIT extends AbstractWishlistIT {
                 owner.uid(),
                 Map.of("visibility", visibility),
                 200);
+    }
+
+    /** The collector under the handle {@code prefix} plus a random hex suffix. */
+    private Collector withHandle(Collector collector, String prefix) {
+        String handle =
+                prefix
+                        + Long.toHexString(
+                                java.util.concurrent.ThreadLocalRandom.current().nextLong()
+                                        & 0xffffffffL);
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("handle", handle);
+        profile.put("displayName", "Collector " + handle);
+        profile.put("bio", "");
+        profile.put("games", List.of("yugioh"));
+        profile.put("languages", List.of("en"));
+        callJson(HttpMethod.PUT, "/api/v1/me/profile", collector.uid(), profile, 200);
+        return new Collector(collector.uid(), collector.id(), handle);
     }
 }

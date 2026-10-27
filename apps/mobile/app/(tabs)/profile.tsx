@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useCollectorProfile } from '@/src/api/hooks/collectors';
-import { useUid } from '@/src/api/hooks/useUid';
+import { useIsGuest, useUid } from '@/src/api/hooks/useUid';
 import { meKeys } from '@/src/api/queryKeys';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { Skeleton, SkeletonList } from '@/src/components/ui/Skeleton';
@@ -17,6 +17,8 @@ import { ProfilePage } from '@/src/features/collectors/ProfilePage';
 import { useShareProfile } from '@/src/features/collectors/useShareProfile';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
+import { GuestTab } from '@/src/features/guest/GuestTab';
+import { tabTitle } from '@/src/navigation/tabs';
 
 /**
  * Your Profile tab (owner spec 2026-10-14, section 9; mockup screen 21): the title "Profile", the
@@ -24,11 +26,19 @@ import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from 
  * cards and binders, your wishes, your bio, your ratings and references), with "Edit profile" and
  * "Share profile" instead of "Message", your wishes without "I have it", and "See all" leading to
  * your Inventory, Inventory › Binders and Search › Wishlist. Everything the tab reached before
- * stays one tap further: Settings (Location, Privacy, Shipping details, Notifications, Blocked
- * users, My reports, Account, Appearance, Legal, Sign out) behind the gear, the profile editor
- * behind "Edit profile". Coming back to the tab reads the page again (an edit made elsewhere).
+ * stays one tap further: Settings (Location, Shipping details, Notifications, Privacy,
+ * Appearance, Blocked collectors, My reports, Account, Legal, Sign out; stage R13) behind the gear,
+ * Edit profile behind "Edit profile". Coming back to the tab reads the page again (an edit made elsewhere).
  */
-export default function ProfileScreen() {
+/**
+ * The Profile tab: for a guest (signed out, stage R15) a page in place that asks to create an
+ * account or sign in (mockup v50 screen 75); for a member, ProfileScreen.
+ */
+export default function ProfileTab() {
+  return useIsGuest() ? <GuestTab kind="profile" title={tabTitle('profile')} /> : <ProfileScreen />;
+}
+
+function ProfileScreen() {
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();

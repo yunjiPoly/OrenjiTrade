@@ -95,6 +95,7 @@ describe('isolation of the mobile E2E API environment', () => {
     assert.equal(env.SEED_IMPORT_FIXTURES, 'true');
     // One address for every worker: the anonymous budget of a single visitor is not enough.
     assert.equal(env.RATE_LIMIT_ANONYMOUS_PER_MINUTE, '600');
+    assert.equal(env.RATE_LIMIT_GUEST_DISCOVERY_PER_10S, '1000');
   });
 
   it("FAILS when the mobile card image cache directory equals the developer one", () => {

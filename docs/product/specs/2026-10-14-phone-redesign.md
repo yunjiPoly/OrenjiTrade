@@ -750,3 +750,192 @@ one simple room per game"; API contract
 [`docs/api/contracts/r11-community-rooms.md`](../../api/contracts/r11-community-rooms.md); V134). A
 post's place shows only for authors who are discoverable (the profile's own rule), and the paused
 web's suites keep the archived channels in their own test database until the web resumes.
+
+## Changed by the owner on 2026-10-19: Sign-in, sign-up and welcome
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R12, saved word for word; mockup version 50, screens 36 to 46) restyles the screens before
+the tabs. The prompt above is kept as it was (it said nothing of them); these points add to it:
+
+1. **Sign in** (36): the wordmark and "Find collectors in your region who own, trade or want the
+   cards you care about."; email, password with show and hide, "Forgot your password?", Sign in,
+   "or", "Continue with Google", "New to OrenjiTrade? Create an account" and "Terms, privacy and
+   community guidelines".
+2. **Create your account** (37): display name, email, password ("At least 8 characters."); the
+   documents in one card ("Accept all", then each with its box and "Read"); the 18+ confirmation in
+   its own card, never ticked by "Accept all", **in English only** (owner, 2026-10-20: the prompt's
+   "English and French" is not built). "Create account" stays disabled until every box is ticked,
+   with one line under it: "Accept the documents and confirm your age to continue.", "Accept every
+   document to continue." or "Confirm that you are 18 or older to continue." The server checks stay.
+3. **Reset password** (38) and **Verify your email** (39) as before, the sent state in place and
+   "Resend in {n} s".
+4. **The welcome has three steps** (40 to 42, "Step {n} of 3"): "Who are you?" (the handle with "@"
+   and a live check: a teal check when it is free, "That handle is already taken. Try another one."),
+   "What do you collect?" (the game tiles, at least one; the first picked that has cards "Opens
+   first" and is the game Home and Search open on; One Piece and Riftbound "Cards coming soon" but
+   can be picked), "Where do you ship from?" (region, country and state or province, the optional
+   city, "Show my city on my profile", "Show me on the map" off by default). **No age step**: sign-up
+   asks it, and an account without it (a Google sign-up, an account from before the rule) is on
+   **Review our terms** (43) first, with the age line alone when no document is due.
+5. **The account states** (44 Suspended, 45 Scheduled for deletion with "Deletion cancelled" and
+   "Welcome back!" in place, 46 Could not load) are centred with a 72 pt icon.
+
+Built as stage R12 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R12: Sign-in, sign-up and welcome
+(36 to 46)"; API contract [`docs/api/contracts/r12-sign-in-welcome.md`](../../api/contracts/r12-sign-in-welcome.md):
+`GET /api/v1/me/profile/handle-availability`, the welcome's live check). The close button of Sign in
+and the line "Visitors without an account never see your name" under "Show me on the map" belong to
+stage R15 (browsing without an account).
+
+## Changed by the owner on 2026-10-19: Settings
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R13, saved word for word; mockup version 50, screens 47 to 59) restyles Settings and its
+pages, which existed since the mobile stages M1 to M8 and R6's gear. The prompt above is kept as it
+was (its section 12 placed Shipping details and "Remember my searches" in Settings); these points
+add to it:
+
+1. **Settings** (47): a profile card (picture, name, "@handle · Edit profile") that opens Edit
+   profile; "Where you ship from" (Location and discoverability with "{province}, {country} · On the
+   map" or "Not on the map"; Shipping details), "App" (Notifications; Privacy; Appearance with the
+   theme), "Safety" (Blocked collectors with their number; My reports with "{n} waiting"), "Account"
+   (Account with the email; Legal); a red "Sign out"; the version.
+2. **Edit profile** (48): **one "Save changes"** for the handle, the display name, the bio, the games
+   (the welcome's tiles), the languages and the tags ("Add a tag", 12 at most), "No changes yet"
+   while nothing changed; the picture still saves at once; "Preview" opens the public profile;
+   leaving with unsaved changes asks first.
+3. **Location** (49): "Show me on the map" first (saved at once; it needs a saved place), with
+   "Collectors see you in {province}, {country}." or "You are hidden from the map and from
+   searches."; the region, the country and the state or province side by side, the city, "Show my
+   city on my profile", the box "How OrenjiTrade protects where you live", "Remove my location" (a
+   sheet) and "Save location".
+4. **Notifications** (51): the channels, wishlist alerts, **a grid of topics by channel**, a
+   channel's column dimmed while it is off, quiet hours in 24-hour time; "Save preferences".
+5. **Privacy** (52) saves at once ("All changes saved" in the top bar); **Appearance** (53) is
+   "Same as the phone", Light or Dark, and About; **Blocked collectors** (54); **My reports** (55)
+   with pills (Open amber, Under review, Action taken teal, Dismissed grey); **Account** (56);
+   **Delete account** (57), "Delete my account" grey until the confirmation is ticked, then a sheet.
+6. **Legal** (58) lists seven documents on the phone: the Payment Protection and the Refund and
+   Dispute policies are the web's (ADR 0018). A document (59) is as before.
+
+Built as stage R13 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R13: Settings (47 to 59)"; API
+contract [`docs/api/contracts/r13-settings.md`](../../api/contracts/r13-settings.md): the optional
+`tags` of `PUT /me/profile`, Edit profile's one save). The line "Visitors without an account see your
+cards, never your name" under "Show me on the map" belongs to stage R15.
+
+## Changed by the owner on 2026-10-19: report, rating, reference, binders, wishes, import and sets
+
+The owner's prompt of 2026-10-19/20 ([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md),
+section R14, saved word for word; mockup version 50, screens 60 to 69) restyles ten screens that
+existed since the stages M5, S2, S5, R3 and G, with the top bar of Settings (the 44 pt back button,
+the title in Sora, a hairline) and the main button at the bottom. The prompt above is kept as it
+was; these points add to it:
+
+1. **Report a collector** (60), from the "⋯" of a profile, a chat or a community post: the person
+   ("@handle · {province}", never the city), the server's reasons as radio rows with their line,
+   Details (1000), the confidentiality note, **"Send report"** grey with "Choose a reason first."
+   until a reason is chosen; "Report sent" in place with "Done" and "Follow it in My reports".
+2. **Rate a collector** (61), from the sold note of a chat (the sale notification opens that chat):
+   the person and **the deal** ("{card} · sold to you {date}", "… · bought from you {date}" for the
+   seller), Overall with 34 pt stars and its word (Poor, Not great, Okay, Good, Excellent), the
+   details as rows whose chosen star clears them, the comment (600), where it appears, "Write a
+   reference instead" and "Publish rating".
+3. **Write a reference** (62) and **New binder** (63) as before, restyled; New binder says under
+   "Cards inside": "Only your {game} cards can go in. Cards in another binder move here."
+4. **Add a wish** (64): "Add a wish" opens Search's card search; the card picked opens the form,
+   whose "Change" goes back to the search. Which copy, "Near Mint only", **the price as one-choice
+   chips** ("No price", then the server's % TCG terms), the public note (280), "Add to wishlist".
+   **Edit a wish** (65): "Save changes" and a red "Remove from wishlist" with its sheet.
+5. **Import** (66 to 68): the file step with a large dashed "Choose a file", "Paste the text of the
+   file instead" and the other source one row away; **"Check the cards"** with the trash and its
+   sheet, the chips All, "Which copy? {n}" and "Not recognised {n}", an amber bar with "Use the
+   newest", compact lines with a tick box, the add button grey with its reason; **"Import done"**
+   with the count, "They start private." and the lines not recognised. Resuming an open import, the
+   deck sections, the conditions sheet, the copies dialog, "leave them out", the expired and
+   interrupted states and the leave guard stay.
+6. **A set** (69): the game, the name, "{CODE} · Released {date} · {n} printings", **"Who has cards
+   of this set"** (Search's card search with the set's cards; it was "Search this set", whose set
+   was no longer read since stage R5), a three-column grid of printings, paged, each opening Who has
+   this card at that printing.
+
+Built as stage R14 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R14: Report, rating, reference,
+binders, wishes, import and sets (60 to 69)"; API contract
+[`docs/api/contracts/r14-report-rate-wish-import-sets.md`](../../api/contracts/r14-report-rate-wish-import-sets.md):
+`dealName` and `soldToYou` on a sale's eligibility, the rating form's deal line).
+
+## Changed by the owner on 2026-10-19: browsing without an account
+
+The owner's prompt of 2026-10-19/20
+([`2026-10-20-finish-the-phone-ui.md`](2026-10-20-finish-the-phone-ui.md), section R15; owner on
+2026-10-20: "without log in. The user can still see home page and search? Can't see wishlist,
+invenstoryh and message and profile.. It might be good to require log in when they click tabs that
+needs to log in"; mockup v50 screens 70 to 75) lets a visitor look before they sign up: until
+then a signed-out visitor saw Sign in only. Looking is free, doing needs an account; section 13's
+privacy rules hold, with one more (point 3).
+
+1. **The app opens on Home for a signed-out visitor** (a guest), not on Sign in. A guest browses
+   Home and Search (Cards and Binders), card pages and their holders, sets, a state's binders, a
+   public binder or deck core, Legal and Settings › Appearance.
+2. **Home (70)**: a person button in place of the bell, spoken "Sign in"; a card above the chips,
+   "You’re browsing as a guest", "Create a free account to message collectors, save wishes and list
+   your own cards.", Create account and Sign in; no Get started and no Messages badge. **Search**
+   has the same person button.
+3. **A guest never sees who a collector is**: posts and rows say "A collector" with a plain person
+   avatar, then "{time} · {province}" as usual; the place stays. The API leaves out the id, handle,
+   name, avatar, rating, last activity and presence for a signed-out caller, and collector name
+   search finds nobody for them.
+4. **Inventory (73), Messages (74), Profile (75) and Search › Wishlist (72)** stay in the tab bar,
+   each with a page in place: an illustration, a heading, a line, Create account and Sign in;
+   Profile also lists Appearance, Trading safely and Legal.
+5. **Actions that need an account open one sheet (71)**: its title says what the guest tried ("Sign
+   in to message this collector", "… to tell them you have it", "… to see collector profiles", "…
+   to save your wishes"; Report says "Sign in to report this collector"), then "It’s free. When
+   you’re done, you come right back here.", Create account, Sign in and Not now.
+6. **After signing in** (or creating the account and the welcome), the phone goes back to where the
+   guest was and finishes the action: the chat with the card pinned, the chat of "I have it", the
+   profile, the wish form, Report. The action is kept in memory only, by its item, binder, wish or
+   printing, never by a collector.
+7. **Sign in (36) has a close button** at the top left, spoken "Not now, keep browsing", back to
+   where the guest was. **Signing out lands on Home as a guest.** A deep link to a member screen
+   (a chat, a profile, a notification) opens Sign in and continues to the link after.
+8. **The guest's region and game** stay on the phone under a guest key (the two slugs only,
+   Americas (North) and Yu-Gi-Oh! by default); once signed in, the account's own choice wins.
+9. The discoverability lines: the welcome's (42) "… Visitors without an account never see your
+   name. Off until you turn it on.", Location's (49) "Collectors see you in {province}, {country}.
+   Visitors without an account see your cards, never your name."; the phone's draft Privacy Policy
+   says the same (its draft banner kept for the lawyer).
+
+Built as stage R15 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R15: Browse without an account (70
+to 75)"; API contract
+[`docs/api/contracts/r15-browse-without-account.md`](../../api/contracts/r15-browse-without-account.md):
+`PrivacyPolicyService.canSeeWho`, the feed open to guests, `GET /listings/owner`, the
+`guest-discovery` rate limit).
+
+## Stage R8, the wrap-up, built last (2026-10-26)
+
+By the owner's exception of 2026-10-21 (one giant pull request for R7, R9 to R15 and R8), section
+15's "R8. Wrap-up" came after R15 instead of after R7. Nothing of the prompt above changes; R8 did
+what section 15 lists, for the whole redesign and the owner's prompt of 2026-10-19/20:
+
+1. **The documents**: `CLAUDE.md` (the five tabs, Messages › Community, Settings behind the gear,
+   the guest's Home, one game at a time, the modules, the guest rule of the privacy section), the
+   product overview, the API contracts (every endpoint added since stage S6 is in one), the test
+   accounts (the guest) and the seed data (One Piece without cards), the READMEs and the handoff.
+2. **A walk of the mockup's screens** (version 50, screens 1 to 75 with 10b and 10c) on the
+   owner's iPhone 18 Pro simulator, signed in and as a guest, dark and light: every screen at the
+   default size (73 of 77), and at the largest text size the screens listed in R8's table of
+   `IMPLEMENTATION_STATUS.md` (60 of 77 signed in, in dark); a screenshot of each for the pull
+   request. The card scan's screens 26 to 30 need the development build of ADR 0020 (Expo Go has
+   no text reader), so the walk shows Add cards as Expo Go draws it; the scan was walked by its
+   own session.
+3. **Fixes the walk proved needed**, each with a test: the guest card's tint (70) drawn opaque and
+   short of the card's edges on iOS; an empty state's title cut in the middle of a word at the
+   largest text size; two native flows of R15 that had never run on the iPhone. R8's review then
+   found, and review fix 1 fixed: the guest card's tint short of the card on the web build (R8's
+   iOS fix had undone R15's), an empty state's description larger than its title at the largest
+   size, and three screens at the largest size that R8 had walked only as a guest or not at all
+   (Who has this card's name, Add cards' "Scan with camera" row, the deck core page's back button
+   once scrolled).
+4. **The exact next task** in `IMPLEMENTATION_STATUS.md`.
+
+Built as stage R8 (`IMPLEMENTATION_STATUS.md`, "Phone redesign R8: Wrap-up of the phone redesign
+(spec section 15, R8), done last in the giant pull request"); no endpoint, no migration.

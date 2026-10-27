@@ -10,11 +10,20 @@
 
 
 /**
- * The collector of a post
+ * The collector of a post. For a signed-out caller (stage R15) every field is null: guests see the post and its place, never who posted it
  */
 export interface FeedCollector { 
+    /**
+     * Null for a signed-out caller
+     */
     id: string;
+    /**
+     * Null for a signed-out caller
+     */
     handle: string;
+    /**
+     * Null for a signed-out caller
+     */
     displayName: string;
     avatarUrl?: string | null;
 }

@@ -5,7 +5,9 @@ import SearchScreen from '@/app/(tabs)/search';
 import EditWishScreen from '@/app/wishlist/edit';
 import NewWishScreen from '@/app/wishlist/new';
 import { useBrowsingGameStore } from '@/src/features/games/browsingGame';
+import { PINNED_MAX_FONT_SCALE } from '@/src/theme';
 
+import { expectBoundedBarMessage } from '../support/barMessage';
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
   CARD_ID,
@@ -13,6 +15,8 @@ import {
   PRINTING_B,
   WISH_ID,
   cardDetailFixture,
+  cardPage,
+  cardSummaryFixture,
   locationFixture,
   limitsFixture,
   printingFixture,
@@ -339,13 +343,20 @@ describe('Add and edit a wish', () => {
     fireEvent.press(screen.getByTestId('wish-near-mint'));
     fireEvent.press(screen.getByTestId('wish-copy'));
     fireEvent.press(await screen.findByTestId(`wish-copy-option-${PRINTING_A}`));
-    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG ≈ 32.30 CAD');
-    expect(screen.getByTestId('wish-terms')).toHaveTextContent(/Sample market price/);
+    // The chips stay the terms alone with a printing chosen (mockup v50 screen 64; R14 review fix
+    // 1, U7): the chosen term's amount is in the sentence under them.
+    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG');
+    expect(screen.getByTestId('wish-term-80')).toHaveTextContent('80% TCG');
+    expect(screen.getByTestId('wish-terms-source')).toHaveTextContent(/^Sample market price/);
     // At most one term: the second replaces the first.
     fireEvent.press(screen.getByTestId('wish-term-80'));
     fireEvent.press(screen.getByTestId('wish-term-85'));
     expect(screen.getByTestId('wish-term-80')).not.toBeChecked();
     expect(screen.getByTestId('wish-term-85')).toBeChecked();
+    expect(screen.getByTestId('wish-term-85')).toHaveTextContent('85% TCG');
+    expect(screen.getByTestId('wish-terms-source')).toHaveTextContent(
+      /^85% TCG ≈ 32\.30 CAD for this printing\. Sample market price/
+    );
     fireEvent.press(screen.getByTestId('wish-save'));
     await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
@@ -357,20 +368,51 @@ describe('Add and edit a wish', () => {
     expect(screen.getByTestId('snackbar')).toHaveTextContent(/is on your wishlist/);
   });
 
-  it('starts from the card autocomplete, keeps the printing of a code only one printing has, and explains refusals', async () => {
+  it('opens the card search of the browsed game, and a card picked opens the wish form', async () => {
+    const api = mockApi(routes({ 'GET /api/v1/cards': ok(cardPage([cardSummaryFixture()])) }));
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    expect(screen.getByTestId('screen-wish-search')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Add a wish' })).toBeOnTheScreen();
+    expect(screen.getByTestId('wish-card-step')).toHaveTextContent(
+      /Which card are you looking for\?/
+    );
+    // Above the field, it follows the text size as little as the field's controls: at the
+    // largest sizes it pushed the field under the keyboard (R14 review fix 1, U2).
+    expect(screen.getByTestId('wish-card-step')).toHaveProp(
+      'maxFontSizeMultiplier',
+      PINNED_MAX_FONT_SCALE
+    );
+    // Search's card search (screen 12): the browsed game's field, here Yu-Gi-Oh!.
+    expect(await screen.findByLabelText('Yu-Gi-Oh! card name or code')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('search-input'), 'svx 001');
+    const result = await screen.findByTestId(`search-result-${CARD_ID}`);
+    expect(result).toHaveProp('accessibilityHint', 'Opens the wish form');
+    await waitFor(() =>
+      expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('yugioh')
+    );
+    fireEvent.press(result);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: '/wishlist/new',
+      params: { cardId: CARD_ID, code: 'svx 001', from: 'search' },
+    });
+    // No collectors here: a wish is a card.
+    expect(api.callsTo('GET /api/v1/search/collectors')).toHaveLength(0);
+  });
+
+  it('searches the game a link names when it can be browsed', async () => {
+    const api = mockApi(routes({ 'GET /api/v1/cards': ok(cardPage([cardSummaryFixture()])) }));
+    mockParams.current = { game: 'pokemon' };
+    renderWithProviders(<NewWishScreen />, { port: port() });
+    expect(await screen.findByLabelText('Pokémon card name or code')).toBeOnTheScreen();
+    fireEvent.changeText(screen.getByTestId('search-input'), 'ember');
+    await screen.findByTestId(`search-result-${CARD_ID}`);
+    expect(api.callsTo('GET /api/v1/cards').at(-1)?.query.get('game')).toBe('pokemon');
+  });
+
+  it('keeps the printing of a code only one printing has, explains refusals, and changes the card', async () => {
+    mockParams.current = { cardId: CARD_ID, code: 'svx 001', from: 'search' };
     const api = mockApi({
       ...routes({
-        'GET /api/v1/cards/suggest': ok([
-          {
-            kind: 'PRINTING',
-            id: CARD_ID,
-            printingId: PRINTING_A,
-            name: 'Emberfang Fox VMAX',
-            game: 'pokemon',
-            printingCode: 'SVX-001',
-            imageUrl: null,
-          },
-        ]),
         'POST /api/v1/wishlist': [
           problem(409, 'CONFLICT', ''),
           problem(429, 'LIMIT_REACHED', 'Limit', { limitKey: 'wishlist.items.max', limit: 20 }),
@@ -387,12 +429,11 @@ describe('Add and edit a wish', () => {
       ),
     });
     renderWithProviders(<NewWishScreen />, { port: port() });
-    expect(await screen.findByTestId('wish-card-step')).toHaveTextContent(
-      /Which card are you looking for\?/
-    );
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'SVX');
-    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
     expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/SVX-001/);
+    expect(screen.getByRole('header', { name: 'Add to wishlist' })).toBeOnTheScreen();
+    // The card: its game, its name and its printings (mockup v50 screen 64).
+    expect(screen.getByTestId('wish-card')).toHaveTextContent(/POKÉMON/);
+    expect(screen.getByTestId('wish-card-line')).toHaveTextContent('2 printings in the catalog');
     // The chosen printing is written out in full under the field.
     expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
       'Only SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · English · Holo.'
@@ -407,6 +448,7 @@ describe('Add and edit a wish', () => {
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
       /This card is already on your wishlist with the same printing or rarity\.$/
     );
+    expectBoundedBarMessage('wish-error', /This card is already on your wishlist/);
     expect(
       (api.callsTo('POST /api/v1/wishlist')[0]?.body as { printingId?: string }).printingId
     ).toBe(PRINTING_A);
@@ -414,70 +456,61 @@ describe('Add and edit a wish', () => {
     expect(await screen.findByTestId('wish-error')).toHaveTextContent(
       /Your wishlist is full: it holds up to 20 wishes\. Remove one to add another\.$/
     );
-    // Another card can be chosen.
+    // "Change" goes back to the card search, which kept the text.
     fireEvent.press(screen.getByTestId('wish-change-card'));
-    expect(await screen.findByTestId('wish-card-step')).toBeOnTheScreen();
+    expect(mockRouter.back).toHaveBeenCalled();
   });
 
-  it('offers the browsed game’s cards only when it opens from Search › Wishlist (review fix 1, U1)', async () => {
+  it('shows the price as one-choice chips: No price, then the server terms', async () => {
+    mockParams.current = { cardId: CARD_ID };
     const api = mockApi(
       routes({
-        'GET /api/v1/cards/suggest': ok([
-          {
-            kind: 'CARD',
-            id: CARD_ID,
-            name: 'Emberfang Fox VMAX',
-            game: 'pokemon',
-            imageUrl: null,
-          },
-        ]),
-      })
-    );
-    mockParams.current = { game: 'pokemon' };
-    renderWithProviders(<NewWishScreen />, { port: port() });
-    expect(await screen.findByLabelText('Pokémon card name or printing code')).toBeOnTheScreen();
-    expect(screen.getByTestId('card-picker-hint')).toHaveTextContent(
-      'Type at least two letters of the name, or a printing code.'
-    );
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
-    expect(await screen.findByTestId('card-picker-results')).toBeOnTheScreen();
-    const asked = api.callsTo('GET /api/v1/cards/suggest');
-    expect(asked.length).toBeGreaterThan(0);
-    expect(asked.map((call) => call.query.get('game'))).toEqual(asked.map(() => 'pokemon'));
-  });
-
-  it('offers every game when it opens without a game (a link, the old Wishlist tab)', async () => {
-    const api = mockApi(routes({ 'GET /api/v1/cards/suggest': ok([]) }));
-    renderWithProviders(<NewWishScreen />, { port: port() });
-    expect(await screen.findByLabelText('Card name or printing code')).toBeOnTheScreen();
-    fireEvent.changeText(screen.getByTestId('card-picker-input'), 'ember');
-    expect(await screen.findByTestId('card-picker-empty')).toHaveTextContent(
-      'No cards match “ember”.'
-    );
-    expect(api.callsTo('GET /api/v1/cards/suggest').at(-1)?.query.get('game')).toBeNull();
-  });
-
-  it('starts on any printing for a typed code that two printings share (never a silent pick)', async () => {
-    // The fixture card has two printings with the code SVX-001 (English holo, French reverse holo).
-    const api = mockApi(
-      routes({
-        'GET /api/v1/cards/suggest': ok([
-          {
-            kind: 'PRINTING',
-            id: CARD_ID,
-            printingId: PRINTING_A,
-            name: 'Emberfang Fox VMAX',
-            game: 'pokemon',
-            printingCode: 'SVX-001',
-            imageUrl: null,
-          },
-        ]),
         'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
       })
     );
     renderWithProviders(<NewWishScreen />, { port: port() });
-    fireEvent.changeText(await screen.findByTestId('card-picker-input'), 'SVX-001');
-    fireEvent.press(await screen.findByTestId('suggestion-PRINTING-SVX-001'));
+    const none = await screen.findByTestId('wish-term-none');
+    expect(none).toHaveTextContent('No price');
+    expect(none).toBeChecked();
+    const chips = screen
+      .getAllByRole('radio')
+      .filter((chip) => String(chip.props.testID).startsWith('wish-term-'));
+    expect(chips.map((chip) => chip.props.testID)).toEqual([
+      'wish-term-none',
+      'wish-term-80',
+      'wish-term-85',
+      'wish-term-90',
+      'wish-term-100',
+      'wish-term-100-plus',
+    ]);
+    expect(screen.getByTestId('wish-terms-hint')).toHaveTextContent(
+      'Compared with the TCGplayer market price. Sellers see it; it never hides a listing.'
+    );
+    fireEvent.press(screen.getByTestId('wish-term-80'));
+    expect(screen.getByTestId('wish-term-80')).toBeChecked();
+    expect(screen.getByTestId('wish-term-none')).not.toBeChecked();
+    // "No price" takes the term away again.
+    fireEvent.press(screen.getByTestId('wish-term-none'));
+    expect(screen.getByTestId('wish-term-80')).not.toBeChecked();
+    fireEvent.press(screen.getByTestId('wish-term-100-plus'));
+    fireEvent.press(screen.getByTestId('wish-save'));
+    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
+      cardId: CARD_ID,
+      nearMintOnly: false,
+      priceTerm: '100% TCG+',
+    });
+  });
+
+  it('starts on any printing for a typed code that two printings share (never a silent pick)', async () => {
+    // The fixture card has two printings with the code SVX-001 (English holo, French reverse holo).
+    mockParams.current = { cardId: CARD_ID, code: 'SVX-001', from: 'search' };
+    const api = mockApi(
+      routes({
+        'POST /api/v1/wishlist': (request) => ok(wishFixture(request.body as object), 201),
+      })
+    );
+    renderWithProviders(<NewWishScreen />, { port: port() });
     expect(await screen.findByTestId('wish-copy')).toHaveTextContent(/Any printing/);
     expect(screen.getByTestId('wish-copy')).not.toHaveTextContent(/SVX-001/);
     expect(screen.getByTestId('wish-copy-hint')).toHaveTextContent(
@@ -492,9 +525,15 @@ describe('Add and edit a wish', () => {
       /SVX-001 · Ultra Rare · Stellar Vortex · Unlimited · French · Reverse holo/
     );
     fireEvent.press(screen.getByTestId('wish-copy-option-'));
-    // Saved as it stands, the wish is for any printing of the card.
+    // Saved as it stands, the wish is for any printing of the card; back on Search › Wishlist,
+    // past the card search.
     fireEvent.press(screen.getByTestId('wish-save'));
-    await waitFor(() => expect(mockRouter.back).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(mockRouter.dismissTo).toHaveBeenCalledWith({
+        pathname: '/search',
+        params: { segment: 'wishlist', game: 'pokemon' },
+      })
+    );
     expect(api.callsTo('POST /api/v1/wishlist')[0]?.body).toEqual({
       cardId: CARD_ID,
       nearMintOnly: false,
@@ -546,9 +585,18 @@ describe('Add and edit a wish', () => {
     mockRouter.canGoBack.mockReturnValue(false);
     const api = mockApi(routes({ 'DELETE /api/v1/wishlist/{id}': noContent }));
     renderWithProviders(<EditWishScreen />, { port: port() });
+    // Edit wish (mockup v50 screen 65): the wished printing under the card, no "Change".
+    // The screen waits for the wish, its card and the price terms: on a loaded CI runner that took
+    // longer than the default 10 s once (2026-10-26), as home.test.tsx's slow paths do.
+    expect(
+      await screen.findByRole('header', { name: 'Edit wish' }, { timeout: 20_000 })
+    ).toBeOnTheScreen();
+    expect(await screen.findByTestId('wish-card-line')).toHaveTextContent(/^SVX-001 · Ultra Rare$/);
+    expect(screen.queryByTestId('wish-change-card')).toBeNull();
+    expect(screen.getByTestId('wish-save')).toHaveTextContent('Save changes');
     fireEvent.press(await screen.findByRole('button', { name: 'Remove from wishlist' }));
     expect(await screen.findByTestId('wish-remove-dialog')).toHaveTextContent(
-      /Your wish for Azure-Eyes Sky Dragon .* will be removed/
+      /Remove Azure-Eyes Sky Dragon\?.*You stop getting alerts for it\./
     );
     fireEvent.press(screen.getByTestId('wish-remove-dialog-confirm'));
     await waitFor(() => expect(api.callsTo('DELETE /api/v1/wishlist/{id}')).toHaveLength(1));

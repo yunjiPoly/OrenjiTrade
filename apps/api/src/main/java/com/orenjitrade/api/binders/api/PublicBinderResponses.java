@@ -92,7 +92,17 @@ public final class PublicBinderResponses {
 
         /** A search result: the summary with its owner block. */
         public static PublicBinderSummaryResponse from(PublicBinderHit hit, Instant now) {
-            return of(hit.summary(), PublicBinderOwner.from(hit.owner()), now);
+            return from(hit, now, true);
+        }
+
+        /**
+         * A search result for a caller who may see who the owner is ({@code showWho}), or not: a
+         * signed-out visitor gets the owner's place only ({@code PrivacyPolicyService#canSeeWho},
+         * stage R15).
+         */
+        public static PublicBinderSummaryResponse from(
+                PublicBinderHit hit, Instant now, boolean showWho) {
+            return of(hit.summary(), PublicBinderOwner.from(hit.owner(), showWho), now);
         }
 
         private static PublicBinderSummaryResponse of(
@@ -181,6 +191,11 @@ public final class PublicBinderResponses {
                     int ownerPublicBinderCount) {
 
         static PublicBinderResponse from(PublicBinder publicBinder, Instant now) {
+            return from(publicBinder, now, true);
+        }
+
+        /** The binder; its owner block without who they are unless {@code showWho} (R15). */
+        static PublicBinderResponse from(PublicBinder publicBinder, Instant now, boolean showWho) {
             BinderView binder = publicBinder.binder();
             BinderShowcase showcase = publicBinder.showcase();
             return new PublicBinderResponse(
@@ -189,7 +204,7 @@ public final class PublicBinderResponses {
                     binder.description(),
                     binder.kind(),
                     binder.publicUntil(),
-                    PublicBinderOwner.from(publicBinder.owner()),
+                    PublicBinderOwner.from(publicBinder.owner(), showWho),
                     binderFreshness(binder, now),
                     publicBinder.stats().publicItemCount(),
                     publicBinder.stats().games(),
@@ -203,12 +218,35 @@ public final class PublicBinderResponses {
         }
     }
 
-    /** The owner of a public binder (state/province and country, never a city). */
-    @Schema(name = "PublicBinderOwner", description = "Owner of a public binder")
+    /**
+     * The owner of a public binder (state/province and country, never a city). A signed-out caller
+     * never sees who they are (stage R15): no id, handle, display name or avatar, the place only.
+     */
+    @Schema(
+            name = "PublicBinderOwner",
+            description =
+                    "Owner of a public binder. For a signed-out caller (stage R15) id, handle,"
+                            + " displayName and avatarUrl are null: the place only")
     public record PublicBinderOwner(
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "collector1") String handle,
-            @Schema(requiredMode = RequiredMode.REQUIRED) String displayName,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable UUID id,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            example = "collector1",
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String handle,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable String avatarUrl,
             @Schema(
@@ -220,12 +258,21 @@ public final class PublicBinderResponses {
                     @Nullable PlaceResponse place) {
 
         public static PublicBinderOwner from(PublicOwner owner) {
-            return new PublicBinderOwner(
-                    owner.id(),
-                    owner.handle(),
-                    owner.displayName(),
-                    owner.avatarUrl(),
-                    owner.place() == null ? null : PlaceResponse.from(owner.place()));
+            return from(owner, true);
+        }
+
+        /** The owner block; without who they are unless {@code showWho} (stage R15). */
+        public static PublicBinderOwner from(PublicOwner owner, boolean showWho) {
+            @Nullable PlaceResponse place =
+                    owner.place() == null ? null : PlaceResponse.from(owner.place());
+            return showWho
+                    ? new PublicBinderOwner(
+                            owner.id(),
+                            owner.handle(),
+                            owner.displayName(),
+                            owner.avatarUrl(),
+                            place)
+                    : new PublicBinderOwner(null, null, null, null, place);
         }
     }
 

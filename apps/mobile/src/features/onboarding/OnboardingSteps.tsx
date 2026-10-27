@@ -1,224 +1,179 @@
-import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { Button } from '@/src/components/ui/Button';
-import { ErrorState } from '@/src/components/ui/ErrorState';
+import { useRegions } from '@/src/api/hooks/regions';
 import { FormMessage, SwitchRow } from '@/src/components/ui/FormControls';
-import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { Text } from '@/src/components/ui/Text';
-import { AgeConfirmationCheckbox } from '@/src/features/legal/AgeConfirmationCheckbox';
+import { TextField } from '@/src/components/ui/TextField';
+import type { GameOption } from '@/src/features/games/browsingGame';
 import { LocationFields } from '@/src/features/location/LocationFields';
-import type { LocationDraft } from '@/src/features/location/locationDraft';
-import { GamePicker, LanguagePicker } from '@/src/features/profile/Pickers';
-import { ProfileFields } from '@/src/features/profile/ProfileFields';
-import { TagPicker } from '@/src/features/profile/TagPicker';
+import { countryOf, type LocationDraft } from '@/src/features/location/locationDraft';
 import type { ProfileEditor } from '@/src/features/profile/useProfileEditor';
-import { fontWeight, spacing, textStyle, useTheme } from '@/src/theme';
+import { BIO_MAX, DISPLAY_NAME_MAX } from '@/src/lib/profile';
+import { fontFamily, fontWeight, spacing, TITLE_MAX_FONT_SCALE, useTheme } from '@/src/theme';
 
-function StepHeading({ title, text }: { title: string; text: string }) {
+import { GameTiles } from './GameTiles';
+import { HandleField } from './HandleField';
+import { ToggleChips } from './ToggleChips';
+import { WELCOME_COPY, WELCOME_LANGUAGES } from './welcomeCopy';
+import { WelcomeTags } from './WelcomeTags';
+
+/** The title and the line under it, at the top of a step's scrolling part. */
+export function StepHeading({ title, text }: { title: string; text: string }) {
   const { palette } = useTheme();
   return (
     <View style={styles.heading}>
       <Text
         accessibilityRole="header"
-        style={[textStyle('xl', 'heading'), styles.title, { color: palette.ink }]}
+        maxFontSizeMultiplier={TITLE_MAX_FONT_SCALE}
+        style={[styles.title, { color: palette.ink }]}
       >
         {title}
       </Text>
-      <Text style={[textStyle('md'), { color: palette.textMuted }]}>{text}</Text>
+      <Text style={[styles.intro, { color: palette.textMuted }]}>{text}</Text>
     </View>
   );
 }
 
-function SubHeading({ children }: { children: ReactNode }) {
+/** A section's small uppercase title ("GAMES", "LANGUAGES YOU TRADE IN"). */
+function SectionTitle({ children }: { children: string }) {
   const { palette } = useTheme();
   return (
-    <Text accessibilityRole="header" style={[textStyle('md'), styles.sub, { color: palette.ink }]}>
-      {children}
+    <Text accessibilityRole="header" style={[styles.section, { color: palette.textMuted }]}>
+      {children.toUpperCase()}
     </Text>
-  );
-}
-
-export interface AgeStepProps {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  /** Show the validation message (after a submit attempt). */
-  showError: boolean;
-  /** The published attestation: loading, failed (retry), or ready. */
-  documents: 'loading' | 'error' | 'ready';
-  documentsError?: unknown;
-  onRetryDocuments: () => void;
-  busy: boolean;
-  /** Recorded already (an answer is in flight or the step was just completed). */
-  done: boolean;
-  error: string | null;
-  onContinue: () => void;
-  onSignOut: () => void;
-}
-
-/**
- * The first step of an account that never confirmed being 18 years of age or older (existing
- * collectors on their next sign-in, Google sign-ups that passed the consent screen before the
- * rule): the statement, the bilingual checkbox, Continue; never editable afterwards. Sign out
- * stays available so a collector who cannot confirm is never stuck.
- */
-export function AgeStep({
-  checked,
-  onChange,
-  showError,
-  documents,
-  documentsError,
-  onRetryDocuments,
-  busy,
-  done,
-  error,
-  onContinue,
-  onSignOut,
-}: AgeStepProps) {
-  const { palette } = useTheme();
-  const router = useRouter();
-  return (
-    <View style={styles.step} testID="onboarding-age">
-      <StepHeading
-        title="Are you 18 or older?"
-        text="OrenjiTrade is for adults. You must be 18 years of age or older to be shown on the map, message collectors or post in the community."
-      />
-      <Text style={[textStyle('sm'), { color: palette.textMuted }]}>
-        We record only your confirmation and its date; no identity document is requested. Accounts
-        found to belong to minors are closed (see the{' '}
-        <Text
-          accessibilityRole="link"
-          style={[styles.link, { color: palette.accent }]}
-          onPress={() => router.push({ pathname: '/legal/[key]', params: { key: 'terms' } })}
-          testID="onboarding-age-terms"
-        >
-          Terms of Service
-        </Text>
-        ).
-      </Text>
-      {documents === 'loading' ? (
-        <View accessibilityLabel="Loading the confirmation" testID="onboarding-age-loading">
-          <SkeletonList rows={1} rowHeight={56} />
-        </View>
-      ) : documents === 'error' ? (
-        <ErrorState
-          compact
-          testID="onboarding-age-error"
-          error={documentsError}
-          title="We could not load the confirmation"
-          onRetry={onRetryDocuments}
-        />
-      ) : (
-        <AgeConfirmationCheckbox
-          checked={checked}
-          onChange={onChange}
-          showError={showError}
-          disabled={busy || done}
-        />
-      )}
-      {error ? <FormMessage>{error}</FormMessage> : null}
-      <Button
-        label="Continue"
-        loading={busy}
-        disabled={done || documents !== 'ready'}
-        onPress={onContinue}
-        testID="onboarding-age-continue"
-      />
-      <Button
-        label="Sign out"
-        variant="ghost"
-        disabled={busy}
-        onPress={onSignOut}
-        testID="onboarding-sign-out"
-      />
-    </View>
   );
 }
 
 export interface ProfileStepProps {
   editor: ProfileEditor;
   busy: boolean;
-  onContinue: () => void;
 }
 
-/** Step 1: who are you (handle, display name, bio). */
-export function ProfileStep({ editor, busy, onContinue }: ProfileStepProps) {
+/** 40 "Who are you?": the handle with its live check, the display name and the bio. */
+export function ProfileStep({ editor, busy }: ProfileStepProps) {
+  const { draft, setDraft, errors } = editor;
   return (
     <View style={styles.step} testID="onboarding-profile">
-      <StepHeading
-        title="Who are you?"
-        text="Your handle is your public address; your display name is what collectors see."
-      />
-      <ProfileFields
-        value={editor.draft}
-        onChange={editor.setDraft}
-        errors={editor.errors}
+      <StepHeading title={WELCOME_COPY.profile.title} text={WELCOME_COPY.profile.intro} />
+      <HandleField
+        value={draft.handle}
+        onChange={(handle) => setDraft({ ...draft, handle })}
+        error={errors?.handle}
         disabled={busy}
       />
-      {editor.formError ? <FormMessage>{editor.formError}</FormMessage> : null}
-      <Button
-        label="Continue"
-        loading={busy}
-        onPress={onContinue}
-        testID="onboarding-profile-continue"
+      <TextField
+        label={WELCOME_COPY.profile.displayName}
+        value={draft.displayName}
+        onChangeText={(displayName) => setDraft({ ...draft, displayName })}
+        error={errors?.displayName}
+        autoComplete="nickname"
+        maxLength={DISPLAY_NAME_MAX}
+        editable={!busy}
+        testID="profile-display-name"
       />
+      <TextField
+        label={WELCOME_COPY.profile.bio}
+        labelAside={WELCOME_COPY.profile.bioCount(draft.bio.length, BIO_MAX)}
+        value={draft.bio}
+        onChangeText={(bio) => setDraft({ ...draft, bio })}
+        error={errors?.bio}
+        placeholder={WELCOME_COPY.profile.bioPlaceholder}
+        multiline
+        numberOfLines={3}
+        maxLength={BIO_MAX}
+        editable={!busy}
+        inputStyle={styles.bio}
+        testID="profile-bio"
+      />
+      {editor.formError ? <FormMessage>{editor.formError}</FormMessage> : null}
     </View>
   );
 }
 
-export interface InterestsStepProps {
+export interface GamesStepProps {
   editor: ProfileEditor;
   busy: boolean;
-  showMissing: boolean;
-  onBack: () => void;
-  onContinue: () => void;
+  games: readonly GameOption[] | null;
+  gamesLoading: boolean;
+  gamesError: unknown;
+  onRetryGames: () => void;
+  opensFirst: string | null;
 }
 
-/** Step 2: games, languages and tags (at least one game or tag). */
-export function InterestsStep({
+/** 41 "What do you collect?": the game tiles, the languages and the tags. */
+export function GamesStep({
   editor,
   busy,
-  showMissing,
-  onBack,
-  onContinue,
-}: InterestsStepProps) {
+  games,
+  gamesLoading,
+  gamesError,
+  onRetryGames,
+  opensFirst,
+}: GamesStepProps) {
   return (
     <View style={styles.step} testID="onboarding-interests">
-      <StepHeading
-        title="What do you collect?"
-        text="Pick your games and a few tags. They appear on your profile and help collectors find you."
-      />
-      <GamePicker value={editor.games} onChange={editor.setGames} disabled={busy} />
-      <SubHeading>Languages</SubHeading>
-      <LanguagePicker value={editor.languages} onChange={editor.setLanguages} disabled={busy} />
-      <SubHeading>Tags</SubHeading>
-      <TagPicker
-        selected={editor.tags}
-        onSelectedChange={editor.setTags}
-        customLabels={editor.customTags}
-        onCustomLabelsChange={editor.setCustomTags}
-        disabled={busy}
-      />
-      {showMissing && !editor.hasInterests ? (
-        <FormMessage testID="interests-missing">Choose at least one game or one tag.</FormMessage>
-      ) : null}
-      {editor.formError ? <FormMessage>{editor.formError}</FormMessage> : null}
-      <View style={styles.actions}>
-        <Button label="Back" variant="ghost" onPress={onBack} disabled={busy} />
-        <Button
-          label="Continue"
-          loading={busy}
-          onPress={onContinue}
-          style={styles.grow}
-          testID="onboarding-interests-continue"
+      <StepHeading title={WELCOME_COPY.games.title} text={WELCOME_COPY.games.intro} />
+      <View style={styles.block}>
+        <SectionTitle>{WELCOME_COPY.games.gamesHeading}</SectionTitle>
+        <GameTiles
+          games={games}
+          loading={gamesLoading}
+          error={gamesError}
+          onRetry={onRetryGames}
+          value={editor.games}
+          onChange={editor.setGames}
+          opensFirst={opensFirst}
+          disabled={busy}
         />
       </View>
+      <View style={styles.block}>
+        <SectionTitle>{WELCOME_COPY.games.languagesHeading}</SectionTitle>
+        <ToggleChips
+          label={WELCOME_COPY.games.languagesHeading}
+          chips={WELCOME_LANGUAGES.map((language) => ({
+            key: language.code,
+            label: language.name,
+            selected: editor.languages.includes(language.code),
+            testID: `language-${language.code}`,
+          }))}
+          onToggle={(code) =>
+            editor.setLanguages(
+              editor.languages.includes(code)
+                ? editor.languages.filter((value) => value !== code)
+                : [...editor.languages, code]
+            )
+          }
+          disabled={busy}
+        />
+      </View>
+      <View style={styles.block}>
+        <SectionTitle>{WELCOME_COPY.games.tagsHeading}</SectionTitle>
+        <WelcomeTags
+          selected={editor.tags}
+          onSelectedChange={editor.setTags}
+          customLabels={editor.customTags}
+          onCustomLabelsChange={editor.setCustomTags}
+          disabled={busy}
+        />
+      </View>
+      {editor.formError ? <FormMessage>{editor.formError}</FormMessage> : null}
     </View>
   );
 }
 
-export interface LocationStepProps {
+/**
+ * The line of "Show me on the map": who finds the collector's binders and where (the browsed
+ * place's names once chosen), off until turned on.
+ */
+export function discoverableHelp(regionName: string | null, provinceName: string | null): string {
+  return WELCOME_COPY.place.discoverableHelp(
+    regionName ?? WELCOME_COPY.place.yourRegion,
+    provinceName ?? WELCOME_COPY.place.yourProvince
+  );
+}
+
+export interface PlaceStepProps {
   value: LocationDraft;
   onChange: (draft: LocationDraft) => void;
   showErrors: boolean;
@@ -226,13 +181,15 @@ export interface LocationStepProps {
   onDiscoverableChange: (value: boolean) => void;
   busy: boolean;
   error: string | null;
-  onBack: () => void;
-  onSkip: () => void;
-  onFinish: () => void;
+  /** Where the country and state or province pickers start, from the top of this step. */
+  onPickersLayout?: (y: number) => void;
 }
 
-/** Step 3: "Where are you?" (country, state or province, optional city) and the map opt-in. */
-export function LocationStep({
+/**
+ * 42 "Where do you ship from?": region, country and state or province, the optional city, "Show
+ * my city on my profile" and "Show me on the map" (off by default). No map, no GPS (ADR 0017).
+ */
+export function PlaceStep({
   value,
   onChange,
   showErrors,
@@ -240,47 +197,66 @@ export function LocationStep({
   onDiscoverableChange,
   busy,
   error,
-  onBack,
-  onSkip,
-  onFinish,
-}: LocationStepProps) {
+  onPickersLayout,
+}: PlaceStepProps) {
+  const regions = useRegions();
+  // The pickers' place in the step: the fields' own top plus the pickers' top inside them.
+  const offsets = useRef({ fields: 0, pickers: 0 });
+  const report = () => onPickersLayout?.(offsets.current.fields + offsets.current.pickers);
+  const all = regions.data?.regions ?? [];
+  const regionName = all.find((region) => region.code === value.regionCode)?.name ?? null;
+  const country = countryOf(all, value.countryCode);
+  const provinceName =
+    country?.subdivisions.find((subdivision) => subdivision.code === value.subdivisionCode)?.name ??
+    null;
   return (
     <View style={styles.step} testID="onboarding-location">
-      <StepHeading
-        title="Where are you?"
-        text="Pick your country and your state or province: they set your region and where your binders appear. Others only ever see your state or province; your city is optional and shown only on your profile."
-      />
-      <LocationFields value={value} onChange={onChange} showErrors={showErrors} disabled={busy} />
-      <SwitchRow
-        label="Show me on the map"
-        help="When on, collectors of your region see your state or province and can find your public binders. Off by default; change it anytime in Settings → Privacy."
-        value={discoverable}
-        onChange={onDiscoverableChange}
-        disabled={busy}
-        testID="onboarding-discoverable"
-      />
-      {error ? <FormMessage>{error}</FormMessage> : null}
-      <View style={styles.actions}>
-        <Button label="Back" variant="ghost" onPress={onBack} disabled={busy} />
-        <Button
-          label="Skip for now"
-          variant="secondary"
-          onPress={onSkip}
+      <StepHeading title={WELCOME_COPY.place.title} text={WELCOME_COPY.place.intro} />
+      <View
+        onLayout={(event) => {
+          offsets.current.fields = event.nativeEvent.layout.y;
+          report();
+        }}
+        testID="onboarding-place-fields"
+      >
+        <LocationFields
+          value={value}
+          onChange={onChange}
+          showErrors={showErrors}
           disabled={busy}
-          testID="onboarding-skip"
+          onPickersLayout={(y) => {
+            offsets.current.pickers = y;
+            report();
+          }}
+          extraSwitch={
+            <SwitchRow
+              label={WELCOME_COPY.place.discoverable}
+              help={discoverableHelp(regionName, provinceName)}
+              value={discoverable}
+              onChange={onDiscoverableChange}
+              disabled={busy}
+              testID="onboarding-discoverable"
+            />
+          }
         />
       </View>
-      <Button label="Finish" loading={busy} onPress={onFinish} testID="onboarding-finish" />
+      {error ? <FormMessage>{error}</FormMessage> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   step: { gap: spacing[4] },
-  heading: { gap: spacing[1] },
-  title: { fontWeight: fontWeight.semibold },
-  sub: { fontWeight: fontWeight.semibold, marginTop: spacing[2] },
-  actions: { flexDirection: 'row', gap: spacing[2], justifyContent: 'space-between' },
-  grow: { flex: 1 },
-  link: { fontWeight: fontWeight.semibold, textDecorationLine: 'underline' },
+  heading: { gap: 6, paddingTop: 6, marginBottom: spacing[1] },
+  title: {
+    fontFamily: fontFamily.display,
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.4,
+  },
+  intro: { fontSize: 14, lineHeight: 21 },
+  block: { gap: spacing[2] },
+  section: { fontSize: 12, fontWeight: fontWeight.semibold, letterSpacing: 0.6, marginBottom: 6 },
+  bio: { minHeight: 88, textAlignVertical: 'top' },
 });

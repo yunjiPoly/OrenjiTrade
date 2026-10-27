@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 
+import { usePendingLink } from '@/src/account/pendingLink';
 import { useAccountSignalStore } from '@/src/api/accountSignal';
 import { AuthError } from '@/src/auth/authErrors';
 import { AUTH_READY_TIMEOUT_MS, SessionProvider, useSession } from '@/src/auth/session';
@@ -83,6 +84,8 @@ describe('SessionProvider', () => {
     await waitFor(() => expect(result.current.status).toBe('authenticated'));
     queryClient.setQueryData(['me', 'uid-maika', 'profile'], { handle: 'maika' });
     useAccountSignalStore.getState().report({ kind: 'deletion-pending', at: 1 });
+    // The screen the gate kept while Review our terms was asked (stage R12's review fix 1, P1).
+    usePendingLink.getState().set('/search?q=blue+eyes&place=CA-QC', 'uid-maika');
     // The saved shipping details read for this account (review fix 1, P3).
     useSavedDetailsStore.getState().setAll('uid-maika', '1 Rue Exemple', 'maika@example.com');
 
@@ -93,6 +96,7 @@ describe('SessionProvider', () => {
     expect(result.current.status).toBe('anonymous');
     expect(queryClient.getQueryData(['me', 'uid-maika', 'profile'])).toBeUndefined();
     expect(useAccountSignalStore.getState().signal).toBeNull();
+    expect(usePendingLink.getState()).toMatchObject({ href: null, owner: null });
     // Nothing of them stays in memory for the next account.
     expect(useSavedDetailsStore.getState()).toMatchObject({
       uid: null,

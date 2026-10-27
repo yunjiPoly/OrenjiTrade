@@ -11,7 +11,8 @@
  * ConversationService} (the chat's subject, the SYSTEM sale message with its key {@code
  * sale:<id>:SOLD}), the ratings module's {@code InteractionService} (a {@code SALE} interaction, so
  * both can rate at once) and the notifications module (the buyer's in-app notice). It implements
- * the messaging module's {@code ChatSaleStatus} (the pinned bar's "Sold").
+ * the messaging module's {@code ChatSaleStatus} (the pinned bar's "Sold") and the ratings module's
+ * {@code SaleDeals} (the rating form's "{card} · sold to you {date}", stage R14).
  *
  * <p>OrenjiTrade never handles the money and claims no protection, escrow or guarantee. Tracking
  * numbers are seen by the two collectors only, never logged and never in analytics.

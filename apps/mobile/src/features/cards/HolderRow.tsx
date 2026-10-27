@@ -3,9 +3,12 @@ import { useRouter } from 'expo-router';
 import { memo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import { useGuestAction } from '@/src/account/guestAction';
 import type { CardHolderResult } from '@/src/api/types';
 import { Avatar } from '@/src/components/ui/Avatar';
 import { Text } from '@/src/components/ui/Text';
+import { GUEST_COPY } from '@/src/features/guest/guestCopy';
+import { GuestAvatar } from '@/src/features/guest/GuestParts';
 import { itemPriceText } from '@/src/features/inventory/itemPrice';
 import { specialEdition, specialFinish } from '@/src/features/wishlist/wishlistLabels';
 import { printingCode } from '@/src/lib/catalog';
@@ -48,15 +51,27 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
     .join(' · ');
   const price = itemPriceText(item);
   const copies = `×${item.quantity}`;
+  // A guest never sees who holds the card (stage R15): "A collector", a plain avatar; a tap asks
+  // them to sign in, and the profile or the chat opens after, found by this card.
+  const handle = collector.handle;
+  const details = `${line}${price ? `, ${price}` : ''}, ${item.quantity} ${
+    item.quantity === 1 ? 'copy' : 'copies'
+  }`;
   return (
     <View style={[styles.row, { borderBottomColor: palette.border }]} testID={`holder-${item.id}`}>
       <Pressable
-        accessibilityRole="link"
-        accessibilityLabel={`${CARD_PAGE_COPY.openProfile(collector.handle)}. ${line}${
-          price ? `, ${price}` : ''
-        }, ${item.quantity} ${item.quantity === 1 ? 'copy' : 'copies'}`}
+        accessibilityRole={handle ? 'link' : 'button'}
+        accessibilityLabel={
+          handle
+            ? `${CARD_PAGE_COPY.openProfile(handle)}. ${details}`
+            : GUEST_COPY.holderLabel(details)
+        }
         onPress={() =>
-          router.push({ pathname: '/collectors/[id]', params: { id: collector.handle } })
+          handle
+            ? router.push({ pathname: '/collectors/[id]', params: { id: handle } })
+            : useGuestAction
+                .getState()
+                .open({ kind: 'profile', listing: { itemId: item.id }, page: 'profile' })
         }
         testID={`holder-${item.id}-collector`}
         style={({ pressed }) => [
@@ -65,14 +80,14 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
           pressed && styles.pressed,
         ]}
       >
-        <Avatar
-          src={collector.avatarUrl}
-          name={collector.displayName || collector.handle}
-          size={44}
-        />
+        {handle ? (
+          <Avatar src={collector.avatarUrl} name={collector.displayName || handle} size={44} />
+        ) : (
+          <GuestAvatar size={44} testID={`holder-${item.id}-guest-avatar`} />
+        )}
         <View style={[styles.text, stacked && styles.stackedPart]}>
           <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
-            {collector.handle}
+            {handle ?? GUEST_COPY.aCollector}
           </Text>
           <Text style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}>{line}</Text>
         </View>
@@ -100,7 +115,9 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={CARD_PAGE_COPY.message(collector.handle)}
+        accessibilityLabel={
+          handle ? CARD_PAGE_COPY.message(handle) : GUEST_COPY.messageLabel(item.card?.name ?? '')
+        }
         accessibilityState={{ busy: starting }}
         onPress={() => onMessage(result)}
         disabled={starting}

@@ -14,6 +14,7 @@ import type {
 } from '@/src/api/types';
 import type { IconName } from '@/src/components/ui/EmptyState';
 import { whichCopyLabel } from '@/src/features/wishlist/wishlistLabels';
+import { printingCode } from '@/src/lib/catalog';
 import { conditionLabel } from '@/src/lib/inventory';
 
 /**
@@ -433,8 +434,8 @@ export function filterOptions(
   const shown = `${formatCount(assumed)} assumed`;
   const noun = source === 'YDK' ? 'card' : 'line';
   const options: (ImportFilterOption | null)[] = [
-    { value: 'ALL', label: `All (${formatCount(summary.rows)})` },
-    { value: 'CHOOSE_PRINTING', label: `Needs a printing (${formatCount(summary.toChoose)})` },
+    { value: 'ALL', label: `All ${formatCount(summary.rows)}` },
+    { value: 'CHOOSE_PRINTING', label: `Which copy? ${formatCount(summary.toChoose)}` },
     assumed > 0 || current === 'MOST_RECENT_ASSUMED'
       ? {
           value: 'MOST_RECENT_ASSUMED',
@@ -445,7 +446,7 @@ export function filterOptions(
               : `${shown}: the ${noun}s whose plain copy was assumed`,
         }
       : null,
-    { value: 'UNMATCHED', label: `Not recognised (${formatCount(summary.unmatched)})` },
+    { value: 'UNMATCHED', label: `Not recognised ${formatCount(summary.unmatched)}` },
   ];
   return options.filter((option) => option !== null);
 }
@@ -471,6 +472,95 @@ export function emptyFilterText(filter: ImportRowFilter): { title: string; descr
     default:
       return { title: 'Nothing to show', description: 'This import has nothing to show.' };
   }
+}
+
+/**
+ * The amber bar of "Check the cards" (mockup v50 screen 67): "2 cards need a printing. Pick one on
+ * each, or use the newest for all." ("lines" for a CSV export).
+ */
+export function needPrintingBar(toChoose: number, source: ImportSource): string {
+  return `${shortLines(toChoose, source)} ${toChoose === 1 ? 'needs' : 'need'} a printing. Pick one on each, or use the newest for all.`;
+}
+
+/** "40 main, 15 extra, 15 side": the copies of a deck file's sections. */
+export function sectionsLine(sections: ImportSections): string {
+  return `${formatCount(sections.mainCopies)} main, ${formatCount(sections.extraCopies)} extra, ${formatCount(sections.sideCopies)} side`;
+}
+
+/** The line under a row's name in "Check the cards", and its tone. */
+export interface RowLine {
+  text: string;
+  tone: 'muted' | 'warning' | 'danger';
+}
+
+/**
+ * What a row of "Check the cards" says under its name (mockup v50 screen 67): "ROTA-EN006 ·
+ * Super Rare" (with "· assumed plain copy" when it was taken for the collector), "Which copy? 2
+ * printings" in amber while it needs one, "Not recognised. It stays out." in red.
+ */
+export function rowLine(
+  row: Pick<ImportRow, 'status' | 'printing' | 'printingCount' | 'printingChoice'>
+): RowLine {
+  if (row.status === 'UNMATCHED') {
+    return { text: 'Not recognised. It stays out.', tone: 'danger' };
+  }
+  if (row.status === 'CHOOSE_PRINTING' || !row.printing) {
+    return {
+      text: `Which copy? ${plural(row.printingCount ?? 0, 'printing')}`,
+      tone: 'warning',
+    };
+  }
+  const copy = [printingCode(row.printing), row.printing.rarity].filter(Boolean).join(' · ');
+  return {
+    text: assumedCopyText(row) ? `${copy} · assumed plain copy` : copy,
+    tone: 'muted',
+  };
+}
+
+/** The short name of a condition on a row's copies button ("NM", "LP", "DMG"). */
+export function conditionShort(condition: string | null | undefined): string {
+  switch (condition) {
+    case 'MINT':
+      return 'M';
+    case 'NEAR_MINT':
+      return 'NM';
+    case 'LIGHTLY_PLAYED':
+      return 'LP';
+    case 'MODERATELY_PLAYED':
+      return 'MP';
+    case 'HEAVILY_PLAYED':
+      return 'HP';
+    case 'DAMAGED':
+      return 'DMG';
+    default:
+      return conditionLabel(condition);
+  }
+}
+
+/**
+ * Whether a line's condition is only where it started because the file names none: the lowest
+ * grade of its game (`lowestGrades`; while the games are not loaded, any condition the file did
+ * not name). A condition the collector set for all of them ("Set one condition") or the file's
+ * own is not.
+ */
+export function conditionAssumed(
+  row: Pick<ImportRow, 'condition' | 'conditionSource'>,
+  lowestGrades: readonly string[]
+): boolean {
+  return (
+    row.conditionSource === 'DEFAULT' &&
+    (lowestGrades.length === 0 || lowestGrades.includes(row.condition ?? ''))
+  );
+}
+
+/**
+ * What a line's copies button shows: "NM ×3", or the copies alone ("×3", mockup v50 screen 67)
+ * while the condition is only assumed. "DMG ×3" on every line of a deck file read as a claim
+ * about the collector's cards (R14 review fix 1, U6); the button's name still says the condition
+ * and that the file did not.
+ */
+export function copiesText(row: Pick<ImportRow, 'condition' | 'quantity'>, assumed: boolean) {
+  return assumed ? `×${row.quantity}` : `${conditionShort(row.condition)} ×${row.quantity}`;
 }
 
 /** The title of the card over the bulk action: "2 cards need a printing" / "115 lines need …". */
@@ -731,15 +821,20 @@ export function commitState(
   const cards = cardsAndCopies(summary);
   const adding = summary.copies === summary.items ? `Add ${cards} to my inventory` : `Add ${cards}`;
   if (summary.toChoose > 0 && !leaveOutUnchosen) {
-    const waiting = shortLines(summary.toChoose, source);
     return {
       label: summary.items > 0 ? `Add ${cards} to my inventory` : 'Add to my inventory',
       shortLabel: summary.items > 0 ? adding : 'Add to my inventory',
       disabled: true,
-      reason:
-        summary.toChoose === 1
-          ? `${waiting} still needs a printing. Choose it, or leave it out.`
-          : `${waiting} still need a printing. Choose them, or leave them out.`,
+      // Mockup v50 screen 67 (stage R14); "leave them out" stands right under the amber bar.
+      reason: `Choose the copy of the marked ${
+        source === 'YDK'
+          ? summary.toChoose === 1
+            ? 'card'
+            : 'cards'
+          : summary.toChoose === 1
+            ? 'line'
+            : 'lines'
+      }, or use the newest.`,
     };
   }
   if (summary.items === 0) {

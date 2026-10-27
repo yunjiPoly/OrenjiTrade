@@ -50,12 +50,14 @@ test.describe('mobile collector reports', () => {
     const reasons = report.getByRole('radio');
     await expect(reasons.first()).toHaveAccessibleName('Scam or fraud', { timeout: 30_000 });
     await expect(reasons).toHaveCount(7);
-    await expect(report.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+    // Stage R14 (mockup v50 screen 60): grey with its reason until a reason is chosen.
+    await expect(report.getByRole('button', { name: 'Send report' })).toBeDisabled();
+    await expect(report.getByTestId('report-choose-first')).toHaveText('Choose a reason first.');
     await report.getByRole('radio', { name: 'Harassment' }).click();
     await report.getByLabel('Details (optional)').fill('Insults after I declined a trade.');
-    await report.getByRole('button', { name: 'Confirm' }).click();
+    await report.getByRole('button', { name: 'Send report' }).click();
     await expect(report.getByTestId('report-sent')).toContainText(
-      `Our moderation team will review your report about ${ben.displayName}`,
+      `Our moderators will review your report about ${ben.displayName}`,
       { timeout: 30_000 }
     );
     expect(await apiMyReports(request, ada)).toEqual([
@@ -67,7 +69,7 @@ test.describe('mobile collector reports', () => {
     ]);
 
     // My reports: the status only, never the decision's specifics.
-    await report.getByRole('button', { name: 'My reports' }).click();
+    await report.getByRole('button', { name: 'Follow it in My reports' }).click();
     const mine = screen(page, 'my-reports');
     await expect(mine.getByTestId('reports-summary')).toHaveText(
       '1 waiting for a decision · 0 reviewed',
@@ -83,12 +85,12 @@ test.describe('mobile collector reports', () => {
     await page.getByRole('button', { name: `Report ${ben.handle}` }).click({ timeout: 30_000 });
     const again = screen(page, 'report');
     await again.getByRole('radio', { name: 'Spam' }).click({ timeout: 30_000 });
-    await again.getByRole('button', { name: 'Confirm' }).click();
+    await again.getByRole('button', { name: 'Send report' }).click();
     await expect(again.getByTestId('report-error')).toContainText(
       `You already reported ${ben.displayName}`,
       { timeout: 30_000 }
     );
-    await expect(again.getByRole('button', { name: 'Confirm' })).toBeDisabled();
+    await expect(again.getByRole('button', { name: 'Send report' })).toBeDisabled();
     expect(await apiMyReports(request, ada)).toHaveLength(1);
   });
 
@@ -114,7 +116,7 @@ test.describe('mobile collector reports', () => {
 
     const report = screen(page, 'report');
     await report.getByRole('radio', { name: 'Spam' }).click({ timeout: 30_000 });
-    await report.getByRole('button', { name: 'Confirm' }).click();
+    await report.getByRole('button', { name: 'Send report' }).click();
     await expect(report.getByTestId('report-sent')).toBeVisible({ timeout: 30_000 });
     expect(await apiMyReports(request, ada)).toEqual([
       expect.objectContaining({

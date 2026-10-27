@@ -3,11 +3,51 @@ import type { ChannelPreferences, NotificationSettingsResponse } from '@/src/api
 export type Channel = keyof ChannelPreferences;
 export type MasterKey = 'pushEnabled' | 'emailEnabled' | 'inAppEnabled';
 
-export const CHANNELS: readonly { key: Channel; master: MasterKey; label: string }[] = [
-  { key: 'inApp', master: 'inAppEnabled', label: 'In-app' },
-  { key: 'push', master: 'pushEnabled', label: 'Push' },
-  { key: 'email', master: 'emailEnabled', label: 'Email' },
+/**
+ * The three channels (mockup v50 screen 51): the switch's name, the grid's column and the words
+ * after a topic for a screen reader ("Messages by push").
+ */
+export const CHANNELS: readonly {
+  key: Channel;
+  master: MasterKey;
+  label: string;
+  column: string;
+  by: string;
+  icon: 'cellphone' | 'bell-ring-outline' | 'email-outline';
+}[] = [
+  {
+    key: 'inApp',
+    master: 'inAppEnabled',
+    label: 'In the app',
+    column: 'App',
+    by: 'in the app',
+    icon: 'cellphone',
+  },
+  {
+    key: 'push',
+    master: 'pushEnabled',
+    label: 'Push',
+    column: 'Push',
+    by: 'by push',
+    icon: 'bell-ring-outline',
+  },
+  {
+    key: 'email',
+    master: 'emailEnabled',
+    label: 'Email',
+    column: 'Email',
+    by: 'by email',
+    icon: 'email-outline',
+  },
 ];
+
+/**
+ * What a screen reader says for a cell of the grid: the topic and the channel, and that the
+ * channel is off while it is ("Messages by email, channel off").
+ */
+export function cellLabel(topic: string, channel: { by: string }, channelOn: boolean): string {
+  return `${topic} ${channel.by}${channelOn ? '' : ', channel off'}`;
+}
 
 /** Categories in display order with human labels (unknown API categories still render). */
 export const CATEGORY_LABELS: Readonly<Record<string, { label: string; help: string }>> = {

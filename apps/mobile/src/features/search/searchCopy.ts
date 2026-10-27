@@ -98,6 +98,12 @@ export const TYPING_COPY = {
   loading: 'Loading cards',
   error: 'Cards could not load',
   searchAgain: (text: string) => `Search again for ${text}`,
+  /** The cards of one set (a set page's "Who has cards of this set", stage R14). */
+  setChip: (name: string, code: string) => (name ? `${name} · ${code}` : code),
+  clearSet: (code: string) => `Show every card, not only ${code}`,
+  setEmpty: (code: string) => `No card of ${code} matches`,
+  /** A card picked for a wish (Add a wish, stage R14) opens the wish form. */
+  pickHint: 'Opens the wish form',
 } as const;
 
 /** Who has this card, the one card page (screen 13). */
@@ -142,6 +148,9 @@ export const CARD_PAGE_COPY = {
 export const BINDERS_COPY = {
   fieldLabel: 'Deck, binder or collector',
   placeholder: (game: string) => withExample(game, 'Deck, binder or collector', ', like Yubel'),
+  /** A guest's field: collector names find nobody without an account (stage R15, review fix 1). */
+  guestFieldLabel: 'Deck or binder',
+  guestPlaceholder: (game: string) => withExample(game, 'Deck or binder', ', like Yubel'),
   /** The state chip: what it says to a screen reader. */
   stateChip: (state: string) => `Showing ${state}. Show the whole region`,
   pickOnMap: 'Pick on the map',
@@ -157,6 +166,7 @@ export const BINDERS_COPY = {
   noBinders: (game: string) => `No public ${game} binders here yet.`,
   noDeckCores: (game: string) => `No ${game} deck cores for sale here yet.`,
   noMatch: 'Nothing matches. Try a deck name, a card name or a collector.',
+  guestNoMatch: 'Nothing matches. Try a deck or card name. Sign in to find collectors by name.',
   loading: 'Loading binders',
   error: 'Binders could not load',
 } as const;

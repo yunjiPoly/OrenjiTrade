@@ -23,16 +23,34 @@ public class PrivacyPolicyService {
         };
     }
 
+    /**
+     * Whether {@code viewer} may see who a collector is (stage R15 of the phone redesign, "Browse
+     * without an account"): their account id, handle, display name and avatar, and the per-person
+     * details (rating, last activity, presence). Members only: a signed-out visitor sees the cards,
+     * wishes, binders and deck cores of discoverable collectors with their state or province and
+     * country, never who they are, and collector name search returns nothing to them. Every
+     * response a signed-out caller can get applies it (the feed, card holders, the binders and deck
+     * cores of a region or a state, binder search, a public binder); reads by a handle the caller
+     * already has (a collector's public binders and inventory) are not concerned.
+     */
+    public boolean canSeeWho(ViewerContext viewer) {
+        return viewer.isMember();
+    }
+
     public boolean canSeeLastActive(
             ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         return viewer.is(targetId)
-                || (target.showLastActive() && canViewProfile(viewer, targetId, target));
+                || (canSeeWho(viewer)
+                        && target.showLastActive()
+                        && canViewProfile(viewer, targetId, target));
     }
 
     public boolean canSeeOnlineStatus(
             ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         return viewer.is(targetId)
-                || (target.showOnlineStatus() && canViewProfile(viewer, targetId, target));
+                || (canSeeWho(viewer)
+                        && target.showOnlineStatus()
+                        && canViewProfile(viewer, targetId, target));
     }
 
     /** Whether the target's state/province and country may be shown (discoverable collectors). */
@@ -47,7 +65,7 @@ public class PrivacyPolicyService {
      * country to every visitor, signed-out ones included) and whose profile is not PRIVATE; never
      * when a block exists between them. The queries also require a location (country + subdivision)
      * and an ACTIVE account. Signed-out visitors get reduced details through the other rules of
-     * this class (no last-active for MEMBERS profiles, no messaging).
+     * this class: never who the collector is ({@link #canSeeWho}), no messaging.
      */
     public boolean canAppearOnMap(ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
         if (!target.discoverable() || viewer.blocked()) {
@@ -58,11 +76,14 @@ public class PrivacyPolicyService {
 
     /**
      * Whether the target appears in collector name search (handle, display name, tag text) for
-     * {@code viewer}: on the map and {@code searchDiscoverable}.
+     * {@code viewer}: on the map and {@code searchDiscoverable}, and never for a signed-out viewer
+     * ({@link #canSeeWho}, stage R15).
      */
     public boolean canAppearInNameSearch(
             ViewerContext viewer, UUID targetId, PrivacySettingsView target) {
-        return target.searchDiscoverable() && canAppearOnMap(viewer, targetId, target);
+        return canSeeWho(viewer)
+                && target.searchDiscoverable()
+                && canAppearOnMap(viewer, targetId, target);
     }
 
     /**

@@ -176,6 +176,49 @@ public abstract class AbstractIntegrationTest {
         return text.isEmpty() ? MissingNode.getInstance() : jsonMapper.readTree(text);
     }
 
+    /**
+     * Uploads a small fictional PNG as the multipart part {@code file} (an item's or a binder's
+     * photo, an avatar), asserts the status and parses the JSON body.
+     */
+    protected JsonNode uploadPng(String uid, String uri, int expectedStatus) {
+        java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+        try {
+            javax.imageio.ImageIO.write(
+                    new java.awt.image.BufferedImage(
+                            64, 64, java.awt.image.BufferedImage.TYPE_INT_RGB),
+                    "png",
+                    png);
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
+        org.springframework.http.client.MultipartBodyBuilder builder =
+                new org.springframework.http.client.MultipartBodyBuilder();
+        builder.part(
+                        "file",
+                        new org.springframework.core.io.ByteArrayResource(png.toByteArray()) {
+                            @Override
+                            public String getFilename() {
+                                return "photo.png";
+                            }
+                        })
+                .contentType(MediaType.IMAGE_PNG);
+        EntityExchangeResult<byte[]> result =
+                http.post()
+                        .uri(uri)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(uid))
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(builder.build())
+                        .exchange()
+                        .expectBody()
+                        .returnResult();
+        byte[] bytes = result.getResponseBody();
+        String text = bytes == null ? "" : new String(bytes, StandardCharsets.UTF_8);
+        assertThat(result.getStatus().value())
+                .as("POST %s -> %s", uri, text)
+                .isEqualTo(expectedStatus);
+        return text.isEmpty() ? MissingNode.getInstance() : jsonMapper.readTree(text);
+    }
+
     /** Parses a response body. */
     protected JsonNode json(EntityExchangeResult<byte[]> result) {
         byte[] body = result.getResponseBody();

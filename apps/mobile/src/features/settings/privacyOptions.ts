@@ -5,35 +5,24 @@ export type PrivacyToggleKey = keyof Pick<
   'discoverable' | 'showOnlineStatus' | 'showLastActive' | 'searchDiscoverable' | 'wishlistVisible'
 >;
 
-/** Every privacy switch with the sentence that explains it (same wording as the web). */
-export const PRIVACY_TOGGLES: readonly { key: PrivacyToggleKey; label: string; help: string }[] = [
+/**
+ * Every privacy switch of Settings › Privacy › Visibility, in the order of mockup v50 screen 52,
+ * with its line where the mockup gives one.
+ */
+export const PRIVACY_TOGGLES: readonly { key: PrivacyToggleKey; label: string; help?: string }[] = [
   {
     key: 'discoverable',
     label: 'Show me on the map',
-    help:
-      'Collectors of your region see your state or province and can open your public binders. ' +
-      'When off, you are hidden from the map and from searches. Needs a location.',
+    help: 'Your public binders count in your state or province.',
   },
-  {
-    key: 'showLastActive',
-    label: 'Show when I was last active',
-    help: 'Shown as “Active today”, “this week” or “this month”, never an exact time.',
-  },
-  {
-    key: 'showOnlineStatus',
-    label: 'Show when I am online',
-    help: 'A green dot on your profile while you use OrenjiTrade.',
-  },
-  {
-    key: 'searchDiscoverable',
-    label: 'Appear in collector search',
-    help: 'Lets collectors find your profile by handle or name.',
-  },
+  { key: 'searchDiscoverable', label: 'Appear in collector search' },
   {
     key: 'wishlistVisible',
     label: 'Let others see what you want',
-    help: 'Shows your wishlist on your profile, so collectors who own these cards can find you. Wishlist alerts work either way.',
+    help: 'Your wishlist on your profile, and your wishes on Home.',
   },
+  { key: 'showLastActive', label: 'Show when I was last active' },
+  { key: 'showOnlineStatus', label: 'Show when I am online' },
 ];
 
 export const PROFILE_VISIBILITY_OPTIONS: readonly {
@@ -48,38 +37,47 @@ export const PROFILE_VISIBILITY_OPTIONS: readonly {
   },
   {
     value: 'MEMBERS',
-    label: 'Members',
-    help: 'Signed-in members can open your profile (recommended).',
+    label: 'Members (recommended)',
+    help: 'Signed-in members can open your profile.',
   },
   {
     value: 'PRIVATE',
     label: 'Private',
-    help: 'Only you can see your profile. You also disappear from the map.',
+    help: 'Only you. You also leave the map.',
   },
 ];
 
 export const MESSAGING_OPTIONS: readonly {
   value: PrivacySettings['messagingPermission'];
   label: string;
-  help: string;
+  help?: string;
 }[] = [
-  { value: 'EVERYONE', label: 'Everyone', help: 'Any member can message you.' },
-  {
-    value: 'MEMBERS_WITH_PROFILE',
-    label: 'Members with a profile',
-    help: 'Only members who finished their profile (recommended).',
-  },
+  { value: 'EVERYONE', label: 'Everyone' },
+  { value: 'MEMBERS_WITH_PROFILE', label: 'Members with a profile (recommended)' },
   {
     value: 'NOBODY',
     label: 'Nobody',
-    help: 'Turn off new conversations. Existing ones stay readable.',
+    help: 'No new conversations. Existing ones stay readable.',
   },
 ];
 
 /** Settings › Privacy › "Remember my searches" (stage R5): a setting of this phone only. */
 export const REMEMBER_SEARCHES = {
   title: 'Search',
-  description: 'Your recent searches stay on this phone. Nobody else sees them.',
   label: 'Remember my searches',
-  help: 'Shows your last searches when you search for a card. Turning this off clears them.',
+  help: 'Kept on this phone only. Turning it off clears them.',
+} as const;
+
+/** The words of Settings › Privacy (stage R13, mockup v50 screen 52). */
+export const PRIVACY_COPY = {
+  title: 'Privacy',
+  loadError: 'We could not load your privacy settings',
+  loading: 'Loading your privacy settings',
+  visibility: 'Visibility',
+  profile: 'Who can see your profile',
+  messaging: 'Who can message you',
+  saving: 'Saving…',
+  saved: 'All changes saved',
+  notSaved: 'Last change not saved',
+  failed: 'Your change could not be saved.',
 } as const;

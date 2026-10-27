@@ -7,7 +7,8 @@ A feature is marked complete only when: implementation exists, API works, UI wor
 applicable, authorization works, validation works, error handling works, tests pass,
 documentation is updated. Each completed item lists location, tests, migrations, and debt.
 
-**Last updated:** 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
+**Last updated:** 2026-10-23 (stage R14's review fix 1: a refusal in the bar at the bottom held to the button's text size and to a quarter of the window (Report, Rate, Write a reference, the wish form); Add a wish's line above the card search held small, so the field stays at the top; Import done closes the toast of Check the cards; a binder's card picker says when there is no card of its game; "Leave out" right under the amber bar and the lines it leaves out shown as left out; a line's copies alone ("×3") while the file names no condition; the wish's price chips the terms alone; tests for a set's paging, the grid's columns, a cleared details row, the 600-character comment and Import done's count; the native report flow ends with a refusal at the largest size; phone and tests only, no API change, no migration; see "Review fix 1" in the R14 section). Before: 2026-10-23 (stage R14 of the phone redesign, "Report, rating, reference, binders, wishes, import and sets (60 to 69)": Report collector with the server's reasons as radio rows and "Send report" grey with "Choose a reason first.", Report sent in place; Rate a collector with the deal ("{card} · sold to you {date}": `dealName` and `soldToYou` on a sale's `RatingEligibilityInteraction`, through the ratings module's `SaleDeals` extension point implemented by deals), Overall's 34 pt stars and word, clearable details rows, "Write a reference instead" and "Publish rating"; Write a reference; New binder with its game's line; "Add a wish" opening Search's card search, the form with price chips, Edit a wish with its remove sheet; the import's file step, Check the cards and Import done; a set with "Who has cards of this set" and a three-column grid, paged; refusals said in the bar at the bottom; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)"). Before: 2026-10-23 (stage R13's review fix 2, the last round: P3, Blocked collectors' "They are never told.", answered with evidence and no code change; owner follow-up 7 restated with what the blocked side can still read over HTTP, last active and online status included, and the API remedy recommended; the quick checks green at `5f3987c2`; next: stage R14)
+**Last updated:** 2026-10-27 (stage R8's review fix 1: the guest card's tint fills the card on the web build again and on iOS (one frame without padding for both); a test that the guest card draws the theme's faint stops; an empty state's description never larger than its title; at large text sizes Who has this card puts the picture above the name, Add cards' "Coming later" goes under "Scan with camera", and the deck core page's back button stays on screen with a band under the clock; the documents say what R8's walk covered at the largest size and what a suspended collector sees (one owner decision with R12's); phone and documents only, no API change, no migration; the full native suite 42 / 43, the one failure a run crossing midnight, 1 / 1 alone; see "Review fix 1" in the R8 section). Before: 2026-10-26 (stage R8 of the phone redesign, the wrap-up, done last in the giant pull request: the documents after the whole redesign (CLAUDE.md, the product overview, the contracts index, the test accounts, the seed data, the READMEs, the handoff); the full native suite on the owner's iPhone 18 Pro (two R15 flows never run on the iPhone failed and were fixed: R15's F3 closed; the reviewers' verifier then ran every flow on `5182b992`, 43 / 43); a walk of every mockup screen in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in R8's table (60 of 77 signed in, dark), one screenshot each for the pull request; fixed: the guest card's tint on iOS and an empty state's title at the largest size; no migration, no API change; see "Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)"). Before: 2026-10-25 (stage R15's review fix 2: the wishlist alert's distance check no longer fails on a random handle holding "km" (the test's seller always has one now); two native flows prepared, a guest's Message on a plain public binder and Sign in from Search › Wishlist through Review our terms; tests only, no API, phone or web change, no migration; the native suite, the iPhone walk and the PR screenshots still not run (the owner's simulator was not booted); see "Review fix 2" in the R15 section). Before: 2026-10-25 (stage R15's review fix 1: listing photos by opaque URLs that never name the owner (`/api/v1/public/item-images/{id}`, `/binder-images/{id}`, no migration); a guest's Message on a plain public binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s; back to Search › Wishlist after sign-in; a guest's binder search wording; a screen left by an ended session stays its collector's; a leftover guest action forgotten; the native suite still not run (the owner's simulator was not booted); see "Review fix 1" in the R15 section). Before: 2026-10-25 (stage R15 of the phone redesign, "Browse without an account (70 to 75)": the app opens on Home for a signed-out visitor; Home and Search as a guest with the person button, the guest's card and "A collector" rows with their places; Inventory, Messages, Profile and Search › Wishlist ask to sign in in place; one sheet for every action that needs an account, finished after the sign-in back on the guest's screen (`GET /listings/owner`); Sign in's close button; sign-out to Home; API: `PrivacyPolicyService.canSeeWho`, the feed open (GET), the `guest-discovery` rate limit; no migration; the iPhone walk and the native suite not run (the owner's simulator was not booted); see "Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)"). Before: 2026-10-23 (stage R13's review fix 1: a Private profile is off the map on Settings, Location and Privacy (one rule, `mapStatus`); "Preview" right after a save shows the saved profile; Privacy's "Show me on the map" waits for a saved place; a refused profile save says why above "Save changes" and scrolls to the field; handles, "English | Français" and "(optional)" whole at the largest text size; tests for every Privacy switch's binding, the report pills' colours, tags as a set, the 12th tag; the R13 privacy contract test reads a block and a report; phone and tests only, no API change, no migration; see "Review fix 1" in the R13 section). Before: 2026-10-23 (stage R13 of the phone redesign, "Settings (47 to 59)": Settings with the profile card and the groups of mockup v50 (the place and the map, the theme, the blocked collectors' number, the reports waiting, the email), Edit profile with one "Save changes" (the tags in the same request: an optional `tags` on `PUT /me/profile`, all or nothing), "Preview" and the leave guard, Location with "Show me on the map" first and the remove sheet, Notifications as a grid of topics by channel (a channel that is off dims its column), Privacy saved at once with "All changes saved", Appearance, Blocked collectors, My reports with pills, Account, Delete account grey until ticked, Legal with seven documents and the amber draft banner; every page with its own top bar; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R13: Settings (47 to 59) (2026-10-23)"). Before: 2026-10-22 (stage R12's review fix 1: a screen the gate kept for Review our terms or the welcome never opens for the next account on the phone (Sign out forgets it, a kept link belongs to its collector's uid) and is never pushed over the welcome; the welcome, Sign in, Create account and Reset password scroll the field being typed in above the keyboard (the welcome's buttons stay pinned under it); "Choose your country." under the pickers, scrolled into view; the progress bar's value 33, 67 and 100 %; Could not load keeps the error's own words, "No answer from OrenjiTrade" and the `errorCode · requestId` line; Reset password's sent state resends with "Resend in {n} s"; the welcome's tag suggestions without game and language tags; phone only, no API change, no migration; see "Review fix 1" in the R12 section). Before: 2026-10-22 (stage R12 of the phone redesign, "Sign-in, sign-up and welcome (36 to 46)": Sign in with the wordmark and its line, Create your account with the documents in one card and the 18+ confirmation in its own (English only), "Create account" disabled until every box is ticked with one line saying what is missing, the sent states of Reset password and Verify your email in place, the welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game tiles with "Opens first" and at least one game, the place with its switches), no age step (an account without the 18+ confirmation is on Review our terms first), the account states centred with a 72 pt icon and "Deletion cancelled" in place; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)"). Before: 2026-10-22 (stage R11's review fix 2: a post's time is never cut by a long province (the line under the handle wraps without a cap at large text sizes; beside the handle the province gives way and the time stays whole), and Community's and a room's closed, empty, not found and error states scroll at large text sizes (`StateScroll`) instead of running over the title and the tabs; phone only, no API change, no migration; see "Review fix 2" in the R11 section). Before: 2026-10-22 (stage R11's review fix 1: an open room shows newer posts (every 15 s while on screen, on coming back, with a pull), a post's avatar and handle open the author's profile, "{province} · {time}" under the handle at large text sizes, Community closes when a refresh finds `publicChat` off; API: a post's place decided for a member who is not the author (a PRIVATE profile's author no longer reads their own province), a shared binder the reader can no longer open left out with its stored name and handle (`payload.binderUnavailable`, "Binder no longer available"), the rooms' `postCount24h` counting what the caller may see, `COMMUNITY` uploads refused while `publicChat` is off; tests for each and for the reviewers' surviving mutants; no migration; see "Review fix 1" in the R11 section). Before: 2026-10-22 (stage R11 of the phone redesign, "Messages › Community (32, 33): one simple room per game": Messages with the Chats | Community tabs and the Chats dot, one public room per platform region and game (V134: 15 rooms, every other channel archived, `publicChat` on unless an admin chose), the browsed region's rooms with the browsed game's first and a dot for posts newer than the last visit on this phone, a room read like a chat with rules, banner, day separators, posts with up to 4 photos (`COMMUNITY` uploads, 3 MB, EXIF and GPS stripped), a shared card, binder or deck core, the "⋯" sheet (Message, Report, Block, Delete), the 429, duplicate and network errors; the author's province for discoverable authors only, never a city; on `feature/r7-home` for the one giant pull request; see "Phone redesign R11: Messages > Community (32, 33): one simple room per game (2026-10-22)"). Before: 2026-10-22 (stage R10's review fix 2: a printing code typed as printed lists its own printings only, each once: the number without its leading zeros only when the code as typed finds nothing, and then as the whole number (`ZSK 001` never lists `ZSK-100`, `EMR 001` never `EMR-150`, `ZTK 0012` still finds `ZTK-12`); no migration, no field or parameter changed; see "Review fix 2" in the R10 section). Before: 2026-10-22 (stage R10's review fix 1: tests for the TCGdex set-code rule and the other surviving mutants, a Magic code typed as the card prints it (`ZTK 0012` finds `ZTK-12`) in search and suggestions, ADR 0021's rejection of Scryfall's "Default Cards" corrected and what "Unique Artwork" leaves out put to the owner, the TCGdex MIT notice in the app as an owner and lawyer follow-up; no migration, no field or parameter changed; see "Review fix 1" in the R10 section). Before: 2026-10-21 (stage R10 of the phone redesign, "Card data for Magic and Pokémon": Scryfall (Magic, the "Unique Artwork" bulk file, English paper cards, one image per artwork) and TCGdex (Pokémon, the card database's archive, English only, one image per printing) as `CardProvider` adapters tested on hand-written fixtures only, printings on their own artwork, the Magic and Pokémon credits and Settings › Appearance's card data credits, Who has this card showing a chosen printing's picture, ADR 0021, "never hotlink provider images" for every provider; no migration, no API change; the owner runs the real imports; see "Phone redesign R10: Card data for Magic and Pokémon (2026-10-21)"). Before: 2026-10-21 (stage R9's review fix 1: a notification that opens nothing shows its whole line, a chat opened from a sale notification names its Back "Back to Notifications", a tapped chat push opens the chat, New pages past 50 unread before Earlier begins, evening cases of the phone's time zone; phone only, no API change, no migration; the full check list green, the native suite 38 / 38; see "Review fix 1" in the R9 section). Before: 2026-10-21 (stage R9 of the phone redesign, "Notifications (31) and the bell": the bell's orange dot and "Notifications, {n} new" on the five tabs, Notifications with New and "Mark all as read", Earlier by cursor pages, each kind's icon, colours, sentence and target, freshness reminders answered in place, the empty, loading and error states, a tapped push opening its row's target; API: optional `excludeTypes` on `GET /notifications` and its unread count, new `data` keys of wishlist alerts, sales and freshness notices; no migration; on `feature/r7-home` for the one giant pull request; see "Phone redesign R9: Notifications (31) and the bell (2026-10-21)"). Before: 2026-10-21 (stage R7's review fix 1: a block refreshes Home, an old Map tab link is followed once, the feed's later pages date new-card posts by the first page's time, "Back to the map" opens the map, the chips and Home's title stay on a load error, Add cards' Back names Home, the reader's place is kept on a refresh, and the tests the reviewers' mutants survived; no migration; see "Review fix 1" in the R7 section). Before: 2026-10-21 (stage R7 of the phone redesign, "Home": Home as the first of five tabs with the region and game pills, the search field, Get started, the chips, the feed in sections by time (new cards with "+n", wishes with "I have it", deck cores) and the end, the quiet, empty, loading and error states; `GET /api/v1/feed` and V133 (`binder.core_since`); the seed's feed dated relative to now; branch `feature/r7-home`, builder done, not pushed; see "Phone redesign R7: Home (2026-10-21)"). Before: 2026-10-20 (stage G's review fix 2: a test of `game=` with a binder made without a game whose cover is of another game, and `CatalogMetadataIT` no longer depends on the order of the suite's classes; no migration, no API, phone or web change; see "Review fix 2" in the G section). Before: 2026-10-20 (stage G's review fix 1: `game=` leaves out binders made without a game that hold another game's card or cover, blocks with `game=` tested, V132 (covers of the binder's game, column defaults for an older app version), `BinderResponse.gameLocked`, "Add a wish" by the browsed game, New binder waits for its game, "Switch game", the game sheet's loading and error, the audit gate's vite and MCP server overrides; the full check list green, the native suite 35 / 35; see "Review fix 1" in the G section). Before: 2026-10-20 (stage G of the phone redesign, "One game at a time": the browsed game per account with the game pill and "Choose a game", the restyled "Choose a region", Search scoped to the game, binders of one game with V130 (One Piece) and V131 (`binder.game_id`), `game=` on the discovery reads; branch `feature/g-one-game`, builder done, not pushed; see "Phone redesign G: one game at a time (2026-10-20)"). Before: 2026-10-20 (stage R6's review fix 2: the "See all" pages' "not available" and "You blocked {handle}" states fill the page on iOS, where they had lost their titles and texts; native flow 6 opens them across a block; see "Review fix 2" in the R6 section). Before: 2026-10-20 (stage R6's review fix 1: Share profile in the "⋯" sheet waits until iOS has dismissed the sheet, "I have it" leaves the chat's card alone until send and never offers a deck core's card, your "See all binders" works every time, the references page keeps the block rule, deck cores first on profiles, your page says why others see no cards while you are not on the map or private, the "⋯" sheet's scroll bar at the largest size, the owner's order of 2026-10-20 (no French work, English cards only) in the handoff and NEXT TASK; the full check list green, the native suite 34 / 34; see "Review fix 1" in the R6 section). Before: 2026-10-20 (stage R6 of the phone redesign, "Profiles", mockup screens 19 to 21, and Settings behind the gear: another collector's profile with the "⋯" sheet (Share profile, Report, Block), the header and its one line ("{city, }{province} · Member since {year} · Active this week"), Message, Cards, Binders, Looking for with "I have it", About, Ratings & references, each with "See all", the compact top bar on scroll; "I have it" opening the chat with your copy pinned and the text in the box, nothing sent before send; your Profile tab with Edit profile, Share profile and the gear that opens Settings; API: `cardId` on `GET /inventory/items` and `excludeDeckCoreItems` on `GET /collectors/{handle}/inventory`, both optional; no migration (V128 stays free); native flow 6; the walk at the largest text size fixed two layouts — branch `feature/r6-profiles`, builder done, not pushed; see "Phone redesign R6: profiles (2026-10-19)"). Before: 2026-10-16 (stage R5's review fix 1: the old `/regions/<region>/<code>` link crashed the tabs (its `state` parameter is React Navigation's own; now `place`), `rarity` on `GET /search/card-holders` and the card page's `?rarity=`, a new link to the card page on screen, the 1st Edition on holder rows, the Search key keeping the whole text, the region pill's name alone, two native flakes, the card results starting at the top for each new text or game; see "Review fix 1" in the R5 section). Before: 2026-10-16 (stage R5 of the phone redesign, "Search", mockup screens 11 to 15: four tabs (Search | Inventory | Messages | Profile); Search's map with the state card, typing a card with the collectors and the recent searches, Who has this card (the one card page: holders by province, Message pinning the card, "Also in a deck core"), Search › Binders with Deck cores, Search › Wishlist with "Available", Settings › Privacy › "Remember my searches"; the old routes and links redirect; API: `GET /search/collectors`, `sort=province`, `available` and `GET /wishlist/availability`, blocked collectors left out of search's collectors in SQL, no search text in the search analytics events; no migration (V128 stays free); native flows 2 and 3 in full; the walk at the largest text size fixed four layouts — branch `feature/r5-search`, builder done, not pushed; see "Phone redesign R5: search (2026-10-16)")
 **Last updated:** 2026-10-16 (the owner's inventory change dated 2026-10-16 merged with `main` after stage R4, #76: conflicts only in this file, the handoff and one hooks test (both sides kept); R4's chat shows a saved price as typed, so the new "$12.50" / "85% TCG" texts read as they are, and its "Share a card from your inventory" sheet, which reuses the Inventory row, now shows and speaks each card's Public or Private tag too; no migration, no API change (`git diff origin/main -- apps/api apps/web-angular packages` empty). The full check list on the merged code, retries off: mobile typecheck, lint and format clean; `test:mobile` 95 suites / 1,070 tests (+ 28 node tests); `expo export` iOS, Android and web exit 0; mobile web E2E 58 passed; the native suite 33 / 33 flows in 52 min 7 s on the owner's iPhone 18 Pro; `test:scripts` 135; `audit:gate` OK (2 allow-listed highs); Spotless clean; `test:api` 1,058 tests + 12 catalog tests, 0 failures; web build 896.09 kB initial; `test:web` 136 files / 633 tests; web E2E 70 passed — branch `feature/inventory-visibility-price`, its pull request next, not pushed)
 **Last updated:** 2026-10-15 (the owner's inventory change dated 2026-10-16, mockup v43 screens 1, 6 to 9, phone only: a Public / Private tag after the card code on every Inventory row (amber, with its status's short label "Public · not visible", while nobody can see a public card; spoken in the row's name), the asking price typed in "$" or "% TCG" (a switch beside a number box; "$" above 0, two decimals at most, 99999.99 at most, a comma as the decimal point; "% TCG" a whole number from 1 to 200; saved as "$12.50" or "85% TCG"; a new card starts in the mode used last on the phone, "$" the first time; an old text such as "Trade only" kept as "Was: {text}" until a price is typed), Copies on its own row above the price; deck cores keep their free text; no migration, no API change; fix round 1: the tags follow "Show me on the map", a saved or removed location and Edit binder at once (those writes read the cards again), the light theme's pending tag a dark amber, an ended temporary publication the short "Public · ended", Edit card remembers the mode only when it saves a new price; fix round 2: any Edit card save writes a saved text that reads back into a mode the one way ("85 % tcg" as "85% TCG", "12,50 $" as "$12.50"), as no change by itself and not as the mode used last, "Trade only" and old amounts without a text left as they are — branch `feature/inventory-visibility-price`, builder done, fix rounds 1 and 2 done, not pushed; see "Changed by the owner on 2026-10-16" at the end of `docs/product/specs/2026-10-14-phone-redesign.md`)
 **Last updated:** 2026-10-16 (stage R4's review fix 2: a test that the Mark as sold sheet keeps the card it opened with, and the quick reply chips' 44 pt touch targets on iOS; see "Review fix 2" in the R4 section). Before: 2026-10-16 (stage R4's review fix 1: Mark as sold names the card the seller saw, pins pushed to both collectors, the toast's Undo above the keyboard, sold deck cores out of `binders.max`, the tracking-number log test and nine minor fixes; see "Review fix 1" in the R4 section). Before that: 2026-10-15 (stage R4 of the phone redesign, "Messages and Mark as sold", mockup screens 22 to 25: V127 — the chat's subject (`subject_item_id` / `subject_binder_id`, `POST /conversations` pinning a card or a deck core, `GET /conversations/{id}`, sharing one's own card with `inventoryItemId`), the `sale` table and the new `deals` module (`POST /conversations/{id}/sales`, `POST /sales/{id}/undo` within 10 minutes and before a rating, the copies leaving the inventory and coming back exactly), the SALE interaction, the sale message and the buyer's `SALE_RECORDED` notification; on the phone the inbox, the chat's top bar, pinned bar, safety tip per side, quick replies and "+" sheet with the saved address or e-Transfer email (Settings › Shipping details, on the phone only), Mark as sold with its toast and Undo, the sale message per side with "Rate {other}"; R3's leftovers fixed first; native flows 4 and 3 (as far as R4 reaches) — branch `feature/r4-messages-mark-as-sold`, builder done, not pushed; see "Phone redesign R4: messages and Mark as sold (2026-10-15)")
@@ -8845,6 +8846,1937 @@ which scrolls the same way; "Open chats" opens the chats. **The Android run coul
 kind and was not sent to this round): at the largest size a word wider than the screen breaks inside
 itself, as "communi / ty" in the shared `EmptyState`'s title and "availabl / e" in the binder row.
 
+## Phone redesign R12: Sign-in, sign-up and welcome (36 to 46) (2026-10-22)
+
+Stage R12 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R12. Sign-in, sign-up and welcome (36 to 46)"). Mockup v50 screens 36 (Sign in), 37
+(Create your account), 38 (Reset password), 39 (Verify your email), 40 to 42 (the welcome's three
+steps), 43 (Review our terms), 44 (Suspended), 45 (Scheduled for deletion) and 46 (Could not load).
+Built on branch `feature/r7-home` after R11, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+stays **V135**; V124 and V128 stay unused); no ADR. One new endpoint, nothing else in the API
+changed; no file of `apps/web-angular` changed. Free for all (ADR 0019); deals ship by mail (ADR
+0018); **English only** (owner, 2026-10-20: the prompt's 18+ line "English and French" is written in
+English only, and the French line the checkbox carried since launch readiness is gone from the
+phone).
+
+**What a collector can now do**
+
+- **Sign in** (36): the wordmark ("Orenji" in ink, "Trade" in orange, as the mockup) and "Find
+  collectors in your region who own, trade or want the cards you care about."; Email; Password with
+  show and hide ("Show password" / "Hide password"); "Forgot your password?" in teal under the
+  password, on the right; the orange "Sign in" pill; "or"; "Continue with Google" (an outlined pill);
+  at the bottom "New to OrenjiTrade? Create an account" and "Terms, privacy and community
+  guidelines". Every error and notice it had stays (wrong credentials, the session that ended,
+  Google's failures, the emulator's simulated Google account).
+- **Create your account** (37): Display name ("How other collectors see you. You can change it
+  later."), Email, Password ("At least 8 characters.", show and hide); **the documents in one card**:
+  "Accept all", then one row per document due at registration ("I accept the Terms of Service" with
+  its box and a teal "Read" that opens the versioned text in-app); **the 18+ confirmation in its own
+  card** ("I confirm I am 18 years of age or older"), never ticked by "Accept all". **"Create
+  account" stays disabled until every box is ticked, with one line under it**: "Accept the
+  documents and confirm your age to continue.", "Accept every document to continue." or "Confirm
+  that you are 18 or older to continue." (VoiceOver reads the line as the button's hint). Pressed,
+  it checks the fields ("Enter a display name.", "Use at least 8 characters.", …) and runs the same
+  steps as before (Firebase account, `POST /me/consents` for each document and the attestation, the
+  verification e-mail), with the same server checks. "Sign up with Google" goes to Review our terms.
+- **Reset password** (38) and **Verify your email** (39) keep their flows; their sent states show
+  in place, centred with a round icon: "Check your inbox", "Back to sign in", "Use another email";
+  "I have verified my email", "Resend email" then "Resend in {n} s" for 30 s, "Do this later"; "We do
+  not see the verification yet…" as an amber notice, "A new verification email is on its way." as a
+  green one.
+- **The welcome has three steps** (40 to 42), "Step {n} of 3" with a three-part bar (VoiceOver: a
+  progress bar named "Step 2 of 3"), "Welcome to OrenjiTrade" on the first and a back button on the
+  others, the buttons pinned at the bottom:
+  - **40 "Who are you?"**: Handle with "@" before it and **a live check** once typing pauses (400
+    ms): a teal check ("Available") when it is free or one's own, "That handle is already taken. Try
+    another one." when another account holds it or it is reserved; Display name; "Bio (optional)"
+    with "{n} / 500"; Continue; Sign out.
+  - **41 "What do you collect?"** ("Home and Search open on the first game you pick. Switch anytime
+    with the game button."): **the five game tiles** in two columns (one at the largest text sizes),
+    several can be picked, a check on the picked ones; **the first picked game that has cards says
+    "Opens first"** and becomes the game Home and Search open on; One Piece and Riftbound say
+    "Cards coming soon" and can be picked all the same; "Languages you trade in" as chips (English,
+    French, Spanish, … as the mockup names them); "Tags · optional": the picked tags filled, then
+    the suggestions of `GET /tags`, at most 12 in all, and a field to search the tags or add one's
+    own. **Continue needs at least one game** ("Choose at least one game." under it while none is
+    picked).
+  - **42 "Where do you ship from?"** ("Collectors find binders by state or province. We never use
+    GPS and never ask for your address."): Region; Country and State or province side by side
+    (stacked at the largest text sizes); City (optional); one card with "Show my city on my profile"
+    and "Show me on the map" ("Collectors of {region} can find your public binders in {province}. Off
+    until you turn it on."; off by default); Finish; "Skip for now". The toast "Welcome to
+    OrenjiTrade! Your profile is ready." and Home, on the game that opens first.
+  - **No age step any more.** It resumes where the account stands: the profile until it is saved,
+    then the games until the account has a game or a tag, then the place.
+- **Review our terms** (43): the documents due with their versions ("Terms of Service" / "Version
+  2026-10-01"), each with its box and "Read" ("Accept all" joins the card when three or more are
+  due, as after a Google sign-up), **the age line when the account never confirmed being 18 or
+  older, alone when no document is due** ("Please confirm your age to keep using OrenjiTrade."),
+  "Accept and continue" disabled until every box is ticked, Sign out. **An account whose
+  `ageConfirmed` is false is sent here** (a Google sign-up, an account from before the 18+ rule, a
+  403 `AGE_CONFIRMATION_REQUIRED` from any endpoint), and a link it opened meanwhile reopens once it
+  is done; confirming the age alone shows "Thanks for confirming. Welcome back!".
+- **The account states**, centred with a 72 pt icon: **Suspended** (44: a red shield, the reason,
+  "The suspension ends on {date}.", the support address, "Community guidelines", Sign out);
+  **Scheduled for deletion** (45: an amber bin, "…permanently deleted on {date}. Until then you are
+  hidden from the map and search.", "Cancel deletion", "Download my data", Sign out; once cancelled,
+  **"Deletion cancelled" and "Welcome back!" in place** with Continue, the gate waiting meanwhile);
+  **Could not load** (46: "We could not load your account", "Check your connection, then try again.
+  Nothing on your account changed.", "Try again", Sign out; "Please sign in again" after an ended
+  session).
+
+**What the API does** (contract [`docs/api/contracts/r12-sign-in-welcome.md`](docs/api/contracts/r12-sign-in-welcome.md))
+
+- **`GET /api/v1/me/profile/handle-availability?handle=`** → `HandleAvailabilityResponse` (`handle`
+  as it would be saved, `status` `AVAILABLE` | `CURRENT` | `TAKEN` | `INVALID`, `available`): the
+  save's own rules (`HandleRules`, `UserAccountService.changeHandle`) without saving or auditing
+  anything; a reserved word reads `TAKEN`, as the save's 409 says; one's own handle (even a reserved
+  one a staff account keeps) `CURRENT`; a malformed, reserved or own handle never reaches the
+  database (`HandleAvailability.of`). Members only (401 otherwise, 428 while documents are due);
+  its own rate limit `handle-availability`, **60 per 10 minutes per member**. The answer names no
+  account and no place.
+- Nothing else changed: the screens keep every call they made (Firebase, `GET
+  /public/legal/documents`, `POST /me/consents`, `GET /me`, `GET|PUT /me/profile`, `PUT
+  /me/profile/tags`, `GET /tags`, `GET /games`, `GET|PUT /me/location`, `GET|PUT
+  /me/settings/privacy`, the deletion requests, the export). `onboarding.interestsSet` keeps its
+  meaning (a game or a tag) for the paused web; the phone's games step asks for a game.
+
+**Decisions**
+
+1. **The live handle check is a new endpoint.** Nothing answered it: `GET /collectors/{handle}`
+   answers 404 for a private or hidden profile, so a held handle would have read as free. It asks
+   what the save asks and answers no more than the save's 409 already tells (whether a handle can be
+   taken), with its own rate limit; a reserved word reads `TAKEN` so it never tells a reserved word
+   from a used one.
+2. **The 18+ line is English only** (the task's reading of the owner's order of 2026-10-20 for the
+   prompt's "English and French"): the checkbox lost its French line and its French error everywhere
+   on the phone (sign-up and Review our terms; the welcome's age step is gone). The French legal
+   texts and their language switch stay as they were (the owner's order keeps them for now), so a
+   French device still reads the documents' titles in French.
+3. **An account whose `ageConfirmed` is false goes to Review our terms** (`deriveAccountStatus`
+   reports `consent-required` for it; `needsOnboarding` keeps requiring `ageConfirmed`, so it only
+   reaches the welcome once confirmed). The gate now remembers the link a collector had open when
+   it sends them to Review our terms, as it did for the welcome.
+4. **`interestsSet` keeps its meaning on the API** (a game or a tag): the paused web's onboarding
+   asks "a game or a tag" and would loop if the API asked for a game. The phone's games step asks
+   for one game; an account that finished the welcome before with tags only is not asked again
+   (Home then opens on Yu-Gi-Oh!, stage G's rule).
+5. **"Opens first" marks the first picked game that has cards** (default 5: games without cards
+   cannot be browsed); after the games step the phone picks it as the browsed game for the account
+   (stage G's `pickBrowsingGame`), so a choice remembered earlier on the phone does not win over the
+   collector's fresh answer. With only One Piece or Riftbound picked, no tile says it and Home opens
+   on Yu-Gi-Oh!.
+6. **"Accept all" on Review our terms only when three or more documents are due** (the mockup's
+   screen 43 has none with two; a Google sign-up has four, where it saves taps). The sign-up keeps
+   it always (the mockup).
+7. **The documents' rows say "I accept the {document}"** (the mockup's words), no longer "I have read
+   and accept the {document}"; on Review our terms the title and "Version {version}" (the API's
+   versions are dates such as 2026-10-01; the mockup's "updated Oct 14" has no field behind it).
+8. **The suspension's end shows as a long date** ("The suspension ends on November 2, 2026."), as
+   the mockup, no longer with its time.
+9. **"Deletion cancelled" shows in place**: the gate is held with the flow lock
+   (`deletion-cancelled`) until Continue, so the account state does not move the collector before
+   they read it; leaving the screen any other way releases it.
+10. **The headers stay native** for the signed-out and account-state screens (centred Sora titles,
+    as every other screen since R1: "Create account", "Reset password", "Verify your email", "Review
+    our terms", "Account status", "OrenjiTrade"); the welcome draws its own header, as the mockup.
+11. **What is left for R15**: Sign in's close button ("Not now, keep browsing") and the sentence
+    "Visitors without an account never see your name." of the map switch's line (both about guests,
+    stage R15). The grey note under the age line of the mockup's screen 43 ("The age line shows only
+    when…") is the designer's, not the app's.
+12. **The welcome's languages are named in English** in the mockup's order (`WELCOME_LANGUAGES`);
+    Edit profile keeps its own picker until stage R13 restyles it. **The tags** are toggle chips of
+    `GET /tags`'s suggestions plus the search-or-add field the profile's tag picker had (a feature
+    the mockup does not show, kept where it adds the least clutter).
+13. **Finish leaves at once**, as before R12 (the wait for the account to render was the age step's,
+    gone with it).
+
+**Defaults the stage applies** (the owner can change them; numbered as the prompt's list)
+
+6. Welcome has three steps; the age is asked at sign-up or on Review our terms.
+7. Welcome needs at least one game.
+- The live handle check waits 400 ms after typing and allows 60 checks per 10 minutes per member.
+- "Accept all" on Review our terms from three documents due.
+
+**Tests**
+
+- API: `HandleAvailabilityTest` (12: free, held, reserved without a lookup, malformed without a
+  lookup, one's own even reserved, never looked up), `ProfileIT.handleAvailabilityAnswersAsTheSaveWould`
+  (taken in any case, reserved, malformed, one's own, free then saved, nothing saved or audited, the
+  parameter required, 401), `ShippedRateLimitPoliciesTest` (the shipped `application.yml` reaches
+  `handle-availability` before the defaults), `GeoPrivacyContractTest.handleCheckOfStageR12CarriesNoPersonOrPlace`
+  (asked about every seed account's handle: only `handle`, `status`, `available`, never a place).
+- Jest: the sign-up button's states and its reason line, "Accept all" never ticking the age, the
+  fields checked on press, the account created with each consent
+  (`__tests__/screens/auth.test.tsx`, `registration.test.ts` for `signUpBlocker`); sign in's show and
+  hide and links, reset's sent state and "Use another email"; the three-step flow, the live handle
+  check (free, taken, malformed never asked), "Opens first" and the browsed game, "Cards coming
+  soon", where it resumes, Back, Skip, the remembered link (`onboarding.test.tsx`,
+  `features/welcomeSteps.test.ts`); the age routing to Review our terms (`ageConfirmation.test.ts`,
+  `app/auth-gate.test.tsx`), Review our terms with versions, "Accept all" from three, the age line
+  alone and its retry (`account-states.test.tsx`); Deletion cancelled in place, the suspension's
+  lines, Could not load.
+- Mobile web E2E: `auth.spec.ts` (Create account waiting with its lines, the three welcome steps,
+  the taken handle said while typed, Review our terms waiting for every box), `age-confirmation.spec.ts`
+  (Review our terms with the age line alone, the remembered link), `google.spec.ts`, `account.spec.ts`
+  (Deletion cancelled in place).
+- Maestro: `sign-up-onboarding.yaml` (sign up with every box and each reason line, the three welcome
+  steps, then Home on the first picked game, Pokémon), `age-step-existing-account.yaml` (the age line
+  alone on Review our terms).
+
+**Checks** (retries off, on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | OK |
+| `npm run test:api` | **198 classes / 1,281 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 22 s; `HandleAvailabilityTest` (12), `ShippedRateLimitPoliciesTest` (1), `ProfileIT` (9), `GeoPrivacyContractTest` (16) among them |
+| `./gradlew exportOpenApi` then `npm run generate:api` | committed (`24fd9434`); git clean after a second run on the final code |
+| `npm run build -w apps/web-angular` | OK, initial total **893.88 kB** (under 900 kB); no web file changed |
+| `npm run test:web` | **136 files / 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | OK, OK |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.3 min) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | OK, OK, OK |
+| `npm run test:mobile` | **121 suites / 1,613 tests** passed (13.7 s) |
+| `npx expo export --platform ios`, `android`, `web` (into the scratch folder) | OK, OK, OK (1,953, 2,079 and 1,563 modules) |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | first run 58 / 62: four specs looked for the "Review our terms" heading inside the screen, where it is the header now (fixed in the specs, `2242dc7f`); then **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock, every flow) | **38 / 38 flows passed** in 59 min 8 s (59 min 32 s in all), `sign-up-onboarding.yaml` and `age-step-existing-account.yaml` among them; Expo Go stopped afterwards, the simulator left as the owner keeps it (light, text size large) |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (two allowlisted advisories, as before) |
+
+The stage's own native flows also ran on their own during the work: `sign-up-onboarding.yaml` and
+`age-step-existing-account.yaml` 2 / 2 (3 min 11 s), then again after each walk fix. `test:api`,
+`test:web`, the paused web's E2E and the exports ran while the native suite ran; nothing failed.
+
+**The walk** (the owner's iPhone 18 Pro, iOS 27, on the native harness's kept stack with fictional
+`m-r12walk-…@mobile-e2e.test` accounts, deleted from the Auth emulator afterwards; screenshots for
+the pull request in `.local-dev/r12-notes/pr-shots/`, one per mockup screen, dark, default size):
+Sign in (show and hide, "Forgot your password?"), Reset password and its sent state, Create your
+account with nothing ticked, the documents without the age, the age without a document and every
+box (each reason line), Verify your email with "We do not see the verification yet" and "Resend in
+30 s", Review our terms with four documents and the age line, with two documents only and with the
+age line alone, the three welcome steps (a taken handle said while typed, the teal check, "Opens
+first" on Yu-Gi-Oh!, One Piece "Cards coming soon", the place with its switches and the line naming
+Americas (North) and Quebec), Home on the first game picked with the toast; Suspended (an account
+marked suspended in the harness's throw-away database: a real suspension also disables the
+emulator user, which signs the phone out first, as before), Scheduled for deletion, "Cancel
+deletion" then "Deletion cancelled" in place and Continue to Home, Could not load (the harness's
+API stopped) with "Try again" and Sign out; dark and light (the app's Appearance set to Light); the
+default and the largest text size (the launch argument of `relaunch-large-text.yaml`; the
+simulator's own settings were not changed: appearance light, text size large, as the owner keeps
+them). Compared with `/Users/yunji/Dev/.orenji-redesign-v50/project` (SignIn to Unavailable): the
+same blocks, cards, pills, words and states. **It found six things, fixed**:
+
+1. Sign in's last link ("Terms, privacy and community guidelines") was under the home indicator,
+   and the status pages' last button close to it: iOS's automatic insets made a content as tall as
+   the screen overflow it. `Screen` gained `fillHeight` (the safe area as padding instead), used by
+   Sign in, the status pages and Review our terms.
+2. Review our terms listed the documents in the API's order (Acceptable Use first): now the reading
+   order of sign-up, terms first (`documentRank`).
+3. The welcome's keyboard could only be put away by a tap outside the fields: a drag now does it too
+   (`keyboardDismissMode="on-drag"`).
+4. At the largest text size the wordmark broke into "OrenjiTrad / e" and the Google "G" grew out of
+   its circle: the wordmark stays on one line (it follows the text size a little only), the mark
+   keeps its size.
+5. At the largest text size "Show me on the map" kept its long line in a narrow column beside the
+   switch, the switch off screen in a row taller than the screen: `SwitchRow` puts the switch under
+   its words from the stacked-rows text size on (every switch of the app, Settings included).
+6. At the largest text size the password's show and hide button floated beside the label: it now
+   sits inside the field at every size (`TextField`'s `trailing`, used by `PasswordField`; every
+   password field of the app).
+
+**What could not be verified**
+
+- **The Android run could not be verified** (no Android SDK on this Mac).
+- A real Google account on a phone (the emulator's simulated Google account only, as before).
+- A real verification or reset e-mail (the Auth emulator lists the links; no mail is sent locally).
+- The suspended screen through the API's own suspension: it also disables the account in the Auth
+  emulator, which signs the phone out before `/me` can answer 403 (unchanged behaviour); the screen
+  was walked with the account marked suspended in the throw-away database.
+
+**Owner follow-ups**
+
+1. **The 18+ line in English only** (decision 2): Quebec's Charter of the French language may want the
+   French line back on a Quebec user's screen; a point for the lawyer review (the French legal texts
+   and their switch are still in the app).
+2. **"I accept the {document}"** replaces "I have read and accept the {document}" (the mockup's
+   words): the lawyer may prefer the longer wording.
+3. **A suspended collector who signs in again** (one decision with R8's owner follow-up 2) sees
+   "This account has been disabled. Contact support
+   if you think this is a mistake." on Sign in, not the suspension's reason and end (screen 44): the
+   API disables the account in the identity provider when it suspends it, so the phone only shows 44
+   while a session it already had is still accepted, and the reason it shows is the API's general
+   "This account is suspended" (the API does not send the moderator's reason). Whether 44 should show
+   the reason and the end date at sign-in is the owner's call (an API change).
+4. **The welcome's tags**: the mockup shows six fixed chips ("Trader", "Collector", "Seller",
+   "Competitive player", "Ships tracked", "Graded cards"); the app shows the curated tags of `GET
+   /tags` (the admin's list), which differ. The admin can rename them.
+5. **"Accept all" on Review our terms from three documents** and **the live check's 60 per 10
+   minutes** are this stage's numbers (decisions 6 and 1).
+
+### Review fix 1 (2026-10-22)
+
+Three reviewers (functional, product and UX as a collector, privacy) sent eleven findings, three
+of them major (P1, U1, F1); U4 and F1 were the same problem seen twice. Ten are fixed at their cause
+with a test that fails without the fix; P2 is answered as an owner follow-up (it predates R12). Phone
+only: **no API change, no migration** (the next is still **V135**), no file of `apps/web-angular`
+changed.
+
+- **A screen kept for Review our terms or the welcome never opens for the next account** (P1,
+  major, privacy): Sign out on Review our terms (or on the welcome) left the link the gate had kept
+  (a search text with its place, a collector, a conversation), and the next collector signing in on
+  the same phone was taken to it. Now an explicit sign-out forgets it twice over (`session.signOut`
+  and the gate's own branch for a signed-in gate turning `guest` without an ended session), and a
+  kept link belongs to its collector (`PendingLinkStore.owner`, the uid; `take(uid)`): a screen
+  whose session ended reopens for that collector only, a link opened while signed out (no owner)
+  for whoever signs in. Jest (`app/auth-gate.test.tsx`, real `RootNavigator`): the reviewer's case
+  (A on `/search?q=…&place=CA-QC` sent to Review our terms, Sign out, B signs up: no push), the same
+  on the welcome, a session that ended reopening for A and not for B, `take`; `session.test.tsx`.
+- **The welcome takes its own link** (F4, pre-existing): the second step completes the account,
+  so the gate turned `app` while "Where do you ship from?" was still to come and pushed the kept
+  link over it. The gate no longer pushes a link while the welcome is on screen; Finish and "Skip
+  for now" take it, as before. Jest: an onboarded `/me` on `/onboarding` with a kept link, no push.
+- **The keyboard never hides the field being typed in on the welcome** (U1, major): the
+  KeyboardAvoidingView lifted the pinned Continue and Sign out (with the safe-area padding) over the
+  form, the scroll became a strip, the bio was typed behind the buttons and a tap on it could land
+  on Sign out. On iOS the steps now keep their size and scroll the focused field above the keyboard
+  (`automaticallyAdjustKeyboardInsets`); the pinned buttons stay at the bottom, under the keyboard
+  while it is up (the mockup pins them while it is down; Return on a one-line field, a drag or a
+  tap beside the fields puts it away). Android, edge to edge since SDK 57, keeps the padding. Jest (the scroll view's
+  prop, no padding on iOS) and the native flow `sign-up-onboarding.yaml`, which now taps the
+  display name, then the bio with the keyboard up, types, and checks it is still on the welcome
+  with the text.
+- **What is missing on "Where do you ship from?" shows under the pickers** (U2): "Choose your
+  country." sat under the switches, below the fold above the pinned Finish; it now sits under the
+  country and state or province pickers and Finish scrolls them into view (`onPickersLayout`); a
+  save that fails scrolls to its message. Settings › Location is unchanged. Jest (the message inside
+  the pickers, the scroll to 14 + the pickers' place − 12) and the native flow (Finish without a
+  country, the message in view).
+- **The progress bar reads 33, 67 and 100 %** (U3): `accessibilityValue` from 0 (iOS reads
+  now / (max − min), which gave 50, 100 and 150 %). Jest.
+- **Could not load keeps the error's own words** (U4, F1, major): the mockup's title and text stay
+  for a phone that cannot reach OrenjiTrade; a timeout says "No answer from OrenjiTrade"; an answer
+  of the API (a server error, a rate limit, an ended session) says its own sentence (a 500: "Please
+  try again in a moment.") with the small mono `{errorCode} · {requestId}` line, as `ErrorState`
+  did before R12 (`unavailableContent`). Jest: offline and a 500 on the screen, a timeout, a 429 and
+  a 401 in `features/unavailableContent.test.ts`.
+- **Reset password's sent state resends the link** (F2): the prompt's 38 asks for "Resend in {n} s"
+  as 39 has it; "Resend email" between "Back to sign in" and "Use another email", "Resend in {n} s"
+  for 30 s after each email (the first included), "If an account exists for {email}, a new reset
+  link is on its way." (an unknown address is no error, so nothing tells whether an account
+  exists), other failures said in place. `useResendCooldown` is shared with Verify your email.
+  Jest with fake timers. The redesign spec's note (38 and 39 with "Resend in {n} s") is now true.
+- **Sign in, Create account and Reset password follow the focused field** (F3, pre-existing): at
+  the largest text size the display name of Create account was typed under the keyboard (the
+  KeyboardAvoidingView shrank the scroll without bringing the field into view). `Screen`'s
+  `keyboardFollowsFocus` (iOS: `automaticallyAdjustKeyboardInsets`, no padding; Android keeps the
+  padding) is set on the three. Jest (`ui.test.tsx`, `auth.test.tsx`); other forms keep the padding.
+- **The welcome's tag suggestions leave out the game and language tags** (U5): the tiles and the
+  language chips above already ask them (VoiceOver read "English" twice); a tag of theirs the
+  collector already has stays, picked. Jest (`welcomeSteps.test.ts`).
+- **P2 (the first handle comes from the e-mail's local part)** is not changed: it predates R12 and
+  the handle check discloses nothing the save's 409 did not (see the owner follow-ups below).
+
+**The walk** (the owner's iPhone 18 Pro, on the native harness's kept stack, under the shared
+lock; fictional `m-<run>-…@mobile-e2e.test` accounts deleted afterwards; the simulator's own
+settings untouched, light and text size large as the owner keeps them). `sign-up-onboarding.yaml`
+with its new steps passed (the bio tapped and typed with the keyboard up, "Choose your country." in
+view under the pickers). Scratch walks (not committed) at the largest text size: Sign in's email,
+Create account's display name (the reviewer's case), Reset password's email and the welcome's
+display name, bio and city each sit above the keyboard once tapped (the bio's first line with the
+caret; the box runs under the keyboard at that size); Finish without a country scrolls to the
+pickers with the message under Country; at the default size Reset password's sent state shows
+"Resend in 30 s" disabled, then "Resend email", and after it the green "If an account exists for
+…, a new reset link is on its way." with the 30 s again. Could not load's server-error words and
+its reference line are covered by Jest only (the harness's API cannot be made to answer 500).
+
+**Checks** (retries off, on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | OK |
+| `npm run test:api` | **198 classes / 1,281 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 29 s (no API file changed) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing to commit: git clean afterwards |
+| `npm run build -w apps/web-angular` | OK, initial total **893.88 kB** (under 900 kB); no web file changed |
+| `npm run test:web` | **136 files / 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | OK, OK |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.2 min) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | OK, OK, OK |
+| `npm run test:mobile` | **122 suites / 1,628 tests** passed (15 new: the gate's kept links, the session's sign-out, the progress value, the tags, Could not load's words, Reset password's resend, the keyboard of the welcome and of `Screen`, the missing place) |
+| `npx expo export --platform ios`, `android`, `web` (into the scratch folder) | OK, OK, OK (1,955, 2,081 and 1,576 modules) |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **62 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock, every flow) | **38 / 38 flows passed** in 59 min 18 s (59 min 44 s in all), `sign-up-onboarding.yaml` with its new steps among them; Expo Go stopped afterwards, the simulator left as the owner keeps it (light, text size large) |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (two allowlisted advisories, as before) |
+
+**What could not be verified**: the Android run could not be verified (no Android SDK on this Mac):
+the welcome and the three signed-out forms keep the KeyboardAvoidingView's padding there.
+
+**Owner follow-ups of review fix 1**
+
+6. **The first handle comes from the e-mail's local part** (P2, pre-existing): a new account's
+   handle is the address before the "@" (`HandleGenerator.baseFrom`), the welcome shows it as the
+   collector's own ("Available"), and anyone can learn whether such a handle is held (the save's 409
+   says it as the live check does, at 120 a minute under the default limit; the check allows 60 per
+   10 minutes). A random first handle (for example `collector_` and random characters) would reveal
+   no part of an address; an API change for the owner to decide (the paused web reads the handle
+   too).
+7. **The welcome's buttons sit under the keyboard while it is up** (U1's fix): Return on a
+   one-line field, a drag or a tap beside the fields puts the keyboard away and shows them; the owner may prefer them lifted
+   above the keyboard (an input accessory bar), which needs every field of the welcome to carry it.
+
+
+### Review fix 2 (2026-10-22)
+
+The check of fix 1 approved it and left one finding: a new account's first handle was derived
+from its e-mail. Fixed: a new account's first handle is `collector_` and six random
+characters, never a part of the e-mail; the collector chooses their own on "Who are you?". No field
+changed, no migration. The check of fix 2 approved it; the full check list green, the native
+suite 38 / 38. Merged with `main` after #86 (R7, R9 to R11) for the next pull request.
+## Phone redesign R13: Settings (47 to 59) (2026-10-23)
+
+Stage R13 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R13. Settings (47 to 59)"). Mockup v50 screens 47 (Settings), 48 (Edit profile), 49
+(Location), 50 (Shipping details), 51 (Notifications), 52 (Privacy), 53 (Appearance), 54 (Blocked
+collectors), 55 (My reports), 56 (Account), 57 (Delete account), 58 (Legal) and 59 (a document).
+Built on branch `feature/r7-home` after R12, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+stays **V135**; V124 and V128 stay unused); no ADR. One optional field on one endpoint, nothing
+else in the API changed; no file of `apps/web-angular` changed. Free for all (ADR 0019): Settings
+has no flagged or paid entry any more; deals ship by mail (ADR 0018); **English only** (owner,
+2026-10-20: nothing French was added; the French legal texts and Legal's language switch stay as
+they were, restyled).
+
+**What a collector can now do**
+
+- **Settings** (47), behind the Profile tab's gear: a **profile card** (picture, name, "@handle ·
+  Edit profile") that opens Edit profile; **"Where you ship from"**: Location and discoverability
+  with "{province}, {country} · On the map" (or "· Not on the map", "Not set yet · Not on the
+  map"), Shipping details ("Address and e-Transfer, on this phone only"); **"App"**:
+  Notifications ("Push, email, quiet hours"), Privacy ("Who sees what about you"), Appearance with
+  its value ("Same as the phone", "Light", "Dark"); **"Safety"**: Blocked collectors with their
+  number, My reports with "{n} waiting"; **"Account"**: Account with the email, Legal ("Terms,
+  privacy, guidelines"); the red **Sign out**; the version line ("OrenjiTrade 0.1.0"). A value
+  still loading shows a short skeleton; one that cannot load is left out (its page says why and
+  offers Try again). VoiceOver reads a row's value after its name ("Blocked collectors, 2").
+- **Edit profile** (48): the picture (72 pt, "Add a picture" or "Change picture", "Remove
+  picture", the line on where it shows; saved at once, as before); Handle with "@" and R12's live
+  check ("Your profile address. Lowercase letters, digits and _."); Display name; Bio with "{n} /
+  500"; **Games** as the welcome's tiles (One Piece and Riftbound "Cards coming soon"); **Languages
+  you trade in** as chips; **Tags** ("Up to 12"): the saved ones filled, one unpicked stays on the
+  page to be picked again, and **"Add a tag"** opens a sheet with the search, the suggestions and
+  "Add “{label}”" for one's own (12 at most). **One "Save changes"** at the bottom, grey **"No
+  changes yet"** while nothing differs from what is saved (changing a value and back is no
+  change); one request saves everything or nothing; the toast "Profile saved."; a taken handle, a
+  refused tag ("One of your tags cannot be used. Remove it or choose another one, then save
+  again.") and other failures said in place. **"Preview"** (teal, in the top bar) opens the public
+  profile. **Leaving with unsaved changes asks first** ("Leave without saving?", Leave / Keep
+  editing; the back button, the back gesture).
+- **Location** (49): **"Show me on the map" first**, saved at once as before, with "Collectors see
+  you in {province}, {country}." or "You are hidden from the map and from searches." (without a
+  saved place the switch waits: "You have not chosen a location yet, so you never appear on the
+  map."); Region; **Country and State or province side by side** (stacked at the largest text
+  sizes); City (optional) with "Only on your profile, and only while the switch below is on. Never
+  used to locate you."; "Show my city on my profile" in its card; the dashed box **"How OrenjiTrade
+  protects where you live"** with its three lines; **"Remove my location"** in red, asked in a sheet
+  ("Remove your location?", "Remove location" / "Keep it"); **"Save location"** at the bottom.
+- **Shipping details** (50): the teal note ("…stay **on this phone only**…"), the address and the
+  e-Transfer email or phone number, each with "Delete from this phone", "Deleting your account also
+  wipes them from this phone.", "Save" / "No changes yet". Still on this phone only.
+- **Notifications** (51): **Channels** (In the app, Push, Email, each with its icon; "Turn a
+  channel off to silence it everywhere." and the push note kept); **Wishlist alerts** ("One alert
+  when a card you wish for is listed in your region.", the no-location warning kept); **"What to
+  notify me about" as a grid** of Messages, Ratings, Binder reminders, Report decisions and News and
+  tips by App, Push and Email: **a channel that is off dims its column**, its boxes read as unticked
+  and cannot change, and what was chosen comes back with the channel (VoiceOver: "Messages by
+  email, channel off"); **Quiet hours** ("Pause push at night", "In-app notifications still
+  arrive.", From and Until side by side in 24-hour time, "Time zone: {zone}", "Use this phone's time
+  zone"); **"Save preferences"**, "No changes yet" while nothing differs.
+- **Privacy** (52): **"All changes saved"** in the top bar ("Saving…", "Last change not saved"
+  after a failure, which restores the last saved state); **Visibility**: Show me on the map ("Your
+  public binders count in your state or province."), Appear in collector search, Let others see
+  what you want ("Your wishlist on your profile, and your wishes on Home."), Show when I was last
+  active, Show when I am online; **Who can see your profile** (Public, Members (recommended),
+  Private) and **Who can message you** (Everyone, Members with a profile (recommended), Nobody) as
+  radio rows; **Search**: Remember my searches ("Kept on this phone only. Turning it off clears
+  them."). Every change is saved at once, as before.
+- **Appearance** (53): **Theme** as radio rows (Same as the phone, Light, Dark; "New installs start
+  in dark. Saved on this phone."); **About**: Version ("0.1.0 (local)"), Server ("Reached {time}",
+  the API's name and version; "Server not reached" with Try again), Card data and images (R10's
+  credits).
+- **Blocked collectors** (54): the line on what a block does, each collector with "@handle ·
+  blocked {when}" and an outlined "Unblock" ("{name} is unblocked."), "You have not blocked anyone",
+  "Block a collector from the ⋯ menu of a chat, a profile or a community post."
+- **My reports** (55): the confidentiality line, "**{n} waiting for a decision** · {n} reviewed",
+  each report a row that opens the collector's profile, with **its status pill** (Open amber, Under
+  review blue, Action taken teal, Dismissed grey), the reason, "Sent {when} · reviewed {when}" and
+  where it stands ("Reviewed: the team took action"); pull to refresh.
+- **Account** (56): **Sign-in**: the email with **"Verified"** (teal) or **"Not verified"**
+  (amber) and then "Resend link", the sign-in method, member since ("March 2025"); **Staff roles**
+  for staff only; **Your data**: "Download my data" ("One file with your profile, cards, binders,
+  wishes and messages."); the **red Delete account card** ("Delete my account"); Sign out (an
+  outlined pill).
+- **Delete account** (57): the three facts (7 days to change one's mind, hidden at once, records
+  kept by law); "Why are you leaving? (optional)" with "{n} / 500"; "Download a copy of my data
+  first"; the password ("For your security, confirm your password.") or "You will confirm with
+  Google."; the acknowledgement in its own box; **"Delete my account" grey until it is ticked**,
+  then red; "Keep my account". Pressed, it asks for the password if it is missing, then **the
+  sheet** ("Delete your account?", Delete my account / Keep my account); **the working steps**
+  (Confirming it is you…, Preparing your data export…, Scheduling the deletion…, each ticked in
+  turn); **the blocked state** ("Your account cannot be deleted yet" and what to resolve).
+- **Legal** (58): **English | Français** as a segmented control as wide as the page, **the amber
+  draft banner** ("**Draft.** Requires review by qualified legal counsel before launch."; the
+  French pages keep their own banner and translation marking), **seven documents** (Terms of
+  Service, Privacy Policy, Community Guidelines, Trading safely, Marketplace Policy, Acceptable Use
+  Policy, Cookie Policy), each with its line and "Version {v}." as the API publishes it. The
+  Payment Protection and the Refund and Dispute policies are left out (ADR 0018); a link to them
+  still opens them.
+- **A document** (59): the switch, the banner, the title in Sora, the summary, "Version {v} · Last
+  updated {date}", the effective date, "Version to accept", the definitions, the numbered sections
+  (the clause numbers small and quiet) and the contact. Trading safely is R1's text for deals by
+  mail, unchanged.
+- Every page has **its own top bar** (the 44 pt back button, the title in Sora on the left; the
+  back button keeps the id `BackButton` of the navigation header for the flows), the rows and groups
+  of the mockup, skeletons while loading, an empty state where a list can be empty and an error with
+  "Try again"; the words of each screen in one place (`src/features/settings/settingsCopy.ts`; the
+  shipping words stay in R4's `chatCopy.ts`, the privacy options in `privacyOptions.ts`); at the
+  largest text sizes a row's value and a switch go under their words.
+
+**What the API does** (contract [`docs/api/contracts/r13-settings.md`](docs/api/contracts/r13-settings.md))
+
+- **`PUT /api/v1/me/profile` takes an optional `tags`** (`UpdateProfileTagsRequest`: `tagIds`,
+  `customLabels`): the profile and its tags are saved **in one transaction**
+  (`ProfileService.updateWithTags`), by the rules of `PUT /me/profile/tags`; a refused field or tag
+  saves nothing, the handle change and its audit row included. Left out, the endpoint answers as
+  before (the paused web, the welcome's first save). The answer is the saved profile, tags
+  included. `PUT /me/profile/tags` stays.
+- Nothing else changed: the pages keep every call they made.
+
+**Decisions**
+
+1. **Edit profile's one save is one request.** Saving the details and then the tags in two calls
+   could leave half a save behind (the details saved, a tag refused); the optional `tags` of
+   `PUT /me/profile` makes the button all or nothing, additively (the web's client only gained an
+   optional field). The phone sends the tags only when they changed.
+2. **"Changed" means "differs from what is saved"**, compared as the API keeps it (the handle
+   trimmed and lower case, the name and bio trimmed, the games and languages in order since the
+   first game opens first, the tags as a set): "No changes yet" comes back when a value is changed
+   back, and the leave guard holds only then.
+3. **"Show me on the map" stays saved at once on Location** (today's behaviour, the same as on
+   Privacy), not with "Save location", and **waits for a saved place** (disabled with the line
+   saying why) instead of failing with the API's 409 `LOCATION_REQUIRED`.
+4. **The R15 half of the line under "Show me on the map"** ("Visitors without an account see your
+   cards, never your name.", in the mockup) is left for R15: it would be untrue before guests exist.
+5. **Every Settings page draws its own top bar** (as R9's Notifications and R11's rooms): the
+   native header is hidden for `settings/*` and `legal/*`; the back button falls back to Settings
+   (a page opened by a link), Legal (a document) or the start (the legal index).
+6. **The tags of Edit profile** are the saved and picked ones as chips; an unpicked one stays on
+   the page until it is left (so a slip is undone with a tap); "Add a tag" opens the welcome's tag
+   search in a sheet (`WelcomeTags`). The old `TagPicker`, `GamePicker`, `LanguagePicker`,
+   `ProfileFields` and `settingsLinks.ts` were no longer used and were removed.
+7. **Settings reads no feature flag any more**: none of its rows depends on one (F1 removed the paid
+   ones; R1 the offers and payouts).
+8. **Legal's English banner and the documents' one-line summaries are the mockup's words, on the
+   phone only** (`LegalDraftBanner`, `PHONE_LEGAL_SUMMARIES`); the legal texts themselves are synced
+   from the paused web and unchanged, so the French pages keep their banner, summaries and
+   "Version en vigueur : {v}." (no new French work).
+9. **Blocked users is "Blocked collectors"** everywhere on the phone (Settings, the page, the block
+   dialogs: "Settings → Blocked collectors"); the legal text "Trading safely" still says "Settings →
+   Blocked users" (synced from the paused web: owner follow-up 2).
+10. **My reports' status words** follow the mockup ("Reviewed: the team took action", "Reviewed: no
+    violation found"; the web keeps its dash).
+11. **The red of "Delete my account"** is the confirmation sheets' red, the same in both schemes
+    (`PillButton` variant `danger`); the other colours of the stage are mobile-only design tokens
+    (`color.<scheme>.settings`: row icons and chevrons, the teal note, the amber draft banner, the
+    red card, the pills, the segmented control).
+
+12. **At the largest accessibility text sizes** a Settings row gives its label the whole width (its
+    icon and chevron are left out, its value and switch go under it) and its label and line follow
+    the text size up to 2.5 times (`LABEL_MAX_FONT_SCALE`): one-word labels such as
+    "discoverability" and "Marketplace" broke in the middle of the word at the full 3.1 times
+    (the walk). The top bar's title takes two lines; "Preview" and "All changes saved" follow the
+    text size a little only (`PINNED_MAX_FONT_SCALE`, with the large content viewer); the profile
+    card and Edit profile's picture stack; the grid names each box by its channel under its topic;
+    From and Until stack.
+
+**The walk** (the owner's iPhone 18 Pro simulator, iOS 27, Expo Go 57, the isolated stack of the
+native harness, fictional `@mobile-e2e.test` accounts made for it and deleted afterwards): the
+gear from Profile to Settings and every page 47 to 59 in the dark theme at the default size (Edit
+profile changed and saved, "Add a tag", the leave guard; Location's switch and the remove sheet
+kept; Shipping saved; Notifications with Email off and on, quiet hours; Privacy switches; Blocked;
+My reports; Account; Delete account ticked, the password, the sheet, kept; Legal and Trading
+safely), then 47, 48, 49, 51, 52, 53, 55, 56 and 58 in the light theme, then every page at the
+largest text size (a launch argument; the simulator's own settings were not changed). It found and
+fixed: a toast hid the last row of a page ("Remove my location" under "Profile saved.": the end of
+a page keeps room for a toast, as Edit card does); a tag suggestion named as a picked tag was
+listed twice; About's rows had icons the mockup has not; a long handle cut "blocked {when}";
+mid-word breaks, a cut title and a cut "All changes saved", the grid and the quiet hours at the
+largest size (decision 12). Compared with `/Users/yunji/Dev/.orenji-redesign-v50/project` screen by
+screen; the screenshots of 47 to 59 (dark, default size) are kept for the pull request.
+
+**The defaults this stage applies** (prompt list): **8. Edit profile has one Save**; **9. the
+phone's Legal list leaves out the payment protection and refund policies**.
+
+**Tests**
+
+- API: `ProfileIT.theProfileAndItsTagsAreSavedTogetherOrNotAtAll`;
+  `GeoPrivacyContractTest.settingsOfStageR13CarryNoPlace` (Edit profile's save with the tags as
+  read, `GET /me/blocks`, `GET /me/reports`: no coordinate, distance or city of another collector;
+  until review fix 1 both lists were read empty, see "Review fix 1" below).
+- Jest: `__tests__/screens/settings.test.tsx` rewritten (35: Settings' values, links, sign out and
+  the values that wait or fail; Edit profile's one save in one request, a value changed back, the
+  details without tags, the field, handle, tag and rate-limit failures, Preview and the leave
+  guard, loading and Try again; Location's switch first, the place saved, no place, the remove
+  sheet, the failures and states; Notifications' grid with Email off and back, "No changes yet",
+  quiet hours, the no-location warning, the states; Privacy saved at once with the restore, the
+  order, the radios, the states, Remember my searches; Appearance's radios, version, server,
+  credits; Account; Delete account grey until ticked, the password, the wrong password, the working
+  steps, Google, the blocked state; the grid and the rows at the largest text size);
+  `__tests__/features/settingsPages.test.ts` (7: what changed,
+  the save's body, a refused tag, the tag chips, the grid's names, the lines, member since); the
+  Legal, Blocked, My reports, Shipping and launch-configuration tests follow the restyle;
+  `welcomeSteps.test.ts` gains the suggestion named as a picked tag.
+- Maestro: **`settings-pages.yaml`** (new: the Profile gear, Settings, Location saved and the map
+  switch, a Privacy switch, Delete account up to the sheet, then Keep; `scripts/check-settings.js`
+  checks the API); `profile-edit.yaml`, `discoverability.yaml` and `legal-french.yaml` follow the
+  pages.
+- Mobile web E2E (Playwright): `profile.spec.ts` (one save with a tag), `account.spec.ts` (grey until
+  ticked; privacy waits for each save), `location.spec.ts` (the switch waits, the remove sheet),
+  `legal-french.spec.ts` and `safety-notice.spec.ts` (a document's own title,
+  `legal-document-title`: the top bar names the document too), `profiles.spec.ts`,
+  `blocked.spec.ts` follow the restyle.
+
+**Checks** (retries off; 2026-10-23, head of the stage before these documents)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | BUILD SUCCESSFUL: 1,270 tests in 198 classes, 0 failures (4 min 26 s); `ProfileIT` 10 / 10, `GeoPrivacyContractTest` 17 / 17 |
+| `exportOpenApi` then `npm run generate:api` | committed (`UpdateProfileRequest.tags`); git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web` | 136 files, 633 tests passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass |
+| `npm run test:mobile` | 123 suites, **1,646 tests** passed (+ typecheck, lint, the harness guard tests) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | first run 58 passed, 4 failed (a document's title read twice: the top bar names it too; "Handle" matched the handle check's own name): the specs read `legal-document-title` and the exact name; then **62 / 62** |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro) | **39 / 39** flows in 1 h 0 min 33 s (`settings-pages.yaml` new) |
+| `npm run test:scripts` | 145 / 145 |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**Not done, could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- The real push notifications (the push note stays: push arrives with a later release).
+- A report with "Under review", "Action taken" or "Dismissed" in the walk (a moderator's decision);
+  the pills are covered by Jest.
+
+**Owner follow-ups**
+
+1. The pull request's screenshots of 47 to 59 (dark, default size) are in
+   `.local-dev/r13-notes/pr-shots/` of the worktree.
+2. The draft "Trading safely" (synced from the paused web) still says "Settings → Blocked users"
+   (decision 9): with the lawyer's review or when the web resumes.
+3. Location's "Show me on the map" stays saved at once and waits for a saved place (decision 3);
+   saving it with "Save location" instead is a small change if preferred.
+4. The phone's Legal list leaves out the Payment Protection and the Refund and Dispute policies
+   (default 9); they still open from a link.
+5. The picker fields shared with the welcome (Region, Country, State or province) cut a long value
+   at the largest text size ("Americas…"); a follow-up for the shared `SelectSheet`.
+6. The paused web could use the optional `tags` of `PUT /me/profile` when it resumes.
+
+### Review fix 1 (2026-10-23)
+
+Three reviewers (functional, product and UX as a collector, privacy) sent twelve findings, three of
+them major (P1, U1, F1). Ten are fixed at their cause with a test that fails without the fix; F5 is
+answered with evidence (an artefact of the automation, documented in the flows' own subflow); P3
+predates R13 and is an owner follow-up. **No API change, no migration** (the next is still
+**V135**), no file of `apps/web-angular` changed; the regenerated clients did not change.
+
+- **A Private profile is off the map on every page that says so** (P1, major): with "Who can see
+  your profile" set to Private, Settings said "Quebec, Canada · On the map" and Location
+  "Collectors see you in Quebec, Canada." while the API leaves a PRIVATE profile off the map and out
+  of search (`PublicVisibilityRules.OWNER_LISTED`) and Privacy itself says "You also leave the
+  map". One rule (`src/features/settings/mapStatus.ts`: a saved place, the switch on and a profile
+  that is not PRIVATE) now decides it for Settings (which reads the privacy settings too: "… · Not
+  on the map"), Location ("Your profile is private, so you are hidden from the map and from
+  searches. Change it in Privacy.", the switch left as saved) and Privacy's "Show me on the map"
+  line. Jest for the three pages; the native flow `settings-pages.yaml` makes the profile Private
+  and checks Settings and Location, then goes back to Members.
+- **"Preview" right after "Profile saved." shows what was saved** (U1, major): the save updated
+  `/me/profile` and `/me` but not the cached public profile (`GET /collectors/{handle}`, kept a
+  minute), so Preview showed the old bio, name and tags. A save of the profile, the tags or the
+  picture now reads the own public profile again under the old and the new handle
+  (`refreshOwnPublicProfile`). Jest (a public profile on screen shows the new bio after the save);
+  the walk (Preview at once shows the new bio).
+- **Every Visibility switch of Privacy is tested against its own setting** (F1, major): a table
+  test presses each of the five switches in turn and checks that each `PUT /me/settings/privacy`
+  changes only its own field and keeps every earlier change; two quick changes are saved in order,
+  the second carrying the first (the reviewers' mutants M29 and M12 now fail). The native flow
+  turns "Show me on the map" off on Privacy and `check-settings.js` reads `discoverable: false`.
+- **Privacy's "Show me on the map" waits for a saved place, as Location's does** (F2): without a
+  place it is greyed while off with Location's line ("You have not chosen a location yet, so you
+  never appear on the map."), instead of failing with the API's 409 `LOCATION_REQUIRED`. Jest.
+- **The privacy test of R13 reads people** (P2): `settingsOfStageR13CarryNoPlace` read
+  `GET /me/blocks` and `GET /me/reports` as collector1, who had blocked and reported nobody, so both
+  lists were empty. collector1 now blocks collector5 for the test (unblocked in `finally`) and
+  collector4's seeded report is read; the lists must not be empty. The reviewers' mutant (the
+  blocked collector's city added to the name in `GET /me/blocks`) now fails it.
+- **A refused save says why where the collector tapped** (U4): "Save changes" sits at the bottom,
+  a taken handle or an empty name is said beside its field at the top. A save refused on a field now
+  scrolls the page up to it and says "Not saved. Check your {handle | display name | bio} above."
+  above the button; a refusal for the whole form (a refused tag, a rate limit) scrolls to its
+  message at the end of the page, just above the button (`useProfileEditor.save` resolves `saved`,
+  `fields` or `form`). Jest; the walk (a taken handle).
+- **Whole words at the largest text size** (U2, U3): Legal's English | Français switch follows the
+  text size a little only, on one line, with the large content viewer, like the app's segmented
+  controls; Settings' profile card and Blocked collectors give the handle a line of its own at the
+  largest sizes, made smaller to fit rather than broken in the middle (`adjustsFontSizeToFit`, only
+  there), Blocked with the picture above the words; a field's counter ("0 / 500") goes under its
+  label at the largest sizes (`TextField`), so "Why are you leaving? (optional)" keeps its ")"
+  (Delete account, Edit profile's and the welcome's bio). Jest; the walk at the largest size.
+- **Tests for the rules the reviewers' mutants survived** (F3, F4): My reports' pills against the
+  scheme's tokens (Open amber, Under review blue, Action taken teal, Dismissed grey); the same tags
+  in another order are no change; at 11 tags the 12th can still be picked. M25, M5 and M27 now fail.
+  (M19, Delete account's `review()` ignoring the tick, is an equivalent mutant: `review()` is only
+  called by "Delete my account", which stays disabled until the box is ticked.)
+- **F5 (the keyboard of the Add a tag sheet)** is not an app fault: the keyboard went down while Maestro typed
+  into the search field, before "Add" was tapped (the walk's screenshot right after `inputText`
+  shows the field focused and the keyboard down), and came back at the next touch, where a quick
+  "Done" could land. That is the simulator without a Mac keyboard attached, as the flows' own
+  `subflows/hide-keyboard.yaml` documents ("iOS puts the keyboard away while Maestro types and
+  brings it back at the next touch"); typed by hand, the keyboard stays up and "Add" keeps it
+  (`keyboardShouldPersistTaps="handled"`). No code change.
+- **P3 (Blocked collectors' "They are never told")** is unchanged: see owner follow-up 7.
+
+Jest runs React Native at a text size of 2 (the library's own `Dimensions` mock), which already
+counts as a large size here (`STACKED_ROW_FONT_SCALE` 1.3): the tests that check the mockup's
+default look of Settings' card and of Blocked collectors now set the size to 1.
+
+**The walk** (the owner's iPhone 18 Pro, on the native harness's kept stack, under the shared lock;
+fictional `m-<run>-…@mobile-e2e.test` accounts made by a scratch script and deleted afterwards; the
+simulator's own settings untouched, light and text size large as the owner keeps them; the largest
+size by the launch argument only). At the default size: Edit profile's new bio saved, then
+"Preview" shows it at once; another collector's handle refused with "That handle is already taken.
+Try another one." in view at the top and "Not saved. Check your handle above." over the button; the
+Add a tag sheet (F5 above). At the largest size: Settings' card with a 24-character handle on one
+line ("@msamlongwalkhandle_…") and "Edit profile" under it; Blocked collectors with the picture
+above, the 24-character handle on one line and "Blocked 1 minute ago"; Legal and Terms of Service
+with "English" and "Français" whole; Delete account's "Why are you leaving? (optional)" whole with
+"0 / 500" under it. The Private profile on Settings and Location is walked by the native flow
+`settings-pages.yaml`.
+
+**Checks** (retries off, on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | OK |
+| `npm run test:api` | **198 classes / 1,270 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 20 s; `GeoPrivacyContractTest` 17 / 17 (alone first, then with the suite) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing to commit: git clean afterwards (no API change) |
+| `npm run build -w apps/web-angular` | OK, initial total **893.88 kB** (under 900 kB); no web file changed |
+| `npm run test:web` | **136 files / 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | OK, OK |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.3 min) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | OK, OK, OK |
+| `npm run test:mobile` | **123 suites / 1,658 tests** passed (12 new); the reviewers' six surviving mutants (M5, M12, M25, M27, M29; M19 equivalent) and this fix's own mutants (the private profile on each page, Preview after a save, the refused save's scroll and line, the map switch without a place) each fail at least one test |
+| `npx expo export --platform ios`, `android`, `web` (into the scratch folder) | OK, OK, OK (1,956, 2,082 and 1,577 modules) |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | first run 61 / 62: `google.spec.ts` found "Handle" twice (the live check's "Checking the handle" while it was on screen, as `profile.spec.ts` had in the stage); the welcome's field is read by its exact name in `google.spec.ts` and `auth.spec.ts`; then **62 / 62** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock, every flow) | **39 / 39 flows passed** in 1 h 1 min, `settings-pages.yaml` with its new steps (the Private profile on Settings and Location, the map switch off on Privacy) among them; Expo Go stopped afterwards, the simulator left as the owner keeps it (light, text size large) |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (two allowlisted advisories, as before) |
+
+**What could not be verified**: the Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups of review fix 1**
+
+7. **"They are never told" holds on the phone only** (P3, pre-existing, the rule of
+   `docs/api/contracts/r6-profiles.md`, "Blocks (today's rule, kept)"): a collector who was blocked
+   still gets `GET /collectors/{blocker}` with the header (the bio, the tags, the city when shown)
+   and `isBlocked: true`, so any HTTP client can tell; the phone shows "not available". Either the
+   API answers the blocked side as for an unknown collector (404, `isBlocked` only for the blocker),
+   or the copy of Blocked collectors (the mockup's) is softened. An API change for the owner to
+   decide (the paused web reads `isBlocked`).
+
+### Review fix 2 (2026-10-23)
+
+The reviewers' check of review fix 1 left one finding open, P3 (minor), the same as in fix 1:
+Blocked collectors' "They are never told." holds on the phone only. It is answered with evidence,
+**no code change** (the reviewer's own suggested fix is "Owner's call"): no API change, no
+migration (the next is still **V135**), no file of `apps/web-angular` changed, the regenerated
+clients unchanged.
+
+- **Why nothing changed in R13.** The sentence is older than R13: `main`'s
+  `apps/mobile/app/settings/blocked.tsx` (line 110) already ends "They are never told.", and the
+  mockup v50's Blocked collectors (54) says it word for word (on wording the mockup wins; R13 only
+  took the mockup's "anywhere" for "on the map, in search or in the community"). The chat's block
+  sheet says "They are not told." since R5. Both remedies change something only the owner decides:
+  the owner's words, or R6's contract ("Blocks (today's rule, kept)" in
+  `docs/api/contracts/r6-profiles.md`), which the paused web reads: its collector page shows a
+  blocked pair the header and "Messaging is unavailable because of a block", so a 404 for the
+  blocked side is not an additive change.
+- **On the phone the sentence holds, and tests pin it.** A block sends no notification
+  (`UserBlocked` has no listener outside messaging); a collector who blocked you is "This collector
+  is not available", the same page as an unknown, Private, suspended or deleted collector, and
+  their listings are not asked for (`__tests__/screens/collector.test.tsx`, "a collector who
+  blocked you is "not available"…"; ratings and references alike, `collector-sections.test.tsx`); a
+  refused message says "You cannot message this collector. They may have blocked messages or you
+  blocked them."
+- **What the blocked side can still read over HTTP** (follow-up 7, now exact, from the code):
+  `GET /collectors/{blocker}` answers 200 with the name, picture, bio, games, tags, the province and
+  country with the city while shown, member since, the rating, the binder count, **the last-active
+  bucket and the online status while the blocker shows them**, `canMessage: false` and
+  `isBlocked: true` (either direction, so an empty `GET /me/blocks` gives the direction away)
+  (`CollectorProfileService.view`; in `PrivacyPolicyService` only messaging, the map, name search
+  and the wishlist read a block, not the rules of those fields); the
+  blocker's ratings and references answer 200 (`requireVisibleCollector` reads no block); a new
+  conversation or a message to the blocker answers 403 `MESSAGING_BLOCKED` "You cannot message
+  this collector", where a collector who cannot receive messages answers "This collector cannot
+  receive messages right now". Cards, binders, wishes, search, the map and the community already
+  answer the blocked side as for a hidden collector.
+
+**Checks of review fix 2** (retries off; this Mac, 2026-10-23, at `5f3987c2`, whose code is the one
+review fix 1's full check list ran on; fix 2 changes only this file and the handoff)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | OK |
+| `./gradlew exportOpenApi` then `npm run generate:api` | no change; git clean afterwards |
+| `npm run build -w apps/web-angular` | OK, initial total **893.88 kB** |
+| `npm run test:web`, web lint, web format check | **136 files / 633 tests**; OK, OK |
+| `npm run typecheck`, `lint`, `format:check` `-w apps/mobile`; `npm run test:mobile` | OK, OK, OK; **123 suites / 1,658 tests** |
+| `npx expo export` iOS, Android, web (scratch folders) | OK (1,956, 2,082 and 1,577 modules) |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (the two allowlisted advisories until 2026-11-30) |
+| `npm run test:api`, `npm run test:e2e`, `npm run test:mobile:e2e`, the native suite | not run again: no code change since review fix 1's runs on the same code (1,270 + 13 tests; 70 / 70; 62 / 62; 39 / 39 flows), per the cost rule for the long suites |
+
+Not verified in fix 2: the Android run could not be verified (no Android SDK).
+
+**Owner follow-up 7 (P3), restated with a recommendation.** The blocked side can still read the
+blocker's profile header, including when they were last active and whether they are online while
+the blocker shows those, and can tell the block from `isBlocked`. The recommendation is the API
+remedy, phone first: `GET /collectors/{handle}` and the ratings and references answer the blocked
+side 404 as for an unknown collector (the blocker keeps the header, `isBlocked` and Unblock), and a
+refused message says the same words for a block and for a collector who cannot receive messages;
+the phone already shows "not available" there, so it needs no change, but the paused web's
+blocked-side tooltip and header would change. Until the owner decides, the mockup's sentence stays.
+
+## Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60 to 69) (2026-10-23)
+
+Stage R14 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R14. Report, rating, reference, binders, wishes, import and sets (60 to 69)"). Mockup v50
+screens 60 (Report collector), 61 (Rate), 62 (Write a reference), 63 (New binder), 64 (Add a wish),
+65 (Edit a wish), 66 to 68 (Import: the file, Check the cards, Import done) and 69 (a set). Built on
+branch `feature/r7-home` after R13, for the one giant pull request of R7, R9 to R15 and R8 (owner's
+exception of 2026-10-21; nothing merged in between). **No migration** (the next free one stays
+**V135**; V124 and V128 stay unused); no ADR. Two optional, nullable fields on one response, nothing
+else in the API changed; no file of `apps/web-angular` changed. Free for all (ADR 0019): nothing
+paid or sponsored on these screens; deals ship by mail (ADR 0018); **English only** (owner,
+2026-10-20).
+
+**What a collector can now do**
+
+- **Report a collector** (60), from the "⋯" of a profile, a chat or a community post (and a public
+  binder or deck core, as before): the person with their picture and "@handle · {province}" (the
+  public profile's province, never the city; the handle alone when they show no place), **the
+  server's reasons as radio rows with their line**, Details with "{n} / 1000" beside the label, the
+  confidentiality note in its card, and **"Send report"** at the bottom, grey with "Choose a reason
+  first." until a reason is chosen. **Report sent in place**: the teal tick, "Thank you. Our
+  moderators will review your report about {name}. They are not told who reported them.", **Done**
+  and **"Follow it in My reports"**. An open report (409), oneself (422), a collector gone (404) and
+  five a day (429) are said in place as before; after a 409 the reasons stay disabled and "My
+  reports" is offered.
+- **Rate a collector** (61), from the sold note of a chat ("Rate {name}"; the sale notification opens
+  that chat) and from a profile's ratings: the person and **the deal** ("Ash Blossom & Joyous Spring
+  · sold to you Oct 17" for the buyer, "… · bought from you Oct 17" for the seller; "Conversation ·
+  Sep 3" for a qualified conversation); "Which deal are you rating?" as radio rows when there are
+  several; **Overall** in its card with 34 pt amber stars and its word (Poor, Not great, Okay, Good,
+  Excellent); **"Details · optional"** as three rows (Communication "Clear, timely and friendly",
+  Card condition "Matched what was described", Shipping "Well packed and sent on time") whose chosen
+  star pressed again clears the row; the comment with "{n} / 600"; "Your rating appears on
+  {handle}'s profile with your name. You can change it for 14 days."; **"Write a reference
+  instead"** (teal); **"Publish rating"** at the bottom, grey with "Choose an overall score first."
+  until the overall score. Editing one's rating within its 14 days: "Edit your rating", the line
+  "{kind} · you can change it until {date}", "Save changes"; an old meetup score is kept and never
+  asked (ADR 0018).
+- **Write a reference** (62): the person, the line on what a reference is, the field with "{n} /
+  400", **"Publish reference"** at the bottom; the 403, 409 and banned-term refusals as before.
+- **New binder** (63): the Settings top bar ("New binder", back "Back to your binders"), Name, the
+  game tiles (games without cards dimmed, "Cards coming soon"), "A binder holds cards of one game.
+  You can’t change it once it has cards.", Who can see it, Sell as a deck core, and under **Cards
+  inside "Only your {game} cards can go in. Cards in another binder move here."**; "Create binder"
+  at the bottom. Edit binder (18) is unchanged.
+- **Add a wish** (64): **"Add a wish" opens Search's card search** (screen 12: "{game} card name or
+  code", Cancel, the recent searches, the browsed game's cards with the typed part in orange) under
+  "Which card are you looking for? We’ll tell you when a collector of your region lists it." A card
+  picked opens **the form** ("Add to wishlist"): the card in its card (the game in its colour, the
+  name, "{n} printings in the catalog") with **"Change"**, which goes back to the search with the
+  text still typed; **Which copy** (and the copy written out in full under it); **"Near Mint only"**
+  in its card ("Sellers see it; listings in other conditions still show."); **"Price you would pay
+  (optional)" as one-choice chips** ("No price", then the server's % TCG terms, a chosen printing's
+  amount on the chips and the price's source under them); the public note with "{n} / 280" and
+  "Everyone who can see your wishlist sees it."; **"Add to wishlist"** at the bottom; saved, the
+  collector is back on Search › Wishlist (past the search). A printing code typed picks that printing
+  when only one printing of the card has it, and starts on "Any printing" when several share it, as
+  before. From a card page the form opens directly, as before.
+- **Edit a wish** (65): "Edit wish", the wished printing under the card ("EXFO-EN065 · Common"),
+  the same fields, **"Save changes"** and a red **"Remove from wishlist"**, asked in a sheet
+  ("Remove {card}?", "You stop getting alerts for it.", Remove / Keep it).
+- **Import** (66 to 68), opened from Add cards: **the file step** with the source (its tile, "Yu-Gi-Oh!
+  deck file (.ydk)" and "From YGOPRODeck, EDOPro or Dueling Book", or the Collectr CSV export), "We
+  match every card of the file. You see them all and choose what goes in before anything is
+  added.", a large dashed **"Choose a file"** with the limits, **"Paste the text of the file
+  instead"** (the field in mono, "Use this text"), and **the other source one row away** ("Collectr
+  CSV export instead" / "Yu-Gi-Oh! deck file instead"); the CSV's game of rows that name none, the
+  refusals and the upload progress as before. **Check the cards**: the top bar with **a trash
+  button** ("Discard this import?", "Nothing was added to your inventory yet.", Discard / Keep
+  checking); staying on screen above the list, the file ("{file name} · 40 main, 15 extra, 15 side",
+  "Your deck file" or "Your CSV export · {n} lines" for a pasted text or a resumed import), **the
+  chips All {n}, "Which copy? {n}"** (and "{n} assumed" while some are) **and "Not recognised {n}"**,
+  and **the amber bar** "{n} cards need a printing. Pick one on each, or use the newest for all."
+  with **"Use the newest"**; then the compact lines: the picture, the name, one line under it
+  ("ROTA-EN006 · Super Rare", "… · assumed plain copy", **"Which copy? 2 printings"** in amber,
+  **"Not recognised. It stays out."** in red), the copies ("NM ×3", which opens the condition and
+  copies) and **the tick box**; the name opens "Which copy" (which now also says what the file said
+  and the deck sections); a third small line says "Left out", a section switched off or the copies
+  already owned, and two lines of one card say what the file said. Above the lines, what the
+  inventory limit has no room for; after them, "Leave out the {n} cards that still need a
+  printing", the assumed copies with "Show these cards", "Check the conditions", the deck sections
+  as switches, the sentence of what the import adds and until when it is kept. **The add button** ("Add 3 cards (5
+  copies)") stays grey with **"Choose the copy of the marked cards, or use the newest."** while lines
+  need a printing (unless they are left out). **Import done**: no back button, the teal tick, **"{n}
+  cards added"**, "They start private. Make the ones you trade public from Inventory.", the result
+  lines, **"Not recognised · {n}"** with each line, what the file said and what to do, shown at once,
+  and **"Go to my inventory"** and **"Import another file"** (the file step of the same source).
+  Kept: resuming an open import ("Continue your import"), the deck sections, the conditions sheet,
+  the copies dialog, the expired and interrupted states and the leave guard.
+- **A set** (69): the top bar with the set's name, the game in its colour, the name in Sora,
+  "**{CODE}** · Released Nov 1, 2024 · {n} printings", **"Who has cards of this set"** (outlined),
+  which opens Search's card search on the set's cards (a chip "{set} · {CODE}" that widens the search
+  again, every page as the list scrolls), then **a three-column grid of printings** (the picture, the
+  code in mono, the rarity), paged as it scrolls; a printing opens Who has this card at that
+  printing. Not found, an error with "Try again", the skeleton and the empty set as before.
+- Every screen has the Settings top bar (the 44 pt back button, the title in Sora, a hairline), its
+  main button at the bottom, skeletons, empty and error states with "Try again", VoiceOver names on
+  every control, and its words in one place (`reportCopy.ts`, `ratingCopy.ts`, `binderCopy.ts`,
+  `wishCopy.ts`, `importCopy.ts` with `importLabels.ts`, `setCopy.ts`).
+
+**What the API does** (contract [`docs/api/contracts/r14-report-rate-wish-import-sets.md`](docs/api/contracts/r14-report-rate-wish-import-sets.md))
+
+- **`GET /api/v1/ratings/eligibility`**: each `RatingEligibilityInteraction` gains **`dealName`**
+  (a `SALE`'s card or deck core as named at the sale) and **`soldToYou`** (true for the buyer, false
+  for the seller), both nullable and `null` for other kinds. The ratings module reads them through a
+  new extension point it owns, **`SaleDeals`**, which the deals module implements (deals depends on
+  ratings, so ratings never depends on deals); `RatingRules.soldTo` is the pure rule.
+- Nothing else changed: the screens keep every call they made.
+
+**Decisions**
+
+1. **The deal line comes from the API**, not from route parameters: the rating form is opened from a
+   chat, a profile's ratings and (through its chat) the sale notification, and only the eligibility
+   knows which interaction is rated; two nullable fields on an existing response are additive for the
+   paused web.
+2. **The person at the top of 60 to 62 reads the public profile** (`GET /collectors/{handle}`, the
+   same cache as the profile page) for the picture and the province: the entry points pass the name
+   and the handle only, and the profile applies the privacy matrix (the province of a discoverable
+   collector; never the city on these screens, although the profile answer may carry it).
+3. **"Send report", "Publish rating" stay grey and say why** ("Choose a reason first.", "Choose an
+   overall score first.") instead of the old "Confirm" and the error after a press; the server's
+   reasons keep the server's lines (the mockup's own lines are close, the server is the source).
+4. **A details row is cleared by pressing its chosen star again** (the mockup's behaviour); the old
+   "Clear" link is gone; VoiceOver hears "Tap the chosen star again to clear it" on the chosen star.
+   Overall never clears.
+5. **"Add a wish" reuses Search's card search** (`CardTyping` with `onPickCard`): the same field,
+   recent searches and results as screen 12, the collectors left out. The text typed goes with the
+   card, so the stage-S2 rule of a typed printing code holds without the old autocomplete. The
+   search follows the browsed game, or the game a link names when it can be browsed. Saved from
+   that search, the collector lands on Search › Wishlist past it (`dismissTo`); from a card page,
+   back where they came from.
+6. **The price chips show a term's amount** when one printing with a market price is chosen ("85%
+   TCG ≈ 32.30 CAD"), as the old check boxes did, and the price's source under them; "No price" is a
+   chip.
+7. **Check the cards keeps every S5 function where it adds the least clutter**: the file, the chips
+   and the amber bar stay on screen and the lines come right under them (the mockup); what the
+   inventory limit has no room for is said above the lines (before printings are chosen for a
+   long file); "leave them out", the assumed copies, the conditions, the deck sections and the
+   summary sentence follow the lines (the walk: above them, they pushed every line off the
+   screen). The four count tiles are gone (the
+   chips, the amber bar, the button and the sentence say the same). A line's condition is on its
+   copies button ("NM ×3", the whole name for VoiceOver); what the file said is under a line only
+   when two lines are one card, and always in the "Which copy" sheet.
+8. **The file's name** on Check the cards is the one this phone picked, in memory only (the API
+   keeps none, by design); a pasted text or a resumed import says "Your deck file" / "Your CSV
+   export".
+9. **"Import another file"** opens the file step of the same source (the mockup), not the start;
+   the start still shows an import left open first.
+10. **"Who has cards of this set"** opens Search's card search on the set (`GET /cards?set=`, every
+    page, a chip to widen it): the old "Search this set" passed a set Search no longer read since
+    stage R5. A real "holders of a set" list would need an API change and was not asked.
+11. **The colours** are existing tokens: the amber bar is Legal's draft colours, the chips the
+    segmented control's, the stars the warning amber, the game's name its tile colour (its
+    foreground in dark, its background in light). No new design token.
+12. **`PillButton` gains `accessibilityLabel`** (the import's button reads "Add 3 cards (5 copies) to
+    my inventory" while it shows the short label), and the Settings top bar gains a page without a
+    back button (Import done) and its own back id (`edit-binder-back`, `import-file-back`) for the
+    flows.
+
+**The defaults this stage applies** (prompt list): none of the fifteen is new here; the stage keeps
+**3 and 4** (a binder holds one game; New binder says which) and **1** (Add a wish searches the
+browsed game).
+
+**Tests**
+
+- API: `SaleIT.theRatingFormNamesTheDealForEachSide`; `RatingEligibilityIT` (a conversation's
+  interaction carries `dealName` and `soldToYou` as `null`); `RatingRulesTest.aSaleIsSoldToTheCallerOnlyWhenTheCallerBoughtIt`;
+  `GeoPrivacyContractTest.chatSubjectsAndSalesCarryThePlaceOnly` reads the eligibility after a sale
+  for both sides (the deal named, no tracking number, place, city or party id).
+- Jest: `reports.test.tsx` (the report button grey with its reason, the person's province without
+  the city, the self refusal, Report sent); `ratings.test.tsx` (the deal line for the buyer and the
+  seller, the star rows: each word, Overall never clears, each details row clears, "Write a
+  reference instead", Publish rating grey until Overall); `reportsRatings.test.ts` (`dealLine`,
+  `nextScore`, the words); `binders.test.tsx` (New binder's top bar and game line);
+  `wishlist.test.tsx` (the card search of the browsed game and of a linked game, a card picked
+  opening the form with the text, the price chips "No price" and the server's terms, a typed code,
+  Change, the dismiss to Search › Wishlist, Edit wish's printing line and the remove sheet);
+  `inventory-import.test.tsx` (the file step and the switch of source, the summary line, the amber
+  bar, the chips, **the add button grey with its reason**, the discard sheet, Import done, the
+  lines not recognised shown at once); `importRow.test.tsx` (the compact line, its tones, its three
+  controls, the source of two lines of one card, the stacked layout); `inventoryImport.test.ts`
+  (the chips' labels, the reason, the amber bar, the sections line, the row line, the short
+  conditions); `sets.test.tsx` (the meta line, the grid tile, "Who has cards of this set");
+  `search.test.tsx` (the set link: the chip, `set=` without text, the chip widening).
+- Maestro: `report-collector.yaml` (from a profile: Send report grey with its reason, Report sent,
+  Follow it in My reports), `deal-mark-sold.yaml` (rate after Mark as sold: the deal line, Publish
+  rating grey until Overall), `wishlist-alert-notification.yaml` (add a wish from Search's card
+  search), `inventory-import-deck.yaml` (a small .ydk through Check the cards and Import done),
+  `inventory-import-csv.yaml`, `inventory-import-assumed.yaml`.
+- Mobile web E2E (Playwright): `reports.spec.ts`, `ratings.spec.ts`, `deals.spec.ts`,
+  `wishlist.spec.ts`, `inventory-import.spec.ts` and `binders.spec.ts` follow the restyle.
+
+**The walk** (the owner's iPhone 18 Pro simulator, iOS 27, Expo Go 57, the isolated stack of the
+native harness, fictional `@mobile-e2e.test` accounts made for it and deleted afterwards; the
+simulator's own appearance and text size were not changed: the app's theme from Settings ›
+Appearance, the largest size by a launch argument): as the buyer of a card Mark as sold in a chat,
+the sold note, **Rate** (the deal "Lantern Fox Spirit · sold to you Oct 23", Overall and the
+details, "Write a reference instead"), **Write a reference**, **Report** from the chat's "⋯" (sent
+in place) and from the seller's profile "⋯" (the 409 "You already reported…"), **New binder**,
+**Add a wish** from the card search (the form, a price chip, Near Mint, saved), **Edit wish** and
+its remove sheet, **a set** and its grid (scrolled) and "Who has cards of this set", **the import**
+of a small `.ydk` (the file step, paste, Check the cards, the discard sheet, "Not recognised",
+"Use the newest", the add, Import done) and of a Collectr CSV (the switch of source, Check the
+cards, left with the leave guard, resumed with "Continue your import", "Use the newest" with its
+assumed copies): in **dark and light at the default size**, then **at the largest text size**
+(Report, Rate, Reference, New binder, the wish, the set, the import's three steps). The report
+from a community post is in the native suite (`community-post.yaml`). It found and fixed: a
+refusal (the 409 of a second report) was said at the end of the page, under the fold, with only a
+grey "Send report" in view: **refusals are said in the bar at the bottom** (report, rating,
+reference, wish); Check the cards' other choices **pushed every line off the screen**: the lines
+now come right under the amber bar (decision 7); a wish saved from a linked game's search landed on
+Search › Wishlist of another game: **it lands on the card's game**; New binder's chosen game tile
+was filled, not tinted as in the mockup; at the largest size the person's handle and a rating's
+"Shipping" broke in mid-word (**the person stacks above their name and line, bounded to 2.5
+times; a details row puts its stars under its words**), the text areas cut their text (**they
+grow**), the wish's card broke its name letter by letter (**it stacks**), a set's codes were cut
+and "Who has cards of this set" ended in "t…" (**two columns at those sizes, the button bounded to
+twice**), a line's copies took a third of the row (**bounded to twice**), and the toast of "Use the
+newest" took the add button's press (**a toast stands above the bar at the bottom**). Compared
+with `/Users/yunji/Dev/.orenji-redesign-v50/project` screen by screen; the screenshots of 60 to 69
+(dark, default size) are kept for the pull request in `.local-dev/r14-notes/pr-shots/`.
+
+**Checks** (retries off; 2026-10-23, this Mac, JDK 21, OrbStack; the API and web checks at the last
+API change, the phone's on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | BUILD SUCCESSFUL: **1,272 tests in 198 classes, 0 failures** (4 min 26 s); `SaleIT` 15 / 15, `RatingEligibilityIT` 5 / 5, `RatingRulesTest` 6 / 6, `GeoPrivacyContractTest` 17 / 17 |
+| `exportOpenApi` then `npm run generate:api` | committed (`RatingEligibilityInteraction.dealName`, `.soldToYou`); run again at the end: git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **123 suites, 1,674 tests** passed (+ typecheck, lint, the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (1,963, 2,089 and 1,584 modules; throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | first run 60 passed, 2 failed (the import spec still expected the start after "Import another file" and R2's assumed line): the spec follows R14; then **62 / 62** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro) | **38 / 39** flows in 60 min 02 s: `inventory-import-deck.yaml` read the summary sentence where it stood before the walk moved it after the lines; the flow follows it, and with the toast fix the three import flows then passed alone (**3 / 3**), so every one of the 39 flows passed |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**Not done, could not be verified**
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- A file picked from the iPhone's Files app: the native flows and the walk paste the file's text
+  (the system picker is outside the app); the web-build spec uploads a real file through the
+  browser's file chooser, and that path names the file on Check the cards.
+- The rating from the sale notification itself: it opens the chat (stage R9), whose sold note opens
+  the rating, as walked.
+
+**Owner follow-ups**
+
+1. The pull request's screenshots of 60 to 69 (dark, default size; 18 files) are in
+   `.local-dev/r14-notes/pr-shots/` of the worktree.
+2. The rating's note says "on {handle}'s profile" as the prompt words it; the mockup's collector has
+   the same name and handle, and the display name may read better ("on Ada Seller's profile").
+3. "Who has cards of this set" opens the card search on the set's cards, each opening Who has this
+   card (decision 10); a list of the collectors who hold any card of a set would need a new API.
+4. Check the cards has no count tiles any more, and "leave them out", the conditions and the deck
+   sections follow the lines (decision 7): on a long CSV export they are at the end of its list.
+5. The report's reasons keep the server's lines (they differ a little from the mockup's).
+6. The price chips grow with a chosen printing's amount ("85% TCG ≈ 32.30 CAD"), as the old check
+   boxes did; the mockup shows the terms alone. (Review fix 1, U7: the chips are the terms alone now.)
+
+### Review fix 1 (2026-10-23)
+
+Two reviewers (product and UX as a collector, functional with mutation testing) sent eleven
+findings, three of them major (U1, U2, F1). All eleven are fixed at their cause with a test that
+fails without the fix (the reviewers' surviving mutants M7, M17, M22, M34, M36, M37 and M38 now
+fail, and so does a mutant of each fix below). **Phone and tests only: no API change, no
+migration** (the next is still **V135**), no file of `apps/web-angular` changed; the regenerated
+clients did not change.
+
+- **A refusal in the bottom bar never covers the page** (U1, major): at the largest text size the
+  409 of a second report ("You already reported …") grew over the whole page: the form's scroll
+  view collapsed and "My reports" and "Send report" went below the screen; the duplicate wish's 409
+  left a sliver of the form. `BarMessage` (`SettingsPage.tsx`) now says a refusal in the bar with
+  its words held to the button's text size (`PINNED_MAX_FONT_SCALE`, a new `maxFontSizeMultiplier`
+  on `FormMessage`) and lets a long one scroll within a quarter of the window
+  (`BAR_MESSAGE_MAX_SHARE`); Report, Rate, Write a reference and the wish form use it, and
+  Report's "My reports" in the bar follows the text size as "Send report" does. Jest
+  (`expectBoundedBarMessage` on the four refusals); the native flow `report-collector.yaml` now
+  ends with a second report at the largest size and checks that the page's scroll view, "My
+  reports" and the grey "Send report" stay on the screen.
+- **Add a wish's field stays at the top** (U2, major): the line above Search's card search ("Which
+  card are you looking for? …") had no text-size limit and took 500 pt at the largest size, so the
+  field opened under the keyboard with one result in view. It follows the text size as little as
+  the field's own controls (`PINNED_MAX_FONT_SCALE`). Jest.
+- **Import done closes the toast of Check the cards** (U3): "Use the newest"'s three-line toast
+  ("… Check them.") covered "Go to my inventory" and could no longer be acted on; Import done hides
+  it when it opens. Jest (gone at once, not after its own 5 s).
+- **A new binder's card picker says when there is nothing of its game** (U4): "All your cards are
+  already in this binder." was said for a new Magic binder of a collector with Yu-Gi-Oh! cards only;
+  it now says "You have no Magic cards yet. Add them to your inventory first." and keeps the old
+  sentence for a binder that already holds every card. ("Add cards" was already disabled with
+  nothing picked: it is the button's disabled look, at half opacity.) Jest for both.
+- **"Leave out" right under the amber bar, and the lines it leaves out say so** (U5, F2): the
+  "Leave out the {n} cards that still need a printing" box had moved after every line (in a long
+  CSV export loaded in pages, out of reach); it now stands right under the amber bar, on screen
+  above the list, its words held as the bar's. While it is ticked, a line that still needs a
+  printing shows as left out (unticked, dimmed, "Left out"), as one left out by hand; its box opens
+  "Which copy", since a printing chosen is what puts it in (the commit's `skipUnresolved` stays
+  the one mechanism, no line is patched). The button's reason keeps the mockup's sentence; its stale
+  comment is fixed. Jest (`importRow.test.tsx`, `inventory-import.test.tsx`).
+- **A line's copies alone while the file names no condition** (U6): every line of a `.ydk` read
+  "DMG ×3" (stage S5's rule: a condition the file does not name starts at the game's lowest grade).
+  The copies button now shows "×3" (mockup 67) while the condition is only that lowest grade
+  (`conditionAssumed`, `copiesText`), and "NM ×3" for a condition the file named, one set on the
+  line or one set for all of them with "Set one condition"; VoiceOver still says "Damaged (not in
+  your file), 3 copies". "Check the conditions" stays after the lines (decision 7). Jest; the
+  web-build spec reads "×2" without "DMG".
+- **The wish's price chips are the terms alone** (U7): with a printing chosen the amounts made the
+  chips four rows and repeated the sentence under them; the chosen term's amount stays in that
+  sentence ("85% TCG ≈ 32.30 CAD for this printing. …", mockups 64 and 65 on looks). Jest and the
+  web-build spec.
+- **Tests for the rules the reviewers' mutants survived** (F1, F3, F4): a set's search
+  (`search.test.tsx`: a set of 26 cards, the end of the list asks for `page=1`, the list holds all
+  26) and a set's grid (`sets.test.tsx`: 42 printings, `page=1`, 42 tiles) page; the grid has three
+  columns at the default size and two at the largest; an edit that clears a details row sends no
+  value for it; a 601-character comment keeps "Publish rating" grey with "Keep the comment under 600
+  characters."; Import done counts the cards that got more copies in "{n} cards added".
+
+**Checks** (retries off, on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | OK |
+| `npm run test:api` | BUILD SUCCESSFUL: **198 classes / 1,272 tests** (`test`) and 13 (`catalogTest`), 0 failures, 4 min 24 s; `GeoPrivacyContractTest` 17 / 17 (no API change) |
+| `./gradlew exportOpenApi` then `npm run generate:api` | nothing to commit: git clean afterwards |
+| `npm run build -w apps/web-angular` | OK, initial total **893.88 kB** (under 900 kB); no web file changed |
+| `npm run test:web` | **136 files / 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `npm run format:check -w apps/web-angular` | OK, OK |
+| `npm run test:e2e -- --retries=0` (the paused web on 8180/4300) | **70 passed** (1.4 min) |
+| `npm run typecheck -w apps/mobile`, `npm run lint -w apps/mobile`, `npm run format:check -w apps/mobile` | OK, OK, OK |
+| `npm run test:mobile` | **123 suites / 1,685 tests** passed (11 new), the harness guard tests 28 / 28; the reviewers' seven surviving mutants (M7, M17, M22, M34, M36, M37, M38) and a mutant of each fix (U1 to U6, F2) each fail at least one test |
+| `npx expo export --platform ios`, `android`, `web` (into the scratch folder) | OK, OK, OK (1,963, 2,089 and 1,584 modules) |
+| `npm run test:mobile:e2e -- --retries=0` (8090/19006, under the lock) | **62 / 62** (1.0 min), on the final code |
+| `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock, every flow) | **38 / 39 flows** in 62 min: `report-collector.yaml` passed its new steps (the 409 at the largest size with the page's scroll view, "My reports" and the grey "Send report" on screen) and failed on its last line, My reports' summary, which at that size is under the confidentiality note; the flow scrolls to it now, "My reports" in the bar follows the text size as "Send report" does, and the flow then passed alone (**1 / 1**), so every one of the 39 flows passed |
+| `npm run test:scripts` | **145 / 145** |
+| `npm run audit:gate` | OK (the allowlisted advisories, as before) |
+
+**The walk** (the owner's iPhone 18 Pro, the harness's isolated stack, the largest size by the
+launch argument only; the simulator's own settings untouched): Report's refusal at the largest size
+(the bar holds the message, "My reports" and the grey "Send report"; the reasons scroll above it)
+and Add a wish's card search at the largest size (the line in three short lines, the field at a
+third of the screen's height with five results under it) by a scratch flow that was not committed;
+the screenshots are `fix1-60-report-refused-largest.png` and `fix1-64-wish-search-largest.png` in
+`.local-dev/r14-notes/pr-shots/`.
+
+**What could not be verified**: the Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups of review fix 1**: follow-up 6 is resolved (U7); follow-up 4 now holds for the
+conditions and the deck sections only ("leave them out" is under the amber bar).
+
+
+## Phone redesign R15: Browse without an account (70 to 75) (2026-10-25)
+
+Stage R15 of the owner's prompt of 2026-10-19/20
+([`docs/product/specs/2026-10-20-finish-the-phone-ui.md`](docs/product/specs/2026-10-20-finish-the-phone-ui.md),
+section "R15. Browse without an account (70 to 75)"; the owner on 2026-10-20: "without log in. The
+user can still see home page and search? Can't see wishlist, invenstoryh and message and
+profile.."). Mockup v50 screens 70 (Home as a guest), 71 (the sign-in sheet), 72 (Search ›
+Wishlist), 73 (Inventory), 74 (Messages) and 75 (Profile), and Sign in's close button (36). Built
+on branch `feature/r7-home` after R14, for the one giant pull request of R7, R9 to R15 and R8
+(owner's exception of 2026-10-21; nothing merged in between). **No migration** (the next free one
+stays **V135**; V124 and V128 stay unused); no ADR (one more rule of the privacy matrix, ADR 0017's
+places unchanged). No file of `apps/web-angular` changed. Free for all (ADR 0019): an account costs
+nothing and nothing here offers anything to buy; deals ship by mail (ADR 0018); **English only**
+(owner, 2026-10-20). API contract
+[`docs/api/contracts/r15-browse-without-account.md`](docs/api/contracts/r15-browse-without-account.md).
+
+**What a visitor can now do**
+
+- **Open the app without an account**: it opens on **Home** (not on Sign in) with the region and
+  game pills, the search field and the feed; **a person button in place of the bell** (spoken
+  "Sign in", it opens Sign in); **"You’re browsing as a guest"** above the chips ("Create a free
+  account to message collectors, save wishes and list your own cards.", Create account, Sign in)
+  in place of Get started; no Messages badge.
+- **Read every post and row with its place, never who it is**: posts, holders of a card, binder
+  and deck core rows, a public binder's or deck core's seller say **"A collector"** with a plain
+  person avatar, then "{time} · {province}" as usual; VoiceOver says "A collector listed 12 cards,
+  5 min, Quebec. Sign in to see who". The API sends none of it: no id, handle, name, avatar,
+  rating, last activity or presence for a signed-out caller, and collector name search finds
+  nobody.
+- **Browse Search** (the same person button; Cards with the map and the card search, Binders),
+  **card pages and Who has this card, sets, the binders of a state, public binders and deck
+  cores, Legal and Settings › Appearance**, in the region and game they pick (kept on the phone
+  under a guest key: the two slugs only, Americas (North) and Yu-Gi-Oh! by default).
+- **See the member-only tabs in place**: **Inventory** ("Your cards, in one place"), **Messages**
+  ("Talk to collectors"), **Profile** ("Your collector profile", then Appearance, Trading safely
+  and Legal) and **Search › Wishlist** ("Get told when it’s listed") each show an illustration, a
+  heading, a line, Create account and Sign in.
+- **Tap anything that needs an account and get one sheet** (71) whose title says what they tried:
+  "Sign in to message this collector" (Message on a post, a holder, a binder or a deck core), "Sign
+  in to tell them you have it" (I have it), "Sign in to see collector profiles" (a post's header,
+  "+n", a holder's row, a seller row), "Sign in to save your wishes" (Add to wishlist), "Sign in to
+  report this collector" (Report on a binder or deck core); "It’s free. When you’re done, you come
+  right back here.", Create account, Sign in, Not now.
+- **Sign in or create an account and come right back**: the phone returns to the screen they were
+  on (popped back to, not opened again) and **finishes the action**: the chat opens with the card
+  or deck core pinned, the chat of "I have it" with its text in the box, the collector's profile or
+  cards, the wish form of the card (and printing), Report collector about the binder. A new account
+  goes through the welcome first. A listing gone in between, or one of their own, is said in a
+  snackbar.
+- **Close Sign in** with the cross at the top left ("Not now, keep browsing"): back to where they
+  were, the action forgotten.
+- **Open a link to a member screen** (a chat, a profile, a notification): Sign in opens, and the
+  screen once signed in.
+- **Sign out and land on Home as a guest**, never on the collector's last screen.
+- **Read what changed in the privacy texts**: the welcome's line (42) "… Visitors without an account
+  never see your name. Off until you turn it on.", Location's (49) "Collectors see you in
+  {province}, {country}. Visitors without an account see your cards, never your name.", and two
+  clauses in the phone's draft Privacy Policy (its draft banner kept).
+
+**The API** (contract `docs/api/contracts/r15-browse-without-account.md`)
+
+- **One rule of the privacy matrix**: `PrivacyPolicyService.canSeeWho(viewer)`, members only; with
+  it `canSeeLastActive`, `canSeeOnlineStatus` and `canAppearInNameSearch` are false for a
+  signed-out viewer whatever the switches say (`ViewerContext.of`).
+- **Who a collector is, left out for a signed-out caller**: `FeedCollector` (every field),
+  `CollectorMarker` (`id`, `handle`, `displayName`, `avatarUrl`, `rating`; `lastActiveBucket` and
+  `onlineStatus` `HIDDEN`), `PublicBinderOwner` (`id`, `handle`, `displayName`, `avatarUrl`); the
+  `place` kept. The response factories take `showWho` from the controllers
+  (`SearchController.showWho`). `id`, `handle` and `displayName` of the three are nullable in the
+  contract.
+- **Name search finds nobody for a guest**: `GET /search/collectors` `[]`, `GET /search` without a
+  resolved card no `collectors`, `GET /search/suggest` no `COLLECTOR`, and binder search (unified,
+  region and state lists with `q`) does not match the owner's handle (`DiscoverySql.binderText(alias,
+  byHandle)`).
+- **Home's feed open** to signed-out callers (`PUBLIC_GET_PATTERNS`, GET only): the "not the
+  caller, no block" clauses of `FeedRepository` only for a signed-in caller (`Scope.signedIn`).
+- **`GET /api/v1/listings/owner`** (new, members only): exactly one of `itemId`, `binderId`,
+  `wishId`; the owner (`PublicListingOwner { id, handle, displayName, avatarUrl }`, no place) when
+  the listing is public and the owner visible (no PRIVATE profile, no block, the wishlist shown);
+  400, 401, 404. With `PublicBinderService.visibleOwner` and `WishlistService.visibleOwnerOf`.
+- **A short rate limit window for guests**: policy `guest-discovery`, GET of the feed, search, the
+  region and state binder lists and the public binders, signed out only, by address, 20 per 10
+  seconds at the builder, 10 since review fix 1 (`RATE_LIMIT_GUEST_DISCOVERY_PER_10S`); the address is only part of a Redis key that
+  expires with its window. The E2E stacks raise it (one address for every worker).
+- **The paused web**: its Angular client keeps the three identity fields typed as before
+  (`WEB_CLIENT_NOT_NULL` in `packages/api-client/tools/web-omits.mjs`, with a test in
+  `scripts/lib/web-client-omits.test.mjs`); it builds and passes its checks unchanged.
+
+**The phone**
+
+- **The gate** (`src/account/gate.ts`): `GATE_HOME.guest` is `/`; a guest may open `(auth)`, the
+  tabs, `cards`, `holders`, `sets`, `regions`, `binders/[id]`, `settings/appearance` and `legal`
+  (`guestMayOpen`); any other screen sends them to `SIGN_IN_HREF` with the link kept.
+  `useAuthGate`: an explicit sign-out clears the kept link and action and lands on Home; a session
+  that ended opens Sign in (the screen kept for that collector); signed in with a kept link, one
+  `router.dismissTo(link)` pops back to the guest's screen when it is still in the stack (else
+  opens it in place of Sign in). The welcome ends with `router.dismissTo(link)` too.
+- **The guest's action** (`src/account/guestAction.ts`): in memory only, by listing (`itemId`,
+  `binderId`, `wishId`, a card and printing), never a collector; **`SignInSheet`** (one sheet for
+  the app, at the root) and **`PendingActionRunner`** (it waits for the account, off the auth,
+  account and welcome screens, then `GET /listings/owner` and the existing flows:
+  `useMessageCollector`, `useIHaveIt`, the wish form, the profile, Report). `useGuestEntry`
+  remembers the guest's screen before Sign in or Create account (opened over Sign in); only the
+  sheet keeps its action.
+- **Guest parts** (`src/features/guest`): `PersonButton`, `GuestCard`, `GuestAvatar`, `GuestPage`
+  (72 to 75, its illustration drawn with `react-native-svg` gradients), `GuestTab` (Inventory,
+  Messages, Profile with Appearance, Trading safely and Legal), `guestCopy.ts` (every text in one
+  place); the mobile-only colours `guest.*` in `packages/design-tokens/tokens.json` (dark and
+  light).
+- **The open reads run for guests** (`useCanBrowse`: Home's feed, the map's counts, card holders,
+  deck cores, binder search); the member reads stay on `useIsAuthenticated`. **While sign-up
+  creates the account, no read goes out** (both are false while the `sign-up` flow lock is held):
+  the first call with the new token provisions the account, and Home under Sign up asked before
+  sign-up had put the chosen display name in the token (found by the mobile web suite).
+- **Guest region and game**: `orenjitrade.browsing-region.v1.guest` and
+  `orenjitrade.browsing-game.v1.guest`, the slug alone; ready without an account; once signed in,
+  the account's home region and remembered game win.
+- **Fixed on the way**: a guest's public binder page no longer waits for "my binders" (the route
+  shows the public view); "own" binders and deck cores need a signed-in id (a guest's null owner
+  id no longer equalled a null self id: the edit button); a holder row's Message is never
+  "busy" for a guest (null equalled null); the game sheet shows no "None of your cards yet" to a
+  guest.
+- **The phone's Privacy Policy**: the legal texts are generated from the paused web's files and a
+  test keeps them identical; the two R15 clauses are the phone's own English additions
+  (`src/features/legal/phoneLegalAdditions.ts`, last updated 2026-10-25), French left as it is.
+
+**Decisions**
+
+1. **`GET /listings/owner`** instead of a collector id in the pending action: the prompt keeps the
+   action "by item, binder, wish or printing id" and a guest never gets a collector id, so the
+   phone asks the owner of the listing once signed in. It reveals nothing a member does not read in
+   card holders, a public binder or the feed.
+2. **`rating` null, last activity and presence `HIDDEN`** for a guest: the enum's own "not shown"
+   value keeps those two fields' types; `rating` uses the project's nullable-object form
+   (`{"type":"null","$ref":…}`), which generators read as present: the phone reads ratings only for
+   members.
+3. **The paused web's client keeps the identity fields non-null** (`WEB_CLIENT_NOT_NULL`), as
+   `WEB_CLIENT_OMITS` did for R9: the web builds unchanged; a signed-out web visitor now reads
+   `null` there (owner follow-up 2).
+4. **Binder search does not match the owner's handle for a guest** (the prompt's "collector name
+   search returns nothing"): typing a handle would otherwise list that collector's binders.
+5. **Report on a binder or deck core asks too** ("Sign in to report this collector", not in the
+   mockup): the prompt's "any other write a guest can reach".
+6. **The person button and the guest pages forget an action left** (a Sign in closed with a
+   swipe): only the sheet keeps its action.
+7. **A session that ended opens Sign in** wherever it ended (Home included), as before; an explicit
+   sign-out lands on Home.
+8. **The guest-discovery window**: 20 per 10 seconds by address for signed-out callers (a guest
+   typing in Search makes a suggest call per pause); members keep 120 a minute by account. An
+   environment variable sets it.
+9. **The rows of a guest keep the binder's picture** (binder and deck core rows show no avatar);
+   only the posts, holders and sellers get the plain person avatar.
+
+**Defaults the stage applies** (the prompt's list, for the owner to change)
+
+13. Guests see Home and Search with places but never a collector's name or picture; Inventory,
+    Messages, Profile, Search › Wishlist and every action ask them to sign in.
+14. After signing in, the guest's action continues where it started.
+15. The app opens on Home for guests, and Sign in has a close button.
+
+**Tests**
+
+- API: `GuestBrowsingIT` (6: the feed with places and without who, `region=`, `game=`, the
+  default region; holders and the unified search; name, handle and suggestion search finding
+  nobody; binder lists and a public binder; writes and member reads 401; `GET /listings/owner`),
+  `GuestRateLimitIT`, `ShippedRateLimitPoliciesTest` (the guest policy), `PrivacyPolicyServiceTest`
+  (`canSeeWho`), `GeoPrivacyContractTest.signedOutVisitorsReadPlacesAndNeverWhoACollectorIs`,
+  `AnalyticsIT.guestReadsEmitEventsWithoutAnActorOrADevice`; the older ITs that read names signed
+  out read them as members and assert the guest's nulls (`CardHoldersIT`, `CollectorsByNameIT`,
+  `DeckCoreSearchIT`, `RegionMapIT`, `SearchIT`, `PublicBinderIT`, `FeedIT`, `DeletionIT`).
+- Jest: `screens/guest.test.tsx` (16: Home as a guest, "A collector" posts and labels, the sheet's
+  title per action and the listing kept, Sign in and Create account remembering the screen, the
+  person button on Search, Search › Wishlist, the three tabs, Profile's rows, holders, Add to
+  wishlist, a deck core's seller, Message and Report, Sign in's close button, the guest's game key
+  and the account's game winning after sign-in); `features/pendingActionRunner.test.tsx` (10: each
+  action, a listing gone, one's own, waiting through Sign in and the welcome, back to the card page
+  and the chat opening, a sign-out forgetting); `account/gate.test.ts` (the guest's allowed and
+  member-only routes); `app/auth-gate.test.tsx` (Home for a guest, Sign in for a member screen,
+  the link resumed with `dismissTo`, sign-out to Home); `features/browsingRegion.test.tsx` (the
+  guest's region key); `features/legalLanguage.test.ts` (the Privacy Policy's clauses);
+  onboarding, settings and welcome lines.
+- Mobile web (Playwright): `guest.spec.ts` (2), `auth.spec.ts`, `session.spec.ts`,
+  `age-confirmation.spec.ts` and `location.spec.ts` follow R15.
+- Native (Maestro): `guest-message-holder.yaml` (signed out: Home and Search as a guest, a card,
+  Who has it, Message, the sheet, sign in, the chat with the card pinned), `guest-browse.yaml`
+  (Inventory, Messages, Profile and Search › Wishlist as a guest, Sign in's close button, a link to
+  Notifications through Sign in); `subflows/open-sign-in.yaml` (the person button), used by the
+  sign-in subflow and the flows that start signed out; `sign-out.yaml` lands on Home as a guest.
+
+**The walk** (2026-10-25). **The owner's iPhone 18 Pro simulator was not booted** at any point
+of this stage's run (checked from 12:38 to 13:40 EDT with the one waiting command the rules allow,
+never booting it): **the walk on the iPhone, its screenshots for the pull request (70 to 75 and
+36's close button, dark, default size, in `.local-dev/r15-notes/pr-shots/`), dark and light at the
+default and the largest text size, and the native suite could not be run**; they are the first
+thing to do once it is booted. In their place, a walk of the phone's **web build** (the mobile E2E
+stack, a 375 × 812 viewport, dark) in the browser pane: Home as a guest (the person button, the
+guest's card, "A collector" posts with the place, VoiceOver's labels), the sheet "Sign in to see
+collector profiles" from a wish's header, Sign in with its close button, then signing in as a seed
+collector: Review our terms (the seed's age line) and **the wish's owner's profile opened**, the
+action finished through the account states. It found one fault, fixed: the guest card's gradient
+covered part of the card only (the SVG now fills its box). The mobile web suite and the unit tests
+cover the rest of the flows on the final code.
+
+**Checks** (retries off; 2026-10-25, this Mac, JDK 21, OrbStack (it was down: `orbctl start` once);
+the API checks at the last API change, the phone's on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | **1,282 tests, 1 failure** (`DeletionIT` searched a handle signed out: it now searches as a member), then `DeletionIT` alone **6 / 6**; the new and changed classes: `GuestBrowsingIT` 6 / 6, `GuestRateLimitIT` 1 / 1, `GeoPrivacyContractTest` 18 / 18, `AnalyticsIT` 6 / 6 (with the guest case, added after the full run, run alone), `ShippedRateLimitPoliciesTest`, `PrivacyPolicyServiceTest` |
+| `exportOpenApi` then `npm run generate:api` | committed (`FeedCollector`, `CollectorMarker`, `PublicBinderOwner` nullable identity, `GET /listings/owner` with `PublicListingOwner`, the feed's security); run again at the end: git clean afterwards |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** (under 900 kB) |
+| `npm run test:web` | **136 files, 633 tests** passed (also after the undici bump) |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.2 min): no web spec reads a name signed out |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **125 suites, 1,718 tests** passed (+ typecheck, lint, the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | first run 63 passed, 1 failed (sign-up lost the chosen display name: Home's reads under Sign up went out with the new token first; fixed, decision in "The phone"); then **64 / 64** (1.0 min) on the final code |
+| `npm run test:mobile:maestro -- --platform ios` | **not run**: the owner's simulator was not booted (above) |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | a new advisory, GHSA-xjj6-f33q-929c (undici < 8.12.2, under jsdom of the web's tests): a root override to `^8.12.2`, the lock on 8.12.3 (`npm ci` accepts it); then OK |
+
+**Not done, could not be verified**
+
+- The walk on the owner's iPhone 18 Pro, its screenshots for the pull request, the largest text
+  size and light theme on the iPhone, and the native suite with the two new flows
+  (`guest-message-holder.yaml`, `guest-browse.yaml`) and the changed ones (`sign-in`, `sign-up`,
+  `google-sign-in`, `legal-french`, `sign-out` and the sign-in subflow, which now opens Sign in
+  from Home's person button): the simulator was not booted, and it is never booted by an agent.
+- The Android run could not be verified (no Android SDK on this Mac).
+- "Anonymous answers may use the discovery cache" (the prompt's "may"): not done; the guests'
+  reads use the same queries as members' without a viewer.
+- A guest on the paused web: its pages now read `null` names signed out (owner follow-up 2).
+
+**Owner follow-ups**
+
+1. Run the native suite and the walk on the iPhone 18 Pro once it is booted (dark and light, the
+   default and the largest text size), and keep the screenshots of 70 to 75 and 36 (dark, default
+   size) in `.local-dev/r15-notes/pr-shots/`.
+2. **The paused web and guests**: a signed-out web visitor now reads no name, handle, picture or
+   rating for collectors in search results, card holders and binder pages (the API's rule is for
+   every signed-out caller). The web's client keeps the old types so it builds; its guest pages
+   would need the phone's "A collector" rows (and a null rating) when the web resumes. No web test
+   failed (the specs read names signed in).
+3. **Report on a binder or deck core** asks "Sign in to report this collector" (not in the
+   mockup's four titles).
+4. **The guest-discovery window** (20 per 10 seconds by address at the builder, **10 per 10
+   seconds since review fix 1**, signed out only) is a first guess; `RATE_LIMIT_GUEST_DISCOVERY_PER_10S` changes it. Many guests behind one address (a
+   carrier's NAT) share it.
+5. **The phone's Privacy Policy** carries two English clauses the web's text does not (the legal
+   texts are generated from the paused web's files); French is unchanged by the owner's order of
+   2026-10-20. For the lawyer's review with the rest of the drafts.
+6. CLAUDE.md's privacy section and the description of the phone's tabs should say that guests
+   browse with places and never names: left for the wrap-up R8, which updates CLAUDE.md.
+
+### Review fix 1 (2026-10-25)
+
+Round 1 of at most 2, after the functional, product and UX (as a guest) and privacy reviews of
+stage R15 (16 findings: 2 blockers, 5 major, 9 minor, some found by two reviewers). No migration
+(the next is still **V135**), no ADR, nothing under `apps/web-angular` changed.
+
+**What changed**
+
+- **Photos never name the owner** (P1 and F1, blockers): an item's photos, a binder's cover from
+  its first card's photo and a binder's or deck core's photos (`photos`, `previewImages`, the
+  feed's `deckCore.photoUrl`) were served at `/api/v1/public/media/<namespace>/<owner id>/…`, so a
+  signed-out caller read the owner's account id inside every photo URL. Every response now names
+  them by their own id, `GET /api/v1/public/item-images/{imageId}` and `GET
+  /api/v1/public/binder-images/{imageId}` (new, public, immutable for a year, a plain 404 for
+  anything else; `PhotoUrls` in `common/storage`, `PublicItemImageController`,
+  `PublicBinderImageController`, `InventoryService.photo`, `BinderService.photo`). The storage keys
+  (still `inventory/<owner id>/…`, `binders/<owner id>/…`) stay on the server: no migration, no
+  object moved; the media route keeps avatars and chat and community uploads (members only reach
+  them). The phone takes the two routes as API pictures (`src/lib/cardImages.ts`); the paused web
+  shows any API URL as it is.
+- **A guest's Message on a plain public binder** (P2, U1, F2): it kept `{kind: 'message', listing:
+  {binderId}}` and the runner sent it as `subjectBinderId`, which the API refuses for a binder that
+  is not a deck core (400, "Check the highlighted fields. Validation failed", no chat). The action
+  now carries `pin: false` from `PublicBinderView`, and the chat opens with nothing pinned, as a
+  member's Message there does.
+- **Profile tags left out for a guest** (P3): `CollectorMarker.tags` is `[]` signed out (custom
+  tags are free text that can name a person); the games and the counts stay (the guest rows show
+  them: "Quebec · 2 public binders").
+- **The guest window keeps the minute budget** (F5): `guest-discovery` counts a guest's discovery
+  reads instead of `default-anonymous` (the first matching policy wins), so the builder's 20 per 10
+  seconds allowed 120 a minute where those reads had 60 before the stage; the default is now **10
+  per 10 seconds** (60 a minute), still `RATE_LIMIT_GUEST_DISCOVERY_PER_10S`.
+- **Back to Search › Wishlist** (U2): Sign in or Create account from the guest's Wishlist page
+  remembers `/search?segment=wishlist` (the segment lives in Search's state, lost when Review our
+  terms or the welcome replaced the tabs in between; `useGuestEntry({ returnParams })`).
+- **A guest's binder search** (U3): "Deck or binder, like Yubel", and with no match "Nothing
+  matches. Try a deck or card name. Sign in to find collectors by name." (a handle finds nobody
+  without an account).
+- **A screen left by a session that ended** (P4, F6 b): Sign in's close after a session that ended
+  on its own lands on Home as a guest (as a sign-out does) and clears the notice, instead of going
+  back to the collector's screens; a member screen reached by a swipe back from that Sign in is
+  kept for that collector only (`useAuthGate`: the owner is the last account while the notice
+  stands), never for the next account (stage R12's rule).
+- **A guest's leftover action** (F6 a): the gate's redirect of a guest to Sign in (a link to a
+  member screen) forgets an action left by a Sign in left with a swipe; only the sheet keeps one.
+
+**Decisions**
+
+1. **Opaque routes by photo id, not new keys** (P1): the reviewers' first option. It needs no
+   migration of stored objects (the owner's local database may hold photos), keeps one URL per
+   photo for members and guests, and follows the card images' `/public/card-images/{id}`. A photo
+   id is a random UUID, as unguessable as the key's random part; like the media route before, the
+   route answers whoever asks (a photo URL was never a secret, only no longer a name).
+2. **Tags out, counts kept for guests** (P3): the counts describe public listings and the guest
+   rows show them; whether guests should get them at all is the owner's (follow-up 7).
+3. **10 per 10 seconds, not a second counter** (F5): one policy per request stays the filter's rule;
+   the minute total of a guest's discovery reads is the anonymous budget they had before.
+4. **No Maestro step for the plain binder** (F2 asked for one): the owner's simulator was not booted
+   during this round, so a new native step could not be run once; the mobile web suite covers it
+   (`guest.spec.ts`, which fails without the fix).
+
+**Tests**
+
+- API: `GuestBrowsingIT.photosNeverNameTheCollectorAndAGuestGetsNoAvatar` (a photo on a card and on
+  a deck core, an avatar: no account id inside any guest document, the photo URLs opaque and served
+  signed out, 404 for an unknown or malformed id, no avatar for a guest and the avatar for a member
+  on the feed, the holders, a public binder and the binder lists; F1, F4), the guest's empty tags in
+  `cardHoldersAndSearchShowPlacesNeverWho` (P3); `GeoPrivacyContractTest`'s signed-out pass uploads
+  a photo to a seeded public card and deck core and an avatar, and fails on any account id inside
+  any value (P1); `ShippedRateLimitPoliciesTest.aGuestsDiscoveryReadsKeepTheAnonymousMinuteBudget`
+  (F5); `InventoryIT` reads the photo's opaque URL. Mutations caught: the old item photo URL (both
+  privacy tests), a guest's avatar kept (A19, both), the guest's tags kept.
+- Jest: `pendingActionRunner.test.tsx` (a plain binder: the owner found by the binder, nothing
+  pinned), `guest.test.tsx` (a plain public binder's Message as a guest; Wishlist's Sign in
+  remembering its segment; a guest's binder search wording; Sign in's close after an ended
+  session), `auth-gate.test.tsx` (a swipe back to a member screen after an ended session stays that
+  collector's; a leftover action forgotten by the gate's redirect), `api/signUpHold.test.tsx` (F7:
+  `useIsAuthenticated` and `useCanBrowse` false and Home's feed not asked while sign-up holds the
+  lock, true after; mutation B17 caught), `lib/cardImages.test.ts` (the two photo routes).
+- Mobile web (Playwright): `guest.spec.ts` messages a plain public binder as a guest and signs in
+  (fails with the old action), and signs in from Search › Wishlist through Review our terms back to
+  Wishlist (the reviewer's walk of U2; on this stack the tabs stayed mounted, so that step passes
+  without the fix too, and the Jest test pins the remembered link); `item-photos.spec.ts` reads the
+  opaque URL without the owner's id.
+
+**Checks** (retries off; 2026-10-25, this Mac, JDK 21, OrbStack; on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,285 tests** (`test`) + 13 (`catalogTest`), 0 failures (4 min 43 s) |
+| `exportOpenApi` then `npm run generate:api` | committed (the two photo routes, the tags' description); run again at the end: git clean |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.1 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **126 suites, 1,727 tests** passed (+ the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | **64 passed, 1 failed**: the new guest binder step's own last assertion (`not.toContainText` on a snackbar that was not on screen, after the chat had opened); the assertion fixed, `guest.spec.ts` alone **3 / 3**, then **4 / 4** with the Wishlist step; with the old action the binder step fails |
+| `npm run test:mobile:maestro -- --platform ios` | **not run**: the owner's iPhone 18 Pro simulator was not booted (waited with the one plain command from 16:01 to 17:01 EDT; never booted by an agent) |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | OK (the two allow-listed advisories, expiring 2026-11-30) |
+
+**Not done, could not be verified**
+
+- F3: the native suite (with `guest-message-holder.yaml`, `guest-browse.yaml` and the changed
+  sign-in subflows), the walk of 70 to 75 and 36 on the iPhone in dark and light at the default and
+  the largest text size, and the PR screenshots (`.local-dev/r15-notes/pr-shots/` is still empty):
+  the owner's simulator was not booted during this round either.
+- The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups** (added)
+
+7. **What guests read about a collector besides the place** (P3): since review fix 1 no profile
+   tags; the games, the numbers of public binders and cards, the freshness and the matching items
+   stay (the guest rows show the counts). Together with the open reads by a handle someone already
+   has, they can link rows of one collector. Say if guests should lose the counts too (the guest's
+   seller row would then show the place alone).
+8. **The guest-discovery window** is now 10 per 10 seconds (follow-up 4; 60 a minute, the
+   anonymous budget those reads had before the stage).
+9. **Photo URLs changed shape** for every client (`/api/v1/public/item-images/{id}`,
+   `/api/v1/public/binder-images/{id}`): photos cached by an older URL keep working, as the media
+   route still serves their keys; a photo id answers whoever asks, as the key did.
+
+### Review fix 2 (2026-10-25)
+
+Round 2 of 2, after the reviewers' check of fix 1 (two findings: F3 major, R1-1 minor). Tests and
+native flows only: no API, phone or web code changed, no migration (the next is still **V135**), no
+ADR, nothing under `apps/web-angular` changed.
+
+**What changed**
+
+- **R1-1, a flaky privacy check** (`WishlistAlertsIT.aListingInTheRegionAlertsTheWishOwnerWithTheCardPageLink`):
+  the alert's body was checked with `doesNotContain("km")`, but the body holds the seller's
+  generated handle (`collector_` and six random characters of an alphabet with `k` and `m`), a
+  random card name and code, so about 1 to 2 % of runs failed (`@collector_kmtvmc`). The exact
+  sentence stays pinned; the distance check ("no km, no away") now reads the body without the
+  handle, the card name and the code, the words the server writes. The seller now always has a
+  handle holding "km" (`km_<hex>`), so the old check fails on every run (mutation run: the handle
+  left in, "Expecting … @km_28f47bc6 … not to contain km") and the new one passes.
+- **F3, the native proof** (prepared): two new native flows, `guest-message-binder.yaml` (a guest
+  opens Ben's plain public binder by its link, taps Message, gets "Sign in to message this
+  collector", signs in as Ada and the chat opens with nothing pinned and no "Check the highlighted
+  fields"; the Maestro step fix 1 left out, F2) and `guest-wishlist-review-terms.yaml` (a guest
+  signs in from Search › Wishlist to an account without the 18+ confirmation, passes Review our
+  terms and lands on the collector's Wishlist: the iOS remount case of U2); `scripts/parity.js`'s
+  `holders` returns `output.binder.id`; `guest-message-holder.yaml` waits for Sign in after the
+  sheet before signing in. `maestro check-syntax` passes on all three.
+
+**Decisions**
+
+1. **R1-1 fixed in the test, not in the generator**: the handle alphabet is the users module's
+   (readable handles); a test of server wording must not depend on random letters.
+2. **F3: one native flow per sign-in** (a guest signs in once per flow), so the plain binder and
+   the Wishlist cases are flows of their own rather than steps of `guest-message-holder.yaml`.
+
+**Checks** (retries off; 2026-10-25, this Mac, JDK 21, OrbStack; head `9db03062` plus this text)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,285 tests** (`test`) + 13 (`catalogTest`), 0 failures (4 min 13 s); `WishlistAlertsIT` alone 7 / 7 |
+| `exportOpenApi` then `npm run generate:api` | git clean (no API change) |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.1 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **126 suites, 1,727 tests** passed (+ the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | **66 passed** (1.0 min) |
+| `npm run test:mobile:maestro -- --platform ios` | **not run**: the owner's iPhone 18 Pro simulator stayed Shutdown (waited with the one plain command from 18:04 to 19:04 EDT; never booted by an agent) |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | OK (the two allow-listed advisories, expiring 2026-11-30) |
+
+**Not done, could not be verified**
+
+- F3 stays open: the native suite (with `guest-message-holder.yaml`, `guest-browse.yaml`, the two
+  new flows and the changed sign-in subflows), the walk of 70 to 75 and 36 on the iPhone in dark and
+  light at the default and the largest text size, and the PR screenshots
+  (`.local-dev/r15-notes/pr-shots/` is still empty): the owner's simulator was not booted during
+  this round either (the builder's, fix 1's, the re-review's and this round's waits).
+- The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups** (added)
+
+10. **Boot the iPhone 18 Pro simulator** (56DC865C) so the native suite, the iPhone walk of 70 to 75
+    and 36 and the PR screenshots can run: agents never boot it, and it stayed Shutdown through
+    four waits of an hour each on 2026-10-25.
+
+### F3 closed by stage R8 (2026-10-26)
+
+The owner booted the iPhone 18 Pro (56DC865C) on 2026-10-26 and the wrap-up R8 ran what R15 could
+not (details in the R8 section below):
+
+- **The native suite**, every flow, on that simulator: **43 flows, 41 passed, 2 failed** (68 min).
+  Both failures were R15's, in code that had never run on the iPhone: `large-text.yaml` searched
+  the collector `null` (`scripts/region-map.js` read a state's binders signed out, and since R15 a
+  signed-out caller gets no handle: the script now reads them signed out, checking that the handle
+  and the name are null and the place kept, and signed in as the seed collector), and
+  `guest-message-holder.yaml` typed Ben's Pokémon card while a guest browses Yu-Gi-Oh! (the flow
+  now picks Pokémon with the game pill first). Re-run alone: **2 / 2**; `map-region-binders.yaml`
+  and `region-switch.yaml`, which read the same script, passed in that run after it was fixed. The
+  two flows R15's review fix 2 prepared, `guest-message-binder.yaml` and
+  `guest-wishlist-review-terms.yaml`, passed on their first run.
+- **The walk of 70 to 75 and 36** on the iPhone, dark and light, at the default and the largest
+  text size, found one defect: **the guest card of Home (70) was an opaque orange and teal box**,
+  its sentence unreadable, 14 pt short of the card's right and bottom edges (react-native-svg drew
+  the `rgba` stops opaque on iOS, and the drawing's own `width="100%"` took the card's content box).
+  Fixed in `src/features/guest/GradientFill.tsx` with a test (R8, decision 3); the guest flows
+  re-run with the fix: `guest-browse.yaml` and `guest-message-holder.yaml` **2 / 2**. R8's iOS fix
+  had undone R15's web fix (the web drew the tint at 300 by 150); R8's review fix 1 draws it in a
+  frame without padding, measured on the web export and walked on the iPhone again.
+- **Every flow on the final code**: the reviewers' verifier ran the whole suite on `5182b992`,
+  **43 / 43** (1 h 6 min 56 s); R8's review fix 1 ran it again, 42 / 43 (`home-feed.yaml` across
+  midnight; 1 / 1 alone).
+- **The PR screenshots** of 70 to 75 and 36: in `.local-dev/r8-notes/pr-shots/` of the worktree
+  (R8 keeps one per mockup screen, guest screens included).
+
+## Phone redesign R8: Wrap-up of the phone redesign (spec section 15, R8), done last in the giant pull request (2026-10-26)
+
+Stage R8 of the redesign spec ([`docs/product/specs/2026-10-14-phone-redesign.md`](docs/product/specs/2026-10-14-phone-redesign.md),
+section 15, "R8. Wrap-up"), moved after R15 by the owner's exception of 2026-10-21 (one giant pull
+request for R7, R9 to R15 and R8; R7, R9, R10 and R11 reached `main` as #86, so this branch holds
+R12 to R15 and R8, the second). Built on `feature/r7-home` after R15's review fix 2. **No
+migration** (the next free one stays **V135**; V124 and V128 stay unused), **no API change**
+(`exportOpenApi` and `generate:api` leave git clean), no ADR, nothing under `apps/web-angular`
+changed. Free for all (ADR 0019), deals ship by mail (ADR 0018), English only (owner, 2026-10-20).
+
+**What a collector can now do**
+
+Nothing new: R8 adds no screen. It proves the whole redesign on the owner's iPhone 18 Pro and writes
+it down. Every screen of mockup v50 that Expo Go can show was walked: Home and its feed (10, 10b,
+10c), Notifications (31), the game and region sheets (34, 35), Search (the map, a card, Who has
+this card, Binders, Wishlist, 11 to 15), the Inventory and adding cards (1 to 9), binders and deck
+cores (16 to 18, 63), profiles (19 to 21), Messages with Chats and Community (22, 32, 33), the
+buying and selling chats with Mark as sold (23 to 25), rating and references (61, 62), sign-in,
+sign-up, the welcome and the account states (36 to 46), Settings (47 to 59), Report (60), wishes
+(64, 65), the import (66 to 68), a set (69), and the guest's Home, Search, sheet and member-only
+pages (70 to 75). Two things the walk proved broken are fixed (below).
+
+**Documents** (spec section 15, R8)
+
+- `CLAUDE.md`: the tabs paragraph describes the finished redesign (five tabs; Messages with Chats |
+  Community since R11; Settings behind Profile's gear since R6; the guest's Home since R15; the
+  browsed game since G; English cards only); the module list gains `meta` (an existing package it
+  never named) and says `search` owns Home's feed and `GET /listings/owner`; the privacy section
+  gains the guest rule (places, never who: `PrivacyPolicyService.canSeeWho`; name search finds
+  nobody; photos by their own id; every write members only).
+- `docs/product/product-overview.md`: "Clients today" lists what a collector does on the phone after
+  the whole redesign and what a guest can do; five games and their card sources; the map as
+  Search's default view; Home's feed, Community and notifications among the supporting surfaces; a
+  guest's journey; the 18+ line English on the phone; the chat tip read from the pinned card.
+- `docs/api/contracts/README.md`: every operation added since stage S6 (18, from the OpenAPI
+  documents of S6, `bf1135a9`, and of this branch) is in a contract; R1 and R8 add no endpoint.
+- `docs/development/test-accounts.md`: the guest (no account; what a fresh install or Sign out
+  shows); collector5's offers are web only and they post Home's feed.
+- `docs/development/seed-data.md`: One Piece has no sample card (greyed "Cards coming soon").
+- `apps/mobile/README.md` and the root `README.md`: five tabs and the finished redesign; Home's
+  route (`(tabs)/index.tsx` is Home; an old Map tab link still opens Search's map once).
+- `docs/development/claude-handoff.md`: R7, R9, R10 and R11 on `main` (#86), R12 to R15 and R8 in
+  the second giant pull request, the redesign's state, an R8 row, R15's row with F3 closed.
+- The dated note at the end of the redesign spec; R15's section ("F3 closed by stage R8"); NEXT
+  TASK.
+
+**Fixed because the walk proved them broken** (each with a test that fails on the old code)
+
+1. **The guest card of Home (70) was an opaque orange and teal box** on iOS, its sentence
+   unreadable, and stopped 14 pt short of the card's right and bottom edges: react-native-svg drew
+   the `rgba` stops opaque, and the `<Svg>`'s own `width="100%"` sized it to the card's content
+   box. `src/features/guest/GradientFill.tsx` (moved out of `GuestParts.tsx`) passes each stop's
+   alpha as `stopOpacity` and takes its frame from `absoluteFill` alone; the illustrated cards of
+   73 use it too. `__tests__/features/guestGradient.test.tsx` (6: the stops, the frame, both
+   themes' card colours; the stop and frame tests fail on the old code).
+2. **An empty state's title cut a word in two at the largest text size** ("Your inventor / y is
+   empty", screen 9 and every `EmptyState`): its title now follows the system size up to twice its
+   size (`TITLE_MAX_FONT_SCALE`, as a screen's title); the description stays body text.
+   `__tests__/components/EmptyState.test.tsx` (+1, fails on the old code).
+3. **Two native flows of R15 had never run on the iPhone and failed** (F3): `scripts/region-map.js`
+   read a state's binders signed out and gave `large-text.yaml` a `null` handle (it now reads them
+   signed out, checking that the handle and name are null and the place kept, and signed in as the
+   seed collector for the rows the flows look for); `guest-message-holder.yaml` typed Ben's Pokémon
+   card while a guest browses Yu-Gi-Oh! (it picks Pokémon with the game pill first).
+
+**Decisions**
+
+1. **The walk is a set of scratch Maestro flows** (ten walks plus "Could not load"; in the scratch
+   folder, not the repository), run four times (dark and light, the default and the largest text
+   size) against the native suite's kept stack: the screens need fresh fictional collectors, a
+   seller and a buyer, a suspended and a leaving account, which the suite's host scripts already
+   make. The largest size is iOS's launch argument (`relaunch-large-text.yaml`), Light is chosen in
+   Settings › Appearance; no device setting changed.
+2. **Mockup v50 boards were rendered to pictures** (Playwright, scratch) to compare looks and
+   wording; the comparison found no wording or layout drift beyond the two fixes, and the mockup's
+   designer notes and template placeholders are not app text.
+3. **The guest card's fix lives in a shared `GradientFill`** with a pure `gradientStop`, so a
+   gradient stop is tested without a device; the colours stay the theme's `rgba` tokens.
+4. **The empty state's title takes the screen-title cap** rather than a new constant (the same
+   reason: a single word of a title must fit a phone's width).
+5. **Screen 46 ("We could not load your account") was walked with the isolated API stopped** at the
+   end (the Auth emulator still answers the sign-in, `GET /me` cannot), the only way to reach it on
+   the phone without changing the app.
+6. **Screen 44 (Account suspended) was walked with the Auth account turned back on** after the
+   admin's suspension: a suspension also disables the Firebase account, so the phone says "Your
+   session has ended. Sign in again to continue." at the moment of the suspension, and Sign in then
+   says "This account has been disabled. Contact support if you think this is a mistake." (owner
+   follow-up 2; corrected by review fix 1, U4).
+7. **The scan screens 27 to 30 were not walked**: Expo Go has no text reader (ADR 0020), so Add cards
+   shows "Scan with camera · Coming later" (26 as Expo Go draws it); the scan was walked by its own
+   session on its development build.
+
+**Defaults the stage applies**: none new (the redesign's defaults of spec section 16 and the
+prompt of 2026-10-19/20 stand).
+
+**Checks** (retries off; 2026-10-26, this Mac, JDK 21, OrbStack; the owner's iPhone 18 Pro
+simulator under the shared lock, its appearance light and text size large before and after)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,285 tests** in 200 classes (`test`) + **13** in 2 (`catalogTest`), 0 failures (4 min 40 s; `GeoPrivacyContractTest` 18) |
+| `exportOpenApi` then `npm run generate:api` | git clean (no API change) |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **127 suites, 1,734 tests** passed (+ the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories; on the final code) |
+| `npm run test:mobile:e2e -- --retries=0` | **66 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` | every flow: **43 flows, 41 passed, 2 failed** (68 min 7 s): `large-text.yaml` and `guest-message-holder.yaml`, both R15 code never run on the iPhone (fix 3); re-run alone **2 / 2**; after the guest card's fix `guest-browse.yaml` and `guest-message-holder.yaml` **2 / 2**; on the final code (both fixes) `blocked-users`, `binder-create-add-item`, `wishlist-alert-notification` and `guest-message-holder` **4 / 4**; then the reviewers' verifier ran every flow on the final code (`5182b992`): **43 / 43** (1 h 6 min 56 s) |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | OK (the two allow-listed advisories, expiring 2026-11-30) |
+
+**The walk** (scratch screenshots; one per mockup screen in `.local-dev/r8-notes/pr-shots/` of the
+worktree, dark at the default size, 80 files with a few extras)
+
+| Variant | Mockup screens with a screenshot | Not walked |
+| --- | --- | --- |
+| Dark, default size | **73 of 77** (1 to 26, 31 to 75 with 10b and 10c) | 27 to 30 (scan, decision 7) |
+| Light, default size | **73 of 77** | 27 to 30 |
+| Dark, largest size | **60 of 77** signed in (63 with the guest's 11, 13 and 16) | 27 to 30; 26; 12, 14, 19, 20, 60 and 69 (the walk's taps missed a scrolled sheet; R5, R6 and R14 walked them at that size); 66 to 68 (R14 did); **11, 13 and 16 signed in** (the map with its state card, Who has this card, the deck core page: only their guest variants 11g, 13g and 16g were walked at that size) |
+| Light, largest size | **52 of 77** signed in (55 with the guest's 11, 13 and 16) | as dark, plus 3, 18, 40 to 42, 63, 65 and 10c (the same walk-flow taps; dark covered them) |
+
+The reviewers' walk at the largest size (dark) then covered, signed in, 3, 10, 11 with its state
+card, 12, 13, 14, 16, 19, 20, 26, 31, 60 and 66, and found three defects on exactly the screens R8
+had not walked signed in (U1 on 13, U2 on 26, U3 on 16); review fix 1 fixed them and walked 11, 13,
+16, 26, 54 (an empty state) and 70 again at the largest size, dark and light, signed in and as a
+guest (see "Review fix 1" below).
+
+Every screenshot was looked at against the mockup's pictures. Seen and left as they are (not
+defects of R8's scope, written down for the owner): at the largest text size a body paragraph can
+break a word longer than the line ("recommendatio / n" on 62; iOS does so without hyphens), Sign
+in's line fills the first screen above the fields (the page scrolls), a toast covers much of the
+screen for its five seconds, a collector's handle breaks anywhere (handles have no spaces); a
+seller who never wrote in a chat still sees "Yes, still available" after Mark as sold (R4's rule
+counts messages only).
+
+**Not done, could not be verified**
+
+- The scan screens 27 to 30 on this walk (Expo Go has no text reader; ADR 0020's development build
+  is the card-scan session's).
+- Some largest-size screenshots (the table above): those screens were walked at that size by their
+  own stages, which does not cover what R8 itself changed; 11, 13 and 16 signed in were walked at
+  that size only by the reviewers and by review fix 1.
+- The Android run could not be verified (no Android SDK on this Mac).
+
+**Owner follow-ups**
+
+1. **Screens at the largest text size** listed above under "Seen and left": say if any should be
+   capped like the titles (a body cap would shrink every paragraph's text at the largest sizes).
+2. **A suspended collector never sees "Account suspended" (44)** (one decision with R12's owner
+   follow-up 3): `AdminUserService` and `AdminReportService` disable the Firebase account
+   (`identityAdmin.disableUser`) when they suspend a collector. The phone then says "Your session
+   has ended. Sign in again to continue." at the moment of the suspension, and Sign in says "This
+   account has been disabled. Contact support if you think this is a mistake."; the end date and
+   the appeal line of 44 are never read (corrected by review fix 1, U4: R8 first wrote that Sign in
+   says "Your session has ended"). Keeping the Auth account enabled during a suspension (the API
+   already refuses every call with `403 ACCOUNT_SUSPENDED`) would show 44 at sign-in, and sending
+   the moderator's reason would let 44 show it (R12's follow-up 3); an API and security-policy
+   decision for the owner.
+3. **The quick replies after a sale** (R4): "Yes, still available" and "Send me your address" still
+   show to a seller who never wrote before marking the card sold.
+
+### Review fix 1 (2026-10-26)
+
+Round 1 of at most 2, after the functional verifier's and the product and UX reviewer's checks of
+stage R8 (eight findings: one major, seven minor). No migration (the next is still **V135**), no
+API change, no ADR, nothing under `apps/web-angular` changed.
+
+**What changed**
+
+- **The guest card's tint fills the card on the web build again** (F1, major): R8's iOS fix had
+  dropped R15's `width="100%" height="100%"` from the gradient's `<Svg>`, so the web drew it at the
+  browser's default 300 by 150, about 42 px short of the card's right edge (and only a corner of
+  the illustrated cards of 73). `GradientFill` now puts the drawing in a frame without padding
+  (`absoluteFill`, inside the box's border) and the `<Svg>` takes 100 % of that frame: the same on
+  iOS and the web, no platform branch (on iOS a 100 % straight on the `absoluteFill` `<Svg>` had
+  meant the card's content box, 14 pt short of each edge).
+- **A test notices if the guest card loses its faint tint** (F2): `GuestCard` is rendered in both
+  schemes and its gradient's stops must be the theme's colours with an opacity under 0.2.
+- **An empty state's description never outgrows its title** (F4): the title stops at twice its
+  20 pt; the 16 pt description went on to about 50 pt at the largest size. It now follows the
+  system size up to the title's 40 pt (`EMPTY_STATE_DESCRIPTION_MAX_FONT_SCALE`, 2.5).
+- **Who has this card (13) puts the picture above the name at large text sizes** (U1): beside the
+  56 pt picture, "Shadowvale" no longer fit at the largest size ("Shadowval / e Revenant / King");
+  from the stacked-rows size on (`useStackedRows`) the name has the page's width.
+- **Add cards' "Scan with camera" row keeps its words** (U2): the "Coming later" tag followed the
+  system size without a cap and left the title and its line a width of 0 at the largest size. It
+  now follows it a little (`PINNED_MAX_FONT_SCALE`) and goes under the words at large text sizes.
+- **The deck core page's back button stays on screen** (U3): it sat over the photos inside the
+  scroll view and scrolled away with them (at the largest size, or with a long note), and the name
+  and price ran under the clock. It is now fixed above the page, and once the photos have gone
+  under the status bar a band of the page's colour fills it (`deck-core-status-band`).
+- **What a suspended collector sees, said right** (U4): R8's decision 6 and owner follow-up 2 now
+  say "Your session has ended. Sign in again to continue." at the moment of the suspension and
+  "This account has been disabled. Contact support if you think this is a mistake." at sign-in
+  (R8 had written that Sign in says "Your session has ended"); follow-up 2 is one decision with
+  R12's follow-up 3 (both name the other). No code change: the fix is an API and security-policy
+  decision for the owner.
+- **What R8's walk covered at the largest size** (U5, F3): the table no longer counts the guest's
+  11, 13 and 16 for the signed-in screens (60 of 77 in dark, 52 in light, signed in); the "Last
+  updated" line, NEXT TASK, the handoff's R8 row and the spec's dated note say every screen at the
+  default size and the table's screens at the largest; the spec's note names the empty state's fix
+  and this round's; the native row records the verifier's full run on `5182b992`, **43 / 43**
+  (1 h 6 min 56 s).
+
+**Decisions**
+
+1. **One frame for both platforms** (F1): the reviewers offered a web-only width or a frame without
+   padding; the frame keeps one code path, so the iOS and web results cannot drift apart again.
+2. **The description's cap is derived from the title's** (F4): `xl × TITLE_MAX_FONT_SCALE / md`,
+   so the description never passes the title's largest size, even if either base size changes;
+   body text still grows to 2.5 times its size (owner follow-up 1 stands for other paragraphs).
+3. **Stack at `STACKED_ROW_FONT_SCALE`** (U1, U2): the size from which the app's rows already put
+   their second column under the text; at the default size both screens stay as in the mockup.
+4. **A band only once the photos are under the status bar** (U3): at the top the photo stays under
+   the clock as in the mockup; the band appears past `PHOTO_PAGER_HEIGHT − the top inset`.
+
+**Tests**
+
+- Jest: `features/guestGradient.test.tsx` (the frame and the 100 %, replacing the test that locked
+  in the web regression; `GuestCard`'s stops in light and dark: fails on R8's code, on an opaque
+  orange and teal card and with the card's gradient removed), `components/EmptyState.test.tsx`
+  (the description's cap against the title's size), `screens/card-detail.test.tsx` (the picture
+  beside the name at the default size, above it at the largest), `screens/items.test.tsx` ("Coming
+  later" beside the words, then under them, capped at both), `screens/binders.test.tsx` (the back
+  button outside the scroll view, the band only past the photos, Back pressed while scrolled). Each
+  fails on the code before this round.
+- Web export (Playwright, scratch; the export's API address a closed port, never the developer
+  API): at 375 by 812, in dark and light, the guest card is 343 × 146 and its drawing 341 × 144, the
+  whole inside of its 1 px border (R8's code: 300 × 150); the guest Inventory's illustrated cards'
+  drawings 50 × 72, the whole inside of their boxes.
+- iPhone walk (scratch Maestro flows on the native suite's kept stack, `fix1-member.yaml`,
+  `fix1-guest.yaml`, `fix1-empty.yaml`; signed in as collector1 and as a guest) at the **largest
+  text size in dark and in light**: Blocked collectors' empty state (54: the description now the
+  title's size, no longer larger), the map with its state card signed in (11), the deck core page
+  "Moth Queen core" at the top and scrolled (16: the band under the clock, the back button on
+  screen, and Back tapped while scrolled returns to Search › Binders › Deck cores), Who has this
+  card for "Shadowvale Revenant King" signed in and as a guest (13: "Shadowvale / Revenant King",
+  whole words, the picture above), Add cards' scan row (26: "Scan with camera", "Point at a card to
+  add it", then "Coming later" under them), the guest's Home (70); and the guest's Home at the
+  default size in dark (70: the faint tint to the card's edges). Every flow passed (two first runs
+  failed on the walk flow's own steps, a Back on Search's own segments, and were corrected). 19
+  screenshots in `.local-dev/r8-notes/pr-shots/review-fix-1/` (with the two web pictures).
+
+**Checks** (retries off; 2026-10-26, this Mac, JDK 21, OrbStack; the owner's iPhone 18 Pro under
+the shared lock, its appearance light and text size large before and after; on the final code)
+
+| Check | Result |
+| --- | --- |
+| `(cd apps/api && ./gradlew spotlessCheck --rerun-tasks)` | pass |
+| `npm run test:api` | pass: **1,285 tests** in 200 classes (`test`) + **13** in 2 (`catalogTest`), 0 failures (4 min 45 s) |
+| `exportOpenApi` then `npm run generate:api` | git clean (no API change) |
+| `npm run build -w apps/web-angular` | pass, initial total **893.88 kB** |
+| `npm run test:web` | **136 files, 633 tests** passed |
+| `npm run lint -w apps/web-angular`, `format:check` | pass, pass |
+| `npm run test:e2e -- --retries=0` | **70 passed** (1.3 min) |
+| `npm run typecheck`, `lint`, `format:check` (apps/mobile) | pass, pass, pass |
+| `npm run test:mobile` | **127 suites, 1,740 tests** passed (+6; the harness guard tests 28 / 28) |
+| `npx expo export --platform ios`, `android`, `web` | pass, pass, pass (throw-away directories) |
+| `npm run test:mobile:e2e -- --retries=0` | **66 passed** (1.1 min) |
+| `npm run test:mobile:maestro -- --platform ios` | every flow: **43 flows, 42 passed, 1 failed** (67 min 43 s): `home-feed.yaml` ("home-section-today" not visible) ran after midnight while the run's API had seeded the feed at 23:32, relative to its start, so every seed post was in "Earlier this week" (a run crossing local midnight; not this round's code); re-run alone on a fresh stack **1 / 1** |
+| `npm run test:scripts` | **147 / 147** |
+| `npm run audit:gate` | OK (the two allow-listed advisories, expiring 2026-11-30) |
+
+**Not done, could not be verified** (this round)
+
+- The Android run could not be verified (no Android SDK on this Mac).
+- The scan screens 27 to 30 (Expo Go has no text reader), as before.
+- `home-feed.yaml` fails when a native run crosses local midnight after its API seeded the feed
+  (the seed dates the feed relative to the API's start, the flow expects "Today"): seen once in
+  this round's full run and left as it is (a test's timing, outside the stage); re-run alone, it
+  passes.
+- At the largest text size, the screens R8's table lists as not walked other than 11, 13, 16 and
+  26 (12, 14, 19, 20, 60, 66 to 69) were walked at that size by their own stages and by the
+  reviewers (dark), not by R8 or this round.
+
+**Owner follow-ups**: none new; follow-up 2 above is now one decision with R12's follow-up 3.
+
 ## NEXT TASK
 
 > **Card scan on Android (owner, 2026-10-20):** the owner built `main` on Windows 11 with `npx expo run:android` (phone on USB) and the scan works on their Android phone. This Mac still has no Android SDK.
@@ -8909,12 +10841,113 @@ itself, as "communi / ty" in the shared `EmptyState`'s title and "availabl / e" 
 > findings at the largest text size: a post's time is never cut by a long province, and the
 > community's closed, empty and error states scroll; see "Review fix 2" in the R11 section).
 >
-> **Exact next task: the lead's check of R11's review fix 2**, **then stage R12** ("Sign-in, sign-up and welcome", the same prompt's section R12) on the same
-> branch, then R13 to R15 (R15 after R12) and
-> the wrap-up R8 (CLAUDE.md, the product overview, the contracts, the test accounts and seed
-> documents, a walk of every mockup screen with a screenshot each, the exact next task), none
-> bringing back a paid feature (ADR 0019). R7's review fixes 1 and 2 are done; its ship step is
-> the giant pull request's.
+> **Stage R12 is built** ("Sign-in, sign-up and welcome (36 to 46)"; section "Phone redesign R12:
+> Sign-in, sign-up and welcome (36 to 46) (2026-10-22)" above; contract
+> `docs/api/contracts/r12-sign-in-welcome.md`; no migration, the next is still **V135**): Sign in
+> with the wordmark and its line; Create your account with the documents in one card, the 18+
+> confirmation in its own (English only) and "Create account" disabled until every box is ticked
+> with its reason line; the sent states of Reset password and Verify your email in place; the
+> welcome in three steps (the live handle check `GET /me/profile/handle-availability`, the game
+> tiles with "Opens first" and at least one game, the place with its switches); no age step (an
+> account without the 18+ confirmation is on Review our terms first, the age line alone when no
+> document is due); Suspended, Scheduled for deletion ("Deletion cancelled" in place) and Could not
+> load centred with a 72 pt icon.
+>
+> **R12's review fix 1 is done** (a screen kept for Review our terms or the welcome never opens
+> for the next account on the phone and belongs to its collector; the welcome takes its own link;
+> the keyboard never hides the field being typed in on the welcome, Sign in, Create account and
+> Reset password; "Choose your country." under the pickers, in view; the progress bar's 33, 67 and
+> 100 %; Could not load's own words and reference line; Reset password's "Resend in {n} s"; the
+> welcome's tags without game and language tags; the first handle from the e-mail as an owner
+> follow-up; phone only, no migration; see "Review fix 1" in the R12 section).
+>
+> **R12's review fix 2 is done** (see "Review fix 2" in the R12 section).
+>
+> **Stage R13 is built** ("Settings (47 to 59)"; section "Phone redesign R13: Settings (47 to 59)
+> (2026-10-23)" above; contract `docs/api/contracts/r13-settings.md`; no migration, the next is
+> still **V135**): Settings with the profile card and its groups and values; Edit profile with one
+> "Save changes" (the optional `tags` of `PUT /me/profile`, one transaction), "Preview" and the
+> leave guard; Location with "Show me on the map" first and the remove sheet; Shipping details;
+> Notifications as a grid of topics by channel; Privacy saved at once; Appearance; Blocked
+> collectors; My reports with pills; Account; Delete account grey until ticked, the sheet, the
+> working steps; Legal with seven documents and a document; every page with its own top bar, and
+> whole words at the largest text size. PR screenshots of 47 to 59 in
+> `.local-dev/r13-notes/pr-shots/` of the worktree.
+>
+> **R13's review fix 1 is done** (a Private profile is off the map on Settings, Location and
+> Privacy; "Preview" right after a save shows the saved profile; Privacy's map switch waits for a
+> place; a refused save says why where the collector tapped; whole handles and words at the largest
+> text size; the tests the reviewers' mutants survived; the R13 privacy contract test reads a block
+> and a report; F5 answered as an automation artefact; P3 an owner follow-up; see "Review fix 1" in
+> the R13 section). **R13's review fix 2 is done** (the last round: P3 answered with evidence, no
+> code change; owner follow-up 7 restated with what the blocked side can read over HTTP and a
+> recommendation; see "Review fix 2" in the R13 section).
+>
+> **Stage R14 is built** ("Report, rating, reference, binders, wishes, import and sets (60 to
+> 69)"; section "Phone redesign R14: Report, rating, reference, binders, wishes, import and sets (60
+> to 69) (2026-10-23)" above; contract `docs/api/contracts/r14-report-rate-wish-import-sets.md`; no
+> migration, the next is still **V135**): Report collector with the server's reasons as radio rows
+> and "Send report" grey with its reason, Report sent in place; Rate with the deal ("{card} · sold
+> to you {date}", `dealName` and `soldToYou` on a sale's eligibility), Overall's 34 pt stars and
+> word, clearable details rows, "Write a reference instead", "Publish rating"; Write a reference;
+> New binder with its game's line; Add a wish from Search's card search, the form with price chips,
+> Edit a wish with the remove sheet; the import's file step, Check the cards (trash, chips, amber bar
+> with "Use the newest", compact lines with a tick box, the add button grey with its reason) and
+> Import done; a set with "Who has cards of this set" and a three-column grid, paged. PR
+> screenshots of 60 to 69 in `.local-dev/r14-notes/pr-shots/` of the worktree. **R14's review fix
+> 1 is done** (refusals in the bottom bar bounded at the largest text size, Add a wish's field at
+> the top, Import done without the toast, the binder picker's "no {game} cards yet", "Leave out"
+> under the amber bar with its lines shown left out, "×3" while the file names no condition, the
+> price chips the terms alone, and the tests the reviewers' mutants survived; see "Review fix 1" in
+> the R14 section).
+>
+> **Stage R15 is built** ("Browse without an account (70 to 75)"; section "Phone redesign R15:
+> Browse without an account (70 to 75) (2026-10-25)" above; contract
+> `docs/api/contracts/r15-browse-without-account.md`; no migration, the next is still **V135**):
+> the app opens on Home for a signed-out visitor; Home and Search as a guest (the person button,
+> the guest's card, "A collector" with a plain avatar and the place); Inventory, Messages, Profile
+> and Search › Wishlist ask to sign in in place; every action that needs an account opens one
+> sheet with its title, and finishes after the sign-in (and the welcome) back on the guest's screen,
+> kept by its listing (`GET /listings/owner`); Sign in's close button; sign-out to Home; a deep link
+> to a member screen through Sign in. API: a signed-out caller never sees who a collector is
+> (`PrivacyPolicyService.canSeeWho`), the feed open (GET), the `guest-discovery` rate limit.
+>
+> **R15's review fix 1 is done** (photos by opaque URLs that never name the owner,
+> `/api/v1/public/item-images/{id}` and `/binder-images/{id}`; a guest's Message on a plain public
+> binder opens the chat after sign-in; no profile tags for guests; the guest window 10 per 10 s;
+> back to Search › Wishlist; a guest's binder search wording; a screen left by an ended session
+> stays its collector's; a leftover guest action forgotten; the sign-up hold's test; see "Review
+> fix 1" in the R15 section). **R15's review fix 2 is done** (the wishlist alert test's random
+> "km" flake; native flows for a guest's Message on a plain public binder and for Sign in from
+> Search › Wishlist through Review our terms; see "Review fix 2" in the R15 section). **F3 is
+> closed by R8** (2026-10-26, "F3 closed by stage R8" in the R15 section).
+>
+> **Stage R8, the wrap-up, is built** (section "Phone redesign R8: Wrap-up of the phone redesign
+> (spec section 15, R8), done last in the giant pull request (2026-10-26)" above; no migration, the
+> next is still **V135**; no API change): the documents (CLAUDE.md's tabs, modules and guest rule,
+> the product overview, the contracts index, the test accounts, the seed data, the READMEs, the
+> handoff), the full native suite on the owner's iPhone 18 Pro (both failures R15's flows, fixed;
+> the reviewers' verifier then ran every flow on `5182b992`, 43 / 43), a walk of every mockup screen
+> in dark and light at the default size (73 of 77) and, at the largest text size, of the screens in
+> R8's table, with one screenshot each in `.local-dev/r8-notes/pr-shots/`, and two fixes the walk
+> proved needed (the guest card's tint on iOS, an empty state's title at the largest size).
+>
+> **R8's review fix 1 is done** (round 1 of at most 2; eight findings, one major: the guest card's
+> tint fills the card on the web build again, a test that the guest card draws the faint stops, an
+> empty state's description never larger than its title, Who has this card's name, Add cards'
+> "Scan with camera" row and the deck core page's back button at the largest text size, and the
+> documents' account of the walk and of a suspended collector's messages; see "Review fix 1" in
+> the R8 section).
+>
+> **Exact next task: the ship step of the second giant pull request** (R12 to R15 and R8 on
+> `feature/r7-home`): if the lead runs a second review round of R8, its fixes come first (the
+> last round); then the lead pushes the branch, lets CI run on the draft pull request, attaches
+> the screenshots of `.local-dev/r8-notes/pr-shots/` (with `review-fix-1/`; and those of `r12`,
+> `r13`, `r14` notes), and merges it on green CI (owner's standing agreement). After that, the owner's choice among the open items: the owner
+> follow-ups of R8 (largest-size paragraphs, a suspended collector's screen 44, the quick replies
+> after a sale), R10's two decisions (Scryfall's file for Magic, the TCGdex MIT notice), the real
+> catalog imports (the owner's step), the card scan's Android run, and the list under "Then, the
+> owner's choice" below. Nothing brings back a paid feature (ADR 0019); English cards only.
 
 > **Owner prompts of 2026-10-19 (saved word for word):**
 > [`docs/product/specs/2026-10-19-home-full-design.md`](docs/product/specs/2026-10-19-home-full-design.md)

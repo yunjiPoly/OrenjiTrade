@@ -80,8 +80,10 @@ test.describe('mobile item photos', () => {
     const stored = await apiInventoryItem(request, owner, item.id);
     expect(stored.images).toHaveLength(1);
     const image = stored.images[0]!;
-    // Served through the API's own media route (the app only ever shows API pictures).
-    expect(image.url).toContain('/api/v1/public/media/');
+    // Served through the API's own photo route, by the photo's id: never the owner's account id
+    // (the app only ever shows API pictures; stage R15, review fix 1).
+    expect(image.url).toContain(`/api/v1/public/item-images/${image.id}`);
+    expect(image.url).not.toContain(owner.id);
     expect(image.url.startsWith('http') ? image.url.startsWith(API_URL) : true).toBe(true);
 
     // Remove it: gone from the form at once, from the API with "Save changes".

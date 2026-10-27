@@ -23,6 +23,8 @@ import com.orenjitrade.api.common.ProblemFieldError;
 import com.orenjitrade.api.common.TimeProvider;
 import com.orenjitrade.api.common.storage.ObjectKeys;
 import com.orenjitrade.api.common.storage.ObjectStorage;
+import com.orenjitrade.api.common.storage.PhotoUrls;
+import com.orenjitrade.api.common.storage.StoredObject;
 import com.orenjitrade.api.delisting.domain.FreshnessEventLog;
 import com.orenjitrade.api.delisting.domain.FreshnessEventType;
 import com.orenjitrade.api.delisting.domain.FreshnessPolicy;
@@ -368,11 +370,12 @@ public class BinderService {
                                             "A binder can have at most " + MAX_PHOTOS + " photos");
                                 }
                                 Instant now = timeProvider.now();
+                                UUID imageId = UUID.randomUUID();
                                 images.insert(
-                                        UUID.randomUUID(),
+                                        imageId,
                                         binderId,
                                         key,
-                                        storage.publicUrl(key),
+                                        PhotoUrls.binderImage(imageId),
                                         width,
                                         height,
                                         images.nextSortOrder(binderId),
@@ -393,6 +396,16 @@ public class BinderService {
             storage.delete(key);
             throw e;
         }
+    }
+
+    /**
+     * {@code GET /public/binder-images/{imageId}}: a stored photo by its own id, the URL every
+     * response gives ({@link PhotoUrls#binderImage}); its storage key, which names the owner, stays
+     * here (stage R15, review fix 1). Like the public media route, a photo id is unguessable and
+     * answered whoever asks.
+     */
+    public Optional<StoredObject> photo(UUID imageId) {
+        return images.keyOf(imageId).flatMap(storage::get);
     }
 
     /** {@code DELETE /binders/{id}/images/{imageId}}: {@code 404} for an unknown photo. */
@@ -918,7 +931,7 @@ public class BinderService {
                     .add(
                             new BinderPhoto(
                                     image.id(),
-                                    storage.publicUrl(image.storageKey()),
+                                    PhotoUrls.binderImage(image.id()),
                                     image.width(),
                                     image.height(),
                                     image.sortOrder()));

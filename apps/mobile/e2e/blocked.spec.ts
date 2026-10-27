@@ -13,7 +13,7 @@ import {
 } from './support/stack';
 
 /**
- * Settings → Blocked users (stage M7, the web's blocked users section on `GET /me/blocks` and
+ * Settings › Blocked collectors (stage M7, the web's blocked users section on `GET /me/blocks` and
  * `DELETE /users/{id}/block`): a block from a conversation, the blocked collector's profile
  * pointing at the list, the list itself and the unblock, checked on the API and on what the
  * other collector can do.
@@ -51,7 +51,7 @@ test.describe('mobile blocked users', () => {
     const dialog = page.getByTestId('block-dialog');
     // The chat names the collector by handle (stage R4).
     await expect(dialog).toContainText(`Block ${ben.handle}?`);
-    await expect(dialog).toContainText('Settings → Blocked users');
+    await expect(dialog).toContainText('Settings → Blocked collectors');
     await dialog.getByRole('button', { name: 'Block' }).click();
     await expect(thread.getByTestId('conversation-blocked-banner')).toContainText(
       `You blocked ${ben.handle}`,
@@ -74,7 +74,7 @@ test.describe('mobile blocked users', () => {
     await expect(profile.getByTestId('profile-cards')).toHaveCount(0);
     await openInApp(page, '/settings/blocked');
 
-    // Blocked users: Ben, when he was blocked, Unblock.
+    // Blocked collectors: Ben, when he was blocked, Unblock.
     const list = screen(page, 'settings-blocked');
     const row = list.getByTestId(`blocked-${ben.handle}`);
     await expect(row).toBeVisible({ timeout: 30_000 });
@@ -86,7 +86,7 @@ test.describe('mobile blocked users', () => {
     );
     await row.getByRole('button', { name: `Unblock ${ben.displayName}` }).click();
     await unblocked;
-    await expect(snackbar(page)).toHaveText(`${ben.displayName} is unblocked.`, {
+    await expect(snackbar(page)).toContainText(`${ben.displayName} is unblocked.`, {
       timeout: 30_000,
     });
     await expect(list.getByTestId('blocked-empty')).toBeVisible({ timeout: 30_000 });

@@ -20,6 +20,9 @@ export const meKeys = {
   user: (uid: Uid) => [...ME_ROOT, uidKey(uid)] as const,
   account: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'account'] as const,
   profile: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'profile'] as const,
+  /** The welcome's live handle check (stage R12), per handle as it would be saved. */
+  handleAvailability: (uid: Uid, handle: string) =>
+    [...ME_ROOT, uidKey(uid), 'handle-availability', handle] as const,
   location: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'location'] as const,
   privacy: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'privacy'] as const,
   notifications: (uid: Uid) => [...ME_ROOT, uidKey(uid), 'notifications'] as const,

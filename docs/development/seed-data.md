@@ -45,6 +45,9 @@ and metadata that exercise the JSONB model:
 - Magic: `manaCost`, `colorIdentity`, `typeLine`, `power`, `toughness`; foil/non-foil printings;
   set codes 3 letters.
 - Riftbound: `domain`, `energy`, `might`, `type`; set codes `OGN`-style.
+- One Piece (stage G, V130) is a game without sample cards (`hasCards` false): the phone's Choose
+  a game shows it greyed as coming soon, and nobody browses it or files a binder under it until a
+  card source exists.
 
 Names must not copy real card names verbatim when paired with real set codes (use invented
 names such as "Azure-Eyes Sky Dragon", "Emberfang Fox VMAX", "Tidebinder Sovereign"). A real card

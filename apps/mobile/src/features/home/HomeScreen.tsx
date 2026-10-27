@@ -6,13 +6,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FEED_STALE_MS, useHomeFeed, usePublicCardCount } from '@/src/api/hooks/feed';
 import { useMyLocation } from '@/src/api/hooks/location';
 import { useRegionOptions, useRegions } from '@/src/api/hooks/regions';
-import { useUid } from '@/src/api/hooks/useUid';
+import { useIsGuest, useUid } from '@/src/api/hooks/useUid';
 import { useWishlist } from '@/src/api/hooks/wishlist';
 import type { FeedPost } from '@/src/api/types';
+import { useGuestAction } from '@/src/account/guestAction';
 import { ErrorState } from '@/src/components/ui/ErrorState';
 import { useIHaveIt } from '@/src/features/collectors/useIHaveIt';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { GamePill } from '@/src/features/games/GamePill';
+import { GuestCard } from '@/src/features/guest/GuestParts';
+import { PersonButton } from '@/src/features/guest/PersonButton';
 import { useMessageCollector } from '@/src/features/messages/useMessageCollector';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
@@ -25,6 +28,7 @@ import {
   emptyTitle,
   endText,
   feedRows,
+  postListing,
   type FeedFilter,
   type FeedRow,
 } from './feedRules';
@@ -75,6 +79,9 @@ export function HomeScreen() {
   const { fontScale } = useWindowDimensions();
   const router = useRouter();
   const uid = useUid();
+  // Signed out (stage R15, mockup v50 screen 70): the person button for the bell, the guest's
+  // card for Get started, "A collector" posts, and every action that needs an account asks.
+  const guest = useIsGuest();
   const kind = useHomeChip((state) => state.kind);
   const setKind = useCallback((next: FeedFilter) => useHomeChip.setState({ kind: next }), []);
   const browsing = useBrowsingGame();
@@ -161,31 +168,50 @@ export function HomeScreen() {
   const [messaging, setMessaging] = useState<string | null>(null);
   const actions: PostActions = useMemo(
     () => ({
-      onCollector: (post) =>
-        router.push({ pathname: '/collectors/[id]', params: { id: post.collector.handle } }),
-      onCollectorCards: (post) =>
-        router.push({ pathname: '/collectors/[id]/cards', params: { id: post.collector.handle } }),
+      onCollector: (post) => {
+        const handle = post.collector.handle;
+        if (!handle) {
+          askGuest(post, 'profile');
+          return;
+        }
+        router.push({ pathname: '/collectors/[id]', params: { id: handle } });
+      },
+      onCollectorCards: (post) => {
+        const handle = post.collector.handle;
+        if (!handle) {
+          askGuest(post, 'cards');
+          return;
+        }
+        router.push({ pathname: '/collectors/[id]/cards', params: { id: handle } });
+      },
       onCard: (cardId, printingId) =>
         router.push({ pathname: '/cards/[id]', params: { id: cardId, printing: printingId } }),
       onMessage: (post: FeedPost, itemId: string) => {
+        const collectorId = post.collector.id;
+        if (!collectorId) {
+          useGuestAction.getState().open({ kind: 'message', listing: { itemId } });
+          return;
+        }
         setMessaging(post.id);
-        void message(post.collector.id, { itemId }).finally(() => setMessaging(null));
+        void message(collectorId, { itemId }).finally(() => setMessaging(null));
       },
       onHaveIt: (post: FeedPost) => {
         const wish = post.wanted;
         if (!wish) {
           return;
         }
-        void haveIt(
-          post.collector.id,
-          {
-            cardId: wish.cardId,
-            cardName: wish.name,
-            printing: wish.printing ?? null,
-            rarity: wish.rarity ?? null,
-          },
-          post.id
-        );
+        const card = {
+          cardId: wish.cardId,
+          cardName: wish.name,
+          printing: wish.printing ?? null,
+          rarity: wish.rarity ?? null,
+        };
+        const collectorId = post.collector.id;
+        if (!collectorId) {
+          useGuestAction.getState().open({ kind: 'have', wishId: wish.wishId, card });
+          return;
+        }
+        void haveIt(collectorId, card, post.id);
       },
       onDeckCore: (binderId) =>
         router.push({ pathname: '/binders/[id]', params: { id: binderId } }),
@@ -234,11 +260,16 @@ export function HomeScreen() {
                 <RegionBar variant="pill" testID="home-region" />
                 <GamePill testID="home-game" />
               </View>
-              <NotificationBell testID="notification-bell-home" variant="round" />
+              {guest ? (
+                <PersonButton testID="person-button-home" />
+              ) : (
+                <NotificationBell testID="notification-bell-home" variant="round" />
+              )}
             </View>
             <HomeSearchField onPress={openSearch} />
             <RegionAwayNote testID="home-region-away" />
-            {showGetStarted && steps ? (
+            {guest ? <GuestCard /> : null}
+            {!guest && showGetStarted && steps ? (
               <GetStartedCard
                 steps={steps}
                 onHide={() => uid && void hideGetStarted(uid)}
@@ -274,7 +305,7 @@ export function HomeScreen() {
           <View style={[styles.body, styles.quiet]}>
             <QuietBox
               title={emptyTitle(first?.regionHasPosts ?? false, gameLabel, regionLabel)}
-              onAddCards={showGetStarted ? undefined : addCards}
+              onAddCards={showGetStarted || guest ? undefined : addCards}
             />
           </View>
         );
@@ -365,6 +396,17 @@ export function HomeScreen() {
       />
     </View>
   );
+}
+
+/**
+ * A guest tapped who posted (the header, "+n"): the sheet asks them to sign in, and the profile
+ * opens after, found by the post's listing, never by the collector (stage R15).
+ */
+function askGuest(post: FeedPost, page: 'profile' | 'cards') {
+  const listing = postListing(post);
+  if (listing) {
+    useGuestAction.getState().open({ kind: 'profile', listing, page });
+  }
 }
 
 /** The first row on screen stays where it is when rows are added above it (the top row counts). */

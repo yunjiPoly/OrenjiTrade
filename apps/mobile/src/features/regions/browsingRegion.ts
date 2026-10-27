@@ -4,7 +4,7 @@ import { create } from 'zustand';
 
 import { useAccount } from '@/src/account/AccountProvider';
 import { useRegions } from '@/src/api/hooks/regions';
-import { useUid } from '@/src/api/hooks/useUid';
+import { useIsGuest, useUid } from '@/src/api/hooks/useUid';
 import { BUILT_IN_REGIONS, DEFAULT_REGION, isRegionCode } from '@/src/lib/place';
 
 /**
@@ -27,19 +27,36 @@ import { BUILT_IN_REGIONS, DEFAULT_REGION, isRegionCode } from '@/src/lib/place'
  *
  * Only the region code is kept on the device (one of three names, the same for everyone in it):
  * never a place, and nothing about where the device is.
+ *
+ * A guest (signed out, stage R15) browses too: their pick is kept under its own key (the region
+ * code alone, Americas (North) by default) and never becomes a collector's. Once signed in, the
+ * account's own choice wins (its home region, else what that account picked on this device).
  */
 export const BROWSING_REGION_STORAGE_KEY = 'orenjitrade.browsing-region.v1';
+
+/** Where a guest's region is kept on this phone (the code alone; stage R15). */
+export const GUEST_BROWSING_REGION_STORAGE_KEY = 'orenjitrade.browsing-region.v1.guest';
+
+/** The scope of a guest's pick: never the scope of an account (`browsingScope`). */
+export const GUEST_REGION_SCOPE = 'guest';
 
 interface BrowsingRegionState {
   /** The region picked in this session, with the account and home region it was picked under. */
   picked: { region: string; scope: string } | null;
-  /** The last region picked on this device. */
+  /** The last region picked on this device by a signed-in collector. */
   stored: string | null;
+  /** The last region a guest picked on this device (stage R15). */
+  guestStored: string | null;
   /** The device storage answered, or failed: nothing more to wait for. */
   hydrated: boolean;
 }
 
-const INITIAL: BrowsingRegionState = { picked: null, stored: null, hydrated: false };
+const INITIAL: BrowsingRegionState = {
+  picked: null,
+  stored: null,
+  guestStored: null,
+  hydrated: false,
+};
 
 export const useBrowsingRegionStore = create<BrowsingRegionState>()(() => INITIAL);
 
@@ -51,16 +68,20 @@ let hydration: Promise<void> | null = null;
  */
 export function hydrateBrowsingRegion(): Promise<void> {
   hydration ??= (async () => {
-    let stored: string | null = null;
-    try {
-      const value = await AsyncStorage.getItem(BROWSING_REGION_STORAGE_KEY);
-      stored = isRegionCode(value) ? value : null;
-    } catch {
-      stored = null;
-    }
+    const read = async (key: string): Promise<string | null> => {
+      try {
+        const value = await AsyncStorage.getItem(key);
+        return isRegionCode(value) ? value : null;
+      } catch {
+        return null;
+      }
+    };
+    const stored = await read(BROWSING_REGION_STORAGE_KEY);
+    const guestStored = await read(GUEST_BROWSING_REGION_STORAGE_KEY);
     // A region picked while the storage was being read is newer than what it held.
     useBrowsingRegionStore.setState((state) => ({
       stored: state.stored ?? stored,
+      guestStored: state.guestStored ?? guestStored,
       hydrated: true,
     }));
   })();
@@ -86,9 +107,18 @@ export async function pickBrowsingRegion(region: string, scope: string): Promise
   if (!isRegionCode(region)) {
     return;
   }
-  useBrowsingRegionStore.setState({ picked: { region, scope }, stored: region });
+  // A guest's pick goes under the guest's key and never becomes a collector's (stage R15).
+  const guest = scope === GUEST_REGION_SCOPE;
+  useBrowsingRegionStore.setState(
+    guest
+      ? { picked: { region, scope }, guestStored: region }
+      : { picked: { region, scope }, stored: region }
+  );
   try {
-    await AsyncStorage.setItem(BROWSING_REGION_STORAGE_KEY, region);
+    await AsyncStorage.setItem(
+      guest ? GUEST_BROWSING_REGION_STORAGE_KEY : BROWSING_REGION_STORAGE_KEY,
+      region
+    );
   } catch {
     // The pick still holds for this session.
   }
@@ -100,19 +130,25 @@ export async function pickBrowsingRegion(region: string, scope: string): Promise
  * start there either.
  */
 export async function forgetUnknownRegions(known: ReadonlySet<string>): Promise<void> {
-  const { picked, stored } = useBrowsingRegionStore.getState();
+  const { picked, stored, guestStored } = useBrowsingRegionStore.getState();
   const dropPicked = picked !== null && !known.has(picked.region);
   const dropStored = stored !== null && !known.has(stored);
-  if (!dropPicked && !dropStored) {
+  const dropGuest = guestStored !== null && !known.has(guestStored);
+  if (!dropPicked && !dropStored && !dropGuest) {
     return;
   }
   useBrowsingRegionStore.setState({
     picked: dropPicked ? null : picked,
     stored: dropStored ? null : stored,
+    guestStored: dropGuest ? null : guestStored,
   });
-  if (dropStored) {
+  const keys = [
+    ...(dropStored ? [BROWSING_REGION_STORAGE_KEY] : []),
+    ...(dropGuest ? [GUEST_BROWSING_REGION_STORAGE_KEY] : []),
+  ];
+  for (const key of keys) {
     try {
-      await AsyncStorage.removeItem(BROWSING_REGION_STORAGE_KEY);
+      await AsyncStorage.removeItem(key);
     } catch {
       // Nothing more to do: the code is no longer used in this session.
     }
@@ -190,10 +226,12 @@ export interface BrowsingRegion {
 export function useBrowsingRegion(): BrowsingRegion {
   const me = useAccount().me;
   const uid = useUid();
-  const home = isRegionCode(me?.homeRegion) ? me.homeRegion : null;
-  const scope = browsingScope(uid, home);
+  const guest = useIsGuest();
+  const home = !guest && isRegionCode(me?.homeRegion) ? me.homeRegion : null;
+  const scope = guest ? GUEST_REGION_SCOPE : browsingScope(uid, home);
   const picked = useBrowsingRegionStore((state) => state.picked);
-  const stored = useBrowsingRegionStore((state) => state.stored);
+  // A guest reads their own key (stage R15); a collector the device's and their account's.
+  const stored = useBrowsingRegionStore((state) => (guest ? state.guestStored : state.stored));
   const hydrated = useBrowsingRegionStore((state) => state.hydrated);
 
   const known = useKnownRegions();
@@ -228,7 +266,7 @@ export function useBrowsingRegion(): BrowsingRegion {
     region,
     home,
     away: home !== null && region !== home,
-    ready: !!me && (pickedHere || home !== null || hydrated),
+    ready: guest ? pickedHere || hydrated : !!me && (pickedHere || home !== null || hydrated),
     select,
     knows,
   };

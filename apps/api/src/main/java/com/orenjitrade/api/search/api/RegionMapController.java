@@ -5,6 +5,7 @@ import com.orenjitrade.api.binders.api.PublicBinderResponses.PublicBinderSummary
 import com.orenjitrade.api.binders.domain.PublicBinderService.PublicBinderHit;
 import com.orenjitrade.api.common.CursorPage;
 import com.orenjitrade.api.common.TimeProvider;
+import com.orenjitrade.api.profiles.domain.PrivacyPolicyService;
 import com.orenjitrade.api.search.domain.RegionMapService;
 import com.orenjitrade.api.search.domain.RegionMapService.BinderCounts;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,10 +41,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegionMapController {
 
     private final RegionMapService regionMapService;
+    private final PrivacyPolicyService privacyPolicy;
     private final TimeProvider timeProvider;
 
-    public RegionMapController(RegionMapService regionMapService, TimeProvider timeProvider) {
+    public RegionMapController(
+            RegionMapService regionMapService,
+            PrivacyPolicyService privacyPolicy,
+            TimeProvider timeProvider) {
         this.regionMapService = regionMapService;
+        this.privacyPolicy = privacyPolicy;
         this.timeProvider = timeProvider;
     }
 
@@ -148,7 +154,8 @@ public class RegionMapController {
                         q,
                         game,
                         cursor,
-                        limit));
+                        limit),
+                principal);
     }
 
     @GetMapping(
@@ -206,14 +213,18 @@ public class RegionMapController {
                         q,
                         game,
                         cursor,
-                        limit));
+                        limit),
+                principal);
     }
 
-    private CursorPage<PublicBinderSummaryResponse> page(CursorPage<PublicBinderHit> page) {
+    /** The page; its owner blocks without who they are for a signed-out caller (stage R15). */
+    private CursorPage<PublicBinderSummaryResponse> page(
+            CursorPage<PublicBinderHit> page, @Nullable AuthenticatedUser principal) {
         Instant now = timeProvider.now();
+        boolean showWho = SearchController.showWho(privacyPolicy, principal);
         return new CursorPage<>(
                 page.items().stream()
-                        .map(hit -> PublicBinderSummaryResponse.from(hit, now))
+                        .map(hit -> PublicBinderSummaryResponse.from(hit, now, showWho))
                         .toList(),
                 page.nextCursor(),
                 page.hasMore());

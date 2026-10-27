@@ -103,7 +103,21 @@ class PublicBinderIT extends AbstractIntegrationTest {
         assertThat(binder.path("itemCount").asLong()).isEqualTo(1);
         assertThat(binder.path("games").toString()).isEqualTo("[\"pokemon\"]");
         assertThat(binder.path("freshness").path("state").asString()).isEqualTo("ACTIVE");
-        assertThat(binder.path("owner").path("handle").asString()).isEqualTo(fixture.handle());
+        // Signed out: the owner's place, never who they are (stage R15); a member reads the
+        // handle.
+        assertThat(binder.path("owner").path("handle").isNull()).isTrue();
+        assertThat(binder.path("owner").path("id").isNull()).isTrue();
+        assertThat(
+                        callJson(
+                                        HttpMethod.GET,
+                                        "/api/v1/public/binders/" + fixture.binderId(),
+                                        owner,
+                                        null,
+                                        200)
+                                .path("owner")
+                                .path("handle")
+                                .asString())
+                .isEqualTo(fixture.handle());
         assertThat(binder.path("owner").path("place").path("label").asString())
                 .isEqualTo("Manitoba, Canada");
         assertThat(binder.path("owner").has("location")).isFalse();

@@ -1,34 +1,42 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { messageOf } from '@/src/api/errorMessages';
 import { useDeleteAvatar, useUploadAvatar } from '@/src/api/hooks/profile';
 import { Avatar } from '@/src/components/ui/Avatar';
-import { Button } from '@/src/components/ui/Button';
 import { FormMessage } from '@/src/components/ui/FormControls';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { Text } from '@/src/components/ui/Text';
+import { EDIT_PROFILE_COPY as COPY } from '@/src/features/settings/settingsCopy';
 import { LIBRARY_PHOTO_OPTIONS } from '@/src/lib/photoPicker';
-import { spacing } from '@/src/theme';
+import { fontWeight, spacing, useStackedRows, useTheme } from '@/src/theme';
 
 export interface AvatarEditorProps {
   avatarUrl: string | null | undefined;
   name: string | null | undefined;
+  disabled?: boolean;
 }
 
-/** Choose (square crop), replace or remove the profile picture (JPEG/PNG/WebP up to 5 MB). */
-export function AvatarEditor({ avatarUrl, name }: AvatarEditorProps) {
+/**
+ * The picture of Edit profile (mockup v50 screen 48): the 72 pt avatar, "Add a picture" or
+ * "Change picture" (square crop) and "Remove picture", the line on where it shows. It is saved at
+ * once, apart from "Save changes" (JPEG, PNG or WebP up to 5 MB; the API strips its metadata).
+ */
+export function AvatarEditor({ avatarUrl, name, disabled = false }: AvatarEditorProps) {
+  const { palette } = useTheme();
+  const stacked = useStackedRows();
   const upload = useUploadAvatar();
   const remove = useDeleteAvatar();
   const snackbar = useSnackbar();
   const [error, setError] = useState<string | null>(null);
-  const busy = upload.isPending || remove.isPending;
+  const busy = upload.isPending || remove.isPending || disabled;
 
   const choose = async () => {
     setError(null);
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError('Allow access to your photos to choose a picture.');
+      setError(COPY.picturePermission);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -48,7 +56,7 @@ export function AvatarEditor({ avatarUrl, name }: AvatarEditorProps) {
         fileName: asset.fileName,
         file: asset.file ?? null,
       });
-      snackbar.show('Profile picture updated.');
+      snackbar.show(COPY.pictureUpdated, { icon: 'success' });
     } catch (caught) {
       setError(messageOf(caught));
     }
@@ -58,45 +66,70 @@ export function AvatarEditor({ avatarUrl, name }: AvatarEditorProps) {
     setError(null);
     try {
       await remove.mutateAsync();
-      snackbar.show('Profile picture removed.');
+      snackbar.show(COPY.pictureRemoved, { icon: 'success' });
     } catch (caught) {
       setError(messageOf(caught));
     }
   };
 
+  const chooseLabel = avatarUrl ? COPY.changePicture : COPY.addPicture;
   return (
     <View style={styles.root}>
-      <View style={styles.row}>
+      <View style={[styles.row, stacked && styles.rowStacked]}>
         <Avatar src={avatarUrl} name={name} size={72} decorative={false} />
-        <View style={styles.actions}>
-          <Button
-            label={avatarUrl ? 'Change picture' : 'Add a picture'}
-            variant="secondary"
-            icon="image-outline"
-            loading={upload.isPending}
-            disabled={busy}
-            onPress={() => void choose()}
-            testID="avatar-choose"
-          />
-          {avatarUrl ? (
-            <Button
-              label="Remove picture"
-              variant="ghost"
-              loading={remove.isPending}
+        <View style={styles.words}>
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={chooseLabel}
+              aria-busy={upload.isPending}
               disabled={busy}
-              onPress={() => void clear()}
-              testID="avatar-remove"
-            />
-          ) : null}
+              onPress={() => void choose()}
+              hitSlop={8}
+              testID="avatar-choose"
+              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            >
+              {upload.isPending ? <ActivityIndicator size="small" color={palette.primary} /> : null}
+              <Text style={[styles.choose, { color: palette.primary }]}>{chooseLabel}</Text>
+            </Pressable>
+            {avatarUrl ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={COPY.removePicture}
+                aria-busy={remove.isPending}
+                disabled={busy}
+                onPress={() => void clear()}
+                hitSlop={8}
+                testID="avatar-remove"
+                style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              >
+                {remove.isPending ? (
+                  <ActivityIndicator size="small" color={palette.textMuted} />
+                ) : null}
+                <Text style={[styles.remove, { color: palette.textMuted }]}>
+                  {COPY.removePicture}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={[styles.line, { color: palette.textMuted }]}>{COPY.pictureLine}</Text>
         </View>
       </View>
-      {error ? <FormMessage>{error}</FormMessage> : null}
+      {error ? <FormMessage testID="avatar-error">{error}</FormMessage> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { gap: spacing[3] },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[4] },
-  actions: { flex: 1, gap: spacing[2] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  // The largest text sizes: the picture above its buttons and line, which keep the page's width.
+  rowStacked: { flexDirection: 'column', alignItems: 'flex-start' },
+  words: { flex: 1, minWidth: 0, gap: 4, alignSelf: 'stretch' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing[4] },
+  action: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
+  choose: { fontSize: 15, lineHeight: 20, fontWeight: fontWeight.bold },
+  remove: { fontSize: 14, lineHeight: 19, fontWeight: fontWeight.semibold },
+  line: { fontSize: 12, lineHeight: 17 },
+  pressed: { opacity: 0.7 },
 });

@@ -116,7 +116,10 @@ public class SecurityConfig {
                     "/api/v1/regions",
                     "/api/v1/regions/**",
                     "/api/v1/search",
-                    "/api/v1/search/**");
+                    "/api/v1/search/**",
+                    // Home's feed (stage R15, "Browse without an account"): guests read it
+                    // without who posted (PrivacyPolicyService#canSeeWho).
+                    "/api/v1/feed");
 
     /**
      * The moderation subset of the admin console (Phase 5 contract "Moderator"; Phase 7 RBAC:

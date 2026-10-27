@@ -21,7 +21,7 @@ tags:
       BINDER: 'Yu-Gi-Oh! trade binder'
       GAME: yugioh
 # The seed predates the 18+ rule: its confirmation is recorded through the API first (the
-# onboarding age step is proven by age-step-existing-account.yaml).
+# age line of Review our terms is proven by age-step-existing-account.yaml).
 - runScript:
     file: scripts/confirm-age.js
     env:

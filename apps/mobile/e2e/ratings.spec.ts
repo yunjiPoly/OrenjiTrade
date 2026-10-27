@@ -55,9 +55,13 @@ test.describe('mobile ratings', () => {
 
     const form = screen(page, 'rate');
     await expect(form.getByTestId('rating-form')).toBeVisible({ timeout: 30_000 });
-    for (const label of ['Overall', 'Communication', 'Card condition', 'Shipping']) {
+    for (const label of ['Overall score', 'Communication', 'Card condition', 'Shipping']) {
       await expect(form.getByRole('radiogroup', { name: label })).toBeVisible();
     }
+    // Stage R14 (mockup v50 screen 61): the deal under the collector, "Publish rating" at the
+    // bottom, grey until the overall score.
+    await expect(form.getByTestId('rate-person-line')).toContainText('Conversation · ');
+    await expect(form.getByRole('button', { name: 'Publish rating' })).toBeDisabled();
     await expect(form.getByText(/Meetup reliability|agreed place/)).toHaveCount(0);
     await form.getByTestId('rate-overall-5').click();
     await form.getByTestId('rate-shipping-4').click();

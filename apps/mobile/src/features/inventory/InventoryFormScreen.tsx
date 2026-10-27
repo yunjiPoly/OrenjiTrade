@@ -8,6 +8,11 @@ import { spacing, useTheme } from '@/src/theme';
 export interface InventoryFormScreenProps {
   /** The top row (BackBar): stays put while the content scrolls. */
   header: ReactNode;
+  /**
+   * The header is a whole-width top bar with its own padding and hairline (New binder, mockup v50
+   * screen 63: the Settings top bar), not a row inside the screen's margins.
+   */
+  headerBare?: boolean;
   children: ReactNode;
   /** The bar at the bottom (the main button and its line), above the keyboard. */
   footer?: ReactNode;
@@ -41,6 +46,7 @@ export interface InventoryFormScreenProps {
  */
 export function InventoryFormScreen({
   header,
+  headerBare = false,
   children,
   footer,
   startAtEnd = false,
@@ -82,7 +88,7 @@ export function InventoryFormScreen({
       testID={testID}
       style={[styles.fill, { backgroundColor: palette.background, paddingTop: insets.top }]}
     >
-      <View style={styles.header}>{header}</View>
+      {headerBare ? header : <View style={styles.header}>{header}</View>}
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'web' ? undefined : 'padding'}

@@ -720,7 +720,7 @@ describe('Home and blocks', () => {
     renderWithProviders(
       <>
         <HomeScreen />
-        <BlockProbe id={WISH.collector.id} />
+        <BlockProbe id={WISH.collector.id ?? ''} />
       </>,
       { port: new FakeAuthPort(testUser()) }
     );

@@ -97,7 +97,7 @@ public class FeedService {
 
     /** One page of the feed. */
     @Transactional(readOnly = true)
-    public FeedPage page(UUID viewerId, FeedQuery query) {
+    public FeedPage page(@Nullable UUID viewerId, FeedQuery query) {
         List<ProblemFieldError> errors = new ArrayList<>();
         @Nullable String game = discovery.normaliseGame(query.game(), errors);
         if (game == null && errors.isEmpty()) {
@@ -160,7 +160,7 @@ public class FeedService {
                 regionHasPosts);
     }
 
-    private List<FeedPost> posts(UUID viewerId, Scope scope, List<PostRef> page) {
+    private List<FeedPost> posts(@Nullable UUID viewerId, Scope scope, List<PostRef> page) {
         if (page.isEmpty()) {
             return List.of();
         }

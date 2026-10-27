@@ -72,13 +72,20 @@ public final class FeedResponses {
                                             + " false: the whole region is quiet")
                     boolean regionHasPosts) {
 
-        static FeedPageResponse from(FeedPage page) {
+        /**
+         * The page for a caller who may see who the collectors are ({@code showWho}), or not: a
+         * signed-out visitor reads the posts with their places, never who posted them ({@code
+         * PrivacyPolicyService#canSeeWho}, stage R15).
+         */
+        static FeedPageResponse from(FeedPage page, boolean showWho) {
             return new FeedPageResponse(
                     page.region(),
                     page.game(),
                     page.kind(),
                     page.windowDays(),
-                    page.posts().stream().map(FeedPostResponse::from).toList(),
+                    page.posts().stream()
+                            .map(post -> FeedPostResponse.from(post, showWho))
+                            .toList(),
                     page.nextCursor(),
                     page.nextCursor() != null,
                     page.gameHasPosts(),
@@ -119,17 +126,19 @@ public final class FeedResponses {
             @Schema(nullable = true) @JsonInclude(JsonInclude.Include.ALWAYS)
                     @Nullable FeedDeckCoreResponse deckCore) {
 
-        static FeedPostResponse from(FeedPost post) {
+        static FeedPostResponse from(FeedPost post, boolean showWho) {
             CollectorMarker collector = post.collector();
             return new FeedPostResponse(
                     post.id(),
                     post.kind(),
                     post.at(),
-                    new FeedCollectorResponse(
-                            collector.id(),
-                            collector.handle(),
-                            collector.displayName(),
-                            collector.avatarUrl()),
+                    showWho
+                            ? new FeedCollectorResponse(
+                                    collector.id(),
+                                    collector.handle(),
+                                    collector.displayName(),
+                                    collector.avatarUrl())
+                            : FeedCollectorResponse.UNNAMED,
                     PlaceResponse.from(collector.place()),
                     post.newCards() == null ? null : FeedNewCardsResponse.from(post.newCards()),
                     post.wanted() == null ? null : FeedWishResponse.from(post.wanted()),
@@ -137,15 +146,43 @@ public final class FeedResponses {
         }
     }
 
-    /** The collector of a post (the header opens their profile). */
-    @Schema(name = "FeedCollector", description = "The collector of a post")
+    /**
+     * The collector of a post (the header opens their profile). A signed-out caller never sees who
+     * they are (stage R15): every field is null, the post keeps its place.
+     */
+    @Schema(
+            name = "FeedCollector",
+            description =
+                    "The collector of a post. For a signed-out caller (stage R15) every field is"
+                            + " null: guests see the post and its place, never who posted it")
     public record FeedCollectorResponse(
-            @Schema(requiredMode = RequiredMode.REQUIRED) UUID id,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "maika") String handle,
-            @Schema(requiredMode = RequiredMode.REQUIRED, example = "Maïka Tremblay")
-                    String displayName,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable UUID id,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            example = "maika",
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String handle,
+            @Schema(
+                            requiredMode = RequiredMode.REQUIRED,
+                            nullable = true,
+                            example = "Maïka Tremblay",
+                            description = "Null for a signed-out caller")
+                    @JsonInclude(JsonInclude.Include.ALWAYS)
+                    @Nullable String displayName,
             @Schema(nullable = true, format = "uri") @JsonInclude(JsonInclude.Include.ALWAYS)
-                    @Nullable String avatarUrl) {}
+                    @Nullable String avatarUrl) {
+
+        /** A collector a signed-out caller does not see (stage R15). */
+        static final FeedCollectorResponse UNNAMED =
+                new FeedCollectorResponse(null, null, null, null);
+    }
 
     /** One collector's cards that became public within the same hour. */
     @Schema(name = "FeedNewCards", description = "One collector's new cards of one hour")

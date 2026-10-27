@@ -3,11 +3,14 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useIsGuest } from '@/src/api/hooks/useUid';
 import { useWishlist } from '@/src/api/hooks/wishlist';
 import { Text } from '@/src/components/ui/Text';
 import { UnderlineTabs } from '@/src/components/ui/UnderlineTabs';
 import { useBrowsingGame } from '@/src/features/games/browsingGame';
 import { GamePill } from '@/src/features/games/GamePill';
+import { GuestPage } from '@/src/features/guest/GuestParts';
+import { PersonButton } from '@/src/features/guest/PersonButton';
 import { NotificationBell } from '@/src/features/notifications/NotificationBell';
 import { placeCodeFrom } from '@/src/features/map/places';
 import { useBrowsingRegion } from '@/src/features/regions/browsingRegion';
@@ -34,6 +37,12 @@ type SearchParams = {
   game?: string;
   /** `1`: opens the card search with the keyboard up (Home's field, stage R7). */
   typing?: string;
+  /**
+   * A set's code: the card search shows that set's cards (a set page's "Who has cards of this
+   * set", stage R14), named by `setName`.
+   */
+  set?: string;
+  setName?: string;
   /** A region to browse (the old Map tab's links). */
   region?: string;
   /** A state or province to show on the map (the old Map tab's links). */
@@ -53,6 +62,18 @@ export interface LinkedPlace {
   nonce: number;
 }
 
+const SET_CODE = /^[\w.-]{1,32}$/;
+
+/** The set a link names (`?set=` and `?setName=`), or null. */
+function setOfLink(params: SearchParams): { code: string; name: string } | null {
+  const code = typeof params.set === 'string' ? params.set.trim() : '';
+  if (!SET_CODE.test(code)) {
+    return null;
+  }
+  const name = typeof params.setName === 'string' ? params.setName.trim().slice(0, 120) : '';
+  return { code, name };
+}
+
 function linkedPlaceOf(params: SearchParams, nonce: number): LinkedPlace | null {
   const code = placeCodeFrom(params.subdivision);
   if (!code) {
@@ -69,6 +90,8 @@ const LINK_KEYS: readonly (keyof SearchParams)[] = [
   'q',
   'game',
   'typing',
+  'set',
+  'setName',
   'region',
   'subdivision',
   'place',
@@ -98,9 +121,14 @@ export default function SearchScreen() {
   const { select, knows, ready } = useBrowsingRegion();
   const browsing = useBrowsingGame();
   const wishlist = useWishlist();
+  // Signed out (stage R15): the person button for the bell, Wishlist asks to sign in in place.
+  const guest = useIsGuest();
   const [segment, setSegment] = useState<SearchSegment>(() => segmentOfLink(params) ?? 'cards');
   const [typing, setTyping] = useState<{ text: string } | null>(() =>
-    params.q || params.typing === '1' ? { text: params.q ?? '' } : null
+    params.q || params.typing === '1' || setOfLink(params) ? { text: params.q ?? '' } : null
+  );
+  const [cardSet, setCardSet] = useState<{ code: string; name: string } | null>(() =>
+    setOfLink(params)
   );
   const [state, setState] = useState<string | null>(() => placeCodeFrom(params.place));
   // The state a link names, on the region it names (applied once per link: `nonce`).
@@ -116,7 +144,9 @@ export default function SearchScreen() {
     setFollowed(link);
     if (link.replace(/\|/g, '') !== '') {
       const linkedSegment = segmentOfLink(params);
-      if (params.q || params.typing === '1') {
+      const linkedSet = setOfLink(params);
+      setCardSet(linkedSet);
+      if (params.q || params.typing === '1' || linkedSet) {
         setSegment('cards');
         setTyping({ text: params.q ?? '' });
       } else if (linkedSegment) {
@@ -181,9 +211,20 @@ export default function SearchScreen() {
       />
     );
   } else if (segment === 'wishlist') {
-    body = <WishlistSegment />;
+    // A guest's Wishlist asks to sign in in place (stage R15, mockup v50 screen 72).
+    body = guest ? <GuestPage kind="wishlist" testID="guest-wishlist" /> : <WishlistSegment />;
   } else if (typing) {
-    body = <CardTyping initialText={typing.text} onCancel={() => setTyping(null)} />;
+    body = (
+      <CardTyping
+        initialText={typing.text}
+        onCancel={() => {
+          setTyping(null);
+          setCardSet(null);
+        }}
+        set={cardSet}
+        onClearSet={() => setCardSet(null)}
+      />
+    );
   } else {
     body = (
       <SearchMap
@@ -216,7 +257,11 @@ export default function SearchScreen() {
             </Text>
             <GamePill testID="search-game" />
           </View>
-          <NotificationBell testID="notification-bell-search" variant="round" />
+          {guest ? (
+            <PersonButton testID="person-button-search" />
+          ) : (
+            <NotificationBell testID="notification-bell-search" variant="round" />
+          )}
         </View>
         <UnderlineTabs<SearchSegment>
           label={SEARCH_COPY.segmentsLabel}
@@ -226,6 +271,7 @@ export default function SearchScreen() {
             setSegment(next);
             if (next === 'cards') {
               setTyping(null);
+              setCardSet(null);
             }
           }}
           testID="search-segment"
