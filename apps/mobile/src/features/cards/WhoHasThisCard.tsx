@@ -33,6 +33,7 @@ import {
   radius,
   spacing,
   textStyle,
+  useStackedRows,
   useTheme,
 } from '@/src/theme';
 
@@ -74,6 +75,9 @@ export function WhoHasThisCard({
   const { palette } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // At large text sizes the picture goes above the name: beside it, a card name's longest word no
+  // longer fit at the largest size and broke in the middle ("Shadowval / e Revenant", R8's review).
+  const stacked = useStackedRows();
   const { region } = useBrowsingRegion();
   // "Nobody in Americas (North) lists this card yet." (the region browsed, by its name).
   const where = regionName(region);
@@ -136,9 +140,9 @@ export function WhoHasThisCard({
 
   const header = (
     <View style={styles.header}>
-      <View style={styles.hero}>
+      <View style={[styles.hero, stacked && styles.heroStacked]} testID="card-hero">
         <CardImage src={picture} alt={name} game={card.game} size="sm" testID="card-picture" />
-        <View style={styles.heroText}>
+        <View style={[styles.heroText, stacked && styles.heroTextStacked]}>
           {card.game ? (
             <Text
               maxFontSizeMultiplier={PINNED_MAX_FONT_SCALE}
@@ -542,7 +546,9 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: spacing[4] },
   header: { gap: spacing[4], paddingBottom: spacing[2] },
   hero: { flexDirection: 'row', gap: spacing[4], alignItems: 'flex-start' },
+  heroStacked: { flexDirection: 'column', gap: spacing[3] },
   heroText: { flex: 1, gap: spacing[2] },
+  heroTextStacked: { flex: 0, alignSelf: 'stretch' },
   eyebrow: { fontWeight: fontWeight.semibold, letterSpacing: 0.8 },
   name: {
     fontFamily: fontFamily.display,
