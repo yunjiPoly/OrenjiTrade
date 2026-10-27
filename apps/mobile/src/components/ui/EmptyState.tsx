@@ -5,6 +5,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from '@/src/components/ui/Text';
 import {
   TITLE_MAX_FONT_SCALE,
+  fontSize,
   fontWeight,
   radius,
   spacing,
@@ -29,10 +30,19 @@ export interface EmptyStateProps {
 }
 
 /**
+ * How far an empty state's description follows the system text size: up to the size its title
+ * stops at (`xl` at `TITLE_MAX_FONT_SCALE`, 40 pt), so the title is never the smaller of the two.
+ * Uncapped, the 16 pt description grew to about 50 pt at the largest accessibility size, above the
+ * title's 40 (R8's review F4).
+ */
+export const EMPTY_STATE_DESCRIPTION_MAX_FONT_SCALE =
+  (fontSize.xl * TITLE_MAX_FONT_SCALE) / fontSize.md;
+
+/**
  * Centred illustration + copy for screens with nothing to show yet. The title follows the system
  * text size up to twice its size, as a screen's title does (`TITLE_MAX_FONT_SCALE`): at the
  * largest accessibility size it otherwise cut a word of an empty Inventory in two ("Your
- * inventor / y is empty", stage R8's walk).
+ * inventor / y is empty", stage R8's walk). The description follows it up to the title's size.
  */
 export function EmptyState({
   title,
@@ -58,7 +68,10 @@ export function EmptyState({
         {title}
       </Text>
       {description ? (
-        <Text style={[textStyle('md'), styles.description, { color: palette.textMuted }]}>
+        <Text
+          maxFontSizeMultiplier={EMPTY_STATE_DESCRIPTION_MAX_FONT_SCALE}
+          style={[textStyle('md'), styles.description, { color: palette.textMuted }]}
+        >
           {description}
         </Text>
       ) : null}
