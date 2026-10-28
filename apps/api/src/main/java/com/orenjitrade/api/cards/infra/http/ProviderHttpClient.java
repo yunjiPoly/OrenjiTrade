@@ -86,9 +86,11 @@ public final class ProviderHttpClient {
 
     /**
      * {@code GET uri}; the handler reads the 2xx response, which is closed afterwards. Transport
-     * failures inside the handler (a connection dropped mid-body) are retried like timeouts.
+     * failures inside the handler (a connection dropped mid-body) are retried like timeouts; a
+     * response that passes the handler's size limit ({@link ResponseTooLargeException}) is not.
      *
      * @throws HttpStatusFailure 4xx (other than 429) or a final 3xx
+     * @throws ProviderRequestException the response passed the handler's size limit
      * @throws ProviderUnavailableException retries exhausted
      */
     public <T> T get(URI uri, String accept, ResponseHandler<T> handler) {
@@ -137,6 +139,16 @@ public final class ProviderHttpClient {
                                                         response.close();
                                                     }
                                                     return Attempt.success(value);
+                                                } catch (ResponseTooLargeException e) {
+                                                    response.close();
+                                                    throw new ProviderRequestException(
+                                                            what
+                                                                    + " is larger than "
+                                                                    + e.maxBytes()
+                                                                    + " bytes; the download was"
+                                                                    + " stopped and is not"
+                                                                    + " retried",
+                                                            status);
                                                 } catch (IOException | RuntimeException e) {
                                                     response.close();
                                                     throw e;

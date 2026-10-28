@@ -16,8 +16,8 @@ adapter.
 
 | Endpoint | Use | Calls |
 | --- | --- | --- |
-| `GET https://api.scryfall.com/bulk-data` | the list of daily bulk files; the adapter takes the one of type `unique_artwork` (its `updated_at` and `download_uri`) | at most 1 a day |
-| `GET <download_uri>` on `https://data.scryfall.io/` | the "Unique Artwork" bulk file: one card object per artwork, about 50,000 objects | 1 per new `updated_at` |
+| `GET https://api.scryfall.com/bulk-data` | the list of daily bulk files; the adapter takes the one of type `unique_artwork` (its `updated_at` and `jsonl_download_uri`; the older `download_uri` is still read, see "The bulk list of 2026-10-28" below) | at most 1 a day |
+| `GET <jsonl_download_uri>` on `https://data.scryfall.io/` | the "Unique Artwork" bulk file: gzip-compressed JSON Lines (`.jsonl.gz`, one card object per line, about 39 MB compressed on 2026-10-28), about 50,000 objects | 1 per new `updated_at` |
 | `GET https://cards.scryfall.io/normal/front/…/<id>.jpg` | the `normal` image (488 px wide JPEG) of one artwork — only by the image cache | 1 per artwork ever cached |
 
 No per-card API call is made. The `art_crop`, `border_crop` and `png` images are never used (no
@@ -34,20 +34,83 @@ crops; the 320 px rendition does not need the larger files).
 - **The bulk file, refreshed at most daily:** a stored file younger than 24 hours is reused without
   any call; after that, one `GET /bulk-data` call, and a download only when it names a newer
   `updated_at`. The raw file is kept under `PROVIDER_DATA_DIR/scryfall/<updated_at>/bulk.json`
-  (default `apps/api/.local-dev/provider-data/`, git-ignored). `SCRYFALL_SNAPSHOT_ONLY=true` imports
-  the newest stored file without any call.
+  (default `apps/api/.local-dev/provider-data/`, git-ignored; the name stays `bulk.json` whatever
+  the file's shape, see below). `SCRYFALL_SNAPSHOT_ONLY=true` imports the newest stored file
+  without any call.
 - **Images unaltered except for the size:** the 320 px JPEG rendition is the only change; images
   are never cropped, covered, recoloured or watermarked.
 - **No hotlinking:** the provider is `REHOST_REQUIRED` like every provider (ADR 0015, ADR 0021):
   clients only receive OrenjiTrade's own `/api/v1/public/card-images/{id}`; the source URLs stay in
   `card_image.source_url`, and only URLs of the configured image host matching the card image
-  pattern are downloaded (SSRF guard). A bulk `download_uri` outside the configured bulk host is
-  refused.
+  pattern are downloaded (SSRF guard). A bulk address outside the configured bulk host is refused:
+  it must start with `https://data.scryfall.io/` and the rest must be exactly `<folder>/<file>`
+  (letters, digits, `.`, `_`, `-`, the file starting with a letter or digit, so never `.` or `..`;
+  no query string, no other host). Redirects are never followed (a `302` is a final answer and its
+  target gets no request), so the bulk host cannot send the importer elsewhere.
 - **No implied endorsement:** OrenjiTrade never says or suggests that Scryfall endorses it.
 - **Never in tests or CI:** the test profile points the adapter at closed local ports in
   snapshot-only mode, the end-to-end harnesses turn it off (`SCRYFALL_ENABLED=false`), and the
   tests use the fictional fixture `src/test/resources/scryfall/unique-artwork-fixture.json`
-  through an offline stub (`CardSourceStub`).
+  through an offline stub (`CardSourceStub`), which serves the bulk list of 2026-10-28 by default
+  and the list before it on request.
+
+## The bulk list of 2026-10-28
+
+On 2026-10-28 Scryfall changed `GET /bulk-data`. Each entry now has `object`, `id`, `type`,
+`updated_at`, `uri`, `name`, `description`, `jsonl_download_uri` and `compressed_size`; the fields
+`download_uri`, `size`, `content_type` and `content_encoding` are gone. The file behind
+`jsonl_download_uri` is gzip-compressed [JSON Lines](https://jsonlines.org/) (`.jsonl.gz`: one
+card object per line) instead of one JSON array. The first Magic import after the change failed
+in 0.3 s with "Scryfall named a bulk file outside the configured bulk host" (the address was
+missing, and a missing address was reported with the guard's message); nothing was downloaded.
+
+What the adapter does since:
+
+- **The address:** `jsonl_download_uri` when the entry has one, else the older `download_uri`
+  (`ScryfallDtos.BulkData.downloadAddress()`). The current field comes first: it is the one
+  Scryfall documents now, and its gzip file is the smaller download. A list entry with neither
+  stops the import with "Scryfall's bulk list gives no download address for unique_artwork". An
+  address outside the bulk host stops it with "Scryfall named a bulk file outside the configured
+  bulk host (refused: `<scheme>://<host><path>`)": the refused address's scheme, host, port and path
+  only, never user information, a query string or a fragment (only their presence is said),
+  clipped at 200 characters, in printable ASCII (any other character stays percent-encoded, so
+  no line break and no invisible character such as a right-to-left override reaches the
+  message). The scheme is kept although other provider messages give host and path only: an
+  `http://` address on the right host is refused for its scheme alone, and the message has to
+  say so.
+- **The file:** stored as the HTTP client hands it over. Spring's JDK client decompresses a
+  `Content-Encoding: gzip` answer, so the old JSON array was stored decoded; the `.jsonl.gz` file
+  is a gzip file and stays compressed. Reading looks at the gzip magic bytes, not the name, and
+  Jackson's `readValues` reads both a root array and values one after another (JSON Lines),
+  so every file stored before or after the change is read (`ScryfallCardProviderTest` proves
+  the same catalogue from the array and from JSON Lines, with or without a trailing newline,
+  with blank lines, CRLF, compressed or decoded; `CardSourcesImportIT` imports a gzip JSON Lines
+  file end to end).
+- **The name `bulk.json`:** kept. The snapshot store finds a version only by that name
+  (`newest()`, `find(version)`), so a new name would hide the files owners already hold, make the
+  importer download a version it already has and leave `SCRYFALL_SNAPSHOT_ONLY` without a file.
+- **The size limit:** `orenji.card-providers.scryfall.max-bulk-bytes` (default 1 GiB) bounds the
+  stored file and, since this change, the decompressed content too (a decompression bomb guard:
+  before, the decoded array was what got stored, so the download limit bounded it; the compressed
+  file no longer does). "Unique Artwork" is about 39 MB compressed; decompressed it should be a
+  few hundred MB (not measured: agents never download it), inside the limit. A download above it
+  stops at once with "Scryfall data.scryfall.io/<folder>/<file> is larger than ... bytes; the
+  download was stopped and is not retried" and nothing is stored (before review fix 1 it was
+  downloaded again on every attempt and reported as "unavailable after 4 attempt(s)
+  (IOException)"; the same now holds for TCGdex's archive and YGOPRODeck's files). A stored file
+  above it once decompressed stops with "... is larger than ... bytes once decompressed
+  (orenji.card-providers.scryfall.max-bulk-bytes)". Raise the property if a larger bulk type is
+  ever configured.
+- **A stored file that cannot be read:** a file that is complete on disk but cannot be read (a
+  damaged gzip file) or is not valid JSON is reused for 24 hours and then for as long as Scryfall
+  lists the same `updated_at`, so the message says what to do: "The Scryfall bulk file
+  `<version>` cannot be read (to download it again, delete the folder
+  PROVIDER_DATA_DIR/scryfall/`<version>`)". After the folder is deleted, the next import
+  downloads the file again. Downloads cut short never get that far: the HTTP client reports
+  them and nothing is stored.
+
+The bulk type itself (`unique_artwork`, or "Default Cards" below) is unchanged: the fix works for
+whichever type is configured.
 
 ## Mapping to the generic model
 

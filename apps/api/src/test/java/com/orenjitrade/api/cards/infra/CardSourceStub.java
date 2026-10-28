@@ -27,14 +27,17 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import javax.imageio.ImageIO;
 import org.jspecify.annotations.Nullable;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Offline stand-in for Scryfall and TCGdex (one per test JVM, 127.0.0.1 only), serving the
- * hand-written fixtures in each provider's format: Scryfall's {@code /bulk-data} list, its
- * gzip-encoded "Unique Artwork" file and card images; GitHub's newest commit of
- * tcgdex/cards-database, the repository archive of {@code src/test/resources/tcgdex/} and TCGdex's
- * card images (generated in memory). Every request is recorded with its {@code User-Agent} and
- * {@code Accept} headers. Tests never touch the network.
+ * hand-written fixtures in each provider's format: Scryfall's {@code /bulk-data} list (the shape of
+ * 2026-10-28 by default, {@link BulkList}), its "Unique Artwork" file (gzip JSON Lines, or the
+ * older gzip-encoded JSON array) and card images; GitHub's newest commit of tcgdex/cards-database,
+ * the repository archive of {@code src/test/resources/tcgdex/} and TCGdex's card images (generated
+ * in memory). Every request is recorded with its {@code User-Agent} and {@code Accept} headers.
+ * Tests never touch the network.
  */
 public final class CardSourceStub {
 
@@ -46,12 +49,29 @@ public final class CardSourceStub {
     /** One request the stub answered. */
     public record Request(String path, @Nullable String userAgent, @Nullable String accept) {}
 
+    /** How the stub's Scryfall {@code /bulk-data} list names the bulk file. */
+    public enum BulkList {
+        /**
+         * Scryfall's list since 2026-10-28: {@code jsonl_download_uri} (a {@code .jsonl.gz} file,
+         * one card object per line) and {@code compressed_size}; no {@code download_uri}.
+         */
+        JSONL,
+        /**
+         * The list before: {@code download_uri} (a {@code .json} array served gzip-encoded), {@code
+         * size}, {@code content_type}, {@code content_encoding}.
+         */
+        LEGACY,
+        /** An entry of the configured type without any download address. */
+        NO_ADDRESS
+    }
+
     private static volatile @Nullable CardSourceStub instance;
 
     private final HttpServer server;
     private final List<Request> requests = new CopyOnWriteArrayList<>();
     private volatile String scryfallUpdatedAt = SCRYFALL_UPDATED_AT;
     private volatile @Nullable String downloadUriOverride;
+    private volatile BulkList bulkList = BulkList.JSONL;
     private volatile String tcgdexSha = TCGDEX_SHA;
 
     private CardSourceStub() throws IOException {
@@ -106,6 +126,7 @@ public final class CardSourceStub {
         requests.clear();
         scryfallUpdatedAt = SCRYFALL_UPDATED_AT;
         downloadUriOverride = null;
+        bulkList = BulkList.JSONL;
         tcgdexSha = TCGDEX_SHA;
     }
 
@@ -113,8 +134,13 @@ public final class CardSourceStub {
         this.scryfallUpdatedAt = updatedAt;
     }
 
+    /** The address the list names for the bulk file (in the field of the current shape). */
     public void downloadUri(String uri) {
         this.downloadUriOverride = uri;
+    }
+
+    public void scryfallBulkList(BulkList shape) {
+        this.bulkList = shape;
     }
 
     public void tcgdexSha(String sha) {
@@ -142,6 +168,19 @@ public final class CardSourceStub {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /**
+     * The Scryfall fixture as JSON Lines, the shape of the bulk file since 2026-10-28: one card
+     * object per line, each line ending with a newline.
+     */
+    public static byte[] scryfallJsonLines(String imageBase) {
+        JsonMapper mapper = JsonMapper.builder().build();
+        StringBuilder lines = new StringBuilder();
+        for (JsonNode card : mapper.readTree(scryfallFixture(imageBase))) {
+            lines.append(mapper.writeValueAsString(card)).append('\n');
+        }
+        return lines.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     public static byte[] gzip(byte[] bytes) {
@@ -232,33 +271,20 @@ public final class CardSourceStub {
                         exchange.getRequestHeaders().getFirst("Accept")));
         try (exchange) {
             if (path.equals("/scryfall-api/bulk-data")) {
-                String download =
-                        downloadUriOverride != null
-                                ? downloadUriOverride
-                                : scryfallData()
-                                        + "unique-artwork/unique-artwork-"
-                                        + scryfallUpdatedAt
-                                                .replaceAll("[^0-9]", "")
-                                                .substring(0, 14)
-                                        + ".json";
-                String json =
-                        """
-                        {"object": "list", "has_more": false, "data": [
-                          {"object": "bulk_data", "type": "oracle_cards",
-                           "updated_at": "%1$s", "download_uri": "%2$soracle-cards/x.json"},
-                          {"object": "bulk_data", "type": "unique_artwork",
-                           "name": "Unique Artwork", "updated_at": "%1$s",
-                           "download_uri": "%3$s", "size": 123456,
-                           "content_type": "application/json", "content_encoding": "gzip"}
-                        ]}
-                        """
-                                .formatted(scryfallUpdatedAt, scryfallData(), download);
                 send(
                         exchange,
                         200,
                         "application/json",
                         null,
-                        json.getBytes(StandardCharsets.UTF_8));
+                        scryfallBulkList().getBytes(StandardCharsets.UTF_8));
+            } else if (path.startsWith("/scryfall-data/unique-artwork/")
+                    && path.endsWith(".jsonl.gz")) {
+                send(
+                        exchange,
+                        200,
+                        "application/gzip",
+                        null,
+                        gzip(scryfallJsonLines(scryfallImages())));
             } else if (path.startsWith("/scryfall-data/unique-artwork/")) {
                 send(
                         exchange,
@@ -289,6 +315,62 @@ public final class CardSourceStub {
                         "not found".getBytes(StandardCharsets.UTF_8));
             }
         }
+    }
+
+    /** {@code GET /bulk-data} in the configured {@link BulkList} shape. */
+    private String scryfallBulkList() {
+        String version = scryfallUpdatedAt.replaceAll("[^0-9]", "").substring(0, 14);
+        String file = scryfallData() + "unique-artwork/unique-artwork-" + version;
+        return switch (bulkList) {
+            case JSONL ->
+                    """
+                    {"object": "list", "has_more": false, "data": [
+                      {"object": "bulk_data", "id": "0b000000-0000-4000-8000-000000000001",
+                       "type": "oracle_cards", "updated_at": "%1$s",
+                       "uri": "https://api.scryfall.com/bulk-data/0b000000-0000-4000-8000-000000000001",
+                       "name": "Oracle Cards", "description": "Fixture: one card object per Oracle id.",
+                       "jsonl_download_uri": "%2$soracle-cards/oracle-cards-x.jsonl.gz",
+                       "compressed_size": 1234},
+                      {"object": "bulk_data", "id": "0b000000-0000-4000-8000-000000000002",
+                       "type": "unique_artwork", "updated_at": "%1$s",
+                       "uri": "https://api.scryfall.com/bulk-data/0b000000-0000-4000-8000-000000000002",
+                       "name": "Unique Artwork",
+                       "description": "Fixture: one card object per artwork.",
+                       "jsonl_download_uri": "%3$s", "compressed_size": 4567}
+                    ]}
+                    """
+                            .formatted(
+                                    scryfallUpdatedAt,
+                                    scryfallData(),
+                                    downloadUriOverride != null
+                                            ? downloadUriOverride
+                                            : file + ".jsonl.gz");
+            case LEGACY ->
+                    """
+                    {"object": "list", "has_more": false, "data": [
+                      {"object": "bulk_data", "type": "oracle_cards",
+                       "updated_at": "%1$s", "download_uri": "%2$soracle-cards/x.json"},
+                      {"object": "bulk_data", "type": "unique_artwork",
+                       "name": "Unique Artwork", "updated_at": "%1$s",
+                       "download_uri": "%3$s", "size": 123456,
+                       "content_type": "application/json", "content_encoding": "gzip"}
+                    ]}
+                    """
+                            .formatted(
+                                    scryfallUpdatedAt,
+                                    scryfallData(),
+                                    downloadUriOverride != null
+                                            ? downloadUriOverride
+                                            : file + ".json");
+            case NO_ADDRESS ->
+                    """
+                    {"object": "list", "has_more": false, "data": [
+                      {"object": "bulk_data", "type": "unique_artwork",
+                       "name": "Unique Artwork", "updated_at": "%1$s", "compressed_size": 4567}
+                    ]}
+                    """
+                            .formatted(scryfallUpdatedAt);
+        };
     }
 
     private static void send(

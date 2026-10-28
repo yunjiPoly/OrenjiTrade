@@ -18,15 +18,41 @@ final class ScryfallDtos {
     @JsonIgnoreProperties(ignoreUnknown = true)
     record BulkList(@Nullable List<BulkData> data) {}
 
-    /** One bulk file: its type, when it was generated and where it is downloaded. */
+    /**
+     * One bulk file: its type, when it was generated and where it is downloaded. Since 2026-10-28
+     * Scryfall lists {@code jsonl_download_uri} (a gzip-compressed JSON Lines file, one card object
+     * per line) and {@code compressed_size}; the list before named {@code download_uri} (one JSON
+     * array, served gzip-encoded), {@code size}, {@code content_type} and {@code content_encoding}.
+     * Both shapes are read.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     record BulkData(
             @Nullable String type,
             @JsonProperty("updated_at") @Nullable String updatedAt,
+            @JsonProperty("jsonl_download_uri") @Nullable String jsonlDownloadUri,
+            @JsonProperty("compressed_size") @Nullable Long compressedSize,
             @JsonProperty("download_uri") @Nullable String downloadUri,
             @Nullable Long size,
             @JsonProperty("content_type") @Nullable String contentType,
-            @JsonProperty("content_encoding") @Nullable String contentEncoding) {}
+            @JsonProperty("content_encoding") @Nullable String contentEncoding) {
+
+        /**
+         * Where the file is downloaded: {@code jsonl_download_uri} when Scryfall gives one, else
+         * the older {@code download_uri}; null when neither is given (a blank value counts as
+         * none). The current field comes first: it is the one Scryfall documents now, so the import
+         * never depends on a field being phased out, and its gzip file is the smaller download. The
+         * parser reads either file.
+         */
+        @Nullable String downloadAddress() {
+            if (jsonlDownloadUri != null && !jsonlDownloadUri.isBlank()) {
+                return jsonlDownloadUri;
+            }
+            if (downloadUri != null && !downloadUri.isBlank()) {
+                return downloadUri;
+            }
+            return null;
+        }
+    }
 
     /** A card object of a bulk file (one printing; the Unique Artwork file holds one per art). */
     @JsonIgnoreProperties(ignoreUnknown = true)

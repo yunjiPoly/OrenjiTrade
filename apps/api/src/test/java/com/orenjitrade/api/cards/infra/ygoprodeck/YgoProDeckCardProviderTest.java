@@ -11,6 +11,8 @@ import com.orenjitrade.api.cards.domain.provider.ProviderUnavailableException;
 import com.orenjitrade.api.cards.domain.provider.SyncOptions;
 import com.orenjitrade.api.cards.domain.provider.SyncResult;
 import com.orenjitrade.api.cards.images.YgoProDeckStub;
+import com.orenjitrade.api.cards.infra.http.ResponseTooLargeException;
+import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -111,5 +113,23 @@ class YgoProDeckCardProviderTest {
         assertThatThrownBy(() -> provider.openImage(STUB.imageBaseUrl() + "900000004.jpg"))
                 .isInstanceOf(ImageMissingAtSourceException.class);
         assertThat(Files.exists(snapshots)).isTrue();
+    }
+
+    /** A file above its limit is the shared never-retried refusal, and nothing is kept. */
+    @Test
+    void aSnapshotFileAboveItsLimitIsTheNeverRetriedRefusal() throws Exception {
+        Path dir = Files.createDirectories(snapshots.resolve("limit"));
+        assertThatThrownBy(
+                        () ->
+                                YgoProDeckSnapshotStore.write(
+                                        dir,
+                                        "cardinfo.json",
+                                        new ByteArrayInputStream(new byte[10]),
+                                        4))
+                .isInstanceOf(ResponseTooLargeException.class)
+                .hasMessage("Response larger than 4 bytes");
+        try (var files = Files.list(dir)) {
+            assertThat(files).isEmpty();
+        }
     }
 }

@@ -20,8 +20,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param gameSlug the OrenjiTrade game the catalog is imported into
  * @param apiBaseUrl API base URL (ends with {@code /})
  * @param bulkType the bulk file imported ({@code unique_artwork}: one card object per artwork)
- * @param bulkBaseUrl where bulk files may be downloaded from (a {@code download_uri} elsewhere is
- *     refused)
+ * @param bulkBaseUrl where bulk files may be downloaded from (a bulk address elsewhere, {@code
+ *     jsonl_download_uri} or the older {@code download_uri}, is refused)
  * @param imageBaseUrl where card images may be downloaded from (image URLs of the bulk file
  *     elsewhere are dropped); they stay server-side
  * @param imageVersion the image size downloaded for the cache ({@code normal}, 488 px wide JPEG,
@@ -39,7 +39,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param snapshotOnly never call Scryfall: import the newest local bulk file (offline work)
  * @param refreshInterval a bulk file younger than this is reused without asking Scryfall (the files
  *     are refreshed at most daily)
- * @param maxBulkBytes largest bulk file accepted
+ * @param maxBulkBytes largest bulk file accepted, both as stored (what the HTTP client hands over:
+ *     the {@code .jsonl.gz} file stays compressed, about 39 MB for "Unique Artwork" on 2026-10-28)
+ *     and once decompressed when it is read (decompression bomb guard)
  */
 @ConfigurationProperties(prefix = "orenji.card-providers.scryfall")
 public record ScryfallProperties(
