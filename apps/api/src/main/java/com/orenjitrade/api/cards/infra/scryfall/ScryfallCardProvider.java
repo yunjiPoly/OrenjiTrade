@@ -376,8 +376,25 @@ public class ScryfallCardProvider implements CardProvider {
             throw unreadable(snapshot, e.getCause());
         } catch (JacksonException e) {
             throw new ProviderRequestException(
-                    "The Scryfall bulk file " + snapshot.version() + " is not valid JSON", 200);
+                    "The Scryfall bulk file "
+                            + snapshot.version()
+                            + " is not valid JSON"
+                            + deleteToDownloadAgain(snapshot),
+                    200);
         }
+    }
+
+    /**
+     * What to do about a stored file that is complete on disk but cannot be read: it is reused for
+     * 24 hours and then for as long as Scryfall lists the same {@code updated_at}, so every run
+     * would fail the same way until Scryfall publishes a newer file. Deleting its folder makes the
+     * next import download it again. The folder is named relative to {@code PROVIDER_DATA_DIR} (the
+     * default snapshot directory), never as an absolute path.
+     */
+    static String deleteToDownloadAgain(ProviderSnapshotStore.Snapshot snapshot) {
+        return " (to download it again, delete the folder PROVIDER_DATA_DIR/scryfall/"
+                + snapshot.version()
+                + ")";
     }
 
     private ProviderRequestException unreadable(
@@ -393,7 +410,11 @@ public class ScryfallCardProvider implements CardProvider {
                     200);
         }
         return new ProviderRequestException(
-                "The Scryfall bulk file " + snapshot.version() + " cannot be read", 200);
+                "The Scryfall bulk file "
+                        + snapshot.version()
+                        + " cannot be read"
+                        + deleteToDownloadAgain(snapshot),
+                200);
     }
 
     /**

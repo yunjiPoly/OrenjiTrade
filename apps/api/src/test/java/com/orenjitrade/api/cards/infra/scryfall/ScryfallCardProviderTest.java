@@ -48,6 +48,15 @@ class ScryfallCardProviderTest {
     static final CardSourceStub STUB = CardSourceStub.get();
     static final String AGENT = "OrenjiTrade-catalog-importer/test (+https://www.orenjitrade.com)";
 
+    /** A stored file that cannot be read names the folder to delete (relative, never absolute). */
+    static final String UNREADABLE =
+            "The Scryfall bulk file 20261028090231 cannot be read (to download it again, delete"
+                    + " the folder PROVIDER_DATA_DIR/scryfall/20261028090231)";
+
+    static final String NOT_JSON =
+            "The Scryfall bulk file 20261028090231 is not valid JSON (to download it again, delete"
+                    + " the folder PROVIDER_DATA_DIR/scryfall/20261028090231)";
+
     @TempDir Path snapshots;
 
     private final MovableClock clock = new MovableClock();
@@ -396,7 +405,7 @@ class ScryfallCardProviderTest {
         byte[] half = utf8(lines.substring(0, lines.length() / 2));
         assertThatThrownBy(() -> provider.parse(stored("cut", "20261028090231", half)))
                 .isInstanceOf(ProviderRequestException.class)
-                .hasMessage("The Scryfall bulk file 20261028090231 is not valid JSON");
+                .hasMessage(NOT_JSON);
         byte[] gzip = CardSourceStub.gzip(utf8(lines));
         // Cut in the middle, or at the very end: every card is there but the 8-byte trailer
         // (checksum and length) is missing in full or in part.
@@ -407,7 +416,7 @@ class ScryfallCardProviderTest {
                             () -> provider.parse(stored("cut-" + cut, "20261028090231", truncated)))
                     .as("cut at %d of %d bytes", cut, gzip.length)
                     .isInstanceOf(ProviderRequestException.class)
-                    .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+                    .hasMessage(UNREADABLE);
         }
         // A damaged checksum (the trailer's CRC-32) or a damaged length (its last 4 bytes).
         for (int at : new int[] {gzip.length - 6, gzip.length - 2}) {
@@ -419,8 +428,58 @@ class ScryfallCardProviderTest {
                                             stored("damaged-" + at, "20261028090231", damaged)))
                     .as("byte %d of %d damaged", at, gzip.length)
                     .isInstanceOf(ProviderRequestException.class)
-                    .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+                    .hasMessage(UNREADABLE);
         }
+    }
+
+    /**
+     * A stored file that is complete on disk but cannot be read is reused while Scryfall lists the
+     * same {@code updated_at}, so the message names the folder to delete; once it is deleted, the
+     * next import downloads the file again.
+     */
+    @Test
+    void anUnreadableStoredFileNamesItsFolderAndDeletingItDownloadsAgain() throws Exception {
+        ScryfallCardProvider provider = provider(false);
+        provider.syncCards("mtg", SyncOptions.full());
+        Path folder = snapshots.resolve(CardSourceStub.SCRYFALL_VERSION);
+        byte[] gzip = Files.readAllBytes(folder.resolve(ScryfallCardProvider.BULK_FILE));
+        Files.write(
+                folder.resolve(ScryfallCardProvider.BULK_FILE),
+                Arrays.copyOf(gzip, gzip.length - 8));
+
+        STUB.reset();
+        clock.advance(Duration.ofHours(25));
+        assertThatThrownBy(() -> provider.syncCards("mtg", SyncOptions.full()))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage(
+                        "The Scryfall bulk file "
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + " cannot be read (to download it again, delete the folder"
+                                + " PROVIDER_DATA_DIR/scryfall/"
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + ")")
+                .hasMessageNotContaining(snapshots.toString());
+        assertThat(STUB.requests())
+                .as("the same updated_at: the broken copy is reused")
+                .extracting(CardSourceStub.Request::path)
+                .containsExactly("/scryfall-api/bulk-data");
+
+        try (var files = Files.list(folder)) {
+            for (Path file : files.toList()) {
+                Files.delete(file);
+            }
+        }
+        Files.delete(folder);
+        STUB.reset();
+        assertThat(provider.syncCards("mtg", SyncOptions.full()).cards()).hasSize(6);
+        assertThat(STUB.requests())
+                .as("the folder deleted: downloaded again")
+                .extracting(CardSourceStub.Request::path)
+                .containsExactly(
+                        "/scryfall-api/bulk-data",
+                        "/scryfall-data/unique-artwork/unique-artwork-"
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + ".jsonl.gz");
     }
 
     /**
