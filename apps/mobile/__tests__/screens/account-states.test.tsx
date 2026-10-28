@@ -281,11 +281,25 @@ describe('Account status screen', () => {
     });
     renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
     expect(await screen.findByText('Your account is suspended')).toBeOnTheScreen();
-    expect(screen.getByTestId('suspension-message')).toHaveTextContent('This account is suspended');
+    // The API's general words only repeat the title: no line for them (no reason is sent).
+    expect(screen.queryByTestId('suspension-message')).toBeNull();
     expect(screen.queryByTestId('suspension-until')).toBeNull();
     expect(screen.getByText(/If you think this is a mistake, write to/)).toBeOnTheScreen();
     expect(screen.getByText('support@orenjitrade.com')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeOnTheScreen();
+  });
+
+  it('puts the end date right under the title when the API sends its general words', async () => {
+    mockApi({
+      'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended', {
+        suspendedUntil: '2026-11-02T17:00:00Z',
+      }),
+    });
+    renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByTestId('suspension-until')).toHaveTextContent(
+      /^The suspension ends on November 2, 2026\.$/
+    );
+    expect(screen.queryByTestId('suspension-message')).toBeNull();
   });
 
   it('explains a temporary suspension from a 403 answer', async () => {

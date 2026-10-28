@@ -13,7 +13,11 @@ import { PillButton } from '@/src/components/ui/PillButton';
 import { SkeletonList } from '@/src/components/ui/Skeleton';
 import { useSnackbar } from '@/src/components/ui/Snackbar';
 import { Text } from '@/src/components/ui/Text';
-import { DELETION_COPY, SUSPENDED_COPY } from '@/src/features/account/accountCopy';
+import {
+  DELETION_COPY,
+  SUSPENDED_COPY,
+  suspensionReason,
+} from '@/src/features/account/accountCopy';
 import { exportMyData } from '@/src/features/account/exportData';
 import { StatusPage, StatusText } from '@/src/features/account/StatusPage';
 import { formatLongDate } from '@/src/lib/dates';
@@ -192,6 +196,7 @@ export default function SuspendedScreen() {
   }
 
   const suspension = account.suspension;
+  const reason = suspensionReason(suspension?.message);
   return (
     <StatusPage
       icon="shield-alert-outline"
@@ -212,9 +217,7 @@ export default function SuspendedScreen() {
         </>
       }
     >
-      <StatusText testID="suspension-message">
-        {suspension?.message || SUSPENDED_COPY.defaultReason}
-      </StatusText>
+      {reason ? <StatusText testID="suspension-message">{reason}</StatusText> : null}
       {suspension?.until ? (
         <StatusText strong testID="suspension-until">
           {SUSPENDED_COPY.endsOn(formatLongDate(suspension.until))}
