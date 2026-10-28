@@ -9210,6 +9210,21 @@ its reference line are covered by Jest only (the harness's API cannot be made to
 | `npm run test:scripts` | **145 / 145** |
 | `npm run audit:gate` | OK (two allowlisted advisories, as before) |
 
+**The phone's light theme** (decision 21, the shared token): walked on the iPhone with a throw-away
+Maestro flow (not in the repository) that sets Settings › Appearance › Light, then Settings,
+Profile, Home (Get started's "Add cards"), Inventory (the header's and the empty state's "Add
+cards"), Search and Messages, and puts the theme back to the device's: every orange button reads in
+ink. Screenshots in `.local-dev/wa-notes/pr-shots/after/phone-light/`.
+
+**A note on the phone's web E2E run**: the first `npm run test:mobile:e2e` of the stage served an
+Expo web export built without `EXPO_PUBLIC_API_BASE_URL` (the same bundle as a plain
+`expo export --platform web` this stage ran just before for the export check), so the app fell back
+to `http://localhost:8080`, the owner's API: for about 20 minutes the test browser sent it read-only
+requests (`/games`, `/regions`, `/feed`, sign-in reads) until the run was stopped; every spec failed
+on the suite's own "request to the developer API" guard. Nothing was written there. The rerun
+checked the served bundle first (66 / 66). Owner follow-up: the mobile E2E harness could refuse to
+run the specs when its web export does not target `:8090`, as the native harness already does.
+
 **What could not be verified**: the Android run could not be verified (no Android SDK on this Mac):
 the welcome and the three signed-out forms keep the KeyboardAvoidingView's padding there.
 
@@ -9587,6 +9602,21 @@ with "English" and "Français" whole; Delete account's "Why are you leaving? (op
 | `npm run test:mobile:maestro -- --platform ios` (the owner's iPhone 18 Pro, under the lock, every flow) | **39 / 39 flows passed** in 1 h 1 min, `settings-pages.yaml` with its new steps (the Private profile on Settings and Location, the map switch off on Privacy) among them; Expo Go stopped afterwards, the simulator left as the owner keeps it (light, text size large) |
 | `npm run test:scripts` | **145 / 145** |
 | `npm run audit:gate` | OK (two allowlisted advisories, as before) |
+
+**The phone's light theme** (decision 21, the shared token): walked on the iPhone with a throw-away
+Maestro flow (not in the repository) that sets Settings › Appearance › Light, then Settings,
+Profile, Home (Get started's "Add cards"), Inventory (the header's and the empty state's "Add
+cards"), Search and Messages, and puts the theme back to the device's: every orange button reads in
+ink. Screenshots in `.local-dev/wa-notes/pr-shots/after/phone-light/`.
+
+**A note on the phone's web E2E run**: the first `npm run test:mobile:e2e` of the stage served an
+Expo web export built without `EXPO_PUBLIC_API_BASE_URL` (the same bundle as a plain
+`expo export --platform web` this stage ran just before for the export check), so the app fell back
+to `http://localhost:8080`, the owner's API: for about 20 minutes the test browser sent it read-only
+requests (`/games`, `/regions`, `/feed`, sign-in reads) until the run was stopped; every spec failed
+on the suite's own "request to the developer API" guard. Nothing was written there. The rerun
+checked the served bundle first (66 / 66). Owner follow-up: the mobile E2E harness could refuse to
+run the specs when its web export does not target `:8090`, as the native harness already does.
 
 **What could not be verified**: the Android run could not be verified (no Android SDK on this Mac).
 
@@ -10013,6 +10043,21 @@ and Add a wish's card search at the largest size (the line in three short lines,
 third of the screen's height with five results under it) by a scratch flow that was not committed;
 the screenshots are `fix1-60-report-refused-largest.png` and `fix1-64-wish-search-largest.png` in
 `.local-dev/r14-notes/pr-shots/`.
+
+**The phone's light theme** (decision 21, the shared token): walked on the iPhone with a throw-away
+Maestro flow (not in the repository) that sets Settings › Appearance › Light, then Settings,
+Profile, Home (Get started's "Add cards"), Inventory (the header's and the empty state's "Add
+cards"), Search and Messages, and puts the theme back to the device's: every orange button reads in
+ink. Screenshots in `.local-dev/wa-notes/pr-shots/after/phone-light/`.
+
+**A note on the phone's web E2E run**: the first `npm run test:mobile:e2e` of the stage served an
+Expo web export built without `EXPO_PUBLIC_API_BASE_URL` (the same bundle as a plain
+`expo export --platform web` this stage ran just before for the export check), so the app fell back
+to `http://localhost:8080`, the owner's API: for about 20 minutes the test browser sent it read-only
+requests (`/games`, `/regions`, `/feed`, sign-in reads) until the run was stopped; every spec failed
+on the suite's own "request to the developer API" guard. Nothing was written there. The rerun
+checked the served bundle first (66 / 66). Owner follow-up: the mobile E2E harness could refuse to
+run the specs when its web export does not target `:8090`, as the native harness already does.
 
 **What could not be verified**: the Android run could not be verified (no Android SDK on this Mac).
 
@@ -10976,10 +11021,25 @@ AFTER screenshots: `.local-dev/wa-notes/pr-shots/before/` (48) and `after/` of t
 | `npm run typecheck`, `lint`, `format:check -w apps/mobile` | passed |
 | `npm run test:mobile` | 1,741 tests in 127 suites, all passed |
 | `npx expo export --platform ios`, `android`, `web` | all three exported (throw-away folders) |
-| `npm run test:mobile:e2e -- --retries=0` | MOBILE_E2E_RESULT |
-| `npm run test:mobile:maestro -- --platform ios` | MAESTRO_RESULT |
+| `npm run test:mobile:e2e -- --retries=0` | 66 / 66 passed (on a stack started with `--stack-only` whose web export was checked to target `:8090`, then `--reuse-running`; see the note below) |
+| `npm run test:mobile:maestro -- --platform ios` | 43 / 43 flows passed in 1 h 6 min on the owner's iPhone 18 Pro (its appearance light and text size large, untouched) |
 | `npm run test:scripts` | 147 / 147 |
 | `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**The phone's light theme** (decision 21, the shared token): walked on the iPhone with a throw-away
+Maestro flow (not in the repository) that sets Settings › Appearance › Light, then Settings,
+Profile, Home (Get started's "Add cards"), Inventory (the header's and the empty state's "Add
+cards"), Search and Messages, and puts the theme back to the device's: every orange button reads in
+ink. Screenshots in `.local-dev/wa-notes/pr-shots/after/phone-light/`.
+
+**A note on the phone's web E2E run**: the first `npm run test:mobile:e2e` of the stage served an
+Expo web export built without `EXPO_PUBLIC_API_BASE_URL` (the same bundle as a plain
+`expo export --platform web` this stage ran just before for the export check), so the app fell back
+to `http://localhost:8080`, the owner's API: for about 20 minutes the test browser sent it read-only
+requests (`/games`, `/regions`, `/feed`, sign-in reads) until the run was stopped; every spec failed
+on the suite's own "request to the developer API" guard. Nothing was written there. The rerun
+checked the served bundle first (66 / 66). Owner follow-up: the mobile E2E harness could refuse to
+run the specs when its web export does not target `:8090`, as the native harness already does.
 
 **What could not be verified**: the Android run could not be verified (no Android SDK on this
 Mac). A screen reader pass, 200% zoom and the keyboard-only pass of every page are the
