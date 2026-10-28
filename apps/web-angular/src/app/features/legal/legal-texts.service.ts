@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, Injector, computed, inject } from '@angular/core';
 import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import {
   LEGAL_DOCUMENTS,
@@ -46,18 +46,20 @@ export class LegalTextsService {
   readonly documentList = computed<readonly LegalDocument[]>(() =>
     this.language.isFrench() ? LEGAL_DOCUMENT_LIST_FR : LEGAL_DOCUMENT_LIST,
   );
-  private readonly protectedPayments = inject(FeatureFlagsService).enabled(
-    FEATURE.protectedPayments,
-  );
+  private readonly injector = inject(Injector);
   /**
    * The documents Legal lists (its index and every page's "See also"): Payment Protection and
-   * Refund & Dispute only while protectedPayments is on (decision 23).
+   * Refund & Dispute only while protectedPayments is on (decision 23). The flags are read only
+   * here, so the sign-up and consent pages, which name single documents, never need them.
    */
-  readonly visibleDocuments = computed<readonly LegalDocument[]>(() =>
-    this.documentList().filter(
-      (doc) => this.protectedPayments() || !PAYMENT_POLICIES.has(doc.key),
-    ),
-  );
+  readonly visibleDocuments = computed<readonly LegalDocument[]>(() => {
+    const protectedPayments = this.injector
+      .get(FeatureFlagsService)
+      .isEnabled(FEATURE.protectedPayments);
+    return this.documentList().filter(
+      (doc) => protectedPayments || !PAYMENT_POLICIES.has(doc.key),
+    );
+  });
   readonly draftBanner = computed(() =>
     this.language.isFrench() ? LEGAL_DRAFT_BANNER_FR : LEGAL_DRAFT_BANNER,
   );
