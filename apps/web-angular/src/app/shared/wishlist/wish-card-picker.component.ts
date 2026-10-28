@@ -27,7 +27,7 @@ import {
   tap,
 } from 'rxjs';
 import { silentErrors } from '../../core/http/http-context';
-import { uniqueSuggestions } from '../catalog/card-search-box/card-search-box.component';
+import { uniqueSuggestions } from '../catalog/card-suggestions';
 import {
   QUERY_MAX_LENGTH,
   SUGGEST_DEBOUNCE_MS,

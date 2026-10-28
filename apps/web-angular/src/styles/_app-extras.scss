@@ -37,8 +37,10 @@
 
 // Dialog widths (spec 4.8): 440 confirmations, 520 forms (the "?" dialog); feature dialogs keep
 // their md and lg widths until their stages.
-.app-dialog--confirm {
-  width: min(440px, calc(100vw - 32px));
+.app-dialog--confirm,
+// Every confirmation of the shared dialog is 440, whatever width its caller asked for.
+.cdk-overlay-pane:has(> .mat-mdc-dialog-container app-confirm-dialog) {
+  width: min(440px, calc(100vw - 32px)) !important;
 }
 
 .app-dialog--form {

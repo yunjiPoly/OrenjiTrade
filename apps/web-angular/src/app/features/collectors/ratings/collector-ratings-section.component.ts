@@ -82,8 +82,8 @@ import { RatingSummaryComponent } from './rating-summary.component';
                   title="No ratings yet"
                   [description]="
                     isOwn()
-                      ? 'Collectors can rate you after a completed trade, an accepted offer or a real conversation.'
-                      : 'Ratings appear after completed trades, accepted offers or real conversations.'
+                      ? 'Collectors can rate you after a deal or a real conversation.'
+                      : 'Ratings appear after deals or real conversations.'
                   "
                 />
               } @else {
@@ -321,8 +321,8 @@ export class CollectorRatingsSectionComponent {
     const name = this.profile().displayName;
     return eligibility.interactions.length > 0
       ? `You already rated your interactions with ${name}. You can edit a rating for 14 days.`
-      : `You can rate ${name} after a completed trade, an accepted offer or a conversation ` +
-          'where you both sent at least 3 messages.';
+      : `You can rate ${name} after a deal with them or a conversation where you both sent at ` +
+          'least 3 messages.';
   });
 
   constructor() {

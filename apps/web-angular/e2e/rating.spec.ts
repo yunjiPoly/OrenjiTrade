@@ -220,7 +220,7 @@ test.describe('ratings and references', () => {
     const theirSection = other.getByRole('region', { name: 'Ratings & references' });
     await expect(theirSection.getByTestId('rating-average')).toHaveText('4.0');
     await expect(theirSection.getByTestId('rating-hint')).toContainText(
-      `You can rate ${ratee.displayName} after a completed trade`,
+      `You can rate ${ratee.displayName} after a deal with them`,
     );
     await expect(theirSection.getByRole('button', { name: 'Rate this collector' })).toHaveCount(0);
     await expect(theirSection.getByRole('button', { name: 'Write a reference' })).toHaveCount(0);
