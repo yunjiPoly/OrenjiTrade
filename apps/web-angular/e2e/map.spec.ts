@@ -205,8 +205,8 @@ test.describe('region map and search', () => {
     const providers = await forbidMapProviders(page);
     await signInThroughUi(page, viewer.email, viewer.password);
 
-    // The map's unified search: choosing a card opens its holders.
-    await page.goto('/');
+    // The map's unified search (Search › Binders): choosing a card opens its holders.
+    await page.goto('/search?tab=binders');
     const search = page.getByRole('combobox', { name: 'Search cards, collectors and binders' });
     await search.fill('lantern');
     const option = page.getByRole('option', { name: /Lantern Fox Spirit/ }).first();

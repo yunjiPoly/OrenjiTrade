@@ -48,13 +48,19 @@ describe('KeyboardShortcuts (spec 4.9, decision 24)', () => {
     const input = document.createElement('input');
     const checkbox = Object.assign(document.createElement('input'), { type: 'checkbox' });
     const editable = document.createElement('div');
-    editable.contentEditable = 'true';
+    editable.setAttribute('contenteditable', 'true');
     const combobox = document.createElement('div');
     combobox.setAttribute('role', 'combobox');
     expect(isEditableTarget(input)).toBe(true);
     expect(isEditableTarget(document.createElement('textarea'))).toBe(true);
     expect(isEditableTarget(document.createElement('select'))).toBe(true);
     expect(isEditableTarget(combobox)).toBe(true);
+    expect(isEditableTarget(editable)).toBe(true);
+    const inside = editable.appendChild(document.createElement('span'));
+    expect(isEditableTarget(inside)).toBe(true);
+    const off = document.createElement('div');
+    off.setAttribute('contenteditable', 'false');
+    expect(isEditableTarget(off)).toBe(false);
     expect(isEditableTarget(checkbox)).toBe(false);
     expect(isEditableTarget(document.createElement('button'))).toBe(false);
     expect(isEditableTarget(null)).toBe(false);
@@ -84,6 +90,27 @@ describe('KeyboardShortcuts (spec 4.9, decision 24)', () => {
     fixtureRoot.innerHTML = '<main><button>b</button></main>';
     press('k', { ctrlKey: true });
     expect(navigateByUrl).toHaveBeenCalledWith('/search');
+  });
+
+  it('stays on Search when its tab has no field: the tab, region and state are kept', () => {
+    vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue('/search?tab=wishlist');
+    fixtureRoot.innerHTML = '<main><button>b</button></main>';
+    press('/');
+    press('k', { ctrlKey: true });
+    expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('on Search › Binders, "/" and Ctrl/Cmd+K focus the map pane’s own field', () => {
+    vi.spyOn(TestBed.inject(Router), 'url', 'get').mockReturnValue(
+      '/search?tab=binders&region=europe&state=FR-IDF',
+    );
+    fixtureRoot.innerHTML = `<main><div ${PAGE_SEARCH_ATTR}><input class="map" /></div></main>`;
+    press('/');
+    expect(document.activeElement).toBe(fixtureRoot.querySelector('input.map'));
+    (document.activeElement as HTMLElement).blur();
+    press('k', { metaKey: true });
+    expect(document.activeElement).toBe(fixtureRoot.querySelector('input.map'));
+    expect(navigateByUrl).not.toHaveBeenCalled();
   });
 
   it('"g" then a letter goes to an area, within 1.5 s only', () => {

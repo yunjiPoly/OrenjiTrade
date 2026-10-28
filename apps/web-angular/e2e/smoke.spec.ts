@@ -63,9 +63,11 @@ test.describe('app shell', () => {
     await expect(page.locator('.leaflet-control-attribution')).toContainText('Natural Earth');
     await expect(page.getByRole('heading', { name: 'States and provinces' })).toBeVisible();
     await expect(page.getByTestId('subdivision-list')).toContainText('Quebec');
+    // One search field on Home: the top bar's (spec 4.3); the map's own is Search › Binders'.
+    await expect(page.locator('#global-search-input')).toBeVisible();
     await expect(
       page.getByRole('combobox', { name: 'Search cards, collectors and binders' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     // The map page's side Messages panel left with the new shell (spec 2.7).
     await expect(page.locator('#map-messages-panel')).toHaveCount(0);
     expect(providers.calls, 'no map provider or tile server').toEqual([]);

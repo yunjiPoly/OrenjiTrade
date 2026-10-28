@@ -28,6 +28,14 @@ test.describe('the web redesign shell (WA)', () => {
     });
   });
 
+  /**
+   * Takes the focus out of any field so a single-key shortcut fires. A click at a fixed body
+   * position could land on a rail item once the window has scrolled (it once opened /profile).
+   */
+  async function blurFocus(page: Page): Promise<void> {
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  }
+
   async function signedIn(page: Page): Promise<void> {
     await forbidMapProviders(page);
     await stubCardImages(page);
@@ -115,7 +123,7 @@ test.describe('the web redesign shell (WA)', () => {
     await page.goto('/search');
     // "/" on Search focuses the page's own search (the top bar hides its own there).
     await expect(page.getByRole('heading', { level: 1, name: 'Search' })).toBeVisible();
-    await page.locator('body').click({ position: { x: 5, y: 600 } });
+    await blurFocus(page);
     await page.keyboard.press('/');
     await expect(
       page.getByRole('combobox', { name: 'Search cards, collectors and binders' }),
@@ -123,7 +131,9 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page.locator('#global-search-input')).toHaveCount(0);
     // Ctrl/Cmd+K on a page without its own search: the top bar's.
     await page.goto('/legal');
-    await page.locator('body').click({ position: { x: 5, y: 600 } });
+    // The deferred search chunk has replaced the early field.
+    await expect(page.locator('#global-search-input:not(.bar__placeholder-input)')).toHaveCount(1);
+    await blurFocus(page);
     await page.keyboard.press('ControlOrMeta+k');
     const field = page.getByRole('combobox', { name: 'Search Yu-Gi-Oh! cards or collectors' });
     await expect(field).toBeFocused();
@@ -185,7 +195,7 @@ test.describe('the web redesign shell (WA)', () => {
 
     // The menus have closed (a single key never fires over an open menu).
     await expect(page.getByRole('menu')).toHaveCount(0);
-    await page.locator('body').click({ position: { x: 5, y: 500 } });
+    await blurFocus(page);
     await page.keyboard.press('?');
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
     await expect(help).toBeVisible();
@@ -200,7 +210,7 @@ test.describe('the web redesign shell (WA)', () => {
     await page.goto('/settings/appearance');
     await page.getByRole('switch', { name: 'Single-key shortcuts' }).click();
     await expect(page.getByText('Off. Ctrl/Cmd+K still opens the search')).toBeVisible();
-    await page.locator('body').click({ position: { x: 5, y: 500 } });
+    await blurFocus(page);
     await page.keyboard.press('?');
     await page.keyboard.press('g');
     await page.keyboard.press('h');

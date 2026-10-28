@@ -17,7 +17,12 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) {
     return false;
   }
-  if (target.isContentEditable) {
+  // isContentEditable, and the attribute for engines without it (inherited from an ancestor).
+  const editableHost = target.closest('[contenteditable]');
+  if (
+    target.isContentEditable ||
+    (editableHost && editableHost.getAttribute('contenteditable') !== 'false')
+  ) {
     return true;
   }
   const tag = target.tagName;
@@ -133,7 +138,8 @@ export class KeyboardShortcuts {
         : (pageField ?? globalField);
     if (!target) {
       // Below 960 the top bar has no field (the tab bar has Search): open Search and its field.
-      if (openSearch) {
+      // Already on Search (a tab without a field, Wishlist), stay: never lose the tab or region.
+      if (openSearch && !this.onSearch()) {
         void this.router
           .navigateByUrl('/search')
           .then(() => setTimeout(() => this.focusSearch(false, false), 300));
@@ -166,6 +172,11 @@ export class KeyboardShortcuts {
     } catch {
       this.helpOpenState.set(false);
     }
+  }
+
+  private onSearch(): boolean {
+    const path = this.router.url.split(/[?#]/)[0];
+    return path === '/search' || path.startsWith('/search/');
   }
 
   private overlayOpen(): boolean {
