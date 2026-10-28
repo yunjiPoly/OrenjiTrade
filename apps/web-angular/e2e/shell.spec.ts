@@ -282,6 +282,34 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page.getByTestId('rail-home')).toHaveCount(0);
   });
 
+  test('card art is never wider than 160 CSS px, even at 1920 (ADR 0015, spec 2.5)', async ({
+    page,
+  }) => {
+    await signedIn(page);
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    const widest = () =>
+      page.evaluate(() =>
+        Math.max(
+          0,
+          ...Array.from(
+            document.querySelectorAll('app-card-image'),
+            (node) => node.getBoundingClientRect().width,
+          ),
+        ),
+      );
+    for (const url of ['/search?q=lantern', '/cards']) {
+      await page.goto(url);
+      await expect(page.locator('app-card-image').first()).toBeVisible();
+      expect(await widest(), url).toBeGreaterThan(0);
+      expect(await widest(), url).toBeLessThanOrEqual(160);
+    }
+    // The card page's hero, the largest picture of the web.
+    await page.locator('main a[href^="/cards/"]').first().click();
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
+    await expect(page.locator('app-card-image').first()).toBeVisible();
+    expect(await widest()).toBeLessThanOrEqual(160);
+  });
+
   test('no sideways page scroll at 360 (Appearance) and 320 (Legal)', async ({ page }) => {
     await signedIn(page);
     const scrollWidth = () => page.evaluate(() => document.documentElement.scrollWidth);
