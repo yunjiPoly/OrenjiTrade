@@ -24,12 +24,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * The Scryfall adapter against the offline stub: the bulk file instead of per-card calls, a {@code
@@ -389,15 +393,89 @@ class ScryfallCardProviderTest {
     void aDamagedBulkFileIsReportedWithoutItsContent() throws Exception {
         ScryfallCardProvider provider = provider(true);
         String lines = jsonLines();
-        byte[] cut = utf8(lines.substring(0, lines.length() / 2));
-        assertThatThrownBy(() -> provider.parse(stored("cut", "20261028090231", cut)))
+        byte[] half = utf8(lines.substring(0, lines.length() / 2));
+        assertThatThrownBy(() -> provider.parse(stored("cut", "20261028090231", half)))
                 .isInstanceOf(ProviderRequestException.class)
                 .hasMessage("The Scryfall bulk file 20261028090231 is not valid JSON");
         byte[] gzip = CardSourceStub.gzip(utf8(lines));
-        byte[] truncated = Arrays.copyOf(gzip, gzip.length / 2);
-        assertThatThrownBy(() -> provider.parse(stored("truncated", "20261028090231", truncated)))
-                .isInstanceOf(ProviderRequestException.class)
-                .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+        // Cut in the middle, or at the very end: every card is there but the 8-byte trailer
+        // (checksum and length) is missing in full or in part.
+        int[] cuts = {gzip.length / 2, gzip.length - 8, gzip.length - 4, gzip.length - 1};
+        for (int cut : cuts) {
+            byte[] truncated = Arrays.copyOf(gzip, cut);
+            assertThatThrownBy(
+                            () -> provider.parse(stored("cut-" + cut, "20261028090231", truncated)))
+                    .as("cut at %d of %d bytes", cut, gzip.length)
+                    .isInstanceOf(ProviderRequestException.class)
+                    .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+        }
+        // A damaged checksum (the trailer's CRC-32) or a damaged length (its last 4 bytes).
+        for (int at : new int[] {gzip.length - 6, gzip.length - 2}) {
+            byte[] damaged = gzip.clone();
+            damaged[at] ^= 0x55;
+            assertThatThrownBy(
+                            () ->
+                                    provider.parse(
+                                            stored("damaged-" + at, "20261028090231", damaged)))
+                    .as("byte %d of %d damaged", at, gzip.length)
+                    .isInstanceOf(ProviderRequestException.class)
+                    .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+        }
+    }
+
+    /**
+     * A file closer to the real one in size (thousands of lines, about a megabyte or more decoded,
+     * several gzip buffers): JSON Lines in every shape gives the same catalogue as the JSON array.
+     */
+    @Test
+    void aLargeGeneratedBulkFileGivesTheSameCatalogueInEveryShape() throws Exception {
+        int count = 3_000;
+        List<String> lines = generatedCards(count);
+        ScryfallCardProvider provider = provider(true, snapshots, 64L * 1024 * 1024);
+        String array = "[\n" + String.join(",\n", lines) + "\n]\n";
+        SyncResult expected = provider.parse(stored("large-array", "20261028090231", utf8(array)));
+        assertThat(expected.cards()).hasSize(count);
+        assertThat(array.length()).as("bigger than one gzip buffer").isGreaterThan(1024 * 1024);
+
+        String lf = String.join("\n", lines) + "\n";
+        String crlfWithoutTrailingNewline = String.join("\r\n", lines);
+        byte[][] variants = {
+            CardSourceStub.gzip(utf8(array)),
+            CardSourceStub.gzip(utf8(lf)),
+            CardSourceStub.gzip(utf8(crlfWithoutTrailingNewline)),
+            utf8(lf)
+        };
+        String[] names = {
+            "gzip array", "gzip JSON Lines", "gzip JSON Lines, CRLF, no trailing newline", "decoded"
+        };
+        for (int i = 0; i < variants.length; i++) {
+            assertThat(provider.parse(stored("large-" + i, "20261028090231", variants[i])))
+                    .as(names[i])
+                    .isEqualTo(expected);
+        }
+    }
+
+    /** {@code count} fictional cards, each the fixture's first card with ids of its own. */
+    private List<String> generatedCards(int count) {
+        JsonNode first =
+                mapper.readTree(CardSourceStub.scryfallFixture(STUB.scryfallImages())).get(0);
+        List<String> lines = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            ObjectNode card = (ObjectNode) first.deepCopy();
+            String id = "5c000000-0000-4000-8000-%012d".formatted(i);
+            card.put("id", id);
+            card.put("oracle_id", "0a000000-0000-4000-8000-%012d".formatted(i));
+            card.put("illustration_id", "1a000000-0000-4000-8000-%012d".formatted(i));
+            card.put("name", "Generated Card " + i + " \u2014 \u201cquoted\u201d \u00e9");
+            card.put("collector_number", String.valueOf(i + 1));
+            card.put("set", i % 2 == 0 ? "zga" : "zgb");
+            ObjectNode images = mapper.createObjectNode();
+            images.put(
+                    "normal", STUB.scryfallImages() + "normal/front/5/c/" + id + ".jpg?1700000001");
+            card.set("image_uris", images);
+            lines.add(mapper.writeValueAsString(card));
+        }
+        return lines;
     }
 
     @Test
