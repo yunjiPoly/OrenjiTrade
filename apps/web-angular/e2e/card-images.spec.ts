@@ -168,7 +168,11 @@ test.describe('card pictures', () => {
     await expect(page.getByRole('main').getByTestId('card-data-attribution')).toContainText(
       'Card data and images courtesy of YGOPRODeck',
     );
-    await expect(page.getByRole('contentinfo').getByTestId('card-data-attribution')).toContainText(
+    // The footer links to the card data credits on Legal (spec 4.10, web WA).
+    await expect(
+      page.getByRole('contentinfo').getByRole('link', { name: 'Card data credits' }),
+    ).toHaveAttribute('href', '/legal#card-data-credits');
+    await expect(page.getByRole('main').getByTestId('card-data-attribution')).toContainText(
       '4K Media Inc.',
     );
     await expectNoProviderSources(page);

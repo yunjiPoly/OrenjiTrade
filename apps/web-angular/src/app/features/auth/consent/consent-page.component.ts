@@ -206,6 +206,6 @@ export class ConsentPageComponent {
 
   protected async signOut(): Promise<void> {
     await this.auth.signOut();
-    await this.router.navigateByUrl('/map');
+    await this.router.navigateByUrl('/');
   }
 }

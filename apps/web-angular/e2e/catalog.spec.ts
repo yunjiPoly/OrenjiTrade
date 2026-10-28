@@ -37,7 +37,7 @@ test.describe('card catalog', () => {
     test.setTimeout(120_000);
     const collector = await createOnboardedCollector(request, 'browse');
     await signInThroughUi(page, collector.email, collector.password);
-    await expect(page).toHaveURL(/\/map(\?region=[a-z-]+)?$/);
+    await expect(page).toHaveURL(/:\d+\/(\?region=[a-z-]+)?$/);
     const search = topSearch(page);
     // Specific enough to rank the fictional card first when the real Yu-Gi-Oh! catalog is
     // imported locally (it has an "Azure-Eyes Silver Dragon").

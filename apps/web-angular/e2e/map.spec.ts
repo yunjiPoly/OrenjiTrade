@@ -22,7 +22,7 @@ import {
 
 /**
  * The region map and region-scoped search (ADR 0017) against the real local stack: a collector
- * publishes a binder in a state; another collector of the same region finds it on /map (the state
+ * publishes a binder in a state; another collector of the same region finds it on Home (the state
  * is shaded, the list and the map open the same panel, the URL keeps region and state), opens the
  * binder; card search lists the holders of the browsed region only. Every JSON document the page
  * receives is checked: no `lat`/`lng` at all, no distance, no map provider or tile server called.
@@ -137,10 +137,11 @@ test.describe('region map and search', () => {
     expect(yukon).toBeGreaterThanOrEqual(1);
 
     await signInThroughUi(page, viewer.email, viewer.password);
-    await page.goto('/map');
-    // Signed in: the home region (from GET /me) is browsed and written to the URL.
-    await expect(page).toHaveURL(/\/map\?region=americas-north$/);
-    await expect(page.getByTestId('region-switcher')).toContainText('Americas (North)');
+    await page.goto('/');
+    // Signed in: the home region (from GET /me) is browsed and written to the URL (Home shows the
+    // region's map until web stage WE).
+    await expect(page).toHaveURL(/:\d+\/\?region=americas-north$/);
+    await expect(page.getByTestId('region-pill')).toContainText('Americas (North)');
     await expect(page.getByTestId('map-status')).toContainText(
       /public binders? in Americas \(North\)/,
     );
@@ -155,7 +156,7 @@ test.describe('region map and search', () => {
     await expect(entry).toContainText(String(yukon));
     await entry.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/map\?region=americas-north&subdivision=CA-YT$/);
+    await expect(page).toHaveURL(/:\d+\/\?region=americas-north&state=CA-YT$/);
     const panel = page.getByTestId('subdivision-panel');
     await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeFocused();
     const card = panel.getByRole('listitem').filter({ hasText: seller.binder.name });
@@ -164,11 +165,11 @@ test.describe('region map and search', () => {
     // The city is never shown outside the owner's profile.
     await expect(panel).not.toContainText('Zqcity');
     await panel.getByRole('button', { name: 'Back to the list' }).click();
-    await expect(page).toHaveURL(/\/map\?region=americas-north$/);
+    await expect(page).toHaveURL(/:\d+\/\?region=americas-north$/);
 
     // A click on the state on the map opens it too.
     await shape.dispatchEvent('click');
-    await expect(page).toHaveURL(/subdivision=CA-YT/);
+    await expect(page).toHaveURL(/state=CA-YT/);
     await expect(panel.getByRole('heading', { name: 'Yukon, Canada' })).toBeVisible();
     await expectNoGeography(page, watcher, providers);
 
@@ -181,9 +182,11 @@ test.describe('region map and search', () => {
     await page.goto(`/collectors/${a.handle}`);
     await expect(page.getByTestId('collector-city')).toHaveText(/^Zqcity/);
 
-    // A shared link opens another region with its state; the switcher follows.
+    // An old shared map link opens Search › Binders in another region with its state; the region
+    // pill follows (spec 4.11).
     await page.goto('/map?region=europe&subdivision=FR-IDF');
-    await expect(page.getByTestId('region-switcher')).toContainText('Europe');
+    await expect(page).toHaveURL(/\/search\?tab=binders&region=europe&state=FR-IDF$/);
+    await expect(page.getByTestId('region-pill')).toContainText('Europe');
     await expect(
       page.getByTestId('subdivision-panel').getByRole('heading', { name: 'Île-de-France, France' }),
     ).toBeVisible();
@@ -203,7 +206,7 @@ test.describe('region map and search', () => {
     await signInThroughUi(page, viewer.email, viewer.password);
 
     // The map's unified search: choosing a card opens its holders.
-    await page.goto('/map');
+    await page.goto('/');
     const search = page.getByRole('combobox', { name: 'Search cards, collectors and binders' });
     await search.fill('lantern');
     const option = page.getByRole('option', { name: /Lantern Fox Spirit/ }).first();
@@ -253,12 +256,12 @@ test.describe('region map and search', () => {
     await expect(sellerRow).toBeVisible();
 
     // Another region: the holders of Americas (North) are gone.
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: 'Europe' }).click();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Europe/ }).click();
     await expect(page.getByText('Collectors in Europe, freshest listings first.')).toBeVisible();
     await expect(sellerRow).toBeHidden();
-    await page.getByTestId('region-switcher').click();
-    await page.getByRole('menuitemradio', { name: /Americas \(North\)/ }).click();
+    await page.getByTestId('region-pill').click();
+    await page.getByRole('radio', { name: /^Americas \(North\)/ }).click();
     await expect(sellerRow).toBeVisible();
 
     // Unified search by printing code: the resolved card lists the holders of the region.

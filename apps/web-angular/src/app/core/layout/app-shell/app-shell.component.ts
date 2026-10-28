@@ -90,6 +90,9 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
       overflow-y: auto;
     }
     .shell__content {
+      /* Its own stacking context: page layers (the map's panes) stay under the top bar's menus. */
+      position: relative;
+      z-index: 0;
       display: flex;
       flex-direction: column;
       min-width: 0;

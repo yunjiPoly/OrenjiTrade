@@ -5,7 +5,7 @@ import { ToastService } from './toast.service';
 /**
  * The toast stack of the shell (spec 4.8): bottom-left, 24 px from the rail and the bottom edge
  * (above the tab bar below 960), at most 400 wide, newest at the bottom. The stack is a polite
- * live region (`role=status`), an error toast an alert; the timers pause while the pointer or the focus is
+ * live region, each toast a `status` (an error toast an alert); the timers pause while the pointer or the focus is
  * on a toast.
  */
 @Component({
@@ -14,7 +14,7 @@ import { ToastService } from './toast.service';
   template: `
     <div
       class="toasts"
-      role="status"
+      aria-live="polite"
       aria-relevant="additions"
       (mouseenter)="service.pause()"
       (mouseleave)="service.resume()"
@@ -25,7 +25,7 @@ import { ToastService } from './toast.service';
         <div
           class="toast"
           [class.toast--error]="toast.tone === 'error'"
-          [attr.role]="toast.tone === 'error' ? 'alert' : null"
+          [attr.role]="toast.tone === 'error' ? 'alert' : 'status'"
           data-testid="toast"
         >
           <app-shell-icon

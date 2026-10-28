@@ -19,8 +19,8 @@ import { ShellLayout } from '../shell-layout.service';
  * the wordmark, the region pill and the game pill, in the page's pill scope (spec 4.2). Right,
  * "what you do": the global search (400, 320 at md; hidden on Search, whose pane has its own),
  * the bell and the avatar with the account menu; a guest gets a "Sign in" pill instead of the bell
- * and the avatar. Below 960 the bar keeps the wordmark, the pills in scope, a search button, the
- * bell and the avatar, and the tab bar carries the areas.
+ * and the avatar. Below 960 the bar keeps the wordmark, the pills in scope (compact), the bell and
+ * the avatar; the tab bar carries the areas, Search among them.
  */
 @Component({
   selector: 'app-top-bar',
@@ -52,16 +52,7 @@ import { ShellLayout } from '../shell-layout.service';
       </div>
       <div class="bar__do">
         @if (!layout.hideGlobalSearch()) {
-          @if (layout.narrow()) {
-            <a
-              class="bar__round"
-              routerLink="/search"
-              aria-label="Search"
-              data-testid="narrow-search"
-            >
-              <app-shell-icon name="search" [size]="20" />
-            </a>
-          } @else {
+          @if (!layout.narrow()) {
             @defer (on idle) {
               <app-global-search class="bar__search" />
             } @placeholder {
@@ -166,15 +157,6 @@ import { ShellLayout } from '../shell-layout.service';
       font-family: var(--font-mono);
       font-size: var(--font-size-xs);
     }
-    .bar__round {
-      display: grid;
-      place-items: center;
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-pill);
-      background: var(--color-surface);
-      color: var(--color-ink);
-    }
     .bar__signin {
       display: inline-flex;
       align-items: center;
@@ -187,8 +169,7 @@ import { ShellLayout } from '../shell-layout.service';
       font-weight: var(--font-weight-semibold);
       text-decoration: none;
     }
-    .bar__signin:hover,
-    .bar__round:hover {
+    .bar__signin:hover {
       background: var(--color-surface-variant);
     }
     @media (min-width: 960px) and (max-width: 1279.98px) {
@@ -211,6 +192,11 @@ import { ShellLayout } from '../shell-layout.service';
       }
       .bar__do {
         gap: 8px;
+      }
+    }
+    @media (max-width: 599.98px) {
+      .bar__wordmark {
+        --wordmark-size: var(--font-size-lg);
       }
     }
   `,

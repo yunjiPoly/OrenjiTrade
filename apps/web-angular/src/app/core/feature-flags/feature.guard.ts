@@ -8,7 +8,7 @@ import { FeatureFlagsService } from './feature-flags.service';
  * when `key` is on, otherwise explains it and goes to `fallback`. Hidden features stay hidden
  * even when typed into the address bar.
  */
-export function featureGuard(key: string, label: string, fallback = '/map'): CanActivateFn {
+export function featureGuard(key: string, label: string, fallback = '/'): CanActivateFn {
   return async () => {
     const flags = inject(FeatureFlagsService);
     const router = inject(Router);

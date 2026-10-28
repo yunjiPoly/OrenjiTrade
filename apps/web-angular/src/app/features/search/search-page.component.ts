@@ -61,7 +61,12 @@ export function searchViewOf(tab: string | undefined): SearchView {
   template: `
     <div class="page search-page">
       <header class="search-page__head">
-        <h1 class="search-page__title">Search</h1>
+        @if (target()) {
+          <!-- The card holders view has its own h1 ("Who has …"): one h1 per page. -->
+          <p class="search-page__title">Search</p>
+        } @else {
+          <h1 class="search-page__title">Search</h1>
+        }
         <app-underline-tabs label="Search" [tabs]="tabs()" />
       </header>
       @if (view() === 'wishlist') {
@@ -123,6 +128,8 @@ export function searchViewOf(tab: string | undefined): SearchView {
       margin-bottom: var(--spacing-5);
     }
     .search-page__title {
+      margin: 0;
+      font-family: var(--font-display);
       font-size: var(--font-size-title);
       font-weight: var(--font-weight-bold);
       letter-spacing: -0.4px;

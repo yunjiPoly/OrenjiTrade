@@ -23,7 +23,7 @@ test.describe('admin console', () => {
 
     await signInThroughUi(page, 'admin@orenjitrade.test', SEED_PASSWORD);
     await openAccountMenu(page);
-    await page.getByRole('menuitem', { name: 'Admin' }).click();
+    await page.getByRole('menuitem', { name: 'Admin console' }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Admin dashboard' })).toBeVisible();
 
@@ -86,9 +86,9 @@ test.describe('admin console', () => {
     await expect(page.getByText('The admin console is limited to staff accounts.')).toBeVisible({
       timeout: 20_000,
     });
-    // The guard sends collectors to /map; a seed collector that has not confirmed being 18+ yet
+    // The guard sends collectors Home; a seed collector that has not confirmed being 18+ yet
     // (every seed account in the fresh E2E database) continues to the onboarding age step.
-    await expect(page).toHaveURL(/\/(map|onboarding)/);
+    await expect(page).toHaveURL(/:\d+\/(\?|onboarding|$)/);
   });
 
   test('moderators only see the moderation areas', async ({ page }) => {
@@ -111,6 +111,6 @@ test.describe('admin console entry', () => {
   test('the account menu offers Admin to administrators only', async ({ page }) => {
     await signInThroughUi(page, 'superadmin@orenjitrade.test', SEED_PASSWORD);
     await openAccountMenu(page);
-    await expect(page.getByRole('menuitem', { name: 'Admin' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Admin console' })).toBeVisible();
   });
 });

@@ -160,7 +160,7 @@ describe('FeatureFlagsService', () => {
       ),
     );
     expect(denied instanceof UrlTree).toBe(true);
-    expect(TestBed.inject(Router).serializeUrl(denied as UrlTree)).toBe('/map');
+    expect(TestBed.inject(Router).serializeUrl(denied as UrlTree)).toBe('/');
     expect(snackBar.open).toHaveBeenCalledWith(
       'Protected payments is not available right now.',
       'OK',
