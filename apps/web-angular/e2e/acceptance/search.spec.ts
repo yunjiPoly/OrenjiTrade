@@ -40,7 +40,9 @@ test.describe('acceptance: search', () => {
     await signIn(page, searcher);
 
     // Top-bar card search → card detail.
-    const search = page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+    const search = page
+      .getByRole('banner')
+      .getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
     await search.fill('Tidecaller');
     await page
       .getByRole('option', { name: new RegExp(CARD) })

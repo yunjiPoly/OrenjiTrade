@@ -36,8 +36,8 @@ export const SETTINGS_ROUTES: Routes = [
       // Bookmarks and e-mails from before platform regions (ADR 0017).
       { path: 'trading-area', pathMatch: 'full', redirectTo: 'location' },
       // Offers and payouts left the web (decision 2, spec 4.11).
-      { path: 'offers', pathMatch: 'full', redirectTo: '' },
-      { path: 'payouts', pathMatch: 'full', redirectTo: '' },
+      { path: 'offers', pathMatch: 'full', redirectTo: 'profile' },
+      { path: 'payouts', pathMatch: 'full', redirectTo: 'profile' },
       {
         path: 'blocked',
         title: 'Blocked users',

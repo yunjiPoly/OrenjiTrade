@@ -68,6 +68,8 @@ export function cardTarget(
     if (key && sharing.length === 1) {
       return { commands, queryParams: { printing: card.printingId } };
     }
+    // Said explicitly, so the card page never picks the first printing itself.
+    return { commands, queryParams: { printing: 'any' } };
   }
   return { commands, queryParams: {} };
 }

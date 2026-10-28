@@ -153,7 +153,9 @@ test.describe('wishlist and notifications', () => {
       await page.goto('/wishlist');
       // Search › Wishlist since web WA (the old /wishlist redirects there): the Wishlist is a section.
       await expect(page).toHaveURL(/\/search\?tab=wishlist$/);
-      await expect(page.getByRole('heading', { level: 2, name: 'Wishlist' })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Wishlist', exact: true }),
+      ).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Your wishlist is empty' })).toBeVisible();
       // A has a location: no prompt to set one.
       await expect(page.getByTestId('wishlist-location-prompt')).toHaveCount(0);

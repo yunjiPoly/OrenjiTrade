@@ -180,13 +180,14 @@ test.describe('launch configuration: every money flag off', () => {
       await expect(page.getByRole('menuitem', { name })).toHaveCount(0);
     }
     await page.keyboard.press('Escape');
+    // The footer ends reading pages (spec 4.10): Home is a workspace page without one.
+    await page.goto('/legal');
     const footer = page.getByRole('contentinfo');
     await expect(footer.getByRole('link', { name: 'Trading safely' })).toBeVisible();
     await expect(footer.getByRole('link', { name: 'Premium' })).toHaveCount(0);
     await expect(page.getByTestId('footer-support')).toHaveCount(0);
 
     // --- Legal hides the payment policies while protectedPayments is off (decision 23) ---------
-    await page.goto('/legal');
     await expect(page.getByRole('link', { name: /Terms of Service/ })).toBeVisible();
     await expect(page.getByRole('link', { name: /^Payment Protection Policy/ })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /^Refund and Dispute Policy/ })).toHaveCount(0);

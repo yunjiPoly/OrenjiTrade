@@ -136,7 +136,9 @@ test.describe('card pictures', () => {
     await signInThroughUi(page, collector.email, collector.password);
 
     // Top-bar suggestions: one picture per card or printing entry.
-    const search = page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+    const search = page
+      .getByRole('banner')
+      .getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
     await search.fill('azure');
     await expect(page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ }).first()).toBeVisible();
     await expectPictures(page.getByRole('listbox'), 1, 3);

@@ -5,6 +5,52 @@ ESLint + Prettier · Vitest unit tests · Playwright E2E · nginx container for 
 
 Read [`CLAUDE.md`](../../CLAUDE.md) and ADR 0006 before changing conventions.
 
+**The web redesign** (`docs/product/specs/2026-10-20-web-redesign.md`, stages WA to WH2 of the
+owner's prompt of 2026-10-28) is built one stage at a time; see "The shell (web redesign WA)"
+below for what stage WA changed. Offers, trades, checkout and disputes are gone from the web UI
+(decision 2, ADR 0018): their sections below describe the server modules and the old pages.
+
+## The shell (web redesign WA)
+
+The frame of every page (`core/layout`, spec section 4, boards W1, W3, W28, W29 and W30):
+
+- **Top bar** (64, sticky; `top-bar`): the wordmark (Home), the **region pill** and the **game
+  pill** in the page's scope (Home and Search both, card, set and binder pages the region pill,
+  the rest none; route `data.shell.pills`), the **global search** (a deferred chunk; hidden on
+  Search), the **bell** (an orange dot, "Notifications, N new") and the **avatar** with the
+  account menu; a guest gets "Sign in". The region and game pills open lazy popovers (`Popovers`,
+  CDK overlay; a bottom sheet below 960): "Choose a region" (the home region marked, "Not your
+  region" with the way back) and "Choose a game" (Yu-Gi-Oh! only until stage WD, the other games
+  "Cards coming soon", "{n} of your cards" from `GET /inventory/summary`).
+- **Global search** (`global-search`): `/` or Ctrl/Cmd+K, an ARIA combobox; empty, the recent
+  searches of this browser (`core/search/recent-searches.service.ts`, localStorage per account,
+  at most 8, never sent anywhere; Settings › Privacy › "Remember my searches"); typing (150 ms,
+  from 2 characters) up to 8 cards of the browsed game (`GET /cards/suggest`), up to 3 collectors
+  of the browsed region for a signed-in collector (`GET /search/collectors`), and "Search binders
+  and deck cores for '…'"; no counts. A code matching one printing opens it preselected.
+- **Rail** (72, `rail`, at 960 and wider) and **tab bar** (`tab-bar`, below 960): Home, Search,
+  Inventory, Messages (unread chats badge, `unread-chats`, a deferred probe of
+  `GET /conversations`) and Profile; Admin for staff and the "?" button on the rail.
+- **Account menu**: View my profile (`/profile`), Settings, Appearance › (Same as the system,
+  Light, Dark), Keyboard shortcuts, Trading safely, Admin console (staff), Sign out.
+- **Keyboard** (`core/keyboard`): `/`, Ctrl/Cmd+K, `g` then h s i m p, `n` (Add cards), `?` (the
+  lazy "Keyboard shortcuts" dialog); single keys never fire in a field or over a dialog or menu,
+  and Settings › Appearance › "Single-key shortcuts" turns them off (`KeyboardPrefs`).
+- **Toasts** (`core/feedback`): every `MatSnackBar.open()` of the app becomes a shell toast
+  (`ToastSnackBar`): bottom-left beside the rail (above the tab bar below 960), up to 3, 6 s or
+  10 s with an Undo, paused on hover or focus.
+- **Skip links** ("Skip to content", "Skip the map" while the map is shown), the **session
+  banner** ("We could not load your account." with "Try again"), and the **footer** of reading
+  pages only (`data.shell.layout`).
+- **Routes and old links** (`app.routes.ts`, `core/routing/legacy-redirects.ts`, spec 4.11): Home
+  (`/`, the region's map until stage WE), Search with Cards | Binders | Wishlist (Binders without a
+  text is the map until stage WD), Messages with Chats | Community (`/messages/community/:room`),
+  `/profile`; `/map` → Search › Binders, `/cards?q=` → Search › Cards, `/wishlist` → Search ›
+  Wishlist, `/community` → Messages › Community, `/offers` and `/trades` → Messages with the toast
+  "Offers are no longer available. Deals happen in the chat.", `/checkout` and `/disputes` → a
+  notice, `/settings/offers|payouts` → Settings. Only the landing and Legal are indexable
+  (decision 6, `OrenjiTitleStrategy`).
+
 ## Run
 
 ```bash
@@ -455,6 +501,11 @@ Contract: `docs/api/contracts/phase7-ratings-reports-admin.md` (backend notes an
 
 ## Offers and trades (Phase 8)
 
+> **Removed from the web UI in stage WA (decision 2, ADR 0018).** `/offers` and `/trades` lead to
+> Messages with the toast "Offers are no longer available. Deals happen in the chat."; old offer
+> messages read as history (no link), old offer notifications open the list. The screens below
+> were deleted with their E2E specs; the server modules stay. The rest of this section is history.
+
 Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviations in
 `apps/api/README.md`, "Offers and trades (Phase 8)"). Generated client only (`OffersService`,
 `TradesService`, `MessagingService`, `RatingsService`).
@@ -514,6 +565,11 @@ Contract: `docs/api/contracts/phase8-offers-trades.md` (backend notes and deviat
   not declared by the generated `ProblemDetail`; `problemExtension()` reads them defensively.
 
 ## Payment protection and disputes (Phase 9)
+
+> **Removed from the web UI in stage WA (decision 2, ADR 0018).** `/checkout/*` and
+> `/disputes/*` show a notice ("Payments and disputes aren't part of OrenjiTrade…") with "Go to
+> Messages"; Settings › Payouts left; the admin console keeps its payment pages. The rest of this
+> section is history.
 
 Contract: `docs/api/contracts/phase9-payments-disputes.md` (backend notes and deviations in
 `apps/api/README.md`, "Payment protection and disputes (Phase 9)"). Generated client only
@@ -619,13 +675,18 @@ their provenance (Natural Earth 5.1.1, public domain, built with mapshaper 0.7.5
   `dist/tokens.ts` (typed constants). `src/styles.scss` imports the CSS by relative path. Use
   `var(--color-primary)`, `var(--spacing-4)`, `var(--radius-md)`, `var(--font-display)`,
   `var(--color-status-fresh)`, ... — never raw hex.
-- Material 3: `src/theme/_theme-colors.scss` was generated with
+- Material 3 (web redesign WA, spec 2.7): `src/theme/_theme-colors.scss` was generated with
   `ng generate @angular/material:theme-color --primary-color=#F4761A --tertiary-color=#0F766E`.
-  `styles.scss` applies `mat.theme()` (Inter as plain family, Sora as brand family) on `html`
-  (light), on `[data-theme='dark']` and under `prefers-color-scheme: dark` for
-  `html:not([data-theme='light'])`.
+  `styles.scss` applies one `mat.theme()` on `html` (typography, density, shape) and maps every
+  `--mat-sys-*` colour to a design token, so the tokens decide light, dark and the system
+  preference; elevation is off (`--mat-sys-level*: none`), ripples are off
+  (`MAT_RIPPLE_GLOBAL_OPTIONS`), and the dialog, menu, select, autocomplete, form field and
+  tooltip overrides give the redesign's radii. Light `onPrimary` is ink (decision 21).
+- The games' accents and monograms come from the `gameTile` tokens (`shared/domain/games.ts`,
+  `light-dark()`); no game colour is hard-coded.
 - `ThemeService` (`core/theme`) holds `preference` (`light | dark | system`, persisted in
-  `localStorage`) and `resolved`; it sets `html[data-theme]`. The toolbar menu drives it.
+  `localStorage`, "Same as the system" by default) and `resolved`; it sets `html[data-theme]`.
+  The account menu's Appearance › and Settings › Appearance drive it.
 - Icons: Material Symbols Rounded (`MatIconRegistry.setDefaultFontSetClass`).
 - Fonts (Sora, Inter, JetBrains Mono) and icons come from Google Fonts (preconnected in
   `index.html`); the CSP allows exactly those origins.
@@ -634,7 +695,7 @@ their provenance (Natural Earth 5.1.1, public domain, built with mapshaper 0.7.5
 
 ```
 src/app/
-  app.config.ts, app.routes.ts       providers, lazy routes ("" -> /map, "**" -> not found)
+  app.config.ts, app.routes.ts       providers, lazy routes with data.shell ("" Home, "**" not found)
   core/
     account/    AccountExportService (GET /me/export -> JSON download)
     api/        provideApiClient()  (generated client wiring)
@@ -645,23 +706,23 @@ src/app/
     feature-flags/ FeatureFlagsService, featureGuard
     http/       interceptors, ApiError, friendlyError, HttpContext tokens
     limits/     limit-reached interceptor, service and dialog
-    layout/     app-shell, top-bar, notification-bell, account-menu, session-banner, bottom-nav
-                (<960px), footer, api-version, theme-toggle
-    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade")
+    layout/     app-shell, ShellLayout (route data.shell, breakpoints), top-bar (+ pill styles),
+                rail (>=960px), tab-bar (<960px), region-pill and game-pill (lazy popovers),
+                popover (Popovers), global-search (deferred), notification-bell, account-menu,
+                session-banner, footer, unread-chats, shell-icon, api-version
+    feedback/   ToastService, ToastHostComponent, ToastSnackBar (MatSnackBar stand-in)
+    keyboard/   KeyboardShortcuts, KeyboardPrefs, the "?" dialog (lazy)
+    search/     RecentSearches (this browser only)
+    game/       GameContext (the browsed game)
+    routing/    OrenjiTitleStrategy ("<page> · OrenjiTrade", robots), legacy-redirects
     theme/      ThemeService
   features/
     auth/       sign-in, sign-up, verify-email, reset-password, consent, suspended
     onboarding/ three-step wizard
-    settings/   shell + profile, privacy, notifications, location, offers, payouts, blocked
-                users, my reports, account, appearance
-    offers/     /offers inbox (tabs, status filter, summary rows) and /offers/:id (action bar,
-                history); data/ (OffersInboxStore, OfferDetailStore)
-    trades/     /trades list and /trades/:id (next-action banner, steps, timeline, payment,
-                shipment and dispute cards, payout reminder); data/ (TradesListStore,
-                TradeDetailStore, TradeProtectionActions); dialogs/ (ship, open dispute)
-    checkout/   /checkout/fake/:ref (payments, local fake provider); data/ (FakeCheckoutStore)
-    disputes/   /disputes/:id (overview, evidence with uploads, thread, timeline); data/
-                (DisputeStore)
+    settings/   shell + profile, privacy, notifications, location, blocked users, my reports,
+                account, appearance (offers and payouts left with stage WA)
+    notice/     the notice of old /checkout and /disputes links (stage WA)
+    profile/    /profile: your own collector page (stage WA)
     collectors/ public profile (container + presentational view, public wishlist, ratings and
                 references section)
     admin/      shell, dashboard, users (list, detail, roles editor, suspend dialog, moderation
@@ -677,17 +738,16 @@ src/app/
                 binders (header, publish menu, form + manager dialogs), editor side panel,
                 add-card dialog
     binders/    /binders/:id public binder (container + header)
-    map/        /map: data/ (params, query, clusters, markers, MapDiscoveryStore), map canvas,
-                preview card, discovery panel + collector list, filters bar, legend, area
-                prompt, messages panel (the messenger)
+    map/        the region's map (Home and Search › Binders since stage WA): boundary map,
+                states list, a state's binders; data/ (RegionMapStore, boundaries)
     messages/   /messages: data/ (ConversationsStore, ThreadStore, drafts, previews, thread
                 items), messenger, conversation list, thread (view, header, list, bubble),
                 composer, realtime status
-    community/  /community: data/ (CommunityStore, helpers), channel sidebar, post composer,
-                post item, replies, moderator remove dialog
-    search/     /search: data/ (params), unified results (tabs, collector result), card holders
-                (filters form, result row)
-    wishlist/   /wishlist: data/ (WishlistStore), list (wish card, summary)
+    community/  Messages › Community: data/ (CommunityStore, helpers), channel sidebar, post
+                composer, post item, replies, moderator remove dialog
+    search/     /search (Cards | Binders | Wishlist): data/ (params), unified results (tabs,
+                collector result), card holders (filters form, result row)
+    wishlist/   Search › Wishlist: data/ (WishlistStore), list (wish card, summary)
     notifications/ /notifications: data/ (NotificationFeedStore, day groups)
     legal, not-found
   shared/
@@ -704,14 +764,14 @@ src/app/
     profile/    profile form, game / language / tag pickers, MyProfileStore
     links/      card / binder link pickers (autocomplete), shared link card
     messaging/  ConversationStarterService, BlockActionsService
-    offers/     offer and trade labels, OfferTarget, offer form, refusals, make-offer button and
-                dialog, card picker, reason dialog, deal summary, party card, status chip, offer
-                link card and picker, CursorList, OfferActionsService
+    offers/     offer and trade labels, refusals, status chip, and the offer card of old chat
+                messages (history, no link); the rest left with offers (stage WA)
     wishlist/   WishlistActions, add/edit dialog (card picker, criteria fields), form, labels
     pipes/      relativeTime, mediaUrl
-    ui/         avatar, card-art, card-image, confirm-dialog, game-chip, section-card,
-                empty-state, error-state, skeleton, page-header, freshness-badge, condition-chip,
-                availability-chip, visibility-badge, search-field, wordmark, quantity-stepper
+    ui/         avatar, card-art, card-image (never wider than 160 px), confirm-dialog, game-chip,
+                section-card, empty-state, error-state, skeleton, page-header, freshness-badge,
+                condition-chip, availability-chip, visibility-badge, search-field, wordmark,
+                quantity-stepper, underline-tabs
 ```
 
 ### Card pictures (ADR 0015)
@@ -805,7 +865,8 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
   pages are not followed); stage F1: the plain limit dialog (no plan, no link) and the usage
   limits page (one row per key).
 - E2E (`npm run e2e`, Playwright/chromium; `npx playwright install chromium` once):
-  - `e2e/smoke.spec.ts`: shell, navigation, legal draft banner, 404 (no API needed).
+  - `e2e/smoke.spec.ts`: the shell for a guest (Home with the pills, the rail, Sign in), the
+    region pill, the map without a provider, legal draft banner, 404.
   - `e2e/auth.spec.ts`, `e2e/settings.spec.ts`, `e2e/admin.spec.ts` run against the **real
     local stack** and create fresh fictional users through the UI or the emulator REST API:
     sign-up with consents, email verification through the emulator's oob codes, onboarding
@@ -881,32 +942,15 @@ needs Java) and `openapi-typescript` against `docs/api/openapi.json`. Commit the
     update, the rating is edited within its window and a reference is written; the rated
     collector gets RATING_RECEIVED without the comment; an unrelated collector sees no rate or
     reference action and the API refuses their rating (403 `RATING_NOT_ELIGIBLE`).
-  - `e2e/offers.spec.ts` (fresh collectors; the sellers declare a place): B makes
-    a cash offer on A's public binder card through the dialog (amount required, a second offer on
-    the card refused inline with a link to the open one) and shares it from the message composer;
-    A has the OFFER_RECEIVED notification and sees the SYSTEM message and the OFFER_LINK card in
-    the conversation, opens the offer, is refused an unchanged counter-offer and counters; B
-    accepts from the Sent inbox ("Your turn") and lands on the trade page; both mark the
-    in-person meetup and confirm the exchange (COMPLETED, A's copies drop from 2 to 1), B rates A
-    from the trade page and A gets "Rate this collector" on B's profile. A second test: A switches
-    off mixed offers in Settings → Offers, B's mixed offer is refused inline (422) and B sends a
-    trade offer with two copies of a private card from A's profile; A's decline on a proposal
-    that another device countered meanwhile gets 409 `STALE_OFFER` and the page moves to the live
-    proposal; B declines the counter-offer with a reason and withdraws a cash offer on a
-    sale-only card; the inbox status filter; a stranger gets the not-found state and 404. No
-    JSON response carries a coordinate.
-  - `e2e/payments.spec.ts` (fake payment provider, fresh collectors with declared places):
-    a seller sets up payouts in Settings → Payouts; a buyer offers with "Use payment
-    protection" (explanatory copy, no "escrow"); once accepted the buyer pays on the trade page,
-    lands on the "Local test payment" checkout, pays and comes back PAID; the seller marks the
-    card as shipped with tracking; the buyer confirms receipt: COMPLETED with the payout (amount
-    minus the fee) shown to both. A second protected trade (prepared through the API up to the
-    shipment) is disputed from the trade page (reason required), gets a previewed photo and a
-    message; a stranger gets the not-found state and 404; an admin finds it in the queue, puts it
-    on hold, adds a note and resolves it for the buyer after the review step; the payment shows
-    the refund, the audit log lists `dispute.freeze`, `dispute.note` and `dispute.resolve`, and
-    the buyer sees the decision, the refund and the cancelled trade. No JSON response carries a
-    coordinate.
+  - `e2e/shell.spec.ts` (stage WA): the five areas from the rail at 1440 and 1024 and from the
+    tab bar at 390 (no horizontal scroll); the region and game popovers from the keyboard
+    ("Your region", "Not your region" and the way back, "Cards coming soon"); the top bar's search
+    with `/` and Ctrl/Cmd+K, cards, recent searches and "Remember my searches" off; the account
+    menu (no Offers, Trades or Payouts; Appearance › Dark and back); the "?" dialog, `g` then `i`,
+    and the single-key switch; the skip links; the session banner with "Try again"; the theme
+    following the system; every old link of spec 4.11 with its toast or notice. (`offers.spec.ts`,
+    `payments.spec.ts` and the acceptance offers and payment protection specs left with their
+    screens.)
   - `e2e/usage-limits.spec.ts` (stage F1): a fresh collector (discoverable in Quebec) fills
     `binders.max` (5, the same for everyone); the sixth binder gets the plain limit dialog ("you
     used 5 of 5", "Does not reset on its own", "Every collector has the same limits.", no link,

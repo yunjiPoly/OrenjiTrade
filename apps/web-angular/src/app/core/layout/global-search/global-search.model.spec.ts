@@ -43,7 +43,10 @@ describe('the global search rules (spec 4.4)', () => {
   it('opens a code several printings share on "Any printing" (the first-printing defect)', () => {
     const a = printing('p-1', 'RA01-EN011');
     const b = printing('p-2', 'ra01-en011 ');
-    expect(cardTarget(a, [a, b])).toEqual({ commands: ['/cards', 'card-1'], queryParams: {} });
+    expect(cardTarget(a, [a, b])).toEqual({
+      commands: ['/cards', 'card-1'],
+      queryParams: { printing: 'any' },
+    });
     expect(cardTarget(card({}), [a])).toEqual({ commands: ['/cards', 'card-1'], queryParams: {} });
   });
 

@@ -138,7 +138,7 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
     // The text is remembered in this browser only, and listed on the next visit of the field.
     await page.keyboard.press('ControlOrMeta+k');
-    await expect(page.getByRole('button', { name: 'lantern' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'lantern', exact: true })).toBeVisible();
     await expect(page.getByTestId('global-search-panel')).toContainText(
       'Only you see your searches. They’re kept in this browser.',
     );
@@ -153,7 +153,7 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page.getByTestId('global-search-panel')).toContainText(
       'Your searches are not remembered in this browser.',
     );
-    await expect(page.getByRole('button', { name: 'lantern' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'lantern', exact: true })).toHaveCount(0);
   });
 
   test('the account menu, the "?" dialog and its off switch in Settings › Appearance', async ({
@@ -183,6 +183,8 @@ test.describe('the web redesign shell (WA)', () => {
     await page.getByRole('menuitemradio', { name: 'Same as the system' }).click();
     await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
 
+    // The menus have closed (a single key never fires over an open menu).
+    await expect(page.getByRole('menu')).toHaveCount(0);
     await page.locator('body').click({ position: { x: 5, y: 500 } });
     await page.keyboard.press('?');
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
@@ -206,7 +208,12 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page).toHaveURL(/\/settings\/appearance$/);
     await page.keyboard.press('ControlOrMeta+k');
     await expect(page.getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ })).toBeFocused();
+    await page.keyboard.press('Escape');
     await page.getByRole('switch', { name: 'Single-key shortcuts' }).click();
+    await expect(page.getByRole('switch', { name: 'Single-key shortcuts' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
   });
 
   test('the skip links come first, "Skip the map" on the map', async ({ page }) => {

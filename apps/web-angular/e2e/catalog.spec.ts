@@ -19,8 +19,9 @@ import {
  */
 
 /** The top-bar autocomplete (a deferred chunk; waits until it replaced the plain field). */
+/** The top bar's search (web redesign WA, spec 4.4). */
 function topSearch(page: Page) {
-  return page.getByRole('banner').getByRole('combobox', { name: 'Search cards' });
+  return page.getByRole('banner').getByRole('combobox', { name: /^Search Yu-Gi-Oh! cards/ });
 }
 
 test.describe('card catalog', () => {
@@ -42,12 +43,12 @@ test.describe('card catalog', () => {
     // Specific enough to rank the fictional card first when the real Yu-Gi-Oh! catalog is
     // imported locally (it has an "Azure-Eyes Silver Dragon").
     await search.fill('azure-eyes sky');
-    const option = page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ });
+    const option = page.getByRole('option', { name: /Azure-Eyes Sky Dragon/ }).first();
     await expect(option).toBeVisible();
-    await expect(option).toContainText('Yu-Gi-Oh!');
-    await expect(option).toContainText('AZR-EN001');
+    // No counts and no game label in the rows (spec 4.4); the last row searches binders.
+    await expect(option).not.toContainText('Yu-Gi-Oh!');
     await expect(
-      page.getByRole('option', { name: /See all results for “azure-eyes sky”/ }),
+      page.getByRole('option', { name: /Search binders and deck cores for ‘azure-eyes sky’/ }),
     ).toBeVisible();
 
     // Keyboard only: highlight the first suggestion and open it.
@@ -232,32 +233,26 @@ test.describe('card catalog', () => {
     // Autocomplete: a printing-code prefix suggests printings; choosing one preselects it.
     const search = topSearch(page);
     await search.fill('AZR-EN01');
-    const printing = page.getByRole('option', { name: /Lantern Fox Spirit/ });
-    await expect(printing).toContainText('Printing');
+    const printing = page.getByRole('option', { name: /Lantern Fox Spirit, AZR-EN011/ }).first();
     await expect(printing).toContainText('AZR-EN011');
     await search.press('ArrowDown');
     await search.press('Enter');
-    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}\?printing=[0-9a-f-]{36}$/);
+    // One printing with the code opens it preselected; a code several printings share opens on
+    // "Any printing" (spec 4.4: the recorded first-printing defect).
+    await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}\?printing=([0-9a-f-]{36}|any)$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Lantern Fox Spirit' })).toBeVisible();
-    // Both printings of the card share the code; the suggested one is the selected one.
-    await expect(
-      page.getByRole('button', { name: 'Show printing AZR-EN011', pressed: true }),
-    ).toHaveCount(1);
 
     // Enter without choosing a suggestion searches the whole catalog.
     // "sky dragon", not "dragon": with the real Yu-Gi-Oh! catalog imported locally, more than a
     // page of real dragons would push the fictional card off the first page.
     await search.fill('sky dragon');
     await expect(
-      page.getByRole('option', { name: /See all results for “sky dragon”/ }),
+      page.getByRole('option', { name: /Search binders and deck cores for ‘sky dragon’/ }),
     ).toBeVisible();
     await search.press('Enter');
-    await expect(page).toHaveURL(/\/cards\?q=sky(%20|\+)dragon$/);
-    await expect(
-      page.getByRole('list', { name: 'Search results' }).getByRole('link', {
-        name: 'Azure-Eyes Sky Dragon',
-      }),
-    ).toBeVisible();
+    // Free text opens Search › Cards (spec 4.4).
+    await expect(page).toHaveURL(/\/search\?tab=cards&q=sky(%20|\+)dragon$/);
+    await expect(page.getByRole('heading', { name: 'Cards for “sky dragon”' })).toBeVisible();
 
     // The Search tab shows the first matching cards.
     await page.goto('/search?q=lantern');
