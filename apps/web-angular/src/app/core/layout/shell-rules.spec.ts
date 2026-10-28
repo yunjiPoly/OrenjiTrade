@@ -1,7 +1,8 @@
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { indexable } from '../routing/orenji-title.strategy';
 import { SHELL_AREAS, areaOfKey, badgeText, messagesLabel } from './nav-links';
-import { SHELL_DEFAULTS, shellDataOf } from './shell-layout.service';
+import { routes } from '../../app.routes';
+import { SHELL_DEFAULTS, ShellRouteData, shellDataOf } from './shell-layout.service';
 
 /** A chain of route snapshots from the root down, each with its own `data`. */
 function chain(...datas: (Record<string, unknown> | undefined)[]): ActivatedRouteSnapshot {
@@ -45,6 +46,15 @@ describe('the shell rules (web redesign WA)', () => {
       }),
     );
     expect(merged).toEqual({ ...SHELL_DEFAULTS, area: 'search', pills: 'both', layout: 'reading' });
+  });
+
+  it('gives every Messages route the workspace layout (no footer, spec 4.10) and /admin its rail item', () => {
+    const shellOf = (path: string) =>
+      routes.find((route) => route.path === path)?.data?.['shell'] as ShellRouteData | undefined;
+    for (const path of ['messages', 'messages/community/:room', 'messages/:id']) {
+      expect(shellOf(path), path).toMatchObject({ area: 'messages', layout: 'workspace' });
+    }
+    expect(shellOf('admin')).toMatchObject({ area: 'admin' });
   });
 
   it('indexes only the routes that say so (decision 6: the landing and legal pages)', () => {
