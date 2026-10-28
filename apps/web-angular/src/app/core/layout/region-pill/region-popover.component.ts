@@ -35,7 +35,12 @@ export interface RegionRow {
   selector: 'app-region-popover',
   imports: [ShellIconComponent],
   template: `
-    <div class="pop" role="dialog" aria-labelledby="region-pop-title" aria-describedby="region-pop-lead">
+    <div
+      class="pop"
+      role="dialog"
+      aria-labelledby="region-pop-title"
+      aria-describedby="region-pop-lead"
+    >
       <h2 class="pop__title" id="region-pop-title">Choose a region</h2>
       <p class="pop__lead" id="region-pop-lead">
         Home, Search and the map show one region at a time. Cards ship within a region.
@@ -48,7 +53,7 @@ export interface RegionRow {
           </button>
         </p>
       }
-      <div class="pop__rows" role="radiogroup" aria-labelledby="region-pop-title" (keydown)="onKeydown($event)">
+      <div class="pop__rows" role="radiogroup" aria-labelledby="region-pop-title">
         @for (row of rows(); track row.code) {
           <button
             type="button"
@@ -57,6 +62,7 @@ export interface RegionRow {
             [attr.aria-checked]="row.checked"
             [attr.tabindex]="row.checked ? 0 : -1"
             [attr.data-code]="row.code"
+            [attr.aria-label]="row.name + ', ' + row.line"
             (click)="pick(row.code)"
           >
             <span class="pop__text">
@@ -68,8 +74,8 @@ export interface RegionRow {
         }
       </div>
       <p class="pop__foot">
-        Your own region comes from Settings › Location. Browsing another one changes nothing on
-        your profile.
+        Your own region comes from Settings › Location. Browsing another one changes nothing on your
+        profile.
       </p>
       <button type="button" class="pop__close" aria-label="Close" (click)="ref.close()">
         <app-shell-icon name="close" [size]="18" />
@@ -77,6 +83,7 @@ export interface RegionRow {
     </div>
   `,
   styleUrl: '../popover/popover-rows.scss',
+  host: { '(keydown)': 'onKeydown($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class RegionPopoverComponent {
@@ -87,7 +94,8 @@ export class RegionPopoverComponent {
 
   protected readonly rows = computed<RegionRow[]>(() => {
     const loaded = this.regions.regions();
-    const codes = loaded.length > 0 ? loaded.map((r) => r.code) : Object.keys(PLATFORM_REGION_NAMES);
+    const codes =
+      loaded.length > 0 ? loaded.map((r) => r.code) : Object.keys(PLATFORM_REGION_NAMES);
     const home = this.context.home();
     return codes.map((code) => {
       const line = REGION_LINES[code] ?? '';
@@ -111,7 +119,9 @@ export class RegionPopoverComponent {
   constructor() {
     void this.regions.load();
     afterNextRender(() =>
-      this.host.nativeElement.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus(),
+      this.host.nativeElement
+        .querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')
+        ?.focus(),
     );
   }
 
@@ -128,9 +138,13 @@ export class RegionPopoverComponent {
     }
     event.preventDefault();
     const radios = Array.from(
-      this.host.nativeElement.querySelectorAll<HTMLElement>('[role="radio"]:not([aria-disabled="true"])'),
+      this.host.nativeElement.querySelectorAll<HTMLElement>(
+        '[role="radio"]:not([aria-disabled="true"])',
+      ),
     );
-    const index = radios.indexOf(this.host.nativeElement.ownerDocument.activeElement as HTMLElement);
+    const index = radios.indexOf(
+      this.host.nativeElement.ownerDocument.activeElement as HTMLElement,
+    );
     const step = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
     const next =
       event.key === 'Home'

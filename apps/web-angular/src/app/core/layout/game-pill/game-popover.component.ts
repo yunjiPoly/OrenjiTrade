@@ -32,10 +32,15 @@ export const COMING_SOON = 'Cards coming soon';
   selector: 'app-game-popover',
   imports: [ShellIconComponent],
   template: `
-    <div class="pop" role="dialog" aria-labelledby="game-pop-title" aria-describedby="game-pop-lead">
+    <div
+      class="pop"
+      role="dialog"
+      aria-labelledby="game-pop-title"
+      aria-describedby="game-pop-lead"
+    >
       <h2 class="pop__title" id="game-pop-title">Choose a game</h2>
       <p class="pop__lead" id="game-pop-lead">Home and Search show one game at a time.</p>
-      <div class="pop__rows" role="radiogroup" aria-labelledby="game-pop-title" (keydown)="onKeydown($event)">
+      <div class="pop__rows" role="radiogroup" aria-labelledby="game-pop-title">
         @for (option of context.options(); track option.game.slug) {
           <button
             type="button"
@@ -45,6 +50,7 @@ export const COMING_SOON = 'Cards coming soon';
             [attr.aria-disabled]="option.available ? null : 'true'"
             [attr.tabindex]="option.game.slug === context.current() ? 0 : -1"
             [attr.data-game]="option.game.slug"
+            [attr.aria-label]="rowLabel(option.game.shortLabel, option.game.slug, option.available)"
             (click)="pick(option.game.slug, option.available)"
           >
             <span
@@ -55,7 +61,7 @@ export const COMING_SOON = 'Cards coming soon';
               >{{ option.game.letter }}</span
             >
             <span class="pop__text">
-              <span class="pop__name">{{ option.game.label }}</span>
+              <span class="pop__name">{{ option.game.shortLabel }}</span>
               @if (!option.available) {
                 <span class="pop__line">{{ comingSoon }}</span>
               } @else if (counts(); as byGame) {
@@ -82,6 +88,7 @@ export const COMING_SOON = 'Cards coming soon';
     </div>
   `,
   styleUrl: '../popover/popover-rows.scss',
+  host: { '(keydown)': 'onKeydown($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class GamePopoverComponent {
@@ -105,8 +112,19 @@ export class GamePopoverComponent {
         .catch(() => this.counts.set(null));
     }
     afterNextRender(() =>
-      this.host.nativeElement.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus(),
+      this.host.nativeElement
+        .querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')
+        ?.focus(),
     );
+  }
+
+  /** "Yu-Gi-Oh!, 17 of your cards", "One Piece, Cards coming soon", or the name alone. */
+  protected rowLabel(name: string, slug: string, available: boolean): string {
+    if (!available) {
+      return `${name}, ${COMING_SOON}`;
+    }
+    const counts = this.counts();
+    return counts ? `${name}, ${yourCards(counts[slug] ?? 0)}` : name;
   }
 
   protected pick(slug: string, available: boolean): void {
@@ -123,8 +141,12 @@ export class GamePopoverComponent {
       return;
     }
     event.preventDefault();
-    const radios = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('[role="radio"]'));
-    const index = radios.indexOf(this.host.nativeElement.ownerDocument.activeElement as HTMLElement);
+    const radios = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>('[role="radio"]'),
+    );
+    const index = radios.indexOf(
+      this.host.nativeElement.ownerDocument.activeElement as HTMLElement,
+    );
     const step = event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1;
     const next =
       event.key === 'Home'

@@ -48,10 +48,7 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
             · ×{{ r.item.quantity }}
           }
         </p>
-        <app-item-chips
-          [condition]="r.item.condition"
-          [availability]="r.item.availability"
-        />
+        <app-item-chips [condition]="r.item.condition" [availability]="r.item.availability" />
         @if (r.item.publicNotes) {
           <p class="hr__note">“{{ r.item.publicNotes }}”</p>
         }

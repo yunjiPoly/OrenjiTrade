@@ -32,7 +32,7 @@ export function gamePillLabel(name: string): string {
       aria-haspopup="dialog"
       [attr.aria-expanded]="open()"
       [attr.aria-label]="label()"
-      [attr.title]="info().label"
+      [attr.title]="info().shortLabel"
       (click)="toggle()"
     >
       <span
@@ -42,7 +42,7 @@ export function gamePillLabel(name: string): string {
         [style.color]="'var(--game-tile-' + info().tileKey + '-foreground)'"
         >{{ info().letter }}</span
       >
-      <span class="pill__name">{{ info().label }}</span>
+      <span class="pill__name">{{ info().shortLabel }}</span>
       <app-shell-icon
         class="pill__chevron"
         [class.pill__chevron--open]="open()"
@@ -63,7 +63,7 @@ export class GamePillComponent {
   private ref: PopoverRef | null = null;
 
   protected readonly info = this.context.info;
-  protected readonly label = computed(() => gamePillLabel(this.info().label));
+  protected readonly label = computed(() => gamePillLabel(this.info().shortLabel));
 
   protected async toggle(): Promise<void> {
     if (this.ref) {

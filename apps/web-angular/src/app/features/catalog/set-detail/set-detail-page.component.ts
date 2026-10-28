@@ -328,9 +328,7 @@ export class SetDetailPageComponent {
     return error ? friendlyMessage(error) : '';
   });
   protected readonly gameLabel = computed(() => gameInfo(this.detail()?.set?.game ?? '').label);
-  protected readonly accent = computed(
-    () => gameInfo(this.detail()?.set?.game ?? '').accent,
-  );
+  protected readonly accent = computed(() => gameInfo(this.detail()?.set?.game ?? '').accent);
   protected readonly extraFacts = computed(() =>
     metadataEntries(null, this.detail()?.metadata, { includeUndeclared: true }),
   );

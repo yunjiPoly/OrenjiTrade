@@ -81,7 +81,9 @@ export function searchViewOf(tab: string | undefined): SearchView {
           (filtersChange)="onHolderFilters($event)"
         />
       } @else {
-        <p class="search-page__lead">Cards, collectors and public binders of your region, and tags.</p>
+        <p class="search-page__lead">
+          Cards, collectors and public binders of your region, and tags.
+        </p>
         <app-unified-search-box
           class="search__field"
           data-page-search
@@ -195,9 +197,27 @@ export class SearchPageComponent {
     const q = this.params().q || null;
     const view = this.view();
     return [
-      { id: 'cards', label: 'Cards', commands: ['/search'], queryParams: { tab: 'cards', q }, active: view === 'cards' },
-      { id: 'binders', label: 'Binders', commands: ['/search'], queryParams: { tab: 'binders', q }, active: view === 'binders' },
-      { id: 'wishlist', label: 'Wishlist', commands: ['/search'], queryParams: { tab: 'wishlist', q: null }, active: view === 'wishlist' },
+      {
+        id: 'cards',
+        label: 'Cards',
+        commands: ['/search'],
+        queryParams: { tab: 'cards', q },
+        active: view === 'cards',
+      },
+      {
+        id: 'binders',
+        label: 'Binders',
+        commands: ['/search'],
+        queryParams: { tab: 'binders', q },
+        active: view === 'binders',
+      },
+      {
+        id: 'wishlist',
+        label: 'Wishlist',
+        commands: ['/search'],
+        queryParams: { tab: 'wishlist', q: null },
+        active: view === 'wishlist',
+      },
     ];
   });
 

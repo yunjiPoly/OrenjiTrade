@@ -132,8 +132,8 @@ export function notificationLink(
         case 'LIMIT_REACHED':
           // Held-back alerts; nothing to buy (stage F1).
           return data?.['notificationType'] === 'WISHLIST_ALERT'
-          ? '/search?tab=wishlist'
-          : '/notifications';
+            ? '/search?tab=wishlist'
+            : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':

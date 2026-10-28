@@ -225,13 +225,11 @@ export class TopBarComponent {
   protected readonly searchId = GLOBAL_SEARCH_ID;
   private readonly document = inject(DOCUMENT);
   private readonly scrolled = signal(false);
-  protected readonly line = computed(
-    () => this.layout.layout() === 'workspace' || this.scrolled(),
-  );
+  protected readonly line = computed(() => this.layout.layout() === 'workspace' || this.scrolled());
   protected readonly placeholder = computed(() =>
     this.session.status() === 'ready'
-      ? `Search ${this.game.info().label} cards or collectors`
-      : `Search ${this.game.info().label} cards`,
+      ? `Search ${this.game.info().shortLabel} cards or collectors`
+      : `Search ${this.game.info().shortLabel} cards`,
   );
 
   protected onScroll(): void {

@@ -79,7 +79,7 @@ export class GlobalSearchComponent {
   private readonly typed$ = new Subject<string>();
 
   protected readonly signedIn = computed(() => this.session.status() === 'ready');
-  protected readonly gameName = computed(() => this.game.info().label);
+  protected readonly gameName = computed(() => this.game.info().shortLabel);
   protected readonly placeholder = computed(() =>
     this.signedIn()
       ? `Search ${this.gameName()} cards or collectors`
@@ -98,7 +98,9 @@ export class GlobalSearchComponent {
   protected readonly collectorOptions = computed(() =>
     this.options().filter((o) => o.kind === 'collector'),
   );
-  protected readonly bindersOption = computed(() => this.options().find((o) => o.kind === 'binders'));
+  protected readonly bindersOption = computed(() =>
+    this.options().find((o) => o.kind === 'binders'),
+  );
   protected readonly noCards = computed(
     () => this.status() === 'ready' && this.typing() && this.cardOptions().length === 0,
   );
@@ -293,8 +295,16 @@ export class GlobalSearchComponent {
           )
           .pipe(catchError(() => of([] as CollectorByName[])))
       : of([] as CollectorByName[]);
-    return forkJoin([cards$.pipe(catchError(() => of({ cards: [] as CardSuggestion[], failed: true }))), collectors$]).pipe(
-      map(([cards, collectors]) => ({ query, cards: cards.cards, collectors, failed: cards.failed })),
+    return forkJoin([
+      cards$.pipe(catchError(() => of({ cards: [] as CardSuggestion[], failed: true }))),
+      collectors$,
+    ]).pipe(
+      map(([cards, collectors]) => ({
+        query,
+        cards: cards.cards,
+        collectors,
+        failed: cards.failed,
+      })),
     );
   }
 }

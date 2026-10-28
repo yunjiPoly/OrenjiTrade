@@ -9,8 +9,20 @@ export const SEARCH_MIN_CHARS = 2;
 
 /** One option of the dropdown's listbox. */
 export type SearchOption =
-  | { kind: 'card'; id: string; card: CardSuggestion; commands: unknown[]; queryParams: Record<string, string> }
-  | { kind: 'collector'; id: string; collector: CollectorByName; commands: unknown[]; queryParams: Record<string, string> }
+  | {
+      kind: 'card';
+      id: string;
+      card: CardSuggestion;
+      commands: unknown[];
+      queryParams: Record<string, string>;
+    }
+  | {
+      kind: 'collector';
+      id: string;
+      collector: CollectorByName;
+      commands: unknown[];
+      queryParams: Record<string, string>;
+    }
   | { kind: 'binders'; id: string; commands: unknown[]; queryParams: Record<string, string> };
 
 /** A text split around its first case-insensitive match (the match is drawn orange 600). */
@@ -50,7 +62,9 @@ export function cardTarget(
   const commands = ['/cards', card.id];
   if (card.kind === 'PRINTING' && card.printingId) {
     const key = codeKey(card.printingCode);
-    const sharing = all.filter((entry) => entry.kind === 'PRINTING' && codeKey(entry.printingCode) === key);
+    const sharing = all.filter(
+      (entry) => entry.kind === 'PRINTING' && codeKey(entry.printingCode) === key,
+    );
     if (key && sharing.length === 1) {
       return { commands, queryParams: { printing: card.printingId } };
     }

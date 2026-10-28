@@ -80,10 +80,7 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
             · {{ it.binder.name }}
           }
         </p>
-        <app-item-chips
-          [condition]="it.condition"
-          [availability]="it.availability"
-        />
+        <app-item-chips [condition]="it.condition" [availability]="it.availability" />
         <div class="ic__row">
           <span class="ic__price" [class.ic__price--none]="!price()">{{
             price() ?? 'No price'

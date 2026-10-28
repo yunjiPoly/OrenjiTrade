@@ -44,7 +44,11 @@ import { LegalTextsService } from './legal-texts.service';
           </li>
         }
       </ul>
-      <section class="legal-index__credits" id="card-data-credits" aria-labelledby="card-data-title">
+      <section
+        class="legal-index__credits"
+        id="card-data-credits"
+        aria-labelledby="card-data-title"
+      >
         <h2 class="legal-index__credits-title" id="card-data-title">Card data credits</h2>
         <app-card-data-attribution />
         <p class="legal-index__credits-text">

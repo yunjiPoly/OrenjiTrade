@@ -37,7 +37,9 @@ describe('MapPageComponent', () => {
   const status = signal('anonymous');
   const me = signal<unknown>(null);
 
-  async function mount(query: { region?: string; state?: string; embedded?: boolean } = {}): Promise<void> {
+  async function mount(
+    query: { region?: string; state?: string; embedded?: boolean } = {},
+  ): Promise<void> {
     fixture = TestBed.createComponent(MapPageComponent);
     for (const [key, value] of Object.entries(query)) {
       fixture.componentRef.setInput(key, value);

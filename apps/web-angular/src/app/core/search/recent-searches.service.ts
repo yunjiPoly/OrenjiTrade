@@ -35,7 +35,9 @@ function parse(raw: string | null): Stored {
     const byUser: Record<string, string[]> = {};
     for (const [uid, list] of Object.entries(value?.byUser ?? {})) {
       if (Array.isArray(list)) {
-        byUser[uid] = list.filter((entry): entry is string => typeof entry === 'string').slice(0, RECENT_SEARCHES_MAX);
+        byUser[uid] = list
+          .filter((entry): entry is string => typeof entry === 'string')
+          .slice(0, RECENT_SEARCHES_MAX);
       }
     }
     const forgetting: Record<string, true> = {};
@@ -84,20 +86,23 @@ export class RecentSearches {
   }
 
   clear(): void {
-    const { [this.uid()]: _removed, ...rest } = this.state().byUser;
-    this.write({ ...this.state(), byUser: rest });
+    const byUser = { ...this.state().byUser };
+    delete byUser[this.uid()];
+    this.write({ ...this.state(), byUser });
   }
 
   /** "Remember my searches": off clears the list and stops it until it is on again. */
   setRemembering(on: boolean): void {
     const uid = this.uid();
-    const { [uid]: _list, ...byUser } = this.state().byUser;
-    const { [uid]: _flag, ...forgetting } = this.state().forgetting;
-    this.write(
-      on
-        ? { byUser: this.state().byUser, forgetting }
-        : { byUser, forgetting: { ...forgetting, [uid]: true } },
-    );
+    const byUser = { ...this.state().byUser };
+    const forgetting = { ...this.state().forgetting };
+    if (on) {
+      delete forgetting[uid];
+      this.write({ byUser, forgetting });
+    } else {
+      delete byUser[uid];
+      this.write({ byUser, forgetting: { ...forgetting, [uid]: true } });
+    }
   }
 
   private write(next: Stored): void {

@@ -26,7 +26,9 @@ export function isEditableTarget(target: EventTarget | null): boolean {
   }
   if (tag === 'INPUT') {
     const type = (target as HTMLInputElement).type;
-    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(type);
+    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'color', 'file'].includes(
+      type,
+    );
   }
   const role = target.getAttribute('role');
   return role === 'textbox' || role === 'combobox' || role === 'searchbox';
@@ -125,7 +127,9 @@ export class KeyboardShortcuts {
     );
     const globalField = this.document.getElementById(GLOBAL_SEARCH_ID);
     const target =
-      global && !this.layout.hideGlobalSearch() ? (globalField ?? pageField) : (pageField ?? globalField);
+      global && !this.layout.hideGlobalSearch()
+        ? (globalField ?? pageField)
+        : (pageField ?? globalField);
     target?.focus();
     if (target instanceof HTMLInputElement) {
       target.select();

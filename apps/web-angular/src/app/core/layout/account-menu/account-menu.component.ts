@@ -99,7 +99,11 @@ export const THEME_CHOICES: readonly { value: ThemePreference; label: string }[]
           [attr.aria-checked]="theme.preference() === choice.value"
           (click)="theme.setPreference(choice.value)"
         >
-          <span class="account__radio" [class.account__radio--on]="theme.preference() === choice.value" aria-hidden="true"></span>
+          <span
+            class="account__radio"
+            [class.account__radio--on]="theme.preference() === choice.value"
+            aria-hidden="true"
+          ></span>
           <span>{{ choice.label }}</span>
         </button>
       }

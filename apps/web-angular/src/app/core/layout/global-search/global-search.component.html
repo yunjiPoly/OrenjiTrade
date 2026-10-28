@@ -60,7 +60,11 @@
           } @else {
             <h2 class="visually-hidden" id="gs-recent-title">Recent searches</h2>
             <p class="gs__empty">
-              {{ recent.remembering() ? 'No recent searches.' : 'Your searches are not remembered in this browser.' }}
+              {{
+                recent.remembering()
+                  ? 'No recent searches.'
+                  : 'Your searches are not remembered in this browser.'
+              }}
             </p>
           }
           <p class="gs__note">
@@ -92,7 +96,9 @@
           </div>
         } @else if (noCards()) {
           <div class="gs__nomatch" role="status">
-            <span class="gs__nomatch-title">No {{ gameName() }} card matches ‘{{ trimmed() }}’</span>
+            <span class="gs__nomatch-title"
+              >No {{ gameName() }} card matches ‘{{ trimmed() }}’</span
+            >
             <span class="gs__nomatch-text"
               >Try fewer letters, or the code printed on the card, like LAVD-EN008.</span
             >
@@ -126,12 +132,14 @@
                     alt=""
                   />
                   <span class="gs__name"
-                    >{{ name.pre }}<mark class="gs__hit">{{ name.hit }}</mark>{{ name.post }}</span
+                    >{{ name.pre }}<mark class="gs__hit">{{ name.hit }}</mark
+                    >{{ name.post }}</span
                   >
                   @if (option.card.kind === 'PRINTING' && option.card.printingCode) {
                     @let code = splitMatch(option.card.printingCode, trimmed().replace(' ', '-'));
                     <span class="gs__code"
-                      >{{ code.pre }}<mark class="gs__hit">{{ code.hit }}</mark>{{ code.post }}</span
+                      >{{ code.pre }}<mark class="gs__hit">{{ code.hit }}</mark
+                      >{{ code.post }}</span
                     >
                   }
                 </a>

@@ -30,7 +30,9 @@ import { ToastService } from './toast.service';
         >
           <app-shell-icon
             class="toast__icon"
-            [name]="toast.tone === 'error' ? 'alert' : toast.tone === 'info' ? 'info' : 'checkCircle'"
+            [name]="
+              toast.tone === 'error' ? 'alert' : toast.tone === 'info' ? 'info' : 'checkCircle'
+            "
             [size]="20"
           />
           <div class="toast__text">

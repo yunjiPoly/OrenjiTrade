@@ -58,7 +58,10 @@ export function keyGroups(mod: string): KeyGroup[] {
     {
       title: 'In lists and menus',
       rows: [
-        { parts: [K('↑'), K('↓')], action: 'Move up and down the search results, a menu or a picker' },
+        {
+          parts: [K('↑'), K('↓')],
+          action: 'Move up and down the search results, a menu or a picker',
+        },
         { parts: [K('Enter')], action: 'Open the row you are on' },
         { parts: [K('Esc')], action: 'Close what is on top' },
       ],

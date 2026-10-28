@@ -51,7 +51,12 @@ export class UnreadChatsProbeComponent {
         }
       });
     });
-    const subscription = merge(this.realtime.messages$, this.realtime.receipts$, this.realtime.resync$, this.refresh$)
+    const subscription = merge(
+      this.realtime.messages$,
+      this.realtime.receipts$,
+      this.realtime.resync$,
+      this.refresh$,
+    )
       .pipe(debounceTime(UNREAD_REFRESH_MS))
       .subscribe(() => {
         if (this.ready()) {

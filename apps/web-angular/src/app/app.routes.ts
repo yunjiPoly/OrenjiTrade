@@ -24,7 +24,12 @@ const SEARCH: ShellRouteData = {
   hideGlobalSearch: true,
 };
 const DISCOVERY_PAGE: ShellRouteData = { area: 'search', pills: 'region', layout: 'reading' };
-const INVENTORY: ShellRouteData = { area: 'inventory', pills: 'none', layout: 'workspace', pageSearch: true };
+const INVENTORY: ShellRouteData = {
+  area: 'inventory',
+  pills: 'none',
+  layout: 'workspace',
+  pageSearch: true,
+};
 const MESSAGES: ShellRouteData = { area: 'messages', pills: 'none', layout: 'workspace' };
 const PROFILE: ShellRouteData = { area: 'profile', pills: 'none', layout: 'reading' };
 

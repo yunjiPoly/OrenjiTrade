@@ -54,10 +54,7 @@ import { CardImageComponent } from '../../../shared/ui/card-image/card-image.com
                   [game]="item.game"
                 />
                 <span class="mono">{{ item.printingCode ?? item.cardName }}</span>
-                <app-item-chips
-                  [condition]="item.condition"
-                  [availability]="item.availability"
-                />
+                <app-item-chips [condition]="item.condition" [availability]="item.availability" />
                 <strong data-testid="holder-price">{{
                   price(item.askingPrice, item.currency)
                 }}</strong>

@@ -84,10 +84,7 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
                 </div>
               </td>
               <td>
-                <app-item-chips
-                  [condition]="it.condition"
-                  [availability]="it.availability"
-                />
+                <app-item-chips [condition]="it.condition" [availability]="it.availability" />
               </td>
               <td>
                 <app-quantity-stepper

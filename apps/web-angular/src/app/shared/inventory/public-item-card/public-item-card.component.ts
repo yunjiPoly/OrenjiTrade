@@ -16,12 +16,7 @@ import { ItemChipsComponent } from '../item-chips/item-chips.component';
  */
 @Component({
   selector: 'app-public-item-card',
-  imports: [
-    RouterLink,
-    CardImageComponent,
-    FreshnessBadgeComponent,
-    ItemChipsComponent,
-  ],
+  imports: [RouterLink, CardImageComponent, FreshnessBadgeComponent, ItemChipsComponent],
   template: `
     @let it = item();
     <article class="pic" [style.--pic-accent]="accent()" [attr.aria-label]="it.card.name">
@@ -49,10 +44,7 @@ import { ItemChipsComponent } from '../item-chips/item-chips.component';
           }
         </p>
         <p class="pic__meta">{{ details() }}</p>
-        <app-item-chips
-          [condition]="it.condition"
-          [availability]="it.availability"
-        />
+        <app-item-chips [condition]="it.condition" [availability]="it.availability" />
         <div class="pic__footer">
           @if (price(); as price) {
             <span class="pic__price" data-testid="item-price">{{ price }}</span>

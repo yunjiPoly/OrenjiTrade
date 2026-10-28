@@ -63,20 +63,50 @@ export class Popovers {
           .withPositions(
             options.alignEnd
               ? [
-                  { originX: 'end', originY: 'bottom', overlayX: 'end', overlayY: 'top', offsetY: 8 },
-                  { originX: 'end', originY: 'top', overlayX: 'end', overlayY: 'bottom', offsetY: -8 },
+                  {
+                    originX: 'end',
+                    originY: 'bottom',
+                    overlayX: 'end',
+                    overlayY: 'top',
+                    offsetY: 8,
+                  },
+                  {
+                    originX: 'end',
+                    originY: 'top',
+                    overlayX: 'end',
+                    overlayY: 'bottom',
+                    offsetY: -8,
+                  },
                 ]
               : [
-                  { originX: 'start', originY: 'bottom', overlayX: 'start', overlayY: 'top', offsetY: 8 },
-                  { originX: 'start', originY: 'top', overlayX: 'start', overlayY: 'bottom', offsetY: -8 },
+                  {
+                    originX: 'start',
+                    originY: 'bottom',
+                    overlayX: 'start',
+                    overlayY: 'top',
+                    offsetY: 8,
+                  },
+                  {
+                    originX: 'start',
+                    originY: 'top',
+                    overlayX: 'start',
+                    overlayY: 'bottom',
+                    offsetY: -8,
+                  },
                 ],
           );
     const overlayRef = this.overlay.create({
       positionStrategy: position,
-      scrollStrategy: sheet ? this.overlay.scrollStrategies.block() : this.overlay.scrollStrategies.reposition(),
+      scrollStrategy: sheet
+        ? this.overlay.scrollStrategies.block()
+        : this.overlay.scrollStrategies.reposition(),
       hasBackdrop: true,
       backdropClass: sheet ? 'cdk-overlay-dark-backdrop' : 'cdk-overlay-transparent-backdrop',
-      panelClass: ['app-popover', sheet ? 'app-popover--sheet' : 'app-popover--anchored', ...(options.panelClass ? [options.panelClass] : [])],
+      panelClass: [
+        'app-popover',
+        sheet ? 'app-popover--sheet' : 'app-popover--anchored',
+        ...(options.panelClass ? [options.panelClass] : []),
+      ],
       width: sheet ? '100%' : `${options.width ?? 360}px`,
       maxWidth: sheet ? '100%' : 'calc(100vw - 16px)',
     });

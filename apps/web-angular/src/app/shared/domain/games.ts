@@ -64,19 +64,23 @@ export const GAMES: readonly GameInfo[] = [
 
 /** One Piece (V130): in the catalogue's game list, not yet in the profile and channel pickers. */
 const ONE_PIECE: GameInfo = {
-    slug: 'onepiece',
-    label: 'One Piece',
-    shortLabel: 'One Piece',
-    glyph: 'sailing',
-    letter: 'O',
-    tileKey: 'onepiece',
-    accent: accentOf('onepiece'),
+  slug: 'onepiece',
+  label: 'One Piece',
+  shortLabel: 'One Piece',
+  glyph: 'sailing',
+  letter: 'O',
+  tileKey: 'onepiece',
+  accent: accentOf('onepiece'),
 };
 
 /** Every game in the phone's order (the game pill and its popover, stage G and web WA). */
-export const ALL_GAMES: readonly GameInfo[] = ['yugioh', 'pokemon', 'mtg', 'onepiece', 'riftbound'].map(
-  (slug) => (slug === 'onepiece' ? ONE_PIECE : GAMES.find((game) => game.slug === slug)!),
-);
+export const ALL_GAMES: readonly GameInfo[] = [
+  'yugioh',
+  'pokemon',
+  'mtg',
+  'onepiece',
+  'riftbound',
+].map((slug) => (slug === 'onepiece' ? ONE_PIECE : GAMES.find((game) => game.slug === slug)!));
 
 const BY_SLUG = new Map(ALL_GAMES.map((game) => [game.slug, game]));
 
