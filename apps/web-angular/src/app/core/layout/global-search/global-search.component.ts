@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  afterNextRender,
   computed,
   inject,
   signal,
@@ -21,6 +22,7 @@ import { GLOBAL_SEARCH_ID } from '../../keyboard/keyboard-shortcuts.service';
 import { RegionContext } from '../../region/region-context.service';
 import { RecentSearches } from '../../search/recent-searches.service';
 import { ShellIconComponent } from '../shell-icon/shell-icon.component';
+import { ShellLayout } from '../shell-layout.service';
 import {
   SEARCH_CARD_ROWS,
   SEARCH_COLLECTOR_ROWS,
@@ -122,6 +124,20 @@ export class GlobalSearchComponent {
         this.active.set(-1);
       });
     inject(DestroyRef).onDestroy(() => subscription.unsubscribe());
+    // Take over the placeholder field this chunk replaced: its focus and what was typed.
+    const handoff = inject(ShellLayout).searchHandoff;
+    afterNextRender(() => {
+      const field = this.input().nativeElement;
+      if (handoff.text) {
+        field.value = handoff.text;
+        this.onInput(handoff.text);
+      }
+      if (handoff.focused) {
+        field.focus();
+      }
+      handoff.focused = false;
+      handoff.text = '';
+    });
   }
 
   protected onInput(value: string): void {

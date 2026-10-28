@@ -59,11 +59,15 @@ import { ShellLayout } from '../shell-layout.service';
               <div class="bar__search bar__search--placeholder">
                 <app-shell-icon name="search" [size]="18" />
                 <input
+                  #early
                   class="bar__placeholder-input"
                   type="search"
                   [id]="searchId"
                   [attr.aria-label]="placeholder()"
                   [placeholder]="placeholder()"
+                  (focus)="layout.searchHandoff.focused = true"
+                  (blur)="onEarlyBlur($event)"
+                  (input)="layout.searchHandoff.text = early.value"
                 />
                 <kbd class="bar__key" aria-hidden="true">/</kbd>
               </div>
@@ -217,6 +221,13 @@ export class TopBarComponent {
       ? `Search ${this.game.info().shortLabel} cards or collectors`
       : `Search ${this.game.info().shortLabel} cards`,
   );
+
+  /** Focus left for another control (not the chunk's swap, which has no target). */
+  protected onEarlyBlur(event: FocusEvent): void {
+    if (event.relatedTarget) {
+      this.layout.searchHandoff.focused = false;
+    }
+  }
 
   protected onScroll(): void {
     this.scrolled.set((this.document.defaultView?.scrollY ?? 0) > 0);

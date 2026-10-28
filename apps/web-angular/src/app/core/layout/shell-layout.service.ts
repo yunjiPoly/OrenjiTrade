@@ -100,6 +100,12 @@ export class ShellLayout {
     }
   }
 
+  /**
+   * What the top bar's placeholder field held before the global search's chunk replaced it (a
+   * Ctrl/Cmd+K or a first letter right after the page loaded): the component takes it over.
+   */
+  readonly searchHandoff = { focused: false, text: '' };
+
   /** A page that shows the map registers the element after it; `null` when it leaves. */
   setSkipMapTarget(id: string | null): void {
     this.skipMapState.set(id);

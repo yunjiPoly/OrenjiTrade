@@ -6,6 +6,7 @@ import { of, throwError } from 'rxjs';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService, SessionStatus } from '../../auth/session.service';
 import { RECENT_SEARCHES_STORAGE_KEY, RecentSearches } from '../../search/recent-searches.service';
+import { ShellLayout } from '../shell-layout.service';
 import { GlobalSearchComponent } from './global-search.component';
 import { SEARCH_DEBOUNCE_MS } from './global-search.model';
 
@@ -179,6 +180,21 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
     await type('yubel');
     key('Escape');
     expect(element.querySelector('#gs-panel')).toBeNull();
+  });
+
+  it('takes over the early field it replaced: its focus and what was typed', async () => {
+    const handoff = TestBed.inject(ShellLayout).searchHandoff;
+    handoff.focused = true;
+    handoff.text = 'ash';
+    const second = TestBed.createComponent(GlobalSearchComponent);
+    document.body.appendChild(second.nativeElement);
+    second.detectChanges();
+    await second.whenStable();
+    const field = (second.nativeElement as HTMLElement).querySelector('input')!;
+    expect(field.value).toBe('ash');
+    expect(document.activeElement).toBe(field);
+    expect(handoff).toEqual({ focused: false, text: '' });
+    (second.nativeElement as HTMLElement).remove();
   });
 
   it('says when nothing matches, and offers Try again when the search fails', async () => {
