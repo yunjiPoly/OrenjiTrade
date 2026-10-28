@@ -52,6 +52,7 @@ export function BlockCollectorDialog({
     <ConfirmDialog
       visible={target !== null}
       title={`Block ${name}?`}
+      handleInTitle
       message="You will stop seeing each other’s binders, profiles and posts on the map, in search and in the community, and neither of you can send messages. They are not told. You can unblock them from their profile or from Settings → Blocked collectors."
       confirmLabel="Block"
       tone="danger"

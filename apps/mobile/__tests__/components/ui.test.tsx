@@ -707,6 +707,33 @@ describe('the largest text sizes: handles and toasts (owner decision of 2026-10-
     expect(screen.getByTestId('snackbar-text')).toHaveProp('numberOfLines', 3);
   });
 
+  it('keeps a confirmation’s buttons in reach and the handle in its title whole (largest size)', () => {
+    textSize(3.1);
+    renderWithProviders(
+      <ConfirmDialog
+        visible
+        title={`Block ${LONGEST}?`}
+        handleInTitle
+        message={'You will stop seeing each other. '.repeat(12)}
+        confirmLabel="Block"
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        testID="block-dialog"
+      />
+    );
+    expect(screen.getByText(`Block ${LONGEST}?`)).toHaveProp(
+      'maxFontSizeMultiplier',
+      HANDLE_MAX_FONT_SCALE
+    );
+    // The words scroll within the window; the buttons sit under them, outside the scroll.
+    const scroll = screen.getByTestId('block-dialog-scroll');
+    expect(StyleSheet.flatten(screen.getByTestId('block-dialog').props.style).maxHeight).toBe(
+      874 - 2 * (24 + 48)
+    );
+    expect(within(scroll).queryByTestId('block-dialog-confirm')).toBeNull();
+    expect(screen.getByTestId('block-dialog-confirm')).toBeOnTheScreen();
+  });
+
   it.each([
     [667, 3.1],
     [874, 3.1],

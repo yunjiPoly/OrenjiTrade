@@ -546,6 +546,7 @@ export default function ConversationScreen() {
       <ConfirmDialog
         visible={confirmBlock}
         title={CHAT_COPY.blockTitle(handle)}
+        handleInTitle
         message={CHAT_COPY.blockBody}
         confirmLabel={CHAT_COPY.blockConfirm}
         tone="danger"
