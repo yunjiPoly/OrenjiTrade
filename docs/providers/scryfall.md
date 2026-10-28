@@ -43,8 +43,10 @@ crops; the 320 px rendition does not need the larger files).
   clients only receive OrenjiTrade's own `/api/v1/public/card-images/{id}`; the source URLs stay in
   `card_image.source_url`, and only URLs of the configured image host matching the card image
   pattern are downloaded (SSRF guard). A bulk address outside the configured bulk host is refused:
-  it must start with `https://data.scryfall.io/` and the rest must be `<folder>/<file>` (letters,
-  digits, `.`, `_`, `-`; no query string, no `..`, no other host).
+  it must start with `https://data.scryfall.io/` and the rest must be exactly `<folder>/<file>`
+  (letters, digits, `.`, `_`, `-`, the file starting with a letter or digit, so never `.` or `..`;
+  no query string, no other host). Redirects are never followed (a `302` is a final answer and its
+  target gets no request), so the bulk host cannot send the importer elsewhere.
 - **No implied endorsement:** OrenjiTrade never says or suggests that Scryfall endorses it.
 - **Never in tests or CI:** the test profile points the adapter at closed local ports in
   snapshot-only mode, the end-to-end harnesses turn it off (`SCRYFALL_ENABLED=false`), and the
@@ -71,7 +73,11 @@ What the adapter does since:
   address outside the bulk host stops it with "Scryfall named a bulk file outside the configured
   bulk host (refused: `<scheme>://<host><path>`)": the refused address's scheme, host, port and path
   only, never user information, a query string or a fragment (only their presence is said),
-  clipped at 200 characters.
+  clipped at 200 characters, in printable ASCII (any other character stays percent-encoded, so
+  no line break and no invisible character such as a right-to-left override reaches the
+  message). The scheme is kept although other provider messages give host and path only: an
+  `http://` address on the right host is refused for its scheme alone, and the message has to
+  say so.
 - **The file:** stored as the HTTP client hands it over. Spring's JDK client decompresses a
   `Content-Encoding: gzip` answer, so the old JSON array was stored decoded; the `.jsonl.gz` file
   is a gzip file and stays compressed. Reading looks at the gzip magic bytes, not the name, and
@@ -87,10 +93,21 @@ What the adapter does since:
   stored file and, since this change, the decompressed content too (a decompression bomb guard:
   before, the decoded array was what got stored, so the download limit bounded it; the compressed
   file no longer does). "Unique Artwork" is about 39 MB compressed; decompressed it should be a
-  few hundred MB (not measured: agents never download it), inside the limit. A file above it stops
-  with "... is larger than ... bytes once decompressed
-  (orenji.card-providers.scryfall.max-bulk-bytes)"; raise the property if a larger bulk type is
+  few hundred MB (not measured: agents never download it), inside the limit. A download above it
+  stops at once with "Scryfall data.scryfall.io/<folder>/<file> is larger than ... bytes; the
+  download was stopped and is not retried" and nothing is stored (before review fix 1 it was
+  downloaded again on every attempt and reported as "unavailable after 4 attempt(s)
+  (IOException)"; the same now holds for TCGdex's archive and YGOPRODeck's files). A stored file
+  above it once decompressed stops with "... is larger than ... bytes once decompressed
+  (orenji.card-providers.scryfall.max-bulk-bytes)". Raise the property if a larger bulk type is
   ever configured.
+- **A stored file that cannot be read:** a file that is complete on disk but cannot be read (a
+  damaged gzip file) or is not valid JSON is reused for 24 hours and then for as long as Scryfall
+  lists the same `updated_at`, so the message says what to do: "The Scryfall bulk file
+  `<version>` cannot be read (to download it again, delete the folder
+  PROVIDER_DATA_DIR/scryfall/`<version>`)". After the folder is deleted, the next import
+  downloads the file again. Downloads cut short never get that far: the HTTP client reports
+  them and nothing is stored.
 
 The bulk type itself (`unique_artwork`, or "Default Cards" below) is unchanged: the fix works for
 whichever type is configured.
