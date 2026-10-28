@@ -83,7 +83,6 @@ import { QuantityStepperComponent } from '../../../shared/ui/quantity-stepper/qu
         <app-item-chips
           [condition]="it.condition"
           [availability]="it.availability"
-          [acceptsOffers]="it.acceptsOffers"
         />
         <div class="ic__row">
           <span class="ic__price" [class.ic__price--none]="!price()">{{

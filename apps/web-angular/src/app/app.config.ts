@@ -5,7 +5,9 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
+import { MAT_RIPPLE_GLOBAL_OPTIONS } from '@angular/material/core';
 import { MatIconRegistry } from '@angular/material/icon';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   TitleStrategy,
   provideRouter,
@@ -16,6 +18,7 @@ import {
 import { routes } from './app.routes';
 import { provideApiClient } from './core/api/provide-api-client';
 import { authInterceptor } from './core/auth/auth.interceptor';
+import { ToastSnackBar } from './core/feedback/toast-snack-bar';
 import { provideAuth } from './core/auth/provide-auth';
 import { sessionInterceptor } from './core/auth/session.interceptor';
 import { provideAppConfig } from './core/config/app-config.service';
@@ -40,6 +43,10 @@ export const appConfig: ApplicationConfig = {
       withViewTransitions(),
     ),
     { provide: TitleStrategy, useClass: OrenjiTitleStrategy },
+    // The web redesign's Material (spec 2.7): no ripples, and every snack bar of the app is one of
+    // the shell's toasts (spec 4.8; core/feedback).
+    { provide: MAT_RIPPLE_GLOBAL_OPTIONS, useValue: { disabled: true } },
+    { provide: MatSnackBar, useExisting: ToastSnackBar },
     // Interceptor order matters: base URL tagging -> Accept fix for bodiless operations ->
     // request id -> account-state redirects -> limit-reached dialog (429 LIMIT_REACHED) ->
     // bearer token (+ one retry on 401) -> error mapping/toast (innermost, so the outer

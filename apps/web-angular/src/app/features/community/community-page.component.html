@@ -1,7 +1,11 @@
-<div class="page community">
+<div class="community" [class.page]="!embedded()">
   <header class="community__header">
     <div class="community__heading">
-      <h1 class="community__title">Community</h1>
+      @if (embedded()) {
+        <h2 class="community__title">Community</h2>
+      } @else {
+        <h1 class="community__title">Community</h1>
+      }
       <p class="community__subtitle">
         Public channels by region, game and topic. Ask around, show off new listings and find trades
         in your region.
@@ -32,7 +36,7 @@
         actions
         matButton="filled"
         routerLink="/auth/sign-in"
-        [queryParams]="{ returnUrl: '/community' }"
+        [queryParams]="{ returnUrl: basePath() }"
       >
         Sign in
       </a>
@@ -72,7 +76,11 @@
       @default {
         <div class="community__layout" [class.community__layout--channels-open]="channelsOpen()">
           <aside class="community__sidebar" id="community-channels">
-            <app-channel-sidebar [channels]="store.channels()" [selected]="store.slug()" />
+            <app-channel-sidebar
+              [channels]="store.channels()"
+              [selected]="store.slug()"
+              [basePath]="basePath()"
+            />
           </aside>
 
           <section

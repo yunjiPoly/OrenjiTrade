@@ -7,11 +7,11 @@ import { provideApiClient } from '../../core/api/provide-api-client';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionService } from '../../core/auth/session.service';
 import { FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { ShellLayout } from '../../core/layout/shell-layout.service';
 import { RegionContext } from '../../core/region/region-context.service';
 import { REGIONS_FIXTURE } from '../../shared/regions/testing/regions-fixtures';
 import { BoundaryMapComponent } from './boundary-map/boundary-map.component';
 import { MapPageComponent } from './map-page.component';
-import { MessagesPanelComponent } from './messages-panel.component';
 
 @Component({ selector: 'app-boundary-map', template: '' })
 class FakeBoundaryMapComponent {
@@ -21,15 +21,6 @@ class FakeBoundaryMapComponent {
   readonly selected = input<string | null>(null);
   readonly label = input('');
   readonly subdivisionSelected = output<string>();
-}
-
-@Component({ selector: 'app-messages-panel', template: '' })
-class FakeMessagesPanelComponent {
-  readonly signedIn = input(false);
-  readonly opened = input(false);
-  readonly incoming = input<unknown>(null);
-  readonly closeRequested = output<void>();
-  readonly unreadChange = output<number>();
 }
 
 async function settle(): Promise<void> {
@@ -46,7 +37,7 @@ describe('MapPageComponent', () => {
   const status = signal('anonymous');
   const me = signal<unknown>(null);
 
-  async function mount(query: { region?: string; subdivision?: string } = {}): Promise<void> {
+  async function mount(query: { region?: string; state?: string; embedded?: boolean } = {}): Promise<void> {
     fixture = TestBed.createComponent(MapPageComponent);
     for (const [key, value] of Object.entries(query)) {
       fixture.componentRef.setInput(key, value);
@@ -95,8 +86,8 @@ describe('MapPageComponent', () => {
       ],
     });
     TestBed.overrideComponent(MapPageComponent, {
-      remove: { imports: [BoundaryMapComponent, MessagesPanelComponent] },
-      add: { imports: [FakeBoundaryMapComponent, FakeMessagesPanelComponent] },
+      remove: { imports: [BoundaryMapComponent] },
+      add: { imports: [FakeBoundaryMapComponent] },
     });
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   });
@@ -110,8 +101,9 @@ describe('MapPageComponent', () => {
     expect(map().region()).toBe('americas-north');
     expect(map().counts().get('CA-QC')).toBe(3);
     expect(map().names().get('CA-QC')).toBe('Quebec, Canada');
-    expect(navigate).toHaveBeenCalledWith(['/map'], {
-      queryParams: { region: 'americas-north', subdivision: null },
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: { region: 'americas-north', state: null },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
@@ -120,7 +112,7 @@ describe('MapPageComponent', () => {
   });
 
   it('opens the region and state of a shared link', async () => {
-    await mount({ region: 'europe', subdivision: 'FR-IDF' });
+    await mount({ region: 'europe', state: 'FR-IDF' });
     expect(TestBed.inject(RegionContext).current()).toBe('europe');
     expect(mapApi['getRegionBinderCounts']).toHaveBeenLastCalledWith(
       { region: 'europe' },
@@ -143,17 +135,36 @@ describe('MapPageComponent', () => {
     await mount();
     navigate.mockClear();
     map().subdivisionSelected.emit('CA-QC');
-    expect(navigate).toHaveBeenCalledWith(['/map'], {
-      queryParams: { region: 'americas-north', subdivision: 'CA-QC' },
+    expect(navigate).toHaveBeenCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: { region: 'americas-north', state: 'CA-QC' },
       queryParamsHandling: 'merge',
       replaceUrl: false,
     });
     element.querySelector<HTMLButtonElement>('[data-code="US-NY"]')!.click();
-    expect(navigate).toHaveBeenLastCalledWith(['/map'], {
-      queryParams: { region: 'americas-north', subdivision: 'US-NY' },
+    expect(navigate).toHaveBeenLastCalledWith([], {
+      relativeTo: expect.anything(),
+      queryParams: { region: 'americas-north', state: 'US-NY' },
       queryParamsHandling: 'merge',
       replaceUrl: false,
     });
+  });
+
+  it('registers "Skip the map" while it is on screen, and titles itself h2 inside Search', async () => {
+    await mount({ embedded: true });
+    expect(element.querySelector('h1')).toBeNull();
+    expect(element.querySelector('h2.bar__title')?.textContent).toContain('Binders in');
+    expect(element.querySelector('#map-list')).not.toBeNull();
+    const layout = TestBed.inject(ShellLayout);
+    expect(layout.skipMapTarget()).toBe('map-list');
+    fixture.destroy();
+    expect(layout.skipMapTarget()).toBeNull();
+  });
+
+  it('has no side Messages panel any more (the rail has Messages, spec 2.7)', async () => {
+    await mount();
+    expect(element.querySelector('mat-sidenav, app-messages-panel')).toBeNull();
+    expect(element.querySelector('[aria-controls="map-messages-panel"]')).toBeNull();
   });
 
   it('invites a signed-in collector without a location to choose one', async () => {

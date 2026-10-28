@@ -1,9 +1,11 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  booleanAttribute,
   computed,
   effect,
   inject,
+  input,
   untracked,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -54,9 +56,10 @@ import { WishlistSummaryComponent } from './list/wishlist-summary.component';
   ],
   providers: [WishlistStore],
   template: `
-    <div class="page wl">
+    <div class="wl" [class.page]="!embedded()">
       @if (auth.isAuthenticated()) {
         <app-page-header
+          [level]="embedded() ? 2 : 1"
           title="Wishlist"
           subtitle="Cards you are hunting for. We tell you when a collector of your region lists one."
         >
@@ -238,6 +241,8 @@ import { WishlistSummaryComponent } from './list/wishlist-summary.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class WishlistPageComponent {
+  /** Search › Wishlist (web WA): a section of the Search page, so its title is an h2. */
+  readonly embedded = input(false, { transform: booleanAttribute });
   private readonly router = inject(Router);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);

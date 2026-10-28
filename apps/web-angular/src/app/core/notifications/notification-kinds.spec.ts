@@ -75,7 +75,7 @@ describe('notification kinds', () => {
         data: { deepLink: '/cards/c-1?printing=any', cardId: 'c-1' },
       }),
     ).toBe('/cards/c-1?printing=any');
-    expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/wishlist');
+    expect(notificationLink({ type: Type.WishlistAlert, data: {} })).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.Message, data: { conversationId: 'c-9' } })).toBe(
       '/messages/c-9',
     );
@@ -94,7 +94,7 @@ describe('notification kinds', () => {
           deepLink: '/premium',
         },
       }),
-    ).toBe('/wishlist');
+    ).toBe('/search?tab=wishlist');
     for (const removed of [
       '/premium?checkout=success',
       '/credits',
@@ -110,7 +110,7 @@ describe('notification kinds', () => {
         type: Type.System,
         data: { kind: 'LIMIT_REACHED', notificationType: 'WISHLIST_ALERT' },
       }),
-    ).toBe('/wishlist');
+    ).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.System, data: { kind: 'LIMIT_REACHED' } })).toBe(
       '/notifications',
     );
@@ -119,7 +119,7 @@ describe('notification kinds', () => {
         type: Type.WishlistAlert,
         data: { deepLink: 'https://evil.example', cardId: '../../x' },
       }),
-    ).toBe('/wishlist');
+    ).toBe('/search?tab=wishlist');
     expect(notificationLink({ type: Type.RatingReceived, data: {} })).toBe('/notifications');
   });
 
@@ -148,56 +148,30 @@ describe('notification kinds', () => {
     expect(notificationKind({ type: Type.ReportDecision, data: {} }).label).toBe('Report decision');
   });
 
-  it('opens offers and trades (Phase 8), with the new withdrawn / expired kinds', () => {
-    expect(
-      notificationLink({
-        type: Type.OfferReceived,
-        data: { deepLink: '/offers/o-1', offerId: 'o-1' },
-      }),
-    ).toBe('/offers/o-1');
-    expect(notificationLink({ type: Type.OfferCountered, data: { offerId: 'o-2' } })).toBe(
-      '/offers/o-2',
-    );
-    expect(
-      notificationLink({ type: Type.OfferAccepted, data: { offerId: 'o-2', tradeId: 't-1' } }),
-    ).toBe('/trades/t-1');
-    expect(notificationLink({ type: Type.TradeUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationLink({ type: Type.TradeUpdate, data: {} })).toBe('/trades');
-    expect(notificationLink({ type: Type.OfferExpired, data: {} })).toBe('/offers');
+  it('reads old offer, trade, payment and dispute notices as history (decision 2, web WA)', () => {
+    for (const notice of [
+      { type: Type.OfferReceived, data: { deepLink: '/offers/o-1', offerId: 'o-1' } },
+      { type: Type.OfferCountered, data: { offerId: 'o-2' } },
+      { type: Type.OfferAccepted, data: { offerId: 'o-2', tradeId: 't-1' } },
+      { type: Type.TradeUpdate, data: { tradeId: 't-1' } },
+      { type: Type.OfferExpired, data: {} },
+      { type: Type.PaymentUpdate, data: { deepLink: '/settings/payouts', tradeId: 't-1' } },
+      { type: Type.ShipmentStatus, data: { tradeId: 't-2' } },
+      { type: Type.DisputeUpdate, data: { disputeId: 'd-1', tradeId: 't-1' } },
+      { type: Type.System, data: { deepLink: '/disputes/d-1' } },
+      { type: Type.System, data: { deepLink: '/checkout/fake/ref-1' } },
+      { type: Type.System, data: { deepLink: '/settings/offers' } },
+    ]) {
+      expect(notificationLink(notice), JSON.stringify(notice)).toBe('/notifications');
+    }
+    // Their kinds keep their words, so the list still says what happened.
     expect(notificationKind({ type: Type.OfferCancelled, data: {} })).toEqual({
       icon: 'undo',
       tone: 'offer',
       label: 'Offer withdrawn',
     });
     expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe('Offer expired');
-  });
-
-  it('opens the Phase 9 payment, shipment and dispute notices where they belong', () => {
-    expect(
-      notificationLink({
-        type: Type.PaymentUpdate,
-        data: { deepLink: '/settings/payouts', tradeId: 't-1' },
-      }),
-    ).toBe('/settings/payouts');
-    expect(notificationLink({ type: Type.PaymentUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationLink({ type: Type.ShipmentStatus, data: { tradeId: 't-2' } })).toBe(
-      '/trades/t-2',
-    );
-    expect(
-      notificationLink({ type: Type.DisputeUpdate, data: { disputeId: 'd-1', tradeId: 't-1' } }),
-    ).toBe('/disputes/d-1');
-    expect(notificationLink({ type: Type.DisputeUpdate, data: { tradeId: 't-1' } })).toBe(
-      '/trades/t-1',
-    );
-    expect(notificationKind({ type: Type.DisputeUpdate, data: {} })).toEqual({
-      icon: 'gavel',
-      tone: 'warning',
-      label: 'Dispute',
-    });
+    expect(notificationKind({ type: Type.DisputeUpdate, data: {} }).label).toBe('Dispute');
   });
 
   it('shows the card a payload carries, only with an API picture URL', () => {

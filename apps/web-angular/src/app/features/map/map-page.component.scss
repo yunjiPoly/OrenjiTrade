@@ -4,7 +4,7 @@
   min-height: 0;
 }
 
-// Full height under the top bar (and above the bottom navigation on small screens).
+// Full height under the top bar (and above the tab bar on small screens).
 .map-page {
   display: flex;
   flex: 1 1 auto;
@@ -12,22 +12,17 @@
   height: max(560px, calc(100dvh - 64px));
 }
 
-.map-page__container {
-  flex: 1 1 auto;
-  min-height: 0;
-  background: transparent;
-}
-
-.map-page__messages {
-  width: min(360px, 90vw);
-  border-left: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
 .map-page__content {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
+}
+
+// Inside Search › Binders, under the Search page's own header and tabs.
+.map-page--embedded {
+  height: max(520px, calc(100dvh - 64px - 132px));
 }
 
 .bar {
@@ -59,25 +54,6 @@
 .bar__search {
   flex: 1 1 280px;
   max-width: 460px;
-}
-
-.bar__messages {
-  position: relative;
-}
-
-.bar__badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 18px;
-  padding: 0 4px;
-  border-radius: var(--radius-pill);
-  background: var(--color-danger);
-  color: #fff;
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 18px;
-  text-align: center;
 }
 
 .prompt {

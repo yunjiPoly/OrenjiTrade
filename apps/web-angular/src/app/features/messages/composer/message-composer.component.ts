@@ -18,15 +18,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { BinderLinkPickerComponent } from '../../../shared/links/binder-link-picker.component';
 import { CardLinkPickerComponent } from '../../../shared/links/card-link-picker.component';
 import { BinderLinkChoice, CardLinkChoice } from '../../../shared/links/link-choices';
-import {
-  OfferLinkChoice,
-  OfferLinkPickerComponent,
-} from '../../../shared/offers/offer-link-picker.component';
 import { CardImageComponent } from '../../../shared/ui/card-image/card-image.component';
 import { DraftAttachment, IMAGE_TYPES, MessageDraft, imageProblem } from '../data/message-draft';
 import { MESSAGE_MAX_LENGTH } from '../data/message-text';
 
-type Picker = 'card' | 'binder' | 'offer' | null;
+type Picker = 'card' | 'binder' | null;
 
 /**
  * Message composer: multi-line text (Enter sends, Shift+Enter adds a line), an attachment menu
@@ -45,7 +41,6 @@ type Picker = 'card' | 'binder' | 'offer' | null;
     BinderLinkPickerComponent,
     CardImageComponent,
     CardLinkPickerComponent,
-    OfferLinkPickerComponent,
   ],
   template: `
     <form class="composer" (submit)="submit($event)" aria-label="Write a message">
@@ -55,16 +50,6 @@ type Picker = 'card' | 'binder' | 'offer' | null;
         }
         @case ('binder') {
           <app-binder-link-picker (picked)="pickBinder($event)" (cancelled)="closePicker()" />
-        }
-        @case ('offer') {
-          @if (otherId(); as otherId) {
-            <app-offer-link-picker
-              [otherId]="otherId"
-              [otherName]="otherName()"
-              (picked)="pickOffer($event)"
-              (cancelled)="closePicker()"
-            />
-          }
         }
       }
 
@@ -93,19 +78,6 @@ type Picker = 'card' | 'binder' | 'offer' | null;
               <span class="attachment__text">
                 <span class="attachment__eyebrow">Public binder</span>
                 <span class="attachment__name">{{ a.binder.name }}</span>
-              </span>
-            }
-            @case ('offer') {
-              <app-card-image
-                class="attachment__thumb"
-                [src]="a.offer.imageUrl"
-                [game]="a.offer.game"
-                [alt]="a.offer.cardName"
-              />
-              <span class="attachment__text">
-                <span class="attachment__eyebrow">Offer</span>
-                <span class="attachment__name">{{ a.offer.cardName }}</span>
-                <span class="attachment__meta">{{ a.offer.terms }}</span>
               </span>
             }
             @case ('image') {
@@ -140,7 +112,7 @@ type Picker = 'card' | 'binder' | 'offer' | null;
         <button
           matIconButton
           type="button"
-          aria-label="Attach a card, binder, offer or photo"
+          aria-label="Attach a card, binder or photo"
           matTooltip="Attach"
           [matMenuTriggerFor]="attachMenu"
           [disabled]="disabled()"
@@ -156,12 +128,6 @@ type Picker = 'card' | 'binder' | 'offer' | null;
             <mat-icon aria-hidden="true">menu_book</mat-icon>
             Share a binder
           </button>
-          @if (otherId()) {
-            <button mat-menu-item type="button" (click)="openPicker('offer')">
-              <mat-icon aria-hidden="true">local_offer</mat-icon>
-              Share an offer
-            </button>
-          }
           <button mat-menu-item type="button" (click)="fileInput.click()">
             <mat-icon aria-hidden="true">add_photo_alternate</mat-icon>
             Attach a photo
@@ -223,7 +189,7 @@ export class MessageComposerComponent {
   /** Error of the last send (from the thread). */
   readonly error = input<string | null>(null);
   readonly placeholder = input('Write a message');
-  /** The other participant ("Share an offer" lists the negotiations with them). */
+  /** The other participant. */
   readonly otherId = input<string | null>(null);
   readonly otherName = input('this collector');
   readonly send = output<MessageDraft>();
@@ -285,11 +251,6 @@ export class MessageComposerComponent {
 
   protected pickBinder(binder: BinderLinkChoice): void {
     this.setAttachment({ kind: 'binder', binder });
-    this.closePicker();
-  }
-
-  protected pickOffer(offer: OfferLinkChoice): void {
-    this.setAttachment({ kind: 'offer', offer });
     this.closePicker();
   }
 

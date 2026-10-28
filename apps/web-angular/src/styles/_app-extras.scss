@@ -85,12 +85,8 @@
   max-height: min(640px, calc(100dvh - 80px));
 }
 
-// Error toast panel (errorInterceptor) keeps the danger accent.
-.app-toast--error {
-  --mat-snack-bar-button-color: var(--color-warning);
-}
-
-// Card autocomplete panel (app-card-search-box renders its options in a Material overlay).
+// Card entries of the unified search autocomplete (app-unified-search-box renders its options in
+// a Material overlay).
 .csb-panel {
   --mat-option-label-text-size: var(--font-size-sm);
 
@@ -196,4 +192,54 @@
       margin: 0;
     }
   }
+}
+
+// The top bar's popovers (spec 4.5, Popovers service): surfaceElevated, a 1 px borderStrong, the
+// menu shadow, radius 16; a bottom sheet below 960 px (spec 16).
+.app-popover {
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--elevation-menu);
+  color: var(--color-ink);
+}
+
+.app-popover--sheet {
+  max-height: 85dvh;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  animation: app-sheet-in var(--motion-duration-slow) var(--motion-easing-standard);
+}
+
+@keyframes app-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0.4;
+  }
+}
+
+// Menus (the account menu, "⋯" and "+"; spec 4.8): rows 40 tall, a 20 px icon and 14 text.
+.mat-mdc-menu-panel.account-menu {
+  width: 240px;
+  min-width: 240px;
+  padding: 6px;
+}
+
+.mat-mdc-menu-panel.account-menu--sub {
+  width: 220px;
+  min-width: 220px;
+}
+
+.account-menu .mat-mdc-menu-content {
+  padding: 0;
+}
+
+.account-menu .mat-mdc-menu-item {
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-weight: var(--font-weight-medium);
 }

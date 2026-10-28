@@ -10,7 +10,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     <header class="page-header">
       <div class="page-header__row">
         <div class="page-header__text">
-          <h1 class="page-header__title">{{ title() }}</h1>
+          @if (level() === 2) {
+            <h2 class="page-header__title">{{ title() }}</h2>
+          } @else {
+            <h1 class="page-header__title">{{ title() }}</h1>
+          }
           @if (subtitle()) {
             <p class="page-header__subtitle">{{ subtitle() }}</p>
           }
@@ -61,4 +65,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 export class PageHeaderComponent {
   readonly title = input.required<string>();
   readonly subtitle = input('');
+  /** 2 when the page is a section of another page (a tab of Search, say): one h1 per page. */
+  readonly level = input<1 | 2>(1);
 }

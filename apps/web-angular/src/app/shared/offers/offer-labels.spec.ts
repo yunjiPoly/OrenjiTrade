@@ -6,8 +6,6 @@ import {
   offerStatusInfo,
   offerTermsText,
 } from './offer-labels';
-import { canOfferOn, offerTargetFromItem } from './offer-target';
-import { publicItem } from './testing/offer-fixtures';
 
 describe('offer labels', () => {
   it('offers only the kinds a card availability and its offer switch allow', () => {
@@ -60,23 +58,5 @@ describe('offer labels', () => {
     expect(expiryLabel('2026-10-03T10:00:00Z', now)).toBe('Expires in 3 days');
     expect(expiryLabel('2026-09-30T07:00:00Z', now)).toBe('Expired 3 hours ago');
     expect(expiryLabel(null, now)).toBeNull();
-  });
-
-  it('shows "Make an offer" only on other collectors’ cards that accept an offer', () => {
-    const seller = { id: 'seller-1', displayName: 'Ada' };
-    const target = offerTargetFromItem(publicItem(), seller);
-    expect(target).toMatchObject({
-      itemId: 'item-1',
-      cardName: 'Lantern Fox Spirit',
-      printingCode: 'AZR-EN011',
-      imageUrl: 'http://localhost/card.svg',
-      currency: 'CAD',
-    });
-    expect(canOfferOn(target, 'buyer-1')).toBe(true);
-    expect(canOfferOn(target, null)).toBe(true);
-    expect(canOfferOn(target, 'seller-1')).toBe(false);
-    expect(
-      canOfferOn(offerTargetFromItem(publicItem({ acceptsOffers: false }), seller), 'buyer-1'),
-    ).toBe(false);
   });
 });

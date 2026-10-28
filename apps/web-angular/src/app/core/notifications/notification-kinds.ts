@@ -58,7 +58,8 @@ export function notificationKind(
 }
 
 /** Pages removed by stage F1 ("free for all"): Premium, credits, donations and their checkouts. */
-const REMOVED_PAGE = /^\/(premium|credits|support)([/?#]|$)|^\/checkout\/fake-(billing|donation)\//;
+const REMOVED_PAGE =
+  /^\/(premium|credits|support|offers|trades|disputes|checkout)([/?#]|$)|^\/settings\/(offers|payouts)([/?#]|$)/;
 
 /** Characters allowed in an in-app path (with its query string); nothing else is followed. */
 const APP_PATH = /^\/(?!\/)[\w\-/?=&.%~]*$/;
@@ -77,10 +78,10 @@ function idOf(data: NotificationResponse['data'] | undefined, key: string): stri
  * The page a notification opens: its `data.deepLink` (web path, e.g. `/cards/<id>?printing=<id>`,
  * `/cards/<id>?rarity=<rarity>` or `/cards/<id>?printing=any` of a wishlist alert,
  * `/messages/<conversationId>`, `/inventory?binder=<id>`, `/collectors/<handle>?tab=ratings`,
- * `/settings/reports`, `/offers/<id>`, `/trades/<id>`, `/disputes/<id>`, `/settings/payouts`)
- * when it is a safe in-app path to a page that still exists, otherwise a path rebuilt from the ids
- * it carries, otherwise the notification list. An old link to Premium, credits or "Support
- * OrenjiTrade" (removed by stage F1) is not followed.
+ * `/settings/reports`) when it is a safe in-app path to a page that still exists, otherwise a path
+ * rebuilt from the ids it carries, otherwise the notification list. An old link to Premium,
+ * credits or "Support OrenjiTrade" (removed by stage F1), or to an offer, a trade, a checkout, a
+ * dispute or the payouts (removed from the web by stage WA, decision 2), is not followed.
  */
 export function notificationLink(
   notification: Pick<NotificationResponse, 'type' | 'data'>,
@@ -96,7 +97,7 @@ export function notificationLink(
       const card = idOf(data, 'cardId');
       const printing = idOf(data, 'printingId');
       if (!card) {
-        return '/wishlist';
+        return '/search?tab=wishlist';
       }
       // Without a printing, "any" is said explicitly: the page never picks a printing itself.
       return `/cards/${card}?printing=${printing ?? 'any'}`;
@@ -111,34 +112,28 @@ export function notificationLink(
       const binder = idOf(data, 'binderId');
       return binder ? `/inventory?binder=${binder}` : '/inventory';
     }
+    // Offers, trades, payments and disputes left the web (decision 2): their old notifications
+    // read as history in the list and open nothing else.
     case 'OFFER_RECEIVED':
     case 'OFFER_ACCEPTED':
     case 'OFFER_COUNTERED':
     case 'OFFER_DECLINED':
     case 'OFFER_CANCELLED':
-    case 'OFFER_EXPIRED': {
-      const trade = idOf(data, 'tradeId');
-      const offer = idOf(data, 'offerId');
-      return trade ? `/trades/${trade}` : offer ? `/offers/${offer}` : '/offers';
-    }
+    case 'OFFER_EXPIRED':
     case 'TRADE_UPDATE':
     case 'PAYMENT_UPDATE':
-    case 'SHIPMENT_STATUS': {
-      const trade = idOf(data, 'tradeId');
-      return trade ? `/trades/${trade}` : '/trades';
-    }
-    case 'DISPUTE_UPDATE': {
-      const dispute = idOf(data, 'disputeId');
-      const trade = idOf(data, 'tradeId');
-      return dispute ? `/disputes/${dispute}` : trade ? `/trades/${trade}` : '/trades';
-    }
+    case 'SHIPMENT_STATUS':
+    case 'DISPUTE_UPDATE':
+      return '/notifications';
     case 'REPORT_DECISION':
       return '/settings/reports';
     case 'SYSTEM':
       switch (data?.['kind']) {
         case 'LIMIT_REACHED':
           // Held-back alerts; nothing to buy (stage F1).
-          return data?.['notificationType'] === 'WISHLIST_ALERT' ? '/wishlist' : '/notifications';
+          return data?.['notificationType'] === 'WISHLIST_ALERT'
+          ? '/search?tab=wishlist'
+          : '/notifications';
         case 'LISTINGS_PAUSED':
           return '/inventory';
         case 'MODERATION_WARNING':

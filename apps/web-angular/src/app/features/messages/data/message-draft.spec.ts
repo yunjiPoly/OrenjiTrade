@@ -50,22 +50,6 @@ describe('message drafts', () => {
         attachment: { kind: 'binder', binder: { binderId: 'b1', name: 'Trades', itemCount: 3 } },
       }),
     ).toEqual({ kind: Kind.BinderLink, body: undefined, binderId: 'b1' });
-    expect(
-      sendRequest({
-        text: 'Here is my offer.',
-        attachment: {
-          kind: 'offer',
-          offer: {
-            offerId: 'o-1',
-            cardName: 'Lantern Fox Spirit',
-            imageUrl: null,
-            game: 'yugioh',
-            terms: '$38.00',
-            status: 'OPEN',
-          },
-        },
-      }),
-    ).toEqual({ kind: Kind.OfferLink, body: 'Here is my offer.', offerId: 'o-1' });
     const file = new File(['x'], 'photo.png', { type: 'image/png' });
     expect(
       sendRequest(

@@ -1,0 +1,160 @@
+// The region and game popovers (spec 4.5, board W3): a title, a lead, radio rows and a footnote.
+:host {
+  display: block;
+}
+
+.pop {
+  position: relative;
+  padding: 20px 20px 16px;
+}
+
+.pop__title {
+  margin: 0 48px 6px 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: 28px;
+}
+
+.pop__lead,
+.pop__foot {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 20px;
+}
+
+.pop__lead {
+  margin-bottom: var(--spacing-3);
+}
+
+.pop__foot {
+  margin-top: var(--spacing-3);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+}
+
+.pop__away {
+  margin: 0 0 var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-input);
+  background: var(--color-primary-tint-subtle);
+  font-size: var(--font-size-sm);
+}
+
+.pop__back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.pop__rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pop__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pop__row:last-child {
+  border-bottom: 0;
+}
+
+.pop__row:hover:not([aria-disabled='true']) {
+  background: var(--color-surface-variant);
+}
+
+.pop__row:focus-visible {
+  border-radius: var(--radius-input);
+}
+
+.pop__row[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.pop__row--game {
+  min-height: 56px;
+}
+
+.pop__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.pop__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pop__name {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+  line-height: 22px;
+}
+
+.pop__line {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-meta);
+  line-height: 18px;
+}
+
+.pop__radio {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: 50%;
+}
+
+.pop__radio--on {
+  border-color: var(--color-primary);
+  background: radial-gradient(circle, var(--color-primary) 0 5px, transparent 5.5px);
+}
+
+.pop__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.pop__close:hover {
+  background: var(--color-surface-variant);
+}

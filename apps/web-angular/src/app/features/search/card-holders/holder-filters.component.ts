@@ -17,7 +17,6 @@ import {
   Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -60,7 +59,6 @@ function priceRange(group: AbstractControl): ValidationErrors | null {
   imports: [
     ReactiveFormsModule,
     MatButtonModule,
-    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -169,7 +167,7 @@ function priceRange(group: AbstractControl): ValidationErrors | null {
         </mat-select>
       </mat-form-field>
 
-      <mat-checkbox formControlName="acceptsOffers">Accepts offers</mat-checkbox>
+      <!-- "Accepts offers" left with offers (decision 2). -->
 
       @if (activeCount() > 0) {
         <button matButton type="button" (click)="reset()">
@@ -204,9 +202,6 @@ function priceRange(group: AbstractControl): ValidationErrors | null {
       margin: 0;
       color: var(--color-danger);
       font-size: var(--font-size-xs);
-    }
-    mat-checkbox {
-      align-self: center;
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

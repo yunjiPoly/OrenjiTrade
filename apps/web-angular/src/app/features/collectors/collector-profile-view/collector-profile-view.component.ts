@@ -19,7 +19,6 @@ import {
 } from '../../../shared/domain/location-labels';
 import { PublicBinderCardComponent } from '../../../shared/inventory/public-binder-card/public-binder-card.component';
 import { PublicItemCardComponent } from '../../../shared/inventory/public-item-card/public-item-card.component';
-import { OfferSeller } from '../../../shared/offers/offer-target';
 import { StarRatingComponent } from '../../../shared/ratings/star-rating.component';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { CardArtComponent } from '../../../shared/ui/card-art/card-art.component';
@@ -83,18 +82,6 @@ export class CollectorProfileViewComponent {
   readonly rating = input<CollectorRating | null>(null);
 
   protected readonly ratingSummary = computed(() => this.rating() ?? this.profile().rating);
-
-  /** The collector as the offer dialog shows them ("Make an offer" on their public cards). */
-  protected readonly seller = computed<OfferSeller>(() => {
-    const profile = this.profile();
-    return {
-      id: profile.id,
-      displayName: profile.displayName,
-      handle: profile.handle,
-      avatarUrl: profile.avatarUrl ?? null,
-      placeLabel: profile.location?.label ?? null,
-    };
-  });
 
   /** The binder the "View public binder" button opens (the owner's first one). */
   protected readonly firstBinder = computed(() => this.binders()?.[0] ?? null);

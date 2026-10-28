@@ -12,15 +12,13 @@ import {
   printingImageUrl,
 } from '../../../shared/inventory/inventory-labels';
 import { ItemChipsComponent } from '../../../shared/inventory/item-chips/item-chips.component';
-import { MakeOfferButtonComponent } from '../../../shared/offers/make-offer-button.component';
-import { offerTargetFromItem, sellerFromMarker } from '../../../shared/offers/offer-target';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/freshness-badge.component';
 
 /**
  * One "who in my region has this card" result: the listed copy (picture, printing, chips, price,
- * freshness, public note) and its holder (state/province and country only, ADR 0017), with "Make
- * an offer" when the copy accepts offers.
+ * freshness, public note) and its holder (state/province and country only, ADR 0017). Offers left
+ * the web (decision 2): deals happen in the chat.
  */
 @Component({
   selector: 'app-holder-row',
@@ -32,7 +30,6 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
     CardImageComponent,
     FreshnessBadgeComponent,
     ItemChipsComponent,
-    MakeOfferButtonComponent,
   ],
   template: `
     @let r = result();
@@ -54,7 +51,6 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
         <app-item-chips
           [condition]="r.item.condition"
           [availability]="r.item.availability"
-          [acceptsOffers]="r.item.acceptsOffers"
         />
         @if (r.item.publicNotes) {
           <p class="hr__note">“{{ r.item.publicNotes }}”</p>
@@ -77,7 +73,6 @@ import { FreshnessBadgeComponent } from '../../../shared/ui/freshness-badge/fres
             <span class="hr__place">{{ r.collector.place.label }}</span>
           </div>
         </div>
-        <app-make-offer-button appearance="filled" compact [target]="offerTarget()" />
         @if (r.item.binder; as binder) {
           <a matButton="outlined" class="hr__binder" [routerLink]="['/binders', binder.id]">
             <mat-icon aria-hidden="true">menu_book</mat-icon>
@@ -178,9 +173,6 @@ export class HolderRowComponent {
   readonly result = input.required<CardHolderResult>();
   readonly signedIn = input(false);
 
-  protected readonly offerTarget = computed(() =>
-    offerTargetFromItem(this.result().item, sellerFromMarker(this.result().collector)),
-  );
   protected readonly code = computed(() => printingCode(this.result().item.printing));
   protected readonly image = computed(() => printingImageUrl(this.result().item.printing));
   protected readonly language = computed(() => languageLabel(this.result().item.language));
@@ -188,9 +180,6 @@ export class HolderRowComponent {
   protected readonly freshness = computed(() => badgeFreshness(this.result().item.freshness.state));
   protected readonly price = computed(() => {
     const item = this.result().item;
-    return (
-      formatPrice(item.askingPrice, item.currency) ??
-      (item.acceptsOffers ? 'Make an offer' : 'No price')
-    );
+    return formatPrice(item.askingPrice, item.currency) ?? 'No price';
   });
 }

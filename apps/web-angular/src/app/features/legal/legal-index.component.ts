@@ -1,6 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
+import { CardDataAttributionComponent } from '../../shared/catalog/card-data-attribution/card-data-attribution.component';
+import type { LegalKey } from './legal-content';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { LegalDraftBannerComponent } from './legal-draft-banner.component';
 import { LegalLanguageSwitchComponent } from './legal-language-switch.component';
@@ -15,6 +18,7 @@ import { LegalTextsService } from './legal-texts.service';
     PageHeaderComponent,
     LegalDraftBannerComponent,
     LegalLanguageSwitchComponent,
+    CardDataAttributionComponent,
   ],
   template: `
     <div class="page" [attr.lang]="language.language()">
@@ -27,7 +31,7 @@ import { LegalTextsService } from './legal-texts.service';
         [subtitle]="language.labels().indexSubtitle"
       />
       <ul class="legal-index">
-        @for (doc of texts.documentList(); track doc.key) {
+        @for (doc of documents(); track doc.key) {
           <li>
             <a class="legal-index__card" [routerLink]="['/legal', doc.key]">
               <mat-icon aria-hidden="true">description</mat-icon>
@@ -40,6 +44,16 @@ import { LegalTextsService } from './legal-texts.service';
           </li>
         }
       </ul>
+      <section class="legal-index__credits" id="card-data-credits" aria-labelledby="card-data-title">
+        <h2 class="legal-index__credits-title" id="card-data-title">Card data credits</h2>
+        <app-card-data-attribution />
+        <p class="legal-index__credits-text">
+          Maps are made with Natural Earth: free vector and raster map data at
+          <a href="https://www.naturalearthdata.com/" target="_blank" rel="noopener noreferrer"
+            >naturalearthdata.com</a
+          >.
+        </p>
+      </section>
     </div>
   `,
   styles: `
@@ -94,6 +108,20 @@ import { LegalTextsService } from './legal-texts.service';
     .legal-index__chevron {
       color: var(--color-text-muted);
     }
+    .legal-index__credits {
+      margin-top: var(--spacing-10);
+      max-width: 68ch;
+      color: var(--color-text-muted);
+      font-size: var(--font-size-sm);
+    }
+    .legal-index__credits-title {
+      margin-bottom: var(--spacing-3);
+      color: var(--color-ink);
+      font-size: var(--font-size-section);
+    }
+    .legal-index__credits-text {
+      margin: var(--spacing-3) 0 0;
+    }
     @media (max-width: 599px) {
       .legal-index__bar {
         flex-direction: column-reverse;
@@ -106,4 +134,19 @@ import { LegalTextsService } from './legal-texts.service';
 export class LegalIndexComponent {
   protected readonly language = inject(LegalLanguageService);
   protected readonly texts = inject(LegalTextsService);
+  private readonly protectedPayments = inject(FeatureFlagsService).enabled(
+    FEATURE.protectedPayments,
+  );
+  /** Payment Protection and Refund & Dispute only while protectedPayments is on (decision 23). */
+  protected readonly documents = computed(() =>
+    this.texts
+      .documentList()
+      .filter((doc) => this.protectedPayments() || !PAYMENT_POLICIES.has(doc.key)),
+  );
 }
+
+/** The policies of the paused protected payments (ADR 0018). Their pages stay reachable by link. */
+export const PAYMENT_POLICIES: ReadonlySet<LegalKey> = new Set<LegalKey>([
+  'payment-protection',
+  'refund-dispute',
+]);

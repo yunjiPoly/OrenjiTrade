@@ -1,25 +1,25 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
 import type { OfferLink } from '@orenji/api-client';
 import { CardImageComponent } from '../ui/card-image/card-image.component';
 import { offerStatusInfo } from './offer-labels';
 import { StatusChipComponent } from './status-chip.component';
 
 /**
- * An offer shared in a conversation (OFFER_LINK message, or the SYSTEM message the API posts on
- * every offer transition): the offered card's picture (with an offer badge; the offer icon when the
- * API sent none), the live proposal's summary and status, linking to the offer page.
+ * An offer shared in a conversation before offers left the web (OFFER_LINK message, or the SYSTEM
+ * message the API posted on every offer transition): the offered card's picture (with an offer
+ * badge; the offer icon when the API sent none), the proposal's summary and its last status. It
+ * reads as history (decision 2, web WA): it opens nothing.
  */
 @Component({
   selector: 'app-offer-link-card',
-  imports: [RouterLink, MatIconModule, CardImageComponent, StatusChipComponent],
+  imports: [MatIconModule, CardImageComponent, StatusChipComponent],
   template: `
     @let o = offer();
-    <a
+    <div
       class="olc"
-      [routerLink]="['/offers', o.id]"
-      [attr.aria-label]="'Open the offer: ' + o.summary + ', ' + status().label"
+      role="group"
+      [attr.aria-label]="'Past offer: ' + o.summary + ', ' + status().label"
       data-testid="offer-link-card"
     >
       @if (o.imageUrl) {
@@ -32,12 +32,11 @@ import { StatusChipComponent } from './status-chip.component';
         <span class="olc__icon" aria-hidden="true"><mat-icon>local_offer</mat-icon></span>
       }
       <span class="olc__text">
-        <span class="olc__eyebrow">Offer</span>
+        <span class="olc__eyebrow">Past offer</span>
         <span class="olc__summary">{{ o.summary }}</span>
       </span>
       <app-status-chip [label]="status().label" [icon]="status().icon" [tone]="status().tone" />
-      <mat-icon class="olc__go" aria-hidden="true">chevron_right</mat-icon>
-    </a>
+    </div>
   `,
   styles: `
     :host {
@@ -52,14 +51,6 @@ import { StatusChipComponent } from './status-chip.component';
       border-radius: var(--radius-md);
       background: var(--color-surface);
       color: var(--color-ink);
-      text-decoration: none;
-      transition:
-        border-color var(--motion-duration-fast) var(--motion-easing-standard),
-        box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
-    }
-    .olc:hover {
-      border-color: var(--color-availability-offers);
-      box-shadow: var(--elevation-floating);
     }
     .olc__icon {
       display: grid;
@@ -114,10 +105,6 @@ import { StatusChipComponent } from './status-chip.component';
     .olc__summary {
       overflow-wrap: anywhere;
       font-weight: var(--font-weight-semibold);
-    }
-    .olc__go {
-      flex: 0 0 auto;
-      color: var(--color-text-muted);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -12,20 +12,19 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { SafetyNoticeContext, SafetyNoticeService } from './safety-notice.service';
 
-/** Wording per context (English UI; the linked page exists in English and French). */
+/**
+ * Wording per context: the phone's chat tip (ADR 0018: deals ship by mail, the buyer pays by
+ * e-Transfer outside the app; no meetups). The meetup notice it replaced left with web WA
+ * (spec 20); web stage WC words it per side of the deal.
+ */
 const COPY: Record<SafetyNoticeContext, { title: string; text: string }> = {
   conversation: {
     title: 'Trade safely',
-    text:
-      'Meet in a busy public place in daylight, bring someone along for valuable cards, never ' +
-      'share your home address, and check the cards before any money changes hands.',
+    text: 'Agree on the price and shipping here. Check ratings before you send an e-Transfer.',
   },
   trade: {
     title: 'Trade safely',
-    text:
-      'Meet in a busy public place in daylight, bring someone along for valuable cards, never ' +
-      'share your home address, and check the cards before any money changes hands. Be wary of ' +
-      'pressure and of requests to pay outside the agreed method.',
+    text: 'Agree on the price and shipping here. Check ratings before you send an e-Transfer.',
   },
 };
 

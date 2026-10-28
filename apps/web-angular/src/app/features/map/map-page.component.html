@@ -1,25 +1,12 @@
-<div class="map-page">
-  <mat-sidenav-container class="map-page__container" [hasBackdrop]="!isWide()">
-    <mat-sidenav
-      class="map-page__messages"
-      position="end"
-      [mode]="panelMode()"
-      [opened]="panelOpened()"
-      (openedChange)="panelOpened.set($event)"
-    >
-      <app-messages-panel
-        [signedIn]="signedIn()"
-        [opened]="panelOpened()"
-        [incoming]="null"
-        (closeRequested)="panelOpened.set(false)"
-        (unreadChange)="unreadMessages.set($event)"
-      />
-    </mat-sidenav>
-
-    <mat-sidenav-content class="map-page__content">
+<div class="map-page" [class.map-page--embedded]="embedded()">
+  <div class="map-page__content">
       <header class="bar">
         <div class="bar__titles">
-          <h1 class="bar__title">Binders in {{ regionName() }}</h1>
+          @if (embedded()) {
+            <h2 class="bar__title">Binders in {{ regionName() }}</h2>
+          } @else {
+            <h1 class="bar__title">Binders in {{ regionName() }}</h1>
+          }
           <p class="bar__status" role="status" data-testid="map-status">{{ statusLabel() }}</p>
         </div>
         <app-unified-search-box
@@ -30,23 +17,6 @@
           (picked)="onPicked($event)"
           (submitted)="onSubmitted($event)"
         />
-        <button
-          matIconButton
-          type="button"
-          class="bar__messages"
-          [attr.aria-label]="toggleLabel()"
-          [attr.aria-expanded]="panelOpened()"
-          aria-controls="map-messages-panel"
-          [matTooltip]="toggleLabel()"
-          (click)="togglePanel()"
-        >
-          <mat-icon>{{ panelOpened() ? 'chat_bubble' : 'chat' }}</mat-icon>
-          @if (unreadMessages() > 0) {
-            <span class="bar__badge" data-testid="messages-toggle-badge" aria-hidden="true">
-              {{ unreadMessages() > 99 ? '99+' : unreadMessages() }}
-            </span>
-          }
-        </button>
       </header>
 
       @if (showLocationPrompt()) {
@@ -92,7 +62,7 @@
           </div>
         </div>
 
-        <aside class="body__side" aria-label="States, provinces and binders">
+        <aside class="body__side" [id]="listId" tabindex="-1" aria-label="States, provinces and binders">
           @if (store.countsError()) {
             <div class="side__error" role="alert">
               <mat-icon aria-hidden="true">cloud_off</mat-icon>
@@ -128,6 +98,5 @@
           }
         </aside>
       </div>
-    </mat-sidenav-content>
-  </mat-sidenav-container>
+  </div>
 </div>

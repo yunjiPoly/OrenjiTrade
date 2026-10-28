@@ -1,0 +1,203 @@
+<div class="gs">
+  <div class="gs__field" [class.gs__field--open]="open()">
+    <app-shell-icon class="gs__icon" name="search" [size]="18" />
+    <input
+      #field
+      class="gs__input"
+      type="search"
+      role="combobox"
+      autocomplete="off"
+      spellcheck="false"
+      maxlength="100"
+      aria-autocomplete="list"
+      aria-haspopup="listbox"
+      [attr.aria-controls]="open() ? (typing() ? 'gs-listbox' : 'gs-panel') : null"
+      [id]="inputId"
+      [attr.aria-label]="placeholder()"
+      [attr.aria-expanded]="open()"
+      [attr.aria-activedescendant]="activeId()"
+      [placeholder]="placeholder()"
+      (input)="onInput(field.value)"
+      (focus)="onFocus()"
+      (keydown)="onKeydown($event)"
+    />
+    @if (query()) {
+      <button type="button" class="gs__clear" aria-label="Clear the search" (click)="clearField()">
+        <app-shell-icon name="close" [size]="16" />
+      </button>
+    } @else {
+      <kbd class="gs__key" aria-hidden="true">/</kbd>
+    }
+  </div>
+
+  @if (open()) {
+    <div class="gs__panel" id="gs-panel" data-testid="global-search-panel">
+      @if (!typing()) {
+        <section class="gs__section" aria-labelledby="gs-recent-title">
+          @if (recent.remembering() && recent.list().length > 0) {
+            <div class="gs__head">
+              <h2 class="gs__label" id="gs-recent-title">Recent searches</h2>
+              <button type="button" class="gs__text-action" (click)="clearRecent()">Clear</button>
+            </div>
+            <ul class="gs__recent">
+              @for (text of recent.list(); track text) {
+                <li class="gs__recent-row">
+                  <button type="button" class="gs__recent-run" (click)="runRecent(text)">
+                    <app-shell-icon class="gs__muted" name="clock" [size]="18" />
+                    <span class="gs__recent-text">{{ text }}</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="gs__remove"
+                    [attr.aria-label]="'Remove ' + text + ' from recent searches'"
+                    (click)="removeRecent(text)"
+                  >
+                    <app-shell-icon name="close" [size]="16" />
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <h2 class="visually-hidden" id="gs-recent-title">Recent searches</h2>
+            <p class="gs__empty">
+              {{ recent.remembering() ? 'No recent searches.' : 'Your searches are not remembered in this browser.' }}
+            </p>
+          }
+          <p class="gs__note">
+            @if (recent.remembering()) {
+              Only you see your searches. They’re kept in this browser. You can turn this off in
+            } @else {
+              “Remember my searches” is off. You can turn it on in
+            }
+            @if (signedIn()) {
+              <a routerLink="/settings/privacy" (click)="open.set(false)">Settings › Privacy</a>.
+            } @else {
+              Settings › Privacy.
+            }
+          </p>
+        </section>
+      } @else {
+        <p class="gs__label gs__label--group" aria-hidden="true">{{ gameName() }} cards</p>
+        @if (status() === 'loading' && cardOptions().length === 0) {
+          @for (i of [0, 1, 2]; track i) {
+            <div class="gs__skeleton" aria-hidden="true">
+              <span class="gs__skeleton-art"></span><span class="gs__skeleton-line"></span>
+            </div>
+          }
+          <span class="visually-hidden" role="status">Searching…</span>
+        } @else if (status() === 'error') {
+          <div class="gs__error" role="alert">
+            <span>Search is not available right now.</span>
+            <button type="button" class="gs__text-action" (click)="retry()">Try again</button>
+          </div>
+        } @else if (noCards()) {
+          <div class="gs__nomatch" role="status">
+            <span class="gs__nomatch-title">No {{ gameName() }} card matches ‘{{ trimmed() }}’</span>
+            <span class="gs__nomatch-text"
+              >Try fewer letters, or the code printed on the card, like LAVD-EN008.</span
+            >
+          </div>
+        }
+        <div class="gs__results" role="listbox" id="gs-listbox" aria-label="Search suggestions">
+          <div role="group" [attr.aria-label]="gameName() + ' cards'">
+            @for (option of cardOptions(); track option.id) {
+              @if (option.kind === 'card') {
+                @let name = splitMatch(option.card.name ?? '', trimmed());
+                <a
+                  class="gs__option gs__option--card"
+                  role="option"
+                  tabindex="-1"
+                  [id]="option.id"
+                  [attr.aria-selected]="activeId() === option.id"
+                  [class.gs__option--active]="activeId() === option.id"
+                  [attr.href]="href(option)"
+                  [attr.aria-label]="
+                    option.card.kind === 'PRINTING' && option.card.printingCode
+                      ? option.card.name + ', ' + option.card.printingCode
+                      : option.card.name
+                  "
+                  (click)="onOptionClick($event, option)"
+                  (mousedown)="$event.preventDefault()"
+                >
+                  <app-card-image
+                    class="gs__art"
+                    [src]="option.card.imageUrl"
+                    [game]="option.card.game"
+                    alt=""
+                  />
+                  <span class="gs__name"
+                    >{{ name.pre }}<mark class="gs__hit">{{ name.hit }}</mark>{{ name.post }}</span
+                  >
+                  @if (option.card.kind === 'PRINTING' && option.card.printingCode) {
+                    @let code = splitMatch(option.card.printingCode, trimmed().replace(' ', '-'));
+                    <span class="gs__code"
+                      >{{ code.pre }}<mark class="gs__hit">{{ code.hit }}</mark>{{ code.post }}</span
+                    >
+                  }
+                </a>
+              }
+            }
+          </div>
+
+          @if (collectorOptions().length > 0) {
+            <div role="group" aria-label="Collectors">
+              <p class="gs__label gs__label--group" aria-hidden="true">Collectors</p>
+              @for (option of collectorOptions(); track option.id) {
+                @if (option.kind === 'collector') {
+                  @let handle = splitMatch(option.collector.handle, trimmed().replace('@', ''));
+                  <a
+                    class="gs__option gs__option--person"
+                    role="option"
+                    tabindex="-1"
+                    [id]="option.id"
+                    [attr.aria-selected]="activeId() === option.id"
+                    [class.gs__option--active]="activeId() === option.id"
+                    [attr.href]="href(option)"
+                    [attr.aria-label]="
+                      option.collector.handle + ', ' + option.collector.place.subdivisionName
+                    "
+                    (click)="onOptionClick($event, option)"
+                    (mousedown)="$event.preventDefault()"
+                  >
+                    <app-avatar
+                      size="xs"
+                      [src]="option.collector.avatarUrl"
+                      [name]="option.collector.displayName"
+                      [decorative]="true"
+                    />
+                    <span class="gs__handle"
+                      >{{ handle.pre }}<mark class="gs__hit">{{ handle.hit }}</mark
+                      >{{ handle.post }}</span
+                    >
+                    <span class="gs__meta">{{ option.collector.place.subdivisionName }}</span>
+                  </a>
+                }
+              }
+            </div>
+          }
+
+          @if (bindersOption(); as option) {
+            <a
+              class="gs__option gs__option--binders"
+              role="option"
+              tabindex="-1"
+              [id]="option.id"
+              [attr.aria-selected]="activeId() === option.id"
+              [class.gs__option--active]="activeId() === option.id"
+              [attr.href]="href(option)"
+              (click)="onOptionClick($event, option)"
+              (mousedown)="$event.preventDefault()"
+            >
+              <app-shell-icon class="gs__muted" name="binder" [size]="20" />
+              <span class="gs__binders">Search binders and deck cores for ‘{{ trimmed() }}’</span>
+              <app-shell-icon class="gs__muted" name="arrowRight" [size]="18" />
+            </a>
+          }
+        </div>
+        <p class="gs__hints" aria-hidden="true">
+          <kbd>↑</kbd><kbd>↓</kbd> to move · <kbd>Enter</kbd> to open · <kbd>Esc</kbd> to close
+        </p>
+      }
+    </div>
+  }
+</div>

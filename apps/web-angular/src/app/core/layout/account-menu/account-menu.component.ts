@@ -1,118 +1,109 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatIconModule } from '@angular/material/icon';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router, RouterLink } from '@angular/router';
 import { AvatarComponent } from '../../../shared/ui/avatar/avatar.component';
 import { AuthService } from '../../auth/auth.service';
 import { SessionService } from '../../auth/session.service';
+import { KeyboardShortcuts } from '../../keyboard/keyboard-shortcuts.service';
+import { ThemePreference, ThemeService } from '../../theme/theme.service';
+import { ShellIconComponent } from '../shell-icon/shell-icon.component';
+
+/** The three theme choices of "Appearance ›" (board W3's wording). */
+export const THEME_CHOICES: readonly { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: 'Same as the system' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
 
 /**
- * Account entry of the top bar. Signed out: sign in / create account. Signed in: avatar trigger
- * with name and handle, profile, offers, trades, settings, admin (staff only) and sign out.
- * Premium, credits and "Support OrenjiTrade" left with stage F1: OrenjiTrade is free.
+ * The account menu (240, anchored to the avatar; spec 4.7, board W3): the avatar, name and
+ * handle; View my profile, Settings, Appearance › (Same as the system, Light, Dark), Keyboard
+ * shortcuts, Trading safely; for staff only, after a divider, Admin console; then Sign out in
+ * danger. No Offers, Trades or Payouts. Signed out, the top bar shows "Sign in" instead.
  */
 @Component({
   selector: 'app-account-menu',
-  imports: [
-    RouterLink,
-    MatButtonModule,
-    MatDividerModule,
-    MatIconModule,
-    MatMenuModule,
-    MatTooltipModule,
-    AvatarComponent,
-  ],
+  imports: [RouterLink, MatMenuModule, AvatarComponent, ShellIconComponent],
   template: `
-    @if (auth.isAuthenticated()) {
-      <button
-        type="button"
-        class="account__trigger"
-        [matMenuTriggerFor]="signedIn"
-        [attr.aria-label]="'Account menu for ' + session.displayName()"
-        matTooltip="Account"
-      >
+    <button
+      type="button"
+      class="account__trigger"
+      [matMenuTriggerFor]="menu"
+      [attr.aria-label]="'Account menu, ' + session.displayName()"
+      data-testid="account-menu-trigger"
+    >
+      <app-avatar
+        size="sm"
+        [src]="session.me()?.avatarUrl"
+        [name]="session.displayName()"
+        [decorative]="true"
+      />
+    </button>
+    <mat-menu #menu="matMenu" xPosition="before" class="account-menu">
+      <div class="account__header" role="presentation">
         <app-avatar
-          size="sm"
           [src]="session.me()?.avatarUrl"
           [name]="session.displayName()"
           [decorative]="true"
         />
-      </button>
-      <mat-menu #signedIn="matMenu" xPosition="before" class="account-menu">
-        <div class="account__header" role="presentation">
-          <app-avatar
-            [src]="session.me()?.avatarUrl"
-            [name]="session.displayName()"
-            [decorative]="true"
-          />
-          <div class="account__who">
-            <span class="account__name" data-testid="account-menu-name">{{
-              session.displayName()
-            }}</span>
-            @if (session.handle(); as handle) {
-              <span class="account__handle" data-testid="account-menu-handle"
-                >&#64;{{ handle }}</span
-              >
-            }
-          </div>
+        <div class="account__who">
+          <span class="account__name" data-testid="account-menu-name">{{
+            session.displayName()
+          }}</span>
+          @if (session.handle(); as handle) {
+            <span class="account__handle" data-testid="account-menu-handle">&#64;{{ handle }}</span>
+          }
         </div>
-        <mat-divider />
-        @if (session.handle(); as handle) {
-          <a mat-menu-item [routerLink]="['/collectors', handle]">
-            <mat-icon>person</mat-icon>
-            <span>Profile</span>
-          </a>
-        }
-        <a mat-menu-item routerLink="/offers">
-          <mat-icon>local_offer</mat-icon>
-          <span>Offers</span>
-        </a>
-        <a mat-menu-item routerLink="/trades">
-          <mat-icon>sync_alt</mat-icon>
-          <span>Trades</span>
-        </a>
-        <a mat-menu-item routerLink="/settings">
-          <mat-icon>settings</mat-icon>
-          <span>Settings</span>
-        </a>
-        @if (session.canAccessAdmin()) {
-          <a mat-menu-item routerLink="/admin">
-            <mat-icon>admin_panel_settings</mat-icon>
-            <span>Admin</span>
-          </a>
-        }
-        <mat-divider />
-        <button mat-menu-item type="button" (click)="signOut()">
-          <mat-icon>logout</mat-icon>
-          <span>Sign out</span>
-        </button>
-      </mat-menu>
-    } @else {
-      <button
-        matIconButton
-        type="button"
-        aria-label="Account"
-        matTooltip="Account"
-        [matMenuTriggerFor]="signedOut"
-        [disabled]="loading()"
-      >
-        <mat-icon>account_circle</mat-icon>
+      </div>
+      <a mat-menu-item routerLink="/profile">
+        <app-shell-icon class="account__icon" name="profile" [size]="20" />
+        <span>View my profile</span>
+      </a>
+      <a mat-menu-item routerLink="/settings">
+        <app-shell-icon class="account__icon" name="settings" [size]="20" />
+        <span>Settings</span>
+      </a>
+      <button mat-menu-item type="button" [matMenuTriggerFor]="appearance">
+        <app-shell-icon class="account__icon" name="contrast" [size]="20" />
+        <span>Appearance</span>
       </button>
-      <mat-menu #signedOut="matMenu" xPosition="before">
-        <a mat-menu-item routerLink="/auth/sign-in">
-          <mat-icon>login</mat-icon>
-          <span>Sign in</span>
+      <button mat-menu-item type="button" (click)="shortcuts.openHelp()">
+        <app-shell-icon class="account__icon" name="keyboard" [size]="20" />
+        <span>Keyboard shortcuts</span>
+        <kbd class="account__key" aria-hidden="true">?</kbd>
+      </button>
+      <a mat-menu-item routerLink="/legal/trading-safely">
+        <app-shell-icon class="account__icon" name="shieldCheck" [size]="20" />
+        <span>Trading safely</span>
+      </a>
+      @if (session.canAccessAdmin()) {
+        <div class="account__divider" role="separator"></div>
+        <a mat-menu-item routerLink="/admin">
+          <app-shell-icon class="account__icon" name="shield" [size]="20" />
+          <span>Admin console</span>
         </a>
-        <a mat-menu-item routerLink="/auth/sign-up">
-          <mat-icon>person_add</mat-icon>
-          <span>Create account</span>
-        </a>
-      </mat-menu>
-    }
+      }
+      <div class="account__divider" role="separator"></div>
+      <button mat-menu-item type="button" class="account__signout" (click)="signOut()">
+        <app-shell-icon class="account__icon" name="logOut" [size]="20" />
+        <span>Sign out</span>
+      </button>
+    </mat-menu>
+    <mat-menu #appearance="matMenu" class="account-menu account-menu--sub">
+      @for (choice of themes; track choice.value) {
+        <button
+          mat-menu-item
+          type="button"
+          role="menuitemradio"
+          [attr.aria-checked]="theme.preference() === choice.value"
+          (click)="theme.setPreference(choice.value)"
+        >
+          <span class="account__radio" [class.account__radio--on]="theme.preference() === choice.value" aria-hidden="true"></span>
+          <span>{{ choice.label }}</span>
+        </button>
+      }
+    </mat-menu>
   `,
   styles: `
     :host {
@@ -120,21 +111,22 @@ import { SessionService } from '../../auth/session.service';
     }
     .account__trigger {
       display: inline-flex;
-      padding: 4px;
+      padding: 0;
       border: 0;
       border-radius: 50%;
       background: transparent;
       cursor: pointer;
     }
     .account__trigger:hover {
-      background: var(--color-surface-variant);
+      box-shadow: 0 0 0 3px var(--color-surface-variant);
     }
     .account__header {
       display: flex;
       align-items: center;
       gap: var(--spacing-3);
-      padding: var(--spacing-3) var(--spacing-4);
-      min-width: 220px;
+      padding: 10px 12px 12px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--color-border);
     }
     .account__who {
       display: flex;
@@ -142,14 +134,47 @@ import { SessionService } from '../../auth/session.service';
       min-width: 0;
     }
     .account__name {
-      font-weight: var(--font-weight-semibold);
       overflow: hidden;
+      font-weight: var(--font-weight-semibold);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .account__handle {
       color: var(--color-text-muted);
-      font-size: var(--font-size-sm);
+      font-size: var(--font-size-meta);
+    }
+    .account__icon {
+      margin-right: 12px;
+      color: var(--color-text-secondary);
+    }
+    .account__key {
+      margin-left: auto;
+      padding: 0 6px;
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--color-text-muted);
+      font-family: var(--font-mono);
+      font-size: var(--font-size-xs);
+    }
+    .account__divider {
+      height: 1px;
+      margin: 4px 0;
+      background: var(--color-border);
+    }
+    .account__signout,
+    .account__signout .account__icon {
+      color: var(--color-danger);
+    }
+    .account__radio {
+      width: 18px;
+      height: 18px;
+      margin-right: 12px;
+      border: 2px solid var(--color-border-strong);
+      border-radius: 50%;
+    }
+    .account__radio--on {
+      border-color: var(--color-primary);
+      background: radial-gradient(circle, var(--color-primary) 0 4px, transparent 4.5px);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -157,13 +182,15 @@ import { SessionService } from '../../auth/session.service';
 export class AccountMenuComponent {
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
-  protected readonly auth = inject(AuthService);
+  private readonly auth = inject(AuthService);
   protected readonly session = inject(SessionService);
-  protected readonly loading = computed(() => this.auth.authState() === 'loading');
+  protected readonly theme = inject(ThemeService);
+  protected readonly shortcuts = inject(KeyboardShortcuts);
+  protected readonly themes = THEME_CHOICES;
 
   protected async signOut(): Promise<void> {
     await this.auth.signOut();
-    this.snackBar.open('You are signed out. See you soon!', 'OK', { duration: 3000 });
-    await this.router.navigateByUrl('/map');
+    this.snackBar.open('You are signed out. See you soon!', undefined, { duration: 6000 });
+    await this.router.navigateByUrl('/');
   }
 }
