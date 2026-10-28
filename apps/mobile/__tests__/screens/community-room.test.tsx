@@ -5,7 +5,7 @@ import { Dimensions } from 'react-native';
 import RoomScreen from '@/app/community/[slug]';
 import { ROOM_REFRESH_MS } from '@/src/api/hooks/community';
 import { useRoomVisitsStore } from '@/src/features/community/roomVisits';
-import { lightPalette } from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, lightPalette } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -324,13 +324,17 @@ describe('A room (stage R11, screen 33)', () => {
       expect(long).toHaveTextContent(/^Newfoundland and Labrador · \d{1,2}:\d{2} [AP]M$/);
       expect(long.props.numberOfLines).toBeUndefined();
       expect(line.props.numberOfLines).toBeUndefined();
-      // A column: the handle (and "· You") wraps, the line goes under it.
+      // A column: the handle (and "· You") on one line, capped like every handle (owner
+      // decision of 2026-10-28), the line under it.
       expect(screen.getByTestId(`room-post-author-${PHOTO_POST.id}`)).not.toHaveStyle({
         flexDirection: 'row',
       });
       expect(
         within(screen.getByTestId(`room-post-author-${own.id}`)).getByText(/^maika/)
-      ).toHaveProp('numberOfLines', 3);
+      ).toHaveProp('numberOfLines', 1);
+      expect(
+        within(screen.getByTestId(`room-post-author-${own.id}`)).getByText(/^maika/)
+      ).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
       // The ⋯ button stays beside the handle.
       expect(screen.getByTestId(`room-post-more-${own.id}`)).toBeOnTheScreen();
     } finally {

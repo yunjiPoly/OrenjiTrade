@@ -497,6 +497,7 @@ export default function RoomScreen() {
               <ListRow
                 icon="message-outline"
                 label={ROOM_COPY.message(menuPost.author.handle)}
+                handleInLabel
                 kind="button"
                 onPress={() => act('message')}
                 testID="room-post-message"
@@ -511,6 +512,7 @@ export default function RoomScreen() {
               <ListRow
                 icon="cancel"
                 label={ROOM_COPY.block(menuPost.author.handle)}
+                handleInLabel
                 kind="button"
                 tone="danger"
                 onPress={() => act('block')}

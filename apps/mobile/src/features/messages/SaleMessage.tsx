@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { SaleNotice } from '@/src/api/types';
 import { Text } from '@/src/components/ui/Text';
-import { fontFamily, fontWeight, useTheme } from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, fontFamily, fontWeight, useTheme } from '@/src/theme';
 
 import { SALE_MESSAGE_COPY } from './chatCopy';
 import { saleSentence } from './dealRules';
@@ -80,7 +80,10 @@ export function SaleMessage({
         ]}
       >
         <MaterialCommunityIcons name="star" size={15} color={palette.chat.saleAction} />
-        <Text style={[styles.rateLabel, { color: palette.chat.saleAction }]}>
+        <Text
+          maxFontSizeMultiplier={HANDLE_MAX_FONT_SCALE}
+          style={[styles.rateLabel, { color: palette.chat.saleAction }]}
+        >
           {SALE_MESSAGE_COPY.rate(otherHandle)}
         </Text>
       </Pressable>

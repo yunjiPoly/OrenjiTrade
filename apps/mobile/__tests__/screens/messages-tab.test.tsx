@@ -4,7 +4,7 @@ import { Dimensions } from 'react-native';
 import MessagesScreen from '@/app/(tabs)/messages';
 import { markRoomVisited } from '@/src/features/community/roomVisits';
 import { toLastMessage } from '@/src/features/messages/messageText';
-import { TITLE_MAX_FONT_SCALE } from '@/src/theme';
+import { HANDLE_MAX_FONT_SCALE, TITLE_MAX_FONT_SCALE } from '@/src/theme';
 
 import { FakeAuthPort, testUser } from '../support/fakeAuthPort';
 import {
@@ -185,10 +185,11 @@ describe('Messages tab: inbox', () => {
       mockApi(routes({ 'GET /api/v1/notifications/unread-count': ok({ count: 3 }) }));
       render();
       const handle = await screen.findByText('collector3');
-      // The handle follows the text size (it was held at 1.35 beside an uncapped last message) and
-      // takes the row's width, up to three lines, the time under it.
-      expect(handle.props.maxFontSizeMultiplier).toBeUndefined();
-      expect(handle).toHaveProp('numberOfLines', 3);
+      // The handle takes the row's width on one line, capped like every handle (owner decision
+      // of 2026-10-28) and shrunk to fit rather than broken; the time under it.
+      expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+      expect(handle).toHaveProp('numberOfLines', 1);
+      expect(handle).toHaveProp('adjustsFontSizeToFit', true);
       expect(screen.getByTestId('conversation-preview-collector3')).toHaveProp('numberOfLines', 2);
       // The title and the bell stay within the header (the bell's dot has no text, stage R9).
       expect(screen.getByText('Messages')).toHaveProp(

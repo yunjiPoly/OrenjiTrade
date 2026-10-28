@@ -75,6 +75,22 @@ export const TITLE_MAX_FONT_SCALE = 2;
  */
 export const PINNED_MAX_FONT_SCALE = 1.35;
 
+/**
+ * How far a collector's handle follows the system text size (owner decision of 2026-10-28, R8
+ * follow-up 1: cap the small things, leave paragraphs alone): as little as the controls pinned
+ * above a list. A handle has no spaces, so at the largest accessibility sizes even a short one no
+ * longer fit its row and iOS broke it anywhere ("collector_ / 7f3k2a"). At this cap a handle of
+ * the longest length the API allows (24 characters of [a-z0-9_], `HANDLE_MAX`) in ordinary
+ * letters and digits fits one line of a row beside an avatar on a 402 pt wide phone; a wider one,
+ * or a narrower row, shrinks to fit (`HANDLE_MIN_FONT_SCALE`). Every place that draws a handle uses `HandleText` or
+ * `HANDLE_TEXT_PROPS` (src/components/ui/HandleText.tsx). Paragraphs that name a collector keep
+ * growing.
+ */
+export const HANDLE_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
+
+/** The least a handle shrinks to, of its capped size, where its row is too narrow for it. */
+export const HANDLE_MIN_FONT_SCALE = 0.6;
+
 export function textStyle(
   size: keyof typeof fontSize,
   variant: 'body' | 'heading' = 'body'

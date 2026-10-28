@@ -10,6 +10,7 @@ import { GUEST_COPY } from '@/src/features/guest/guestCopy';
 import { GuestAvatar } from '@/src/features/guest/GuestParts';
 import { safeCardImageUrl } from '@/src/lib/cardImages';
 import {
+  HANDLE_MAX_FONT_SCALE,
   PINNED_MAX_FONT_SCALE,
   fontFamily,
   fontWeight,
@@ -124,7 +125,9 @@ export function FeedPostCard({
         )}
         <View style={[styles.headerText, stacked && styles.fullWidth]}>
           <Text numberOfLines={stacked ? 4 : 2} style={[styles.headline, { color: palette.ink }]}>
-            <Text style={styles.handle}>{postWho(post)}</Text>{' '}
+            <Text maxFontSizeMultiplier={HANDLE_MAX_FONT_SCALE} style={styles.handle}>
+              {postWho(post)}
+            </Text>{' '}
             <Text style={{ color: toneColor(tone) }}>{verb}</Text>
           </Text>
           <Text numberOfLines={stacked ? 2 : 1} style={[styles.meta, { color: palette.textMuted }]}>

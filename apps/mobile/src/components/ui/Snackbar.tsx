@@ -21,7 +21,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/src/components/ui/Text';
-import { elevation, fontWeight, lightPalette, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  PINNED_MAX_FONT_SCALE,
+  elevation,
+  fontSize,
+  fontWeight,
+  lightPalette,
+  spacing,
+  textStyle,
+  tokens,
+  useTheme,
+} from '@/src/theme';
 
 /** How long a toast stays (owner spec 2026-10-14, section 3: "about 5 seconds"). */
 export const SNACKBAR_DURATION_MS = 5000;
@@ -31,6 +41,55 @@ export const SNACKBAR_DURATION_MS = 5000;
  * takes longer than a glance and a tap (WCAG 2.2.1, timing adjustable).
  */
 export const SNACKBAR_SCREEN_READER_ACTION_MS = 15000;
+
+/**
+ * How far a toast's words follow the system text size (owner decision of 2026-10-28, R8 follow-up
+ * 1: cap the small things, the pop-up messages among them): as little as the controls pinned above
+ * a list and R14's refusals in a page's bottom bar. At the largest sizes a toast otherwise covered
+ * most of the screen for its five seconds.
+ */
+export const SNACKBAR_MAX_FONT_SCALE = PINNED_MAX_FONT_SCALE;
+
+/** The most of the window's height a toast covers at the largest text sizes: about a quarter. */
+export const SNACKBAR_MAX_WINDOW_SHARE = 0.25;
+
+/** The text size at which the action goes under the words instead of beside them. */
+export const SNACKBAR_STACKED_FONT_SCALE = 1.3;
+
+/** Where a toast's words are laid out: their capped scale, whether stacked, and their lines. */
+export interface ToastLayout {
+  stacked: boolean;
+  /** The lines the words may take: the toast stays within `SNACKBAR_MAX_WINDOW_SHARE`. */
+  textLines: number;
+}
+
+/**
+ * The layout of a toast at a window height and text size: the action under the words above
+ * `SNACKBAR_STACKED_FONT_SCALE`, and as many lines of words as keep the whole toast (its padding,
+ * the title's line, the action's 44 pt row) within a quarter of the window, never fewer than two.
+ * With a title beside its action the words keep one line, stacked at most three. The full words
+ * are always in the screen reader's label.
+ */
+export function toastLayout(
+  windowHeight: number,
+  fontScale: number,
+  { title, action }: { title: boolean; action: boolean }
+): ToastLayout {
+  const stacked = fontScale > SNACKBAR_STACKED_FONT_SCALE;
+  const scale = Math.min(Math.max(fontScale, 1), SNACKBAR_MAX_FONT_SCALE);
+  const line = Math.round(fontSize.sm * tokens.lineHeight.body) * scale;
+  const titleLine = Math.round(fontSize.md * tokens.lineHeight.body) * scale;
+  // The bar's padding and border, the message's padding, the title's line and the action's row.
+  const chrome =
+    spacing[1] * 2 +
+    2 +
+    spacing[2] * 2 +
+    (title ? titleLine + 2 : 0) +
+    (action && stacked ? 44 : 0);
+  const fits = Math.floor((windowHeight * SNACKBAR_MAX_WINDOW_SHARE - chrome) / line);
+  const bound = Math.max(2, fits);
+  return { stacked, textLines: title ? (stacked ? Math.min(3, bound) : 1) : bound };
+}
 
 export interface SnackbarAction {
   /** "Undo", "View". */
@@ -218,9 +277,14 @@ function SnackbarView({
 }) {
   const { palette } = useTheme();
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
   // At large text sizes the action goes under the text, which keeps the width of the toast
-  // (side by side, "Saved" broke in the middle of the word).
-  const stacked = useWindowDimensions().fontScale > 1.3;
+  // (side by side, "Saved" broke in the middle of the word); the words are capped and keep the
+  // toast within a quarter of the window (owner decision of 2026-10-28).
+  const { stacked, textLines } = toastLayout(window.height, window.fontScale, {
+    title: !!message.title,
+    action: !!message.action,
+  });
   // Above the tab bar, or above the bottom bar of a form screen, and above the keyboard.
   const keyboard = useKeyboardCover();
   const bottom = Math.max(
@@ -266,10 +330,19 @@ function SnackbarView({
           {message.icon ? <ToastIcon icon={message.icon} /> : null}
           <View style={styles.texts}>
             {message.title ? (
-              <Text style={[textStyle('md'), styles.title, { color: ink }]}>{message.title}</Text>
+              <Text
+                numberOfLines={2}
+                maxFontSizeMultiplier={SNACKBAR_MAX_FONT_SCALE}
+                testID="snackbar-title"
+                style={[textStyle('md'), styles.title, { color: ink }]}
+              >
+                {message.title}
+              </Text>
             ) : null}
             <Text
-              numberOfLines={message.title ? (stacked ? 3 : 1) : undefined}
+              numberOfLines={textLines}
+              maxFontSizeMultiplier={SNACKBAR_MAX_FONT_SCALE}
+              testID="snackbar-text"
               style={[
                 textStyle('sm'),
                 message.title ? null : styles.only,
@@ -298,6 +371,8 @@ function SnackbarView({
             ]}
           >
             <Text
+              numberOfLines={1}
+              maxFontSizeMultiplier={SNACKBAR_MAX_FONT_SCALE}
               style={[
                 textStyle('sm'),
                 styles.actionLabel,

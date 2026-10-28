@@ -3,7 +3,14 @@ import type { ComponentProps, ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, radius, spacing, textStyle, useTheme } from '@/src/theme';
+import {
+  HANDLE_MAX_FONT_SCALE,
+  fontWeight,
+  radius,
+  spacing,
+  textStyle,
+  useTheme,
+} from '@/src/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -52,6 +59,11 @@ export interface ListRowProps {
   /** `link` rows navigate (chevron); `button` rows act in place. */
   kind?: 'link' | 'button';
   tone?: 'default' | 'danger';
+  /**
+   * The label names a collector by handle ("Block {handle}"): it follows the text size only up to
+   * the handle cap, so the handle never breaks (owner decision of 2026-10-28).
+   */
+  handleInLabel?: boolean;
   testID?: string;
 }
 
@@ -63,6 +75,7 @@ export function ListRow({
   onPress,
   kind = 'link',
   tone = 'default',
+  handleInLabel = false,
   testID,
 }: ListRowProps) {
   const { palette } = useTheme();
@@ -85,7 +98,12 @@ export function ListRow({
         />
       ) : null}
       <View style={styles.grow}>
-        <Text style={[textStyle('md'), styles.rowLabel, { color }]}>{label}</Text>
+        <Text
+          maxFontSizeMultiplier={handleInLabel ? HANDLE_MAX_FONT_SCALE : undefined}
+          style={[textStyle('md'), styles.rowLabel, { color }]}
+        >
+          {label}
+        </Text>
         {detail ? (
           <Text style={[textStyle('sm'), { color: palette.textMuted }]}>{detail}</Text>
         ) : null}

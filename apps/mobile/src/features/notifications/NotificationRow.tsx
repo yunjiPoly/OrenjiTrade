@@ -4,7 +4,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { NotificationResponse } from '@/src/api/types';
 import { CardImage } from '@/src/components/ui/CardImage';
 import { Text } from '@/src/components/ui/Text';
-import { fontWeight, useStackedRows, useTheme, type Palette } from '@/src/theme';
+import {
+  HANDLE_MAX_FONT_SCALE,
+  fontWeight,
+  useStackedRows,
+  useTheme,
+  type Palette,
+} from '@/src/theme';
 
 import { NOTIFICATIONS_COPY } from './notificationCopy';
 import { notificationCard } from './notificationKinds';
@@ -84,7 +90,12 @@ export function NotificationRow({
   const lines = (
     <>
       <Text style={[styles.sentence, { color: colors.restText }]}>
-        <Text style={[styles.strong, { color: palette.ink }]}>{text.strong}</Text>
+        <Text
+          maxFontSizeMultiplier={text.strongIsHandle ? HANDLE_MAX_FONT_SCALE : undefined}
+          style={[styles.strong, { color: palette.ink }]}
+        >
+          {text.strong}
+        </Text>
         {text.rest ? ` ${text.rest}` : ''}
       </Text>
       {text.sub ? (

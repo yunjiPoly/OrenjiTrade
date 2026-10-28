@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { act, fireEvent, screen, within } from '@testing-library/react-native';
 import { useEffect } from 'react';
 import {
+  AccessibilityInfo,
   Dimensions,
   Keyboard,
   KeyboardAvoidingView,
@@ -26,10 +27,18 @@ import {
 } from '@/src/components/ui/FormControls';
 import { QueryState } from '@/src/components/ui/QueryState';
 import { Screen, keyboardBehavior, ownSafeBottom } from '@/src/components/ui/Screen';
-import { useSnackbar } from '@/src/components/ui/Snackbar';
+import { HandleText } from '@/src/components/ui/HandleText';
+import {
+  SNACKBAR_MAX_FONT_SCALE,
+  SNACKBAR_MAX_WINDOW_SHARE,
+  toastLayout,
+  useSnackbar,
+} from '@/src/components/ui/Snackbar';
 import { StateScroll } from '@/src/components/ui/StateScroll';
 import { Stepper } from '@/src/components/ui/Stepper';
 
+import { HANDLE_MAX } from '@/src/lib/profile';
+import { HANDLE_MAX_FONT_SCALE, HANDLE_MIN_FONT_SCALE, fontSize } from '@/src/theme';
 import { darkPalette } from '@/src/theme/palette';
 
 import { renderWithProviders } from '../test-utils';
@@ -566,4 +575,163 @@ describe('Snackbar', () => {
       jest.useRealTimers();
     }
   });
+});
+
+describe('the largest text sizes: handles and toasts (owner decision of 2026-10-28)', () => {
+  const WINDOW = Dimensions.get('window');
+  /** Sets the system text size (Jest's React Native starts at 2); put back after each test. */
+  function textSize(fontScale: number) {
+    act(() => {
+      Dimensions.set({
+        window: { ...WINDOW, width: 402, height: 874, fontScale },
+        screen: { ...WINDOW, width: 402, height: 874, fontScale },
+      });
+    });
+  }
+  afterEach(() => {
+    act(() => {
+      Dimensions.set({ window: WINDOW, screen: WINDOW });
+    });
+  });
+
+  // The longest handle the API allows: 24 characters of [a-z0-9_].
+  const LONGEST = 'collector_ab12cd34ef56gh';
+
+  it.each([1, 3.1])(
+    'draws a handle on one line, capped, shrunk to fit rather than broken (text size %s)',
+    (fontScale) => {
+      textSize(fontScale);
+      renderWithProviders(<HandleText testID="handle">{LONGEST}</HandleText>);
+      const handle = screen.getByTestId('handle');
+      expect(LONGEST).toHaveLength(HANDLE_MAX);
+      expect(handle).toHaveTextContent(LONGEST);
+      expect(handle).toHaveProp('numberOfLines', 1);
+      expect(handle).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+      expect(handle).toHaveProp('adjustsFontSizeToFit', true);
+      expect(handle).toHaveProp('minimumFontScale', HANDLE_MIN_FONT_SCALE);
+      expect(handle).toHaveProp('ellipsizeMode', 'tail');
+    }
+  );
+
+  it('lets a line led by a handle take two lines, still capped', () => {
+    textSize(3.1);
+    renderWithProviders(
+      <HandleText numberOfLines={2} testID="line">
+        @{LONGEST} · Newfoundland and Labrador
+      </HandleText>
+    );
+    expect(screen.getByTestId('line')).toHaveProp('numberOfLines', 2);
+    expect(screen.getByTestId('line')).toHaveProp('maxFontSizeMultiplier', HANDLE_MAX_FONT_SCALE);
+  });
+
+  it('keeps the longest handle of ordinary letters within a row beside an avatar at the cap', () => {
+    // Inter's lowercase letters and digits average about 0.56 em; a row is the 402 pt phone less
+    // its 16 pt sides, a 44 pt avatar and a 12 pt gap.
+    const width = HANDLE_MAX * 0.56 * fontSize.md * HANDLE_MAX_FONT_SCALE;
+    expect(width).toBeLessThanOrEqual(402 - 2 * 16 - 44 - 12);
+  });
+
+  function LongToast({ title, action }: { title?: string; action?: boolean }) {
+    const snackbar = useSnackbar();
+    return (
+      <Text
+        onPress={() =>
+          snackbar.show(
+            'You cannot message this collector. They may have blocked messages or you blocked them, or this collector cannot receive messages right now.',
+            {
+              ...(title ? { title } : {}),
+              ...(action
+                ? { action: { label: 'View', onPress: jest.fn(), testID: 'snackbar-view' } }
+                : {}),
+            }
+          )
+        }
+      >
+        show
+      </Text>
+    );
+  }
+
+  it.each([1, 3.1])(
+    'holds a toast within a quarter of the window, readable, with its action (text size %s)',
+    (fontScale) => {
+      jest.useFakeTimers();
+      const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+      try {
+        textSize(fontScale);
+        renderWithProviders(<LongToast action />);
+        fireEvent.press(screen.getByText('show'));
+        const text = screen.getByTestId('snackbar-text');
+        expect(text).toHaveProp('maxFontSizeMultiplier', SNACKBAR_MAX_FONT_SCALE);
+        const layout = toastLayout(874, fontScale, { title: false, action: true });
+        expect(text).toHaveProp('numberOfLines', layout.textLines);
+        expect(layout.textLines).toBeGreaterThanOrEqual(2);
+        // The action stays, under the words at the largest size, and its words are capped too.
+        const view = screen.getByTestId('snackbar-view');
+        expect(within(view).getByText('View')).toHaveProp(
+          'maxFontSizeMultiplier',
+          SNACKBAR_MAX_FONT_SCALE
+        );
+        expect(layout.stacked).toBe(fontScale > 1.3);
+        // VoiceOver hears the whole message, however many lines show.
+        expect(announce).toHaveBeenCalledWith(
+          expect.stringMatching(/receive messages right now\.\. View$/)
+        );
+        expect(screen.getByTestId('snackbar-message').props.accessibilityLabel).toMatch(
+          /receive messages right now\.$/
+        );
+        // About five seconds, as before.
+        act(() => {
+          jest.advanceTimersByTime(4900);
+        });
+        expect(screen.getByTestId('snackbar')).toBeTruthy();
+        act(() => {
+          jest.advanceTimersByTime(200);
+        });
+        expect(screen.queryByTestId('snackbar')).toBeNull();
+      } finally {
+        announce.mockRestore();
+        jest.useRealTimers();
+      }
+    }
+  );
+
+  it('caps a toast with a title and an action at the largest size', () => {
+    textSize(3.1);
+    renderWithProviders(<LongToast title="Card deleted" action />);
+    fireEvent.press(screen.getByText('show'));
+    expect(screen.getByTestId('snackbar-title')).toHaveProp(
+      'maxFontSizeMultiplier',
+      SNACKBAR_MAX_FONT_SCALE
+    );
+    expect(screen.getByTestId('snackbar-text')).toHaveProp('numberOfLines', 3);
+  });
+
+  it.each([
+    [667, 3.1],
+    [874, 3.1],
+    [956, 3.1],
+    [874, 2],
+    [874, 1],
+  ])(
+    'never lets a toast reach past a quarter of a %s pt window at text size %s',
+    (height, scale) => {
+      const capped = Math.min(scale, SNACKBAR_MAX_FONT_SCALE);
+      const line = Math.round(fontSize.sm * 1.5) * capped;
+      const titleLine = Math.round(fontSize.md * 1.5) * capped;
+      for (const title of [false, true]) {
+        for (const action of [false, true]) {
+          const { stacked, textLines } = toastLayout(height, scale, { title, action });
+          const tall =
+            4 * 2 +
+            2 +
+            8 * 2 +
+            (title ? titleLine + 2 : 0) +
+            (action && stacked ? 44 : 0) +
+            textLines * line;
+          expect(tall).toBeLessThanOrEqual(height * SNACKBAR_MAX_WINDOW_SHARE);
+        }
+      }
+    }
+  );
 });

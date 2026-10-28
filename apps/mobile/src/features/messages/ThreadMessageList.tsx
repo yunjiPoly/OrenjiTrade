@@ -5,6 +5,7 @@ import type { ConversationParticipant, MessageResponse } from '@/src/api/types';
 import { ListFooter } from '@/src/components/ui/ListFooter';
 import { Text } from '@/src/components/ui/Text';
 import { fontWeight, spacing, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { CHAT_COPY } from './chatCopy';
 import { MessageBubble, timeLabel } from './MessageBubble';
@@ -114,9 +115,12 @@ export function ThreadMessageList({
       // Inverted: the header sits at the bottom (typing), the footer at the top (older pages).
       ListHeaderComponent={
         typing ? (
-          <Text testID="typing-indicator" style={[styles.typing, { color: palette.textMuted }]}>
+          <HandleText
+            testID="typing-indicator"
+            style={[styles.typing, { color: palette.textMuted }]}
+          >
             {other.handle} is typing…
-          </Text>
+          </HandleText>
         ) : null
       }
       ListFooterComponent={

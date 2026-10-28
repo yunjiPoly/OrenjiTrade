@@ -13,6 +13,7 @@ import { itemPriceText } from '@/src/features/inventory/itemPrice';
 import { specialEdition, specialFinish } from '@/src/features/wishlist/wishlistLabels';
 import { printingCode } from '@/src/lib/catalog';
 import { fontFamily, fontWeight, spacing, textStyle, useStackedRows, useTheme } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { CARD_PAGE_COPY } from '../search/searchCopy';
 
@@ -86,9 +87,9 @@ export const HolderRow = memo(function HolderRow({ result, onMessage, starting }
           <GuestAvatar size={44} testID={`holder-${item.id}-guest-avatar`} />
         )}
         <View style={[styles.text, stacked && styles.stackedPart]}>
-          <Text style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
+          <HandleText style={[textStyle('md'), styles.bold, { color: palette.ink }]}>
             {handle ?? GUEST_COPY.aCollector}
-          </Text>
+          </HandleText>
           <Text style={[textStyle('xs'), styles.mono, { color: palette.textMuted }]}>{line}</Text>
         </View>
         <View style={[styles.price, stacked && styles.priceStacked]}>

@@ -36,6 +36,7 @@ import {
   useStackedRows,
   useTheme,
 } from '@/src/theme';
+import { HandleText } from '@/src/components/ui/HandleText';
 
 import { CARD_PAGE_COPY, gameName } from '../search/searchCopy';
 import { groupHolders, type HolderGroup } from './holderGroups';
@@ -405,9 +406,12 @@ function DeckCoreBanner({
               testID={`card-deck-core-${core.id}`}
               style={({ pressed }) => [styles.bannerLine, pressed && styles.pressed]}
             >
-              <Text style={[textStyle('sm'), styles.fill, { color: palette.textMuted }]}>
+              <HandleText
+                numberOfLines={3}
+                style={[textStyle('sm'), styles.fill, { color: palette.textMuted }]}
+              >
                 {line}
-              </Text>
+              </HandleText>
               <MaterialCommunityIcons name="chevron-right" size={18} color={palette.textDisabled} />
             </Pressable>
           );
