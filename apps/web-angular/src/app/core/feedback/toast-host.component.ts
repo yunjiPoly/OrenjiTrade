@@ -1,12 +1,25 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  afterNextRender,
+  inject,
+} from '@angular/core';
 import { ShellIconComponent } from '../layout/shell-icon/shell-icon.component';
 import { ToastService } from './toast.service';
 
 /**
  * The toast stack of the shell (spec 4.8): bottom-left, 24 px from the rail and the bottom edge
  * (above the tab bar below 960), at most 400 wide, newest at the bottom. The stack is a polite
- * live region, each toast a `status` (an error toast an alert); the timers pause while the pointer or the focus is
- * on a toast.
+ * live region, each toast a `status` (an error toast an alert); the timers pause while the pointer
+ * or the focus is on a toast.
+ *
+ * The host moves to the end of `<body>` and carries `aria-live`: a CDK dialog or drawer hides
+ * every other child of `<body>` from assistive technology while it is open, except live regions,
+ * so a toast raised from a dialog is still announced. Closing a focused toast moves the focus to
+ * the next toast, else back to where it was before the toasts, else to the main content.
  */
 @Component({
   selector: 'app-toast-host',
@@ -14,11 +27,9 @@ import { ToastService } from './toast.service';
   template: `
     <div
       class="toasts"
-      aria-live="polite"
-      aria-relevant="additions"
       (mouseenter)="service.pause()"
       (mouseleave)="service.resume()"
-      (focusin)="service.pause()"
+      (focusin)="onFocusIn($event)"
       (focusout)="onFocusOut($event)"
     >
       @for (toast of service.toasts(); track toast.id) {
@@ -42,7 +53,7 @@ import { ToastService } from './toast.service';
             }
           </div>
           @if (toast.action) {
-            <button type="button" class="toast__action" (click)="service.act(toast.id)">
+            <button type="button" class="toast__action" (click)="act(toast.id, $event)">
               {{ toast.action }}
             </button>
           }
@@ -50,7 +61,7 @@ import { ToastService } from './toast.service';
             type="button"
             class="toast__close"
             aria-label="Close"
-            (click)="service.close(toast.id, false)"
+            (click)="close(toast.id, $event)"
           >
             <app-shell-icon name="close" [size]="16" />
           </button>
@@ -149,15 +160,78 @@ import { ToastService } from './toast.service';
       }
     }
   `,
+  host: { 'aria-live': 'polite', 'aria-relevant': 'additions' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ToastHostComponent {
   protected readonly service = inject(ToastService);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly document = inject(DOCUMENT);
+  /** Where the focus was before it entered the toasts. */
+  private returnFocus: HTMLElement | null = null;
+
+  constructor() {
+    afterNextRender(() => {
+      const element = this.host.nativeElement;
+      if (element.parentElement !== this.document.body) {
+        this.document.body.appendChild(element);
+      }
+    });
+    inject(DestroyRef).onDestroy(() => this.host.nativeElement.remove());
+  }
+
+  protected onFocusIn(event: FocusEvent): void {
+    const from = event.relatedTarget as HTMLElement | null;
+    if (from && !this.host.nativeElement.contains(from)) {
+      this.returnFocus = from;
+    }
+    this.service.pause();
+  }
 
   protected onFocusOut(event: FocusEvent): void {
     const next = event.relatedTarget as Node | null;
     if (!next || !(event.currentTarget as HTMLElement).contains(next)) {
       this.service.resume();
     }
+  }
+
+  protected act(id: number, event: Event): void {
+    const index = this.focusedIndex(event);
+    this.service.act(id);
+    this.refocus(index);
+  }
+
+  protected close(id: number, event: Event): void {
+    const index = this.focusedIndex(event);
+    this.service.close(id, false);
+    this.refocus(index);
+  }
+
+  /** The index of the toast whose button had the focus, or -1 (a pointer click elsewhere). */
+  private focusedIndex(event: Event): number {
+    const button = event.currentTarget as HTMLElement | null;
+    if (!button || this.document.activeElement !== button) {
+      return -1;
+    }
+    const toasts = Array.from(this.host.nativeElement.querySelectorAll('.toast'));
+    return toasts.findIndex((toast) => toast.contains(button));
+  }
+
+  private refocus(index: number): void {
+    if (index < 0) {
+      return;
+    }
+    // After the closed toast left the DOM.
+    setTimeout(() => {
+      const closes = this.host.nativeElement.querySelectorAll<HTMLElement>('.toast__close');
+      const next = closes[Math.min(index, closes.length - 1)];
+      const back = this.returnFocus?.isConnected ? this.returnFocus : null;
+      const target =
+        next ?? back ?? this.document.getElementById('main-content') ?? this.document.body;
+      target.focus();
+      if (!next) {
+        this.returnFocus = null;
+      }
+    });
   }
 }

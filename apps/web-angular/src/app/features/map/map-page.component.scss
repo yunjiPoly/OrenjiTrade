@@ -130,9 +130,10 @@
 
 // Floats above Leaflet's panes (z-index up to 1000).
 .legend {
+  /* Top right: the toasts (bottom-left, above the tab bar below 960) never cover it. */
   position: absolute;
-  bottom: var(--spacing-3);
-  left: var(--spacing-3);
+  top: var(--spacing-3);
+  right: var(--spacing-3);
   z-index: 1001;
   display: flex;
   flex-direction: column;
