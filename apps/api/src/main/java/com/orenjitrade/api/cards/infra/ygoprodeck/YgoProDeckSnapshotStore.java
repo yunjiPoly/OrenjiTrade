@@ -1,5 +1,6 @@
 package com.orenjitrade.api.cards.infra.ygoprodeck;
 
+import com.orenjitrade.api.cards.infra.http.ResponseTooLargeException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -86,7 +87,7 @@ final class YgoProDeckSnapshotStore {
             while ((read = body.read(buffer)) != -1) {
                 written += read;
                 if (written > maxBytes) {
-                    throw new IOException("Response larger than " + maxBytes + " bytes");
+                    throw new ResponseTooLargeException(maxBytes);
                 }
                 out.write(buffer, 0, read);
             }

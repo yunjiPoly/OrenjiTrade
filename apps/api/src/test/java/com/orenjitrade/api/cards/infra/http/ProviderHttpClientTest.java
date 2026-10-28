@@ -3,6 +3,7 @@ package com.orenjitrade.api.cards.infra.http;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.orenjitrade.api.cards.domain.provider.ProviderRequestException;
 import com.orenjitrade.api.cards.domain.provider.ProviderUnavailableException;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -13,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,6 +25,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Pacing and retries of provider requests against a local JDK HTTP server: transient failures (5xx,
@@ -220,6 +223,35 @@ class ProviderHttpClientTest {
             redirecting.stop(0);
             other.stop(0);
         }
+    }
+
+    /**
+     * A response that passes the size limit while it is stored is a final answer: downloading the
+     * same file again would only fail the same way, so it is neither retried nor reported as the
+     * provider being unavailable, and nothing is kept.
+     */
+    @Test
+    void aResponseAboveTheSizeLimitIsNotDownloadedAgain(@TempDir Path dir) {
+        assertThatThrownBy(
+                        () ->
+                                client(4)
+                                        .get(
+                                                uri(),
+                                                "application/json",
+                                                response -> {
+                                                    try (InputStream body = response.getBody()) {
+                                                        return ProviderSnapshotStore.write(
+                                                                dir, "data.json", body, 4);
+                                                    }
+                                                }))
+                .isExactlyInstanceOf(ProviderRequestException.class)
+                .hasMessage(
+                        "Test provider 127.0.0.1/api/test.json is larger than 4 bytes; the"
+                                + " download was stopped and is not retried");
+        assertThat(requests.get()).as("downloaded once").isEqualTo(1);
+        assertThat(sleeps).as("no backoff").isEmpty();
+        assertThat(dir.resolve("data.json")).doesNotExist();
+        assertThat(dir.resolve("data.json.part")).doesNotExist();
     }
 
     @Test

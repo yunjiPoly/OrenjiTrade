@@ -79,7 +79,9 @@ public final class ProviderSnapshotStore {
      * Streams {@code body} into {@code dir/name} through a temporary file and an atomic move.
      *
      * @return the bytes written
-     * @throws IOException the body exceeded {@code maxBytes} (nothing is kept) or a write failed
+     * @throws ResponseTooLargeException the body exceeded {@code maxBytes} (nothing is kept; never
+     *     retried)
+     * @throws IOException a read or a write failed
      */
     public static long write(Path dir, String name, InputStream body, long maxBytes)
             throws IOException {
@@ -91,7 +93,7 @@ public final class ProviderSnapshotStore {
             while ((read = body.read(buffer)) != -1) {
                 written += read;
                 if (written > maxBytes) {
-                    throw new IOException("Response larger than " + maxBytes + " bytes");
+                    throw new ResponseTooLargeException(maxBytes);
                 }
                 out.write(buffer, 0, read);
             }

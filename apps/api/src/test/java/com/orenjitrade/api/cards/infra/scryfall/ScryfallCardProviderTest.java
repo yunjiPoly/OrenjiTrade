@@ -236,6 +236,41 @@ class ScryfallCardProviderTest {
         assertThat(legacy).isEqualTo(jsonl);
     }
 
+    /**
+     * A download above {@code max-bulk-bytes} stops at once with what happened: one download,
+     * nothing stored, never retried (before, it was downloaded again on every attempt and reported
+     * as Scryfall being unavailable).
+     */
+    @Test
+    void aDownloadAboveMaxBulkBytesStopsAtOnceAndKeepsNothing() {
+        long limit =
+                CardSourceStub.gzip(CardSourceStub.scryfallJsonLines(STUB.scryfallImages())).length
+                        - 1;
+        assertThatThrownBy(
+                        () ->
+                                provider(false, snapshots, limit)
+                                        .syncCards("mtg", SyncOptions.full()))
+                .isExactlyInstanceOf(ProviderRequestException.class)
+                .hasMessageEndingWith(
+                        "/unique-artwork/unique-artwork-"
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + ".jsonl.gz is larger than "
+                                + limit
+                                + " bytes; the download was stopped and is not retried");
+        assertThat(STUB.requests())
+                .extracting(CardSourceStub.Request::path)
+                .containsExactly(
+                        "/scryfall-api/bulk-data",
+                        "/scryfall-data/unique-artwork/unique-artwork-"
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + ".jsonl.gz");
+        assertThat(
+                        snapshots
+                                .resolve(CardSourceStub.SCRYFALL_VERSION)
+                                .resolve(ScryfallCardProvider.BULK_FILE))
+                .doesNotExist();
+    }
+
     @Test
     void aBulkListWithoutADownloadAddressSaysSo() {
         STUB.scryfallBulkList(CardSourceStub.BulkList.NO_ADDRESS);
