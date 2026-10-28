@@ -7,6 +7,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { InventoryService } from '@orenji/api-client';
 import { firstValueFrom } from 'rxjs';
 import { SessionService } from '../../auth/session.service';
@@ -30,11 +31,13 @@ export const COMING_SOON = 'Cards coming soon';
  */
 @Component({
   selector: 'app-game-popover',
-  imports: [ShellIconComponent],
+  imports: [CdkTrapFocus, ShellIconComponent],
   template: `
     <div
       class="pop"
       role="dialog"
+      aria-modal="true"
+      cdkTrapFocus
       aria-labelledby="game-pop-title"
       aria-describedby="game-pop-lead"
     >

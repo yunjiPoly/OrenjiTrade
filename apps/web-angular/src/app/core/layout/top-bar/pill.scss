@@ -30,9 +30,16 @@
   padding-left: 7px;
 }
 
-// Browsing another region than the collector's own (spec 2.4).
+// Browsing another region than the collector's own (spec 2.4): orange, 3:1 in light too.
 .pill--away {
-  border-color: var(--color-primary);
+  border-color: var(--app-primary-text);
+}
+
+@media (forced-colors: active) {
+  .pill--away {
+    border-width: 2px;
+    border-color: Highlight;
+  }
 }
 
 .pill__globe {

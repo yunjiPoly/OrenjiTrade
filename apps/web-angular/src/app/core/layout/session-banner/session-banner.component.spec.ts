@@ -54,6 +54,22 @@ describe('SessionBannerComponent (spec 4.1)', () => {
     expect(document.activeElement).toBe(element.querySelector('[data-testid="session-banner"]'));
   });
 
+  it('brings the focus back to the strip when the retry fails again (the strip is drawn anew)', async () => {
+    load.mockImplementation(async () => {
+      status.set('loading');
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      status.set('error');
+      return 'error';
+    });
+    element.querySelector<HTMLButtonElement>('button')!.click();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid="session-banner"]')).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(element.querySelector('[data-testid="session-banner"]'));
+  });
+
   it('offers Sign out when the API no longer accepts the session, and hides when loaded', async () => {
     error.set(
       new ApiError({

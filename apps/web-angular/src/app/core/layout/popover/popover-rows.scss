@@ -128,7 +128,9 @@
 }
 
 .pop__radio {
+  display: inline-block;
   flex: none;
+  box-sizing: border-box;
   width: 20px;
   height: 20px;
   border: 2px solid var(--color-border-strong);
@@ -136,8 +138,16 @@
 }
 
 .pop__radio--on {
-  border-color: var(--color-primary);
-  background: radial-gradient(circle, var(--color-primary) 0 5px, transparent 5.5px);
+  border-color: var(--app-primary-text);
+  background: radial-gradient(circle, var(--app-primary-text) 0 5px, transparent 5.5px);
+}
+
+// Forced colours drop backgrounds: the checked radio shows as a thick ring.
+@media (forced-colors: active) {
+  .pop__radio--on {
+    border-width: 6px;
+    border-color: Highlight;
+  }
 }
 
 .pop__close {

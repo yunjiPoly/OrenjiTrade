@@ -47,14 +47,22 @@ import { UnreadChats } from '../unread-chats/unread-chats';
       </div>
       <div class="rail__bottom">
         @if (session.canAccessAdmin()) {
+          @let adminActive = layout.area() === 'admin';
           <a
             class="rail__item rail__item--admin"
+            [class.rail__item--active]="adminActive"
             routerLink="/admin"
+            [attr.aria-current]="adminActive ? 'page' : null"
             matTooltip="Admin console"
             matTooltipPosition="right"
             data-testid="rail-admin"
           >
-            <span class="rail__pill"><app-shell-icon name="shield" /></span>
+            <span class="rail__pill"
+              ><app-shell-icon
+                name="shield"
+                [filled]="adminActive"
+                [stroke]="adminActive ? 2 : 1.8"
+            /></span>
             <span class="rail__label">Admin</span>
           </a>
         }
@@ -141,6 +149,12 @@ import { UnreadChats } from '../unread-chats/unread-chats';
     .rail__item--active .rail__pill,
     .rail__item--active:hover .rail__pill {
       background: light-dark(var(--color-primary-container), var(--color-primary-tint));
+    }
+    @media (forced-colors: active) {
+      .rail__item--active .rail__pill {
+        outline: 2px solid Highlight;
+        outline-offset: -2px;
+      }
     }
     .rail__badge {
       position: absolute;

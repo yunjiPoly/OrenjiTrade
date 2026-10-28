@@ -13,8 +13,8 @@ import { PopoverRef, Popovers } from '../popover/popover.service';
 import { ShellIconComponent } from '../shell-icon/shell-icon.component';
 
 /** "Region: Americas (North). Change region" (the pill's name, the phone's wording). */
-export function regionPillLabel(name: string): string {
-  return `Region: ${name}. Change region`;
+export function regionPillLabel(name: string, away = false): string {
+  return away ? `Region: ${name}, not your region. Change region` : `Region: ${name}. Change region`;
 }
 
 /**
@@ -36,7 +36,7 @@ export function regionPillLabel(name: string): string {
       aria-haspopup="dialog"
       [attr.aria-expanded]="open()"
       [attr.aria-label]="label()"
-      [attr.title]="name()"
+      [attr.title]="context.browsingAway() ? name() + ' · Not your region' : name()"
       (click)="toggle()"
     >
       <app-shell-icon class="pill__globe" name="globe" [size]="18" />
@@ -62,7 +62,10 @@ export class RegionPillComponent {
   private ref: PopoverRef | null = null;
 
   protected readonly name = computed(() => this.regions.regionName(this.context.current()));
-  protected readonly label = computed(() => regionPillLabel(this.name()));
+  /** Browsing away is said in words too, never by the orange border alone (WCAG 1.4.1). */
+  protected readonly label = computed(() =>
+    regionPillLabel(this.name(), this.context.browsingAway()),
+  );
 
   protected async toggle(): Promise<void> {
     if (this.ref) {

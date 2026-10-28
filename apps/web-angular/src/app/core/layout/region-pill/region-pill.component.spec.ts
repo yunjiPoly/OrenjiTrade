@@ -94,6 +94,16 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     expect(pill().getAttribute('aria-label')).toBe('Region: Europe. Change region');
   });
 
+  it('keeps the focus inside while it is open (a modal popover or bottom sheet)', async () => {
+    await open();
+    const dialog = document.querySelector('.app-popover [role="dialog"]')!;
+    expect(dialog.getAttribute('aria-modal')).toBe('true');
+    // The CDK focus trap's anchors wrap Tab and Shift+Tab around the popover.
+    const anchors = document.querySelectorAll('.app-popover .cdk-focus-trap-anchor');
+    expect(anchors.length).toBe(2);
+    // Tab itself is walked in the browser (e2e/shell.spec.ts): jsdom has no layout.
+  });
+
   it('closes on Esc', async () => {
     await open();
     document
@@ -117,6 +127,11 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     await settle(fixture);
     expect(context.browsingAway()).toBe(true);
     expect(pill().classList).toContain('pill--away');
+    // Said in words too, never by the orange border alone (WCAG 1.4.1).
+    expect(pill().getAttribute('aria-label')).toBe(
+      'Region: Americas (North), not your region. Change region',
+    );
+    expect(pill().getAttribute('title')).toBe('Americas (North) · Not your region');
     // Browsing another region while signed in does not replace the browser's own choice.
     expect(localStorage.getItem(REGION_STORAGE_KEY)).toBe('europe');
     expect(await open()).toHaveLength(3);
@@ -126,5 +141,6 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     await settle(fixture);
     expect(context.current()).toBe('americas-south');
     expect(pill().classList).not.toContain('pill--away');
+    expect(pill().getAttribute('aria-label')).toBe('Region: Americas (South). Change region');
   });
 });

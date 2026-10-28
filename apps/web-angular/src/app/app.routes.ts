@@ -191,6 +191,8 @@ export const routes: Routes = [
   },
   {
     path: 'admin',
+    // The rail's Admin item is the current one (WH1 rebuilds the console's own shell).
+    data: { shell: { area: 'admin' } satisfies ShellRouteData },
     canActivate: [adminGuard],
     loadChildren: () => import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
   },

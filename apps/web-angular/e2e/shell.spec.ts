@@ -91,6 +91,14 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(dialog.getByRole('radio', { name: /^Americas \(North\)/ })).toHaveAccessibleName(
       /Your region/,
     );
+    // Tab and Shift+Tab stay in the popover while it is open (it has a backdrop).
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Tab');
+      expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press('Shift+Tab');
+    expect(await dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+    await dialog.getByRole('radio', { name: /^Americas \(North\)/ }).focus();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await expect(dialog.getByRole('radio', { name: /^Europe/ })).toBeFocused();

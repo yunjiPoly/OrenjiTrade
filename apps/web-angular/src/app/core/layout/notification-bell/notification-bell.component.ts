@@ -197,7 +197,7 @@ const BUMP_MS = 700;
       font-weight: var(--font-weight-semibold);
     }
     .nm__count {
-      color: var(--color-primary);
+      color: var(--app-primary-text);
       font-size: var(--font-size-xs);
       font-weight: var(--font-weight-semibold);
     }

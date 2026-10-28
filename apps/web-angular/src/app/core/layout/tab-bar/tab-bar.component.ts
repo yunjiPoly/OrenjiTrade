@@ -72,7 +72,12 @@ import { UnreadChats } from '../unread-chats/unread-chats';
       font-weight: var(--font-weight-semibold);
     }
     .tabs__item--active .tabs__icon {
-      color: var(--color-primary);
+      color: var(--app-primary-text);
+    }
+    @media (forced-colors: active) {
+      .tabs__item--active .tabs__icon {
+        color: Highlight;
+      }
     }
     .tabs__icon {
       position: relative;

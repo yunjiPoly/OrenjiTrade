@@ -170,6 +170,9 @@ export const THEME_CHOICES: readonly { value: ThemePreference; label: string }[]
       color: var(--color-danger);
     }
     .account__radio {
+      display: inline-block;
+      flex: none;
+      box-sizing: border-box;
       width: 18px;
       height: 18px;
       margin-right: 12px;
@@ -177,8 +180,14 @@ export const THEME_CHOICES: readonly { value: ThemePreference; label: string }[]
       border-radius: 50%;
     }
     .account__radio--on {
-      border-color: var(--color-primary);
-      background: radial-gradient(circle, var(--color-primary) 0 4px, transparent 4.5px);
+      border-color: var(--app-primary-text);
+      background: radial-gradient(circle, var(--app-primary-text) 0 4px, transparent 4.5px);
+    }
+    @media (forced-colors: active) {
+      .account__radio--on {
+        border-width: 5px;
+        border-color: Highlight;
+      }
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

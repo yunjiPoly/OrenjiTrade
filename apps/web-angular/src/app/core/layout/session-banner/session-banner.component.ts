@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   inject,
   viewChild,
@@ -106,6 +108,7 @@ export class SessionBannerComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
   protected readonly session = inject(SessionService);
   private readonly strip = viewChild<ElementRef<HTMLElement>>('strip');
   protected readonly message = computed(() => {
@@ -115,15 +118,19 @@ export class SessionBannerComponent {
 
   protected async retry(): Promise<void> {
     await this.session.load();
-    // Back on the strip when it is still there, otherwise on the page.
-    queueMicrotask(() => {
-      const strip = this.strip()?.nativeElement;
-      if (strip) {
-        strip.focus();
-      } else {
-        this.host.nativeElement.ownerDocument.getElementById('main-content')?.focus();
-      }
-    });
+    // Back on the strip when it is still there (drawn anew after the retry's loading state),
+    // otherwise on the page: after the next render, once the outcome is on screen.
+    afterNextRender(
+      () => {
+        const strip = this.strip()?.nativeElement;
+        if (strip) {
+          strip.focus();
+        } else {
+          this.host.nativeElement.ownerDocument.getElementById('main-content')?.focus();
+        }
+      },
+      { injector: this.injector },
+    );
   }
 
   protected async signOut(): Promise<void> {

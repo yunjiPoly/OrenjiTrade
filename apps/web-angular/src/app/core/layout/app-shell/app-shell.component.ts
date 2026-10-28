@@ -37,12 +37,13 @@ import { UnreadChatsProbeComponent } from '../unread-chats/unread-chats-probe.co
       }
     </div>
     <app-top-bar />
-    <app-session-banner />
     <div class="shell" [class.shell--narrow]="layout.narrow()">
       @if (!layout.narrow()) {
         <app-rail class="shell__rail" />
       }
       <div class="shell__content" [attr.data-layout]="layout.layout()">
+        <!-- In the content column: the rail keeps its full height under the bar (spec 4.1). -->
+        <app-session-banner />
         <main id="main-content" class="shell__main" tabindex="-1">
           <router-outlet />
         </main>

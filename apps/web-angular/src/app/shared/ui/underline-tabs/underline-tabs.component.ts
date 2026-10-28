@@ -76,8 +76,15 @@ export interface UnderlineTab {
       left: 0;
       height: 2px;
       border-radius: 2px;
-      background: var(--color-primary);
+      /* A state indicator: 3:1 in light too (the light primary is 2.7:1 on the canvas). */
+      background: var(--app-primary-text);
       content: '';
+    }
+    @media (forced-colors: active) {
+      .tabs__tab--active::after {
+        background: Highlight;
+        forced-color-adjust: none;
+      }
     }
     .tabs__dot {
       width: 8px;

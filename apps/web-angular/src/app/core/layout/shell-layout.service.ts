@@ -3,8 +3,11 @@ import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core'
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 
-/** The five areas of the rail and the tab bar, in the phone's order (spec 4.6). */
-export type ShellArea = 'home' | 'search' | 'inventory' | 'messages' | 'profile';
+/**
+ * The five areas of the rail and the tab bar, in the phone's order (spec 4.6), and the staff's
+ * Admin console (the rail's item at the bottom).
+ */
+export type ShellArea = 'home' | 'search' | 'inventory' | 'messages' | 'profile' | 'admin';
 
 /** Which top-bar pills a page shows (spec 4.2, the phone's pill scope). */
 export type PillScope = 'both' | 'region' | 'none';

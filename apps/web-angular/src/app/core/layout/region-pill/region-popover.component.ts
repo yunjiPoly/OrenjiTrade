@@ -6,6 +6,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
 import { PLATFORM_REGION_NAMES, RegionsStore } from '../../../shared/regions/regions.store';
 import { RegionContext } from '../../region/region-context.service';
 import { PopoverRef } from '../popover/popover.service';
@@ -33,11 +34,13 @@ export interface RegionRow {
  */
 @Component({
   selector: 'app-region-popover',
-  imports: [ShellIconComponent],
+  imports: [CdkTrapFocus, ShellIconComponent],
   template: `
     <div
       class="pop"
       role="dialog"
+      aria-modal="true"
+      cdkTrapFocus
       aria-labelledby="region-pop-title"
       aria-describedby="region-pop-lead"
     >

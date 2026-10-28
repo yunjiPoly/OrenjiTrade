@@ -253,7 +253,8 @@
 
 .gs__hit {
   background: none;
-  color: var(--color-primary);
+  /* The match in orange (spec 4.4); in light a darker tone of it, AA on the active row too. */
+  color: var(--app-primary-text);
   font-weight: var(--font-weight-semibold);
 }
 
