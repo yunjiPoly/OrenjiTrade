@@ -34,12 +34,7 @@
     liveText()
   }}</span>
   @if (open()) {
-    <div
-      class="gs__panel"
-      id="gs-panel"
-      data-testid="global-search-panel"
-      (keydown)="onPanelKeydown($event)"
-    >
+    <div class="gs__panel" id="gs-panel" data-testid="global-search-panel">
       @if (!typing()) {
         <section class="gs__section" aria-labelledby="gs-recent-title">
           @if (recent.remembering() && recent.list().length > 0) {
@@ -189,8 +184,8 @@
                       >{{ handle.pre }}<mark class="gs__hit">{{ handle.hit }}</mark
                       >{{ handle.post }}</span
                     >
-                    <span class="gs__meta"
-                      >@if (option.collector.displayName) {
+                    <span class="gs__meta">
+                      @if (option.collector.displayName) {
                         <span class="gs__person"
                           >{{ person.pre }}<mark class="gs__hit">{{ person.hit }}</mark
                           >{{ person.post }}</span

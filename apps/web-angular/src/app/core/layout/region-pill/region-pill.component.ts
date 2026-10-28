@@ -14,7 +14,9 @@ import { ShellIconComponent } from '../shell-icon/shell-icon.component';
 
 /** "Region: Americas (North). Change region" (the pill's name, the phone's wording). */
 export function regionPillLabel(name: string, away = false): string {
-  return away ? `Region: ${name}, not your region. Change region` : `Region: ${name}. Change region`;
+  return away
+    ? `Region: ${name}, not your region. Change region`
+    : `Region: ${name}. Change region`;
 }
 
 /**

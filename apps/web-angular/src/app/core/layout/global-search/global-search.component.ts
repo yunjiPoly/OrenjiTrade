@@ -59,6 +59,7 @@ interface Results {
   styleUrl: './global-search.component.scss',
   host: {
     '(focusout)': 'onFocusOut($event)',
+    '(keydown)': 'onPanelKeydown($event)',
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

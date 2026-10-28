@@ -56,9 +56,7 @@ export class LegalTextsService {
     const protectedPayments = this.injector
       .get(FeatureFlagsService)
       .isEnabled(FEATURE.protectedPayments);
-    return this.documentList().filter(
-      (doc) => protectedPayments || !PAYMENT_POLICIES.has(doc.key),
-    );
+    return this.documentList().filter((doc) => protectedPayments || !PAYMENT_POLICIES.has(doc.key));
   });
   readonly draftBanner = computed(() =>
     this.language.isFrench() ? LEGAL_DRAFT_BANNER_FR : LEGAL_DRAFT_BANNER,

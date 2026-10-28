@@ -15,7 +15,13 @@ describe('OrenjiTitleStrategy (decision 6)', () => {
     TestBed.configureTestingModule({
       providers: [
         provideRouter([
-          { path: '', pathMatch: 'full', title: 'Home', data: { seo: 'index' }, component: PageComponent },
+          {
+            path: '',
+            pathMatch: 'full',
+            title: 'Home',
+            data: { seo: 'index' },
+            component: PageComponent,
+          },
           {
             path: 'legal',
             data: { seo: 'index' },

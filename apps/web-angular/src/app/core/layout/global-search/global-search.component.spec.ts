@@ -155,9 +155,9 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
       'Ash Ketch · Quebec',
     );
     expect(options[2].getAttribute('aria-label')).toBe('ash_trader, Ash Ketch, Quebec');
-    expect(
-      Array.from(options[2].querySelectorAll('.gs__hit'), (mark) => mark.textContent),
-    ).toEqual(['ash', 'Ash']);
+    expect(Array.from(options[2].querySelectorAll('.gs__hit'), (mark) => mark.textContent)).toEqual(
+      ['ash', 'Ash'],
+    );
     expect(options[3].textContent).toContain('Search binders and deck cores for ‘ash’');
     // No counts of any kind (spec 4.4): the API's printing count is never shown.
     expect(element.querySelector('#gs-listbox')?.textContent).not.toMatch(/\b12\b/);

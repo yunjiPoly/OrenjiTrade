@@ -57,12 +57,22 @@ describe('search params', () => {
   });
 
   it('reads an old offers link as no filter: nothing hidden is active (decision 2)', () => {
-    const params = parseSearchParams({ card: CARD, availability: 'ACCEPTS_OFFERS', offers: 'true' });
+    const params = parseSearchParams({
+      card: CARD,
+      availability: 'ACCEPTS_OFFERS',
+      offers: 'true',
+    });
     expect(params.filters).toEqual(DEFAULT_HOLDER_FILTERS);
     expect(activeHolderFilterCount(params.filters)).toBe(0);
-    expect(cardHoldersRequest({ kind: 'card', id: CARD }, params.filters, 'americas-north')).toEqual(
-      { region: 'americas-north', sort: 'freshness', page: 0, size: expect.any(Number), cardId: CARD },
-    );
+    expect(
+      cardHoldersRequest({ kind: 'card', id: CARD }, params.filters, 'americas-north'),
+    ).toEqual({
+      region: 'americas-north',
+      sort: 'freshness',
+      page: 0,
+      size: expect.any(Number),
+      cardId: CARD,
+    });
   });
 
   it('ignores invalid values', () => {
