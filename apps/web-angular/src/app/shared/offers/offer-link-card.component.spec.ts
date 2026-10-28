@@ -38,8 +38,12 @@ describe('offer cards in the conversation', () => {
     expect(card?.tagName).toBe('DIV');
     expect(card?.getAttribute('href')).toBeNull();
     expect(element.querySelector('a[href^="/offers"]')).toBeNull();
+    // A countered or open offer can no longer be answered: no live status chip.
     expect(card?.getAttribute('aria-label')).toBe(
-      'Past offer: 42.00 CAD for Lantern Fox Spirit, Countered',
+      'Past offer: 42.00 CAD for Lantern Fox Spirit, No longer available',
+    );
+    expect(element.querySelector('[data-testid="status-chip"]')?.textContent).toContain(
+      'No longer available',
     );
   });
 

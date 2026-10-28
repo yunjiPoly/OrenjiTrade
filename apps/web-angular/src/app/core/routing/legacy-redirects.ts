@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { ActivatedRouteSnapshot, Router, UrlTree } from '@angular/router';
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from '@angular/router';
 import { ToastService } from '../feedback/toast.service';
 
 /** The toast of an old offer or trade link (spec 4.11, decision 2). */
@@ -48,7 +48,19 @@ export function wishlistRedirect(): UrlTree {
   return inject(Router).createUrlTree(['/search'], { queryParams: { tab: 'wishlist' } });
 }
 
-/** `/community[/:slug]` → `/messages?tab=community` (spec 4.11). */
-export function communityRedirect(): UrlTree {
-  return inject(Router).createUrlTree(['/messages'], { queryParams: { tab: 'community' } });
+/**
+ * `/community` → `/messages?tab=community` (spec 4.11); `/community/:slug` keeps its room at
+ * `/messages/community/:slug`, so an old bookmark still opens that channel (as before WA, the
+ * room page handles a slug it does not know).
+ */
+export function communityRedirect(
+  _route: ActivatedRouteSnapshot,
+  state: RouterStateSnapshot,
+): UrlTree {
+  const router = inject(Router);
+  const segments = router.parseUrl(state.url).root.children['primary']?.segments ?? [];
+  const slug = segments[1]?.path.trim();
+  return slug
+    ? router.createUrlTree(['/messages', 'community', slug])
+    : router.createUrlTree(['/messages'], { queryParams: { tab: 'community' } });
 }

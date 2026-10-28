@@ -19,20 +19,22 @@ export interface NotificationKind {
 const KINDS: Record<string, NotificationKind> = {
   WISHLIST_ALERT: { icon: 'favorite', tone: 'match', label: 'Wishlist alert' },
   MESSAGE: { icon: 'chat', tone: 'message', label: 'Message' },
-  OFFER_RECEIVED: { icon: 'local_offer', tone: 'offer', label: 'Offer' },
-  OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Offer accepted' },
-  OFFER_COUNTERED: { icon: 'swap_horiz', tone: 'offer', label: 'Counter-offer' },
-  OFFER_DECLINED: { icon: 'do_not_disturb_on', tone: 'offer', label: 'Offer declined' },
-  OFFER_CANCELLED: { icon: 'undo', tone: 'offer', label: 'Offer withdrawn' },
-  OFFER_EXPIRED: { icon: 'timer_off', tone: 'offer', label: 'Offer expired' },
+  // Offers, trades, payments and disputes left the web (decision 2): their old notices read as
+  // history ("Past offer · …"), and open nothing.
+  OFFER_RECEIVED: { icon: 'local_offer', tone: 'offer', label: 'Past offer' },
+  OFFER_ACCEPTED: { icon: 'handshake', tone: 'offer', label: 'Past offer · accepted' },
+  OFFER_COUNTERED: { icon: 'swap_horiz', tone: 'offer', label: 'Past offer · countered' },
+  OFFER_DECLINED: { icon: 'do_not_disturb_on', tone: 'offer', label: 'Past offer · declined' },
+  OFFER_CANCELLED: { icon: 'undo', tone: 'offer', label: 'Past offer · withdrawn' },
+  OFFER_EXPIRED: { icon: 'timer_off', tone: 'offer', label: 'Past offer · expired' },
   BINDER_EXPIRING: { icon: 'timer', tone: 'warning', label: 'Binder' },
   BINDER_STALE_WARNING: { icon: 'hourglass_bottom', tone: 'warning', label: 'Binder reminder' },
   BINDER_HIDDEN: { icon: 'visibility_off', tone: 'warning', label: 'Listings hidden' },
   RATING_RECEIVED: { icon: 'star', tone: 'trade', label: 'Rating' },
-  TRADE_UPDATE: { icon: 'sync_alt', tone: 'trade', label: 'Trade' },
-  SHIPMENT_STATUS: { icon: 'local_shipping', tone: 'trade', label: 'Shipment' },
-  PAYMENT_UPDATE: { icon: 'payments', tone: 'trade', label: 'Payment' },
-  DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Dispute' },
+  TRADE_UPDATE: { icon: 'sync_alt', tone: 'trade', label: 'Past trade' },
+  SHIPMENT_STATUS: { icon: 'local_shipping', tone: 'trade', label: 'Past trade · shipment' },
+  PAYMENT_UPDATE: { icon: 'payments', tone: 'trade', label: 'Past payment' },
+  DISPUTE_UPDATE: { icon: 'gavel', tone: 'warning', label: 'Past dispute' },
   REPORT_DECISION: { icon: 'gavel', tone: 'system', label: 'Report decision' },
   SYSTEM: { icon: 'campaign', tone: 'system', label: 'OrenjiTrade' },
 };
@@ -144,6 +146,25 @@ export function notificationLink(
     default:
       return '/notifications';
   }
+}
+
+/** The types whose old notices are history on the web (decision 2): shown, never opened. */
+const HISTORY_TYPES: ReadonlySet<string> = new Set([
+  'OFFER_RECEIVED',
+  'OFFER_ACCEPTED',
+  'OFFER_COUNTERED',
+  'OFFER_DECLINED',
+  'OFFER_CANCELLED',
+  'OFFER_EXPIRED',
+  'TRADE_UPDATE',
+  'PAYMENT_UPDATE',
+  'SHIPMENT_STATUS',
+  'DISPUTE_UPDATE',
+]);
+
+/** True for an old offer, trade, payment or dispute notice: the list shows it without a link. */
+export function isHistoryNotification(notification: Pick<NotificationResponse, 'type'>): boolean {
+  return HISTORY_TYPES.has(notification.type);
 }
 
 /** True while the notification has not been read. */

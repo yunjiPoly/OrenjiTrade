@@ -111,5 +111,14 @@ import { StatusChipComponent } from './status-chip.component';
 })
 export class OfferLinkCardComponent {
   readonly offer = input.required<OfferLink>();
-  protected readonly status = computed(() => offerStatusInfo(this.offer().status));
+  /**
+   * The last status, as history: an offer still open or countered when offers left the web can no
+   * longer be answered, so it says "No longer available" instead of a live "Open" (decision 2).
+   */
+  protected readonly status = computed(() => {
+    const info = offerStatusInfo(this.offer().status);
+    return info.tone === 'live'
+      ? { label: 'No longer available', icon: 'history', tone: 'muted' as const }
+      : info;
+  });
 }

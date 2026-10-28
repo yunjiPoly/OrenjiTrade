@@ -1,5 +1,6 @@
 import { NotificationResponseTypeEnum as Type } from '@orenji/api-client';
 import {
+  isHistoryNotification,
   isUnread,
   notificationCard,
   notificationKind,
@@ -164,14 +165,21 @@ describe('notification kinds', () => {
     ]) {
       expect(notificationLink(notice), JSON.stringify(notice)).toBe('/notifications');
     }
-    // Their kinds keep their words, so the list still says what happened.
+    // Their kinds read as history and still say what happened; the list shows them unlinked.
     expect(notificationKind({ type: Type.OfferCancelled, data: {} })).toEqual({
       icon: 'undo',
       tone: 'offer',
-      label: 'Offer withdrawn',
+      label: 'Past offer · withdrawn',
     });
-    expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe('Offer expired');
-    expect(notificationKind({ type: Type.DisputeUpdate, data: {} }).label).toBe('Dispute');
+    expect(notificationKind({ type: Type.OfferReceived, data: {} }).label).toBe('Past offer');
+    expect(notificationKind({ type: Type.OfferExpired, data: {} }).label).toBe(
+      'Past offer · expired',
+    );
+    expect(notificationKind({ type: Type.DisputeUpdate, data: {} }).label).toBe('Past dispute');
+    expect(isHistoryNotification({ type: Type.OfferReceived })).toBe(true);
+    expect(isHistoryNotification({ type: Type.TradeUpdate })).toBe(true);
+    expect(isHistoryNotification({ type: Type.Message })).toBe(false);
+    expect(isHistoryNotification({ type: Type.System })).toBe(false);
   });
 
   it('shows the card a payload carries, only with an API picture URL', () => {

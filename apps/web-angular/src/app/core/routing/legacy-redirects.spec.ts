@@ -19,6 +19,7 @@ class PageComponent {}
 const routes: Routes = [
   { path: 'search', component: PageComponent },
   { path: 'messages', component: PageComponent },
+  { path: 'messages/community/:room', component: PageComponent },
   { path: 'map', pathMatch: 'full', children: [], canActivate: [mapRedirect] },
   { path: 'cards', canActivate: [cardsQueryRedirect], component: PageComponent },
   { path: 'community', children: [{ path: '**', children: [] }], canActivate: [communityRedirect] },
@@ -60,7 +61,10 @@ describe('old links of the web (spec 4.11, decision 2)', () => {
     expect(await land('/wishlist')).toBe('/search?tab=wishlist');
     expect(await land('/wishlist/w-1')).toBe('/search?tab=wishlist');
     expect(await land('/community')).toBe('/messages?tab=community');
-    expect(await land('/community/americas-north')).toBe('/messages?tab=community');
+    // An old room link keeps its room.
+    expect(await land('/community/americas-north-pokemon')).toBe(
+      '/messages/community/americas-north-pokemon',
+    );
   });
 
   it('sends offers and trades to Messages with the toast', async () => {

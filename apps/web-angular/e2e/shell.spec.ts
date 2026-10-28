@@ -356,7 +356,7 @@ test.describe('the web redesign shell (WA)', () => {
       ['/wishlist', /\/search\?tab=wishlist$/],
       ['/wishlist/w-1', /\/search\?tab=wishlist$/],
       ['/community', /\/messages(\?tab=community|\/community\/[\w-]+)$/],
-      ['/community/looking-for', /\/messages(\?tab=community|\/community\/[\w-]+)$/],
+      ['/community/looking-for', /\/messages\/community\/looking-for$/],
       ['/settings/offers', /\/settings\/profile$/],
       ['/settings/payouts', /\/settings\/profile$/],
       ['/settings/trading-area', /\/settings\/location$/],
