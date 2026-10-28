@@ -1,7 +1,7 @@
 # Account suspended (mockup v50 screen 44; owner decision of 2026-10-28, R8 follow-up 2 and R12
 # follow-up 3): a suspension leaves the login on. Sam (fresh, fictional) is signed in on the phone
 # when the seed admin suspends him through the API (scripts/suspension.js) until a date: his next
-# request (the Messages tab) lands on "Your account is suspended" with "The suspension ends on
+# request (a page it has not loaded yet) lands on "Your account is suspended" with "The suspension ends on
 # {date}.", the appeal line and Sign out, never on "Your session has ended". He signs out and in
 # again and sees it again. Suspended a second time with no end, he signs in again and sees no
 # date.
@@ -33,8 +33,10 @@ tags:
       ACTION: suspend
       ID: ${output.sam.id}
       DAYS: '5'
-- tapOn:
-    id: 'tab-messages'
+# The next request the phone makes (here a page it has not loaded yet; a stale list, a write or
+# coming back to the app do the same): data it read in the last minute is shown from its cache.
+- openLink: ${APP_URL}/--/settings/blocked
+- runFlow: subflows/dismiss-dev-menu.yaml
 - extendedWaitUntil:
     visible:
       id: 'screen-suspended'
@@ -52,6 +54,13 @@ tags:
 # Sign out, then sign in again: screen 44 again, with the same date.
 - tapOn:
     id: 'suspended-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+# Signing in again (a cleared app, as on another phone: Sign in keeps the fields of the session
+# that just ended, which typing would add to).
+- runFlow: subflows/launch-fresh.yaml
 - runFlow:
     file: subflows/sign-in.yaml
     env:
@@ -76,6 +85,13 @@ tags:
       DAYS: none
 - tapOn:
     id: 'suspended-sign-out'
+- extendedWaitUntil:
+    visible:
+      id: 'person-button-home'
+    timeout: 60000
+# Signing in again (a cleared app, as on another phone: Sign in keeps the fields of the session
+# that just ended, which typing would add to).
+- runFlow: subflows/launch-fresh.yaml
 - runFlow:
     file: subflows/sign-in.yaml
     env:
