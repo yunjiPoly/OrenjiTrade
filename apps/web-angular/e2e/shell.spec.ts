@@ -271,6 +271,30 @@ test.describe('the web redesign shell (WA)', () => {
     }
   });
 
+  test('the rail starts at exactly 960 px, the tab bar below (spec 3)', async ({ page }) => {
+    await signedIn(page);
+    await page.setViewportSize({ width: 960, height: 800 });
+    await page.goto('/inventory');
+    await expect(page.getByTestId('rail-home')).toBeVisible();
+    await expect(page.getByTestId('tab-home')).toHaveCount(0);
+    await page.setViewportSize({ width: 959, height: 800 });
+    await expect(page.getByTestId('tab-home')).toBeVisible();
+    await expect(page.getByTestId('rail-home')).toHaveCount(0);
+  });
+
+  test('no sideways page scroll at 360 (Appearance) and 320 (Legal)', async ({ page }) => {
+    await signedIn(page);
+    const scrollWidth = () => page.evaluate(() => document.documentElement.scrollWidth);
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.goto('/settings/appearance');
+    await expect(page.getByRole('radio', { name: /Same as the system/ })).toBeVisible();
+    expect(await scrollWidth()).toBeLessThanOrEqual(360);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto('/legal');
+    await expect(page.getByRole('link', { name: /Terms of Service/ }).first()).toBeVisible();
+    expect(await scrollWidth()).toBeLessThanOrEqual(320);
+  });
+
   test('old links land where the spec says (4.11), offers with the toast', async ({ page }) => {
     await signedIn(page);
     const cases: [string, RegExp][] = [

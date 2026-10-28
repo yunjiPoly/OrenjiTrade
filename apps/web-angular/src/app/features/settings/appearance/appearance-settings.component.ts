@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
@@ -51,6 +52,7 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
     >
       <mat-button-toggle-group
         aria-labelledby="appearance-theme"
+        [vertical]="stacked()"
         [value]="theme.preference()"
         (change)="theme.setPreference($event.value)"
       >
@@ -104,6 +106,14 @@ export const KEY_CHIPS: readonly { keys: string[]; label: string }[] = [
       display: flex;
       flex-direction: column;
       gap: var(--spacing-5);
+    }
+    mat-button-toggle-group {
+      max-width: 100%;
+    }
+    /* Below 600 the three choices stack full width: no sideways scroll at 360 (spec 3). */
+    mat-button-toggle-group.mat-button-toggle-vertical {
+      display: flex;
+      width: 100%;
     }
     mat-button-toggle mat-icon {
       margin-right: var(--spacing-1);
@@ -171,4 +181,19 @@ export class AppearanceSettingsComponent {
   protected readonly chips = KEY_CHIPS;
   protected readonly on = SINGLE_KEYS_ON;
   protected readonly off = SINGLE_KEYS_OFF;
+  /** The theme choices stack below 600 px. */
+  protected readonly stacked = signal(false);
+
+  constructor() {
+    const list = inject(DOCUMENT).defaultView?.matchMedia?.(STACK_QUERY);
+    if (list) {
+      this.stacked.set(list.matches);
+      const listener = (event: MediaQueryListEvent) => this.stacked.set(event.matches);
+      list.addEventListener('change', listener);
+      inject(DestroyRef).onDestroy(() => list.removeEventListener('change', listener));
+    }
+  }
 }
+
+/** Below this width the theme choices stack (one per line). */
+export const STACK_QUERY = '(max-width: 599.98px)';
