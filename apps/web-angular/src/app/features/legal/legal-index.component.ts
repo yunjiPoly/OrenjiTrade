@@ -1,9 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import { FEATURE, FeatureFlagsService } from '../../core/feature-flags/feature-flags.service';
 import { CardDataAttributionComponent } from '../../shared/catalog/card-data-attribution/card-data-attribution.component';
-import type { LegalKey } from './legal-content';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { LegalDraftBannerComponent } from './legal-draft-banner.component';
 import { LegalLanguageSwitchComponent } from './legal-language-switch.component';
@@ -73,7 +71,8 @@ import { LegalTextsService } from './legal-texts.service';
     }
     .legal-index {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      /* min(): one column that shrinks below 352 px windows (WCAG 1.4.10 at 320). */
+      grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
       gap: var(--spacing-3);
       list-style: none;
       margin: 0;
@@ -100,6 +99,8 @@ import { LegalTextsService } from './legal-texts.service';
       flex: 1;
       flex-direction: column;
       gap: var(--spacing-1);
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
     .legal-index__title {
       font-family: var(--font-display);
@@ -138,19 +139,6 @@ import { LegalTextsService } from './legal-texts.service';
 export class LegalIndexComponent {
   protected readonly language = inject(LegalLanguageService);
   protected readonly texts = inject(LegalTextsService);
-  private readonly protectedPayments = inject(FeatureFlagsService).enabled(
-    FEATURE.protectedPayments,
-  );
   /** Payment Protection and Refund & Dispute only while protectedPayments is on (decision 23). */
-  protected readonly documents = computed(() =>
-    this.texts
-      .documentList()
-      .filter((doc) => this.protectedPayments() || !PAYMENT_POLICIES.has(doc.key)),
-  );
+  protected readonly documents = this.texts.visibleDocuments;
 }
-
-/** The policies of the paused protected payments (ADR 0018). Their pages stay reachable by link. */
-export const PAYMENT_POLICIES: ReadonlySet<LegalKey> = new Set<LegalKey>([
-  'payment-protection',
-  'refund-dispute',
-]);
