@@ -276,7 +276,7 @@ public class UserAccountService {
     }
 
     // ---------------------------------------------------------------------------------------
-    // Mutations (callers audit and disable the identity-provider user as appropriate)
+    // Mutations (callers audit; a ban also disables the identity-provider user)
     // ---------------------------------------------------------------------------------------
 
     @Transactional
@@ -291,7 +291,7 @@ public class UserAccountService {
     /**
      * Bans the account (Phase 7 report decision): a suspension without end plus the ban mark
      * ({@code banned_at}); an admin lifts both with {@link #unsuspend}. Callers audit and disable
-     * the identity-provider user.
+     * the identity-provider user (a plain suspension leaves it enabled).
      */
     @Transactional
     public UserAccountSnapshot ban(UUID userId, String reason) {

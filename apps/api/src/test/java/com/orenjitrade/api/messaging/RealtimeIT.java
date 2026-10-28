@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.orenjitrade.api.auth.domain.AccountStatus;
+import com.orenjitrade.api.auth.domain.Role;
 import com.orenjitrade.api.auth.infra.StaticIdentityTokenVerifier;
 import com.orenjitrade.api.cards.domain.CatalogImportService;
 import com.orenjitrade.api.inventory.InventoryTestSupport;
@@ -275,6 +276,39 @@ class RealtimeIT extends AbstractMessagingIT {
             testUsers.setStatus(suspended.id(), AccountStatus.ACTIVE, null);
         }
         assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+    }
+
+    @Test
+    void anAccountSuspendedByAnAdminKeepsItsLoginButGetsNoSession() throws Exception {
+        // Owner decision of 2026-10-28: a suspension leaves the Firebase login on, so the token
+        // stays valid; the realtime connection still refuses the account, by its own state.
+        Member suspended = member("rt-admin-susp");
+        String admin = uniqueUid("rt-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/suspend",
+                admin,
+                Map.of(
+                        "reason",
+                        "Realtime test",
+                        "until",
+                        java.time.Instant.now().plusSeconds(3600).toString()),
+                204);
+        assertThatThrownBy(() -> connectWithQueryToken(suspended.uid()))
+                .isInstanceOf(ExecutionException.class);
+        assertThatThrownBy(() -> connectWithConnectHeader("Bearer " + token(suspended.uid())))
+                .isInstanceOf(ExecutionException.class);
+        assertThat(userRegistry.getUser(suspended.id().toString())).isNull();
+
+        callJson(
+                HttpMethod.POST,
+                "/api/v1/admin/users/" + suspended.id() + "/unsuspend",
+                admin,
+                null,
+                204);
+        Connection back = connectWithQueryToken(suspended.uid());
+        assertThat(back.session().isConnected()).isTrue();
     }
 
     // ---------------------------------------------------------------------------------------
