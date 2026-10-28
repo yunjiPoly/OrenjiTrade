@@ -157,6 +157,71 @@ class ProviderHttpClientTest {
         assertThat(requests.get()).isEqualTo(2);
     }
 
+    /**
+     * Redirects are never followed: the address guards of the adapters (Scryfall's bulk host, the
+     * image hosts) check the address they ask for, so a provider host must not be able to send the
+     * importer to another host. A 302 is a final answer, not retried, and its target gets nothing.
+     */
+    @Test
+    void aRedirectIsNeverFollowed() throws IOException {
+        AtomicInteger elsewhere = new AtomicInteger();
+        HttpServer other =
+                HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        other.createContext(
+                "/",
+                exchange -> {
+                    elsewhere.incrementAndGet();
+                    byte[] body = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(body);
+                    }
+                });
+        other.start();
+        AtomicInteger redirects = new AtomicInteger();
+        HttpServer redirecting =
+                HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        redirecting.createContext(
+                "/",
+                exchange -> {
+                    redirects.incrementAndGet();
+                    exchange.getResponseHeaders()
+                            .set(
+                                    "Location",
+                                    "http://127.0.0.1:"
+                                            + other.getAddress().getPort()
+                                            + "/elsewhere.json");
+                    exchange.sendResponseHeaders(302, -1);
+                    exchange.close();
+                });
+        redirecting.start();
+        try {
+            URI bulk =
+                    URI.create(
+                            "http://127.0.0.1:"
+                                    + redirecting.getAddress().getPort()
+                                    + "/unique-artwork/x.jsonl.gz");
+            assertThatThrownBy(
+                            () ->
+                                    client(3)
+                                            .get(
+                                                    bulk,
+                                                    "application/json",
+                                                    ProviderHttpClientTest::read))
+                    .isInstanceOf(ProviderHttpClient.HttpStatusFailure.class)
+                    .hasMessage(
+                            "Test provider 127.0.0.1/unique-artwork/x.jsonl.gz answered HTTP 302");
+            assertThatThrownBy(() -> client(3).open(bulk, "image/jpeg"))
+                    .isInstanceOf(ProviderHttpClient.HttpStatusFailure.class)
+                    .hasMessageContaining("HTTP 302");
+            assertThat(redirects.get()).as("one request each, never retried").isEqualTo(2);
+            assertThat(elsewhere.get()).as("the redirect target gets no request").isZero();
+        } finally {
+            redirecting.stop(0);
+            other.stop(0);
+        }
+    }
+
     @Test
     void exhaustedRetriesReportTheProviderUnavailable() {
         answer(503, -1, 503, -1, 503, -1);
