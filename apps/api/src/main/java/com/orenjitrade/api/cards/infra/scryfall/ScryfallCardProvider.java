@@ -88,8 +88,11 @@ public class ScryfallCardProvider implements CardProvider {
     static final int MAX_REFUSED_ADDRESS = 200;
 
     private static final Logger log = LoggerFactory.getLogger(ScryfallCardProvider.class);
+
+    /** {@code <folder>/<file>}; the file starts with a letter or digit (never {@code ..}). */
     private static final Pattern BULK_PATH =
-            Pattern.compile("^[a-z0-9_-]{1,40}/[A-Za-z0-9._-]{1,120}$");
+            Pattern.compile("^[a-z0-9_-]{1,40}/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$");
+
     private static final Pattern IMAGE_PATH =
             Pattern.compile(
                     "^(small|normal|large|png)/(front|back)/[0-9a-f]/[0-9a-f]/[0-9a-f-]{36}"
@@ -275,8 +278,9 @@ public class ScryfallCardProvider implements CardProvider {
 
     /**
      * Only bulk files under the configured bulk host are downloaded (SSRF guard): the address
-     * starts with {@code bulkBaseUrl} and the rest is {@code <folder>/<file>} (no query string, no
-     * other host, no {@code ..}).
+     * starts with {@code bulkBaseUrl} and the rest is {@code <folder>/<file>}: exactly two
+     * segments, the file starting with a letter or digit (so never {@code ..}), no query string, no
+     * other host.
      */
     URI bulkUri(@Nullable String downloadUri) {
         if (downloadUri == null || downloadUri.isBlank()) {
@@ -299,13 +303,15 @@ public class ScryfallCardProvider implements CardProvider {
     /**
      * A refused bulk address for messages and logs: scheme, host, port and path only, never user
      * information, a query string or a fragment (only their presence is said), at most {@value
-     * #MAX_REFUSED_ADDRESS} characters. The raw (still percent-encoded) path is used, so no decoded
-     * control character reaches a message.
+     * #MAX_REFUSED_ADDRESS} characters. The address is read in its ASCII form ({@link
+     * URI#toASCIIString()}), whose path stays percent-encoded and percent-encodes every character
+     * outside ASCII, so a message holds printable ASCII only: no control character, no line break
+     * and no invisible Unicode format character (such as a right-to-left override).
      */
     static String refusedAddress(String address) {
         URI uri;
         try {
-            uri = new URI(address);
+            uri = new URI(new URI(address).toASCIIString());
         } catch (URISyntaxException e) {
             return "an address that is not a valid URI";
         }

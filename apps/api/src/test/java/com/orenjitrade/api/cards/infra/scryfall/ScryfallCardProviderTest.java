@@ -286,6 +286,12 @@ class ScryfallCardProviderTest {
                                         + "unique-artwork-20261028090231.jsonl.gz"));
         assertThat(real.bulkUri("https://data.scryfall.io/unique-artwork/unique-artwork-1.json"))
                 .hasHost("data.scryfall.io");
+        // Whichever bulk type is configured: "Default Cards" has the same address shape.
+        assertThat(
+                        real.bulkUri(
+                                "https://data.scryfall.io/default-cards/"
+                                        + "default-cards-20261028090231.jsonl.gz"))
+                .hasHost("data.scryfall.io");
 
         for (String blank : new String[] {null, "", "   "}) {
             assertThatThrownBy(() -> real.bulkUri(blank))
@@ -304,6 +310,13 @@ class ScryfallCardProviderTest {
             {"https://data.scryfall.io/a/b/c.jsonl.gz", "/a/b/c.jsonl.gz"},
             {"https://data.scryfall.io/x.jsonl.gz", "/x.jsonl.gz"},
             {"https://data.scryfall.io/unique-artwork/%0Ax.jsonl.gz", "/unique-artwork/%0Ax"},
+            {"https://data.scryfall.io/unique-artwork/..", "data.scryfall.io/unique-artwork/.."},
+            {"https://data.scryfall.io/unique-artwork/.", "data.scryfall.io/unique-artwork/."},
+            {"https://data.scryfall.io/unique-artwork/.x.jsonl.gz", "/unique-artwork/.x.jsonl.gz"},
+            {"https://data.scryfall.io/unique-artwork/-x.jsonl.gz", "/unique-artwork/-x.jsonl.gz"},
+            // A right-to-left override (U+202E) stays percent-encoded in the message.
+            {"https://evil.test/\u202Efdp.exe", "https://evil.test/%E2%80%AEfdp.exe"},
+            {"https://data.scryfall.io/unique-artwork/\u00e9t\u00e9.jsonl.gz", "/%C3%A9t%C3%A9"},
             {"https://user:s3cr3t@elsewhere.example.test/u/x.gz", "with user information"},
             {"file:///etc/passwd", "an address without a host"},
             {"unique-artwork/x.jsonl.gz", "an address without a host"},
@@ -324,8 +337,12 @@ class ScryfallCardProviderTest {
                             e ->
                                     assertThat(e.getMessage().length())
                                             .isLessThan(
-                                                    ScryfallCardProvider.MAX_REFUSED_ADDRESS
-                                                            + 120));
+                                                    ScryfallCardProvider.MAX_REFUSED_ADDRESS + 120))
+                    .satisfies(
+                            e ->
+                                    assertThat(e.getMessage().chars())
+                                            .as("printable ASCII only")
+                                            .allMatch(c -> c >= 0x20 && c <= 0x7e));
         }
     }
 
