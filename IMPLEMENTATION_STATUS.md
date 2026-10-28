@@ -10961,7 +10961,30 @@ search panel (the content area now has its own stacking context); the narrow top
 covered the top bar and was 560 wide (now from the top bar down, 440). BEFORE and
 AFTER screenshots: `.local-dev/wa-notes/pr-shots/before/` (48) and `after/` of the worktree.
 
-**Checks** — see "WA checks" below (filled in at the end of the stage).
+**WA checks** (retries off, on the stage's last web code):
+
+| Check | Result |
+| --- | --- |
+| `cd apps/api && ./gradlew spotlessCheck --rerun-tasks` | passed |
+| `npm run test:api` | passed: 1,285 tests in 200 classes, 0 failures, 0 skipped (no API change) |
+| `./gradlew exportOpenApi`, then `npm run generate:api` | git clean (no API change) |
+| `npm run lint -w apps/web-angular` | all files pass |
+| `npm run format:check -w apps/web-angular` | all files formatted |
+| `npm test -w apps/web-angular`, `npm run test:web` | 645 tests in 139 files, all passed |
+| `npm run build -w apps/web-angular`, `npm run build:prod -w apps/web-angular` | built; **initial total 825.13 kB** (budget 900 kB; 893.88 kB before the stage: the new shell replaced the old one and the footer no longer pulls the legal texts into the first chunk) |
+| `npm run test:e2e -- --retries=0` | 74 / 74 passed (`shell.spec.ts` new; the two runs before failed on the old top bar search in the catalog specs, the Settings redirect, the footer on Home and a race of the early search field, all fixed) |
+| `npm run typecheck`, `lint`, `format:check -w apps/mobile` | passed |
+| `npm run test:mobile` | 1,741 tests in 127 suites, all passed |
+| `npx expo export --platform ios`, `android`, `web` | all three exported (throw-away folders) |
+| `npm run test:mobile:e2e -- --retries=0` | MOBILE_E2E_RESULT |
+| `npm run test:mobile:maestro -- --platform ios` | MAESTRO_RESULT |
+| `npm run test:scripts` | 147 / 147 |
+| `npm run audit:gate` | OK (no unreviewed high or critical advisory) |
+
+**What could not be verified**: the Android run could not be verified (no Android SDK on this
+Mac). A screen reader pass, 200% zoom and the keyboard-only pass of every page are the
+accessibility reviewer's; this stage tested the keyboard paths with Playwright. The fonts come
+from Google Fonts (as before); the walk had network.
 
 ## NEXT TASK
 
