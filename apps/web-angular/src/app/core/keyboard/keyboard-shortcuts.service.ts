@@ -120,8 +120,9 @@ export class KeyboardShortcuts {
   /**
    * `/` (global = false): the page's own search when it has one, otherwise the top bar's.
    * Ctrl/Cmd+K (global = true): the top bar's, or the page's on Search, which hides the top bar's.
+   * With neither on screen (below 960), Search opens with its field focused.
    */
-  focusSearch(global: boolean): void {
+  focusSearch(global: boolean, openSearch = true): void {
     const pageField = this.document.querySelector<HTMLElement>(
       `main [${PAGE_SEARCH_ATTR}] input, main input[${PAGE_SEARCH_ATTR}]`,
     );
@@ -130,7 +131,16 @@ export class KeyboardShortcuts {
       global && !this.layout.hideGlobalSearch()
         ? (globalField ?? pageField)
         : (pageField ?? globalField);
-    target?.focus();
+    if (!target) {
+      // Below 960 the top bar has no field (the tab bar has Search): open Search and its field.
+      if (openSearch) {
+        void this.router
+          .navigateByUrl('/search')
+          .then(() => setTimeout(() => this.focusSearch(false, false), 300));
+      }
+      return;
+    }
+    target.focus();
     if (target instanceof HTMLInputElement) {
       target.select();
     }

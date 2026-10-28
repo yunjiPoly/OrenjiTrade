@@ -80,6 +80,12 @@ describe('KeyboardShortcuts (spec 4.9, decision 24)', () => {
     expect(document.activeElement?.id).toBe(GLOBAL_SEARCH_ID);
   });
 
+  it('opens Search when no field is on screen (below 960 the top bar has none)', () => {
+    fixtureRoot.innerHTML = '<main><button>b</button></main>';
+    press('k', { ctrlKey: true });
+    expect(navigateByUrl).toHaveBeenCalledWith('/search');
+  });
+
   it('"g" then a letter goes to an area, within 1.5 s only', () => {
     vi.useFakeTimers();
     press('g');
