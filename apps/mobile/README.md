@@ -731,10 +731,13 @@ sizes (the owner prefers big text with an occasional broken word to small text).
 things are capped, each with a constant of `src/theme/styles.ts`: titles (`TITLE_MAX_FONT_SCALE`),
 the controls pinned above a list (`PINNED_MAX_FONT_SCALE`), **collectors' handles**
 (`HANDLE_MAX_FONT_SCALE`, with `HandleText` / `HANDLE_TEXT_PROPS`: one line, shrunk to fit
-before it gives way; a handle inside a sentence or a sheet row ("Block {handle}", a sale's
-notification, Home's "{handle} listed 12 cards") has its words capped) and **toasts**
+before it gives way; a label or a title naming a collector ("Block {handle}?", a sheet's "Report
+{handle}", "Rate {handle}") has its words capped; at large sizes Home's post header and a sale's
+or a rating's notification put the handle on a line of its own above the sentence, because a
+capped part inside a growing sentence made iOS draw its lines over each other) and **toasts**
 (`SNACKBAR_MAX_FONT_SCALE`; `toastLayout` keeps a toast within a quarter of the window, with its
-action, its five seconds and its whole message spoken by VoiceOver). A new screen that shows a
+action, its five seconds and its whole message spoken by VoiceOver). A confirmation
+(`ConfirmDialog`) scrolls inside the window with its buttons under it. A new screen that shows a
 handle uses `HandleText`.
 
 ## Scripts
