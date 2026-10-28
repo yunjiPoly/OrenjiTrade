@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -227,16 +228,22 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
     expect(document.activeElement).toBe(input());
   });
 
-  it('keeps one live status and changes its words (searching, ready, no match)', async () => {
-    const live = () => element.querySelector('[data-testid="global-search-status"]');
-    expect(live()?.getAttribute('role')).toBe('status');
+  it('announces searching, suggestions ready and no match through the live region', async () => {
+    const announce = vi
+      .spyOn(TestBed.inject(LiveAnnouncer), 'announce')
+      .mockResolvedValue(undefined);
     await type('ash');
-    expect(live()?.textContent).toContain('Suggestions ready.');
-    expect(live()?.textContent).not.toMatch(/\d/);
+    const said = () => announce.mock.calls.map((call) => call[0]);
+    expect(said()).toContain('Searching…');
+    expect(said().at(-1)).toBe(
+      'Suggestions ready. Use the up and down arrows to move through them.',
+    );
+    expect(said().join(' ')).not.toMatch(/\d/);
     suggestCards.mockReturnValueOnce(of([]));
     await type('zzz');
-    expect(live()?.textContent?.trim()).toBe('No Yu-Gi-Oh! card matches ‘zzz’.');
-    expect(element.querySelectorAll('[role="status"]').length).toBe(1);
+    expect(said().at(-1)).toBe('No Yu-Gi-Oh! card matches ‘zzz’.');
+    // No role of its own on the page (the visible lines are plain text).
+    expect(element.querySelectorAll('[role="status"]').length).toBe(0);
   });
 
   it('opens free text on Search › Cards, and Esc closes the list', async () => {

@@ -151,7 +151,9 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(
       page.getByRole('option', { name: /Search binders and deck cores for ‘lantern’/ }),
     ).toBeVisible();
-    // Tab from the field goes on to the bell, never onto <body> (WCAG 2.4.3).
+    // Tab from the field goes on to its clear button, then the bell, never onto <body> (2.4.3).
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Clear the search' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('notification-bell')).toBeFocused();
     await field.focus();

@@ -1,3 +1,4 @@
+import { LiveAnnouncer } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -5,8 +6,10 @@ import {
   ElementRef,
   afterNextRender,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
@@ -110,8 +113,9 @@ export class GlobalSearchComponent {
   );
   protected readonly activeId = computed(() => this.options()[this.active()]?.id ?? null);
   /**
-   * The one live line of the dropdown (WCAG 4.1.3): a persistent status whose text changes, so
-   * screen readers hear "Searching…", that suggestions arrived (no count) or that none match.
+   * What the dropdown says to screen readers (WCAG 4.1.3), through the CDK's one live region (it
+   * exists before the text changes, so it is heard): "Searching…", that suggestions arrived (no
+   * count) or that none match. The visible lines carry no role of their own.
    */
   protected readonly liveText = computed(() => {
     if (!this.open() || !this.typing()) {
@@ -133,6 +137,13 @@ export class GlobalSearchComponent {
   protected readonly splitMatch = splitMatch;
 
   constructor() {
+    const announcer = inject(LiveAnnouncer);
+    effect(() => {
+      const text = this.liveText();
+      if (text) {
+        untracked(() => void announcer.announce(text, 'polite'));
+      }
+    });
     const subscription = this.typed$
       .pipe(
         debounceTime(SEARCH_DEBOUNCE_MS),
