@@ -1309,6 +1309,9 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
       /Tracking.*7023 2109 8876 5432/
     );
     expect(screen.queryByTestId('message-m-sale-undone')).toBeNull();
+    // The buyer the seller never wrote to has the replies after the sale too.
+    expect(screen.getByTestId('quick-reply-e-Transfer sent!')).toBeOnTheScreen();
+    expect(screen.queryByTestId('quick-reply-Is it still available?')).toBeNull();
     fireEvent.press(within(sale).getByTestId('sale-message-rate'));
     expect(mockRouter.push).toHaveBeenCalledWith({
       pathname: '/ratings/rate',
@@ -1331,6 +1334,10 @@ describe('Deals in the chat (stage R4: the pinned card, tips, quick replies, Mar
     // After a sale the bar says "Sold", not "Mark as sold".
     expect(screen.getByTestId('pinned-sold')).toBeOnTheScreen();
     expect(screen.queryByTestId('pinned-mark-sold')).toBeNull();
+    // A seller who never wrote has the replies after the sale (owner decision of 2026-10-28).
+    expect(screen.getByTestId('quick-reply-Shipped!')).toBeOnTheScreen();
+    expect(screen.getByTestId('quick-reply-Got your e-Transfer')).toBeOnTheScreen();
+    expect(screen.queryByTestId('quick-reply-Yes, still available')).toBeNull();
   });
 
   it('"Send my address": asked once, saved on this phone only, then put into the message box', async () => {

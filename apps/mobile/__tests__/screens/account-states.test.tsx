@@ -275,6 +275,19 @@ describe('Account status screen', () => {
     expect(await screen.findByTestId('snackbar')).toHaveTextContent(/is ready/);
   });
 
+  it('shows an open-ended suspension without an end date, with the appeal line', async () => {
+    mockApi({
+      'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'This account is suspended'),
+    });
+    renderWithProviders(<SuspendedScreen />, { port: new FakeAuthPort(testUser()) });
+    expect(await screen.findByText('Your account is suspended')).toBeOnTheScreen();
+    expect(screen.getByTestId('suspension-message')).toHaveTextContent('This account is suspended');
+    expect(screen.queryByTestId('suspension-until')).toBeNull();
+    expect(screen.getByText(/If you think this is a mistake, write to/)).toBeOnTheScreen();
+    expect(screen.getByText('support@orenjitrade.com')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeOnTheScreen();
+  });
+
   it('explains a temporary suspension from a 403 answer', async () => {
     mockApi({
       'GET /api/v1/me': problem(403, 'ACCOUNT_SUSPENDED', 'Suspended for repeated spam.', {
