@@ -200,11 +200,12 @@ the Emulator UI (http://localhost:4000/auth).
 - **Limits**: `LimitReachedService` + interceptor (see HTTP layer); limit wording in
   `shared/limits/limit-labels.ts`; the collector's usage comes from `GET /me/limits`
   (`LimitsService`). The same limits apply to every collector (stage F1, ADR 0019).
-- **Catalog** (`features/catalog`, `shared/catalog`): top-bar `CardSearchBoxComponent`
-  (`GET /cards/suggest`, 250 ms debounce, 2+ characters, arrow keys + Enter, printing
-  suggestions open the card with that printing selected, Enter without a highlighted
-  suggestion searches `/cards?q=`; deferred chunk with the plain search field as placeholder);
-  `/cards` (query + game pills + set/rarity/language/edition from the game's `GameSchema`,
+- **Catalog** (`features/catalog`, `shared/catalog`): the top bar's search is the shell's
+  `GlobalSearchComponent` (`core/layout/global-search`, stage WA: cards of the browsed game from
+  `GET /cards/suggest`, collectors for members, Enter on free text opens Search › Cards, a typed
+  printing code opens that printing; a deferred chunk with the plain field as placeholder);
+  the card pickers share `uniqueSuggestions` (`shared/catalog/card-suggestions.ts`);
+  `/cards` (its text in `text=`, since an old `/cards?q=` link opens Search › Cards; game pills + set/rarity/language/edition from the game's `GameSchema`,
   every piece of state in the URL, paginated grid, printing-code badge); `/cards/:id`
   (`?printing=<id>` selects a printing, `?rarity=` shows "Any printing in <rarity>" and
   `?printing=any` shows "Any printing", both without picking, highlighting or pricing one;
