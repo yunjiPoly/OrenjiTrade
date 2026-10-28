@@ -150,7 +150,7 @@ export class CardTileComponent {
 
   protected readonly game = computed(() => this.card().game ?? '');
   protected readonly gameLabel = computed(() => gameInfo(this.game()).shortLabel);
-  protected readonly accent = computed(() => `var(${gameInfo(this.game()).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.game()).accent);
   protected readonly typeLine = computed(() =>
     [this.card().cardType, this.card().subtype].filter(Boolean).join(' · '),
   );

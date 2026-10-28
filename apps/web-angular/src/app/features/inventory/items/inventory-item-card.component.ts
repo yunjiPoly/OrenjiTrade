@@ -236,5 +236,5 @@ export class InventoryItemCardComponent {
     formatPrice(this.item().askingPrice, this.item().currency),
   );
   protected readonly freshness = computed(() => badgeFreshness(this.item().freshness.state));
-  protected readonly accent = computed(() => `var(${gameInfo(this.item().card.game).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.item().card.game).accent);
 }

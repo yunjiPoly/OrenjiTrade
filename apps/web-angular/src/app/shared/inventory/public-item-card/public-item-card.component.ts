@@ -187,7 +187,7 @@ export class PublicItemCardComponent {
     formatPrice(this.item().askingPrice, this.item().currency),
   );
   protected readonly freshness = computed(() => badgeFreshness(this.item().freshness.state));
-  protected readonly accent = computed(() => `var(${gameInfo(this.item().card.game).colorVar})`);
+  protected readonly accent = computed(() => gameInfo(this.item().card.game).accent);
   protected readonly details = computed(() => {
     const item = this.item();
     return [languageLabel(item.language), editionLabel(item.edition)]
