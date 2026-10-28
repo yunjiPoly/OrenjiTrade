@@ -51,10 +51,18 @@ describe('search params', () => {
       freshness: 'AGING',
       edition: 'FIRST_EDITION',
       language: 'fr',
-      acceptsOffers: true,
       sort: 'price',
       page: 3,
     });
+  });
+
+  it('reads an old offers link as no filter: nothing hidden is active (decision 2)', () => {
+    const params = parseSearchParams({ card: CARD, availability: 'ACCEPTS_OFFERS', offers: 'true' });
+    expect(params.filters).toEqual(DEFAULT_HOLDER_FILTERS);
+    expect(activeHolderFilterCount(params.filters)).toBe(0);
+    expect(cardHoldersRequest({ kind: 'card', id: CARD }, params.filters, 'americas-north')).toEqual(
+      { region: 'americas-north', sort: 'freshness', page: 0, size: expect.any(Number), cardId: CARD },
+    );
   });
 
   it('ignores invalid values', () => {
@@ -82,12 +90,13 @@ describe('search params', () => {
     const filters = {
       ...DEFAULT_HOLDER_FILTERS,
       maxPrice: 50,
-      acceptsOffers: true,
+      availability: 'SALE' as const,
       sort: 'price' as const,
     };
     expect(holderFiltersToQuery(filters)).toMatchObject({
       maxPrice: '50',
-      offers: 'true',
+      availability: 'SALE',
+      offers: null,
       sort: 'price',
     });
     expect(holderFiltersToQuery(DEFAULT_HOLDER_FILTERS)['sort']).toBeNull();

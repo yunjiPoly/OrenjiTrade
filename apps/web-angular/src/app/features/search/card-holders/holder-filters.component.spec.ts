@@ -53,11 +53,25 @@ describe('HolderFiltersComponent', () => {
     expect(element.textContent).toContain('Enter 0 to 100000.');
   });
 
+  it('never offers an "accepts offers" filter (decision 2)', async () => {
+    const availability = [...element.querySelectorAll('mat-form-field')].find((node) =>
+      node.textContent?.includes('Availability'),
+    );
+    availability!.querySelector<HTMLElement>('.mat-mdc-select-trigger')!.click();
+    await fixture.whenStable();
+    const options = [...document.querySelectorAll('mat-option')].map((node) =>
+      node.textContent?.trim(),
+    );
+    expect(options).toEqual(['Any availability', 'For trade', 'For sale', 'Trade or sale']);
+    expect(element.textContent).not.toMatch(/offer/i);
+    expect(document.querySelector('.cdk-overlay-container')?.textContent).not.toMatch(/offer/i);
+  });
+
   it('offers to clear active filters', async () => {
     fixture.componentRef.setInput('filters', {
       ...DEFAULT_HOLDER_FILTERS,
       availability: 'SALE',
-      acceptsOffers: true,
+      condition: 'NEAR_MINT',
       sort: 'price',
     });
     await fixture.whenStable();

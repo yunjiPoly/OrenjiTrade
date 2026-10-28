@@ -51,7 +51,7 @@ function priceRange(group: AbstractControl): ValidationErrors | null {
 
 /**
  * Filters of the card-holders results: availability, condition, price range (validated inline),
- * freshness, edition, language, accepts offers and sort. Valid changes are emitted (prices after
+ * freshness, edition, language and sort (no "accepts offers": decision 2). Valid changes are emitted (prices after
  * a short pause); the page keeps them in the URL.
  */
 @Component({
@@ -167,8 +167,6 @@ function priceRange(group: AbstractControl): ValidationErrors | null {
         </mat-select>
       </mat-form-field>
 
-      <!-- "Accepts offers" left with offers (decision 2). -->
-
       @if (activeCount() > 0) {
         <button matButton type="button" (click)="reset()">
           <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
@@ -243,7 +241,6 @@ export class HolderFiltersComponent {
       freshness: new FormControl<FreshnessFilter | null>(null),
       edition: new FormControl<string | null>(null),
       language: new FormControl<string | null>(null),
-      acceptsOffers: new FormControl(false, { nonNullable: true }),
     },
     { validators: priceRange },
   );
@@ -262,7 +259,6 @@ export class HolderFiltersComponent {
             freshness: filters.freshness,
             edition: filters.edition,
             language: filters.language,
-            acceptsOffers: filters.acceptsOffers,
           },
           { emitEvent: false },
         ),
@@ -282,7 +278,6 @@ export class HolderFiltersComponent {
         freshness: value.freshness,
         edition: value.edition,
         language: value.language,
-        acceptsOffers: value.acceptsOffers,
         page: 0,
       };
       if (!sameHolderFilters(next, { ...this.filters(), page: 0 })) {
