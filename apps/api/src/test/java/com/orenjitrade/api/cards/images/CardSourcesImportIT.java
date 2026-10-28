@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +38,9 @@ import tools.jackson.databind.JsonNode;
  * rarity and set is stored, one image per artwork (Magic) or per printing (Pokémon) with each
  * printing on its own picture, the pictures reach collectors only through {@code
  * /api/v1/public/card-images/{id}}, a second import changes nothing, and nothing is fetched from a
- * provider (the catalogs come from local snapshots; the pictures from the offline stub).
+ * provider (the catalogs come from local snapshots; the pictures from the offline stub). Magic's
+ * bulk file is read in both shapes Scryfall has served: the gzip-encoded JSON array and, since
+ * 2026-10-28, gzip-compressed JSON Lines.
  */
 class CardSourcesImportIT extends AbstractCardImageIT {
 
@@ -354,6 +358,57 @@ class CardSourcesImportIT extends AbstractCardImageIT {
         assertThat(second.printingsUpserted()).isZero();
         assertThat(second.imagesDownloaded()).isZero();
         assertThat(SOURCES.requests()).isEmpty();
+    }
+
+    /**
+     * Scryfall's bulk file of 2026-10-28 (gzip-compressed JSON Lines, kept as {@code bulk.json})
+     * through the whole import path and the application's own JSON mapper: the same catalogue as
+     * the JSON array.
+     */
+    @Test
+    void aMagicJsonLinesBulkFileImportsTheSameCatalogue() throws IOException {
+        String admin = uniqueUid("scryfall-jsonl-admin");
+        provisionWithRoles(admin, Role.ADMIN);
+        String version = "20261028090231";
+        Path dir = SNAPSHOTS.resolve("scryfall").resolve(version);
+        Path file = Files.createDirectories(dir).resolve("bulk.json");
+        Files.write(
+                file,
+                CardSourceStub.gzip(CardSourceStub.scryfallJsonLines(SOURCES.scryfallImages())));
+        // Newer than the JSON array file, so the snapshot-only import takes it.
+        Files.setLastModifiedTime(file, FileTime.from(Instant.now().plusSeconds(3600)));
+        try {
+            SyncRunView run =
+                    importService.importNow(
+                            ScryfallCardProvider.PROVIDER_ID,
+                            MTG,
+                            SyncMode.FULL,
+                            ImageMode.NONE,
+                            null);
+            assertThat(run.status())
+                    .as(String.valueOf(run.error()))
+                    .isEqualTo(SyncRunStatus.SUCCEEDED);
+            assertThat(run.providerDbVersion()).isEqualTo(version);
+            assertThat(hasCards(admin, MTG)).isTrue();
+            assertThat(countOf("card", MTG)).isEqualTo(6);
+            assertThat(countOf("card_printing", MTG)).isEqualTo(8);
+            assertThat(countOf("card_set", MTG)).isEqualTo(3);
+            assertThat(countOf("card_image", MTG)).isEqualTo(6);
+            assertThat(rarities(MTG))
+                    .containsExactly(
+                            "Bonus", "Common", "Mythic Rare", "Rare", "Special", "Uncommon");
+            assertThat(printing("ZTK-12").get("image_id"))
+                    .isEqualTo(artwork("scryfall", "1a000000-0000-4000-8000-000000000001"));
+            assertThat(printing("ZCL-45").get("finish")).isEqualTo("FOIL");
+            CatalogImportReport report = run.report();
+            assertThat(report).isNotNull();
+            assertThat(report.cardsCreated()).isEqualTo(6);
+            assertThat(report.imagesDownloaded()).isZero();
+            assertThat(SOURCES.requests()).as("nothing fetched").isEmpty();
+        } finally {
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(dir);
+        }
     }
 
     @Test
