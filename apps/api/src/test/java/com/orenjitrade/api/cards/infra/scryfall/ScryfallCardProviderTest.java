@@ -10,6 +10,13 @@ import com.orenjitrade.api.cards.domain.provider.ProviderUnavailableException;
 import com.orenjitrade.api.cards.domain.provider.SyncOptions;
 import com.orenjitrade.api.cards.domain.provider.SyncResult;
 import com.orenjitrade.api.cards.infra.CardSourceStub;
+import com.orenjitrade.api.cards.infra.http.ProviderSnapshotStore;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -17,6 +24,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Arrays;
+import java.util.zip.GZIPOutputStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,7 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
  * The Scryfall adapter against the offline stub: the bulk file instead of per-card calls, a {@code
  * User-Agent} and an {@code Accept} header on every call, one download per bulk file kept raw and
  * reused, at most one refresh a day, nothing fetched in snapshot-only mode, the re-host-only image
- * policy and the bulk and image allow-lists.
+ * policy and the bulk and image allow-lists. Scryfall's bulk list of 2026-10-28 ({@code
+ * jsonl_download_uri}, a gzip JSON Lines file) and the one before ({@code download_uri}, a JSON
+ * array) are both read, and both files give the same catalogue.
  */
 class ScryfallCardProviderTest {
 
@@ -45,6 +56,16 @@ class ScryfallCardProviderTest {
 
     static ScryfallProperties properties(
             String api, String data, String images, String snapshotDir, boolean snapshotOnly) {
+        return properties(api, data, images, snapshotDir, snapshotOnly, 10L * 1024 * 1024);
+    }
+
+    static ScryfallProperties properties(
+            String api,
+            String data,
+            String images,
+            String snapshotDir,
+            boolean snapshotOnly,
+            long maxBulkBytes) {
         return new ScryfallProperties(
                 true,
                 "mtg",
@@ -65,20 +86,42 @@ class ScryfallCardProviderTest {
                 snapshotDir,
                 snapshotOnly,
                 Duration.ofHours(24),
-                10L * 1024 * 1024);
+                maxBulkBytes);
     }
 
     private ScryfallCardProvider provider(boolean snapshotOnly) {
+        return provider(snapshotOnly, snapshots, 10L * 1024 * 1024);
+    }
+
+    private ScryfallCardProvider provider(boolean snapshotOnly, Path dir, long maxBulkBytes) {
         return new ScryfallCardProvider(
                 properties(
                         STUB.scryfallApi(),
                         STUB.scryfallData(),
                         STUB.scryfallImages(),
-                        snapshots.toString(),
-                        snapshotOnly),
+                        dir.toString(),
+                        snapshotOnly,
+                        maxBulkBytes),
                 mapper,
                 duration -> {},
                 clock);
+    }
+
+    /** A stored bulk file of {@code version} holding {@code bytes}, in a folder of its own. */
+    private ProviderSnapshotStore.Snapshot stored(String folder, String version, byte[] bytes)
+            throws IOException {
+        Path dir = Files.createDirectories(snapshots.resolve("parse").resolve(folder));
+        Files.write(dir.resolve(ScryfallCardProvider.BULK_FILE), bytes);
+        return new ProviderSnapshotStore.Snapshot(version, dir, ScryfallCardProvider.BULK_FILE);
+    }
+
+    private static byte[] utf8(String text) {
+        return text.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static String jsonLines() {
+        return new String(
+                CardSourceStub.scryfallJsonLines(STUB.scryfallImages()), StandardCharsets.UTF_8);
     }
 
     @Test
@@ -88,12 +131,13 @@ class ScryfallCardProviderTest {
         assertThat(first.cards()).hasSize(6);
         assertThat(first.providerVersion()).isEqualTo(CardSourceStub.SCRYFALL_VERSION);
         assertThat(STUB.requests())
+                .as("the list of 2026-10-28: its jsonl_download_uri")
                 .extracting(CardSourceStub.Request::path)
                 .containsExactly(
                         "/scryfall-api/bulk-data",
                         "/scryfall-data/unique-artwork/unique-artwork-"
                                 + CardSourceStub.SCRYFALL_VERSION
-                                + ".json");
+                                + ".jsonl.gz");
         assertThat(STUB.requests())
                 .allSatisfy(
                         request -> {
@@ -102,10 +146,12 @@ class ScryfallCardProviderTest {
                         });
         Path stored = snapshots.resolve(CardSourceStub.SCRYFALL_VERSION).resolve("bulk.json");
         assertThat(stored).exists();
-        // Kept as the HTTP client hands it over (gzip or decoded): both are read back.
-        assertThat(Files.size(stored)).isPositive();
-        Files.write(stored, CardSourceStub.gzip(Files.readAllBytes(stored)));
-        assertThat(provider.syncCards("mtg", SyncOptions.full()).cards()).hasSize(6);
+        // Kept as the HTTP client hands it over: the .jsonl.gz file stays gzip-compressed ...
+        byte[] raw = Files.readAllBytes(stored);
+        assertThat(Arrays.copyOf(raw, 2)).containsExactly(0x1f, 0x8b);
+        // ... and a decoded copy (a server that sends Content-Encoding: gzip) is read back too.
+        Files.write(stored, CardSourceStub.scryfallJsonLines(STUB.scryfallImages()));
+        assertThat(provider.syncCards("mtg", SyncOptions.full())).isEqualTo(first);
 
         STUB.reset();
         clock.advance(Duration.ofHours(23));
@@ -155,18 +201,249 @@ class ScryfallCardProviderTest {
     }
 
     @Test
-    void aBulkFileOutsideTheBulkHostIsRefused() {
-        STUB.downloadUri("https://elsewhere.example.test/unique-artwork/x.json");
+    void theBulkListBefore20261028StillWorksAndGivesTheSameCatalogue() {
+        SyncResult jsonl =
+                provider(false, snapshots.resolve("jsonl"), 10L * 1024 * 1024)
+                        .syncCards("mtg", SyncOptions.full());
+
+        STUB.reset();
+        STUB.scryfallBulkList(CardSourceStub.BulkList.LEGACY);
+        SyncResult legacy =
+                provider(false, snapshots.resolve("legacy"), 10L * 1024 * 1024)
+                        .syncCards("mtg", SyncOptions.full());
+        assertThat(STUB.requests())
+                .as("the old list: its download_uri, a gzip-encoded JSON array")
+                .extracting(CardSourceStub.Request::path)
+                .containsExactly(
+                        "/scryfall-api/bulk-data",
+                        "/scryfall-data/unique-artwork/unique-artwork-"
+                                + CardSourceStub.SCRYFALL_VERSION
+                                + ".json");
+        assertThat(legacy.cards()).hasSize(6);
+        assertThat(legacy).isEqualTo(jsonl);
+    }
+
+    @Test
+    void aBulkListWithoutADownloadAddressSaysSo() {
+        STUB.scryfallBulkList(CardSourceStub.BulkList.NO_ADDRESS);
         assertThatThrownBy(() -> provider(false).syncCards("mtg", SyncOptions.full()))
                 .isInstanceOf(ProviderRequestException.class)
-                .hasMessageContaining("outside the configured bulk host");
+                .hasMessage("Scryfall's bulk list gives no download address for unique_artwork")
+                .hasMessageNotContaining("outside");
         assertThat(STUB.requests())
                 .extracting(CardSourceStub.Request::path)
                 .containsExactly("/scryfall-api/bulk-data");
+        assertThat(snapshots.resolve(CardSourceStub.SCRYFALL_VERSION)).doesNotExist();
+    }
+
+    @Test
+    void aBulkFileOutsideTheBulkHostIsRefused() {
+        for (CardSourceStub.BulkList shape :
+                new CardSourceStub.BulkList[] {
+                    CardSourceStub.BulkList.JSONL, CardSourceStub.BulkList.LEGACY
+                }) {
+            STUB.reset();
+            STUB.scryfallBulkList(shape);
+            STUB.downloadUri("https://elsewhere.example.test/unique-artwork/x.jsonl.gz");
+            assertThatThrownBy(() -> provider(false).syncCards("mtg", SyncOptions.full()))
+                    .as(shape.name())
+                    .isInstanceOf(ProviderRequestException.class)
+                    .hasMessage(
+                            "Scryfall named a bulk file outside the configured bulk host"
+                                    + " (refused: https://elsewhere.example.test"
+                                    + "/unique-artwork/x.jsonl.gz)");
+            assertThat(STUB.requests())
+                    .extracting(CardSourceStub.Request::path)
+                    .containsExactly("/scryfall-api/bulk-data");
+        }
         assertThat(ScryfallCardProvider.version("2026-10-20T09:03:12.345+00:00"))
                 .isEqualTo("20261020090312");
         assertThatThrownBy(() -> ScryfallCardProvider.version("yesterday"))
                 .isInstanceOf(ProviderRequestException.class);
+    }
+
+    @Test
+    void theBulkGuardStaysAsStrictAndNamesOnlyTheRefusedHostAndPath() {
+        ScryfallCardProvider real =
+                new ScryfallCardProvider(
+                        properties(
+                                "https://api.scryfall.com/",
+                                "https://data.scryfall.io/",
+                                "https://cards.scryfall.io/",
+                                snapshots.toString(),
+                                true),
+                        mapper,
+                        duration -> {},
+                        clock);
+        // The address of 2026-10-28 and the older one fit the guard (no request is made here).
+        assertThat(
+                        real.bulkUri(
+                                "https://data.scryfall.io/unique-artwork/"
+                                        + "unique-artwork-20261028090231.jsonl.gz"))
+                .isEqualTo(
+                        URI.create(
+                                "https://data.scryfall.io/unique-artwork/"
+                                        + "unique-artwork-20261028090231.jsonl.gz"));
+        assertThat(real.bulkUri("https://data.scryfall.io/unique-artwork/unique-artwork-1.json"))
+                .hasHost("data.scryfall.io");
+
+        for (String blank : new String[] {null, "", "   "}) {
+            assertThatThrownBy(() -> real.bulkUri(blank))
+                    .as(String.valueOf(blank))
+                    .isInstanceOf(ProviderRequestException.class)
+                    .hasMessage(
+                            "Scryfall's bulk list gives no download address for unique_artwork");
+        }
+        String[][] refused = {
+            {"http://data.scryfall.io/unique-artwork/x.jsonl.gz", "http://data.scryfall.io/"},
+            {"https://data.scryfall.io.evil.test/unique-artwork/x.jsonl.gz", "evil.test"},
+            {"https://data.scryfall.io:8443/unique-artwork/x.jsonl.gz", "data.scryfall.io:8443/"},
+            {"https://data.scryfall.io/unique-artwork/x.jsonl.gz?token=s3cr3t", "query string"},
+            {"https://data.scryfall.io/unique-artwork/x.jsonl.gz#s3cr3t", "with a fragment"},
+            {"https://data.scryfall.io/unique-artwork/../../etc/passwd", "/../../etc/passwd"},
+            {"https://data.scryfall.io/a/b/c.jsonl.gz", "/a/b/c.jsonl.gz"},
+            {"https://data.scryfall.io/x.jsonl.gz", "/x.jsonl.gz"},
+            {"https://data.scryfall.io/unique-artwork/%0Ax.jsonl.gz", "/unique-artwork/%0Ax"},
+            {"https://user:s3cr3t@elsewhere.example.test/u/x.gz", "with user information"},
+            {"file:///etc/passwd", "an address without a host"},
+            {"unique-artwork/x.jsonl.gz", "an address without a host"},
+            {"https://data.scryfall.io/unique artwork/x", "not a valid URI"},
+            {"https://elsewhere.example.test/" + "a".repeat(400), "..."}
+        };
+        for (String[] row : refused) {
+            assertThatThrownBy(() -> real.bulkUri(row[0]))
+                    .as(row[0])
+                    .isInstanceOf(ProviderRequestException.class)
+                    .hasMessageStartingWith(
+                            "Scryfall named a bulk file outside the configured bulk host (refused:"
+                                    + " ")
+                    .hasMessageContaining(row[1])
+                    .hasMessageNotContaining("s3cr3t")
+                    .hasMessageNotContaining("\n")
+                    .satisfies(
+                            e ->
+                                    assertThat(e.getMessage().length())
+                                            .isLessThan(
+                                                    ScryfallCardProvider.MAX_REFUSED_ADDRESS
+                                                            + 120));
+        }
+    }
+
+    @Test
+    void gzipJsonLinesParseToTheSameCatalogueAsTheOldJsonArray() throws Exception {
+        ScryfallCardProvider provider = provider(true);
+        String version = "20261028090231";
+        byte[] array = CardSourceStub.scryfallFixture(STUB.scryfallImages());
+        SyncResult expected = provider.parse(stored("array", version, array));
+        assertThat(expected.cards()).hasSize(6);
+        assertThat(expected.providerVersion()).isEqualTo(version);
+
+        String lines = jsonLines();
+        assertThat(lines).endsWith("}\n").doesNotStartWith("[");
+        assertThat(lines.split("\n"))
+                .hasSize(13)
+                .allSatisfy(line -> assertThat(line).startsWith("{"));
+        String withoutTrailingNewline = lines.substring(0, lines.length() - 1);
+        String blankLinesAndCrlf = "\n" + lines.replace("\n", "\r\n\r\n") + "   \n";
+        byte[][] variants = {
+            CardSourceStub.gzip(array),
+            CardSourceStub.gzip(utf8(lines)),
+            CardSourceStub.gzip(utf8(withoutTrailingNewline)),
+            CardSourceStub.gzip(utf8(blankLinesAndCrlf)),
+            utf8(lines),
+            utf8(withoutTrailingNewline)
+        };
+        String[] names = {
+            "gzip array (the old file)",
+            "gzip JSON Lines (the file of 2026-10-28)",
+            "gzip JSON Lines without a trailing newline",
+            "gzip JSON Lines with blank lines and CRLF",
+            "decoded JSON Lines",
+            "decoded JSON Lines without a trailing newline"
+        };
+        for (int i = 0; i < variants.length; i++) {
+            assertThat(provider.parse(stored("v" + i, version, variants[i])))
+                    .as(names[i])
+                    .isEqualTo(expected);
+        }
+    }
+
+    @Test
+    void aDamagedBulkFileIsReportedWithoutItsContent() throws Exception {
+        ScryfallCardProvider provider = provider(true);
+        String lines = jsonLines();
+        byte[] cut = utf8(lines.substring(0, lines.length() / 2));
+        assertThatThrownBy(() -> provider.parse(stored("cut", "20261028090231", cut)))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage("The Scryfall bulk file 20261028090231 is not valid JSON");
+        byte[] gzip = CardSourceStub.gzip(utf8(lines));
+        byte[] truncated = Arrays.copyOf(gzip, gzip.length / 2);
+        assertThatThrownBy(() -> provider.parse(stored("truncated", "20261028090231", truncated)))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage("The Scryfall bulk file 20261028090231 cannot be read");
+    }
+
+    @Test
+    void theDecodedBulkFileIsBoundedByMaxBulkBytes() throws Exception {
+        byte[] lines = CardSourceStub.scryfallJsonLines(STUB.scryfallImages());
+        byte[] gzip = CardSourceStub.gzip(lines);
+        long limit = lines.length - 1;
+        assertThat((long) gzip.length).as("the compressed file fits the limit").isLessThan(limit);
+        ScryfallCardProvider small = provider(true, snapshots, limit);
+        assertThatThrownBy(() -> small.parse(stored("small", "20261028090231", gzip)))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage(
+                        "The Scryfall bulk file 20261028090231 is larger than "
+                                + limit
+                                + " bytes once decompressed"
+                                + " (orenji.card-providers.scryfall.max-bulk-bytes)");
+        assertThat(
+                        provider(true, snapshots, lines.length)
+                                .parse(stored("exact", "1", gzip))
+                                .cards())
+                .as("exactly at the limit")
+                .hasSize(6);
+
+        // A decompression bomb: 12 MiB of whitespace in a gzip of a few KiB, limit 10 MiB.
+        Path dir = Files.createDirectories(snapshots.resolve("parse").resolve("bomb"));
+        try (OutputStream out =
+                new GZIPOutputStream(
+                        Files.newOutputStream(dir.resolve(ScryfallCardProvider.BULK_FILE)))) {
+            byte[] spaces = new byte[1024 * 1024];
+            Arrays.fill(spaces, (byte) ' ');
+            for (int i = 0; i < 12; i++) {
+                out.write(spaces);
+            }
+        }
+        assertThat(Files.size(dir.resolve(ScryfallCardProvider.BULK_FILE))).isLessThan(100_000);
+        assertThatThrownBy(
+                        () ->
+                                provider(true)
+                                        .parse(
+                                                new ProviderSnapshotStore.Snapshot(
+                                                        "bomb",
+                                                        dir,
+                                                        ScryfallCardProvider.BULK_FILE)))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessageContaining("once decompressed");
+    }
+
+    @Test
+    void theDecodedLimitCountsEveryRead() throws Exception {
+        try (InputStream in =
+                new ScryfallCardProvider.DecodedLimit(new ByteArrayInputStream(new byte[10]), 10)) {
+            assertThat(in.read()).isZero();
+            assertThat(in.skip(4)).isEqualTo(4);
+            assertThat(in.read(new byte[10], 0, 10)).isEqualTo(5);
+            assertThat(in.read()).isEqualTo(-1);
+            assertThat(in.markSupported()).isFalse();
+        }
+        try (InputStream in =
+                new ScryfallCardProvider.DecodedLimit(new ByteArrayInputStream(new byte[11]), 10)) {
+            assertThat(in.read(new byte[10])).isEqualTo(10);
+            assertThatThrownBy(in::read)
+                    .isInstanceOf(ScryfallCardProvider.DecodedLimit.TooLarge.class);
+        }
     }
 
     @Test

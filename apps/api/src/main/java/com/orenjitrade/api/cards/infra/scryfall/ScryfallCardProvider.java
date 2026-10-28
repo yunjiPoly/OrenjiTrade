@@ -20,11 +20,13 @@ import com.orenjitrade.api.cards.infra.http.ProviderSnapshotStore;
 import com.orenjitrade.api.cards.infra.http.RetryPolicy;
 import com.orenjitrade.api.cards.infra.http.Sleeper;
 import java.io.BufferedInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.ref.SoftReference;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -41,6 +43,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.JacksonIOException;
 import tools.jackson.databind.MappingIterator;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -70,9 +74,18 @@ public class ScryfallCardProvider implements CardProvider {
 
     public static final String PROVIDER_ID = ScryfallMapper.PROVIDER_ID;
 
+    /**
+     * The stored bulk file's name, whatever its shape (since 2026-10-28 gzip-compressed JSON Lines;
+     * before, a JSON array): {@link #parse} goes by the content, not the name. Kept so that the
+     * snapshots owners already hold stay found ({@code newest()}, {@code find(version)} look for
+     * this one name): a new name would hide them, re-download a version already stored and leave
+     * snapshot-only mode without a file.
+     */
     static final String BULK_FILE = "bulk.json";
+
     static final long MAX_SMALL_BYTES = 5L * 1024 * 1024;
     static final String ACCEPT_JSON = "application/json;q=0.9,*/*;q=0.8";
+    static final int MAX_REFUSED_ADDRESS = 200;
 
     private static final Logger log = LoggerFactory.getLogger(ScryfallCardProvider.class);
     private static final Pattern BULK_PATH =
@@ -193,7 +206,7 @@ public class ScryfallCardProvider implements CardProvider {
             touch(stored.get());
             return stored.get();
         }
-        URI download = bulkUri(bulk.downloadUri());
+        URI download = bulkUri(bulk.downloadAddress());
         log.info("Scryfall bulk file {}: downloading {}", version, download.getPath());
         try {
             Path dir = snapshots.prepare(version);
@@ -260,16 +273,64 @@ public class ScryfallCardProvider implements CardProvider {
         return digits.substring(0, 14);
     }
 
-    /** Only bulk files under the configured bulk host are downloaded (SSRF guard). */
+    /**
+     * Only bulk files under the configured bulk host are downloaded (SSRF guard): the address
+     * starts with {@code bulkBaseUrl} and the rest is {@code <folder>/<file>} (no query string, no
+     * other host, no {@code ..}).
+     */
     URI bulkUri(@Nullable String downloadUri) {
+        if (downloadUri == null || downloadUri.isBlank()) {
+            throw new ProviderRequestException(
+                    "Scryfall's bulk list gives no download address for " + properties.bulkType(),
+                    200);
+        }
         String base = properties.bulkBaseUrl();
-        if (downloadUri == null
-                || !downloadUri.startsWith(base)
+        if (!downloadUri.startsWith(base)
                 || !BULK_PATH.matcher(downloadUri.substring(base.length())).matches()) {
             throw new ProviderRequestException(
-                    "Scryfall named a bulk file outside the configured bulk host", 200);
+                    "Scryfall named a bulk file outside the configured bulk host (refused: "
+                            + refusedAddress(downloadUri)
+                            + ")",
+                    200);
         }
         return URI.create(downloadUri);
+    }
+
+    /**
+     * A refused bulk address for messages and logs: scheme, host, port and path only, never user
+     * information, a query string or a fragment (only their presence is said), at most {@value
+     * #MAX_REFUSED_ADDRESS} characters. The raw (still percent-encoded) path is used, so no decoded
+     * control character reaches a message.
+     */
+    static String refusedAddress(String address) {
+        URI uri;
+        try {
+            uri = new URI(address);
+        } catch (URISyntaxException e) {
+            return "an address that is not a valid URI";
+        }
+        if (uri.getScheme() == null || uri.getHost() == null) {
+            return "an address without a host";
+        }
+        String text =
+                uri.getScheme()
+                        + "://"
+                        + uri.getHost()
+                        + (uri.getPort() < 0 ? "" : ":" + uri.getPort())
+                        + (uri.getRawPath() == null ? "" : uri.getRawPath());
+        if (text.length() > MAX_REFUSED_ADDRESS) {
+            text = text.substring(0, MAX_REFUSED_ADDRESS) + "...";
+        }
+        if (uri.getRawUserInfo() != null) {
+            text += " with user information";
+        }
+        if (uri.getRawQuery() != null) {
+            text += " with a query string";
+        }
+        if (uri.getRawFragment() != null) {
+            text += " with a fragment";
+        }
+        return text;
     }
 
     /** Restarts the refresh interval of a file Scryfall confirmed as current. */
@@ -281,9 +342,20 @@ public class ScryfallCardProvider implements CardProvider {
         }
     }
 
+    /**
+     * Reads a stored bulk file, whichever shape Scryfall served: gzip-compressed JSON Lines (one
+     * card object per line, the file since 2026-10-28) or one JSON array (the file before, kept by
+     * earlier imports), compressed or not. Jackson's {@code readValues} reads both: it unwraps a
+     * root array and otherwise reads root-level values separated by whitespace, which is what JSON
+     * Lines is ({@code ScryfallCardProviderTest} proves both give the same result). The decoded
+     * content is bounded by {@code maxBulkBytes} like the download (decompression bomb guard).
+     */
     SyncResult parse(ProviderSnapshotStore.Snapshot snapshot) {
         try (InputStream raw = Files.newInputStream(snapshot.data());
-                InputStream body = maybeGunzip(new BufferedInputStream(raw, 64 * 1024));
+                InputStream body =
+                        new DecodedLimit(
+                                maybeGunzip(new BufferedInputStream(raw, 64 * 1024)),
+                                properties.maxBulkBytes());
                 MappingIterator<ScryfallDtos.Card> cards =
                         jsonMapper.readerFor(ScryfallDtos.Card.class).readValues(body)) {
             return ScryfallMapper.map(
@@ -293,21 +365,102 @@ public class ScryfallCardProvider implements CardProvider {
                     cards,
                     snapshot.version());
         } catch (IOException e) {
-            throw new ProviderRequestException(
-                    "The Scryfall bulk file " + snapshot.version() + " cannot be read", 200);
-        } catch (tools.jackson.core.JacksonException e) {
+            throw unreadable(snapshot, e);
+        } catch (JacksonIOException e) {
+            throw unreadable(snapshot, e.getCause());
+        } catch (JacksonException e) {
             throw new ProviderRequestException(
                     "The Scryfall bulk file " + snapshot.version() + " is not valid JSON", 200);
         }
     }
 
-    /** The bulk files are served gzip-encoded: stored as received, decompressed when read. */
+    private ProviderRequestException unreadable(
+            ProviderSnapshotStore.Snapshot snapshot, @Nullable Throwable cause) {
+        if (cause instanceof DecodedLimit.TooLarge) {
+            return new ProviderRequestException(
+                    "The Scryfall bulk file "
+                            + snapshot.version()
+                            + " is larger than "
+                            + properties.maxBulkBytes()
+                            + " bytes once decompressed"
+                            + " (orenji.card-providers.scryfall.max-bulk-bytes)",
+                    200);
+        }
+        return new ProviderRequestException(
+                "The Scryfall bulk file " + snapshot.version() + " cannot be read", 200);
+    }
+
+    /**
+     * A bulk file is stored as the HTTP client hands it over and decompressed here when it is gzip.
+     * The client (Spring's JDK request factory, compression on by default) decodes a {@code
+     * Content-Encoding: gzip} response, so the JSON array of the list before 2026-10-28 was stored
+     * decoded; the {@code .jsonl.gz} file is a gzip file, kept compressed unless the server also
+     * marks it as an encoding. The gzip magic bytes decide, not the file name.
+     */
     static InputStream maybeGunzip(BufferedInputStream in) throws IOException {
         in.mark(2);
         int first = in.read();
         int second = in.read();
         in.reset();
         return first == 0x1f && second == 0x8b ? new GZIPInputStream(in, 64 * 1024) : in;
+    }
+
+    /** Fails a read once more than {@code limit} decoded bytes have been read. */
+    static final class DecodedLimit extends FilterInputStream {
+
+        /** The decoded content passed the limit. */
+        static final class TooLarge extends IOException {
+            TooLarge(long limit) {
+                super("Decoded bulk file larger than " + limit + " bytes");
+            }
+        }
+
+        private final long limit;
+        private long count;
+
+        DecodedLimit(InputStream in, long limit) {
+            super(in);
+            this.limit = limit;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int b = super.read();
+            if (b != -1) {
+                counted(1);
+            }
+            return b;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int n = super.read(buffer, offset, length);
+            if (n > 0) {
+                counted(n);
+            }
+            return n;
+        }
+
+        @Override
+        public long skip(long n) throws IOException {
+            long skipped = super.skip(n);
+            if (skipped > 0) {
+                counted(skipped);
+            }
+            return skipped;
+        }
+
+        @Override
+        public boolean markSupported() {
+            return false;
+        }
+
+        private void counted(long n) throws IOException {
+            count += n;
+            if (count > limit) {
+                throw new TooLarge(limit);
+            }
+        }
     }
 
     // -------------------------------------------------------------------------------------
