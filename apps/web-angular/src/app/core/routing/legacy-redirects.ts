@@ -34,7 +34,10 @@ export function mapRedirect(route: ActivatedRouteSnapshot): UrlTree {
   return inject(Router).createUrlTree(['/search'], { queryParams });
 }
 
-/** `/cards?q=` → `/search?tab=cards&q=` (spec 4.11); `/cards` without a text stays the catalogue. */
+/**
+ * `/cards?q=` → `/search?tab=cards&q=` (spec 4.11); `/cards` without `q` stays the catalogue,
+ * whose own text search writes `text=` so its links and reloads stay on the catalogue.
+ */
 export function cardsQueryRedirect(route: ActivatedRouteSnapshot): true | UrlTree {
   const q = param(route, 'q');
   return q ? inject(Router).createUrlTree(['/search'], { queryParams: { tab: 'cards', q } }) : true;

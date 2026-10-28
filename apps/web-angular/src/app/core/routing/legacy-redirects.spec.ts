@@ -51,6 +51,8 @@ describe('old links of the web (spec 4.11, decision 2)', () => {
 
   it('sends a card search to Search › Cards; the catalogue without a text stays', async () => {
     expect(await land('/cards?q=Yubel')).toBe('/search?tab=cards&q=Yubel');
+    // The catalogue's own text search (a reload, a bookmark) stays on the catalogue.
+    expect(await land('/cards?text=Yubel&set=AZR')).toBe('/cards?text=Yubel&set=AZR');
     expect(await land('/cards')).toBe('/cards');
   });
 

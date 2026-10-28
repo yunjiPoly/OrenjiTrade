@@ -273,7 +273,12 @@ test.describe('region map and search', () => {
         .getByRole('link', { name: a.displayName }),
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Cards for “AZR-EN011”' })).toBeVisible();
-    await page.getByRole('tab', { name: /Collectors/ }).click();
+    // No counts in search results (owner 2026-10-14): the tabs are plain names.
+    for (const name of ['Cards', 'Collectors', 'Binders']) {
+      await expect(page.getByRole('tab', { name, exact: true }).last()).toBeVisible();
+    }
+    await expect(page.getByRole('tab', { name: /\(\d+\)/ })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Collectors', exact: true }).click();
     await expect(page).toHaveURL(/tab=collectors/);
     await expect(
       page

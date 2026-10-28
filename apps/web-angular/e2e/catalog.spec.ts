@@ -221,7 +221,10 @@ test.describe('card catalog', () => {
     await page
       .getByRole('searchbox', { name: 'Card name, text or printing code' })
       .fill('AZR-EN011');
-    await expect(page).toHaveURL(/q=AZR-EN011/);
+    await expect(page).toHaveURL(/\/cards\?text=AZR-EN011$/);
+    // The catalogue's text survives a reload (an old `/cards?q=` link opens Search instead).
+    await page.reload();
+    await expect(page).toHaveURL(/\/cards\?text=AZR-EN011$/);
     await expect(page.getByTestId('catalog-count')).toHaveText(/^\s*1 card\b/);
     await expect(page.getByText('Printing code match')).toBeVisible();
     await expect(
