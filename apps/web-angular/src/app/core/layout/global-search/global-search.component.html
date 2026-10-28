@@ -30,8 +30,16 @@
     }
   </div>
 
+  <span class="visually-hidden" role="status" data-testid="global-search-status">{{
+    liveText()
+  }}</span>
   @if (open()) {
-    <div class="gs__panel" id="gs-panel" data-testid="global-search-panel">
+    <div
+      class="gs__panel"
+      id="gs-panel"
+      data-testid="global-search-panel"
+      (keydown)="onPanelKeydown($event)"
+    >
       @if (!typing()) {
         <section class="gs__section" aria-labelledby="gs-recent-title">
           @if (recent.remembering() && recent.list().length > 0) {
@@ -88,14 +96,13 @@
               <span class="gs__skeleton-art"></span><span class="gs__skeleton-line"></span>
             </div>
           }
-          <span class="visually-hidden" role="status">Searching…</span>
         } @else if (status() === 'error') {
           <div class="gs__error" role="alert">
             <span>Search is not available right now.</span>
             <button type="button" class="gs__text-action" (click)="retry()">Try again</button>
           </div>
         } @else if (noCards()) {
-          <div class="gs__nomatch" role="status">
+          <div class="gs__nomatch">
             <span class="gs__nomatch-title"
               >No {{ gameName() }} card matches ‘{{ trimmed() }}’</span
             >
@@ -162,7 +169,11 @@
                     [class.gs__option--active]="activeId() === option.id"
                     [attr.href]="href(option)"
                     [attr.aria-label]="
-                      option.collector.handle + ', ' + option.collector.place.subdivisionName
+                      option.collector.handle +
+                      ', ' +
+                      option.collector.displayName +
+                      ', ' +
+                      option.collector.place.subdivisionName
                     "
                     (click)="onOptionClick($event, option)"
                     (mousedown)="$event.preventDefault()"
@@ -173,11 +184,21 @@
                       [name]="option.collector.displayName"
                       [decorative]="true"
                     />
+                    @let person = splitMatch(option.collector.displayName, trimmed());
                     <span class="gs__handle"
                       >{{ handle.pre }}<mark class="gs__hit">{{ handle.hit }}</mark
                       >{{ handle.post }}</span
                     >
-                    <span class="gs__meta">{{ option.collector.place.subdivisionName }}</span>
+                    <span class="gs__meta"
+                      >@if (option.collector.displayName) {
+                        <span class="gs__person"
+                          >{{ person.pre }}<mark class="gs__hit">{{ person.hit }}</mark
+                          >{{ person.post }}</span
+                        >
+                        ·
+                      }
+                      {{ option.collector.place.subdivisionName }}</span
+                    >
                   </a>
                 }
               }

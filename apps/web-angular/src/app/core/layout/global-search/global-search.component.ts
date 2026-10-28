@@ -29,6 +29,7 @@ import {
   SEARCH_DEBOUNCE_MS,
   SEARCH_MIN_CHARS,
   SearchOption,
+  exactCodeIndex,
   searchOptions,
   splitMatch,
 } from './global-search.model';
@@ -107,6 +108,27 @@ export class GlobalSearchComponent {
     () => this.status() === 'ready' && this.typing() && this.cardOptions().length === 0,
   );
   protected readonly activeId = computed(() => this.options()[this.active()]?.id ?? null);
+  /**
+   * The one live line of the dropdown (WCAG 4.1.3): a persistent status whose text changes, so
+   * screen readers hear "Searching…", that suggestions arrived (no count) or that none match.
+   */
+  protected readonly liveText = computed(() => {
+    if (!this.open() || !this.typing()) {
+      return '';
+    }
+    switch (this.status()) {
+      case 'loading':
+        return 'Searching…';
+      case 'error':
+        return 'Search is not available right now.';
+      case 'ready':
+        return this.noCards()
+          ? `No ${this.gameName()} card matches ‘${this.trimmed()}’.`
+          : 'Suggestions ready. Use the up and down arrows to move through them.';
+      default:
+        return '';
+    }
+  });
   protected readonly splitMatch = splitMatch;
 
   constructor() {
@@ -121,7 +143,9 @@ export class GlobalSearchComponent {
         }
         this.results.set(results);
         this.status.set(results.failed ? 'error' : 'ready');
-        this.active.set(-1);
+        // A typed printing code makes its row the active one, so Enter opens that printing
+        // (spec 4.4); free text keeps no row active and Enter opens Search › Cards.
+        this.active.set(exactCodeIndex(results.query, this.options()));
       });
     inject(DestroyRef).onDestroy(() => subscription.unsubscribe());
     // Take over the placeholder field this chunk replaced: its focus and what was typed.
@@ -168,12 +192,22 @@ export class GlobalSearchComponent {
 
   protected onKeydown(event: KeyboardEvent): void {
     const count = this.options().length;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      // Ctrl/Cmd+K in the field (after Esc closed the list): open it again. The shortcut itself
+      // (select the text) runs at the document.
+      this.open.set(true);
+      return;
+    }
     switch (event.key) {
       case 'ArrowDown':
         event.preventDefault();
-        this.open.set(true);
+        if (!this.open()) {
+          // Esc closed the list: the first ArrowDown only opens it again.
+          this.open.set(true);
+          return;
+        }
         if (!this.typing()) {
-          this.host.nativeElement.querySelector<HTMLElement>('.gs__recent-run')?.focus();
+          this.recentRuns()[0]?.focus();
           return;
         }
         if (count > 0) {
@@ -206,10 +240,49 @@ export class GlobalSearchComponent {
           this.close();
         }
         return;
-      case 'Tab':
-        this.close();
-        return;
+      // Tab walks on: into the panel's buttons and links when it has some (recent searches, the
+      // Settings link), else to the next control; the list closes when the focus leaves the
+      // search (onFocusOut). Closing it here dropped the focus onto <body>.
     }
+  }
+
+  /**
+   * Keys inside the panel (the recent searches): ↑↓ move between the rows, ↑ from the first goes
+   * back to the field, Esc closes and returns to the field (spec 4.9).
+   */
+  protected onPanelKeydown(event: KeyboardEvent): void {
+    const field = this.input().nativeElement;
+    if (event.target === field) {
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      // The field first (its focus opens the list), then close.
+      field.focus();
+      this.close();
+      return;
+    }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+    const rows = this.recentRuns();
+    const index = rows.indexOf(event.target as HTMLElement);
+    if (index < 0) {
+      return;
+    }
+    event.preventDefault();
+    if (event.key === 'ArrowDown') {
+      rows[Math.min(index + 1, rows.length - 1)].focus();
+    } else if (index === 0) {
+      field.focus();
+    } else {
+      rows[index - 1].focus();
+    }
+  }
+
+  private recentRuns(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('.gs__recent-run'));
   }
 
   /** A primary click on an option opens it in this tab; modified clicks keep the browser's way. */

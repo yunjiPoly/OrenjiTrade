@@ -149,6 +149,15 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
     expect(options[1].querySelector('.gs__code')?.textContent).toContain('LAVD-EN008');
     expect(options[0].querySelector('.gs__hit')?.textContent).toBe('Ash');
     expect(options[2].textContent).toContain('Quebec');
+    // Handle, then the display name with its match, then the province (board W3).
+    expect(options[2].querySelector('.gs__handle')?.textContent).toBe('ash_trader');
+    expect(options[2].querySelector('.gs__meta')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'Ash Ketch · Quebec',
+    );
+    expect(options[2].getAttribute('aria-label')).toBe('ash_trader, Ash Ketch, Quebec');
+    expect(
+      Array.from(options[2].querySelectorAll('.gs__hit'), (mark) => mark.textContent),
+    ).toEqual(['ash', 'Ash']);
     expect(options[3].textContent).toContain('Search binders and deck cores for ‘ash’');
     // No counts of any kind (spec 4.4): the API's printing count is never shown.
     expect(element.querySelector('#gs-listbox')?.textContent).not.toMatch(/\b12\b/);
@@ -169,6 +178,65 @@ describe('GlobalSearchComponent (spec 4.4, board W3)', () => {
     key('Enter');
     expect(navigate).toHaveBeenCalledWith(['/cards', 'c-1'], { queryParams: { printing: 'p-1' } });
     expect(TestBed.inject(RecentSearches).list()).toEqual(['ash']);
+  });
+
+  it('makes a typed printing code the active row: Enter opens that printing (spec 4.4)', async () => {
+    await type('lavd en008');
+    expect(input().getAttribute('aria-activedescendant')).toBe('gs-opt-card-1');
+    key('Enter');
+    expect(navigate).toHaveBeenCalledWith(['/cards', 'c-1'], { queryParams: { printing: 'p-1' } });
+  });
+
+  it('opens the list again with Ctrl/Cmd+K or ArrowDown after Esc, and Tab never closes it', async () => {
+    await type('ash');
+    key('Escape');
+    expect(element.querySelector('#gs-panel')).toBeNull();
+    key('k', { ctrlKey: true });
+    expect(element.querySelector('#gs-panel')).not.toBeNull();
+    key('Escape');
+    key('ArrowDown');
+    expect(element.querySelector('#gs-panel')).not.toBeNull();
+    // Tab walks on (into the panel or to the bell); the list closes on focusout only.
+    key('Tab');
+    expect(element.querySelector('#gs-panel')).not.toBeNull();
+  });
+
+  it('moves through the recent searches with the arrows, and Esc goes back to the field', async () => {
+    TestBed.inject(RecentSearches).remember('lantern');
+    TestBed.inject(RecentSearches).remember('obsidian');
+    await type('');
+    key('ArrowDown');
+    const rows = () => Array.from(element.querySelectorAll<HTMLButtonElement>('.gs__recent-run'));
+    const press = (name: string) => {
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }),
+      );
+      fixture.detectChanges();
+    };
+    expect(document.activeElement).toBe(rows()[0]);
+    press('ArrowDown');
+    expect(document.activeElement).toBe(rows()[1]);
+    press('ArrowDown');
+    expect(document.activeElement).toBe(rows()[1]);
+    press('ArrowUp');
+    press('ArrowUp');
+    expect(document.activeElement).toBe(input());
+    key('ArrowDown');
+    press('Escape');
+    expect(element.querySelector('#gs-panel')).toBeNull();
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('keeps one live status and changes its words (searching, ready, no match)', async () => {
+    const live = () => element.querySelector('[data-testid="global-search-status"]');
+    expect(live()?.getAttribute('role')).toBe('status');
+    await type('ash');
+    expect(live()?.textContent).toContain('Suggestions ready.');
+    expect(live()?.textContent).not.toMatch(/\d/);
+    suggestCards.mockReturnValueOnce(of([]));
+    await type('zzz');
+    expect(live()?.textContent?.trim()).toBe('No Yu-Gi-Oh! card matches ‘zzz’.');
+    expect(element.querySelectorAll('[role="status"]').length).toBe(1);
   });
 
   it('opens free text on Search › Cards, and Esc closes the list', async () => {

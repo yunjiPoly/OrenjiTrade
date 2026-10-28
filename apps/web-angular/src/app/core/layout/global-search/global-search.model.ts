@@ -51,6 +51,24 @@ function codeKey(code: string | undefined): string {
 }
 
 /**
+ * The option a typed printing code opens with Enter (spec 4.4): the first printing row whose code
+ * is exactly the text (spaces and case aside; "lavd en008" too), else -1 (free text goes to
+ * Search › Cards).
+ */
+export function exactCodeIndex(query: string, options: readonly SearchOption[]): number {
+  const key = codeKey(query.replace(/\s+/g, '-'));
+  if (!key) {
+    return -1;
+  }
+  return options.findIndex(
+    (option) =>
+      option.kind === 'card' &&
+      option.card.kind === 'PRINTING' &&
+      codeKey(option.card.printingCode) === key,
+  );
+}
+
+/**
  * Where a card entry opens (spec 4.4): `/cards/:id`; a printing code that matches exactly one
  * printing opens with `printing=` preselected, a code several printings share opens on "Any
  * printing" (the recorded first-printing defect).

@@ -151,6 +151,10 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(
       page.getByRole('option', { name: /Search binders and deck cores for ‘lantern’/ }),
     ).toBeVisible();
+    // Tab from the field goes on to the bell, never onto <body> (WCAG 2.4.3).
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('notification-bell')).toBeFocused();
+    await field.focus();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/cards\/[0-9a-f-]{36}/);
@@ -160,6 +164,16 @@ test.describe('the web redesign shell (WA)', () => {
     await expect(page.getByTestId('global-search-panel')).toContainText(
       'Only you see your searches. They’re kept in this browser.',
     );
+    // With recent searches, Tab walks into the panel, and Esc there goes back to the field.
+    await page.keyboard.press('Tab');
+    expect(
+      await page.evaluate(
+        () => !!document.activeElement?.closest('[data-testid="global-search-panel"]'),
+      ),
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#global-search-input')).toBeFocused();
+    await expect(page.getByTestId('global-search-panel')).toHaveCount(0);
     // Settings › Privacy › "Remember my searches" off clears them and stops them.
     await page.goto('/settings/privacy');
     await page.getByRole('switch', { name: 'Remember my searches' }).click();
