@@ -1,10 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 import type { ConversationSummary } from '@orenji/api-client';
 
-/** Unread chats of the inbox (not muted, not archived), for the Messages badge (the phone's rule). */
+/**
+ * Unread chats of the inbox, for the Messages badge (spec 4.6, the phone's `totalUnread`): each
+ * chat with an unread message counts once, however many it holds; muted and archived chats never.
+ */
 export function inboxUnread(conversations: readonly ConversationSummary[]): number {
   return conversations.reduce(
-    (sum, item) => sum + (item.muted || item.archived ? 0 : Math.max(0, item.unreadCount)),
+    (sum, item) => sum + (!item.muted && !item.archived && item.unreadCount > 0 ? 1 : 0),
     0,
   );
 }
