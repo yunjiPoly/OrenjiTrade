@@ -110,7 +110,7 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     me.set({ id: 'u-1', homeRegion: 'americas-south' });
     await settle(fixture);
     expect(pill().textContent).toContain('Americas (South)');
-    let rows = await open();
+    const rows = await open();
     expect(rows[1].textContent).toContain('Your region · Brazil, Argentina, Chile and more');
     expect(document.querySelector('[data-testid="region-away"]')).toBeNull();
     rows[0].click();
@@ -119,7 +119,7 @@ describe('the region pill and "Choose a region" (spec 4.5)', () => {
     expect(pill().classList).toContain('pill--away');
     // Browsing another region while signed in does not replace the browser's own choice.
     expect(localStorage.getItem(REGION_STORAGE_KEY)).toBe('europe');
-    rows = await open();
+    expect(await open()).toHaveLength(3);
     const away = document.querySelector('[data-testid="region-away"]')!;
     expect(away.textContent).toContain('Not your region.');
     away.querySelector('button')!.click();
