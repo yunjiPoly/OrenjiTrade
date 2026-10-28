@@ -120,6 +120,22 @@ public class BlockService {
         return !a.equals(b) && repository.existsBetween(a, b);
     }
 
+    /** Whether {@code blockerId} blocked {@code blockedId} (one direction). */
+    @Transactional(readOnly = true)
+    public boolean hasBlocked(UUID blockerId, UUID blockedId) {
+        return !blockerId.equals(blockedId) && repository.exists(blockerId, blockedId);
+    }
+
+    /**
+     * Whether {@code ownerId} blocked {@code viewerId} and {@code viewerId} did not block {@code
+     * ownerId}: the owner's profile and messages answer the viewer as for a collector who does not
+     * exist or cannot receive messages (owner decision of 2026-10-28). Never for oneself.
+     */
+    @Transactional(readOnly = true)
+    public boolean isHiddenByBlock(UUID viewerId, UUID ownerId) {
+        return !viewerId.equals(ownerId) && repository.hidesFrom(ownerId, viewerId);
+    }
+
     /**
      * Accounts hidden from {@code viewerId} by a block in either direction (community feeds filter
      * their authors with it); empty for signed-out viewers.

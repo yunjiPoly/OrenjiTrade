@@ -95,10 +95,14 @@ public class PublicBinderService {
                         .findByHandle(handle)
                         .filter(candidate -> isPubliclyVisible(candidate, now))
                         .orElseThrow(() -> ApiException.notFound(COLLECTOR_NOT_FOUND));
+        boolean other = !account.id().equals(viewerId);
+        // A block first, before any of the collector's data is read: the blocked side gets the
+        // unknown handle's answer (owner decision of 2026-10-28).
+        if (other && isBlocked(viewerId, account.id())) {
+            throw ApiException.notFound(COLLECTOR_NOT_FOUND);
+        }
         PrivacySettingsView privacy = privacySettingsService.settingsOf(account.id());
-        if (!account.id().equals(viewerId)
-                && (privacy.profileVisibility() == ProfileVisibility.PRIVATE
-                        || isBlocked(viewerId, account.id()))) {
+        if (other && privacy.profileVisibility() == ProfileVisibility.PRIVATE) {
             throw ApiException.notFound(COLLECTOR_NOT_FOUND);
         }
         return ownerOf(account, privacy, viewerId);

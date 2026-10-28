@@ -26,8 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Builds the public collector profile ({@code GET /api/v1/collectors/{handle}}) for one viewer:
  * suspended, deletion-pending and deleted accounts do not exist publicly (404), PRIVATE profiles
- * exist only for their owner (404 for everyone else), the location is present only for discoverable
- * collectors (state/province + country, plus the city only while the collector shows it; ADR 0017).
+ * exist only for their owner (404 for everyone else), a collector who blocked the viewer does not
+ * exist for the viewer (404, the same answer as an unknown handle), the location is present only
+ * for discoverable collectors (state/province + country, plus the city only while the collector
+ * shows it; ADR 0017).
  */
 @Service
 public class CollectorProfileService {
@@ -80,6 +82,7 @@ public class CollectorProfileService {
                         .filter(candidate -> isPubliclyVisible(candidate, now))
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
+        requireNotHiddenByBlock(viewerId, targetId);
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
         ViewerContext viewer = viewerContext(viewerId, targetId);
         if (!privacyPolicy.canViewProfile(viewer, targetId, privacy)) {
@@ -130,9 +133,9 @@ public class CollectorProfileService {
 
     /**
      * The id of the collector holding {@code handle} when their profile is visible to the viewer
-     * (same rules as {@link #view}: unknown, suspended, deletion-pending and deleted accounts and
-     * profiles the privacy settings hide are {@code 404}). Used by the profile's sub-resources
-     * (Phase 7 ratings and references). Publishes nothing.
+     * (same rules as {@link #view}: unknown, suspended, deletion-pending and deleted accounts,
+     * profiles the privacy settings hide and collectors who blocked the viewer are {@code 404}).
+     * Used by the profile's sub-resources (Phase 7 ratings and references). Publishes nothing.
      */
     @Transactional(readOnly = true)
     public UUID requireVisibleCollector(@Nullable UUID viewerId, String handle) {
@@ -143,11 +146,28 @@ public class CollectorProfileService {
                         .filter(candidate -> isPubliclyVisible(candidate, now))
                         .orElseThrow(() -> ApiException.notFound(NOT_FOUND));
         UUID targetId = account.id();
+        requireNotHiddenByBlock(viewerId, targetId);
         PrivacySettingsView privacy = privacySettingsService.settingsOf(targetId);
         if (!privacyPolicy.canViewProfile(viewerContext(viewerId, targetId), targetId, privacy)) {
             throw ApiException.notFound(NOT_FOUND);
         }
         return targetId;
+    }
+
+    /**
+     * A collector who blocked the viewer does not exist for them (owner decision of 2026-10-28, R13
+     * follow-up 7): the same {@code 404} as an unknown handle, decided right after the account is
+     * found and before any of its data (privacy settings, profile, ratings) is read. The blocker
+     * keeps their view ("You blocked {handle}", Unblock), also when both blocked each other.
+     */
+    private void requireNotHiddenByBlock(@Nullable UUID viewerId, UUID targetId) {
+        if (viewerId == null || viewerId.equals(targetId)) {
+            return;
+        }
+        @Nullable BlockRelationProvider blockProvider = blocks.getIfAvailable();
+        if (blockProvider != null && blockProvider.isHiddenByBlock(viewerId, targetId)) {
+            throw ApiException.notFound(NOT_FOUND);
+        }
     }
 
     /** Active accounts, including those whose temporary suspension has already expired. */

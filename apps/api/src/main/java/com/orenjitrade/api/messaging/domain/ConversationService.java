@@ -104,6 +104,12 @@ public class ConversationService {
     public static final int MESSAGES_MAX_LIMIT = 100;
     static final String NOT_FOUND = "Conversation not found";
 
+    /** A refused message to a collector who cannot receive messages (inactive, or a block). */
+    static final String CANNOT_RECEIVE = "This collector cannot receive messages right now";
+
+    /** A refused message to a collector the caller blocked. */
+    static final String YOU_BLOCKED_THEM = "You cannot message this collector";
+
     private static final Logger log = LoggerFactory.getLogger(ConversationService.class);
 
     private final ConversationRepository conversations;
@@ -232,9 +238,7 @@ public class ConversationService {
                 members.card(recipientId)
                         .filter(card -> card.activeAt(now))
                         .orElseThrow(() -> ApiException.notFound("Collector not found"));
-        if (blocks.isBlockedEitherWay(me, recipientId)) {
-            throw messagingBlocked("You cannot message this collector");
-        }
+        requireNotBlocked(me, recipientId);
         // The subject first: held FOR KEY SHARE before the conversation row is written.
         boolean pinning = subjectItemId != null || subjectBinderId != null;
         if (pinning) {
@@ -336,13 +340,11 @@ public class ConversationService {
         consents.requireAgeConfirmed(me);
         Participants participants = requireParticipants(me, conversationId);
         UUID otherId = participants.other().userId();
-        if (blocks.isBlockedEitherWay(me, otherId)) {
-            throw messagingBlocked("You cannot message this collector");
-        }
+        requireNotBlocked(me, otherId);
         Instant now = timeProvider.now().truncatedTo(ChronoUnit.MICROS);
         boolean otherActive = members.card(otherId).map(card -> card.activeAt(now)).orElse(false);
         if (!otherActive) {
-            throw messagingBlocked("This collector cannot receive messages right now");
+            throw messagingBlocked(CANNOT_RECEIVE);
         }
         String body = input.body() == null ? "" : input.body().strip();
         validate(input, body);
@@ -1337,6 +1339,20 @@ public class ConversationService {
     private static ApiException invalid(String field, String message) {
         return ApiException.validation(
                 "Validation failed", List.of(new ProblemFieldError(field, message)));
+    }
+
+    /**
+     * A block between the caller and {@code otherId} refuses the message (403 {@code
+     * MESSAGING_BLOCKED}). The caller who blocked the other collector is told so ("You cannot
+     * message this collector", also when both blocked each other); a caller the other collector
+     * blocked gets the words of any collector who cannot receive messages, so a block is never told
+     * apart (owner decision of 2026-10-28, R13 follow-up 7).
+     */
+    private void requireNotBlocked(UUID me, UUID otherId) {
+        if (!blocks.isBlockedEitherWay(me, otherId)) {
+            return;
+        }
+        throw messagingBlocked(blocks.hasBlocked(me, otherId) ? YOU_BLOCKED_THEM : CANNOT_RECEIVE);
     }
 
     private static ApiException messagingBlocked(String message) {

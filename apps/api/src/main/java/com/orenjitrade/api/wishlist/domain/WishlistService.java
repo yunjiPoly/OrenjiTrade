@@ -390,12 +390,17 @@ public class WishlistService {
                         .filter(candidate -> isPubliclyVisible(candidate, now))
                         .orElseThrow(() -> ApiException.notFound(WISHLIST_NOT_FOUND));
         UUID targetId = account.id();
-        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
+        // A block first, before any of the collector's data is read: the blocked side gets the
+        // unknown handle's answer (owner decision of 2026-10-28).
         boolean blocked = false;
         if (viewerId != null && !viewerId.equals(targetId)) {
             @Nullable BlockRelationProvider provider = blocks.getIfAvailable();
             blocked = provider != null && provider.isBlocked(viewerId, targetId);
         }
+        if (blocked) {
+            throw ApiException.notFound(WISHLIST_NOT_FOUND);
+        }
+        PrivacySettingsView privacy = privacySettings.settingsOf(targetId);
         if (!privacyPolicy.canSeeWishlist(
                 new ViewerContext(viewerId, false, blocked), targetId, privacy)) {
             throw ApiException.notFound(WISHLIST_NOT_FOUND);

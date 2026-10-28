@@ -99,12 +99,15 @@ public class ConversationController {
                         + " (201); never 409. 403 MESSAGING_BLOCKED when a block exists in either"
                         + " direction or, for a new conversation, when the recipient's messaging"
                         + " permission refuses the caller (NOBODY, or MEMBERS_WITH_PROFILE and the"
-                        + " caller has no saved profile). 404 for unknown, suspended or deleted"
-                        + " recipients; 400 for oneself. Stage R4: `subjectItemId` (a card) or"
-                        + " `subjectBinderId` (a deck core) pins what the chat is about, the latest"
-                        + " wins; it must be the recipient's and public, or the caller's own (404"
-                        + " when private, deleted or sold; 400 for both at once, for someone"
-                        + " else's, and for a binder that is not a deck core).")
+                        + " caller has no saved profile); a caller the recipient blocked reads"
+                        + " \"This collector cannot receive messages right now\", the caller who"
+                        + " blocked them \"You cannot message this collector\". 404 for unknown,"
+                        + " suspended or deleted recipients; 400 for oneself. Stage R4:"
+                        + " `subjectItemId` (a card) or `subjectBinderId` (a deck core) pins what"
+                        + " the chat is about, the latest wins; it must be the recipient's and"
+                        + " public, or the caller's own (404 when private, deleted or sold; 400 for"
+                        + " both at once, for someone else's, and for a binder that is not a deck"
+                        + " core).")
     @ApiResponse(responseCode = "200", description = "The existing conversation")
     @ApiResponse(responseCode = "201", description = "The new conversation")
     @ApiResponse(
@@ -224,8 +227,9 @@ public class ConversationController {
                         + " Moderation: 422 MESSAGE_BLOCKED for content the rules refuse (generic"
                         + " reason), FLAG rules store the message as FLAGGED; 429 RATE_LIMITED"
                         + " above the rate rule (30 per minute). 403 MESSAGING_BLOCKED when a block"
-                        + " exists or the other participant cannot receive messages. Pushed to both"
-                        + " participants on /user/queue/messages.")
+                        + " exists or the other participant cannot receive messages (the same words"
+                        + " for a caller the other blocked as for an inactive participant). Pushed"
+                        + " to both participants on /user/queue/messages.")
     @ApiResponse(responseCode = "201", description = "The stored message")
     @ApiResponse(
             responseCode = "400",

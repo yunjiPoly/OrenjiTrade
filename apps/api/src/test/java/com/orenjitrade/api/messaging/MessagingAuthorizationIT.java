@@ -148,14 +148,13 @@ class MessagingAuthorizationIT extends AbstractMessagingIT {
         assertThat(mine.get(0).path("id").asString()).isEqualTo(b.id().toString());
         assertThat(callJson(HttpMethod.GET, "/api/v1/me/blocks", b.uid(), null, 200)).isEmpty();
 
-        // Collector profiles now report real blocks both ways.
+        // The blocker's view of the profile reports the block.
         JsonNode profile =
                 callJson(HttpMethod.GET, "/api/v1/collectors/" + b.handle(), a.uid(), null, 200);
         assertThat(profile.path("isBlocked").asBoolean()).isTrue();
         assertThat(profile.path("canMessage").asBoolean()).isFalse();
-        JsonNode reverse =
-                callJson(HttpMethod.GET, "/api/v1/collectors/" + a.handle(), b.uid(), null, 200);
-        assertThat(reverse.path("isBlocked").asBoolean()).isTrue();
+        // The blocked side reads the blocker as an unknown handle (owner decision of 2026-10-28).
+        callJson(HttpMethod.GET, "/api/v1/collectors/" + a.handle(), b.uid(), null, 404);
 
         callJson(HttpMethod.DELETE, "/api/v1/users/" + b.id() + "/block", a.uid(), null, 204);
         callJson(HttpMethod.DELETE, "/api/v1/users/" + b.id() + "/block", a.uid(), null, 204);
